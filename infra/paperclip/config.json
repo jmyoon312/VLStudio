@@ -1,0 +1,59 @@
+{
+  "$meta": {
+    "version": 1,
+    "updatedAt": "2026-04-25T11:10:00Z",
+    "source": "configure",
+    "org_chart": "infra/paperclip/AGENTS.md",
+    "staff_dir": "infra/paperclip/staff/"
+  },
+  "database": {
+    "mode": "postgres",
+    "connectionString": "postgresql://viraloop:viraloop@db:5432/viraloop_paperclip"
+  },
+  "logging": {
+    "mode": "file",
+    "logDir": "/root/.paperclip/instances/default/logs"
+  },
+  "server": {
+    "deploymentMode": "authenticated",
+    "exposure": "private",
+    "bind": "lan",
+    "host": "0.0.0.0",
+    "port": 3100,
+    "allowedHostnames": [
+      "192.168.45.238",
+      "192.168.45.238:3000",
+      "localhost",
+      "127.0.0.1"
+    ],
+    "serveUi": true
+  },
+  "auth": {
+    "baseUrlMode": "auto",
+    "disableSignUp": false
+  },
+  "telemetry": {
+    "enabled": true
+  },
+  "storage": {
+    "provider": "local_disk",
+    "localDisk": {
+      "baseDir": "/root/.paperclip/instances/default/data/storage"
+    }
+  },
+  "secrets": {
+    "provider": "local_encrypted",
+    "strictMode": false,
+    "localEncrypted": {
+      "keyFilePath": "/root/.paperclip/instances/default/secrets/master.key"
+    }
+  },
+  "default_provider": "groq",
+  "default_model": "groq/llama-3.1-8b-instant",
+  "ceo_model": "anthropic/claude-3-5-sonnet",
+  "cto_model": "anthropic/claude-3-5-sonnet",
+  "worker_model": "google/gemini-2.0-flash-001",
+  "allowedHostnames": [
+    "192.168.45.238"
+  ]
+}

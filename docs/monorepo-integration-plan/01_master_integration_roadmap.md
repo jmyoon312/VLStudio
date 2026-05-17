@@ -40,9 +40,10 @@
 
 ### 📦 [Phase 1] 모노레포 기반 구축 및 인프라 이관
 *   **목표**: 기존 단일 React 구조를 폐기하고, ViraLoop의 백엔드와 UI를 수용하는 pnpm workspaces 기반의 모노레포 구조 완성.
-*   [ ] **1-1. 루트 패키지 설정**: `package.json`에 `pnpm workspaces` (또는 `npm workspaces`) 정의 및 공통 스크립트 구성.
-*   [ ] **1-2. ViraLoop 소스 이관**: `apps/ViraLoop_repo`에 클론된 최신 소스코드(`apps/api`, `apps/dashboard`, `apps/swarm`, `infra`)를 정식 워크스페이스 경로로 이동.
-*   [ ] **1-3. 의존성 호이스팅 격리**: Electron 메인 프로세스(`sqlite3`, `fs-extra`)와 대시보드 UI(`React`, `Vite`) 간의 패키지 충돌 방지 설정.
+*   [x] **1-1. 루트 패키지 설정**: `package.json`에 `pnpm workspaces` (또는 `npm workspaces`) 정의 및 공통 스크립트 구성.
+*   [x] **1-2. ViraLoop 소스 이관**: `apps/ViraLoop_repo`에 클론된 최신 소스코드(`apps/api`, `apps/dashboard`, `apps/swarm`, `infra`)를 정식 워크스페이스 경로로 이동.
+*   [x] **1-3. 의존성 호이스팅 격리**: Electron 메인 프로세스(`sqlite3`, `fs-extra`)와 대시보드 UI(`React`, `Vite`) 간의 패키지 충돌 방지 설정.
+
 
 ### ⚡ [Phase 2] 메인 프로세스 오케스트레이션 결합
 *   **목표**: Electron 앱 실행/종료 시 ViraLoop 로컬 인프라(FastAPI, Redis, 워커, Postgres)를 원자적으로 자동 제어.

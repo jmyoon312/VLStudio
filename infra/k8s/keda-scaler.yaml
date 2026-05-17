@@ -1,0 +1,16 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: viraloop-worker-scaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: viraloop-worker
+  minReplicaCount: 1
+  maxReplicaCount: 300 # Supporting the 300+ agent requirement
+  triggers:
+  - type: rabbitmq
+    metadata:
+      queueName: mission_queue
+      queueLength: "5"  # Scale up every 5 pending missions
+      host: amqp://guest:guest@rabbitmq.default.svc.cluster.local:5672/
