@@ -54,9 +54,10 @@ function addSegmentWithoutOverlap(track, segment, renderIndexStart = 20000) {
 export async function generateCapcutProject(project, options = {}) {
   const projectId = generateId();
   const targetPath = options.targetPath || '';
-  const canvasRatio = project.format === 'short' ? '9:16' : '16:9';
-  const canvasWidth = project.format === 'short' ? 1080 : 1920;
-  const canvasHeight = project.format === 'short' ? 1920 : 1080;
+  const isPortrait = project.format === 'portrait' || project.format === 'short' || project.aspectRatio === '9:16';
+  const canvasRatio = isPortrait ? '9:16' : '16:9';
+  const canvasWidth = isPortrait ? 1080 : 1920;
+  const canvasHeight = isPortrait ? 1920 : 1080;
 
   const scenes = project.scenes || [];
   
@@ -527,7 +528,9 @@ export async function generateCapcutProject(project, options = {}) {
       const subtitleDuration = duration;
 
       // Apply dynamic subtitle font size (default to 6.0, as 15.0 is massive)
-      const fontSize = parseFloat(options.subtitleFontSize) || 6.0;
+      // 쇼츠(9:16) 모드에서는 가로 폭이 1080으로 좁으므로, 자막이 줄바꿈되어 화면을 가리지 않도록 폰트 크기를 약간 보정합니다.
+      const baseFontSize = parseFloat(options.subtitleFontSize) || 6.0;
+      const fontSize = isPortrait ? baseFontSize * 0.9 : baseFontSize;
 
       // Detect OS to use premium, beautiful Korean fonts that are guaranteed to exist locally
       let fontPath = "";
@@ -752,7 +755,7 @@ export async function generateCapcutProject(project, options = {}) {
           rotation: 0.0,
           transform: {
             x: 0.0,
-            y: -0.75 // Centered lower area (stable position)
+            y: isPortrait ? -0.65 : -0.75 // 쇼츠(9:16)에서는 하단 UI(채널명, 설명 등) 가림을 방지하기 위해 자막 위치를 약간 위(-0.65)로 배치
           },
           flip: {
             vertical: false,
