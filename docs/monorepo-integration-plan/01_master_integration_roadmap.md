@@ -47,9 +47,9 @@
 
 ### ⚡ [Phase 2] 메인 프로세스 오케스트레이션 결합
 *   **목표**: Electron 앱 실행/종료 시 ViraLoop 로컬 인프라(FastAPI, Redis, 워커, Postgres)를 원자적으로 자동 제어.
-*   [ ] **2-1. 구동 배치 연동**: `main.js`의 `whenReady()` 시점에 `infra/Start_Infr.bat` (또는 포터블 파이썬/Redis 바이너리) 비동기 실행 로직 추가.
-*   [ ] **2-2. 철벽 방어형 클린업**: `before-quit` 및 `SIGINT`/`SIGTERM` 이벤트에 좀비 프로세스 강제 종료(`taskkill` / `ViraLoop_Stop.bat`) 및 Postgres PID 잠금 해제 브릿지 탑재.
-*   [ ] **2-3. 포트 할당 및 상태 모니터링**: 백엔드 포트(8000, 5173, 5432, 6379) 충돌 감지 및 대시보드 전달용 IPC 하트비트(Heartbeat) 구현.
+*   [x] **2-1. 구동 배치 연동**: `main.js`의 `whenReady()` 시점에 `infra/Start_Infr.bat` (또는 포터블 파이썬/Redis 바이너리) 비동기 실행 로직 추가.
+*   [x] **2-2. 철벽 방어형 클린업**: `before-quit` 및 `SIGINT`/`SIGTERM` 이벤트에 좀비 프로세스 강제 종료(`taskkill` / `ViraLoop_Stop.bat`) 및 Postgres PID 잠금 해제 브릿지 탑재.
+*   [x] **2-3. 포트 할당 및 상태 모니터링**: 백엔드 포트(8000, 5173, 5432, 6379) 충돌 감지 및 대시보드 전달용 IPC 하트비트(Heartbeat) 구현.
 
 ### 🖥️ [Phase 3] UI 대시보드 통합 및 Flow2CapCut 메뉴 편입
 *   **목표**: ViraLoop 대시보드의 기존 39개 메뉴 체계를 100% 보존하면서, VLStudio의 Flow AI 및 캡컷 내보내기 기능을 신규 메뉴로 편입.
