@@ -22,7 +22,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { loadProjectWithResources } from '../../src/hooks/useProjectData'
+import { renderHook, act } from '@testing-library/react'
+import { loadProjectWithResources, useProjectData } from '../../src/hooks/useProjectData'
 import { fileSystemAPI } from '../../src/hooks/useFileSystem'
 
 vi.mock('../../src/hooks/useFileSystem', () => ({
@@ -32,6 +33,8 @@ vi.mock('../../src/hooks/useFileSystem', () => ({
     readResource: vi.fn(),
     readHistoryMetadata: vi.fn(),
     getHistory: vi.fn(),
+    projectExists: vi.fn(),
+    saveProjectData: vi.fn(),
   },
 }))
 
@@ -257,6 +260,31 @@ describe('loadProjectWithResources — image path remap on load', () => {
     expect(result.scenes[0].image ?? null).toBeNull()
   })
 
+  // ── Project aspect ratio (longform/shortform) ──
+  // project.json stores the per-project aspect ratio under settings.aspectRatio;
+  // the loader surfaces it so handleProjectChange can restore it on switch.
+  it('returns aspectRatio from project.json settings', async () => {
+    fileSystemAPI.loadProjectData.mockResolvedValue({
+      success: true,
+      data: { scenes: [], references: [], settings: { aspectRatio: '9:16' } },
+    })
+
+    const result = await loadProjectWithResources('ep_short')
+
+    expect(result.aspectRatio).toBe('9:16')
+  })
+
+  it('returns null aspectRatio when project.json has no settings block', async () => {
+    fileSystemAPI.loadProjectData.mockResolvedValue({
+      success: true,
+      data: { scenes: [], references: [] },
+    })
+
+    const result = await loadProjectWithResources('ep_legacy')
+
+    expect(result.aspectRatio).toBeNull()
+  })
+
   it('strips stale localized error string from prior missing-image flagging (i18n hygiene)', async () => {
     // A prior load (under a different locale) may have stored a localized error
     // string in scene.error along with errorKind='image-missing'. On reload we
@@ -281,5 +309,198 @@ describe('loadProjectWithResources — image path remap on load', () => {
     expect(result.scenes[0].status).toBe('error')
     expect(result.scenes[0].errorKind).toBe('image-missing')
     expect(result.scenes[0].error).toBeNull()
+  })
+})
+
+/**
+ * handleProjectChange — project aspect ratio resolution
+ *
+ * Regressions:
+ *  - P1: an explicitly chosen ratio (new-project creation, passed via opts)
+ *    must NOT be overwritten by a project.json that already exists for that
+ *    name. opts wins.
+ *  - P2: a brand-new/empty project must get a project.json written immediately
+ *    (autosave skips empty projects) so the chosen ratio is not lost.
+ */
+describe('handleProjectChange — aspect ratio', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    localStorage.clear() // keep the mount auto-restore effect a no-op
+    fileSystemAPI.saveProjectData.mockResolvedValue({ success: true })
+  })
+
+  function setup(settings, { onSaveError } = {}) {
+    const setSettings = vi.fn()
+    const { result } = renderHook(() =>
+      useProjectData({
+        settings,
+        setSettings,
+        scenes: [], references: [], setScenes: vi.fn(), setReferences: vi.fn(),
+        videoScenes: [], setVideoScenes: vi.fn(),
+        framePairs: [], setFramePairs: vi.fn(),
+        selectedStyleRefId: null, setSelectedStyleRefId: vi.fn(),
+        openSettings: vi.fn(), onAudioSwitch: vi.fn(), flowAPI: null,
+        onSaveError,
+      }),
+    )
+    return { result, setSettings }
+  }
+
+  it('P1: a new-project ratio wins over an existing same-named project.json ratio', async () => {
+    fileSystemAPI.projectExists.mockResolvedValue(true)
+    fileSystemAPI.loadProjectData.mockResolvedValue({
+      success: true,
+      data: { scenes: [], references: [], settings: { aspectRatio: '16:9' } },
+    })
+    const { result, setSettings } = setup({ projectName: 'old', saveMode: 'folder', aspectRatio: '16:9' })
+
+    let ret
+    await act(async () => {
+      ret = await result.current.handleProjectChange('new', { aspectRatio: '9:16', isNewProject: true })
+    })
+
+    expect(ret).toEqual({ aspectRatio: '9:16', success: true })
+    const updater = setSettings.mock.calls.at(-1)[0]
+    expect(updater({ aspectRatio: '16:9' })).toMatchObject({ aspectRatio: '9:16' })
+  })
+
+  it('restores aspectRatio from project.json when switching with no opts', async () => {
+    fileSystemAPI.projectExists.mockResolvedValue(true)
+    fileSystemAPI.loadProjectData.mockResolvedValue({
+      success: true,
+      data: { scenes: [], references: [], settings: { aspectRatio: '9:16' } },
+    })
+    const { result } = setup({ projectName: 'old', saveMode: 'folder', aspectRatio: '16:9' })
+
+    let ret
+    await act(async () => {
+      ret = await result.current.handleProjectChange('other')
+    })
+
+    expect(ret).toEqual({ aspectRatio: '9:16', success: true })
+  })
+
+  it('falls back to 16:9 — not the previous project — when project.json has no aspectRatio', async () => {
+    // Regression: a pre-feature project's project.json has no settings.aspectRatio.
+    // Opening it must NOT inherit the previously-open project's ratio (that made
+    // the per-project setting behave like a global one).
+    fileSystemAPI.projectExists.mockResolvedValue(true)
+    fileSystemAPI.loadProjectData.mockResolvedValue({
+      success: true,
+      data: { scenes: [], references: [] }, // no settings block at all
+    })
+    const { result, setSettings } = setup({ projectName: 'old', saveMode: 'folder', aspectRatio: '9:16' })
+
+    let ret
+    await act(async () => {
+      ret = await result.current.handleProjectChange('legacy_project')
+    })
+
+    expect(ret).toEqual({ aspectRatio: '16:9', success: true })
+    const updater = setSettings.mock.calls.at(-1)[0]
+    expect(updater({ aspectRatio: '9:16' })).toMatchObject({ aspectRatio: '16:9' })
+  })
+
+  it('P2: materializes project.json for a brand-new project with the chosen ratio', async () => {
+    fileSystemAPI.projectExists.mockResolvedValue(true) // folder exists, no project.json
+    fileSystemAPI.loadProjectData.mockResolvedValue({ success: true, data: null })
+    const { result } = setup({ projectName: 'old', saveMode: 'folder', aspectRatio: '16:9', defaultDuration: 3 })
+
+    await act(async () => {
+      await result.current.handleProjectChange('fresh', { aspectRatio: '9:16', isNewProject: true })
+    })
+
+    const freshSave = fileSystemAPI.saveProjectData.mock.calls.find((c) => c[0] === 'fresh')
+    expect(freshSave).toBeTruthy()
+    expect(freshSave[1].settings.aspectRatio).toBe('9:16')
+  })
+
+  it('P3: saveCurrentProject surfaces a save failure to the caller', async () => {
+    fileSystemAPI.projectExists.mockResolvedValue(true)
+    fileSystemAPI.saveProjectData.mockResolvedValue({ success: false, error: 'disk full' })
+    const { result } = setup({ projectName: 'p', saveMode: 'folder', aspectRatio: '16:9' })
+
+    let res
+    await act(async () => {
+      res = await result.current.saveCurrentProject()
+    })
+
+    expect(res).toEqual({ success: false, error: 'disk full' })
+  })
+
+  it('P3: saveCurrentProject returns the success result on a good save', async () => {
+    fileSystemAPI.projectExists.mockResolvedValue(true)
+    fileSystemAPI.saveProjectData.mockResolvedValue({ success: true })
+    const { result } = setup({ projectName: 'p', saveMode: 'folder', aspectRatio: '16:9' })
+
+    let res
+    await act(async () => {
+      res = await result.current.saveCurrentProject()
+    })
+
+    expect(res).toEqual({ success: true })
+  })
+
+  it('reports a failed new-project save via onSaveError', async () => {
+    fileSystemAPI.projectExists.mockResolvedValue(true) // folder exists, no project.json
+    fileSystemAPI.loadProjectData.mockResolvedValue({ success: true, data: null })
+    fileSystemAPI.saveProjectData.mockResolvedValue({ success: false, error: 'disk full' })
+    const onSaveError = vi.fn()
+    const { result } = setup(
+      { projectName: 'old', saveMode: 'folder', aspectRatio: '16:9' },
+      { onSaveError },
+    )
+
+    await act(async () => {
+      await result.current.handleProjectChange('fresh', { aspectRatio: '9:16', isNewProject: true })
+    })
+
+    expect(onSaveError).toHaveBeenCalledWith('disk full')
+  })
+
+  it('reports a THROWN new-project save via onSaveError (reject, not just {success:false})', async () => {
+    // The fresh-project save rejecting (vs returning {success:false}) must
+    // still reach onSaveError — otherwise the reject escapes to the outer
+    // catch, which (switched=true by then) returns success:true and the
+    // metadata-save failure is swallowed.
+    fileSystemAPI.projectExists.mockResolvedValue(true)
+    fileSystemAPI.loadProjectData.mockResolvedValue({ success: true, data: null })
+    // step 1 saves 'old' fine; step 5 saving 'fresh' rejects.
+    fileSystemAPI.saveProjectData.mockImplementation((name) =>
+      name === 'fresh'
+        ? Promise.reject(new Error('io error'))
+        : Promise.resolve({ success: true }),
+    )
+    const onSaveError = vi.fn()
+    const { result } = setup(
+      { projectName: 'old', saveMode: 'folder', aspectRatio: '16:9' },
+      { onSaveError },
+    )
+
+    let ret
+    await act(async () => {
+      ret = await result.current.handleProjectChange('fresh', { aspectRatio: '9:16', isNewProject: true })
+    })
+
+    expect(onSaveError).toHaveBeenCalledWith('io error')
+    expect(ret).toMatchObject({ success: true }) // the switch itself completed
+  })
+
+  it('clears the restoring/loading flags even when the project change throws', async () => {
+    // projectExists rejects → handleProjectChange must still run its finally
+    // block, otherwise isRestoringRef stays true and autosave is permanently
+    // blocked + the loading overlay is stuck.
+    fileSystemAPI.projectExists.mockRejectedValue(new Error('boom'))
+    const { result } = setup({ projectName: 'old', saveMode: 'folder', aspectRatio: '16:9' })
+
+    let ret
+    await act(async () => {
+      ret = await result.current.handleProjectChange('next')
+    })
+
+    expect(result.current.isRestoringRef.current).toBe(false)
+    expect(result.current.projectLoading).toBe(false)
+    // fallback to current ratio + success:false (threw before the switch landed)
+    expect(ret).toEqual({ aspectRatio: '16:9', success: false })
   })
 })

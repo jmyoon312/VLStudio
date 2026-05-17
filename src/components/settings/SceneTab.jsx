@@ -2,6 +2,8 @@
  * SceneTab - 씬 설정 탭
  */
 
+import AspectRatioSelector from './AspectRatioSelector'
+
 const BATCH_OPTIONS = [1, 2, 3, 4]
 const RESOLUTION_OPTIONS = [
   { value: '270p', label: '270p' },
@@ -18,6 +20,17 @@ const IMAGE_UPSCALE_OPTIONS = [
 export default function SceneTab({ localSettings, setLocalSettings, t }) {
   return (
     <div className="tab-panel">
+      {/* 프로젝트 화면비: 롱폼(16:9) / 숏폼(9:16) — 생성·카드·CapCut export 에 반영 */}
+      <div className="setting-row">
+        <label className="setting-label">{t('settings.aspectRatio')}</label>
+        <AspectRatioSelector
+          value={localSettings.aspectRatio}
+          onChange={(ratio) => setLocalSettings(s => ({ ...s, aspectRatio: ratio }))}
+          t={t}
+        />
+        <span className="setting-sublabel">{t('settings.aspectRatioHint')}</span>
+      </div>
+
       <div className="setting-row">
         <label className="setting-label">{t('settings.defaultDuration')}</label>
         <input

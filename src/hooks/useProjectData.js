@@ -7,6 +7,11 @@ import { fileSystemAPI } from './useFileSystem'
 import { syncVideosIntoScenes } from '../services/mediaSync'
 import { recoverInFlightVideos } from '../services/videoRecovery'
 
+// 프로젝트 화면비는 project.json 에 프로젝트별로 저장된다. project.json 에 값이
+// 없으면(기능 추가 전 프로젝트 등) 직전 프로젝트 값을 물려받지 않고 이 기본값으로
+// 떨어진다 — 그래야 화면비가 전역처럼 새지 않고 프로젝트별로 결정론적이다.
+const DEFAULT_ASPECT_RATIO = '16:9'
+
 /**
  * 프로젝트 데이터 로드 + 모든 리소스 경로/파일 복원 (공통 헬퍼).
  *
@@ -296,6 +301,8 @@ export async function loadProjectWithResources(projectName) {
     framePairs: finalFramePairs,
     audioFolderPath: result.data.audioFolderPath || null,
     selectedStyleRefId: result.data.selectedStyleRefId || null,
+    // 프로젝트별 화면비 — project.json 의 settings 에 저장됨 (없으면 null → 호출부에서 16:9 기본)
+    aspectRatio: result.data.settings?.aspectRatio || null,
   }
 }
 
@@ -303,6 +310,8 @@ export async function loadProjectWithResources(projectName) {
  * 현재 프로젝트 데이터 저장 (공통 헬퍼)
  * - 이미지 데이터(base64)는 제외하고 메타데이터만 저장
  * - 이미지는 이미 별도 파일로 저장됨 (images/, references/)
+ * @returns {Promise<{success:boolean,error?:string}|undefined>} saveProjectData
+ *   결과. 저장 대상이 아니면(폴더 모드 아님 / 프로젝트 폴더 없음) undefined.
  */
 async function saveCurrentProject(settings, scenes, references, videoScenes = [], framePairs = [], selectedStyleRefId = null) {
   if (!settings.projectName || settings.saveMode !== 'folder') return
@@ -324,7 +333,7 @@ async function saveCurrentProject(settings, scenes, references, videoScenes = []
   // audioFolderPath를 project.json에 저장 (프로젝트별 오디오 경로 보존)
   const audioFolderPath = localStorage.getItem('audioFolderPath') || null
 
-  await fileSystemAPI.saveProjectData(settings.projectName, {
+  return await fileSystemAPI.saveProjectData(settings.projectName, {
     scenes: scenesWithoutImages,
     references: refsWithoutData,
     videoScenes: videoScenesWithoutMedia,
@@ -344,6 +353,7 @@ export function useProjectData({
   openSettings,
   onAudioSwitch,
   flowAPI = null,
+  onSaveError = null, // 프로젝트 저장 실패 시 호출 (인자: 에러 메시지)
 }) {
   // 복구 콜백 — framePairs state에 patch를 병합
   const applyFramePairPatch = (id, patch) => {
@@ -438,7 +448,12 @@ export function useProjectData({
         setVideoScenes?.(loaded.videoScenes || [])
         setFramePairs?.(loaded.framePairs || [])
         setSelectedStyleRefId?.(loaded.selectedStyleRefId || null)
-        setSettings(s => ({ ...s, projectName: prevProjectName }))
+        setSettings(s => ({
+          ...s,
+          projectName: prevProjectName,
+          // project.json 값 없으면 직전 값이 아니라 기본값 — 프로젝트별 결정론 보장.
+          aspectRatio: loaded.aspectRatio || DEFAULT_ASPECT_RATIO,
+        }))
         console.log('[App] Auto-restore complete:', prevProjectName,
           `(${loaded.scenes.filter(s => s.image || s.imagePath).length} images, ${loaded.scenes.filter(s => s.subtitle).length} subtitles)`)
         // In-flight 비디오 복구 (T2V videoScenes + I2V framePairs 둘 다 동일 경로로)
@@ -457,62 +472,123 @@ export function useProjectData({
     })
   }, [])
 
-  // 프로젝트 전환 핸들러
-  const handleProjectChange = async (newProjectName) => {
-    if (newProjectName === settings.projectName) return
+  /**
+   * 프로젝트 전환 핸들러
+   * @param {string} newProjectName
+   * @param {{ aspectRatio?: string, isNewProject?: boolean }} [opts]
+   *   isNewProject=true: 신규 생성 — opts.aspectRatio 를 화면비로 확정한다.
+   *   그 외(기존 프로젝트 전환): project.json 의 화면비를 복원한다.
+   * @returns {{ aspectRatio: string, success: boolean }} 확정 화면비 + 실제 전환
+   *   성공 여부. success=false 면 호출부가 optimistic 한 projectName 갱신을 롤백한다.
+   */
+  const handleProjectChange = async (newProjectName, opts = {}) => {
+    if (newProjectName === settings.projectName) return { aspectRatio: settings.aspectRatio, success: true }
 
     isRestoringRef.current = true
     setProjectLoading(true)
-    // 1. 현재 프로젝트 데이터 저장
-    await saveCurrentProject(settings, scenes, references, videoScenes, framePairs, selectedStyleRefId)
+    let switched = false // step 4(setSettings)까지 도달했는지 — 실패 반환값 판정용
+    try {
+      // 1. 현재 프로젝트 데이터 저장
+      await saveCurrentProject(settings, scenes, references, videoScenes, framePairs, selectedStyleRefId)
 
-    // 2. 새 프로젝트 데이터 로드
-    let audioPath = null
-    const newExists = await fileSystemAPI.projectExists(newProjectName)
-    if (newExists) {
-      const loaded = await loadProjectWithResources(newProjectName)
-      if (loaded) {
-        setScenes(loaded.scenes)
-        setReferences(loaded.references)
-        setVideoScenes?.(loaded.videoScenes || [])
-        setFramePairs?.(loaded.framePairs || [])
-        setSelectedStyleRefId?.(loaded.selectedStyleRefId || null)
-        audioPath = loaded.audioFolderPath
-        console.log('[App] Project loaded:', newProjectName)
-        // In-flight 비디오 복구 (T2V videoScenes + I2V framePairs 둘 다 동일 경로로)
-        triggerVideoRecovery(loaded.videoScenes, loaded.framePairs, newProjectName)
+      // 2. 새 프로젝트 데이터 로드
+      let audioPath = null
+      // 화면비: 신규 생성(isNewProject)이면 opts.aspectRatio, 기존 프로젝트 전환이면
+      // project.json 값을 복원한다. 둘 다 없으면 현재 settings 값 유지.
+      let nextAspectRatio = opts.isNewProject ? (opts.aspectRatio || null) : null
+      let isFreshProject = false
+      const newExists = await fileSystemAPI.projectExists(newProjectName)
+      if (newExists) {
+        const loaded = await loadProjectWithResources(newProjectName)
+        if (loaded) {
+          setScenes(loaded.scenes)
+          setReferences(loaded.references)
+          setVideoScenes?.(loaded.videoScenes || [])
+          setFramePairs?.(loaded.framePairs || [])
+          setSelectedStyleRefId?.(loaded.selectedStyleRefId || null)
+          audioPath = loaded.audioFolderPath
+          // 기존 프로젝트 전환일 때만 project.json 화면비를 복원한다 (신규 생성이면
+          // 위에서 정한 opts.aspectRatio 를 유지 — duplicate-name 으로 기존 프로젝트가
+          // 잡혀도 사용자가 명시한 isNewProject 의도가 우선).
+          if (!opts.isNewProject && loaded.aspectRatio) nextAspectRatio = loaded.aspectRatio
+          console.log('[App] Project loaded:', newProjectName)
+          // In-flight 비디오 복구 (T2V videoScenes + I2V framePairs 둘 다 동일 경로로)
+          triggerVideoRecovery(loaded.videoScenes, loaded.framePairs, newProjectName)
+        } else {
+          setScenes([])
+          setReferences([])
+          setVideoScenes?.([])
+          setFramePairs?.([])
+          setSelectedStyleRefId?.(null)
+          isFreshProject = true
+          console.log('[App] Empty project:', newProjectName)
+        }
       } else {
         setScenes([])
         setReferences([])
         setVideoScenes?.([])
         setFramePairs?.([])
         setSelectedStyleRefId?.(null)
-        console.log('[App] Empty project:', newProjectName)
+        isFreshProject = true
+        console.log('[App] New project created:', newProjectName)
       }
-    } else {
-      setScenes([])
-      setReferences([])
-      setVideoScenes?.([])
-      setFramePairs?.([])
-      setSelectedStyleRefId?.(null)
-      console.log('[App] New project created:', newProjectName)
-    }
 
-    // 3. 오디오 복원 (project.json의 audioFolderPath 사용)
-    if (onAudioSwitch) {
-      onAudioSwitch(audioPath)
-    }
+      // 3. 오디오 복원 (project.json의 audioFolderPath 사용)
+      if (onAudioSwitch) {
+        onAudioSwitch(audioPath)
+      }
 
-    // 4. 프로젝트명 업데이트
-    setSettings(s => ({ ...s, projectName: newProjectName }))
-    isRestoringRef.current = false
-    setProjectLoading(false)
+      // 4. 프로젝트명 + 화면비 업데이트
+      // 화면비: 신규는 opts.aspectRatio, 기존은 project.json 값. 둘 다 없으면 직전
+      // 프로젝트 값이 아니라 기본값으로 — 화면비가 전역처럼 새는 것을 막는다.
+      const resolvedAspectRatio = nextAspectRatio || DEFAULT_ASPECT_RATIO
+      setSettings(s => ({ ...s, projectName: newProjectName, aspectRatio: resolvedAspectRatio }))
+      switched = true // 여기까지 왔으면 앱은 새 프로젝트로 전환됨
+
+      // 5. 신규/빈 프로젝트는 project.json 을 즉시 생성한다. autosave 는 빈 프로젝트를
+      //    건너뛰므로(useAutoSave), 그러지 않으면 화면비 등 프로젝트 메타가 유실된다.
+      //    이 저장은 자체 try/catch 로 감싼다 — {success:false} 든 reject 든 둘 다
+      //    onSaveError 로 알리고, 바깥 catch 로 보내지 않는다. 전환은 step 4 에서
+      //    이미 끝났으므로(switched=true), reject 가 바깥 catch 로 새면 "전환 성공인데
+      //    메타 저장만 조용히 실패" 가 된다.
+      if (isFreshProject) {
+        try {
+          const res = await saveCurrentProject(
+            { ...settings, projectName: newProjectName, aspectRatio: resolvedAspectRatio },
+            [], [], [], [], null
+          )
+          if (res && res.success === false) {
+            console.warn('[App] New project save failed:', res.error)
+            onSaveError?.(res.error)
+          }
+        } catch (e) {
+          console.warn('[App] New project save threw:', e)
+          onSaveError?.(e.message)
+        }
+      }
+
+      return { aspectRatio: resolvedAspectRatio, success: true }
+    } catch (e) {
+      // 전환 도중 예외 — 상태는 finally 에서 정리된다. switched 로 "실제로 전환됐는지"를
+      // 알려, 호출부(StorageTab)가 optimistic 한 projectName 갱신을 롤백할 수 있게 한다.
+      console.error('[App] Project change failed:', e)
+      return { aspectRatio: settings.aspectRatio, success: switched }
+    } finally {
+      // throw 여부와 무관하게 복원/로딩 플래그를 반드시 해제한다. 안 그러면
+      // isRestoringRef 가 true 로 고착돼 autosave 가 영구 차단되고, 로딩
+      // 오버레이도 사라지지 않는다.
+      isRestoringRef.current = false
+      setProjectLoading(false)
+    }
   }
 
   return {
     addPendingSave,
     handleProjectChange,
-    saveCurrentProject: () => saveCurrentProject(settings, scenes, references, videoScenes, framePairs, selectedStyleRefId),
+    // settingsOverride: 설정 저장 시점처럼 setSettings 직후(아직 리렌더 전) 호출할 때
+    // 최신 settings 를 명시로 넘겨 stale closure 를 피한다.
+    saveCurrentProject: (settingsOverride) =>
+      saveCurrentProject(settingsOverride || settings, scenes, references, videoScenes, framePairs, selectedStyleRefId),
     isRestoringRef,  // auto-save 가드용
     projectLoading   // 로딩 오버레이용
   }

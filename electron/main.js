@@ -17,9 +17,10 @@ import { registerDomIPC } from './ipc/dom.js'
 import { createSharedHelpers } from './ipc/shared.js'
 import { updateBounds, registerLayoutIPC, setLayoutMode, setSplitRatio, setModalVisible } from './ipc/layout.js'
 import { openApiSpec, getSwaggerHtml } from './api-docs.js'
-import { setupAppMenuAndUpdater } from './updater.js'
+import { setupAppMenuAndUpdater, noteProjectActivated } from './updater.js'
 import { selectCdpCase } from './video-cdp-dispatch.js'
 import { loadProfiles } from './profileManager.js'
+import { injectImageBatchBody } from './cdp-image-inject.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -27,7 +28,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // match the productName from electron-builder. Has no effect on the bold app
 // title in macOS menu bar (that comes from the Electron binary's Info.plist
 // in dev; the packaged build sets it correctly).
-app.setName('AutoFlowCut')
+app.setName('ViraLoop Studio')
 
 // macOS About 패널 + Dock 아이콘
 // (app.dock은 whenReady 이후에만 사용 가능 → 아래로 옮김)
@@ -116,6 +117,7 @@ const pendingGenerations = new Map() // 비동기 모드용 다중 생성 추적
 let pendingVideoGeneration = null // DOM-triggered video generation 응답 캡처용 Promise resolver
 let pendingReferenceImages = null // CDP Fetch 인터셉션용 레퍼런스 이미지 (mediaId 배열)
 let pendingSeedValue = null // CDP Fetch 인터셉션용 seed 값 (숫자, null = 랜덤 유지)
+let pendingImageAspectRatio = null // CDP Fetch 인터셉션용 화면비 (IMAGE_ASPECT_RATIO_* enum, null = 유지)
 let pendingI2VInjection = null // CDP Fetch 인터셉션용 I2V startImage 주입 데이터
 let enterToolClicked = false // Enter tool 버튼 클릭 완료 플래그 (무한루프 방지)
 let consentClicked = false   // 동의 버튼 클릭 완료 플래그 (무한루프 방지)
@@ -730,37 +732,29 @@ function createWindow() {
         })
 
         if (cdpCase === 'image-batch') {
-          // 이미지 생성 — 레퍼런스 + seed 가용한 만큼 주입
+          // 이미지 생성 — 레퍼런스 + seed + 화면비를 요청 바디에 주입.
+          // 주입 로직 자체는 cdp-image-inject.js 의 순수 함수 (단위 테스트됨).
           try {
             const body = JSON.parse(params.request.postData || '{}')
-            let modified = false
-
-            // 레퍼런스 이미지 주입
-            if (pendingReferenceImages && pendingReferenceImages.length > 0 && body.requests) {
-              for (const req of body.requests) {
-                if (!req.imageInputs) req.imageInputs = []
-                for (const ref of pendingReferenceImages) {
-                  req.imageInputs.push({
-                    imageInputType: 'IMAGE_INPUT_TYPE_REFERENCE',
-                    name: ref.mediaId
-                  })
-                }
-              }
+            const applied = injectImageBatchBody(body, {
+              referenceImages: pendingReferenceImages,
+              seed: pendingSeedValue,
+              aspectRatio: pendingImageAspectRatio,
+            })
+            if (applied.references) {
               console.log('[Flow API] [Fetch] Injected', pendingReferenceImages.length, 'references')
               pendingReferenceImages = null
-              modified = true
+            }
+            if (applied.seed) {
+              console.log('[Flow API] [Fetch] Injected seed:', pendingSeedValue,
+                'into', body.requests.length, 'requests')
+            }
+            if (applied.aspectRatio) {
+              console.log('[Flow API] [Fetch] Injected imageAspectRatio:', pendingImageAspectRatio,
+                'into', body.requests.length, 'requests')
             }
 
-            // Seed 주입 (pendingSeedValue가 숫자면 모든 요청에 적용)
-            if (pendingSeedValue != null && body.requests) {
-              for (const req of body.requests) {
-                req.seed = pendingSeedValue
-              }
-              console.log('[Flow API] [Fetch] Injected seed:', pendingSeedValue, 'into', body.requests.length, 'requests')
-              modified = true
-            }
-
-            if (modified) {
+            if (applied.references || applied.seed || applied.aspectRatio) {
               const modifiedPostData = Buffer.from(JSON.stringify(body)).toString('base64')
               continueRequest({ postData: modifiedPostData })
             } else {
@@ -1223,6 +1217,13 @@ registerMcpIPC(ipcMain)
 
 // Layout, modal, sleep, open-external, show-in-folder IPC
 registerLayoutIPC(ipcMain, () => mainWindow, () => flowView)
+
+// Renderer reports the active project (with its work folder) so the native
+// "Recent Projects" menu stays in MRU order and scoped to the current folder.
+ipcMain.handle('app:project-activated', (event, { name, workFolder }) => {
+  try { noteProjectActivated(name, workFolder) } catch (e) { console.warn('[AutoFlowCut] noteProjectActivated failed:', e.message) }
+  return { success: true }
+})
 
 // === MCP HTTP Server ===
 function startMcpHttpServer(port) {
@@ -1824,6 +1825,7 @@ const flowAPIDeps = {
   setPendingReferenceImages: (v) => { pendingReferenceImages = v },
   getPendingSeedValue: () => pendingSeedValue,
   setPendingSeedValue: (v) => { pendingSeedValue = v },
+  setPendingImageAspectRatio: (v) => { pendingImageAspectRatio = v },
   getEnterToolClicked: () => enterToolClicked,
   setEnterToolClicked: (v) => { enterToolClicked = v },
   SESSION_URL, TOKEN_INFO_URL, FLOW_URL, MEDIA_REDIRECT_URL, UPLOAD_URL,
@@ -2000,7 +2002,7 @@ app.whenReady().then(() => {
   try { autoSetupSkills() } catch (e) { console.warn('[AutoFlowCut] Skill setup failed:', e.message) }
 
   // Native menu + auto-updater (skips dev mode and AppX builds)
-  try { setupAppMenuAndUpdater() } catch (e) { console.warn('[AutoFlowCut] Updater setup failed:', e.message) }
+  try { setupAppMenuAndUpdater(() => mainWindow) } catch (e) { console.warn('[AutoFlowCut] Updater setup failed:', e.message) }
 
   createWindow()
 })

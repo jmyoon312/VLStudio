@@ -13,6 +13,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLayoutChanged: (callback) => ipcRenderer.on('layout-changed', (_, data) => callback(data)),
   setModalVisible: (params) => ipcRenderer.invoke('app:set-modal-visible', params),
 
+  // Native menu (File → New Project / Recent Projects)
+  onMenuAction: (callback) => {
+    const handler = (_, data) => callback(data)
+    ipcRenderer.on('menu:action', handler)
+    return () => ipcRenderer.removeListener('menu:action', handler)
+  },
+  notifyProjectActivated: (name, workFolder) => ipcRenderer.invoke('app:project-activated', { name, workFolder }),
+
   // Flow API
   clearFlowSession: () => ipcRenderer.invoke('flow:clear-session'),
   loadProfiles: () => ipcRenderer.invoke('profiles:load'),
@@ -98,7 +106,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   domNavigate: (params) => ipcRenderer.invoke('flow:dom-navigate', params),
   domGetUrl: () => ipcRenderer.invoke('flow:dom-get-url'),
   domClickEnterTool: (params) => ipcRenderer.invoke('flow:dom-click-enter-tool', params),
-  domSetAspectRatio: (params) => ipcRenderer.invoke('flow:dom-set-aspect-ratio', params),
   domSendPrompt: (params) => ipcRenderer.invoke('flow:dom-send-prompt', params),
   domSnapshotBlobs: () => ipcRenderer.invoke('flow:dom-snapshot-blobs'),
   domScanImages: (params) => ipcRenderer.invoke('flow:dom-scan-images', params),

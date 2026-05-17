@@ -1,0 +1,104 @@
+/**
+ * Recent projects (MRU) store for the native File menu.
+ *
+ * The native menu is built in the main process, so the recent list must be
+ * readable here at menu-build time. It is persisted as JSON in userData so it
+ * survives restarts. The renderer notifies the main process whenever a project
+ * becomes active (app:project-activated), which feeds mergeRecent().
+ *
+ * An entry carries its work folder ({ name, workFolder }): the same project
+ * name can exist in different work folders, and the File menu must only ever
+ * offer projects from the *current* work folder — otherwise clicking a recent
+ * entry would silently open an empty same-named project in the wrong folder.
+ */
+
+import { app } from 'electron'
+import { readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+
+export const MAX_RECENT = 5
+
+/** @typedef {{ name: string, workFolder: string }} RecentEntry */
+
+/** @param {*} e @returns {e is RecentEntry} */
+function isValidEntry(e) {
+  return (
+    !!e &&
+    typeof e.name === 'string' &&
+    e.name.trim() !== '' &&
+    typeof e.workFolder === 'string' &&
+    e.workFolder.trim() !== ''
+  )
+}
+
+/** @param {*} e @returns {RecentEntry} */
+const normalize = (e) => ({ name: e.name.trim(), workFolder: e.workFolder.trim() })
+
+/** @param {RecentEntry} a @param {RecentEntry} b */
+const sameEntry = (a, b) => a.name === b.name && a.workFolder === b.workFolder
+
+/**
+ * Merge a newly-activated project into the MRU list.
+ *
+ * Pure: most-recent-first, de-duplicated by (workFolder, name), and capped at
+ * `max` *per work folder* (the menu only shows one folder at a time, so each
+ * folder keeps its own window of recents). Invalid entries are dropped — pass
+ * entry = null to just sanitize an existing list.
+ *
+ * @param {RecentEntry[]} list
+ * @param {RecentEntry|null} entry
+ * @param {number} [max]
+ * @returns {RecentEntry[]}
+ */
+export function mergeRecent(list, entry, max = MAX_RECENT) {
+  let merged = (Array.isArray(list) ? list : []).filter(isValidEntry).map(normalize)
+  if (isValidEntry(entry)) {
+    merged = [normalize(entry), ...merged]
+  }
+
+  // De-dup by (workFolder, name) keeping the most-recent occurrence, then cap
+  // per work folder. A direct pair comparison avoids string-key separators —
+  // no need for a delimiter that must be absent from paths and project names.
+  const kept = []
+  const perFolder = new Map()
+  for (const e of merged) {
+    if (kept.some((k) => sameEntry(k, e))) continue
+    const count = perFolder.get(e.workFolder) || 0
+    if (count >= max) continue
+    perFolder.set(e.workFolder, count + 1)
+    kept.push(e)
+  }
+  return kept
+}
+
+function storePath() {
+  return path.join(app.getPath('userData'), 'recent-projects.json')
+}
+
+/**
+ * Load the persisted recent list. Returns [] on a missing or corrupt file.
+ * Legacy string entries (pre-workFolder format) fail isValidEntry and drop.
+ * @param {string} [filePath] - override for tests
+ */
+export function loadRecentProjects(filePath = storePath()) {
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, 'utf-8'))
+    return mergeRecent(parsed, null) // sanitize stray/duplicate/legacy entries
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Persist the recent list. Returns false (never throws) on a write failure.
+ * @param {RecentEntry[]} list
+ * @param {string} [filePath] - override for tests
+ */
+export function saveRecentProjects(list, filePath = storePath()) {
+  try {
+    writeFileSync(filePath, JSON.stringify(mergeRecent(list, null)), 'utf-8')
+    return true
+  } catch {
+    return false
+  }
+}

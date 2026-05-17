@@ -6,8 +6,10 @@
  *
  * 흐름:
  * 1) 프로젝트 초기화 (Flow 베이스 URL → Enter tool 클릭 → 프로젝트 URL 대기)
- * 2) 화면비 설정 (aspect_ratio 콤보박스 → 비율 선택)
- * 3) flow:generate-image IPC 호출 (Slate.js 프롬프트 인젝션 + CDP 네트워크 캡처)
+ * 2) flow:generate-image IPC 호출 (Slate.js 프롬프트 인젝션 + CDP 네트워크 캡처)
+ *
+ * 화면비는 UI 클릭이 아니라 CDP Fetch 인터셉션으로 batchGenerateImages 요청
+ * 바디의 imageAspectRatio 를 직접 주입한다 (main.js / flow-api.js).
  */
 
 import { DEFAULTS } from '../config/defaults'
@@ -143,16 +145,17 @@ export function requestStopDOM() {
  * 비동기 제출 — 프롬프트만 제출하고 즉시 반환 (fire-and-forget)
  * @returns {{ success, generationId }} generationId로 나중에 결과 조회
  */
-export async function submitGenerationDOM(prompt, referenceImages = [], { batchCount, seed } = {}) {
+export async function submitGenerationDOM(prompt, referenceImages = [], { batchCount, seed, aspectRatio } = {}) {
   try {
     await ensureFlowProject(false)
     if (stopRequested) return { success: false, error: 'Stopped by user' }
 
     console.log('[DOM] Calling flow:generate-image (asyncMode) for prompt:', prompt?.substring(0, 40),
-      seed != null ? `seed:${seed}` : 'seed:random')
+      seed != null ? `seed:${seed}` : 'seed:random', aspectRatio ? `ratio:${aspectRatio}` : '')
     const result = await window.electronAPI.generateImage({
       prompt,
-      aspectRatio: null,
+      // CDP Fetch 인터셉션이 batchGenerateImages 요청 바디의 imageAspectRatio 를 주입.
+      aspectRatio,
       token: null,
       model: null,
       projectId: null,
@@ -205,7 +208,7 @@ export async function clearGenerations() {
 /**
  * DOM 방식으로 이미지 생성 (동기 — 기존 메인 엔트리)
  */
-export async function generateImageDOM(prompt, referenceImages = [], { batchCount, seed } = {}) {
+export async function generateImageDOM(prompt, referenceImages = [], { batchCount, seed, aspectRatio } = {}) {
   try {
     // 프로젝트 초기화: 현재 URL 확인 후 필요시 생성
     await ensureFlowProject(false)
@@ -224,7 +227,7 @@ export async function generateImageDOM(prompt, referenceImages = [], { batchCoun
     const result = await Promise.race([
       window.electronAPI.generateImage({
         prompt,
-        aspectRatio: null,  // DOM mode에서는 UI 드롭다운으로 이미 설정됨
+        aspectRatio,        // CDP Fetch 인터셉션이 요청 바디에 imageAspectRatio 주입
         token: null,        // main.js에서 Flow 페이지의 세션으로 자동 추출
         model: null,
         projectId: null,

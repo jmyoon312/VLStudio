@@ -1,7 +1,18 @@
 import { app, Menu, dialog, shell } from 'electron'
 import electronUpdater from 'electron-updater'
+import { loadRecentProjects, saveRecentProjects, mergeRecent } from './recent-projects.js'
 
 const { autoUpdater } = electronUpdater
+
+// Native-menu wiring. The menu lives in the main process but its "New Project"
+// and "Recent Projects" items must reach the renderer, so we keep a getter for
+// the main window and the current MRU list at module scope. currentWorkFolder
+// is the work folder of the most recently activated project — the Recent
+// submenu only ever lists projects from it, since opening a recent from a
+// different folder would silently create an empty same-named project.
+let getMainWindowRef = () => null
+let recentProjects = []
+let currentWorkFolder = null
 
 // AppX (Microsoft Store) builds update through the Store, not electron-updater.
 // process.windowsStore is true when running as a packaged AppX.
@@ -181,6 +192,12 @@ function manualCheck() {
   })
 }
 
+// Forward a native-menu command to the renderer. No-op until the window exists.
+function sendMenuAction(action, payload = {}) {
+  const mw = getMainWindowRef()
+  mw?.webContents?.send('menu:action', { action, ...payload })
+}
+
 function buildAppMenu() {
   const isMac = process.platform === 'darwin'
   const appName = app.name || 'AutoFlowCut'
@@ -206,9 +223,28 @@ function buildAppMenu() {
     ],
   }
 
+  // Only offer projects from the current work folder — see currentWorkFolder.
+  const folderRecents = recentProjects.filter((e) => e.workFolder === currentWorkFolder)
+  const recentSubmenu = folderRecents.length
+    ? folderRecents.map((e) => ({
+        label: e.name,
+        click: () => sendMenuAction('open-project', { name: e.name }),
+      }))
+    : [{ label: '(없음)', enabled: false }]
+
   const fileMenu = {
     label: 'File',
-    submenu: [isMac ? { role: 'close' } : { role: 'quit' }],
+    submenu: [
+      {
+        label: 'New Project',
+        accelerator: 'CmdOrCtrl+N',
+        click: () => sendMenuAction('new-project'),
+      },
+      { type: 'separator' },
+      { label: 'Recent Projects', submenu: recentSubmenu },
+      { type: 'separator' },
+      isMac ? { role: 'close' } : { role: 'quit' },
+    ],
   }
 
   const editMenu = {
@@ -280,7 +316,43 @@ function buildAppMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
-export function setupAppMenuAndUpdater() {
+function sameRecent(a, b) {
+  return (
+    a.length === b.length &&
+    a.every((e, i) => e.name === b[i].name && e.workFolder === b[i].workFolder)
+  )
+}
+
+/**
+ * Record a project as recently-activated and refresh the Recent Projects
+ * submenu. Called from the main process when the renderer sends
+ * `app:project-activated`. Rebuilds the menu when the list or the current
+ * work folder changes (the submenu is filtered by work folder).
+ * @param {string} name
+ * @param {string} workFolder - absolute path of the project's work folder
+ */
+export function noteProjectActivated(name, workFolder) {
+  const prevWorkFolder = currentWorkFolder
+  if (typeof workFolder === 'string' && workFolder.trim()) {
+    currentWorkFolder = workFolder.trim()
+  }
+  const next = mergeRecent(recentProjects, { name, workFolder })
+  const listChanged = !sameRecent(next, recentProjects)
+  if (listChanged) {
+    recentProjects = next
+    saveRecentProjects(recentProjects)
+  }
+  if (listChanged || currentWorkFolder !== prevWorkFolder) {
+    buildAppMenu()
+  }
+}
+
+/**
+ * @param {() => (import('electron').BrowserWindow | null)} [getMainWindow]
+ */
+export function setupAppMenuAndUpdater(getMainWindow = () => null) {
+  getMainWindowRef = getMainWindow
+  recentProjects = loadRecentProjects()
   buildAppMenu()
   startAutoCheck()
 }

@@ -21,6 +21,7 @@ import { useAppSettings } from './hooks/useAppSettings'
 import { useAutoSave } from './hooks/useAutoSave'
 import { useFlowEvents } from './hooks/useFlowEvents'
 import { useMcpServer } from './hooks/useMcpServer'
+import { useMenuActions } from './hooks/useMenuActions'
 import { syncVideosIntoScenes } from './services/mediaSync'
 import { retryVideoDownload } from './services/videoRecovery'
 import { applyStyle, previewStyleMatching } from './services/styleService'
@@ -183,6 +184,16 @@ function App() {
     openSettings,
     onAudioSwitch: (audioPath) => audioSwitchRef.current?.(audioPath),
     flowAPI,
+    onSaveError: () => toast.error(t('toast.projectSaveFailed')),
+  })
+
+  // 네이티브 File 메뉴 ↔ renderer 연결 (New Project / Recent Projects)
+  // Recent 항목은 work folder 단위로 구분되므로 현재 work folder 경로도 함께 전달.
+  useMenuActions({
+    activeProject: settings.saveMode === 'folder' ? settings.projectName : null,
+    workFolder: settings.saveMode === 'folder' ? (localStorage.getItem('workFolderPath') || null) : null,
+    onNewProject: () => openSettings('storage'),
+    onOpenProject: handleProjectChange,
   })
 
   // Style Thumbnails
@@ -391,7 +402,8 @@ function App() {
     scenes, references, videoScenes, framePairs,
     selectedStyleRefId,
     settings, generatingRefsCount: generatingRefs.length,
-    isRunning, isRestoringRef, saveCurrentProject
+    isRunning, isRestoringRef, saveCurrentProject,
+    onSaveError: () => toast.error(t('toast.projectSaveFailed'))
   })
 
   // Save bottom panel height
@@ -735,6 +747,7 @@ function App() {
           concurrency: settings.concurrency || 2,
           imageBatchCount: settings.imageBatchCount || 1,
           imageUpscale: settings.imageUpscale || 'off',
+          aspectRatio: settings.aspectRatio,
           selectedStyleRefId: effectiveStyleId,
           seed: effectiveSeed,
           force,
@@ -1108,6 +1121,7 @@ function App() {
         {showReferences && (
           <ReferencePanel
             references={references}
+            aspectRatio={settings.aspectRatio}
             onUpdate={updateReferences}
             onUpload={flowAPI.uploadReference}
             onGenerate={handleGenerateRef}
@@ -1203,6 +1217,7 @@ function App() {
           {activeTab === 'list' && (
             <SceneList
               scenes={scenes}
+              aspectRatio={settings.aspectRatio}
               onUpdate={scenesHook.updateScene}
               onDelete={scenesHook.deleteScene}
               onAdd={scenesHook.addScene}
@@ -1353,6 +1368,7 @@ function App() {
                   concurrency: settings.concurrency || 2,
                   imageBatchCount: settings.imageBatchCount || 1,
                   imageUpscale: settings.imageUpscale || 'off',
+                  aspectRatio: settings.aspectRatio,
                   selectedStyleRefId,
                   seed: effectiveSeed,
                 })
@@ -1384,6 +1400,7 @@ function App() {
           <ResultsTable
             items={scenes}
             mediaType="image"
+            aspectRatio={settings.aspectRatio}
             onRetry={(id) => {
               const effectiveSeed = settings.seedLocked && typeof settings.seedNo === 'number' && Number.isFinite(settings.seedNo)
                 ? settings.seedNo : null
@@ -1392,6 +1409,7 @@ function App() {
                 saveMode: settings.saveMode,
                 imageBatchCount: settings.imageBatchCount || 1,
                 imageUpscale: settings.imageUpscale || 'off',
+                aspectRatio: settings.aspectRatio,
                 selectedStyleRefId,
                 seed: effectiveSeed,
               })
@@ -1404,6 +1422,7 @@ function App() {
           <ResultsTable
             items={videoScenes}
             mediaType="video"
+            aspectRatio={settings.aspectRatio}
             onShowDetail={(item) => setSelectedVideo(item)}
             onVideoRetry={handleVideoRetry}
             selectable={true}
@@ -1415,12 +1434,13 @@ function App() {
           />
         )}
         {activeTab === 'frame-to-video' && (
-          <ResultsTable items={framePairs} mediaType="frame-pair" onShowDetail={(item) => setSelectedVideo(item)} onVideoRetry={handleVideoRetry} onClearMedia={(id) => setFramePairs(prev => prev.map(fp => fp.id === id ? { ...fp, base64: null, videoPath: null, status: 'pending' } : fp))} />
+          <ResultsTable items={framePairs} mediaType="frame-pair" aspectRatio={settings.aspectRatio} onShowDetail={(item) => setSelectedVideo(item)} onVideoRetry={handleVideoRetry} onClearMedia={(id) => setFramePairs(prev => prev.map(fp => fp.id === id ? { ...fp, base64: null, videoPath: null, status: 'pending' } : fp))} />
         )}
         {activeTab === 'list' && (
           <ResultsTable
             items={scenes}
             mediaType="image"
+            aspectRatio={settings.aspectRatio}
             onRetry={(id) => {
               const effectiveSeed = settings.seedLocked && typeof settings.seedNo === 'number' && Number.isFinite(settings.seedNo)
                 ? settings.seedNo : null
@@ -1429,6 +1449,7 @@ function App() {
                 saveMode: settings.saveMode,
                 imageBatchCount: settings.imageBatchCount || 1,
                 imageUpscale: settings.imageUpscale || 'off',
+                aspectRatio: settings.aspectRatio,
                 selectedStyleRefId,
                 seed: effectiveSeed,
               })
@@ -1445,12 +1466,15 @@ function App() {
       {selectedScene && (
         <SceneDetailModal
           scene={scenes.find(s => s.id === selectedScene.id) || selectedScene}
+          aspectRatio={settings.aspectRatio}
           onUpdate={scenesHook.updateScene}
           onClose={() => setSelectedScene(null)}
           onGenerate={handleGenerateScene}
           isGenerating={generatingSceneId === selectedScene.id}
           t={t}
           projectName={ensureProjectName()}
+          references={references}
+          styleThumbnails={styleThumbnails}
         />
       )}
 
@@ -1536,10 +1560,17 @@ function App() {
           settings={settings}
           initialTab={settingsTab}
           onProjectChange={handleProjectChange}
-          onSave={(newSettings) => {
+          onSave={async (newSettings) => {
             setSettings(newSettings)
             setShowSettings(false)
             setSettingsTab(null)
+            // 화면비 등 project.json 메타가 바뀌었을 수 있으니 현재 프로젝트에 즉시
+            // 반영 (autosave 는 빈 프로젝트를 건너뜀). 저장 실패는 사용자에게 알린다.
+            const res = await saveCurrentProject(newSettings)
+            if (res && res.success === false) {
+              console.warn('[App] Project meta save failed:', res.error)
+              toast.error(t('toast.projectSaveFailed'))
+            }
           }}
           onClose={() => {
             setShowSettings(false)
