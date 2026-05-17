@@ -898,3 +898,33 @@
 .ref-detail-modal .btn-fill-preset:hover {
   background: var(--bg-hover, #333);
 }
+
+.preview-overlay-btn {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ref-detail-preview:hover .preview-overlay-btn {
+  opacity: 1;
+}
+
+.preview-overlay-btn:hover {
+  background: var(--primary-color);
+  transform: translateX(-50%) scale(1.05);
+  border-color: white;
+}

@@ -97,6 +97,106 @@ export default function Header({
   const dropdownRef = useRef(null)
   const pollingRef = useRef(null)
   
+  // -------------------------------------------------------------
+  // Flow Multi-Profile Manager States & Handlers
+  // -------------------------------------------------------------
+  const [profileConfig, setProfileConfig] = useState({ activeProfileId: 'default', profiles: [] })
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [newProfileName, setNewProfileName] = useState('')
+  const [newProfileEmail, setNewProfileEmail] = useState('')
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const profileDropdownRef = useRef(null)
+
+  const loadFlowProfiles = async () => {
+    try {
+      const config = await window.electronAPI.loadProfiles()
+      if (config) {
+        setProfileConfig(config)
+      }
+    } catch (err) {
+      console.error('Failed to load flow profiles:', err)
+    }
+  }
+
+  // 프로필 전환 처리
+  const handleProfileSwitch = async (profileId) => {
+    setShowProfileDropdown(false)
+    try {
+      setAuthStatus('checking')
+      const result = await window.electronAPI.switchProfile({ profileId })
+      if (result.success) {
+        await loadFlowProfiles()
+        // 웹뷰 전환 완료 후 로그인 상태 재검증 폴링 대기
+        setTimeout(() => checkAuth(true), 2500)
+      } else {
+        alert(`프로필 전환 실패: ${result.error}`)
+      }
+    } catch (err) {
+      alert(`프로필 전환 에러: ${err.message}`)
+    }
+  }
+
+  // 신규 프로필 생성
+  const handleCreateProfile = async (e) => {
+    e.preventDefault()
+    if (!newProfileName.trim()) return
+    try {
+      const result = await window.electronAPI.createProfile({
+        name: newProfileName,
+        email: newProfileEmail
+      })
+      if (result.success) {
+        setNewProfileName('')
+        setNewProfileEmail('')
+        setShowCreateForm(false)
+        await loadFlowProfiles()
+        setShowProfileDropdown(false)
+        // 전환 후 재인증 검증
+        setTimeout(() => checkAuth(true), 2500)
+      } else {
+        alert(`프로필 생성 실패: ${result.error}`)
+      }
+    } catch (err) {
+      alert(`프로필 생성 에러: ${err.message}`)
+    }
+  }
+
+  // 기존 프로필 삭제
+  const handleDeleteProfile = async (profileId) => {
+    const activeProfile = profileConfig.profiles.find(p => p.id === profileId)
+    const confirmDelete = window.confirm(
+      lang === 'ko'
+        ? `정말 "${activeProfile?.name || '선택한'}" 프로필을 삭제하시겠습니까?\n해당 프로필에 연결된 구글 로그인 세션 및 쿠키 정보가 영구 파괴됩니다.`
+        : `Are you sure you want to delete "${activeProfile?.name || 'selected'}"?\nAll associated session data and cookies will be permanently lost.`
+    )
+    if (!confirmDelete) return
+
+    try {
+      const result = await window.electronAPI.deleteProfile({ profileId })
+      if (result.success) {
+        await loadFlowProfiles()
+      } else {
+        alert(`프로필 삭제 실패: ${result.error}`)
+      }
+    } catch (err) {
+      alert(`프로필 삭제 에러: ${err.message}`)
+    }
+  }
+
+  // 마운트 시 프로필 설정 로드 및 드롭다운 외부 클릭 클리너
+  useEffect(() => {
+    loadFlowProfiles()
+    
+    const handleClickOutsideProfile = (e) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
+        setShowProfileDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutsideProfile)
+    return () => document.removeEventListener('mousedown', handleClickOutsideProfile)
+  }, [])
+
   // authReady가 바뀌면 상태 동기화
   useEffect(() => {
     if (authReady) {
@@ -241,6 +341,35 @@ export default function Header({
     setDeleteTarget(null)
     setShowProjectDropdown(false)
   }
+
+  // 구글/Flow 로그인 세션 강제 초기화 및 청소 (이전 인증 찌꺼기 완벽 박멸)
+  const handleFlowReset = async () => {
+    const confirmReset = window.confirm(
+      lang === 'ko'
+        ? '정말 구글/Flow 로그인 세션을 완전히 삭제하고 초기화하시겠습니까?\n이전 계정의 캐시 및 쿠키 정보가 모두 깨끗이 지워지며, 새로운 구글 계정으로 로그인할 수 있게 됩니다.'
+        : 'Are you sure you want to completely purge and reset your Google/Flow login session?\nAll cached credentials and cookies will be cleared, allowing you to log in with a fresh Google account.'
+    )
+    if (!confirmReset) return
+
+    try {
+      setAuthStatus('checking')
+      const result = await window.electronAPI.clearFlowSession()
+      if (result?.success) {
+        setAuthStatus('unauthenticated')
+        alert(
+          lang === 'ko'
+            ? '구글/Flow 세션이 완전히 초기화되었습니다. 새로운 구글 계정으로 로그인해 주세요!'
+            : 'Google/Flow session cleared successfully. Please log in with a new Google account!'
+        )
+      } else {
+        setAuthStatus('authenticated')
+        alert(`초기화 실패: ${result?.error || 'Unknown error'}`)
+      }
+    } catch (err) {
+      setAuthStatus('authenticated')
+      alert(`초기화 에러: ${err.message}`)
+    }
+  }
   
   return (
     <>
@@ -352,6 +481,79 @@ export default function Header({
         </button>
 
         <button
+          className="btn-flow-reset"
+          onClick={handleFlowReset}
+          title={lang === 'ko' ? 'Flow 계정 및 로그인 세션 완전 초기화' : 'Complete Purge & Reset Flow Session'}
+        >
+          <span className="btn-emoji">♻️</span>
+          <span className="btn-text">{lang === 'ko' ? 'Flow 초기화' : 'Reset Flow'}</span>
+        </button>
+
+        {/* 👤 Flow Multi-Profile Selector Dropdown */}
+        <div className="flow-profile-container" ref={profileDropdownRef}>
+          <button
+            className={`btn-profile-selector ${showProfileDropdown ? 'active' : ''}`}
+            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+            title={lang === 'ko' ? 'Flow 구글 멀티 프로필 계정 관리' : 'Manage Flow Multi Profiles'}
+          >
+            <span className="btn-emoji">👤</span>
+            <span className="btn-text">
+              {profileConfig.profiles.find(p => p.id === profileConfig.activeProfileId)?.name || (lang === 'ko' ? '프로필' : 'Profile')}
+            </span>
+            <span className="arrow-icon">{showProfileDropdown ? '▲' : '▼'}</span>
+          </button>
+
+          {showProfileDropdown && (
+            <div className="profile-dropdown-menu">
+              <div className="dropdown-title">
+                {lang === 'ko' ? '구글 계정 프로필 선택' : 'Google Profiles'}
+              </div>
+              <div className="profile-list-scroll">
+                {profileConfig.profiles.map(prof => (
+                  <div
+                    key={prof.id}
+                    className={`profile-item-option ${prof.id === profileConfig.activeProfileId ? 'active' : ''}`}
+                    onClick={() => handleProfileSwitch(prof.id)}
+                  >
+                    <div className="profile-item-left">
+                      <span className="status-dot">🟢</span>
+                      <div className="profile-details-text">
+                        <span className="profile-item-name">{prof.name}</span>
+                        {prof.email && <span className="profile-item-email">{prof.email}</span>}
+                        <span className="profile-item-gpu">💻 {prof.hardware.renderer.split('(')[1]?.split(')')[0] || 'GPU'}</span>
+                      </div>
+                    </div>
+                    {prof.id !== 'default' && (
+                      <button
+                        className="profile-delete-btn"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteProfile(prof.id)
+                        }}
+                        title={lang === 'ko' ? '프로필 삭제' : 'Delete Profile'}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="dropdown-divider"></div>
+              <button
+                className="profile-action-btn add-btn"
+                onClick={() => {
+                  setShowCreateForm(true)
+                  setShowProfileModal(true)
+                  setShowProfileDropdown(false)
+                }}
+              >
+                ➕ {lang === 'ko' ? '새 프로필 추가' : 'Add New Profile'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <button
           className="btn-settings"
           onClick={() => onSettings()}
           data-tooltip={t('header.settings')}
@@ -384,6 +586,60 @@ export default function Header({
       <p className="modal-confirm-msg">
         <strong>"{deleteTarget}"</strong> {t('settings.deleteConfirm') || '프로젝트를 삭제하시겠습니까?\n모든 이미지와 데이터가 삭제됩니다.'}
       </p>
+    </Modal>
+
+    {/* 👤 Flow Multi-Profile 관리 모달 */}
+    <Modal
+      isOpen={showProfileModal}
+      onClose={() => {
+        setShowProfileModal(false)
+        setShowCreateForm(false)
+      }}
+      title={lang === 'ko' ? '👤 Flow 구글 멀티 프로필 추가' : '👤 Add Flow Google Profile'}
+      className="modal-profile-manage"
+    >
+      <form onSubmit={handleCreateProfile} className="profile-creation-form">
+        <p className="profile-modal-desc">
+          {lang === 'ko' 
+            ? '각 프로필은 물리적으로 완벽히 격리된 쿠키와 로컬 스토리지 공간을 가집니다. 추가로, 안티봇 차단 우회를 위해 구글이 전혀 다른 실제 PC 기기로 인식하도록 CPU 코어 수, RAM 용량, WebGL GPU 지문 정보가 1:1 고정 바인딩되어 매핑 생성됩니다.' 
+            : 'Each profile owns complete isolated cookies & storage partition. In addition, it binds unique hardware cores, RAM and GPU models automatically to evade anti-bot bans completely.'}
+        </p>
+        <div className="form-group-field">
+          <label>{lang === 'ko' ? '프로필 이름' : 'Profile Name'}</label>
+          <input
+            type="text"
+            placeholder={lang === 'ko' ? '예: 대성 서브계정 01' : 'e.g. Sub Account 01'}
+            value={newProfileName}
+            onChange={(e) => setNewProfileName(e.target.value)}
+            required
+            autoFocus
+          />
+        </div>
+        <div className="form-group-field">
+          <label>{lang === 'ko' ? '구글 이메일 (선택)' : 'Google Email (Optional)'}</label>
+          <input
+            type="email"
+            placeholder="example@gmail.com"
+            value={newProfileEmail}
+            onChange={(e) => setNewProfileEmail(e.target.value)}
+          />
+        </div>
+        <div className="profile-modal-actions">
+          <button
+            type="button"
+            className="btn-cancel"
+            onClick={() => {
+              setShowProfileModal(false)
+              setShowCreateForm(false)
+            }}
+          >
+            {lang === 'ko' ? '취소' : 'Cancel'}
+          </button>
+          <button type="submit" className="btn-create-submit">
+            {lang === 'ko' ? '생성 및 전환' : 'Create & Switch'}
+          </button>
+        </div>
+      </form>
     </Modal>
 
     {/* 사이드 드로워 */}

@@ -18,3 +18,19 @@ package-lock.json
 __pycache__/
 *.pyc
 *.pyo
+
+# IDE & Editor
+.vscode/
+.idea/
+
+# Backups & Temp files
+* - 복사본/
+*_backup/
+*.tmp*
+*.bak
+*.swp
+
+# User Workspaces & Scratch Data
+story/
+projects/
+apps/

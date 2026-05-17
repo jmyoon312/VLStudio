@@ -326,14 +326,21 @@ export function resolveImageSrc(item) {
   if (!item) return null
   // 파일 경로 우선 (scene.imagePath 또는 reference.filePath) — 절대 경로만
   const filePath = item.imagePath || item.filePath
+  if (filePath && filePath.startsWith('local-resource://')) {
+    return filePath
+  }
+  if (filePath && filePath.startsWith('file://')) {
+    let cleanPath = filePath.replace('file:///', '').replace('file://', '')
+    return `local-resource://${cleanPath}?t=${Date.now()}`
+  }
   if (filePath && filePath.startsWith('/')) {
-    return `file://${filePath}?t=${Date.now()}`
+    return `local-resource://${filePath}?t=${Date.now()}`
   }
-  // Windows 절대 경로 (C:\...)
-  if (filePath && /^[A-Z]:\\/i.test(filePath)) {
-    return `file:///${filePath.replace(/\\/g, '/')}?t=${Date.now()}`
+  // Windows 절대 경로 (C:\... 또는 C:/...)
+  if (filePath && /^[A-Z]:[/\\]/i.test(filePath)) {
+    return `local-resource:///${filePath.replace(/\\/g, '/')}?t=${Date.now()}`
   }
-  // fallback: 메모리 base64 (scene.image 또는 reference.data)
+  // fallback: 메모리 base64 (scene.image || reference.data)
   return item.image || item.data || null
 }
 

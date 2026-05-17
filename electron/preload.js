@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setModalVisible: (params) => ipcRenderer.invoke('app:set-modal-visible', params),
 
   // Flow API
+  clearFlowSession: () => ipcRenderer.invoke('flow:clear-session'),
+  loadProfiles: () => ipcRenderer.invoke('profiles:load'),
+  switchProfile: (params) => ipcRenderer.invoke('profiles:switch', params),
+  createProfile: (params) => ipcRenderer.invoke('profiles:create', params),
+  deleteProfile: (params) => ipcRenderer.invoke('profiles:delete', params),
+  updateProfile: (params) => ipcRenderer.invoke('profiles:update', params),
   extractToken: () => ipcRenderer.invoke('flow:extract-token'),
   extractProjectId: () => ipcRenderer.invoke('flow:extract-project-id'),
   validateToken: (params) => ipcRenderer.invoke('flow:validate-token', params),
@@ -40,6 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSavedWorkFolder: () => ipcRenderer.invoke('fs:get-saved-work-folder'),
   saveWorkFolder: (params) => ipcRenderer.invoke('fs:save-work-folder', params),
   selectWorkFolder: () => ipcRenderer.invoke('fs:select-work-folder'),
+  selectImageFile: () => ipcRenderer.invoke('fs:select-image-file'),
   checkFolderExists: (params) => ipcRenderer.invoke('fs:check-folder-exists', params),
   listProjects: (params) => ipcRenderer.invoke('fs:list-projects', params),
   getProjectFolder: (params) => ipcRenderer.invoke('fs:get-project-folder', params),

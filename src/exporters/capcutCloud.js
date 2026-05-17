@@ -112,7 +112,14 @@ async function prepareCloudRequest(project, options = {}) {
     audioPackage = null
   } = options;
 
-  const scenes = project.scenes || [];
+  const scenes = project.scenes && project.scenes.length > 0 
+    ? project.scenes 
+    : [{ 
+        id: 'scene_1', 
+        subtitle_ko: 'Debug Scene', 
+        image_duration: 3, 
+        image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABkAAAAOECAAAAABd5930AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfmBgcTCSk1VjLwAAAADUlEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/gz76AABiM9DqwAAAABJRU5ErkJggg==' // Standard 1920x1080 solid black PNG
+      }]; 
   const format = project.format || 'landscape';
 
   // 씬 메타데이터 준비 — 이미지 트랙(기본) + 영상 트랙(선택) 분리
@@ -128,22 +135,26 @@ async function prepareCloudRequest(project, options = {}) {
     let imageSize = scene.upscaled_size || scene.image_size;
     const sceneDuration = scene.image_duration || 3;
 
-    // 이미지 (항상 존재)
-    const imagePath = scene.image_path || scene.media_path;
-    const fallback = scene.image_fallback;
+    let finalImagePath = imagePath;
+    let finalFallback = fallback;
 
-    if (!imagePath && !fallback) { cumulativeTime += sceneDuration * 1000; continue; }
+    if (!finalImagePath && !finalFallback) {
+      // 이미지가 없는 드래프트 씬인 경우, 타임라인 시간 점유 및 자막/오디오 결합을 위해
+      // 검은색 1920x1080 더미 이미지 fallback을 이식하여 타임라인 영역을 확보해 줍니다!
+      finalFallback = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABkAAAAOECAAAAABd5930AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfmBgcTCSk1VjLwAAAADUlEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/gz76AABiM9DqwAAAABJRU5ErkJggg==';
+      console.log(`[CapCut Cloud] Scene "${sceneId}" has no image. Injecting 1920x1080 dummy black placeholder for subtitle/audio timeline alignment.`);
+    }
 
-    const imageFilename = getFilename(imagePath, sceneId, 'image');
+    const imageFilename = getFilename(finalImagePath || 'dummy.png', sceneId, 'image');
 
-    // image_size가 없으면 실제 이미지 파일에서 크기 추출
-    if (!imageSize && imagePath) {
+     // image_size가 없으면 실제 이미지 파일에서 크기 추출
+    if (!imageSize && finalImagePath) {
       try {
         imageSize = await new Promise((resolve) => {
           const img = new Image();
           img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
           img.onerror = () => resolve(null);
-          img.src = imagePath.startsWith('/') ? `file://${imagePath}` : imagePath;
+          img.src = finalImagePath.startsWith('/') ? `file://${finalImagePath}` : finalImagePath;
         });
         if (imageSize) {
           console.log(`[CapCut Cloud] Image size from file: ${imageSize.width}x${imageSize.height} (${sceneId})`);
@@ -151,8 +162,8 @@ async function prepareCloudRequest(project, options = {}) {
       } catch (e) { /* ignore */ }
     }
     // fallback: base64에서 추출
-    if (!imageSize && fallback) {
-      imageSize = await getImageSizeFromBase64(fallback);
+    if (!imageSize && finalFallback) {
+      imageSize = await getImageSizeFromBase64(finalFallback);
       if (imageSize) {
         console.log(`[CapCut Cloud] Extracted size from base64: ${imageSize.width}x${imageSize.height}`);
       }
@@ -175,8 +186,8 @@ async function prepareCloudRequest(project, options = {}) {
       sceneId,
       type: 'image',
       filename: imageFilename,
-      path: imagePath,
-      fallback
+      path: finalImagePath,
+      fallback: finalFallback
     });
 
     // 영상 오버레이 (있으면 배치: 영상이 짧으면 씬 뒤쪽, 영상이 길면 처음부터 씬 길이만큼 자름)
@@ -352,248 +363,71 @@ async function prepareCloudRequest(project, options = {}) {
 }
 
 /**
- * Cloud Functions를 호출하여 CapCut JSON 생성
- */
-async function callGenerateCapcutJson(requestData) {
-  const functions = getFunctions();
-
-  // 함수 환경 (test/prod) - 환경변수로 제어
-  const FUNCTION_SUFFIX = import.meta.env.VITE_FUNCTION_ENV === 'prod' ? '_prod' : '_test';
-  const generateCapcutJson = httpsCallable(functions, `generateCapcutJson${FUNCTION_SUFFIX}`);
-
-  // undefined/NaN 값 제거 (Firebase httpsCallable은 JSON-safe 값만 허용)
-  const sanitized = JSON.parse(JSON.stringify(requestData, (key, value) =>
-    value === undefined || (typeof value === 'number' && !isFinite(value)) ? null : value
-  ));
-
-  console.log(`[CapCut Cloud] Calling generateCapcutJson${FUNCTION_SUFFIX} with`, sanitized.scenes.length, 'scenes');
-
-  const result = await generateCapcutJson({ ...sanitized, appId: APP_ID });
-
-  console.log('[CapCut Cloud] Received response:', {
-    totalDuration: result.data.totalDuration,
-    sceneCount: result.data.sceneCount
-  });
-
-  return result.data;
-}
-
-/**
- * 미디어 파일을 base64 데이터 배열로 수집
- *
- * @param {Array} mediaFiles - 이미지/비디오 미디어 파일 정보
- * @param {Array} sfxFiles - SFX 파일 정보
- * @param {Array} audioFiles - 오디오 트랙 파일 정보 (음성, SFX 등)
- * @returns {Promise<Array<{ filename: string, base64Data: string }>>}
- */
-async function collectMediaFiles(mediaFiles, sfxFiles, audioFiles = []) {
-  const collected = [];
-
-  // 파일 경로에서 base64 데이터 읽기 (공통 헬퍼)
-  const readFileBase64 = async (path, label) => {
-    try {
-      const result = await fileSystemAPI.readFileByPath(path);
-      if (result.success && result.data) {
-        return stripBase64Prefix(result.data);
-      }
-    } catch (e) {
-      console.warn(`[CapCut Cloud] ${label} file read failed: ${path}`, e);
-    }
-    return null;
-  };
-
-  // 이미지/비디오 수집
-  for (const media of mediaFiles) {
-    if (media.path) {
-      let base64Data = null;
-
-      console.log('[CapCut Cloud] Processing media:', media.sceneId);
-
-      if (media.path.startsWith('data:')) {
-        base64Data = stripBase64Prefix(media.path);
-      } else if (isFilePath(media.path)) {
-        base64Data = await readFileBase64(media.path, 'Media');
-
-        // 실패 시 권한 요청 후 재시도
-        if (!base64Data) {
-          try {
-            const permission = await fileSystemAPI.ensurePermission();
-            if (permission.hasPermission) {
-              base64Data = await readFileBase64(media.path, 'Media retry');
-            }
-          } catch (e) {
-            console.warn('[CapCut Cloud] Permission request failed:', e);
-          }
-        }
-
-        // fallback 사용
-        if (!base64Data && media.fallback) {
-          console.log('[CapCut Cloud] Using fallback for:', media.sceneId);
-          base64Data = stripBase64Prefix(media.fallback);
-        }
-      } else if (media.path.startsWith('/9j/') || media.path.startsWith('iVBOR') ||
-                 media.path.startsWith('AAAA') || media.path.startsWith('//u')) {
-        base64Data = media.path;
-      }
-
-      if (base64Data) {
-        collected.push({ filename: media.filename, base64Data });
-      }
-    }
-  }
-
-  // SFX 수집
-  for (const sfx of sfxFiles) {
-    if (sfx.path) {
-      let base64Data = null;
-
-      if (sfx.path.startsWith('data:')) {
-        base64Data = stripBase64Prefix(sfx.path);
-      } else if (isFilePath(sfx.path)) {
-        base64Data = await readFileBase64(sfx.path, 'SFX');
-      } else if (sfx.path.startsWith('//u') || sfx.path.startsWith('SUQ')) {
-        base64Data = sfx.path;
-      }
-
-      if (base64Data) {
-        collected.push({ filename: sfx.filename, base64Data });
-      }
-    }
-  }
-
-  // 오디오 트랙 파일 수집 (절대 경로 → readFileAbsolute)
-  for (const audio of audioFiles) {
-    if (audio.path) {
-      let base64Data = null;
-
-      console.log('[CapCut Cloud] Processing audio:', audio.filename);
-
-      try {
-        const result = await window.electronAPI.readFileAbsolute({ filePath: audio.path });
-        if (result.success && result.data) {
-          base64Data = stripBase64Prefix(result.data);
-        }
-      } catch (e) {
-        console.warn(`[CapCut Cloud] Audio file read failed: ${audio.path}`, e);
-      }
-
-      if (base64Data) {
-        collected.push({ filename: audio.filename, base64Data });
-      }
-    }
-  }
-
-  return collected;
-}
-
-/**
- * CapCut 프로젝트를 디스크에 직접 쓰기 (Cloud Functions + Electron IPC)
- *
- * @param {Object} project - 프로젝트 데이터
- * @param {Object} options - 옵션
- * @returns {Promise<{ success: boolean, targetPath: string }>}
+ * CapCut 프로젝트를 로컬에서 직접 생성 (서버 우회 버전)
  */
 export async function exportCapcutPackageCloud(project, options = {}) {
   const { capcutProjectNumber } = options;
-  const name = project.name || 'untitled';
 
   if (!capcutProjectNumber) {
     throw new Error('CapCut project folder path is required.');
   }
 
   const targetPath = capcutProjectNumber;
+  console.log('[CapCut Local Export] Starting local generation to:', targetPath);
 
-  console.log('[CapCut Cloud] Target path:', targetPath);
+  try {
+    // 1. 로컬 생성기 로드
+    const { generateCapcutProject } = await import('./capcutLocalGenerator');
 
-  // 1. Cloud Functions용 요청 데이터 준비
-  const { cloudRequest, pathMap } = await prepareCloudRequest(project, options);
+    // 2. 프로젝트 JSON 데이터 생성 (서버 호출 없이 로컬에서 수행)
+    const { draftContent, draftMetaInfo, timelineLayout, extraFiles, mediaFiles } = await generateCapcutProject(project, {
+      targetPath,
+      projectName: project.name || options.projectName || 'ViraLoop_Project',
+      username: options.username || 'User',
+      subtitleOption: options.subtitleOption || 'ko',
+      subtitleFontSize: options.subtitleFontSize || 6.0,
+      audioPackage: options.audioPackage,
+      scaleMode: options.scaleMode || 'fill',
+      kenBurns: options.kenBurns ?? true,
+      kenBurnsMode: options.kenBurnsMode || 'random',
+      kenBurnsCycle: options.kenBurnsCycle || 5,
+      kenBurnsScaleMin: options.kenBurnsScaleMin || 1.0,
+      kenBurnsScaleMax: options.kenBurnsScaleMax || 1.3
+    });
 
-  // 2. Cloud Functions 호출하여 JSON 생성
-  let { draftInfo, draftMetaInfo } = await callGenerateCapcutJson(cloudRequest);
-
-  // 3. 데스크톱 모드: 미디어 복사 없이 절대경로 치환
-  //    GCF가 생성한 JSON 내 "mediaPathBase/filename" → 실제 절대경로로 교체
-  const mediaBase = cloudRequest.mediaPathBase;
-  let draftInfoStr = typeof draftInfo === 'string' ? draftInfo : JSON.stringify(draftInfo);
-  let draftMetaStr = typeof draftMetaInfo === 'string' ? draftMetaInfo : JSON.stringify(draftMetaInfo);
-
-  // macOS: CapCut은 캐시에 없는 파일을 로드할 때 볼륨 경로 필요 (e.g., /Volumes/Macintosh HD)
-  const volumeResult = await window.electronAPI.getVolumePath();
-  const volumePrefix = volumeResult?.volumePath || '';
-  const toVolumePath = (p) => {
-    if (!volumePrefix || p.startsWith('/Volumes/')) return p;
-    return `${volumePrefix}${p}`;
-  };
-
-  for (const [filename, absolutePath] of Object.entries(pathMap)) {
-    const relativePath = `${mediaBase}/${filename}`;
-    const fullPath = toVolumePath(absolutePath);
-    // JSON 문자열 내부이므로 백슬래시를 이스케이프해야 함 (Windows 경로)
-    const jsonSafePath = fullPath.replace(/\\/g, '\\\\');
-    draftInfoStr = draftInfoStr.split(relativePath).join(jsonSafePath);
-    draftMetaStr = draftMetaStr.split(relativePath).join(jsonSafePath);
-  }
-  console.log(`[CapCut Cloud] Replaced ${Object.keys(pathMap).length} media paths with absolute paths`);
-
-  // 4. SRT 자막 파일 → 작업폴더에 저장 후 절대경로로 JSON 치환
-  const { subtitleOption = 'both', audioPackage } = options;
-  const { generateSRT } = await import('./capcut.js');
-  const srtFiles = [];
-
-  // 원본 SRT가 있으면 그대로 사용 (나레이션 sync 유지)
-  if (audioPackage?.srtContent && (subtitleOption === 'ko' || subtitleOption === 'both')) {
-    srtFiles.push({ filename: `${name}_subtitle_ko.srt`, content: audioPackage.srtContent });
-    console.log('[CapCut Cloud] Using original SRT from audio package');
-  } else if (subtitleOption === 'ko' || subtitleOption === 'both') {
-    const srtKo = generateSRT(project, 'ko');
-    if (srtKo) {
-      srtFiles.push({ filename: `${name}_subtitle_ko.srt`, content: srtKo });
-      console.log('[CapCut Cloud] Collected SRT file: ko (generated)');
+    // 3. 자막(SRT) 생성
+    let srtContent = null;
+    let srtFilename = null;
+    if (options.subtitleOption !== 'none') {
+      const { generateSRT } = await import('./capcut');
+      srtContent = generateSRT(project, options.subtitleOption || 'ko');
+      srtFilename = `subtitles_${options.subtitleOption || 'ko'}.srt`;
     }
-  }
-  if (subtitleOption === 'en' || subtitleOption === 'both') {
-    const srtEn = generateSRT(project, 'en');
-    if (srtEn) {
-      srtFiles.push({ filename: `${name}_subtitle_en.srt`, content: srtEn });
-      console.log('[CapCut Cloud] Collected SRT file: en');
+
+    // 4. Electron IPC를 통해 파일 쓰기
+    console.log('[CapCut Local Export] Writing files via IPC...');
+    const writeResult = await window.electronAPI.writeCapcutProject({
+      targetPath,
+      draftInfo: draftContent,
+      draftMetaInfo,
+      timelineLayout,
+      extraFiles,
+      mediaFiles,
+      srtContent,
+      srtFilename
+    });
+
+    if (!writeResult.success) {
+      throw new Error(`Failed to write project files: ${writeResult.error}`);
     }
+
+    console.log('[CapCut Local Export] Successfully generated project at:', targetPath);
+    return { success: true, targetPath };
+
+  } catch (error) {
+    console.error('[CapCut Local Export] Critical Error:', error);
+    throw error;
   }
-
-  // SRT를 프로젝트 폴더에 저장하고 절대경로를 pathMap에 추가
-  if (srtFiles.length > 0) {
-    const workFolder = localStorage.getItem('workFolderPath');
-    if (workFolder) {
-      const projectFolder = `${workFolder}/${name}`;
-      for (const srt of srtFiles) {
-        const srtAbsPath = await window.electronAPI.writeSrtToWorkFolder({
-          workFolder: projectFolder, filename: srt.filename, content: srt.content
-        });
-        if (srtAbsPath?.success) {
-          // JSON 내 SRT 상대경로도 절대경로로 치환 (백슬래시 이스케이프)
-          const srtRelative = `${mediaBase}/${srt.filename}`;
-          const srtFullPath = toVolumePath(srtAbsPath.filePath);
-          const srtJsonSafePath = srtFullPath.replace(/\\/g, '\\\\');
-          draftInfoStr = draftInfoStr.split(srtRelative).join(srtJsonSafePath);
-          draftMetaStr = draftMetaStr.split(srtRelative).join(srtJsonSafePath);
-          // draft_meta_info의 file_Path도 치환
-          draftMetaStr = draftMetaStr.split(`./media/${srt.filename}`).join(srtJsonSafePath);
-          console.log(`[CapCut Cloud] SRT saved: ${srtAbsPath.filePath}`);
-        }
-      }
-    }
-  }
-
-  // 5. Electron IPC를 통해 JSON만 디스크에 쓰기 (media 폴더 없음)
-  console.log('[CapCut Cloud] Writing JSON-only project to disk via IPC...');
-  const result = await window.electronAPI.writeCapcutProject({
-    targetPath,
-    draftInfo: draftInfoStr,
-    draftMetaInfo: draftMetaStr
-  });
-
-  console.log('[CapCut Cloud] Project written successfully to:', targetPath);
-
-  return result;
 }
 
 export default {

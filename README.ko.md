@@ -1,23 +1,23 @@
-# AutoFlowCut
+# ViraLoop Studio (Flow2CapCut Desktop)
 
 <kbd>[🇺🇸 English](README.md)</kbd> <kbd>🇰🇷 한국어</kbd>
 
 <p align="center">
   <a href="https://youtu.be/mYnfgqvCkME">
-    <img src="docs/youtube-thumb-ko.png" alt="AutoFlowCut 소개 영상 - 클릭해서 재생" width="720">
+    <img src="docs/youtube-thumb-ko.png" alt="ViraLoop Studio 소개 영상 - 클릭해서 재생" width="720">
   </a>
 </p>
 
-Google Flow AI로 이미지/비디오를 **대량 생성**하고, CapCut 영상 프로젝트로 원클릭 내보내기하는 데스크톱 앱.
+Google Flow AI로 이미지/비디오를 **대량 생성**하고, CapCut 영상 프로젝트로 원클릭 내보내기하는 프리미엄 데스크톱 앱.
 
-[![Release](https://img.shields.io/github/v/release/touchizen/AutoFlowCut)](https://github.com/touchizen/AutoFlowCut/releases)
+[![Release](https://img.shields.io/github/v/release/jmyoon312/VLStudio)](https://github.com/jmyoon312/VLStudio/releases)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue)](LICENSE)
 
 ## 개요
 
 AI 영상, 아직도 한 장면씩 만들고 계신가요?
 
-AutoFlowCut은 AI 영상 제작 전 과정을 자동화합니다. Google Flow AI(labs.google/fx)로 이미지와 비디오를 생성하고, 바로 편집 가능한 CapCut 프로젝트로 변환합니다. 대본을 가져오고, 비주얼을 생성하고, 씬별로 최적의 미디어를 선택한 뒤, 원클릭으로 내보내세요.
+ViraLoop Studio는 AI 영상 제작 전 과정을 자동화합니다. Google Flow AI(labs.google/fx)로 이미지와 비디오를 생성하고, 바로 편집 가능한 CapCut 프로젝트로 변환합니다. 대본을 가져오고, 비주얼을 생성하고, 씬별로 최적의 미디어를 선택한 뒤, 원클릭으로 내보내세요.
 
 ## 주요 기능
 

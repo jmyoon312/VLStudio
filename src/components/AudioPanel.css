@@ -545,3 +545,26 @@
   color: var(--text-tertiary);
   font-style: italic;
 }
+
+/* Clear button next to sub-tabs with premium red/danger design */
+.sub-tab-clear-btn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 6px 12px;
+  margin-left: 8px;
+  color: #ef4444;
+  transition: all 0.15s ease;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sub-tab-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #ff6b6b;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.15);
+}

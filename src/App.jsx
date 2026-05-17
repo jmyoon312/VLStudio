@@ -201,11 +201,40 @@ function App() {
   // Audio Import
   const { audioPackage, audioTracks, importing: audioImporting, audioLoading, importAudioPackage, importByPath, clearAudioPackage, audioReviews, saveReview, saveBulkReviews, refreshReviews, saveTimecodeOverride } = useAudioImport(t)
 
+  // tryImportScenesFromFolder: 폴더 내부의 scenes.csv 를 우선 로드하고 없으면 SRT로 대체 복원하는 지능형 브릿지
+  const tryImportScenesFromFolder = useCallback(async (folderPath, fallbackSrtContent) => {
+    if (!folderPath) return
+    const normalizedFolder = folderPath.replace(/\\/g, '/')
+    const scenesCsvPath = `${normalizedFolder}/scenes.csv`
+
+    try {
+      const result = await window.electronAPI?.readFileAbsolute({ filePath: scenesCsvPath })
+      if (result?.success && result.data) {
+        const base64 = result.data.split(',')[1]
+        const csvContent = new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0)))
+        scenesHook.parseFromCSV(csvContent)
+        console.log('[App] Successfully loaded and restored scenes from scenes.csv!')
+        return
+      }
+    } catch (e) {
+      console.warn('[App] Premium scenes.csv load failed, trying fallback:', e)
+    }
+
+    if (fallbackSrtContent) {
+      scenesHook.parseFromSRT(fallbackSrtContent)
+      console.log('[App] Created fallback scenes from SRT subtitles.')
+    }
+  }, [scenesHook])
+
   const handleImportAudio = async () => {
     setShowAudioResult(true)
     const result = await importAudioPackage()
     if (!result) {
       setShowAudioResult(false)
+    } else {
+      if (scenes.length === 0) {
+        await tryImportScenesFromFolder(result.folderPath, result.srtContent)
+      }
     }
   }
 
@@ -214,7 +243,10 @@ function App() {
     clearAudioPackage()
     if (audioPath) {
       localStorage.setItem('audioFolderPath', audioPath)
-      await importByPath(audioPath)
+      const result = await importByPath(audioPath)
+      if (result && scenes.length === 0) {
+        await tryImportScenesFromFolder(audioPath, result.srtContent)
+      }
     } else {
       localStorage.removeItem('audioFolderPath')
     }
@@ -469,6 +501,47 @@ function App() {
     setShowImport(false)
     if (isVideo) setActiveTab('video-text')
   }
+
+  // ── 통합 물리적 하드 초기화 핸들러 (좀비 세포 소각 및 하드클렌징) ──
+  const handleHardReset = useCallback(async () => {
+    // 1. 메모리 데이터 초기화
+    scenesHook.clearScenes()
+    if (videoScenesHook?.clearVideoScenes) {
+      videoScenesHook.clearVideoScenes()
+    }
+    setVideoScenes([])
+    setFramePairs([])
+    clearAudioPackage()
+
+    // 2. localStorage 좀비 세포 소각
+    localStorage.removeItem('autoflowcut_savedPrompts')
+    localStorage.removeItem('autoflowcut_savedVideoPrompts')
+    localStorage.removeItem('audioFolderPath')
+
+    // 3. 디스크 project.json 백지화 동기화
+    const projectName = settings.projectName
+    if (projectName && window.electronAPI?.saveProjectData) {
+      try {
+        await window.electronAPI.saveProjectData({
+          workFolder: localStorage.getItem('workFolderPath') || '',
+          project: projectName,
+          data: {
+            scenes: [],
+            references: [],
+            videoScenes: [],
+            framePairs: [],
+            settings: { aspectRatio: settings.aspectRatio, defaultDuration: settings.defaultDuration },
+            audioFolderPath: null,
+            selectedStyleRefId: null
+          }
+        })
+        console.log('[App] Disc project.json has been completely hard purged.')
+      } catch (e) {
+        console.error('[App] Failed to hard reset project.json on disk:', e)
+      }
+    }
+    toast.success('프로젝트가 완전히 초기화되었습니다.')
+  }, [settings, scenesHook, videoScenesHook, setVideoScenes, setFramePairs, clearAudioPackage])
 
   // Handle start — 활성 탭에 따라 이미지/비디오 생성 모드 분기
   /**
@@ -930,7 +1003,7 @@ function App() {
       <Header
         onSettings={() => openSettings()}
         onExport={handleExportClick}
-        hasImages={scenes.some(s => s.image || s.imagePath)}
+        hasImages={true} // 분석을 위해 항상 활성화
         getAccessToken={flowAPI.getAccessToken}
         authReady={authReady}
         projectName={settings.projectName}
@@ -1133,7 +1206,7 @@ function App() {
               onUpdate={scenesHook.updateScene}
               onDelete={scenesHook.deleteScene}
               onAdd={scenesHook.addScene}
-              onClearAll={scenesHook.clearScenes}
+              onClearAll={handleHardReset}
               defaultDuration={settings.defaultDuration}
               disabled={anyRunning}
               projectName={ensureProjectName()}
@@ -1152,6 +1225,7 @@ function App() {
               onBulkReview={saveBulkReviews}
               onRefresh={refreshReviews}
               onSaveTimecodeOverride={saveTimecodeOverride}
+              onClear={handleHardReset}
               srtEntries={audioPackage?.srtEntries}
               scenes={scenes}
             />
@@ -1197,6 +1271,24 @@ function App() {
 
             return (
               <>
+                {/* 🎨 독립형 프리미엄 적용 스타일 바 (Style Selection Bar) */}
+                {startStyleApplies && !anyRunning && (
+                  <div className="style-selection-bar">
+                    <div className="ss-label-group">
+                      <span className="ss-icon">🎨</span>
+                      <span className="ss-title">{t('actions.selectStyle') || '적용 스타일'} :</span>
+                    </div>
+                    <button 
+                      className="ss-value-button" 
+                      onClick={() => setShowStylePicker(true)}
+                      title="클릭하여 스타일을 변경합니다."
+                    >
+                      <span className="ss-value">{startStyleLabel}</span>
+                      <span className="ss-arrow">▾</span>
+                    </button>
+                  </div>
+                )}
+
                 {anyRunning ? (
                   <button
                     className={`btn-danger ${canExport ? 'half' : ''}`}
@@ -1224,15 +1316,7 @@ function App() {
                       hasPendingBatch
                     }
                   >
-                    {startStyleApplies
-                      ? <>
-                          {activeTab === 'video-text' ? '🎬' : '✨'} {t('actions.start')}
-                          ▸
-                          <span className="btn-style-link" onClick={(e) => { e.stopPropagation(); setShowStylePicker(true) }}>
-                            🎨 {startStyleLabel}
-                          </span>
-                        </>
-                      : `🎬 ${t('actions.start')}`}
+                    {activeTab === 'video-text' ? '🎬' : '✨'} {t('actions.start')}
                   </button>
                 )}
 
@@ -1533,21 +1617,7 @@ function App() {
           selectedId={selectedStyleRefId}
           onSelect={(id) => {
             setSelectedStyleRefId(id)
-            if (id) {
-              setShowStylePicker(false)
-              handleStart(id)
-              return
-            }
-            // 자동 카드 (id === null) — availability는 styleResolver가 탭별로 판단:
-            //   - image/list: 씬별 매칭 가능 여부
-            //   - video-text: 첫 사용 가능한 스타일 카드 존재 여부
-            // requireStyle=false면 어느 탭이든 통과.
-            if (styleResolver.autoAvailable || !settings.requireStyle) {
-              setShowStylePicker(false)
-              handleStart(null)
-            } else {
-              toast.warning(t('toast.autoMatchNoMatchesPickStyle'))
-            }
+            setShowStylePicker(false)
           }}
           thumbnails={styleThumbnails}
           uploadedStyleRefs={references.filter(r => r.type === 'style')}

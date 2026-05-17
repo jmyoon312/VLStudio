@@ -57,17 +57,22 @@ async function loadBundledThumbnails(existingIds = []) {
  */
 export function toFileUrl(pathOrUrl) {
   if (!pathOrUrl) return null
-  // 이미 URL이면 그대로 (blob:, data:, file://)
-  if (pathOrUrl.startsWith('blob:') || pathOrUrl.startsWith('data:') || pathOrUrl.startsWith('file://')) {
+  // 이미 URL이면 그대로 (blob:, data:, local-resource://)
+  if (pathOrUrl.startsWith('blob:') || pathOrUrl.startsWith('data:') || pathOrUrl.startsWith('local-resource://')) {
     return pathOrUrl
   }
-  // 절대 경로 → file:// (캐시 방지용 timestamp)
+  // file:// 경로를 local-resource:// 로 변환
+  if (pathOrUrl.startsWith('file://')) {
+    let cleanPath = pathOrUrl.replace('file:///', '').replace('file://', '')
+    return `local-resource://${cleanPath}?t=${Date.now()}`
+  }
+  // 절대 경로 → local-resource:// (캐시 방지용 timestamp)
   if (pathOrUrl.startsWith('/')) {
-    return `file://${pathOrUrl}?t=${Date.now()}`
+    return `local-resource://${pathOrUrl}?t=${Date.now()}`
   }
   // Windows 경로
   if (/^[A-Z]:\\/i.test(pathOrUrl)) {
-    return `file:///${pathOrUrl.replace(/\\/g, '/')}?t=${Date.now()}`
+    return `local-resource:///${pathOrUrl.replace(/\\/g, '/')}?t=${Date.now()}`
   }
   return pathOrUrl
 }

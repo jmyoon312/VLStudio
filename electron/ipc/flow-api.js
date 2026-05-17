@@ -7,6 +7,7 @@
 
 import path from 'node:path'
 import { net } from 'electron'
+import { loadProfiles, switchProfile, createProfile, deleteProfile, updateProfile } from '../profileManager.js'
 
 /**
  * Register all Flow API IPC handlers.
@@ -28,6 +29,112 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     SESSION_URL, TOKEN_INFO_URL, FLOW_URL, MEDIA_REDIRECT_URL, UPLOAD_URL,
     API_HEADERS, GENERATE_URL, BASE_API_URL,
   } = deps
+
+  // 구글/Flow 로그인 세션의 쿠키, 로컬스토리지, 캐시, indexedDB를 100% 완전 파괴(Clean-up)하여 새 로그인을 가능하게 함
+  ipcMain.handle('flow:clear-session', async () => {
+    console.log('[Flow API] clear-session called - Purging all Chromium cache and storage data');
+    const flowView = getFlowView()
+    if (!flowView) return { success: false, error: 'Flow view not ready' }
+    
+    try {
+      const ses = flowView.webContents.session
+      // 쿠키, 로컬스토리지, 캐시, 인덱스DB, 서비스워커 등 완벽 리셋
+      await ses.clearStorageData({
+        storages: ['cookies', 'localstorage', 'cache', 'indexdb', 'websql', 'serviceworkers', 'file-systems'],
+        quotas: ['temporary', 'persistent', 'syncable']
+      })
+      await ses.clearCache()
+      
+      // 하드웨어 고유 PC 정보 지문(CPU, RAM, GPU)을 완전히 새로운 프로필로 무작위 재추첨(Re-roll)하여
+      // 구글 측이 아예 다른 물리적 PC 기기에서 로그인하는 것으로 완전히 오인하도록 유도합니다!
+      if (typeof global.rerollHardwareProfile === 'function') {
+        global.rerollHardwareProfile()
+      }
+      
+      // Flow 페이지 강제 리프레시 로드
+      flowView.webContents.loadURL(FLOW_URL)
+      console.log('[Flow API] Session clean-up, hardware re-roll, and URL reload complete!');
+      return { success: true }
+    } catch (e) {
+      console.error('[Flow API] clear-session error:', e.message)
+      return { success: false, error: e.message }
+    }
+  })
+
+  // -------------------------------------------------------------
+  // Flow Multi-Profile IPC handlers
+  // -------------------------------------------------------------
+
+  // 프로필 설정 로드
+  ipcMain.handle('profiles:load', async () => {
+    try {
+      return await loadProfiles()
+    } catch (err) {
+      return { activeProfileId: 'default', profiles: [] }
+    }
+  })
+
+  // 프로필 전환 및 격리 웹뷰 실시간 동적 재생성 실행
+  ipcMain.handle('profiles:switch', async (event, { profileId }) => {
+    try {
+      console.log('[IPC Profiles] Switching to profile:', profileId)
+      const switchResult = await switchProfile(profileId)
+      if (!switchResult.success) return switchResult
+
+      // 메인 프로세스의 웹뷰 재생성 동적 엔진 구동
+      if (typeof global.recreateFlowViewWithProfile === 'function') {
+        await global.recreateFlowViewWithProfile(profileId)
+      }
+      return { success: true }
+    } catch (err) {
+      console.error('[IPC Profiles] Switch failed:', err.message)
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 새 격리 프로필 생성
+  ipcMain.handle('profiles:create', async (event, { name, email }) => {
+    try {
+      console.log('[IPC Profiles] Creating profile:', name)
+      const createResult = await createProfile(name, email)
+      if (!createResult.success) return createResult
+
+      // 새로 만들어진 격리 프로필로 즉시 전환
+      if (typeof global.recreateFlowViewWithProfile === 'function') {
+        await global.recreateFlowViewWithProfile(createResult.profile.id)
+      }
+      return createResult
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 기존 프로필 삭제
+  ipcMain.handle('profiles:delete', async (event, { profileId }) => {
+    try {
+      console.log('[IPC Profiles] Deleting profile:', profileId)
+      const deleteResult = await deleteProfile(profileId)
+      if (!deleteResult.success) return deleteResult
+
+      // 활성 프로필이 삭제되어 default로 강제 복귀한 경우 웹뷰도 복구
+      const activeConfig = await loadProfiles()
+      if (typeof global.recreateFlowViewWithProfile === 'function') {
+        await global.recreateFlowViewWithProfile(activeConfig.activeProfileId)
+      }
+      return deleteResult
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  // 프로필 정보 업데이트
+  ipcMain.handle('profiles:update', async (event, { profileId, name, email }) => {
+    try {
+      return await updateProfile(profileId, name, email)
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  })
 
   // Extract Flow access token from session
   ipcMain.handle('flow:extract-token', async () => {

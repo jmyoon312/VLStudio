@@ -172,6 +172,45 @@ export default function SceneDetailModal({
     }
   }
   
+  // 로컬 이미지 선택
+  const handleSelectLocalImage = async () => {
+    try {
+      if (!window.electronAPI?.selectImageFile) {
+        toast.error('이 기능은 데스크톱 앱에서만 사용할 수 있습니다.')
+        return
+      }
+      const result = await window.electronAPI.selectImageFile()
+      if (result.success) {
+        // 선택한 이미지를 즉시 프로젝트 scenes 폴더에 물리 파일로 복사(귀속)하여 저장합니다!
+        // 이렇게 해 두어야 껐다 켜서 자동 복원(Self-healing)할 때 언제나 Done 상태로 정상 자동 로드됩니다!
+        const saveResult = await fileSystemAPI.saveImage(projectName, scene.id, result.data, 'local')
+        if (saveResult.success) {
+          setEditData(prev => ({
+            ...prev,
+            image: null, // base64 메모리는 최적화를 위해 비우고
+            imagePath: saveResult.path, // 물리 저장된 프로젝트 내부 경로 지정!
+            status: 'done'
+          }))
+          toast.success('이미지를 불러와 프로젝트에 영구 저장했습니다.')
+        } else {
+          // 폴백: 저장 실패 시 임시 메모리 데이터로 로드
+          setEditData(prev => ({
+            ...prev,
+            image: result.data,
+            imagePath: result.path,
+            status: 'done'
+          }))
+          toast.info('이미지를 불러왔으나 프로젝트 폴더 저장에는 실패했습니다.')
+        }
+        // 수동으로 넣은 이미지이므로 기존 메타데이터(seed 등)는 리셋
+        setRestoredMeta(null)
+      }
+    } catch (err) {
+      console.error('[SceneDetail] Select image failed:', err)
+      toast.error('이미지 선택에 실패했습니다.')
+    }
+  }
+  
   const ratioClass = getRatioClass(aspectRatio)
 
   // 클립보드에 복사
@@ -225,6 +264,9 @@ export default function SceneDetailModal({
                   src={resolveImageSrc(editData)}
                   alt={`Scene ${scene.id}`}
                   onLoad={(e) => setImageSize({ width: e.target.naturalWidth, height: e.target.naturalHeight })}
+                  onClick={handleSelectLocalImage}
+                  style={{ cursor: 'pointer' }}
+                  title="클릭하여 이미지 교체"
                 />
                 <button
                   className="btn-clear-image"
@@ -235,11 +277,17 @@ export default function SceneDetailModal({
                   }}
                   title={t('reference.clearImage') || '이미지 제거'}
                 >✕</button>
+                <div className="preview-overlay-btn" onClick={handleSelectLocalImage}>
+                  <span>🔄 이미지 교체</span>
+                </div>
               </>
             ) : (
-              <div className="ref-placeholder">
+              <div className="ref-placeholder" onClick={handleSelectLocalImage} style={{ cursor: 'pointer' }}>
                 <span className="icon">🖼️</span>
                 <span>{t('sceneDetail.noImage')}</span>
+                <span style={{ fontSize: '0.8rem', marginTop: '8px', opacity: 0.7 }}>
+                  (클릭하여 이미지 불러오기)
+                </span>
               </div>
             )}
           </div>

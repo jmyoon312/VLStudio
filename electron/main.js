@@ -19,6 +19,7 @@ import { updateBounds, registerLayoutIPC, setLayoutMode, setSplitRatio, setModal
 import { openApiSpec, getSwaggerHtml } from './api-docs.js'
 import { setupAppMenuAndUpdater } from './updater.js'
 import { selectCdpCase } from './video-cdp-dispatch.js'
+import { loadProfiles } from './profileManager.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -154,14 +155,198 @@ function createWindow() {
   // createWindow 시점에서 바로 켜야 하므로 직접 호출
   powerSaveBlocker.start('prevent-display-sleep')
 
-  // Create Flow WebContentsView with persistent session
+  // ============================================
+  // 안티봇 차단 우회용 하드웨어 지문 위장 프로필 (Hardware Fingerprint Profiles)
+  // ============================================
+  const hardwareProfiles = [
+    {
+      cores: 4,
+      memory: 8,
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      cores: 8,
+      memory: 16,
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      cores: 12,
+      memory: 32,
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      cores: 16,
+      memory: 64,
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4090 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      cores: 6,
+      memory: 16,
+      vendor: 'Google Inc. (AMD)',
+      renderer: 'ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    {
+      cores: 8,
+      memory: 32,
+      vendor: 'Google Inc. (Intel)',
+      renderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    }
+  ]
+
+  // 초기 구동 시 무작위 대신 영구 저장된 프로필에서 하드웨어 스펙 동기 로딩
+  let activeProfilePartition = 'persist:flow_profile_default'
+  try {
+    // 동기식 프로필 바인딩 설정
+    const configPath = path.join(app.getPath('userData'), 'flow-profiles-config.json')
+    if (fsSync.existsSync(configPath)) {
+      const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'))
+      const activeProf = config.profiles.find(p => p.id === config.activeProfileId)
+      if (activeProf) {
+        activeProfilePartition = `persist:flow_profile_${activeProf.id}`
+        global.currentHardwareProfile = activeProf.hardware
+        console.log('[Anti-bot] Profile Bound Hardware Loaded:', activeProf.name, '->', activeProf.hardware.renderer)
+      }
+    }
+  } catch (err) {
+    console.warn('[Profile Startup] Failed to load persistent profile:', err.message)
+  }
+
+  if (!global.currentHardwareProfile) {
+    global.currentHardwareProfile = hardwareProfiles[Math.floor(Math.random() * hardwareProfiles.length)]
+  }
+
+  // 하드웨어 프로필 무작위 재추첨(Re-roll) 함수
+  global.rerollHardwareProfile = () => {
+    global.currentHardwareProfile = hardwareProfiles[Math.floor(Math.random() * hardwareProfiles.length)]
+    console.log('[Anti-bot] Hardware Profile Re-rolled & Changed to:', global.currentHardwareProfile.renderer)
+  }
+
+  // Create Flow WebContentsView with isolated active profile session partition
   flowView = new WebContentsView({
     webPreferences: {
-      partition: 'persist:flow',
+      partition: activeProfilePartition,
       contextIsolation: true,
-      webSecurity: false,  // 비디오 API를 페이지 컨텍스트에서 호출할 때 CORS 허용
+      webSecurity: false,  // 비디오 API를 페이지 컨텍스트에서 호출할 때 CORS 허용 (순수 오리지널 복원)
     }
   })
+
+  // Flow 웹뷰를 특정 프로필 세션 파티션으로 완전 소멸 후 재생성하는 동적 프로필 전환 핵심 엔진!
+  global.recreateFlowViewWithProfile = async (profileId) => {
+    console.log('[Profile Switch] Recreating Flow View for profile:', profileId)
+    
+    // 1. 프로필 메타데이터 로드
+    const configPath = path.join(app.getPath('userData'), 'flow-profiles-config.json')
+    if (!fsSync.existsSync(configPath)) {
+      throw new Error('Profiles configuration not found')
+    }
+    const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'))
+    const targetProf = config.profiles.find(p => p.id === profileId)
+    if (!targetProf) {
+      throw new Error(`Profile ${profileId} not found`)
+    }
+
+    // 2. 고유 바인딩 하드웨어 지문 매핑
+    global.currentHardwareProfile = targetProf.hardware
+    console.log('[Profile Switch] Bound hardware associated:', targetProf.hardware.renderer)
+
+    // 3. 기존 웹뷰 소멸
+    if (flowView) {
+      mainWindow.contentView.removeChildView(flowView)
+      flowView.webContents.destroy()
+    }
+
+    // 4. 격리 파티션을 탑재한 새 웹뷰 인스턴스 기동
+    const newPartition = `persist:flow_profile_${profileId}`
+    flowView = new WebContentsView({
+      webPreferences: {
+        partition: newPartition,
+        contextIsolation: true,
+        webSecurity: false,
+      }
+    })
+
+    // 동적 스텔스 바인딩 복원 (프로필 전환 시에도 구글 로그인 100% 통과 + Flow 생성 우회 유지)
+    flowView.webContents.on('did-start-navigation', (_, url) => applyDynamicStealth(url));
+    flowView.webContents.on('dom-ready', () => {
+      const url = flowView.webContents.getURL();
+      applyDynamicStealth(url);
+    });
+
+    // 7. 메인 윈도우에 얹고 레이아웃 바인딩 복원
+    mainWindow.contentView.addChildView(flowView)
+    
+    // did-navigate 등 기존 리스너 복구
+    flowView.webContents.on('did-navigate', (_, url) => {
+      if (url.includes('unsupported-country')) {
+        console.log('[Flow] Region unavailable detected early (did-navigate)')
+        mainWindow.webContents.send('flow-status', {
+          loaded: true, url, loggedIn: false, unavailable: true
+        })
+      }
+    })
+
+    flowView.webContents.on('did-finish-load', async () => {
+      const url = flowView.webContents.getURL()
+      console.log('[Flow] did-finish-load:', url)
+      const unavailable = url.includes('unsupported-country')
+      mainWindow.webContents.send('flow-status', {
+        loaded: true,
+        url,
+        loggedIn: url.includes('labs.google/fx'),
+        unavailable
+      })
+    })
+
+    // 8. 강제 Flow 로드 시작
+    flowView.webContents.loadURL(FLOW_URL)
+    
+    // layout 모듈의 updateBounds 실행을 위한 helper 실행
+    if (typeof updateBounds === 'function') {
+      updateBounds(mainWindow)
+    }
+
+    console.log('[Profile Switch] Recreation complete for profile:', profileId)
+    return { success: true }
+  }
+
+  // 동적 도메인 타겟팅 스텔스 엔진:
+  // 구글 로그인(/auth, accounts.google.com 등) 단계에는 100% 무개입 순수 크롬 상태를 유지하여 로그인을 성공시키고,
+  // 로그인이 완료되어 실제 Flow 서비스(labs.google/fx) 영역으로 진입하는 순간부터 최상위 봇 차단막(webdriver=false, Chrome UA)을 전격 가동합니다!
+  const applyDynamicStealth = (url) => {
+    if (url && url.includes('labs.google/fx')) {
+      console.log('[Dynamic Stealth] Activating Anti-bot Stealth Mode for Google Flow API...');
+      
+      // 1. User-Agent를 실제 오리지널 최신 크롬으로 변조하여 API 요청 헤더 일치성 보장!
+      const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+      flowView.webContents.setUserAgent(modernChromeUA);
+      
+      // 2. 영상 생성 시점에 실행되는 자바스크립트의 navigator.webdriver 검증을 100% 무력화!
+      const stealthScript = `
+        (function() {
+          try {
+            Object.defineProperty(navigator, 'webdriver', {
+              get: () => false,
+              configurable: true
+            });
+            console.log('[Stealth] navigator.webdriver spoofed to false successfully.');
+          } catch(e) {}
+        })();
+      `;
+      flowView.webContents.executeJavaScript(stealthScript).catch(() => {});
+    }
+  };
+
+  // 페이지 이동 및 로딩 완료 시점에 실시간 동적 스텔스 작동 바인딩
+  flowView.webContents.on('did-start-navigation', (_, url) => applyDynamicStealth(url));
+  flowView.webContents.on('dom-ready', () => {
+    const url = flowView.webContents.getURL();
+    applyDynamicStealth(url);
+  });
+
   mainWindow.contentView.addChildView(flowView)
 
   // Load Flow
@@ -1757,14 +1942,58 @@ app.whenReady().then(() => {
 
   // local-resource:// 프로토콜 핸들러 등록
   protocol.handle('local-resource', (request) => {
-    // URL: local-resource://host/absolute/path/to/file
-    // decodeURIComponent로 한글 경로 등 처리
-    let filePath = decodeURIComponent(new URL(request.url).pathname)
-    // Windows: /C:/path → C:/path
-    if (process.platform === 'win32' && filePath.startsWith('/')) {
-      filePath = filePath.slice(1)
+    try {
+      const parsedUrl = new URL(request.url)
+      let filePath = parsedUrl.pathname
+      
+      // Chromium URL 파서가 드라이브 문자(C:, D: 등)를 host로 파싱하면서 콜론을 제거해버리는 현상(예: local-resource://c/Users/...) 완벽 복구!
+      if (process.platform === 'win32' && parsedUrl.host) {
+        let host = parsedUrl.host
+        // host가 'c'나 'd'처럼 단일 문자이거나 'c:' 형태인 경우 드라이브 문자로 간주
+        if (host.length === 1 && /[a-zA-Z]/.test(host)) {
+          host = host + ':'
+        }
+        if (/^[a-zA-Z]:$/.test(host)) {
+          filePath = host + filePath
+        }
+      }
+
+      filePath = decodeURIComponent(filePath)
+      
+      // Windows: /C:/path → C:/path (앞에 슬래시가 남아있는 경우 제거)
+      if (process.platform === 'win32' && filePath.startsWith('/')) {
+        filePath = filePath.slice(1)
+      }
+      
+      // 파일 확장자에 맞는 적절한 Content-Type 지정
+      const ext = path.extname(filePath).toLowerCase()
+      const mimeTypes = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml',
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+        '.json': 'application/json',
+      }
+      const contentType = mimeTypes[ext] || 'application/octet-stream'
+
+      // net.fetch 격리 세션 보안 장벽 해소를 위해 Node.js fs로 직접 읽어서 전달!
+      const data = fsSync.readFileSync(filePath)
+      return new Response(data, {
+        headers: { 
+          'Content-Type': contentType,
+          'Access-Control-Allow-Origin': '*'
+        }
+      })
+    } catch (err) {
+      console.error('[local-resource] Protocol handler parsing failed:', err)
+      return new Response('File Not Found', { status: 404 })
     }
-    return net.fetch(`file://${filePath}`)
   })
 
   // Claude Code 스킬 자동 설치 (앱 시작 시)

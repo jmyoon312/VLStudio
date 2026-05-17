@@ -121,18 +121,25 @@ export function useAudioImport(t) {
   const applyOverrides = (pkg, overrides) => {
     if (!pkg || !overrides || Object.keys(overrides).length === 0) return pkg
     const apply = (rel, file) => {
-      const o = overrides[rel]
-      if (o?.timecodeMs != null) file.timecodeMs = o.timecodeMs
+      const normalizedRel = rel.replace(/\\/g, '/')
+      const o = overrides[normalizedRel]
+      if (o?.timecodeMs != null) {
+        file.timecodeMs = o.timecodeMs
+        console.log('[AudioOverride] Applied sync match for:', normalizedRel, '->', o.timecodeMs)
+      }
     }
+    const folderPathNormalized = (pkg.folderPath || '').replace(/\\/g, '/')
     for (const v of (pkg.voices || [])) {
       for (const f of v.files) {
-        const rel = f.path.replace(pkg.folderPath + '/', '')
+        const pathNormalized = (f.path || '').replace(/\\/g, '/')
+        const rel = pathNormalized.replace(folderPathNormalized + '/', '')
         apply(rel, f)
       }
     }
     for (const cat of (pkg.sfx || [])) {
       for (const f of cat.files) {
-        const rel = f.path.replace(pkg.folderPath + '/', '')
+        const pathNormalized = (f.path || '').replace(/\\/g, '/')
+        const rel = pathNormalized.replace(folderPathNormalized + '/', '')
         apply(rel, f)
       }
     }
@@ -338,6 +345,18 @@ export function useAudioImport(t) {
     ++opVersionRef.current
     setAudioPackage(null)
     setAudioTracks(null)
+    localStorage.removeItem('audioFolderPath')
+    try {
+      const settingsRaw = localStorage.getItem('autoflowcut_settings')
+      const projectName = settingsRaw ? JSON.parse(settingsRaw)?.projectName : null
+      if (projectName) {
+        const audioMap = JSON.parse(localStorage.getItem('audioFolderPaths') || '{}')
+        delete audioMap[projectName]
+        localStorage.setItem('audioFolderPaths', JSON.stringify(audioMap))
+      }
+    } catch (e) {
+      console.warn('[AudioClear] failed to clean audioFolderPaths:', e)
+    }
   }, [])
 
   /**

@@ -92,7 +92,8 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
       id: 'narration',
       startMs: 0,
       endMs: audioPackage.media.video.durationMs || 0,
-      audioPath: audioPackage.media.video.path,
+      // 가이드 나레이션 통음성은 개별로 잘린 대사/성우 음성과의 사운드 중복/겹침 재생을 방지하기 위해 audioPath를 null로 비활성화합니다.
+      audioPath: null,
       filename: audioPackage.media.video.filename,
       color: COLORS.narration,
     }] : []

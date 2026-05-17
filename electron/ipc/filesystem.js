@@ -32,11 +32,89 @@ import { parseSfxList } from '../../src/utils/parseSfxList.js'
 // ============================================================
 
 /**
+ * Pure JS parser to extract duration (ms) from MP3 file sizing and CBR header inspection.
+ * Serves as an extremely robust fallback when ffprobe is missing on the host environment.
+ */
+function getMp3DurationMsPure(filePath) {
+  try {
+    const fd = fsSync.openSync(filePath, 'r')
+    const stats = fsSync.statSync(filePath)
+    const fileSize = stats.size
+
+    const buffer = Buffer.alloc(4096)
+    const bytesRead = fsSync.readSync(fd, buffer, 0, 4096, 0)
+    fsSync.closeSync(fd)
+
+    if (bytesRead < 10) return null
+
+    let offset = 0
+    if (buffer.toString('ascii', 0, 3) === 'ID3') {
+      const sizeBytes = buffer.subarray(6, 10)
+      const id3Size = ((sizeBytes[0] & 0x7F) << 21) |
+                      ((sizeBytes[1] & 0x7F) << 14) |
+                      ((sizeBytes[2] & 0x7F) << 7) |
+                      (sizeBytes[3] & 0x7F)
+      offset = 10 + id3Size
+    }
+
+    let frameHeaderIndex = -1
+    for (let i = offset; i < bytesRead - 4; i++) {
+      if (buffer[i] === 0xFF && (buffer[i + 1] & 0xE0) === 0xE0) {
+        frameHeaderIndex = i
+        break
+      }
+    }
+
+    if (frameHeaderIndex === -1) {
+      const payloadSize = Math.max(0, fileSize - offset)
+      return Math.round((payloadSize / 16000) * 1000)
+    }
+
+    const header = buffer.readUInt32BE(frameHeaderIndex)
+    const mpegVersion = (header >> 19) & 0x03
+    const layer = (header >> 17) & 0x03
+    const bitrateIndex = (header >> 12) & 0x0F
+
+    const bitrateTableV1L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+    const bitrateTableV2L3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
+
+    let kbps = 128
+    if (mpegVersion === 3 && layer === 1) {
+      kbps = bitrateTableV1L3[bitrateIndex] || 128
+    } else {
+      kbps = bitrateTableV2L3[bitrateIndex] || 64
+    }
+
+    const bytesPerSecond = kbps * 125
+    const audioSize = Math.max(0, fileSize - frameHeaderIndex)
+    const durationMs = Math.round((audioSize / bytesPerSecond) * 1000)
+
+    console.log(`[MP3 Pure Parser] parsed duration: ${durationMs}ms, kbps: ${kbps}, file: ${path.basename(filePath)}`)
+    return durationMs
+  } catch (e) {
+    console.warn('[MP3 Pure Parser] failed to parse duration:', e.message)
+    return null
+  }
+}
+
+/**
  * 오디오 파일 재생 시간(ms) 추출 — ffprobe 사용 (WAV, MP3, OGG, M4A 등 모두 지원)
- * ffprobe 없으면 WAV는 헤더 파싱 폴백
+ * ffprobe 없으면 WAV는 헤더 파싱 폴백, MP3는 초고속 Pure JS Parser로 대응
  */
 function getAudioDurationMs(filePath) {
   return new Promise((resolve) => {
+    const ext = path.extname(filePath).toLowerCase()
+    
+    // 1. MP3 파일인 경우 초고속 자바스크립트 내장 엔진으로 즉각 연산
+    if (ext === '.mp3') {
+      const pureDuration = getMp3DurationMsPure(filePath)
+      if (pureDuration && pureDuration > 0) {
+        resolve(pureDuration)
+        return
+      }
+    }
+
+    // 2. ffprobe 시도
     execFile('ffprobe', [
       '-v', 'quiet',
       '-print_format', 'json',
@@ -54,12 +132,16 @@ function getAudioDurationMs(filePath) {
         } catch { /* fallthrough */ }
       }
 
-      // ffprobe 실패 시 WAV 헤더 폴백
-      const ext = path.extname(filePath).toLowerCase()
+      // 3. ffprobe 실패 시 WAV 헤더 파싱 및 최종 크기 기반 폴백
       if (ext === '.wav') {
         resolve(getWavDurationMs(filePath))
       } else {
-        resolve(null)
+        try {
+          const stats = fsSync.statSync(filePath)
+          resolve(Math.round((stats.size / 16000) * 1000)) // 128kbps 기준 추산
+        } catch {
+          resolve(3000) // 진짜 최후의 최후 폴백 3초
+        }
       }
     })
   })
@@ -314,6 +396,36 @@ export function registerFilesystemIPC(ipcMain) {
       const name = path.basename(selectedPath)
 
       return { success: true, path: selectedPath, name }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // ----------------------------------------------------------
+  // 1b. fs:select-image-file — 이미지 파일 선택 탐색기 열기
+  // ----------------------------------------------------------
+  ipcMain.handle('fs:select-image-file', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          { name: 'Images', extensions: ['jpg', 'png', 'gif', 'webp', 'jpeg'] }
+        ]
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, error: 'cancelled' }
+      }
+
+      const selectedPath = result.filePaths[0]
+      const dataUrl = await fileToDataUrl(selectedPath)
+
+      return { 
+        success: true, 
+        path: selectedPath, 
+        data: dataUrl,
+        filename: path.basename(selectedPath)
+      }
     } catch (error) {
       return { success: false, error: error.message }
     }
@@ -1118,7 +1230,7 @@ export function registerFilesystemIPC(ipcMain) {
           if (!sfxEntry.isDirectory()) continue
           const sfxCatPath = path.join(sfxCatDir, sfxEntry.name)
           const sfxFiles = await fs.readdir(sfxCatPath)
-          const audioFiles = sfxFiles
+          const candidates = sfxFiles
             .filter(f => /\.(mp3|wav|m4a)$/i.test(f))
             .map(f => {
               const name = f.replace(/\.\w+$/, '')
@@ -1139,6 +1251,15 @@ export function registerFilesystemIPC(ipcMain) {
 
               return { path: path.join(sfxCatPath, f), filename: f, timecodeMs }
             })
+            .filter(f => f.timecodeMs !== null)
+
+          // 각 효과음 파일의 실제 재생 시간 읽기 (병렬)
+          const audioFiles = await Promise.all(
+            candidates.map(async (f) => {
+              const durationMs = await getAudioDurationMs(f.path)
+              return { ...f, durationMs }
+            })
+          )
 
           if (audioFiles.length > 0) {
             sfxCategories.push({

@@ -221,28 +221,235 @@ export function registerCapcutIPC(ipcMain) {
   // draft_meta_info.json, media files, and SRT files.
   // ----------------------------------------------------------
   ipcMain.handle('capcut:write-project', async (_event, {
-    targetPath, draftInfo, draftMetaInfo
+    targetPath, draftInfo, draftMetaInfo, timelineLayout, extraFiles = {}, mediaFiles = [], srtContent = null, srtFilename = 'subtitles.srt'
   }) => {
     try {
-      // Create project directory (JSON only, no media subfolder)
-      await fs.mkdir(targetPath, { recursive: true })
+      // Create project directory and standard subfolders
+      console.log(`[CapCut IPC] Creating project structure at: ${targetPath}`);
+      await fs.mkdir(targetPath, { recursive: true });
+      
+      const subfolders = [
+        'adjust_mask',
+        'common_attachment',
+        'matting',
+        'qr_upload',
+        'Resources',
+        'Resources/audioAlg',
+        'Resources/digitalHuman',
+        'Resources/videoAlg',
+        'smart_crop',
+        'subdraft',
+        'Thumbnail'
+      ];
 
-      // Write draft_info.json (main project data)
+      for (const sub of subfolders) {
+        await fs.mkdir(path.join(targetPath, sub), { recursive: true });
+      }
+
+      // Meticulously clone actual local platform details to ensure strict OS/app compatibility
+      try {
+        const parentDir = path.dirname(targetPath);
+        const entries = await fs.readdir(parentDir, { withFileTypes: true });
+        let realPlatform = null;
+        let realLastModified = null;
+        let realVersion = null;
+        let realNewVersion = null;
+
+        for (const entry of entries) {
+          if (entry.isDirectory() && entry.name !== path.basename(targetPath) && /^\d+$/.test(entry.name)) {
+            const contentPath = path.join(parentDir, entry.name, 'draft_content.json');
+            if (await pathExists(contentPath)) {
+              console.log(`[CapCut IPC] Found existing project ${entry.name} to extract platform metadata.`);
+              const existingContent = JSON.parse(await fs.readFile(contentPath, 'utf-8'));
+              if (existingContent.platform) {
+                realPlatform = existingContent.platform;
+                realLastModified = existingContent.last_modified_platform || existingContent.platform;
+                realVersion = existingContent.version;
+                realNewVersion = existingContent.new_version;
+                break;
+              }
+            }
+          }
+        }
+
+        if (realPlatform) {
+          console.log(`[CapCut IPC] Cloning local platform metadata: ${realPlatform.app_version}, version: ${realVersion}, new_version: ${realNewVersion}`);
+          if (draftInfo && typeof draftInfo === 'object') {
+            draftInfo.platform = realPlatform;
+            draftInfo.last_modified_platform = realLastModified;
+            if (realVersion) draftInfo.version = realVersion;
+            if (realNewVersion) draftInfo.new_version = realNewVersion;
+          }
+          if (extraFiles) {
+            if (extraFiles['template-2.tmp'] && typeof extraFiles['template-2.tmp'] === 'object') {
+              extraFiles['template-2.tmp'].platform = realPlatform;
+              extraFiles['template-2.tmp'].last_modified_platform = realLastModified;
+              if (realVersion) extraFiles['template-2.tmp'].version = realVersion;
+              if (realNewVersion) extraFiles['template-2.tmp'].new_version = realNewVersion;
+            }
+            if (extraFiles['draft_content.json.bak'] && typeof extraFiles['draft_content.json.bak'] === 'object') {
+              extraFiles['draft_content.json.bak'].platform = realPlatform;
+              extraFiles['draft_content.json.bak'].last_modified_platform = realLastModified;
+              if (realVersion) extraFiles['draft_content.json.bak'].version = realVersion;
+              if (realNewVersion) extraFiles['draft_content.json.bak'].new_version = realNewVersion;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[CapCut IPC] Could not dynamically extract platform binding details:', err.message);
+      }
+
+      // Write draft_content.json (main project data)
+      console.log(`[CapCut IPC] Writing draft_content.json`);
       const draftInfoContent = typeof draftInfo === 'string'
         ? draftInfo
         : JSON.stringify(draftInfo, null, 2)
-      await fs.writeFile(path.join(targetPath, 'draft_info.json'), draftInfoContent, 'utf-8')
+      await fs.writeFile(path.join(targetPath, 'draft_content.json'), draftInfoContent, 'utf-8')
 
       // Write draft_meta_info.json (metadata)
+      console.log(`[CapCut IPC] Writing draft_meta_info.json`);
       const draftMetaInfoContent = typeof draftMetaInfo === 'string'
         ? draftMetaInfo
         : JSON.stringify(draftMetaInfo, null, 2)
       await fs.writeFile(path.join(targetPath, 'draft_meta_info.json'), draftMetaInfoContent, 'utf-8')
 
-      // Write boilerplate file that CapCut expects
-      await fs.writeFile(path.join(targetPath, 'draft_agency_info.json'), '{}', 'utf-8')
+      // Meticulously register/update this draft inside root_meta_info.json to ensure CapCut opens it instantly
+      try {
+        const parentDir = path.dirname(targetPath);
+        const rootMetaPath = path.join(parentDir, 'root_meta_info.json');
+        if (await pathExists(rootMetaPath)) {
+          console.log('[CapCut IPC] Updating root_meta_info.json to bind UUID and enable project launch...');
+          const rootMeta = JSON.parse(await fs.readFile(rootMetaPath, 'utf-8'));
+          
+          if (rootMeta && Array.isArray(rootMeta.all_draft_store)) {
+            const folderName = path.basename(targetPath);
+            const normalizedFoldPath = targetPath.replace(/\\/g, '/');
+            const normalizedRootPath = parentDir.replace(/\\/g, '/');
+            
+            // Format paths with backslashes for the file part to match CapCut's native format perfectly
+            const coverPath = `${normalizedRootPath}/${folderName}\\draft_cover.jpg`;
+            const jsonPath = `${normalizedRootPath}/${folderName}\\draft_content.json`;
 
-      return { success: true, targetPath, fileCount: 3 }
+            // Extract the real parsed draftInfo object
+            const parsedDraftInfo = typeof draftInfo === 'string' ? JSON.parse(draftInfo) : draftInfo;
+
+            const newEntry = {
+              cloud_draft_cover: false,
+              cloud_draft_sync: false,
+              draft_cloud_last_action_download: false,
+              draft_cloud_purchase_info: "",
+              draft_cloud_template_id: "",
+              draft_cloud_tutorial_info: "",
+              draft_cloud_videocut_purchase_info: "",
+              draft_cover: coverPath,
+              draft_fold_path: normalizedFoldPath,
+              draft_id: parsedDraftInfo.id,
+              draft_is_ai_shorts: false,
+              draft_is_cloud_temp_draft: false,
+              draft_is_invisible: false,
+              draft_is_web_article_video: false,
+              draft_json_file: jsonPath,
+              draft_name: folderName,
+              draft_new_version: "",
+              draft_root_path: normalizedRootPath,
+              draft_timeline_materials_size: 100000,
+              draft_type: "",
+              draft_web_article_video_enter_from: "",
+              streaming_edit_draft_ready: true,
+              tm_draft_cloud_completed: "",
+              tm_draft_cloud_entry_id: -1,
+              tm_draft_cloud_modified: 0,
+              tm_draft_cloud_parent_entry_id: -1,
+              tm_draft_cloud_space_id: -1,
+              tm_draft_cloud_user_id: -1,
+              tm_draft_create: Date.now() * 1000,
+              tm_draft_modified: Date.now() * 1000,
+              tm_draft_removed: 0,
+              tm_duration: parsedDraftInfo.duration || 0
+            };
+
+            const existingIndex = rootMeta.all_draft_store.findIndex(
+              item => item.draft_fold_path.toLowerCase() === normalizedFoldPath.toLowerCase()
+            );
+
+            if (existingIndex !== -1) {
+              console.log(`[CapCut IPC] Updating existing draft entry in root_meta_info.json at index ${existingIndex}`);
+              newEntry.tm_draft_create = rootMeta.all_draft_store[existingIndex].tm_draft_create || newEntry.tm_draft_create;
+              rootMeta.all_draft_store[existingIndex] = newEntry;
+            } else {
+              console.log('[CapCut IPC] Appending new draft entry to root_meta_info.json');
+              rootMeta.all_draft_store.push(newEntry);
+            }
+
+            await fs.writeFile(rootMetaPath, JSON.stringify(rootMeta, null, 2), 'utf-8');
+            console.log('[CapCut IPC] root_meta_info.json successfully written and synchronized!');
+          }
+        } else {
+          console.warn('[CapCut IPC] root_meta_info.json was not found in parent directory.');
+        }
+      } catch (metaErr) {
+        console.error('[CapCut IPC] Failed to update root_meta_info.json:', metaErr.message);
+      }
+
+      // Write timeline_layout.json (layout info)
+      if (timelineLayout) {
+        console.log(`[CapCut IPC] Writing timeline_layout.json`);
+        const layoutContent = typeof timelineLayout === 'string'
+          ? timelineLayout
+          : JSON.stringify(timelineLayout, null, 2)
+        await fs.writeFile(path.join(targetPath, 'timeline_layout.json'), layoutContent, 'utf-8')
+      }
+
+      // Write extra boilerplate files (draft_settings, biz_config, etc.)
+      for (const [filename, content] of Object.entries(extraFiles)) {
+        console.log(`[CapCut IPC] Writing extra file: ${filename}`);
+        const fileContent = typeof content === 'string'
+          ? content
+          : JSON.stringify(content, null, 2)
+        await fs.writeFile(path.join(targetPath, filename), fileContent, 'utf-8')
+      }
+
+      // Copy/Write media files if provided
+      if (mediaFiles && Array.isArray(mediaFiles)) {
+        console.log(`[CapCut IPC] Processing ${mediaFiles.length} media files`);
+        for (const media of mediaFiles) {
+          try {
+            const destPath = path.join(targetPath, media.targetName)
+            if (media.isBase64 && media.source) {
+              console.log(`[CapCut IPC] Saving base64 image as: ${media.targetName}`);
+              const base64Data = media.source.replace(/^data:image\/[^;]+;base64,/, '')
+              await fs.writeFile(destPath, Buffer.from(base64Data, 'base64'))
+              
+              // Also create a draft_cover.jpg from the first image
+              if (media.targetName.includes('_1.')) {
+                console.log(`[CapCut IPC] Saving draft_cover.jpg`);
+                await fs.writeFile(path.join(targetPath, 'draft_cover.jpg'), Buffer.from(base64Data, 'base64'))
+              }
+            } else if (media.source && await pathExists(media.source)) {
+              console.log(`[CapCut IPC] Copying local file: ${media.source} -> ${media.targetName}`);
+              await fs.copyFile(media.source, destPath)
+
+              // Also create a draft_cover.jpg from the first image
+              if (media.targetName.includes('_1.')) {
+                console.log(`[CapCut IPC] Copying draft_cover.jpg`);
+                await fs.copyFile(media.source, path.join(targetPath, 'draft_cover.jpg'))
+              }
+            } else {
+              console.warn(`[CapCut IPC] Skipping media (not found): ${media.source}`);
+            }
+          } catch (mediaError) {
+            console.error(`[CapCut IPC] Failed to handle media ${media.targetName}:`, mediaError)
+          }
+        }
+      }
+
+      // Write SRT file if provided
+      if (srtContent) {
+        console.log(`[CapCut IPC] Writing SRT file: ${srtFilename}`);
+        await fs.writeFile(path.join(targetPath, srtFilename), srtContent, 'utf-8')
+      }
+
+      return { success: true, targetPath, fileCount: 4 + (timelineLayout ? 1 : 0) + Object.keys(extraFiles).length + (srtContent ? 1 : 0) }
     } catch (error) {
       return { success: false, targetPath, fileCount: 0, error: error.message }
     }
@@ -328,12 +535,32 @@ export function registerCapcutIPC(ipcMain) {
           path.join(programFilesX86, 'CapCut', 'CapCut.exe'),
         ]
 
+        // 1. Check typical static locations
         for (const exePath of exePaths) {
           if (await pathExists(exePath)) {
-            // Use start command to launch without blocking
             exec(`start "" "${exePath}"`)
             return { success: true }
           }
+        }
+
+        // 2. Perform deep dynamic scan inside LOCALAPPDATA/CapCut/Apps/ for versioned folders (e.g. Apps/3.8.0.x/CapCut.exe)
+        try {
+          const appsDir = path.join(localAppData, 'CapCut', 'Apps')
+          if (await pathExists(appsDir)) {
+            const entries = await fs.readdir(appsDir, { withFileTypes: true })
+            for (const entry of entries) {
+              if (entry.isDirectory()) {
+                const nestedExe = path.join(appsDir, entry.name, 'CapCut.exe')
+                if (await pathExists(nestedExe)) {
+                  console.log(`[CapCut IPC] Found CapCut inside version subfolder: ${entry.name}`);
+                  exec(`start "" "${nestedExe}"`)
+                  return { success: true }
+                }
+              }
+            }
+          }
+        } catch (scanError) {
+          console.warn('[CapCut IPC] Dynamic version lookup search failed:', scanError.message)
         }
 
         return { success: false, error: 'CapCut application not found on this PC' }

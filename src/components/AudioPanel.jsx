@@ -49,7 +49,7 @@ function findSceneAtTime(scenes, timecodeMs, srtEntries) {
     scenes.find(s => s.subtitle && srtText.includes(s.subtitle)) || null
 }
 
-export default function AudioPanel({ audioPackage, audioReviews, loading = false, onSaveReview, onBulkReview, onRefresh, onSaveTimecodeOverride, srtEntries, scenes }) {
+export default function AudioPanel({ audioPackage, audioReviews, loading = false, onSaveReview, onBulkReview, onRefresh, onSaveTimecodeOverride, onClear, srtEntries, scenes }) {
   const { t } = useI18n()
   const [subTab, setSubTab] = useState('timeline')
   const [flagTarget, setFlagTarget] = useState(null)
@@ -154,6 +154,19 @@ export default function AudioPanel({ audioPackage, audioReviews, loading = false
               🔄
             </button>
           </span>
+        )}
+        {onClear && (
+          <button
+            className="sub-tab-clear-btn"
+            onClick={() => {
+              if (window.confirm('불러온 오디오 패키지와 캐시 정보를 완전히 초기화(삭제)하시겠습니까?')) {
+                onClear()
+              }
+            }}
+            title="오디오 초기화"
+          >
+            🗑️ 초기화
+          </button>
         )}
       </div>
 

@@ -154,7 +154,9 @@ export function parseCSVToScenes(csvText, defaultDuration = DEFAULTS.scene.durat
  * @returns {Array} 씬 배열
  */
 export function parseSRTToScenes(srtText) {
-  const blocks = srtText.trim().split(/\n\n+/)
+  // Normalize CRLF to LF to prevent parsing issues on Windows
+  const normalizedText = srtText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const blocks = normalizedText.trim().split(/\n\n+/)
   const scenes = []
   
   for (const block of blocks) {

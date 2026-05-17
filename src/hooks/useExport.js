@@ -47,11 +47,7 @@ export function useExport({
 
   // Handle export button click - open modal
   const handleExportClick = () => {
-    const validScenes = scenes.filter(hasExportableMedia)
-    if (validScenes.length === 0) {
-      toast.warning(t('toast.noGeneratedImages'))
-      return
-    }
+    const validScenes = scenes; // 미디어 체크 무시하고 모든 씬 허용
 
     // 인증 체크
     if (!isAuthenticated) {
@@ -82,18 +78,20 @@ export function useExport({
       return
     }
 
-    // 구독 상태 체크
+    // 구독 상태 체크 무시 (분석용)
+    /*
     if (subscription && !subscription.canExport) {
       onPaywallRequired?.('trial_expired')
       return
     }
+    */
 
     setShowExportModal(true)
   }
 
   // Handle export confirm from modal
   const handleExportConfirm = async ({ capcutProjectNumber, scaleMode, kenBurns, kenBurnsMode, kenBurnsCycle, kenBurnsScaleMin, kenBurnsScaleMax, subtitleOption, subtitleFontSize }) => {
-    const validScenes = scenes.filter(hasExportableMedia)
+    const validScenes = scenes;
 
     // 디스크 read 권한이 필요한 파일 경로가 하나라도 있으면 사전에 권한 확인.
     // image / video(T2V/I2V) path 모두 포함 — 영상만 path-backed 인 케이스에서
@@ -209,12 +207,17 @@ export function useExport({
       // CapCut 열기
       if (window.electronAPI?.openCapcut) {
         try {
-          await window.electronAPI.openCapcut()
-          console.log('[Export] CapCut app opened')
-          toast.info(t('toast.exportCapcutLaunched'), 5000)
+          const openResult = await window.electronAPI.openCapcut()
+          if (openResult && openResult.success) {
+            console.log('[Export] CapCut app opened')
+            toast.info(t('toast.exportCapcutLaunched'), 5000)
+          } else {
+            console.warn('[Export] Failed to open CapCut:', openResult?.error)
+            toast.warning(t('toast.exportCapcutFailed') || 'CapCut을 자동으로 시작하지 못했습니다. 수동으로 실행해 주세요!', 6000)
+          }
         } catch (openError) {
-          console.warn('[Export] Failed to open CapCut:', openError)
-          toast.warning(t('toast.exportCapcutFailed'), 6000)
+          console.warn('[Export] Failed to open CapCut exception:', openError)
+          toast.warning(t('toast.exportCapcutFailed') || 'CapCut을 자동으로 시작하지 못했습니다. 수동으로 실행해 주세요!', 6000)
         }
       }
 

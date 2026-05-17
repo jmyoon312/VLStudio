@@ -1,23 +1,23 @@
-# AutoFlowCut
+# ViraLoop Studio (Flow2CapCut Desktop)
 
 <kbd>🇺🇸 English</kbd> <kbd>[🇰🇷 한국어](README.ko.md)</kbd>
 
 <p align="center">
   <a href="https://youtu.be/cqxvDx9HTvQ">
-    <img src="docs/youtube-thumb-en.png" alt="AutoFlowCut intro video - click to play" width="720">
+    <img src="docs/youtube-thumb-en.png" alt="ViraLoop Studio intro video - click to play" width="720">
   </a>
 </p>
 
-A desktop app that **mass-generates** images and videos with Google Flow AI and exports them to CapCut projects in one click.
+A premium desktop app that **mass-generates** images and videos with Google Flow AI and exports them to CapCut projects in one click.
 
-[![Release](https://img.shields.io/github/v/release/touchizen/AutoFlowCut)](https://github.com/touchizen/AutoFlowCut/releases)
+[![Release](https://img.shields.io/github/v/release/jmyoon312/VLStudio)](https://github.com/jmyoon312/VLStudio/releases)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue)](LICENSE)
 
 ## Overview
 
 Still building AI videos one shot at a time?
 
-AutoFlowCut automates the entire AI video production pipeline. Generate images and videos with Google Flow AI (labs.google/fx), then convert them into ready-to-edit CapCut projects. Import your script, generate visuals, pick the best media per scene, and export in a single click.
+ViraLoop Studio automates the entire AI video production pipeline. Generate images and videos with Google Flow AI (labs.google/fx), then convert them into ready-to-edit CapCut projects. Import your script, generate visuals, pick the best media per scene, and export in a single click.
 
 ## Features
 
