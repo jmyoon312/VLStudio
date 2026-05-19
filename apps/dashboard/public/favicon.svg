@@ -1,3 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="120" fill="#2563EB"/>
+  <!-- Centered Lightning Bolt (Zap) -->
+  <path d="M280 48L120 288h120v176l160-240H280z" fill="#FFFFFF"/>
 </svg>

@@ -73,6 +73,7 @@
     "electron": "^36.9.5",
     "electron-builder": "^26.7.0",
     "jsdom": "^28.1.0",
+    "png-to-ico": "^3.0.1",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
     "tailwindcss-animate": "^1.0.7",

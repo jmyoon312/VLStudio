@@ -295,11 +295,11 @@ function buildAppMenu() {
   const helpSubmenu = [
     {
       label: 'GitHub 저장소',
-      click: () => shell.openExternal('https://github.com/touchizen/AutoFlowCut'),
+      click: () => shell.openExternal('https://github.com/jmyoon312/VLStudio'),
     },
     {
       label: '이슈 보고',
-      click: () => shell.openExternal('https://github.com/touchizen/AutoFlowCut/issues'),
+      click: () => shell.openExternal('https://github.com/jmyoon312/VLStudio/issues'),
     },
   ]
   // On Windows there's no app menu, so add "Check for Updates" under Help.

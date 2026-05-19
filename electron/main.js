@@ -158,7 +158,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 900,
-    title: `AutoFlowCut v${app.getVersion()}`,
+    title: `ViraLoop Studio v${app.getVersion()}`,
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
@@ -167,6 +167,11 @@ function createWindow() {
       webSecurity: false  // 로컬 file:// 이미지 로드 허용
     }
   })
+
+  // Hide the legacy File/Edit menu bar on Windows/Linux for a modern premium look
+  if (process.platform !== 'darwin') {
+    mainWindow.setMenuBarVisibility(false)
+  }
 
   // 화면 꺼짐/절전 방지 기본 ON (layout 모듈에서 관리하므로 IPC로 초기화)
   // registerLayoutIPC 등록 후 자동으로 IPC 핸들러가 처리하지만,
