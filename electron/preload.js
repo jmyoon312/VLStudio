@@ -4,13 +4,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App
   openExternal: (url) => ipcRenderer.invoke('app:open-external', { url }),
   showInFolder: (filePath) => ipcRenderer.invoke('app:show-in-folder', { filePath }),
-  onFlowStatus: (callback) => ipcRenderer.on('flow-status', (_, data) => callback(data)),
+  onFlowStatus: (callback) => {
+    const handler = (_, data) => callback(data)
+    ipcRenderer.on('flow-status', handler)
+    return () => ipcRenderer.removeListener('flow-status', handler)
+  },
 
   // Layout
   setLayout: (params) => ipcRenderer.invoke('app:set-layout', params),
   updateSplit: (params) => ipcRenderer.invoke('app:update-split', params),
   getLayout: () => ipcRenderer.invoke('app:get-layout'),
-  onLayoutChanged: (callback) => ipcRenderer.on('layout-changed', (_, data) => callback(data)),
+  onLayoutChanged: (callback) => {
+    const handler = (_, data) => callback(data)
+    ipcRenderer.on('layout-changed', handler)
+    return () => ipcRenderer.removeListener('layout-changed', handler)
+  },
   setModalVisible: (params) => ipcRenderer.invoke('app:set-modal-visible', params),
 
   // Native menu (File → New Project / Recent Projects)
@@ -28,6 +36,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createProfile: (params) => ipcRenderer.invoke('profiles:create', params),
   deleteProfile: (params) => ipcRenderer.invoke('profiles:delete', params),
   updateProfile: (params) => ipcRenderer.invoke('profiles:update', params),
+  createFlowView: (params) => ipcRenderer.invoke('flow:create-view', params),
+  destroyFlowView: (params) => ipcRenderer.invoke('flow:destroy-view', params),
+  getActiveViews: () => ipcRenderer.invoke('flow:get-active-views'),
   extractToken: () => ipcRenderer.invoke('flow:extract-token'),
   extractProjectId: () => ipcRenderer.invoke('flow:extract-project-id'),
   validateToken: (params) => ipcRenderer.invoke('flow:validate-token', params),

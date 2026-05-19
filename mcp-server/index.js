@@ -23,6 +23,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { appFetch } from './lib/appClient.js';
 import { parseCSV, loadCSV, escapeCSVField, saveCSV } from './lib/csv.js';
+import { acquireFileLock, atomicWriteJsonSync } from './lib/fileIo.js';
 
 // ── 상태 ──────────────────────────────────────────────────────
 
@@ -33,6 +34,27 @@ let headers = [];
 let scenes = [];
 let projectJsonPath = '';
 let projectData = null;
+
+// Parallel generation queues mapped by projectId
+const generationQueues = new Map();
+
+function enqueueTask(projectId, taskFn) {
+  const pid = projectId || 'global';
+  if (!generationQueues.has(pid)) {
+    generationQueues.set(pid, Promise.resolve());
+  }
+  const previousPromise = generationQueues.get(pid);
+  const nextPromise = previousPromise.then(async () => {
+    try {
+      return await taskFn();
+    } catch (err) {
+      console.error(`[Queue:${pid}] Task failed:`, err);
+      throw err;
+    }
+  });
+  generationQueues.set(pid, nextPromise);
+  return nextPromise;
+}
 
 function ensureLoaded() {
   if (scenes.length === 0) {
@@ -89,14 +111,17 @@ function loadProjectJson(projectDir) {
   return false;
 }
 
-function saveProjectJson() {
+async function saveProjectJson() {
   if (!projectJsonPath || !projectData) {
     throw new Error('project.json이 로드되지 않았습니다.');
   }
-  // 백업
-  const backupPath = projectJsonPath.replace(/\.json$/, `_backup_${Date.now()}.json`);
-  fs.copyFileSync(projectJsonPath, backupPath);
-  fs.writeFileSync(projectJsonPath, JSON.stringify(projectData, null, 2), 'utf-8');
+  // 백업 및 저장을 락을 활용하여 안전하고 원자적으로 수행
+  const release = await acquireFileLock(projectJsonPath);
+  try {
+    atomicWriteJsonSync(projectJsonPath, projectData);
+  } finally {
+    release();
+  }
 }
 
 function ensureProjectLoaded() {
@@ -174,8 +199,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           image_dir: { type: 'string', description: '이미지/비디오 디렉토리 절대 경로' },
           mode: { type: 'string', enum: ['image', 'video'], description: '모드 (기본: image)', default: 'image' },
           force: { type: 'boolean', description: '기존 이미지 매핑 무시하고 강제 로드 (기본: false)', default: false },
+          projectId: { type: 'string', description: '프로젝트 ID (격리된 다중 창 작업 구분용)' },
         },
-        required: ['csv_path'],
+        required: ['csv_path', 'projectId'],
       },
     },
     {
@@ -515,8 +541,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           port: { type: 'number', description: 'HTTP 서버 포트 (기본: 3210)' },
           index: { type: 'number', description: '레퍼런스 인덱스 (0부터)' },
           styleId: { type: 'string', description: '스타일 ID. 형식: "ref:<id>" (커스텀 레퍼런스), "preset:<id>" (프리셋), plain id (자동으로 "preset:"으로 wrap됨), 또는 "none" (스타일 강제 미적용 — fallback도 안 함). 생략 시 우선순위: 사용 가능한 첫 style 카드 → UI 선택값 → 미적용 (레퍼런스 생성에는 씬 매칭 개념 없음). 전역 상태는 변경하지 않음.' },
+          projectId: { type: 'string', description: '프로젝트 ID (격리된 다중 창 작업 구분용)' },
         },
-        required: ['index'],
+        required: ['index', 'projectId'],
       },
     },
     {
@@ -528,8 +555,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           port: { type: 'number', description: 'HTTP 서버 포트 (기본: 3210)' },
           sceneId: { type: 'string', description: '씬 ID (예: "scene_1")' },
           styleId: { type: 'string', description: '스타일 ID. 형식: "ref:<id>" / "preset:<id>" / plain id (자동 wrap) / "none" (스타일 미적용 강제) / "auto" (씬 style_tag 매칭만, 기존 동작). 생략 시 UI 선택값 영향 없이 style_tag fallback만 적용.' },
+          projectId: { type: 'string', description: '프로젝트 ID (격리된 다중 창 작업 구분용)' },
         },
-        required: ['sceneId'],
+        required: ['sceneId', 'projectId'],
       },
     },
     {
@@ -541,7 +569,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           port: { type: 'number', description: 'HTTP 서버 포트 (기본: 3210)' },
           styleId: { type: 'string', description: '스타일 ID. 형식: "ref:<id>" (커스텀 레퍼런스), "preset:<id>" (프리셋), plain id (예: "korean-ani" — 자동으로 "preset:"으로 wrap), "auto" (씬별 style_tag 매칭 명시), "none" (스타일 강제 미적용 — fallback도 안 함). 생략 시 첫 style 카드 자동 fallback (MCP default). list_styles로 조회 가능.' },
           force: { type: 'boolean', description: '선택, 기본 false. true면 완료된 씬도 재생성 대상에 포함 — 새 styleId로 모든 씬 다시 생성. false면 기존 동작 (pending/error만).' },
+          projectId: { type: 'string', description: '프로젝트 ID (격리된 다중 창 작업 구분용)' },
         },
+        required: ['projectId'],
       },
     },
     {
@@ -553,7 +583,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           port: { type: 'number', description: 'HTTP 서버 포트 (기본: 3210)' },
           styleId: { type: 'string', description: '스타일 ID. 형식: "ref:<id>" / "preset:<id>" / plain id (자동 wrap) / "none" (스타일 강제 미적용 — fallback도 안 함). 생략 시 첫 style 카드 자동 fallback. 레퍼런스 생성에는 씬 매칭 개념이 없으므로 "auto" 토큰 미지원.' },
           force: { type: 'boolean', description: '선택, 기본 false. true면 완료된 reference도 재생성 대상에 포함 — 새 styleId로 모든 ref 다시 생성. false면 기존 동작 (미완료만).' },
+          projectId: { type: 'string', description: '프로젝트 ID (격리된 다중 창 작업 구분용)' },
         },
+        required: ['projectId'],
       },
     },
     {
@@ -563,7 +595,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: 'object',
         properties: {
           port: { type: 'number', description: 'HTTP 서버 포트 (기본: 3210)' },
+          projectId: { type: 'string', description: '프로젝트 ID (격리된 다중 창 작업 구분용)' },
         },
+        required: ['projectId'],
       },
     },
     {
@@ -576,7 +610,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           type: { type: 'string', enum: ['scene', 'ref'], description: '배치 타입: scene(기본) 또는 ref(레퍼런스)' },
           interval: { type: 'number', description: '폴링 간격 (ms, 기본: 3000)' },
           timeout: { type: 'number', description: '최대 대기 시간 (ms, 기본: 600000 = 10분)' },
+          projectId: { type: 'string', description: '프로젝트 ID (격리된 다중 창 작업 구분용)' },
         },
+        required: ['projectId'],
       },
     },
     {
@@ -586,7 +622,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: 'object',
         properties: {
           port: { type: 'number', description: 'HTTP 서버 포트 (기본: 3210)' },
+          projectId: { type: 'string', description: '프로젝트 ID (격리된 다중 창 작업 구분용)' },
         },
+        required: ['projectId'],
       },
     },
     {
@@ -1012,12 +1050,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case 'save_csv': {
         ensureLoaded();
         const outPath = args.output_path || csvPath;
-        // 백업
-        if (fs.existsSync(outPath)) {
-          const backupPath = outPath.replace(/\.csv$/, `_backup_${Date.now()}.csv`);
-          fs.copyFileSync(outPath, backupPath);
+        const release = await acquireFileLock(outPath);
+        try {
+          // 백업
+          if (fs.existsSync(outPath)) {
+            const backupPath = outPath.replace(/\.csv$/, `_backup_${Date.now()}.csv`);
+            fs.copyFileSync(outPath, backupPath);
+          }
+          saveCSV(outPath, headers, scenes);
+        } finally {
+          release();
         }
-        saveCSV(outPath, headers, scenes);
         return {
           content: [{
             type: 'text',
@@ -1138,7 +1181,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ref.prompt = args.prompt;
         // mediaId 초기화 — 프롬프트가 바뀌었으므로 재생성 필요
         ref.mediaId = '';
-        saveProjectJson();
+        await saveProjectJson();
         return {
           content: [{
             type: 'text',
@@ -1292,9 +1335,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'app_generate_reference': {
         const port = args.port || 3210;
+        const projectId = args.projectId;
         const body = { index: args.index };
         if (args.styleId) body.styleId = args.styleId;
-        const res = await appFetch(port, 'POST', '/api/generate-reference', body);
+        const res = await enqueueTask(projectId, async () => {
+          return await appFetch(port, 'POST', '/api/generate-reference', body, projectId);
+        });
         return {
           content: [{ type: 'text', text: `레퍼런스 [${args.index}] 생성 요청 완료: ${JSON.stringify(res.data)}` }],
         };
@@ -1302,9 +1348,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'app_generate_scene': {
         const port = args.port || 3210;
+        const projectId = args.projectId;
         const body = { sceneId: args.sceneId };
         if (args.styleId !== undefined) body.styleId = args.styleId;
-        const res = await appFetch(port, 'POST', '/api/generate-scene', body);
+        const res = await enqueueTask(projectId, async () => {
+          return await appFetch(port, 'POST', '/api/generate-scene', body, projectId);
+        });
         return {
           content: [{ type: 'text', text: `씬 [${args.sceneId}] 생성 요청 완료: ${JSON.stringify(res.data)}` }],
         };
@@ -1312,10 +1361,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'app_start_scene_batch': {
         const port = args.port || 3210;
+        const projectId = args.projectId;
         const body = {};
         if (args.styleId !== undefined) body.styleId = args.styleId;
         if (args.force !== undefined) body.force = !!args.force;
-        const res = await appFetch(port, 'POST', '/api/start-scene-batch', Object.keys(body).length ? body : null);
+        const res = await enqueueTask(projectId, async () => {
+          return await appFetch(port, 'POST', '/api/start-scene-batch', Object.keys(body).length ? body : null, projectId);
+        });
         return {
           content: [{ type: 'text', text: `씬 일괄 생성 시작: ${JSON.stringify(res.data)}` }],
         };
@@ -1323,10 +1375,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'app_start_ref_batch': {
         const port = args.port || 3210;
+        const projectId = args.projectId;
         const body = {};
         if (args.styleId !== undefined) body.styleId = args.styleId;
         if (args.force !== undefined) body.force = !!args.force;
-        const res = await appFetch(port, 'POST', '/api/start-ref-batch', Object.keys(body).length ? body : null);
+        const res = await enqueueTask(projectId, async () => {
+          return await appFetch(port, 'POST', '/api/start-ref-batch', Object.keys(body).length ? body : null, projectId);
+        });
         return {
           content: [{ type: 'text', text: `레퍼런스 일괄 생성 시작: ${JSON.stringify(res.data)}` }],
         };
@@ -1334,7 +1389,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'export_capcut': {
         const port = args.port || 3210;
-        const res = await appFetch(port, 'POST', '/api/export-capcut');
+        const projectId = args.projectId;
+        const res = await appFetch(port, 'POST', '/api/export-capcut', null, projectId);
         return {
           content: [{ type: 'text', text: `CapCut 내보내기 완료: ${JSON.stringify(res.data)}` }],
         };
@@ -1342,6 +1398,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'app_notify_qa': {
         const port = args.port || 3210;
+        const projectId = args.projectId;
         const body = {
           kind: args.kind,
           state: args.state,
@@ -1350,13 +1407,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           round: args.round ?? 1,
           issues: args.issues ?? 0,
         };
-        await appFetch(port, 'POST', '/api/notify-qa', body);
+        await appFetch(port, 'POST', '/api/notify-qa', body, projectId);
         return { content: [{ type: 'text', text: `QA 알림 전송: ${JSON.stringify(body)}` }] };
       }
 
       case 'app_batch_status': {
         const port = args.port || 3210;
-        const res = await appFetch(port, 'GET', '/api/batch-status');
+        const projectId = args.projectId;
+        const res = await appFetch(port, 'GET', '/api/batch-status', null, projectId);
         return {
           content: [{ type: 'text', text: JSON.stringify(res.data, null, 2) }],
         };
@@ -1364,13 +1422,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'app_wait_batch': {
         const port = args.port || 3210;
+        const projectId = args.projectId;
         const batchType = args.type || 'scene';
         const interval = args.interval || 5000;
         const timeout = args.timeout || 600000;
         const startTime = Date.now();
 
         while (true) {
-          const res = await appFetch(port, 'GET', '/api/batch-status');
+          const res = await appFetch(port, 'GET', '/api/batch-status', null, projectId);
           const st = res.data;
           const elapsed = Math.floor((Date.now() - startTime) / 1000);
           const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');

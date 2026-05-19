@@ -8,6 +8,7 @@
 import path from 'node:path'
 import { net } from 'electron'
 import { loadProfiles, switchProfile, createProfile, deleteProfile, updateProfile } from '../profileManager.js'
+import { acquireGlobalThrottle } from '../throttleManager.js'
 
 /**
  * Register all Flow API IPC handlers.
@@ -32,9 +33,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   } = deps
 
   // 구글/Flow 로그인 세션의 쿠키, 로컬스토리지, 캐시, indexedDB를 100% 완전 파괴(Clean-up)하여 새 로그인을 가능하게 함
-  ipcMain.handle('flow:clear-session', async () => {
-    console.log('[Flow API] clear-session called - Purging all Chromium cache and storage data');
-    const flowView = getFlowView()
+  ipcMain.handle('flow:clear-session', async (event, { profileId } = {}) => {
+    console.log('[Flow API] clear-session called - Purging all Chromium cache and storage data for profile:', profileId || 'active');
+    const flowView = getFlowView(profileId)
     if (!flowView) return { success: false, error: 'Flow view not ready' }
     
     try {
@@ -93,6 +94,45 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     }
   })
 
+  // 다중 뷰의 동적 추가 및 제거 메커니즘 지원
+  ipcMain.handle('flow:create-view', async (event, { profileId }) => {
+    try {
+      console.log('[IPC Views] Creating dynamic grid view for profile:', profileId)
+      if (typeof global.createOrGetFlowView === 'function') {
+        global.createOrGetFlowView(profileId)
+        return { success: true }
+      }
+      return { success: false, error: 'createOrGetFlowView not ready' }
+    } catch (err) {
+      console.error('[IPC Views] Create view failed:', err.message)
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('flow:destroy-view', async (event, { profileId }) => {
+    try {
+      console.log('[IPC Views] Destroying dynamic grid view for profile:', profileId)
+      if (typeof global.destroyFlowView === 'function') {
+        const success = global.destroyFlowView(profileId)
+        return { success }
+      }
+      return { success: false, error: 'destroyFlowView not ready' }
+    } catch (err) {
+      console.error('[IPC Views] Destroy view failed:', err.message)
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('flow:get-active-views', async () => {
+    try {
+      const activeIds = global.flowViews ? Array.from(global.flowViews.keys()) : []
+      return { success: true, activeIds }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  })
+
+
   // 새 격리 프로필 생성
   ipcMain.handle('profiles:create', async (event, { name, email }) => {
     try {
@@ -138,9 +178,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // Extract Flow access token from session
-  ipcMain.handle('flow:extract-token', async () => {
-    console.log('[Flow API] extract-token called')
-    const flowView = getFlowView()
+  ipcMain.handle('flow:extract-token', async (event, { profileId } = {}) => {
+    console.log('[Flow API] extract-token called for profile:', profileId || 'active')
+    const flowView = getFlowView(profileId)
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
     try {
@@ -177,8 +217,8 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   // Extract projectId from Flow page URL
   // (capturedProjectId는 파일 상단에서 선언)
 
-  ipcMain.handle('flow:extract-project-id', async () => {
-    const flowView = getFlowView()
+  ipcMain.handle('flow:extract-project-id', async (event, { profileId } = {}) => {
+    const flowView = getFlowView(profileId)
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
     // 이미 캡처된 projectId가 있으면 반환
@@ -224,19 +264,23 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // Get reCAPTCHA token from Flow page
-  ipcMain.handle('flow:get-recaptcha-token', async () => {
-    const token = await getRecaptchaToken()
+  ipcMain.handle('flow:get-recaptcha-token', async (event, { profileId } = {}) => {
+    const token = await getRecaptchaToken(profileId)
     return { success: !!token, token }
   })
 
   // Generate image via Flow API
   ipcMain.handle('flow:generate-image', async (event, {
     token, prompt, aspectRatio, seed, model, projectId, referenceImages, batchCount,
-    asyncMode  // true: 제출만 하고 즉시 반환 (비동기 배치용)
+    asyncMode, profileId  // true: 제출만 하고 즉시 반환 (비동기 배치용)
   }) => {
-    console.log('[Flow API] generate-image:', { prompt: prompt?.substring(0, 50), model, aspectRatio, seed: (seed ?? 'random') })
+    console.log('[Flow API] generate-image:', { prompt: prompt?.substring(0, 50), model, aspectRatio, seed: (seed ?? 'random'), profileId })
     if (!prompt) return { success: false, error: 'No prompt' }
-    const flowView = getFlowView()
+    
+    // Enforce global rate-limit throttling
+    await acquireGlobalThrottle()
+
+    const flowView = getFlowView(profileId)
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
     // Seed: 숫자면 CDP Fetch 인터셉션에서 사용, null이면 Flow 자체 랜덤 seed 유지
@@ -385,7 +429,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
 
       // 0.8. 이미지 모드 + 배치 설정 (Settings에서 전달받은 값 사용, 기본 x2)
       const effectiveBatchCount = Math.max(1, Math.min(4, batchCount || 2))
-      const modeResult = await configureFlowMode('IMAGE', effectiveBatchCount)
+      const modeResult = await configureFlowMode('IMAGE', effectiveBatchCount, profileId)
       if (modeResult.success) {
         console.log('[Flow API] Image mode configured:', modeResult.method, 'batch:', modeResult.batch)
       } else {
@@ -719,7 +763,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return null;
       })()`
 
-      const clickResult = await trustedClickOnFlowView(generateBtnSelector)
+      const clickResult = await trustedClickOnFlowView(generateBtnSelector, profileId)
       console.log('[Flow API] [DOM+Net] Trusted click result:', clickResult)
 
       if (!clickResult?.success) {
@@ -907,7 +951,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           console.log('[Flow API] Got fifeUrls from response:', fifeResults.length)
           for (const { fifeUrl, mediaId } of fifeResults) {
             try {
-              const res = await sessionFetch(fifeUrl)
+              const res = await sessionFetch(fifeUrl, {}, profileId)
               if (!res.ok) throw new Error(`fifeUrl fetch HTTP ${res.status}`)
               const buffer = await res.arrayBuffer()
               const base64Raw = Buffer.from(buffer).toString('base64')
@@ -930,7 +974,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           console.log('[Flow API] Got mediaIds from response:', mediaIds)
           for (const id of mediaIds) {
             try {
-              const base64 = await fetchMediaAsBase64(token, id)
+              const base64 = await fetchMediaAsBase64(token, id, profileId)
               allImages.push({ base64, mediaId: id })
             } catch (fetchErr) {
               console.warn('[Flow API] mediaId fetch failed:', fetchErr.message)
@@ -1024,7 +1068,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       if (fifeResults.length > 0) {
         for (const { fifeUrl, mediaId } of fifeResults) {
           try {
-            const res = await sessionFetch(fifeUrl)
+            const res = await sessionFetch(fifeUrl, {}, profileId)
             if (!res.ok) throw new Error(`fifeUrl fetch HTTP ${res.status}`)
             const buffer = await res.arrayBuffer()
             const base64Raw = Buffer.from(buffer).toString('base64')
@@ -1042,7 +1086,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       if (mediaIds.length > 0 && useToken) {
         for (const id of mediaIds) {
           try {
-            const base64 = await fetchMediaAsBase64(useToken, id)
+            const base64 = await fetchMediaAsBase64(useToken, id, profileId)
             allImages.push({ base64, mediaId: id })
           } catch (fetchErr) {
             allErrors.push(fetchErr.message)
@@ -1074,12 +1118,12 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // Fetch media by ID (mediaId → redirect → base64)
-  ipcMain.handle('flow:fetch-media', async (event, { token, mediaId }) => {
+  ipcMain.handle('flow:fetch-media', async (event, { token, mediaId, profileId }) => {
     if (!token) return { success: false, error: 'No token' }
     if (!mediaId) return { success: false, error: 'No mediaId' }
 
     try {
-      const base64 = await fetchMediaAsBase64(token, mediaId)
+      const base64 = await fetchMediaAsBase64(token, mediaId, profileId)
       return { success: true, base64 }
     } catch (e) {
       return { success: false, error: e.message }
@@ -1087,7 +1131,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // 비디오 URL 직접 다운로드 (status 응답에서 추출한 fifeUri/url)
-  ipcMain.handle('flow:download-video-url', async (event, { url, token }) => {
+  ipcMain.handle('flow:download-video-url', async (event, { url, token, profileId }) => {
     if (!url) return { success: false, error: 'No URL' }
 
     try {
@@ -1095,7 +1139,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       const headers = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
 
-      const res = await sessionFetch(url, { headers })
+      const res = await sessionFetch(url, { headers }, profileId)
       if (!res.ok) {
         return { success: false, error: `HTTP ${res.status}` }
       }
@@ -1115,8 +1159,8 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   // 1. CDP Page.setDownloadBehavior → temp 디렉토리로 자동 저장
   // 2. <video> 요소를 mediaId로 찾기 → hover → three-dot → download → 해상도 선택
   // 3. temp 파일 읽기 → base64 반환
-  ipcMain.handle('flow:dom-download-video', async (event, { mediaId, resolution = '720p' }) => {
-    const flowView = getFlowView()
+  ipcMain.handle('flow:dom-download-video', async (event, { mediaId, resolution = '720p', profileId }) => {
+    const flowView = getFlowView(profileId)
     if (!flowView) return { success: false, error: 'Flow view not ready' }
     if (!mediaId) return { success: false, error: 'No mediaId' }
 
@@ -1572,11 +1616,11 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // Upload image to Flow
-  ipcMain.handle('flow:upload-reference', async (event, { token, base64, projectId }) => {
+  ipcMain.handle('flow:upload-reference', async (event, { token, base64, projectId, profileId }) => {
     if (!token) return { success: false, error: 'No token' }
 
     // projectId가 없으면 flowView URL에서 추출 시도
-    const flowView = getFlowView()
+    const flowView = getFlowView(profileId)
     let resolvedProjectId = projectId || ''
     if (!resolvedProjectId && flowView) {
       try {
@@ -1604,9 +1648,12 @@ export function registerFlowAPIIPC(ipcMain, deps) {
 
       const response = await sessionFetch(UPLOAD_URL, {
         method: 'POST',
-        headers: { ...API_HEADERS, 'Authorization': `Bearer ${token}` },
+        headers: {
+          ...API_HEADERS,
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(body)
-      })
+      }, profileId)
 
       if (!response.ok) {
         const errText = await response.text().catch(() => '')

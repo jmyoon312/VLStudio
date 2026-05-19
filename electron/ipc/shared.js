@@ -28,9 +28,9 @@ export function createSharedHelpers(ctx) {
    * b.click()은 isTrusted: false라 Flow 페이지가 무시함 → sendInputEvent 필수
    * sendInputEvent는 viewport가 0x0이면 좌표가 의미없으므로 일시적으로 보이게 해야 함
    */
-  async function trustedClickOnFlowView(jsSelector) {
+  async function trustedClickOnFlowView(jsSelector, profileId) {
     const mainWindow = getMainWindow()
-    const flowView = getFlowView()
+    const flowView = getFlowView(profileId)
     if (!mainWindow || !flowView) return { success: false, error: 'No flowView' }
 
     // 1. 현재 bounds 저장
@@ -137,8 +137,8 @@ export function createSharedHelpers(ctx) {
    * - CORS 제약 없음 (main process에서 실행)
    * - Electron 28+ 필요 (현재 34.1.1)
    */
-  async function sessionFetch(url, options = {}) {
-    const flowView = getFlowView()
+  async function sessionFetch(url, options = {}, profileId) {
+    const flowView = getFlowView(profileId)
     const ses = flowView?.webContents?.session
     if (ses?.fetch) {
       try {
@@ -156,8 +156,8 @@ export function createSharedHelpers(ctx) {
    * reCAPTCHA 토큰의 origin과 API 요청 origin을 일치시키기 위해 필수
    * (main process의 sessionFetch는 origin이 달라 reCAPTCHA 검증 실패)
    */
-  async function flowPageFetch(url, { method = 'POST', headers = {}, body, redirect } = {}) {
-    const flowView = getFlowView()
+  async function flowPageFetch(url, { method = 'POST', headers = {}, body, redirect } = {}, profileId) {
+    const flowView = getFlowView(profileId)
     if (!flowView) throw new Error('Flow view not ready')
 
     // AutoFlow과 동일: fetch.call(window, ...) 패턴
@@ -198,8 +198,8 @@ export function createSharedHelpers(ctx) {
    * Flow 페이지의 grecaptcha.enterprise를 사용하여 reCAPTCHA 토큰 획득
    * AutoFlow와 동일한 방식 (sidepanel.js:20097-20108)
    */
-  async function getRecaptchaToken() {
-    const flowView = getFlowView()
+  async function getRecaptchaToken(profileId) {
+    const flowView = getFlowView(profileId)
     if (!flowView) return ''
     try {
       const token = await flowView.webContents.executeJavaScript(`
@@ -321,7 +321,7 @@ export function createSharedHelpers(ctx) {
 
   // ─── fetchMediaAsBase64 ───────────────────────────────────────
   /** mediaId로 실제 미디어 URL 가져와서 base64로 변환 */
-  async function fetchMediaAsBase64(token, mediaId) {
+  async function fetchMediaAsBase64(token, mediaId, profileId) {
     const redirectUrl = `${MEDIA_REDIRECT_URL}?input=${encodeURIComponent(JSON.stringify({ json: { name: mediaId } }))}`
 
     // Step 1: media redirect URL 가져오기
@@ -334,7 +334,7 @@ export function createSharedHelpers(ctx) {
       const pageResult = await flowPageFetch(redirectUrl, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
-      })
+      }, profileId)
       redirectOk = pageResult.ok
       redirectText = pageResult.text || ''
       if (!redirectOk) {
@@ -348,7 +348,7 @@ export function createSharedHelpers(ctx) {
     if (!redirectOk) {
       const redirectRes = await sessionFetch(redirectUrl, {
         headers: { 'Authorization': `Bearer ${token}` }
-      })
+      }, profileId)
       if (!redirectRes.ok) {
         throw new Error(`Media redirect HTTP ${redirectRes.status}`)
       }
@@ -363,7 +363,7 @@ export function createSharedHelpers(ctx) {
     }
 
     // Step 2: 실제 미디어 다운로드 → base64 (CDN은 쿠키 불필요)
-    const mediaRes = await sessionFetch(mediaUrl)
+    const mediaRes = await sessionFetch(mediaUrl, {}, profileId)
     if (!mediaRes.ok) {
       throw new Error(`Media fetch HTTP ${mediaRes.status}`)
     }
@@ -381,8 +381,8 @@ export function createSharedHelpers(ctx) {
    *   - MODE_VIDEO:       button[role='tab'][id*='-trigger-VIDEO']
    *   - SETTINGS_MENU:    [role='menu'][data-state='open']
    */
-  async function configureFlowMode(targetMode = 'VIDEO', batchCount = 1) {
-    const flowView = getFlowView()
+  async function configureFlowMode(targetMode = 'VIDEO', batchCount = 1, profileId) {
+    const flowView = getFlowView(profileId)
     if (!flowView) return { success: false, error: 'No flowView' }
 
     // AutoFlow 동일 CSS selectors (텍스트 비교 없음 — 모든 로케일에서 동작)

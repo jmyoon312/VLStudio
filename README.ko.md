@@ -2,12 +2,6 @@
 
 <kbd>[🇺🇸 English](README.md)</kbd> <kbd>🇰🇷 한국어</kbd>
 
-<p align="center">
-  <a href="https://youtu.be/mYnfgqvCkME">
-    <img src="docs/youtube-thumb-ko.png" alt="ViraLoop Studio 소개 영상 - 클릭해서 재생" width="720">
-  </a>
-</p>
-
 Google Flow AI로 이미지/비디오를 **대량 생성**하고, CapCut 영상 프로젝트로 원클릭 내보내기하는 프리미엄 데스크톱 앱.
 
 [![Release](https://img.shields.io/github/v/release/jmyoon312/VLStudio)](https://github.com/jmyoon312/VLStudio/releases)
@@ -61,6 +55,16 @@ ViraLoop Studio는 AI 영상 제작 전 과정을 자동화합니다. Google Flo
   - `/story-step` → 다음 한 웨이브만 실행 후 종료. 수동 모드 — 웨이브 내부 질문 없음. 사용자가 결과물 보고 다음 호출 시점 결정
   - `/story-next` → 중단 후 재개 (`/story-execute` 위임)
   - `/story-rewrite` → 기존 에피소드 개선 (몰입도 진단 → fork → 부분 웨이브 재실행)
+
+### 소버린 에이전트 스웜 네트워크 & 플러그형 인지 브레인 코어
+- **소버린 스웜 네트워크** — 자율 멀티 에이전트 네트워크(Swarm Hub)를 활용하여 정교한 미디어 생성 및 편집 워크플로우를 유기적으로 오케스트레이션합니다.
+- **플러그형 인지 브레인** — **OpenClaude**, **OpenHands**, **Hermes Core** 등의 추론 에이전트를 실시간으로 전환하여 스웜의 지능을 유연하게 교체할 수 있습니다.
+- **동적 모델 설정 및 제어** — AI 환경설정 패널을 통해 가동 중인 스웜 브레인 목록을 직관적으로 확인하고 활성화할 수 있습니다.
+
+### 엔터프라이즈급 인프라 오케스트레이션 및 라이프사이클 관리
+- **자가 치유형 백엔드 수명 주기** — 일렉트론 메인 프로세스가 로컬 파이썬 FastAPI 백엔드 서버를 실시간 모니터링하고 자율적으로 제어합니다.
+- **능동형 포트 충돌 자동 해결** — 앱 실행 시 8000번 포트를 불법 점유하고 있는 좀비 프로세스를 자동으로 감지 및 강제 종료하며, 소켓 완전 해제를 위한 안전 릴리즈 타임을 보장합니다.
+- **무설정 로컬 데이터베이스** — 일렉트론 샌드박스 사용자 경로별 분리된 SQLite 데이터베이스를 자동으로 매핑하고, 구동 시점에 스키마 자율 동기화(Self-Healing Schema Migration)를 실행합니다.
 
 ### 기타
 - **듀얼 뷰 레이아웃** — 탭 / 좌우분할 / 상하분할 모드
@@ -124,7 +128,7 @@ Phase 3: Download   → 완료된 비디오를 순차 다운로드 + 저장
 ## 프로젝트 구조
 
 ```
-AutoFlowCut/
+VLStudio/
 ├── electron/                    # Electron 메인 프로세스
 │   ├── main.js                 # 메인 프로세스 + WebContentsView 관리
 │   ├── preload.js              # Context bridge (window.electronAPI)
@@ -137,49 +141,11 @@ AutoFlowCut/
 │       ├── auth.js             # Google OAuth
 │       └── shared.js           # 공통 유틸리티
 │
-├── src/                        # React 프론트엔드
-│   ├── App.jsx                 # 메인 앱 로직
-│   ├── Shell.jsx               # 레이아웃 관리 (탭/분할)
-│   ├── components/             # UI 컴포넌트 (35+)
-│   │   ├── Header.jsx
-│   │   ├── SceneList.jsx
-│   │   ├── ReferencePanel.jsx
-│   │   ├── AudioPanel.jsx
-│   │   ├── ExportModal.jsx
-│   │   ├── SettingsModal.jsx
-│   │   ├── SceneDetailModal.jsx
-│   │   ├── VideoDetailModal.jsx
-│   │   └── ...
-│   ├── hooks/                  # React 훅 (15+)
-│   │   ├── useFlowAPI.js       # Flow API 래퍼 (토큰, 이미지, 비디오)
-│   │   ├── useAutomation.js    # 배치 이미지 생성 파이프라인
-│   │   ├── useVideoAutomation.js # 비디오 생성 (3-Phase Async)
-│   │   ├── useSceneGeneration.js # 개별 씬 재생성
-│   │   ├── useReferenceGeneration.js # 레퍼런스 생성
-│   │   ├── useGenerationQueue.js # 통합 생성 큐
-│   │   ├── useExport.js        # CapCut 내보내기
-│   │   ├── useAudioImport.js   # 오디오 임포트 + SRT 매칭
-│   │   ├── useScenes.js        # 씬 상태 관리
-│   │   ├── useProjectData.js   # project.json 관리
-│   │   └── ...
-│   ├── exporters/              # CapCut JSON 생성 + 디스크 쓰기
-│   ├── firebase/               # Auth, Firestore, Cloud Functions
-│   ├── contexts/               # AuthContext
-│   ├── config/                 # 기본값, 스타일 프리셋 (87개)
-│   ├── locales/                # ko, en
-│   ├── utils/                  # 유틸리티 (파서, 태그 매칭 등)
-│   └── stripe/                 # 결제 (Lemon Squeezy)
+├── apps/                        # 모노레포 워크스페이스 애플리케이션
+│   ├── dashboard/              # React 대시보드 (프론트엔드 제어 UI)
+│   ├── api/                    # 파이썬 FastAPI 로컬 서버 (인증, Fernet, uvicorn 프로세스 스포너)
+│   └── swarm/                  # Sovereign 에이전트 스웜 (21개 활성 파일 구조로 초경량화 완료)
 │
-├── mcp-server/                 # MCP 서버 (Claude Code 연동)
-│   └── index.js                # 씬/레퍼런스/스타일/오디오/스킬 도구
-│
-├── skills/                     # Claude Code 스킬
-│   ├── story-engine/           # Story Engine v2 (9-Wave 파이프라인)
-│   ├── story-new/              # /story-new 에피소드 초기화
-│   ├── story-execute/          # /story-execute W1~W9 자동 실행
-│   ├── story-next/             # /story-next 재개
-│   ├── story-step/             # /story-step 단일 웨이브 수동 실행
-│   └── story-rewrite/          # /story-rewrite 에피소드 개선
 ├── docs/                       # 문서 (스키마, 스토어 설명 등)
 ├── tests/                      # Vitest 단위/통합 테스트 (src/ 구조 미러링)
 ├── scripts/                    # 빌드 헬퍼 (electron 이름 패치, 빌드 번호 bump 등)
@@ -201,8 +167,8 @@ AutoFlowCut/
 ### 설치
 
 ```bash
-git clone https://github.com/touchizen/AutoFlowCut.git
-cd AutoFlowCut
+git clone https://github.com/jmyoon312/VLStudio.git
+cd VLStudio
 npm install
 ```
 
@@ -277,7 +243,7 @@ Cloud Functions는 `_test` / `_prod` 접미사로 분리 배포되어 있습니�
 
 ## MCP 서버
 
-Claude Code에서 AutoFlowCut의 씬/레퍼런스/프롬프트를 직접 편집할 수 있습니다.
+Claude Code에서 ViraLoop Studio의 씬/레퍼런스/프롬프트를 직접 편집할 수 있습니다.
 
 ### 주요 도구
 
@@ -307,19 +273,16 @@ POST /api/generate         — 이미지 생성 트리거
 
 ## 다운로드
 
-- **macOS / Windows**: [GitHub Releases](https://github.com/touchizen/AutoFlowCut/releases)
-- **Windows (MS Store)**: [Microsoft Store](https://apps.microsoft.com/detail/9N38G1SCG12J)
+- **macOS / Windows**: [GitHub Releases](https://github.com/jmyoon312/VLStudio/releases)
 
 ## 링크
 
-- **홈페이지**: [touchizen.com](https://touchizen.com)
-- **Youtube**: [@터치즌](https://youtube.com/@터치즌)
-- **Discord**: [touchizen](https://discord.gg/DTMMs8TZDN)
-- **문의**: gordon.ahn@touchizen.com
+- **저장소**: [github.com/jmyoon312/VLStudio](https://github.com/jmyoon312/VLStudio)
+- **개발사**: ViraLoopMedia
 
 ## 라이선스
 
-Copyright (C) 2026 Touchizen
+Copyright (C) 2026 ViraLoopMedia
 
 본 프로그램은 자유 소프트웨어입니다. **GNU Affero General Public License v3**
 조건에 따라 자유롭게 사용·수정·재배포할 수 있습니다. 전체 라이선스 텍스트는
@@ -332,4 +295,4 @@ Copyright (C) 2026 Touchizen
 
 ---
 
-*면책: 이 앱은 Touchizen에서 독립적으로 개발한 제품으로, Google 또는 ByteDance(CapCut)와 제휴·후원·인증 관계가 없습니다.*
+*면책: ViraLoop Studio는 ViraLoopMedia에서 독립적으로 개발한 제품으로, Google 또는 ByteDance(CapCut)와 제휴·후원·인증 관계가 없습니다.*

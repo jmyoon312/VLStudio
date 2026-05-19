@@ -2,12 +2,6 @@
 
 <kbd>🇺🇸 English</kbd> <kbd>[🇰🇷 한국어](README.ko.md)</kbd>
 
-<p align="center">
-  <a href="https://youtu.be/cqxvDx9HTvQ">
-    <img src="docs/youtube-thumb-en.png" alt="ViraLoop Studio intro video - click to play" width="720">
-  </a>
-</p>
-
 A premium desktop app that **mass-generates** images and videos with Google Flow AI and exports them to CapCut projects in one click.
 
 [![Release](https://img.shields.io/github/v/release/jmyoon312/VLStudio)](https://github.com/jmyoon312/VLStudio/releases)
@@ -61,6 +55,16 @@ ViraLoop Studio automates the entire AI video production pipeline. Generate imag
   - `/story-step` → Run the next single wave only and exit. Manual mode — no in-wave prompts; the user reviews each wave's deliverables and re-invokes for the next.
   - `/story-next` → Resume after interruption (delegates to `/story-execute`).
   - `/story-rewrite` → Improve an existing episode (engagement-gap diagnosis → fork → partial wave re-run).
+
+### Sovereign Swarm Agent Network & Pluggable Brain Core
+- **Sovereign Swarm Network** — Leverages a decentralized multi-agent network (Swarm Hub) to orchestrate complex generation and editing tasks.
+- **Pluggable Cognitive Brains** — Out-of-the-box support for **OpenClaude**, **OpenHands**, and **Hermes Core** as interchangeable reasoning engines.
+- **Dynamic Model Selection** — Configure and toggle active swarm brains via the AI settings panel in real-time.
+
+### Enterprise-Grade Infrastructure Orchestration
+- **Self-Healing Backend Lifecycle** — Electron main process dynamically spawns and manages the local Python FastAPI backend server.
+- **Active Port Conflict Resolution** — Automatically detects and terminates zombie processes occupying port 8000 on startup, with safe socket recovery timing.
+- **Zero-Config Database** — Self-healing SQLite standalone storage with automatic schema synchronization, matching isolated user directory paths.
 
 ### Miscellaneous
 - **Dual-view layouts** — Tab / horizontal-split / vertical-split modes.
@@ -124,7 +128,7 @@ Phase 3: Download   → Download + save completed videos sequentially
 ## Project Structure
 
 ```
-AutoFlowCut/
+VLStudio/
 ├── electron/                    # Electron main process
 │   ├── main.js                 # Main process + WebContentsView management
 │   ├── preload.js              # Context bridge (window.electronAPI)
@@ -137,49 +141,11 @@ AutoFlowCut/
 │       ├── auth.js             # Google OAuth
 │       └── shared.js           # Shared utilities
 │
-├── src/                        # React frontend
-│   ├── App.jsx                 # Main app logic
-│   ├── Shell.jsx               # Layout manager (tab / split)
-│   ├── components/             # UI components (35+)
-│   │   ├── Header.jsx
-│   │   ├── SceneList.jsx
-│   │   ├── ReferencePanel.jsx
-│   │   ├── AudioPanel.jsx
-│   │   ├── ExportModal.jsx
-│   │   ├── SettingsModal.jsx
-│   │   ├── SceneDetailModal.jsx
-│   │   ├── VideoDetailModal.jsx
-│   │   └── ...
-│   ├── hooks/                  # React hooks (15+)
-│   │   ├── useFlowAPI.js       # Flow API wrapper (token, image, video)
-│   │   ├── useAutomation.js    # Batch image generation pipeline
-│   │   ├── useVideoAutomation.js # Video generation (3-phase async)
-│   │   ├── useSceneGeneration.js # Per-scene regeneration
-│   │   ├── useReferenceGeneration.js # Reference generation
-│   │   ├── useGenerationQueue.js # Unified generation queue
-│   │   ├── useExport.js        # CapCut export
-│   │   ├── useAudioImport.js   # Audio import + SRT matching
-│   │   ├── useScenes.js        # Scene state management
-│   │   ├── useProjectData.js   # project.json management
-│   │   └── ...
-│   ├── exporters/              # CapCut JSON generation + disk write
-│   ├── firebase/               # Auth, Firestore, Cloud Functions
-│   ├── contexts/               # AuthContext
-│   ├── config/                 # Defaults, style presets (87)
-│   ├── locales/                # ko, en
-│   ├── utils/                  # Utilities (parsers, tag matching, ...)
-│   └── stripe/                 # Payments (Lemon Squeezy)
+├── apps/                        # Monorepo Workspace Applications
+│   ├── dashboard/              # React dashboard (frontend control UI)
+│   ├── api/                    # Python FastAPI local server (auth, Fernet, uvicorn spawns)
+│   └── swarm/                  # Sovereign agent swarm (cleaned up to 21 active files)
 │
-├── mcp-server/                 # MCP server (Claude Code integration)
-│   └── index.js                # Scene / reference / style / audio / skill tools
-│
-├── skills/                     # Claude Code skills
-│   ├── story-engine/           # Story Engine v2 (9-wave pipeline)
-│   ├── story-new/              # /story-new episode init
-│   ├── story-execute/          # /story-execute W1–W9 auto-runner
-│   ├── story-next/             # /story-next resume
-│   ├── story-step/             # /story-step single-wave manual runner
-│   └── story-rewrite/          # /story-rewrite episode improvement
 ├── docs/                       # Documentation (schemas, store descriptions, ...)
 ├── tests/                      # Vitest unit + integration tests (mirrors src/)
 ├── scripts/                    # Build helpers (electron name patch, build-number bump, ...)
@@ -201,8 +167,8 @@ AutoFlowCut/
 ### Install
 
 ```bash
-git clone https://github.com/touchizen/AutoFlowCut.git
-cd AutoFlowCut
+git clone https://github.com/jmyoon312/VLStudio.git
+cd VLStudio
 npm install
 ```
 
@@ -277,7 +243,7 @@ Cloud Functions are deployed with `_test` / `_prod` suffixes.
 
 ## MCP Server
 
-Edit AutoFlowCut scenes / references / prompts directly from Claude Code.
+Edit ViraLoop Studio scenes / references / prompts directly from Claude Code.
 
 ### Key Tools
 
@@ -307,25 +273,22 @@ POST /api/generate         — Trigger image generation
 
 ## Download
 
-- **macOS / Windows**: [GitHub Releases](https://github.com/touchizen/AutoFlowCut/releases)
-- **Windows (MS Store)**: [Microsoft Store](https://apps.microsoft.com/detail/9N38G1SCG12J)
+- **macOS / Windows**: [GitHub Releases](https://github.com/jmyoon312/VLStudio/releases)
 
 ## Links
 
-- **Homepage**: [touchizen.com](https://touchizen.com)
-- **YouTube**: [@touchizen](https://youtube.com/@touchizen)
-- **Discord**: [touchizen](https://discord.gg/DTMMs8TZDN)
-- **Contact**: gordon.ahn@touchizen.com
+- **Repository**: [github.com/jmyoon312/VLStudio](https://github.com/jmyoon312/VLStudio)
+- **Developer**: ViraLoopMedia
 
 ## License
 
-Copyright (C) 2026 Touchizen
+Copyright (C) 2026 ViraLoopMedia
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the **GNU Affero General Public License v3** as published by the
 Free Software Foundation. See [LICENSE](LICENSE) for the full text.
 
-> **What this means**: you are free to use, modify, and self-host AutoFlowCut.
+> **What this means**: you are free to use, modify, and self-host ViraLoop Studio.
 > If you distribute a modified version — including running it as a hosted
 > network service — your changes must also be released under AGPL v3.
 
@@ -334,4 +297,4 @@ Contributions are accepted under the same AGPL v3 license — see
 
 ---
 
-*Disclaimer: This app is an independent product developed by Touchizen and is not affiliated with, endorsed by, or sponsored by Google or ByteDance (CapCut).*
+*Disclaimer: ViraLoop Studio is an independent product developed by ViraLoopMedia and is not affiliated with, endorsed by, or sponsored by Google or ByteDance (CapCut).*

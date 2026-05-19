@@ -1,0 +1,250 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ==================== */
+    /* 1. COLOR SYSTEM     */
+    /* ==================== */
+    
+    /* Primary */
+    --point-blue: #3B82F6;
+    --point-blue-hover: #2563EB;
+    --point-blue-light: #60A5FA;
+    
+    /* Background */
+    --bg-main: #F8F9FC;
+    --bg-card: #FFFFFF;
+    --bg-sidebar: #FFFFFF;
+    --bg-hover: #F3F4F6;
+    --bg-panel: #FFFFFF;
+    
+    /* Text */
+    --text-primary: #1F2937;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --text-white: #FFFFFF;
+    --text-label: #6B7280;
+    --text-small: #9CA3AF;
+    
+    /* Border */
+    --border-light: #E5E7EB;
+    --border-focus: #3B82F6;
+    
+    /* Status */
+    --color-active: #3B82F6;
+    --color-error: #EF4444;
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-info: #3B82F6;
+    --color-disabled-bg: #F9FAFB;
+    --color-disabled-text: #D1D5DB;
+    
+    /* Badge */
+    --badge-beta: #3B82F6;
+    --badge-new: #8B5CF6;
+    
+    /* ==================== */
+    /* 2. TYPOGRAPHY       */
+    /* ==================== */
+    
+    --font-main: 'Pretendard', 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    
+    /* Font Sizes - Following Pixeling Spec */
+    --text-page-title: 20px;
+    --text-section-title: 16px;
+    --text-menu: 14px;
+    --text-label: 13px;
+    --text-data: 18px;
+    --text-small: 12px;
+    
+    /* Font Weights */
+    --font-bold: 700;
+    --font-semibold: 600;
+    --font-medium: 500;
+    --font-regular: 400;
+    
+    /* ==================== */
+    /* 3. SPACING          */
+    /* ==================== */
+    
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    
+    /* Layout */
+    --sidebar-width: 260px;
+    --header-height: 60px;
+    --page-padding: 40px;
+    --component-gap: 24px;
+    --card-gap: 16px;
+    --panel-gap: 16px;
+    
+    /* ==================== */
+    /* 4. BORDERS          */
+    /* ==================== */
+    
+    --radius-panel: 12px;
+    --radius-button: 8px;
+    --radius-input: 8px;
+    --radius-card: 12px;
+    --radius-full: 9999px;
+    
+    /* ==================== */
+    /* 5. TAILWIND MAPPING */
+    /* ==================== */
+    
+    --background: 220 20% 98%;
+    --foreground: 220 20% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 10% 96%;
+    --secondary-foreground: 220 20% 15%;
+    --muted: 220 10% 96%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 220 10% 96%;
+    --accent-foreground: 220 20% 15%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 10% 90%;
+    --input: 220 10% 90%;
+    --ring: 217.2 91.2% 59.8%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-[#F8F9FC] text-[#1F2937] tracking-tighter;
+    font-family: 'Pretendard', 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Pretendard', 'Inter', system-ui, -apple-system, sans-serif;
+    @apply font-black tracking-tighter italic uppercase;
+  }
+
+  h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 18px; }
+  h4 { font-size: 16px; }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1F2937;
+  }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1F2937;
+  }
+
+  .menu-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6B7280;
+  }
+
+  .label-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6B7280;
+  }
+
+  .data-text {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1F2937;
+  }
+
+  .small-text {
+    font-size: 12px;
+    color: #9CA3AF;
+  }
+}
+
+/* Panel Styles */
+.pixeling-panel {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Button Override */
+.btn-primary {
+  @apply bg-[#3B82F6] text-white hover:bg-[#2563EB];
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Card Override */
+.pixeling-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+}
+
+.pixeling-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Input Focus */
+input:focus, textarea:focus, select:focus {
+  @apply ring-2 ring-[#3B82F6] border-transparent;
+  outline: none;
+}
+
+/* Sidebar */
+.sidebar {
+  background: white;
+  border-right: 1px solid #E5E7EB;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F3F4F6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}

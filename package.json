@@ -11,8 +11,8 @@
     "predev": "node scripts/patch-electron-name.cjs",
     "dev": "vite",
     "dev:prod": "vite --mode production",
-    "build": "vite build",
-    "build:prod": "vite build --mode production",
+    "build": "vite build && npm run build --workspace=apps/dashboard",
+    "build:prod": "vite build --mode production && npm run build --workspace=apps/dashboard",
     "preview": "vite preview",
     "make-ico": "node scripts/make-ico.cjs",
     "pack": "vite build && electron-builder --dir",
@@ -40,6 +40,19 @@
     "apps/*",
     "mcp-server"
   ],
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@firebase/util",
+      "@google/genai",
+      "@swc/core",
+      "electron",
+      "electron-winstaller",
+      "esbuild",
+      "koffi",
+      "protobufjs",
+      "sharp"
+    ]
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "dotenv": "^17.3.1",
@@ -56,9 +69,13 @@
     "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^4.0.18",
+    "autoprefixer": "^10.4.16",
     "electron": "^36.9.5",
     "electron-builder": "^26.7.0",
     "jsdom": "^28.1.0",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "tailwindcss-animate": "^1.0.7",
     "vite": "^6.1.0",
     "vite-plugin-electron": "^0.28.8",
     "vite-plugin-electron-renderer": "^0.14.6",
@@ -86,6 +103,10 @@
     ],
     "afterPack": "./scripts/afterPack.cjs",
     "extraResources": [
+      {
+        "from": "dist-backend/api_server.exe",
+        "to": "api_server.exe"
+      },
       {
         "from": "mcp-server",
         "to": "mcp-server"

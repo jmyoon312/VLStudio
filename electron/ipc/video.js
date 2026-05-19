@@ -5,6 +5,8 @@
  * and video status polling.
  */
 
+import { acquireGlobalThrottle } from '../throttleManager.js'
+
 /**
  * Register video-generation-related IPC handlers.
  *
@@ -50,6 +52,9 @@ export function registerVideoIPC(ipcMain, deps) {
   ipcMain.handle('flow:generate-video-t2v', async (event, {
     token, prompt, projectId, model, aspectRatio, duration, videoBatchCount, seed
   }) => {
+    // Enforce global rate-limit throttling
+    await acquireGlobalThrottle()
+
     const flowView = getFlowView()
     const mainWindow = getMainWindow()
     if (!prompt) return { success: false, error: 'No prompt' }
@@ -291,6 +296,9 @@ export function registerVideoIPC(ipcMain, deps) {
   ipcMain.handle('flow:generate-video-i2v', async (event, {
     token, prompt, startImageMediaId, endImageMediaId, projectId, model, aspectRatio, duration, videoBatchCount, seed
   }) => {
+    // Enforce global rate-limit throttling
+    await acquireGlobalThrottle()
+
     const flowView = getFlowView()
     const mainWindow = getMainWindow()
     if (!startImageMediaId) return { success: false, error: 'No start image mediaId' }

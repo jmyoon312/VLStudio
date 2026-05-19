@@ -8,6 +8,7 @@ let layoutMode = 'split-left'
 let splitRatio = 0.5
 let modalVisible = false
 let powerSaveBlockerId = null
+let sidebarOffset = 0
 
 /**
  * Flow WebContentsView 위치/크기를 현재 레이아웃에 맞게 업데이트
@@ -15,30 +16,72 @@ let powerSaveBlockerId = null
  * @param {WebContentsView} flowView
  */
 export function updateBounds(mainWindow, flowView) {
-  if (!mainWindow || !flowView) return
+  if (!mainWindow) return
+
+  const views = global.flowViews ? Array.from(global.flowViews.values()) : (flowView ? [flowView] : [])
+  if (views.length === 0) return
 
   if (modalVisible) {
-    flowView.setBounds({ x: 0, y: 0, width: 0, height: 0 })
+    for (const view of views) {
+      try { view.setBounds({ x: 0, y: 0, width: 0, height: 0 }) } catch (e) {
+        console.warn('[Layout] Failed to hide view bounds:', e.message)
+      }
+    }
     return
   }
 
   const { width, height } = mainWindow.getContentBounds()
   const GAP = 3
 
+  // Flow WebContentsView는 항상 x=0부터 시작.
+  // splitRatio는 전체 window 너비 기준. 사이드바(pl-72)는 React 앱 패널 내부 문제이며
+  // 여기서 절대로 고려하지 않는다.
+  let containerRect = { x: 0, y: 0, width: 0, height: 0 }
+
   if (layoutMode === 'split-left') {
     const splitPos = Math.round(width * splitRatio)
-    flowView.setBounds({ x: 0, y: 0, width: splitPos - GAP, height })
+    containerRect = { x: 0, y: 0, width: Math.max(0, splitPos - GAP), height }
   } else if (layoutMode === 'split-right') {
     const splitPos = Math.round(width * splitRatio)
-    flowView.setBounds({ x: width - splitPos + GAP, y: 0, width: splitPos - GAP, height })
+    containerRect = { x: Math.min(width, width - splitPos + GAP), y: 0, width: Math.max(0, splitPos - GAP), height }
   } else if (layoutMode === 'split-top') {
     const splitPos = Math.round(height * splitRatio)
-    flowView.setBounds({ x: 0, y: 0, width, height: splitPos - GAP })
+    containerRect = { x: 0, y: 0, width, height: Math.max(0, splitPos - GAP) }
   } else if (layoutMode === 'split-bottom') {
     const splitPos = Math.round(height * splitRatio)
-    flowView.setBounds({ x: 0, y: height - splitPos + GAP, width, height: splitPos - GAP })
+    containerRect = { x: 0, y: Math.min(height, height - splitPos + GAP), width, height: Math.max(0, splitPos - GAP) }
+  }
+
+  global.lastContainerRect = containerRect
+
+  const count = views.length
+  const { x, y, width: cWidth, height: cHeight } = containerRect
+
+  if (count === 1) {
+    try { views[0].setBounds({ x, y, width: cWidth, height: cHeight }) } catch (e) {
+      console.warn('[Layout] Failed to set bounds for view 0:', e.message)
+    }
+  } else if (count === 2) {
+    const halfWidth = Math.floor(cWidth / 2)
+    try {
+      views[0].setBounds({ x, y, width: halfWidth, height: cHeight })
+      views[1].setBounds({ x: x + halfWidth, y, width: Math.max(0, cWidth - halfWidth), height: cHeight })
+    } catch (e) { console.warn('[Layout] Failed to set bounds for views (count=2):', e.message) }
+  } else {
+    const halfWidth = Math.floor(cWidth / 2)
+    const halfHeight = Math.floor(cHeight / 2)
+    try {
+      views[0].setBounds({ x, y, width: halfWidth, height: halfHeight })
+      if (count > 1) views[1].setBounds({ x: x + halfWidth, y, width: Math.max(0, cWidth - halfWidth), height: halfHeight })
+      if (count > 2) views[2].setBounds({ x, y: y + halfHeight, width: halfWidth, height: Math.max(0, cHeight - halfHeight) })
+      if (count > 3) {
+        views[3].setBounds({ x: x + halfWidth, y: y + halfHeight, width: Math.max(0, cWidth - halfWidth), height: Math.max(0, cHeight - halfHeight) })
+        for (let i = 4; i < count; i++) views[i].setBounds({ x: 0, y: 0, width: 0, height: 0 })
+      }
+    } catch (e) { console.warn('[Layout] Failed to set bounds for views (count>=3):', e.message) }
   }
 }
+
 
 /**
  * 레이아웃 관련 IPC 핸들러 등록
@@ -47,9 +90,10 @@ export function updateBounds(mainWindow, flowView) {
  * @param {Function} getFlowView - flowView getter
  */
 export function registerLayoutIPC(ipcMain, getMainWindow, getFlowView) {
-  ipcMain.handle('app:set-layout', (event, { mode, ratio }) => {
+  ipcMain.handle('app:set-layout', (event, { mode, ratio, sidebarWidth }) => {
     layoutMode = mode || 'split-left'
     if (ratio !== undefined) splitRatio = Math.max(0.2, Math.min(0.8, ratio))
+    if (sidebarWidth !== undefined) sidebarOffset = Math.max(0, sidebarWidth)
     updateBounds(getMainWindow(), getFlowView())
     const mw = getMainWindow()
     if (mw) {
@@ -58,9 +102,10 @@ export function registerLayoutIPC(ipcMain, getMainWindow, getFlowView) {
     return { success: true, mode: layoutMode, splitRatio }
   })
 
-  ipcMain.handle('app:update-split', (event, { ratio }) => {
+  ipcMain.handle('app:update-split', (event, { ratio, sidebarWidth }) => {
     if (!getMainWindow()) return
     splitRatio = Math.max(0.2, Math.min(0.8, ratio))
+    if (sidebarWidth !== undefined) sidebarOffset = Math.max(0, sidebarWidth)
     updateBounds(getMainWindow(), getFlowView())
     return { success: true, splitRatio }
   })

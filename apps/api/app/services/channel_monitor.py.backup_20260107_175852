@@ -1,0 +1,333 @@
+import os
+import random
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+from app import crud, models, database
+from app.downloader import downloader
+from app.scrapers.douyin_scraper import DouyinChannelScraper
+import re
+import logging
+
+import logging
+import sys
+
+# [DEBUG] Configure File Logging
+logger = logging.getLogger(__name__)
+# Avoid crashing if log file is locked
+try:
+    if not logger.hasHandlers():
+        f_handler = logging.FileHandler('scan_debug.log', encoding='utf-8')
+        f_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        f_handler.setFormatter(formatter)
+        logger.addHandler(f_handler)
+except Exception as e:
+    print(f"WARNING: Could not setup channel_monitor logging: {e}")
+
+logger.setLevel(logging.DEBUG)
+
+def sanitize_folder_name(name):
+    return re.sub(r'[\\/*?:"<>|]', "", name).replace(" ", "_")
+
+def get_channel_download_path(settings, channel):
+    """Constructs the correct path: Root / Category / Channel"""
+    root = settings.root_download_path or "downloads"
+    if channel.category:
+        cat_folder = channel.category.folder_name or sanitize_folder_name(channel.category.name)
+        return os.path.join(root, cat_folder, channel.folder_name)
+    return os.path.join(root, channel.folder_name)
+
+def scan_specific_channel(db: Session, channel: models.Channel, headless: bool = True):
+    """
+    Scans a single channel for new videos.
+    """
+    cat_name = channel.category.name if channel.category else "Uncategorized"
+    logger.info(f"🕵️‍♂️ Scanning [{cat_name}] {channel.name} ({channel.platform})...")
+    
+    settings = crud.get_settings(db)
+    download_path = get_channel_download_path(settings, channel)
+    os.makedirs(download_path, exist_ok=True)
+    
+    new_videos_found = 0
+    candidates = [] # List of (url, metadata_date)
+
+    try:
+        # [FIX] 24-Hour Window Constraint
+        # User requested: "Scan only 24h window... not all videos"
+        # We calculate the date threshold (Yesterday)
+        yesterday = datetime.now() - timedelta(days=1)
+        yesterday_str = yesterday.strftime('%Y%m%d')
+        
+        # 1. Fetch Candidates (URLs)
+        if 'douyin' in channel.platform or 'douyin.com' in channel.url:
+            scraper = DouyinChannelScraper(settings=settings)
+            # Douyin Scraper doesn't support dateafter yet, but loop filter will catch it
+            urls = scraper.get_latest_video_urls(channel.url, limit=15, headless=headless)
+            logger.debug(f"Douyin Scraper found {len(urls)} URLs")
+            for url in urls:
+                candidates.append({'url': url, 'date': None, 'title': 'Douyin Video'}) 
+        else:
+            # YouTube / Others via yt-dlp
+            # Pass 'dateafter' to optimization download scope
+            logger.debug(f"Fetching via yt-dlp: {channel.url} (After {yesterday_str})")
+            entries = downloader.get_latest_videos(channel.url, limit=50, dateafter=yesterday_str)
+            logger.debug(f"yt-dlp returned {len(entries)} entries")
+            
+            for entry in entries:
+                url = entry.get('webpage_url') or entry.get('url')
+                date_str = entry.get('upload_date') # YYYYMMDD
+                vid_id = entry.get('id')
+                view_count = entry.get('view_count') # Capture View Count
+                title = entry.get('title', 'Unknown Title')
+                
+                if url:
+                    # logger.debug(f"  > Found: {vid_id} | Date: {date_str} | Views: {view_count}")
+                    candidates.append({'url': url, 'date': date_str, 'id': vid_id, 'view_count': view_count, 'title': title})
+
+        # 2. Filter & Download
+        consecutive_old_misses = 0 # [FIX] Track consecutive old videos to stop early
+        items_processed = 0 # [FIX] Track actual items processed
+        
+        for item in candidates:
+            items_processed += 1
+            url = item['url']
+            vid_id = item.get('id')
+            title = item.get('title', 'Unknown Title')
+            
+            # Helper for consistent logging
+            # Format: Action [Category][Channel]
+            log_prefix = f"[{cat_name}][{channel.name}]"
+            date_info = item.get('date') if item.get('date') else "N/A"
+            
+            # A. Check DB Duplication (AND Update Metadata)
+            if vid_id:
+                existing = db.query(models.Video).filter(models.Video.video_id == vid_id).first()
+                if existing:
+                    # [OPTIMIZATION] Reset miss counter since we found a known video (Anchor)
+                    consecutive_old_misses = 0
+                    
+                    # [FIX] Update Metadata for existing videos
+                    new_views = item.get('view_count')
+                    if new_views is not None:
+                        # [OPTIMIZATION] Skip update if views unchanged
+                        if existing.view_count == new_views:
+                             logger.debug(f"💤 [NO CHANGE] {log_prefix} [{title}] | {new_views} views")
+                             continue
+                        
+                        # [FIX] Protect against Zero-View Overwrite (yt-dlp glitch)
+                        if new_views == 0 and existing.view_count > 0:
+                             logger.warning(f"🛡️ [PROTECT] {log_prefix} Ignored 0 view update (Current: {existing.view_count})")
+                             continue
+
+                        # Update current view count
+                        existing.view_count = new_views
+                        
+                        # [FIX] Recalculate Velocity & Viral Score
+                        # 1. Update Upload Date if available
+                        if item.get('date'):
+                             try:
+                                 existing.upload_date = datetime.strptime(item['date'], '%Y%m%d')
+                             except:
+                                 pass
+                        
+                        # 2. Calculate Metrics
+                        try:
+                            # Default to Lifetime Velocity (Fallback)
+                            upload_dt = existing.upload_date or datetime.now()
+                            lifetime_hours = max(0.1, (datetime.now() - upload_dt).total_seconds() / 3600)
+                            velocity = new_views / lifetime_hours
+                            
+                            # Try to calculate Instant Velocity
+                            last_history = db.query(models.VideoHistory).filter(models.VideoHistory.video_id == existing.id).order_by(models.VideoHistory.timestamp.desc()).first()
+                            
+                            if last_history:
+                                time_diff_hours = (datetime.now() - last_history.timestamp).total_seconds() / 3600
+                                if time_diff_hours > 0:
+                                    view_diff = new_views - last_history.view_count
+                                    instant_velocity = view_diff / time_diff_hours
+                                    
+                                    if instant_velocity > 0:
+                                        velocity = instant_velocity
+                            
+                            existing.velocity_score = round(velocity, 1)
+                            
+                            if channel.subscriber_count and channel.subscriber_count > 0:
+                                existing.viral_score = round((new_views / channel.subscriber_count) * 100, 1)
+                            else:
+                                existing.viral_score = 0.0
+                        except Exception as calc_err:
+                            logger.warning(f"Failed to calc metrics for {vid_id}: {calc_err}")
+
+                        # Update metadata_json
+                        if existing.metadata_json:
+                            updated_meta = dict(existing.metadata_json)
+                            updated_meta['view_count'] = new_views
+                            updated_meta['velocity_score'] = existing.velocity_score
+                            updated_meta['viral_score'] = existing.viral_score
+                            existing.metadata_json = updated_meta
+                        
+                        # Add History Record
+                        history = models.VideoHistory(
+                            video_id=existing.id,
+                            view_count=new_views,
+                            timestamp=datetime.now()
+                        )
+                        db.add(history)
+                        db.commit()
+                        logger.info(f"📈 [UPDATE] {log_prefix} [{title}] | Views: {new_views} | URL: {url}")
+                    else:
+                        logger.debug(f"x [KNOWN] {log_prefix} (No View Data)")
+                    
+                    continue # Skip download, move to next
+            
+            # B. Date Filter (YouTube only)
+            if not item.get('date'):
+                logger.debug(f"? [Checking Date] {log_prefix} missing metadata...")
+                try:
+                    # [FIX] Add timeout to prevent hanging on slow metadata extraction
+                    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+                    
+                    def fetch_info():
+                        return downloader.get_video_info(url)
+                    
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(fetch_info)
+                        try:
+                            info = future.result(timeout=5)  # 5 second timeout
+                            if info and info.get('upload_date'):
+                                item['date'] = info.get('upload_date')
+                                item['title'] = info.get('title', item.get('title'))
+                                title = item['title']
+                                date_info = item['date']
+                                logger.debug(f"✓ [Got Date] {log_prefix} {date_info}")
+                        except FutureTimeoutError:
+                            logger.warning(f"⏱️ [TIMEOUT] {log_prefix} Metadata fetch timeout (5s)")
+                        except Exception as e:
+                            logger.warning(f"❌ [ERROR] {log_prefix} Metadata fetch failed: {e}")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch metadata for {vid_id}: {e}")
+
+            if item.get('date'):
+                try:
+                    v_date = datetime.strptime(item['date'], '%Y%m%d')
+                    # [FIX] Relaxed check to 2 days to safely encompass "Yesterday" (which might be > 24h from now)
+                    # Prevents rejecting recent videos due to midnight date boundaries.
+                    if datetime.now() - v_date > timedelta(days=2): 
+                        # [OPTIMIZATION] Strict Stop: Break on FIRST video older than 48h
+                        logger.info(f"🛑 [STOP] {log_prefix} Found old video > 48h: [{title}] | Date: {date_info}. Stopping scan.")
+                        break
+                    
+                except Exception as e:
+                     logger.warning(f"Date parsing error: {e}")
+            else:
+                logger.warning(f"⏭️ [SKIP] {log_prefix} (No Date): [{title}]")
+                continue
+
+            logger.info(f"✨ [NEW FOUND] {log_prefix} ⬇️ Downloading: [{title}] | {url}")
+            
+            try:
+                use_bypass = 'douyin' in channel.platform or 'douyin.com' in url
+                script_only = channel.default_script_only if hasattr(channel, 'default_script_only') else False
+                
+                result = downloader.download_single_video(
+                    video_url=url, 
+                    root_download_path=download_path, 
+                    cookies_path=settings.cookies_path,
+                    use_bypass=use_bypass,
+                    headless=headless,
+                    script_only=script_only
+                )
+                
+                if result.get('status') == 'success':
+                    # [FIX] Strict Classification based on Channel Settings
+                    # We strictly respect the channel's default_script_only flag.
+                    # This avoids "guessing" based on file existence.
+                    actual_script_only = script_only
+                    
+                    from app.routers.videos import save_video_to_db 
+                    save_video_to_db(db, result, result.get('metadata'), channel.category_id, is_script_only=actual_script_only)
+                    new_videos_found += 1
+                    logger.info(f"✅ [SAVED] {log_prefix} [{title}] (script_only={actual_script_only})")
+                else:
+                    logger.error(f"❌ [FAILED] {log_prefix} {result.get('error')}")
+                    
+            except Exception as e:
+                logger.error(f"❌ [ERROR] {log_prefix} {e}")
+
+        logger.info(f"✅ Scan Complete. Found {items_processed}, Downloaded {new_videos_found}.")
+        return {"status": "success", "found": items_processed, "downloaded": new_videos_found}
+
+    except Exception as e:
+        logger.error(f"Scan failed: {e}")
+        return {"status": "failed", "error": str(e)}
+
+import asyncio
+
+async def run_channel_scan():
+    """
+    Scheduled task wrapper.
+    Uses asyncio to handle concurrency limits and robust error handling.
+    """
+    logger.info("⏰ Starting Scheduled Channel Scan...")
+    
+    # 1. Get Candidate Channel IDs (Sync)
+    # We fetch IDs first to avoid passing attached SQLAlchemy objects to threads
+    db_main = database.SessionLocal()
+    channel_ids = []
+    try:
+        active_channels = crud.get_active_channels(db_main)
+        channel_ids = [c.id for c in active_channels if c.auto_download]
+        
+        # [ANTI-BLOCKING] Shuffle execution order to avoid predictable patterns
+        random.shuffle(channel_ids)
+        
+        logger.info(f"Target Channels: {len(channel_ids)} (Shuffled)")
+    except Exception as e:
+        logger.error(f"Failed to fetch channels: {e}")
+        return
+    finally:
+        db_main.close()
+
+    if not channel_ids:
+        logger.info("No active channels configured for auto-download.")
+        return
+
+    # 2. Async Worker Definition
+    async def scan_worker(sem, cid):
+        async with sem:
+            # [ANTI-BLOCKING] Random jitter/sleep to prevent burst requests and rate-limiting
+            # Sleep 5-15 seconds before processing each channel. 
+            # With 3 threads, this yields approx one request every 2-5 seconds.
+            delay = random.uniform(5.0, 15.0)
+            # logger.debug(f"⏳ Jitter: Waiting {delay:.1f}s for {cid}")
+            await asyncio.sleep(delay)
+
+            # Create dedicated DB session for this thread
+            db_thread = database.SessionLocal()
+            try:
+                channel = crud.get_channel(db_thread, cid)
+                if not channel: 
+                    return
+                
+                logger.info(f"🚀 Starting scan for {channel.name} (Thread-Safe)...")
+                
+                # Run blocking scan function in a separate thread to not block the event loop
+                await asyncio.to_thread(scan_specific_channel, db_thread, channel, headless=True)
+                
+            except Exception as e:
+                logger.error(f"❌ Error scanning channel {cid}: {e}")
+            finally:
+                db_thread.close()
+
+    # 3. Execution
+    async def orchestrator():
+        sem = asyncio.Semaphore(3) # Max 3 concurrent downloads
+        tasks = [scan_worker(sem, cid) for cid in channel_ids]
+        await asyncio.gather(*tasks)
+
+    # Run the async loop
+    try:
+        await orchestrator()
+        logger.info("✅ Scheduled Channel Scan Completed.")
+    except Exception as e:
+        logger.error(f"Critical Scheduler Error: {e}")

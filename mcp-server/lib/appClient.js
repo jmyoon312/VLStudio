@@ -12,7 +12,7 @@ import http from 'http';
  * @param {object|null} body - 요청 바디
  * @returns {Promise<{ status: number, data: any }>}
  */
-export function appFetch(port, method, pathname, body = null) {
+export function appFetch(port, method, pathname, body = null, projectId = null) {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: '127.0.0.1',
@@ -21,6 +21,9 @@ export function appFetch(port, method, pathname, body = null) {
       method,
       headers: { 'Content-Type': 'application/json' },
     };
+    if (projectId) {
+      options.headers['x-project-id'] = projectId;
+    }
     const req = http.request(options, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });

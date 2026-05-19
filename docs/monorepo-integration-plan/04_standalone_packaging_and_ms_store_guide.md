@@ -160,3 +160,36 @@ function startFastAPIBackend() {
   apiProcess.stderr.on('data', (data) => console.warn(`[FastAPI ERR] ${data}`));
 }
 ```
+
+---
+
+## 🛡️ 5. 네트워크 제어 및 백그라운드 관리자 권한(UAC) 대응 설계
+
+ViraLoop Studio의 스웜 오토메이션 루프는 안정적인 네트워크 이중화(Wi-Fi + LTE 테더링 병렬 구동)를 위해 라우팅 메트릭을 실시간으로 감시하고 강제 보정(`Set-NetIPInterface`, `netsh`)합니다. 해당 작업은 윈도우 보안 모델 상 **관리자 권한(Administrator)**이 필수적으로 요구됩니다.
+
+### A. 런타임 환경별 UAC 정책 및 처리 방식
+
+| 실행 모드 | 권한 수준 | 동작 방식 및 UAC 처리 |
+| :--- | :--- | :--- |
+| **개발 환경 (dev)** | 일반 사용자 권한 | - 실시간 라우팅 조작 필요 시 PowerShell `Start-Process -Verb RunAs`를 활용하여 임시 UAC 권한 상승 팝업 유도.<br>- 백그라운드 자동 루틴 내에서 반복적인 UAC 팝업 스팸을 막기 위해 **30분 자동 쿨다운 기능** 작동 및 비관리자 상태 경고 로그를 `INFO` 레벨로 완화 처리. |
+| **패키징 환경 (exe/msix)** | 관리자 권한 강제 | - `electron-builder` 설정을 통해 프로그램 기동 시점에 **최초 1회만 관리자 권한 승인(UAC)**을 받도록 구성.<br>- 승인 완료 후 백엔드 및 서브프로세스가 관리자 권한을 완전히 상속받으므로, 실행 중인 동안 추가 UAC 팝업 없이 **백그라운드에서 무소음(Silent) 라우팅 제어 수행**. |
+
+### B. `electron-builder` 최종 실행파일 권한 구성 명세 (`requireAdministrator`)
+
+배포용 실행파일 빌드 시 사용자가 매번 번거로운 수동 최적화를 실행하거나 백그라운드 UAC 팝업 방해를 받지 않도록 `electron-builder` 설정에 아래 명세를 적용해야 합니다.
+
+```yaml
+# electron-builder.yml 또는 package.json "build" 영역
+win:
+  target:
+    - target: "nsis"
+    - target: "appx"
+  # [보안/권한 설계] 실행 시점에 최초 1회 UAC 관리자 승인을 받도록 설정
+  requestedExecutionLevel: "requireAdministrator"
+  icon: "assets/icon.ico"
+```
+
+> [!IMPORTANT]
+> **MS Store AppContainer(APPX/MSIX) 배포 시 유의사항**
+> Microsoft Store의 UWP 샌드박스 정책 하에 패키징할 경우, 앱 내부의 개별 프로세스가 임의로 UAC 권한 상승을 호출하는 것이 차단됩니다. 따라서 로컬 네트워크 카드를 직접 제어해야 하는 기업용/전문가용 에디션의 경우, 일반 NSIS 설치형(`.exe`) 배포판을 관리자 권한 실행 모드로 제공하는 것이 실무적으로 가장 안전하고 권장되는 아키텍처입니다.
+

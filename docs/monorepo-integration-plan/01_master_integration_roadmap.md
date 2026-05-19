@@ -53,21 +53,21 @@
 
 ### 🖥️ [Phase 3] UI 대시보드 통합 및 Flow2CapCut 메뉴 편입
 *   **목표**: ViraLoop 대시보드의 기존 39개 메뉴 체계를 100% 보존하면서, VLStudio의 Flow AI 및 캡컷 내보내기 기능을 신규 메뉴로 편입.
-*   [ ] **3-1. 기존 대시보드 라우팅 보존**: `apps/dashboard/src/pages/` 내부의 `BrandChannelManager`, `EliteCommandStudio`, `SwarmHub` 등 전체 페이지 및 GNB/LNB 네비게이션 체계 완벽 유지.
-*   [ ] **3-2. Flow2CapCut 모듈화 편입**: 기존 VLStudio 프론트엔드 코드(`src/`)를 `apps/dashboard/src/features/flow2capcut/`으로 캡슐화하여 마이그레이션.
-*   [ ] **3-3. IPC 브릿지 연동**: 편입된 Flow2CapCut 모듈이 `window.electronAPI`를 통해 메인 프로세스와 원활히 통신하도록 브릿지 계층 통합.
+*   [x] **3-1. 기존 대시보드 라우팅 보존**: `apps/dashboard/src/pages/` 내부의 `BrandChannelManager`, `EliteCommandStudio`, `SwarmHub` 등 전체 페이지 및 GNB/LNB 네비게이션 체계 완벽 유지.
+*   [x] **3-2. Flow2CapCut 모듈화 편입**: 기존 VLStudio 프론트엔드 코드(`src/`)를 `apps/dashboard/src/features/flow2capcut/`으로 캡슐화하여 마이그레이션.
+*   [x] **3-3. IPC 브릿지 연동**: 편입된 Flow2CapCut 모듈이 `window.electronAPI`를 통해 메인 프로세스와 원활히 통신하도록 브릿지 계층 통합.
 
 ### 🎨 [Phase 4] 전면 스타일 개편 및 대시보드 반응형 최적화
 *   **목표**: 구버전 AutoFlowCut 스타일을 ViraLoop의 프리미엄 Sovereign 디자인 시스템으로 통일하고 반응형 레이아웃 최적화.
-*   [ ] **4-1. 디자인 시스템 통합**: ViraLoop의 테마(`theme/`), 색상 팔레트, 타이포그래피를 편입된 Flow2CapCut 컴포넌트에 전면 적용.
-*   [ ] **4-2. 버튼 및 레이아웃 리팩토링**: 기존의 투박한 버튼과 폼을 ViraLoop의 프리미엄 컴포넌트(카드 뷰, 모달, 드롭다운)로 교체.
-*   [ ] **4-3. 미디어 프리뷰 최적화**: 16:9 및 9:16 비율 전환 시 썸네일과 프리뷰 컨테이너가 완벽히 반응형으로 조율되도록 CSS 리팩토링.
+*   [x] **4-1. 디자인 시스템 통합**: ViraLoop의 테마(`theme/`), 색상 팔레트, 타이포그래피를 편입된 Flow2CapCut 컴포넌트에 전면 적용.
+*   [x] **4-2. 버튼 및 레이아웃 리팩토링**: 기존의 투박한 버튼과 폼을 ViraLoop의 프리미엄 컴포넌트(카드 뷰, 모달, 드롭다운)로 교체.
+*   [x] **4-3. 미디어 프리뷰 최적화**: 16:9 및 9:16 비율 전환 시 썸네일과 프리뷰 컨테이너가 완벽히 반응형으로 조율되도록 CSS 리팩토링.
 
 ### 🚀 [Phase 5] SAIF-2026 다중 창 그리드 확장 및 스토어 배포
 *   **목표**: 단일 통합 대시보드 완성을 기반으로 다중 창 분할 아키텍처를 구현하고, Microsoft Store용 단독 설치 패키지 생성.
-*   [ ] **5-1. WebContentsView 그리드 매핑**: `Map<ProfileId, WebContentsView>` 레지스트리를 대시보드 그리드 UI 셀 좌표에 맞춰 동적 렌더링.
-*   [ ] **5-2. 뷰포트 마스킹 프로토콜**: 대시보드에서 모달/팝업 호출 시 네이티브 웹뷰 가림 현상을 방지하기 위한 Z-index 및 임시 숨김 IPC 통신 구현.
-*   [ ] **5-3. 단독 배포(Standalone) 패키징**: `extraResources` 번들링, 백엔드 PyInstaller 바이너리화, SQLite/인메모리 큐 전환을 통한 원클릭 무설치 배포 파일(`EXE`/`MSIX`) 생성.
+*   [x] **5-1. WebContentsView 그리드 매핑**: `Map<ProfileId, WebContentsView>` 레지스트리를 대시보드 그리드 UI 셀 좌표에 맞춰 동적 렌더링.
+*   [x] **5-2. 뷰포트 마스킹 프로토콜**: 대시보드에서 모달/팝업 호출 시 네이티브 웹뷰 가림 현상을 방지하기 위한 Z-index 및 임시 숨김 IPC 통신 구현.
+*   [x] **5-3. 단독 배포(Standalone) 패키징**: `extraResources` 번들링, 백엔드 PyInstaller 바이너리화, SQLite/인메모리 큐 전환을 통한 원클릭 무설치 배포 파일(`EXE`/`MSIX`) 생성.
 
 ---
 

@@ -12,13 +12,11 @@ if exist "%PG_DATA%\postmaster.pid" (
     del /f /q "%PG_DATA%\postmaster.pid"
 )
 
-:: 2. Start Redis
-echo [INFO] Starting Redis...
-start /min "ViraLoop_Redis" "%BIN_DIR%\redis\redis-server.exe"
+:: 2. Start Redis (Bypassed: Using Lightweight In-Memory Queue)
+echo [INFO] Redis startup bypassed (Using Lightweight In-Memory Queue).
 
-:: 3. Start Postgres
-echo [INFO] Starting Postgres...
-"%PG_BIN%\pg_ctl.exe" start -D "%PG_DATA%" -l "%PG_DATA%\logfile" -o "-c fsync=off -c full_page_writes=off"
+:: 3. Start Postgres (Bypassed: Using Lightweight SQLite Database)
+echo [INFO] Postgres startup bypassed (Using Lightweight SQLite Database).
 
 timeout /t 3 > nul
 echo [DONE] Infrastructure ready.

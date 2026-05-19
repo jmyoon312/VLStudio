@@ -10,9 +10,9 @@ $CHROME_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"
 $EDGE_PATH = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 $CLEANUP_LOG = "$SOURCE_DIR\cleanup_trace.log"
 
-# [ENV] Global variables (Injected for good measure)
-$env:DATABASE_URL = "postgresql://viraloop:viraloop@127.0.0.1:5432/viraloop"
-$env:REDIS_URL = "redis://127.0.0.1:6379/0"
+# [ENV] Global variables (Injected for good measure - Cleared to fall back to SQLite & in-memory queue)
+$env:DATABASE_URL = ""
+$env:REDIS_URL = ""
 $env:PYTHONPATH = "."
 
 # [SAFE-EXIT] Cleanup function
@@ -49,16 +49,11 @@ Write-Host "[ViraLoop] Sovereign Native Engine Starting..." -ForegroundColor Cya
 # 1. Clean Stale State
 if (Test-Path "$PG_DATA\postmaster.pid") { Remove-Item "$PG_DATA\postmaster.pid" -Force -ErrorAction SilentlyContinue }
 
-# 2. Start Infra
-Write-Host "[Infra] Launching Database and Cache..." -ForegroundColor Gray
-Start-Process -FilePath "$BIN_DIR\redis\redis-server.exe" -WindowStyle Minimized
-Start-Process -FilePath "$PG_BIN\pg_ctl.exe" -ArgumentList "start -D `"$PG_DATA`" -l `"$PG_DATA\logfile`"" -WindowStyle Hidden
+# 2. Start Infra (Bypassed: Using Lightweight SQLite and In-Memory Queue)
+Write-Host "[Infra] Bypassing PostgreSQL/Redis startup (Using SQLite & In-Memory Queue)..." -ForegroundColor Gray
 
-Start-Sleep -Seconds 3
-
-# 3. Ensure Database Exists
-& "$PG_BIN\psql.exe" -U postgres -d postgres -c "CREATE DATABASE viraloop;" 2>$null
-& "$PG_BIN\psql.exe" -U postgres -d postgres -c "CREATE ROLE viraloop WITH LOGIN PASSWORD 'viraloop' SUPERUSER;" 2>$null
+# 3. Ensure Database Exists (SQLite handles creation automatically)
+# Bypassed psql role/database setup
 
 # 4. Start Core Services (via Dedicated Batch Files for 100% Reliability)
 Write-Host "[ViraLoop] Launching API and Worker (Stable-Link)..." -ForegroundColor Cyan

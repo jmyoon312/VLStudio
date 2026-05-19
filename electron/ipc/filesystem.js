@@ -25,7 +25,7 @@ import fsSync from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
 import { app, dialog } from 'electron'
-import { parseSfxList } from '../../src/utils/parseSfxList.js'
+import { parseSfxList } from '../../apps/dashboard/src/features/flow2capcut/utils/parseSfxList.js'
 
 // ============================================================
 // Helper Functions

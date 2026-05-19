@@ -19,6 +19,46 @@ export default defineConfig(({ mode }) => {
 
   const isProduction = mode === 'production'
 
+  const createProxy = (target, options = {}) => ({
+    target,
+    changeOrigin: true,
+    secure: false,
+    ws: true,
+    ...options,
+    configure: (proxy) => {
+      const originalOn = proxy.on;
+      const wrapListener = (listener) => {
+        return (err, req, res, ...args) => {
+          if (err && err.code === 'ECONNREFUSED') {
+            if (res) {
+              if (typeof res.writeHead === 'function') {
+                res.writeHead(503, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'starting', message: 'Backend is launching...' }));
+              } else if (typeof res.destroy === 'function') {
+                res.destroy();
+              }
+            }
+            return;
+          }
+          if (typeof listener === 'function') {
+            listener(err, req, res, ...args);
+          }
+        };
+      };
+
+      proxy.on = function (event, listener) {
+        if (event === 'error') {
+          return originalOn.call(this, event, wrapListener(listener));
+        }
+        return originalOn.apply(this, arguments);
+      };
+
+      proxy.addListener = proxy.on;
+    }
+  });
+
+  const backendProxy = createProxy('http://127.0.0.1:8000');
+
   return {
     plugins: [
       react(),
@@ -47,6 +87,18 @@ export default defineConfig(({ mode }) => {
       }),
       renderer()
     ],
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, 'apps/dashboard/src')
+      },
+      preserveSymlinks: false
+    },
+    build: {
+      outDir: 'dist-dummy',
+      rollupOptions: {
+        input: 'electron/preload.js'
+      }
+    },
     // renderer (React) — production에서 console/debugger 제거
     esbuild: isProduction ? { drop: ['console', 'debugger'] } : {},
     define: {
@@ -59,6 +111,33 @@ export default defineConfig(({ mode }) => {
       // build finds nothing (vs. leaving an if/else in code where the dead
       // branch's string literal would still land in the output).
       '__FUNCTION_SUFFIX__': JSON.stringify(functionEnv === 'prod' ? '_prod' : '_test')
+    },
+    server: {
+      host: '0.0.0.0',
+      port: 5173,
+      proxy: {
+        '/api/swarm/ws': backendProxy,
+        '/api': backendProxy,
+        '/media': backendProxy,
+        '/downloads': backendProxy,
+        '/static': backendProxy,
+        '/files': backendProxy,
+        '/thumbnails': backendProxy,
+        '/status_bypass': backendProxy,
+        '/health': backendProxy,
+        '/io': backendProxy,
+        '/agent': backendProxy,
+        '/mcp': backendProxy,
+        '/insights': backendProxy,
+        '/workflows': backendProxy,
+        '/templates': backendProxy,
+        '/docs': backendProxy,
+        '/redoc': backendProxy,
+        '/swarm/': createProxy('http://127.0.0.1:4000', {
+          rewrite: (path) => path.replace(/^\/swarm\//, '')
+        }),
+        '/socket.io': createProxy('http://127.0.0.1:4000')
+      }
     }
   }
 })
