@@ -859,9 +859,16 @@ class LLMClient:
             return fallback_models
 
     async def _fetch_google_models_async(self) -> list:
+        fallback = [
+            {"value": "google/gemini-2.5-flash", "label": "Gemini 2.5 Flash"},
+            {"value": "google/gemini-2.0-flash", "label": "Gemini 2.0 Flash"},
+            {"value": "google/gemini-2.5-pro", "label": "Gemini 2.5 Pro"},
+            {"value": "google/gemini-1.5-flash", "label": "Gemini 1.5 Flash"},
+            {"value": "google/gemini-1.5-pro", "label": "Gemini 1.5 Pro"},
+        ]
         if not self.gemini_keys: 
-            logger.warning("❌ No Gemini keys found in LLMClient.")
-            return []
+            logger.warning("❌ No Gemini keys found in LLMClient. Returning fallback models.")
+            return fallback
         try:
             logger.info(f"📡 Fetching Google models using {len(self.gemini_keys)} keys...")
             client = self._get_gemini_client()
@@ -873,30 +880,73 @@ class LLMClient:
                 if "vision" in mid: continue 
                 fetched.append({"value": mid, "label": mid})
             logger.info(f"✅ Successfully fetched {len(fetched)} Google models.")
+            if not fetched:
+                return fallback
             return fetched
         except Exception as e:
             logger.error(f"Failed to fetch Google models: {str(e)}")
-            return []
+            return fallback
 
     async def _fetch_groq_models_async(self) -> list:
         key = self.groq_keys[0] if self.groq_keys else None
-        return await self._fetch_openai_compatible_async(key, "https://api.groq.com/openai/v1", "groq")
+        fallback = [
+            {"value": "groq/llama-3.3-70b-versatile", "label": "Llama 3.3 70B (Groq)"},
+            {"value": "groq/llama-3.1-8b-instant", "label": "Llama 3.1 8B (Fast) (Groq)"},
+            {"value": "groq/mixtral-8x7b-32768", "label": "Mixtral 8x7B (Groq)"},
+            {"value": "groq/gemma2-9b-it", "label": "Gemma 2 9B (Groq)"},
+            {"value": "groq/deepseek-r1-distill-llama-70b", "label": "DeepSeek R1 Distill Llama 70B (Groq)"},
+        ]
+        return await self._fetch_openai_compatible_async(key, "https://api.groq.com/openai/v1", "groq", fallback_models=fallback)
 
     async def _fetch_openrouter_models_async(self) -> list:
         key = self.openrouter_keys[0] if self.openrouter_keys else None
-        return await self._fetch_openai_compatible_async(key, "https://openrouter.ai/api/v1", "openrouter")
+        fallback = [
+            {"value": "openrouter/google/gemini-2.0-flash-exp:free", "label": "Gemini 2.0 Flash Exp (Free)"},
+            {"value": "openrouter/google/gemini-2.0-flash-lite-preview-02-05:free", "label": "Gemini 2.0 Flash Lite Preview (Free)"},
+            {"value": "openrouter/deepseek/deepseek-r1:free", "label": "DeepSeek R1 (Free)"},
+            {"value": "openrouter/deepseek/deepseek-chat:free", "label": "DeepSeek V3 (Free)"},
+            {"value": "openrouter/meta-llama/llama-3.3-70b-instruct:free", "label": "Llama 3.3 70B (Free)"},
+            {"value": "openrouter/qwen/qwen-2.5-72b-instruct:free", "label": "Qwen 2.5 72B (Free)"},
+            {"value": "openrouter/openrouter/free", "label": "OpenRouter Free Auto-Router"},
+        ]
+        return await self._fetch_openai_compatible_async(key, "https://openrouter.ai/api/v1", "openrouter", fallback_models=fallback)
 
     async def _fetch_sambanova_models_async(self) -> list:
         key = self.sambanova_keys[0] if self.sambanova_keys else None
-        return await self._fetch_openai_compatible_async(key, "https://api.sambanova.ai/v1", "sambanova")
+        fallback = [
+            {"value": "sambanova/Meta-Llama-3.1-70B-Instruct", "label": "Llama 3.1 70B (SambaNova)"},
+            {"value": "sambanova/Meta-Llama-3.3-70B-Instruct", "label": "Llama 3.3 70B (SambaNova)"},
+            {"value": "sambanova/Qwen2.5-72B-Instruct", "label": "Qwen 2.5 72B (SambaNova)"},
+            {"value": "sambanova/Qwen2.5-Coder-32B-Instruct", "label": "Qwen 2.5 Coder 32B (SambaNova)"},
+        ]
+        return await self._fetch_openai_compatible_async(key, "https://api.sambanova.ai/v1", "sambanova", fallback_models=fallback)
 
     async def _fetch_cerebras_models_async(self) -> list:
         key = self.cerebras_keys[0] if self.cerebras_keys else None
-        return await self._fetch_openai_compatible_async(key, "https://api.cerebras.ai/v1", "cerebras")
+        fallback = [
+            {"value": "cerebras/llama3.1-8b", "label": "Llama 3.1 8B (Cerebras)"},
+            {"value": "cerebras/llama3.1-70b", "label": "Llama 3.1 70B (Cerebras)"},
+        ]
+        return await self._fetch_openai_compatible_async(key, "https://api.cerebras.ai/v1", "cerebras", fallback_models=fallback)
 
     async def _fetch_ollama_models_async(self) -> list:
         v1_url = self._get_ollama_v1_url()
-        return await self._fetch_openai_compatible_async("ollama", v1_url, "ollama")
+        fallback = [
+            {"value": "ollama/llama3", "label": "Llama 3 (Local)"},
+            {"value": "ollama/mistral", "label": "Mistral (Local)"},
+            {"value": "ollama/gemma", "label": "Gemma (Local)"},
+            {"value": "ollama/qwen", "label": "Qwen (Local)"},
+        ]
+        return await self._fetch_openai_compatible_async("ollama", v1_url, "ollama", fallback_models=fallback)
+
+    async def _fetch_nvidia_models_async(self) -> list:
+        key = self.nvidia_keys[0] if self.nvidia_keys else None
+        fallback = [
+            {"value": "nvidia/meta/llama-3.3-70b-instruct", "label": "Llama 3.3 70B (NVIDIA)"},
+            {"value": "nvidia/deepseek-ai/deepseek-r1", "label": "DeepSeek R1 (NVIDIA)"},
+            {"value": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct", "label": "Nemotron 70B (NVIDIA)"},
+        ]
+        return await self._fetch_openai_compatible_async(key, "https://integrate.api.nvidia.com/v1", "nvidia", fallback_models=fallback)
 
     async def _fetch_openai_models_async(self) -> list:
         key = getattr(self.settings, "openai_api_key", None) or os.getenv("OPENAI_API_KEY")
