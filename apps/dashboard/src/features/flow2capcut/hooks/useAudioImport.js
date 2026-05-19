@@ -237,7 +237,7 @@ export function useAudioImport(t) {
 
     // 프로젝트별 audioFolderPath 저장 — stale write가 다른 프로젝트 경로를 덮지 않도록 가드
     if (!shouldCommit()) return null
-    const projectName = localStorage.getItem('autoflowcut_settings') ? JSON.parse(localStorage.getItem('autoflowcut_settings')).projectName : null
+    const projectName = localStorage.getItem('viraloop_settings') ? JSON.parse(localStorage.getItem('viraloop_settings')).projectName : null
     if (projectName) {
       const audioMap = JSON.parse(localStorage.getItem('audioFolderPaths') || '{}')
       audioMap[projectName] = result.folderPath
@@ -347,7 +347,7 @@ export function useAudioImport(t) {
     setAudioTracks(null)
     localStorage.removeItem('audioFolderPath')
     try {
-      const settingsRaw = localStorage.getItem('autoflowcut_settings')
+      const settingsRaw = localStorage.getItem('viraloop_settings')
       const projectName = settingsRaw ? JSON.parse(settingsRaw)?.projectName : null
       if (projectName) {
         const audioMap = JSON.parse(localStorage.getItem('audioFolderPaths') || '{}')

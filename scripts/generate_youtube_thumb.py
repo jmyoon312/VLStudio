@@ -5,7 +5,7 @@ README.ko.md 용 YouTube 썸네일 + 플레이 버튼 합성 PNG 생성.
 사용법:
     python3 scripts/generate_youtube_thumb.py [VIDEO_ID]
 
-기본 VIDEO_ID: AutoFlowCut 인트로 영상 (mYnfgqvCkME)
+기본 VIDEO_ID: ViraLoop Studio 인트로 영상 (mYnfgqvCkME)
 출력 경로: docs/youtube-thumb.png
 
 YouTube 썸네일 변경 시 이 스크립트 재실행 후 docs/youtube-thumb.png 커밋.

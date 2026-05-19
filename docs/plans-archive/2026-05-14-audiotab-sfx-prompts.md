@@ -113,7 +113,7 @@ No new files in the episode folder. No changes to W4/W5/W8 wave docs.
 | `electron/main.js` `/api/audio-import` handler | Return the sfx-metadata map alongside the existing audio review payload so the renderer can render immediately on first import. |
 | MCP tool `list_audio_reviews` | Optionally extend response to include the sfx metadata (read-only field). Useful for future MCP-driven QA flows. Defer unless needed. |
 | `docs/{en,ko}/W8-assembly.md` | Brief note that SFX prompts are surfaced in AudioTab from W5-5 onward (no behavior change to the wave). |
-| `skills/story-engine/SKILL.md` | One-line mention under "AutoFlowCut MCP 도구" or W5/W8 description: "SFX 프롬프트는 W5-5 import 후 AudioTab에서 확인 가능". |
+| `skills/story-engine/SKILL.md` | One-line mention under "ViraLoop Studio MCP 도구" or W5/W8 description: "SFX 프롬프트는 W5-5 import 후 AudioTab에서 확인 가능". |
 
 No story-engine wave/orchestrator change required — the new field is a pure
 app UX addition consuming existing artifacts.

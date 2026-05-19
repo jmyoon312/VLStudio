@@ -54,7 +54,7 @@ function detectBrowserLanguage() {
 // 저장된 언어 가져오기
 function getSavedLanguage() {
   try {
-    return localStorage.getItem('autoflowcut_lang')
+    return localStorage.getItem('viraloop_lang')
   } catch {
     return null
   }
@@ -63,7 +63,7 @@ function getSavedLanguage() {
 // 언어 저장
 function saveLanguage(lang) {
   try {
-    localStorage.setItem('autoflowcut_lang', lang)
+    localStorage.setItem('viraloop_lang', lang)
   } catch {}
 }
 

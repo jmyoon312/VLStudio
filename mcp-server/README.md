@@ -1,4 +1,4 @@
-# AutoFlowCut MCP Server
+# ViraLoop Studio MCP Server
 
 <kbd>[🇰🇷 한국어](#한국어)</kbd> <kbd>[🇺🇸 English](#english)</kbd>
 
@@ -6,11 +6,11 @@
 
 ## 한국어
 
-AutoFlowCut 앱을 Claude Code에서 제어하기 위한 MCP(Model Context Protocol) 서버.
+ViraLoop Studio 앱을 Claude Code에서 제어하기 위한 MCP(Model Context Protocol) 서버.
 
 ### 개요
 
-stdio 기반 MCP 서버로, 두 가지 채널을 통해 AutoFlowCut을 제어합니다:
+stdio 기반 MCP 서버로, 두 가지 채널을 통해 ViraLoop Studio을 제어합니다:
 
 1. **CSV 직접 관리** — CSV 파일을 읽고/수정하고/저장
 2. **HTTP 앱 제어** — 실행 중인 앱의 React 상태를 직접 조작 (포트 3210)
@@ -29,7 +29,7 @@ npm install
 ##### 방법 A: 글로벌 설정 (모든 프로젝트에서 사용) — 권장
 
 ```bash
-claude mcp add --scope user --transport stdio flow2capcut -- node /path/to/AutoFlowCut/mcp-server/index.js
+claude mcp add --scope user --transport stdio flow2capcut -- node /path/to/ViraLoop Studio/mcp-server/index.js
 ```
 
 `~/.claude.json`의 `mcpServers`에 저장됩니다.
@@ -43,7 +43,7 @@ claude mcp add --scope user --transport stdio flow2capcut -- node /path/to/AutoF
   "mcpServers": {
     "flow2capcut": {
       "command": "node",
-      "args": ["/path/to/AutoFlowCut/mcp-server/index.js"]
+      "args": ["/path/to/ViraLoop Studio/mcp-server/index.js"]
     }
   }
 }
@@ -69,7 +69,7 @@ claude mcp list
 
 #### 3. 앱 설정
 
-AutoFlowCut 앱 > 설정 > MCP HTTP 서버 > **ON** (포트: 3210)
+ViraLoop Studio 앱 > 설정 > MCP HTTP 서버 > **ON** (포트: 3210)
 
 ### 아키텍처
 
@@ -275,11 +275,11 @@ app_start_scene_batch()
 
 ## English
 
-MCP (Model Context Protocol) server for controlling the AutoFlowCut app from Claude Code.
+MCP (Model Context Protocol) server for controlling the ViraLoop Studio app from Claude Code.
 
 ### Overview
 
-A stdio-based MCP server that controls AutoFlowCut through two channels:
+A stdio-based MCP server that controls ViraLoop Studio through two channels:
 
 1. **Direct CSV management** — Read / modify / save CSV files
 2. **HTTP app control** — Manipulate the running app's React state directly (port 3210)
@@ -298,7 +298,7 @@ npm install
 ##### Option A: Global config (use across all projects) — Recommended
 
 ```bash
-claude mcp add --scope user --transport stdio flow2capcut -- node /path/to/AutoFlowCut/mcp-server/index.js
+claude mcp add --scope user --transport stdio flow2capcut -- node /path/to/ViraLoop Studio/mcp-server/index.js
 ```
 
 Stored under `mcpServers` in `~/.claude.json`.
@@ -312,7 +312,7 @@ Create `.mcp.json` at the project root:
   "mcpServers": {
     "flow2capcut": {
       "command": "node",
-      "args": ["/path/to/AutoFlowCut/mcp-server/index.js"]
+      "args": ["/path/to/ViraLoop Studio/mcp-server/index.js"]
     }
   }
 }
@@ -338,7 +338,7 @@ claude mcp list
 
 #### 3. App configuration
 
-AutoFlowCut app > Settings > MCP HTTP Server > **ON** (port: 3210)
+ViraLoop Studio app > Settings > MCP HTTP Server > **ON** (port: 3210)
 
 ### Architecture
 

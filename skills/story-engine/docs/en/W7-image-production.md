@@ -12,7 +12,7 @@ W7 is the expensive wave (Google Flow credits × 150–250 scenes). A mandatory 
 
 **Run only after W6 (storyboard CSV) is complete.**
 
-### 7-0. Project setup (AutoFlowCut)
+### 7-0. Project setup (ViraLoop Studio)
 
 **Pre-check (MANDATORY — run BEFORE loading CSV or generating any images):**
 
@@ -31,11 +31,11 @@ W7 is the expensive wave (Google Flow credits × 150–250 scenes). A mandatory 
 3. On user confirmation, create or open the project
 
 ```
-AutoFlowCut MCP: app_list_projects → check existing projects
-Ask user: "Shall I create the AutoFlowCut project as '{channel}_ep{number}'?"
-AutoFlowCut MCP: app_create_project({ name: "confirmed_name" }) → create (auto-switches)
+ViraLoop Studio MCP: app_list_projects → check existing projects
+Ask user: "Shall I create the ViraLoop Studio project as '{channel}_ep{number}'?"
+ViraLoop Studio MCP: app_create_project({ name: "confirmed_name" }) → create (auto-switches)
   — OR —
-AutoFlowCut MCP: app_open_project({ name: "existing_name" }) → switch to existing project
+ViraLoop Studio MCP: app_open_project({ name: "existing_name" }) → switch to existing project
 ```
 
 Project management tools:
@@ -47,7 +47,7 @@ Project management tools:
 
 **Review (substep 7-0)** — subagent self-review → list issues → revise. Max 5 rounds. 0 issues → proceed immediately to substep 7-1. 5 rounds exceeded → escalate to user.
 
-### 7-1. Reference image generation (AutoFlowCut)
+### 7-1. Reference image generation (ViraLoop Studio)
 
 **Explain the current situation to the user:**
 - Currently loaded reference count (character / place / style)
@@ -58,15 +58,15 @@ Project management tools:
 
 > **When asking about style, you MUST first call `list_styles` and show the actual preset options.**
 > Do NOT simply list "painterly medieval, gothic illustration..." as text. Show a table of actual presets from the MCP.
-> Also tell the user they can check in-app: **AutoFlowCut app → Ref tab → Batch generate → Style picker (browse categories & previews)**
+> Also tell the user they can check in-app: **ViraLoop Studio app → Ref tab → Batch generate → Style picker (browse categories & previews)**
 
 **Path A — AI drives it:** Ask the user for a style; when they answer, use the `styleId` to auto-generate
 ```
-AutoFlowCut MCP: list_styles → fetch styles → show table to user
+ViraLoop Studio MCP: list_styles → fetch styles → show table to user
 Ask user: "Which style? e.g., gothic illustration, medieval painterly, oil-painting realism, etched engraving..."
-Also tell them: "Or open the AutoFlowCut app → Ref → Batch generate to preview styles."
+Also tell them: "Or open the ViraLoop Studio app → Ref → Batch generate to preview styles."
 User answer → map to preset id (e.g., "gothic illustration" → "gothic-illustration")
-AutoFlowCut MCP: app_start_ref_batch({ styleId: "gothic-illustration" }) → auto style + ref batch
+ViraLoop Studio MCP: app_start_ref_batch({ styleId: "gothic-illustration" }) → auto style + ref batch
 ```
 - Both `app_start_ref_batch` and `app_start_scene_batch` accept `styleId`
 - Passing `styleId` also auto-selects it in the app's style picker UI
@@ -78,7 +78,7 @@ W6 only writes character/scene rows. The `type: style` row is the exclusive resp
 
 ```
 # Example: styleId="gothic-illustration"
-AutoFlowCut MCP: update_reference_prompt({
+ViraLoop Studio MCP: update_reference_prompt({
   name: "gothic-illustration",
   type: "style",
   prompt: "Gothic illustration style, heavy chiaroscuro, dramatic candlelight, period detail, no modern elements"
@@ -89,16 +89,16 @@ This row drives style consistency across all character/scene prompts. Without it
 
 **Path B — User drives it in-app:** the user opens Ref → Batch → pick style → Start themselves
 ```
-AutoFlowCut MCP: app_batch_status → check status
+ViraLoop Studio MCP: app_batch_status → check status
 → If already in progress: "Generation is already running; I'll wait."
 → If already done: "Done — moving to the next step."
 ```
 
 **Common:**
 ```
-AutoFlowCut MCP: load_csv → load references.csv
+ViraLoop Studio MCP: load_csv → load references.csv
 Explain to user: "Loaded {N} references (character {n1}, place {n2}, style {n3}). Pre-generation state."
-AutoFlowCut MCP: app_wait_batch → wait for completion
+ViraLoop Studio MCP: app_wait_batch → wait for completion
 ```
 
 **Image generation modes (critical):**
@@ -116,23 +116,23 @@ AutoFlowCut MCP: app_wait_batch → wait for completion
 ```
 1. Confirm style selected (list_styles → ask user, or user picks in-app)
 2. Start batch:
-   - AI: AutoFlowCut MCP: app_start_ref_batch({ styleId }) → style + batch
+   - AI: ViraLoop Studio MCP: app_start_ref_batch({ styleId }) → style + batch
    - User: App → "Ref" → "Batch" → pick style → "Start"
-3. AutoFlowCut MCP: app_batch_status → check (if already running: "Already in progress")
-4. AutoFlowCut MCP: app_wait_batch → wait for completion
+3. ViraLoop Studio MCP: app_batch_status → check (if already running: "Already in progress")
+4. ViraLoop Studio MCP: app_wait_batch → wait for completion
 ```
 
 **Review (substep 7-1)** — subagent self-review → list issues → revise. Max 5 rounds. 0 issues → proceed immediately to substep 7-2. 5 rounds exceeded → escalate to user.
 
-### 7-2. Per-scene image generation (AutoFlowCut)
+### 7-2. Per-scene image generation (ViraLoop Studio)
 
 ```
-AutoFlowCut MCP: load_csv({ csv_path, image_dir }) → load scenes CSV (auto-passed to app)
-AutoFlowCut MCP: app_get_scenes → verify scenes are loaded in the app
-AutoFlowCut MCP: app_start_scene_batch({ styleId }) → start batch
+ViraLoop Studio MCP: load_csv({ csv_path, image_dir }) → load scenes CSV (auto-passed to app)
+ViraLoop Studio MCP: app_get_scenes → verify scenes are loaded in the app
+ViraLoop Studio MCP: app_start_scene_batch({ styleId }) → start batch
   (or user clicks "Start" in the app)
-AutoFlowCut MCP: app_batch_status → check status
-AutoFlowCut MCP: app_wait_batch → wait for completion
+ViraLoop Studio MCP: app_batch_status → check status
+ViraLoop Studio MCP: app_wait_batch → wait for completion
 ```
 
 - `load_csv` auto-passes scene data to the app (`update-scenes` IPC)
@@ -157,7 +157,7 @@ After batch completion, run this if there are errors.
 6. Loop until error count is 0
 ```
 
-### AutoFlowCut HTTP API (localhost:3210)
+### ViraLoop Studio HTTP API (localhost:3210)
 
 The HTTP API is usable alongside MCP tools. Especially good for bulk data queries / filtering.
 
@@ -224,9 +224,9 @@ print(f'CSV saved: {len(data)} scenes')
 After all image generation completes, run quality review against script / scenes / prompts.
 
 **Progress notification (required):** The subagent MUST ping the app during QA so the top-strip banner updates.
-- At the start of each round: `mcp__autoflowcut__app_notify_qa({ kind, state: 'start', total, round })`
-- Every 10 items checked: `mcp__autoflowcut__app_notify_qa({ kind, state: 'progress', current, total, round, issues })`
-- When the round concludes: `mcp__autoflowcut__app_notify_qa({ kind, state: 'done', current: total, total, round, issues })`
+- At the start of each round: `mcp__viraloop__app_notify_qa({ kind, state: 'start', total, round })`
+- Every 10 items checked: `mcp__viraloop__app_notify_qa({ kind, state: 'progress', current, total, round, issues })`
+- When the round concludes: `mcp__viraloop__app_notify_qa({ kind, state: 'done', current: total, total, round, issues })`
 - `kind` is `'ref'` for reference QA and `'scene'` for scene QA.
 
 **Reference QA:**

@@ -233,7 +233,7 @@ Rules: command strings only (no env values, no credentials, no body content); UR
 | W8 | `docs/{lang}/W8-assembly.md` (어셈블리 — SFX 씬 매칭 + 오디오 임포트 + CapCut export + 영상) |
 | W9 | `docs/{lang}/W9-upload-info.md` (업로드 정보) |
 
-## AutoFlowCut MCP 도구
+## ViraLoop Studio MCP 도구
 
 - 프로젝트: `app_list_projects`, `app_create_project`
 - CSV: `load_csv`, `list_scenes`, `update_prompt`, `save_csv`

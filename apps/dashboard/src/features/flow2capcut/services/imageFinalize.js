@@ -79,7 +79,7 @@ export async function finalizeGeneratedImage({
   let saveError = null
   if (saveMode === 'folder') {
     // projectName은 호출자(useAutomation/useSceneGeneration)가 넘겨야 한다.
-    // 누락 시엔 고아 autoflowcut_<ts> 폴더 대신 'Untitled'로 폴백.
+    // 누락 시엔 고아 viraloop_<ts> 폴더 대신 'Untitled'로 폴백.
     if (!projectName) {
       console.warn(`${logPrefix} projectName missing — falling back to "Untitled"`)
     }

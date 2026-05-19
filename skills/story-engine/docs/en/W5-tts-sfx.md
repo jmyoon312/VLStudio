@@ -278,9 +278,9 @@ API: https://api.elevenlabs.io/v1/sound-generation
 Credentials: ~/.elevenlabs/credentials
 ```
 
-**SFX filename timecode rule (AutoFlowCut integration):**
+**SFX filename timecode rule (ViraLoop Studio integration):**
 
-SFX files are automatically overlay-placed on the timeline by AutoFlowCut. The number **after the last `_`** in the filename is parsed as the timecode.
+SFX files are automatically overlay-placed on the timeline by ViraLoop Studio. The number **after the last `_`** in the filename is parsed as the timecode.
 
 | Digits | Format | Example filename | Meaning |
 |--------|--------|------------------|---------|
@@ -288,7 +288,7 @@ SFX files are automatically overlay-placed on the timeline by AutoFlowCut. The n
 | 6 | `HHMMSS` | `wind_ruins_010056.mp3` | 1 h 00 min 56 sec |
 
 - The timecode is the absolute time on the full audio (final mp3)
-- AutoFlowCut's `parseTimecodeFromFilename()` parses it automatically
+- ViraLoop Studio's `parseTimecodeFromFilename()` parses it automatically
 - SFX files without a timecode are not placed on the timeline
 
 **How to compute timecodes (SRT-anchor based):**
@@ -320,7 +320,7 @@ Look up each SFX cue's **anchor narration** (from W4's `08_sfx_list.md`) in `fin
    - Filename's `_MMSS` is measured against that part's `final_{part}.mp3`
 2. **`media/sfx/`** — full-timeline originals (converted after 5-3 merge)
    - Filename's `_MMSS` is measured against `final_full.mp3`
-   - AutoFlowCut import uses these files
+   - ViraLoop Studio import uses these files
 
 **Full-timecode conversion:**
 ```
@@ -357,7 +357,7 @@ media/sfx/                        ← final (full timeline)
 
 ## 5-3. Full-audio merge + SFX timecode conversion
 
-> **When `production_scope.sfx: false`**: the narration mp3/SRT merge still runs (always). The SFX timecode conversion section is a **no-op** (no `sfx/*.mp3` to convert). `media/sfx/` is not created, and the AutoFlowCut import in W8 will simply have no SFX tracks. Downstream (W6 / W8) treats absent `media/sfx/` as a normal state.
+> **When `production_scope.sfx: false`**: the narration mp3/SRT merge still runs (always). The SFX timecode conversion section is a **no-op** (no `sfx/*.mp3` to convert). `media/sfx/` is not created, and the ViraLoop Studio import in W8 will simply have no SFX tracks. Downstream (W6 / W8) treats absent `media/sfx/` as a normal state.
 
 Merge the four parts' `final_{part}.mp3` and `final_{part}.srt` into `media/`. Convert SFX files from per-part to full-timeline timecodes and save to `media/sfx/`.
 

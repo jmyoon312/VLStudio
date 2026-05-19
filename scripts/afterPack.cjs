@@ -59,7 +59,7 @@ exports.default = async function (context) {
 
   // macOS: normalize non-ASCII filenames to NFD before code signing.
   if (context.electronPlatformName === 'darwin') {
-    const resourcesDir = path.join(appOutDir, 'AutoFlowCut.app', 'Contents', 'Resources')
+    const resourcesDir = path.join(appOutDir, 'ViraLoop Studio.app', 'Contents', 'Resources')
     if (fs.existsSync(resourcesDir)) {
       console.log('[afterPack] Normalizing non-ASCII filenames to NFD (HFS+ DMG compatibility)...')
       const count = normalizeFilenamesToNFD(resourcesDir)

@@ -47,7 +47,7 @@ function configureAutoUpdater() {
     dialog
       .showMessageBox({
         type: 'question',
-        title: 'AutoFlowCut 업데이트',
+        title: 'ViraLoop Studio 업데이트',
         message: `새 버전 ${info?.version}이(가) 있습니다.`,
         detail: `현재 버전: ${app.getVersion()}\n\n지금 다운로드하시겠습니까?`,
         buttons: ['지금 다운로드', '나중에'],
@@ -62,7 +62,7 @@ function configureAutoUpdater() {
           log('download failed:', err?.message || err)
           dialog.showMessageBox({
             type: 'error',
-            title: 'AutoFlowCut',
+            title: 'ViraLoop Studio',
             message: '업데이트 다운로드에 실패했습니다.',
             detail: String(err?.message || err),
             buttons: ['확인'],
@@ -76,7 +76,7 @@ function configureAutoUpdater() {
       manualCheckInProgress = false
       dialog.showMessageBox({
         type: 'info',
-        title: 'AutoFlowCut',
+        title: 'ViraLoop Studio',
         message: '최신 버전을 사용 중입니다.',
         detail: `현재 버전: ${app.getVersion()}`,
         buttons: ['확인'],
@@ -89,7 +89,7 @@ function configureAutoUpdater() {
       manualCheckInProgress = false
       dialog.showMessageBox({
         type: 'error',
-        title: 'AutoFlowCut',
+        title: 'ViraLoop Studio',
         message: '업데이트 확인 중 오류가 발생했습니다.',
         detail: String(err?.message || err),
         buttons: ['확인'],
@@ -107,7 +107,7 @@ function configureAutoUpdater() {
     dialog
       .showMessageBox({
         type: 'question',
-        title: 'AutoFlowCut 업데이트',
+        title: 'ViraLoop Studio 업데이트',
         message: `새 버전 ${info?.version}이(가) 설치 준비되었습니다.`,
         detail: '지금 재시작하여 설치하시겠습니까?\n("나중에"를 선택하면 다음 앱 종료 시 자동 설치됩니다.)',
         buttons: ['지금 재시작', '나중에'],
@@ -142,7 +142,7 @@ function manualCheck() {
   if (isAppx) {
     dialog.showMessageBox({
       type: 'info',
-      title: 'AutoFlowCut',
+      title: 'ViraLoop Studio',
       message: 'Microsoft Store 버전입니다.',
       detail: '업데이트는 Microsoft Store에서 자동으로 처리됩니다.',
       buttons: ['확인'],
@@ -152,7 +152,7 @@ function manualCheck() {
   if (!app.isPackaged) {
     dialog.showMessageBox({
       type: 'info',
-      title: 'AutoFlowCut',
+      title: 'ViraLoop Studio',
       message: '개발 모드에서는 업데이트 확인을 사용할 수 없습니다.',
       buttons: ['확인'],
     })
@@ -162,7 +162,7 @@ function manualCheck() {
     dialog
       .showMessageBox({
         type: 'question',
-        title: 'AutoFlowCut 업데이트',
+        title: 'ViraLoop Studio 업데이트',
         message: '업데이트가 이미 다운로드되었습니다. 지금 설치하시겠습니까?',
         buttons: ['지금 재시작', '나중에'],
         defaultId: 0,
@@ -184,7 +184,7 @@ function manualCheck() {
     log('manual check failed:', err?.message || err)
     dialog.showMessageBox({
       type: 'error',
-      title: 'AutoFlowCut',
+      title: 'ViraLoop Studio',
       message: '업데이트 확인에 실패했습니다.',
       detail: String(err?.message || err),
       buttons: ['확인'],
@@ -200,7 +200,7 @@ function sendMenuAction(action, payload = {}) {
 
 function buildAppMenu() {
   const isMac = process.platform === 'darwin'
-  const appName = app.name || 'AutoFlowCut'
+  const appName = app.name || 'ViraLoop Studio'
 
   const checkForUpdatesItem = {
     label: '업데이트 확인…',

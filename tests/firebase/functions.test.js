@@ -21,7 +21,7 @@ vi.mock('../../src/firebase/config', () => ({
   functions: {},
   auth: {},
   db: {},
-  APP_ID: 'autoflowcut'
+  APP_ID: 'viraloop'
 }))
 
 /**

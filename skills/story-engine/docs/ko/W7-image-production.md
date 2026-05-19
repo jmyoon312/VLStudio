@@ -12,9 +12,9 @@ W7은 비용이 큰 단계 (Google Flow 크레딧 × 150~250 씬). W7이 끝나�
 
 **W6(스토리보드 CSV)가 완성된 후에만 실행한다.**
 
-### 7-0. 프로젝트 생성 (AutoFlowCut)
+### 7-0. 프로젝트 생성 (ViraLoop Studio)
 
-CSV를 로드하기 전에 AutoFlowCut 프로젝트를 먼저 생성해야 한다.
+CSV를 로드하기 전에 ViraLoop Studio 프로젝트를 먼저 생성해야 한다.
 
 1. 기존 프로젝트 목록을 확인한다.
 2. 유저에게 프로젝트명을 제안하고 확인받는다:
@@ -23,9 +23,9 @@ CSV를 로드하기 전에 AutoFlowCut 프로젝트를 먼저 생성해야 한�
 3. 유저가 확인하면 프로젝트를 생성한다.
 
 ```
-AutoFlowCut MCP: app_list_projects → 기존 프로젝트 확인
-유저에게 프로젝트명 확인: "AutoFlowCut 프로젝트명을 '{채널명}_ep{번호}'로 생성할까요?"
-AutoFlowCut MCP: app_create_project({ name: "확인된_이름" }) → 프로젝트 생성
+ViraLoop Studio MCP: app_list_projects → 기존 프로젝트 확인
+유저에게 프로젝트명 확인: "ViraLoop Studio 프로젝트명을 '{채널명}_ep{번호}'로 생성할까요?"
+ViraLoop Studio MCP: app_create_project({ name: "확인된_이름" }) → 프로젝트 생성
 ```
 
 프로젝트 관리 도구:
@@ -36,7 +36,7 @@ AutoFlowCut MCP: app_create_project({ name: "확인된_이름" }) → 프로젝�
 
 **리뷰 (서브스텝 7-0)** — 서브에이전트 자가검토 → 이슈 목록 → 수정. 최대 5회. 0 이슈 시 다음 서브스텝(7-1)으로 즉시 진행. 5회 초과 시 사용자에게 에스컬레이션.
 
-### 7-1. 레퍼런스 이미지 생성 (AutoFlowCut)
+### 7-1. 레퍼런스 이미지 생성 (ViraLoop Studio)
 
 **사용자에게 현재 상황을 설명한다:**
 - 현재 로드된 레퍼런스 수 (캐릭터/장소/스타일 각각)
@@ -47,15 +47,15 @@ AutoFlowCut MCP: app_create_project({ name: "확인된_이름" }) → 프로젝�
 
 > **스타일을 물어볼 때 반드시 `list_styles`를 먼저 호출하여 실제 선택지 목록을 보여준다.**
 > 텍스트로만 "한국 애니풍, 수묵화풍..." 나열하지 말고, MCP에서 가져온 실제 프리셋 목록을 표로 보여줘야 한다.
-> 또한 앱에서 직접 찾는 방법도 안내한다: **AutoFlowCut 앱 → Ref 탭 → 일괄 생성 → 스타일 피커에서 카테고리별 스타일 확인 가능**
+> 또한 앱에서 직접 찾는 방법도 안내한다: **ViraLoop Studio 앱 → Ref 탭 → 일괄 생성 → 스타일 피커에서 카테고리별 스타일 확인 가능**
 
 **경로 A — AI가 진행:** 사용자에게 스타일을 물어보고, 답변 받으면 `styleId`로 자동 생성
 ```
-AutoFlowCut MCP: list_styles → 스타일 목록 조회 → 사용자에게 표로 보여주기
+ViraLoop Studio MCP: list_styles → 스타일 목록 조회 → 사용자에게 표로 보여주기
 사용자에게 질문: "어떤 스타일로 할까? 예: 한국 애니, 지브리, 사극, 수묵화 등"
-앱에서도 확인 가능: "AutoFlowCut 앱 → Ref → 일괄 생성 버튼 누르면 스타일 피커에서 미리보기 가능해"
+앱에서도 확인 가능: "ViraLoop Studio 앱 → Ref → 일괄 생성 버튼 누르면 스타일 피커에서 미리보기 가능해"
 사용자 답변 → 해당 preset ID 매핑 (예: "한국 애니" → "korean-ani")
-AutoFlowCut MCP: app_start_ref_batch({ styleId: "korean-ani" }) → 스타일 자동 선택 + 레퍼런스 일괄 생성
+ViraLoop Studio MCP: app_start_ref_batch({ styleId: "korean-ani" }) → 스타일 자동 선택 + 레퍼런스 일괄 생성
 ```
 - `app_start_ref_batch`와 `app_start_scene_batch` 모두 `styleId` 파라미터를 지원한다
 - styleId를 전달하면 앱의 스타일 피커 UI에도 자동 반영된다
@@ -68,7 +68,7 @@ W6는 character/scene만 작성하고 type:style 행은 W7의 단일 책임이�
 
 ```
 # 예: styleId="korean-ani"
-AutoFlowCut MCP: update_reference_prompt({
+ViraLoop Studio MCP: update_reference_prompt({
   name: "korean-ani",
   type: "style",
   prompt: "Korean traditional animation style, soft pastel palette, gentle linework, atmospheric lighting, no modern elements"
@@ -79,16 +79,16 @@ AutoFlowCut MCP: update_reference_prompt({
 
 **경로 B — 사용자가 앱에서 직접 진행:** 사용자가 앱에서 Ref → 일괄생성 → 스타일 선택 → 생성시작을 직접 누른 경우
 ```
-AutoFlowCut MCP: app_batch_status → 상태 조회
+ViraLoop Studio MCP: app_batch_status → 상태 조회
 → 이미 생성 중이면: "이미 생성이 진행 중이네! 완료될 때까지 기다릴게."
 → 이미 완료되었으면: "생성 완료됐네! 다음 단계로 넘어갈게."
 ```
 
 **공통:**
 ```
-AutoFlowCut MCP: load_csv → references.csv 로드
+ViraLoop Studio MCP: load_csv → references.csv 로드
 사용자에게 상황 설명: "레퍼런스 {N}개 로드 완료 (캐릭터 {n1}, 장소 {n2}, 스타일 {n3}). 이미지 생성 전이야."
-AutoFlowCut MCP: app_wait_batch → 생성 완료 대기
+ViraLoop Studio MCP: app_wait_batch → 생성 완료 대기
 ```
 
 **이미지 생성 방식 (중요):**
@@ -106,23 +106,23 @@ AutoFlowCut MCP: app_wait_batch → 생성 완료 대기
 ```
 1. 스타일 선택 완료 확인 (list_styles → 사용자에게 물어보기 또는 앱에서 직접 선택)
 2. 배치 시작:
-   - AI가 진행: AutoFlowCut MCP: app_start_ref_batch({ styleId: "korean-ani" }) → 스타일 선택 + 일괄 생성
+   - AI가 진행: ViraLoop Studio MCP: app_start_ref_batch({ styleId: "korean-ani" }) → 스타일 선택 + 일괄 생성
    - 사용자가 직접: 앱에서 "Ref" → "일괄생성" → 스타일 선택 → "생성시작" 클릭
-3. AutoFlowCut MCP: app_batch_status → 생성 상태 확인 (이미 진행 중이면 "이미 생성 중이네!")
-4. AutoFlowCut MCP: app_wait_batch → 생성 완료 대기
+3. ViraLoop Studio MCP: app_batch_status → 생성 상태 확인 (이미 진행 중이면 "이미 생성 중이네!")
+4. ViraLoop Studio MCP: app_wait_batch → 생성 완료 대기
 ```
 
 **리뷰 (서브스텝 7-1)** — 서브에이전트 자가검토 → 이슈 목록 → 수정. 최대 5회. 0 이슈 시 다음 서브스텝(7-2)으로 즉시 진행. 5회 초과 시 사용자에게 에스컬레이션.
 
-### 7-2. 씬별 이미지 생성 (AutoFlowCut)
+### 7-2. 씬별 이미지 생성 (ViraLoop Studio)
 
 ```
-AutoFlowCut MCP: load_csv({ csv_path, image_dir }) → 씬 CSV 로드 (앱에 자동 전달)
-AutoFlowCut MCP: app_get_scenes → 앱에 씬이 로드되었는지 확인
-AutoFlowCut MCP: app_start_scene_batch({ styleId: "korean-ani" }) → 배치 생성 시작
+ViraLoop Studio MCP: load_csv({ csv_path, image_dir }) → 씬 CSV 로드 (앱에 자동 전달)
+ViraLoop Studio MCP: app_get_scenes → 앱에 씬이 로드되었는지 확인
+ViraLoop Studio MCP: app_start_scene_batch({ styleId: "korean-ani" }) → 배치 생성 시작
   (또는 사용자가 앱에서 직접 "생성시작" 클릭)
-AutoFlowCut MCP: app_batch_status → 생성 상태 확인
-AutoFlowCut MCP: app_wait_batch → 생성 완료 대기
+ViraLoop Studio MCP: app_batch_status → 생성 상태 확인
+ViraLoop Studio MCP: app_wait_batch → 생성 완료 대기
 ```
 
 - `load_csv`는 씬 데이터를 앱에 자동 전달한다 (`update-scenes` IPC)
@@ -146,7 +146,7 @@ AutoFlowCut MCP: app_wait_batch → 생성 완료 대기
 6. 에러 0이 될 때까지 반복
 ```
 
-### AutoFlowCut HTTP API (localhost:3210)
+### ViraLoop Studio HTTP API (localhost:3210)
 
 MCP 도구 외에 HTTP API를 직접 사용할 수 있다. 특히 대량 데이터 조회/필터링에 유용하다.
 
@@ -213,9 +213,9 @@ print(f'CSV saved: {len(data)} scenes')
 모든 이미지 생성 완료 후, 대본/씬/프롬프트 대비 품질 검수를 수행한다.
 
 **진행 상황 알림 (필수):** 서브에이전트는 QA 진행을 앱에 알려야 한다. 상단 스트립 배너가 업데이트된다.
-- 각 라운드 시작 시: `mcp__autoflowcut__app_notify_qa({ kind, state: 'start', total, round })`
-- 10개 확인마다: `mcp__autoflowcut__app_notify_qa({ kind, state: 'progress', current, total, round, issues })`
-- 라운드 종료 시: `mcp__autoflowcut__app_notify_qa({ kind, state: 'done', current: total, total, round, issues })`
+- 각 라운드 시작 시: `mcp__viraloop__app_notify_qa({ kind, state: 'start', total, round })`
+- 10개 확인마다: `mcp__viraloop__app_notify_qa({ kind, state: 'progress', current, total, round, issues })`
+- 라운드 종료 시: `mcp__viraloop__app_notify_qa({ kind, state: 'done', current: total, total, round, issues })`
 - `kind`는 레퍼런스 QA에서는 `'ref'`, 씬 QA에서는 `'scene'`.
 
 **레퍼런스 QA:**

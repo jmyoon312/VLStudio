@@ -18,9 +18,9 @@ W1 작업 시작 전에 파이프라인 전체를 완료할 수 있는 환경인
 
 | # | 항목 | 확인 방법 | 실패 시 |
 |---|------|----------|---------|
-| 1 | **AutoFlowCut 앱 실행** | `app_status` MCP 호출 (localhost:3210) | 앱 실행 안내 |
+| 1 | **ViraLoop Studio 앱 실행** | `app_status` MCP 호출 (localhost:3210) | 앱 실행 안내 |
 | 2 | **작업 폴더 설정** | `app_list_projects` 응답 확인 | 앱 설정에서 폴더 지정 안내 |
-| 3 | **Claude Code MCP 연결** | `mcp__autoflowcut__*` 도구 접근 가능 | MCP 등록/재시작 안내 |
+| 3 | **Claude Code MCP 연결** | `mcp__viraloop__*` 도구 접근 가능 | MCP 등록/재시작 안내 |
 
 ### 선택 항목 (없으면 특정 Wave 불가)
 
@@ -28,7 +28,7 @@ W1 작업 시작 전에 파이프라인 전체를 완료할 수 있는 환경인
 |---|------|------|----------|-------------|
 | 4 | **ElevenLabs API** | W5 음성/SFX 생성 | `~/.elevenlabs/credentials` | Vrew 수동 / Google AI Studio / W5 스킵 |
 | 5 | **Typecast API** | W5 대사 TTS (감정별) | `~/.typecast/credentials` | ElevenLabs 캐릭터 보이스 분리로 대체 |
-| 6 | **Google Flow 로그인** | W7 이미지/영상 생성 | AutoFlowCut 앱 내 Flow 탭 로그인 상태 | CapCut에서 수동 이미지 삽입 |
+| 6 | **Google Flow 로그인** | W7 이미지/영상 생성 | ViraLoop Studio 앱 내 Flow 탭 로그인 상태 | CapCut에서 수동 이미지 삽입 |
 | 7 | **Google AI Studio API** | W5 Gemini TTS (연동 예정) | `~/.google-ai-studio/credentials` | ElevenLabs 또는 Typecast로 대체 |
 
 ### 체크 결과 보고
@@ -37,7 +37,7 @@ W1 작업 시작 전에 파이프라인 전체를 완료할 수 있는 환경인
 
 ```
 환경 확인 결과:
-✅ AutoFlowCut 앱 실행 중
+✅ ViraLoop Studio 앱 실행 중
 ✅ 작업 폴더 설정됨
 ✅ MCP 연결됨
 ⚠️ ElevenLabs credentials 없음 → W5 음성/SFX 생성 불가

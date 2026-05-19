@@ -41,10 +41,10 @@ W5-4는 scenes.csv (W6 산출물)에 의존할 수 없어 mechanic 검증(겹침
 
 ## 8-1. 오디오 임포트 (나레이션 + SFX)
 
-W5에서 생성한 오디오 파일을 AutoFlowCut에 임포트한다.
+W5에서 생성한 오디오 파일을 ViraLoop Studio에 임포트한다.
 오디오 임포트 후 CapCut 내보내기 시 나레이션/SFX가 타임라인에 자동 배치된다.
 
-> **AudioTab SFX 프롬프트** — W5-5 이후 AutoFlowCut AudioTab은 각 SFX 클립의 앵커 나레이션·배치·영문 프롬프트·길이를 인라인으로 표시한다 (`08_sfx_목록.md` 파싱 기반). markdown 파일을 따로 열지 않고도 SFX QA가 가능하다.
+> **AudioTab SFX 프롬프트** — W5-5 이후 ViraLoop Studio AudioTab은 각 SFX 클립의 앵커 나레이션·배치·영문 프롬프트·길이를 인라인으로 표시한다 (`08_sfx_목록.md` 파싱 기반). markdown 파일을 따로 열지 않고도 SFX QA가 가능하다.
 
 **임포트 대상 (에피소드 폴더):**
 ```
@@ -157,11 +157,11 @@ curl -s -X POST http://localhost:3210/api/export-capcut \
 
 ```
 🛑 AskUserQuestion: "씬별 영상 생성을 시작할까요? 약 {N}개 씬, 예상 비용: ..."
-   - "Yes" → AutoFlowCut의 비디오 모드로 생성
+   - "Yes" → ViraLoop Studio의 비디오 모드로 생성
    - "No / Skip" → 8-3 건너뛰고 W9로 진행 (CapCut에서 직접 편집)
 ```
 
-- 유저가 승인하면 AutoFlowCut의 비디오 모드로 생성
+- 유저가 승인하면 ViraLoop Studio의 비디오 모드로 생성
 - 유저가 직접 하겠다고 하면 넘긴다
 - export도 마찬가지로 유저 확인 후 진행
 

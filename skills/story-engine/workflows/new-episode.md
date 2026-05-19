@@ -9,8 +9,8 @@ Auto-chains to /story-execute on completion.
 
 The installed skill does not hard-code a project path. Resolve {PROJECT_DIR} in this order:
 1. If `metadata.json` has `resolvedVariables.PROJECT` set, use it.
-2. Else call the AutoFlowCut MCP tool `mcp__autoflowcut__app_list_projects`. The response begins with a line like `작업폴더: C:\Users\<user>\OneDrive\문서\AutoFlowCut`. Use that path.
-3. Else ASK the user via AskUserQuestion. Do NOT fall back to cwd or to the source-repo path (`C:\workspace\AutoFlowCut` or similar) — that creates the episode inside the source tree, which is wrong.
+2. Else call the ViraLoop Studio MCP tool `mcp__viraloop__app_list_projects`. The response begins with a line like `작업폴더: C:\Users\<user>\OneDrive\문서\ViraLoop Studio`. Use that path.
+3. Else ASK the user via AskUserQuestion. Do NOT fall back to cwd or to the source-repo path (`C:\workspace\ViraLoop Studio` or similar) — that creates the episode inside the source tree, which is wrong.
 
 Store the resolved absolute path as {PROJECT_DIR} for all later steps.
 
@@ -22,7 +22,7 @@ Parse $ARGUMENTS for:
 
 **Step 2: Create episode directory**
 
-Episodes live under the AutoFlowCut work folder, in a per-project sub-folder named `ep{number}_<slug>` (to align with how AutoFlowCut projects are organized), with a `_story_source/` sub-folder for authoring artifacts:
+Episodes live under the ViraLoop Studio work folder, in a per-project sub-folder named `ep{number}_<slug>` (to align with how ViraLoop Studio projects are organized), with a `_story_source/` sub-folder for authoring artifacts:
 
 ```bash
 mkdir -p "{PROJECT_DIR}/ep{number}_{slug}/_story_source"

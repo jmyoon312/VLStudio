@@ -82,16 +82,16 @@ describe('loadProjectWithResources — image path remap on load', () => {
     // loading on the same machine, file is in current project's scenes/.
     fileSystemAPI.loadProjectData.mockResolvedValue({
       success: true,
-      data: { scenes: [{ id: 'scene_1', imagePath: 'C:\\old\\AutoFlowCut\\ep6\\scenes\\scene_1.jpg', status: 'done' }] },
+      data: { scenes: [{ id: 'scene_1', imagePath: 'C:\\old\\ViraLoop Studio\\ep6\\scenes\\scene_1.jpg', status: 'done' }] },
     })
     fileSystemAPI.getResourcePath.mockResolvedValue({
       success: true,
-      path: 'C:\\new\\AutoFlowCut\\ep6\\scenes\\scene_1.jpg',
+      path: 'C:\\new\\ViraLoop Studio\\ep6\\scenes\\scene_1.jpg',
     })
 
     const result = await loadProjectWithResources('ep6')
 
-    expect(result.scenes[0].imagePath).toBe('C:\\new\\AutoFlowCut\\ep6\\scenes\\scene_1.jpg')
+    expect(result.scenes[0].imagePath).toBe('C:\\new\\ViraLoop Studio\\ep6\\scenes\\scene_1.jpg')
     expect(result.scenes[0].status).toBe('done')
   })
 
@@ -105,7 +105,7 @@ describe('loadProjectWithResources — image path remap on load', () => {
       data: {
         scenes: [{
           id: 'scene_105',
-          imagePath: 'C:\\Users\\tuxxo\\OneDrive\\문서\\AutoFlowCut\\Untitled\\scenes\\scene_105.jpg',
+          imagePath: 'C:\\Users\\tuxxo\\OneDrive\\문서\\ViraLoop Studio\\Untitled\\scenes\\scene_105.jpg',
           status: 'done',
         }],
       },

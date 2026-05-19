@@ -49,19 +49,19 @@ try {
     if (pkg.buildNumber != null) BUILD_NUMBER = String(pkg.buildNumber)
   }
 } catch (e) {
-  console.warn('[AutoFlowCut] buildNumber read failed:', e.message)
+  console.warn('[ViraLoop Studio] buildNumber read failed:', e.message)
 }
 
 if (process.platform === 'darwin') {
   const verStr = BUILD_NUMBER
     ? `${app.getVersion()} (Build ${BUILD_NUMBER})`
     : app.getVersion()
-  console.log('[AutoFlowCut] About →', verStr, '/ isPackaged:', app.isPackaged)
+  console.log('[ViraLoop Studio] About →', verStr, '/ isPackaged:', app.isPackaged)
   app.setAboutPanelOptions({
-    applicationName: 'AutoFlowCut',
+    applicationName: 'ViraLoop Studio',
     applicationVersion: verStr,
     copyright: '© Touchizen',
-    credits: 'AutoFlowCut — Google Flow → CapCut automation',
+    credits: 'ViraLoop Studio — Google Flow → CapCut automation',
   })
 }
 
@@ -1065,7 +1065,7 @@ registerLayoutIPC(ipcMain, () => mainWindow, () => flowView)
 // Renderer reports the active project (with its work folder) so the native
 // "Recent Projects" menu stays in MRU order and scoped to the current folder.
 ipcMain.handle('app:project-activated', (event, { name, workFolder }) => {
-  try { noteProjectActivated(name, workFolder) } catch (e) { console.warn('[AutoFlowCut] noteProjectActivated failed:', e.message) }
+  try { noteProjectActivated(name, workFolder) } catch (e) { console.warn('[ViraLoop Studio] noteProjectActivated failed:', e.message) }
   return { success: true }
 })
 
@@ -1114,7 +1114,7 @@ function startMcpHttpServer(port) {
         // GET /api/status — 서버 상태 확인
         if (req.method === 'GET' && pathname === '/api/status') {
           res.writeHead(200)
-          res.end(JSON.stringify({ status: 'ok', app: 'AutoFlowCut' }))
+          res.end(JSON.stringify({ status: 'ok', app: 'ViraLoop Studio' }))
           return
         }
 
@@ -1123,7 +1123,7 @@ function startMcpHttpServer(port) {
           try {
             const result = await mainWindow.webContents.executeJavaScript(`
               (() => {
-                const settings = JSON.parse(localStorage.getItem('autoflowcut_settings') || '{}')
+                const settings = JSON.parse(localStorage.getItem('viraloop_settings') || '{}')
                 const workFolder = localStorage.getItem('workFolderPath') || ''
                 return { projectName: settings.projectName || '', workFolder }
               })()
@@ -1746,7 +1746,7 @@ function autoSetupSkills() {
 
   const skillsSource = path.join(process.resourcesPath, 'skills')
   const skillsDest = path.join(os.homedir(), '.claude', 'skills')
-  const markerFile = path.join(skillsDest, '.autoflowcut-installed')
+  const markerFile = path.join(skillsDest, '.viraloop-installed')
 
   // 이미 설치되었고 버전이 같으면 스킵
   if (fsSync.existsSync(markerFile)) {
@@ -1769,7 +1769,7 @@ function autoSetupSkills() {
   // MCP 서버 등록
   const mcpPath = path.join(process.resourcesPath, 'mcp-server', 'index.js')
   try {
-    execSyncRaw(`claude mcp add --scope user --transport stdio autoflowcut -- node "${mcpPath}"`, {
+    execSyncRaw(`claude mcp add --scope user --transport stdio viraloop -- node "${mcpPath}"`, {
       stdio: 'pipe', timeout: 10000
     })
   } catch { /* Claude CLI 실패 시 무시 — 사용자가 수동 등록 가능 */ }
@@ -1779,7 +1779,7 @@ function autoSetupSkills() {
     version: app.getVersion(),
     installedAt: new Date().toISOString()
   }))
-  console.log('[AutoFlowCut] Skills installed to ~/.claude/skills/')
+  console.log('[ViraLoop Studio] Skills installed to ~/.claude/skills/')
 }
 
 // === ViraLoop Infrastructure Orchestration ===
@@ -1970,7 +1970,7 @@ ipcMain.handle('get-infra-status', async () => {
 app.whenReady().then(() => {
   // Dock 아이콘 (macOS, dev/prod 둘 다) — whenReady 이후에만 app.dock 사용 가능
   if (process.platform === 'darwin' && HAS_APP_ICON && app.dock) {
-    try { app.dock.setIcon(APP_ICON_PATH) } catch (e) { console.warn('[AutoFlowCut] dock.setIcon failed:', e.message) }
+    try { app.dock.setIcon(APP_ICON_PATH) } catch (e) { console.warn('[ViraLoop Studio] dock.setIcon failed:', e.message) }
   }
 
   // local-resource:// 프로토콜 핸들러 등록
@@ -2030,10 +2030,10 @@ app.whenReady().then(() => {
   })
 
   // Claude Code 스킬 자동 설치 (앱 시작 시)
-  try { autoSetupSkills() } catch (e) { console.warn('[AutoFlowCut] Skill setup failed:', e.message) }
+  try { autoSetupSkills() } catch (e) { console.warn('[ViraLoop Studio] Skill setup failed:', e.message) }
 
   // Native menu + auto-updater (skips dev mode and AppX builds)
-  try { setupAppMenuAndUpdater(() => mainWindow) } catch (e) { console.warn('[AutoFlowCut] Updater setup failed:', e.message) }
+  try { setupAppMenuAndUpdater(() => mainWindow) } catch (e) { console.warn('[ViraLoop Studio] Updater setup failed:', e.message) }
 
   startViraLoopInfrastructure()
   // [Orchestration] 백엔드 준비 완료 후 창 생성 (Race Condition 원천 방지)

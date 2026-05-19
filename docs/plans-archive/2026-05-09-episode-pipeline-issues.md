@@ -136,7 +136,7 @@ MCP 노출 데이터: `app_status`, `app_get_references`, `app_get_scenes` 만 �
 ### 작업 추정
 - 새 IPC: 메인 → 렌더러 Flow view 상태 캡처
 - 새 HTTP endpoint: `GET /api/flow-status`
-- 새 MCP tool: `mcp__autoflowcut__app_flow_status`
+- 새 MCP tool: `mcp__viraloop__app_flow_status`
 - 가능하면 스크린샷 옵션도 (Electron `webContents.capturePage()`)
 
 표면적이 크므로 별도 phase로 분리. 오늘 저녁 작업 X.

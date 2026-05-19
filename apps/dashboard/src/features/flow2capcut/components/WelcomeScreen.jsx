@@ -119,7 +119,7 @@ export default function WelcomeScreen({ getAccessToken, onReady }) {
   return (
     <div className="welcome-screen">
       <div className="welcome-content">
-        <img src={appIconUrl} alt="AutoFlowCut" className="welcome-logo" />
+        <img src={appIconUrl} alt="ViraLoop Studio" className="welcome-logo" />
         <h1>{t('welcome.title')}</h1>
         <p className="welcome-desc">
           {t('welcome.description').split('\n').map((line, i) => (

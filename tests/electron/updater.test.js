@@ -43,7 +43,7 @@ function makeMocks() {
   appMock = {
     isPackaged: true,
     getVersion: () => '1.0.0',
-    name: 'AutoFlowCut',
+    name: 'ViraLoop Studio',
     // recent-projects store reads userData; tmpdir has no store file → [] list
     getPath: () => tmpdir(),
   }

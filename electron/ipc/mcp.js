@@ -8,7 +8,7 @@ import path from 'path'
 import os from 'os'
 import { app } from 'electron'
 
-const MCP_NAME = 'autoflowcut'
+const MCP_NAME = 'viraloop'
 
 function getClaudeConfigPath() {
   return path.join(os.homedir(), '.claude.json')

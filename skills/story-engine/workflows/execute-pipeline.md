@@ -142,8 +142,8 @@ Notation:
 | W4   | `{title}_기.md`, `{title}_승.md`, `{title}_전.md`, `{title}_결.md`                                 | `narration_{part}.txt`; `dialogs_{part}.json` — only when `production_scope.dialogue`; `08_sfx_목록.md` — only when `production_scope.sfx` |
 | W5   | `narration_{part}.txt`; `dialogs_{part}.json` (with `after_paragraph`) — when `production_scope.dialogue`; `08_sfx_목록.md` — when `production_scope.sfx`; `tts_settings.md` | `segments_{part}/` (with `index.json` carrying `paragraph_idx`), `subtitles_{part}.txt`, `final_{part}.mp3`, `final_{part}.srt`, **`timeline_{part}.json`**, `voices/` — when `production_scope.dialogue`; `media/sfx/` — when `production_scope.sfx`; `media/final_full.{mp3,srt}`, `tts_settings.md` (updated) |
 | W6   | `final_{part}.srt`, **`timeline_{part}.json`**, `narration_{part}.txt`, `{title}_*.md` (script), `08_sfx_목록.md` (when `production_scope.sfx`), **`voices/result_{part}.json`** (one per part) + **`voices/{part}_*_{HHMMSS}.mp3`** (when `production_scope.dialogue` — primary speaker→timecode source for `splitOnSpeakerChange: true`; carries TTS-resolved per-part start/duration including consecutive-dialogue stacking; part prefix in filename prevents cross-part collisions), `dialogs_{part}.json` + `segments_{part}/index.json` (fallback anchor for single-dialog-per-paragraph cases, when dialogue on) | `references.csv`, `{title}_scenes.csv`, `06_review_group{A,B,C}.md` (batch QA)                                |
-| W7   | `references.csv`, `{title}_scenes.csv` (read-only — for ref/scene prompts)                         | AutoFlowCut images (refs + scenes in workspace), `07_image_review_group{A,B}.md` (batch QA)                  |
-| W8   | `references.csv`, `{title}_scenes.csv`, `final_{part}.mp3`, `final_{part}.srt`, `media/sfx/` (when `production_scope.sfx`), AutoFlowCut images (from W7) | CapCut project (`{title}` draft folder), `08_sfx_scene_match_qa.md` (when `production_scope.sfx`; W8-0 skipped otherwise), optional video clips |
+| W7   | `references.csv`, `{title}_scenes.csv` (read-only — for ref/scene prompts)                         | ViraLoop Studio images (refs + scenes in workspace), `07_image_review_group{A,B}.md` (batch QA)                  |
+| W8   | `references.csv`, `{title}_scenes.csv`, `final_{part}.mp3`, `final_{part}.srt`, `media/sfx/` (when `production_scope.sfx`), ViraLoop Studio images (from W7) | CapCut project (`{title}` draft folder), `08_sfx_scene_match_qa.md` (when `production_scope.sfx`; W8-0 skipped otherwise), optional video clips |
 | W9   | `04_시놉시스.md`, `{title}_*.md` (script), `{title}_scenes.csv`                                   | `11_업로드정보.json`                                                                                          |
 
 Fallback: if a wave reference doc (`docs/{lang}/W{N}-*.md`) lists additional or
@@ -393,7 +393,7 @@ Each subagent receives:
 - Outputs (conditional on `production_scope`): `segments_{part}/`, `subtitles_{part}.txt`, `final_{part}.mp3`, `final_{part}.srt`, **`timeline_{part}.json`**, `voices/` (when `dialogue: true`), `media/final_full.{mp3,srt}` (always), `media/sfx/` (when `sfx: true`).
 
 **W6 subagent prompt includes:**
-- **No external scripts** — `scenes.csv` is built directly via AutoFlowCut MCP tools (`get_schema`, `load_csv`, `update_field`, `save_csv`) using W5's `final_{part}.srt` + `timeline_{part}.json` as inputs.
+- **No external scripts** — `scenes.csv` is built directly via ViraLoop Studio MCP tools (`get_schema`, `load_csv`, `update_field`, `save_csv`) using W5's `final_{part}.srt` + `timeline_{part}.json` as inputs.
 - CSV schema (`get_schema` MCP tool)
 - References CSV + scenes CSV creation
 - SRT-based scene splitting (15sec rule)
@@ -436,7 +436,7 @@ The W4-0 sub-step persists user-chosen production scope to `STATE.md` `## Decisi
 
 **W7 subagent prompt includes:**
 - **MANDATORY pre-check**: `app_open_project({ name })` to switch to target project BEFORE loading CSV or generating. Verify current project matches. If mismatch → STOP.
-- AutoFlowCut project creation (or open existing)
+- ViraLoop Studio project creation (or open existing)
 - Style selection (list_styles MCP)
 - Reference image batch generation
 - Scene image batch generation
@@ -618,7 +618,7 @@ After all N groups return:
 ### Sequential fallback rule
 
 If any group must call an external API that has rate limits or app-state
-mutation (TTS, image gen via AutoFlowCut/Google Flow, audio import IPC), that
+mutation (TTS, image gen via ViraLoop Studio/Google Flow, audio import IPC), that
 group runs sequentially OR the API work is extracted out of QA. Read-only QA
 groups (CSV/script/SRT inspection, image file inspection via Read tool) stay
 parallel.

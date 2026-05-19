@@ -362,18 +362,18 @@ export function registerFilesystemIPC(ipcMain) {
 
   // ----------------------------------------------------------
   // 0. fs:get-default-work-folder — 기본 작업 폴더 경로 반환 + 생성
-  //    Mac: ~/Documents/AutoFlowCut
-  //    Windows: C:\Users\{user}\Documents\AutoFlowCut
+  //    Mac: ~/Documents/ViraLoop Studio
+  //    Windows: C:\Users\{user}\Documents\ViraLoop Studio
   // ----------------------------------------------------------
   ipcMain.handle('fs:get-default-work-folder', async () => {
     try {
       const documentsPath = app.getPath('documents')
-      const defaultFolder = path.join(documentsPath, 'AutoFlowCut')
+      const defaultFolder = path.join(documentsPath, 'ViraLoop Studio')
 
       // 폴더가 없으면 생성
       await fs.mkdir(defaultFolder, { recursive: true })
 
-      return { success: true, path: defaultFolder, name: 'AutoFlowCut' }
+      return { success: true, path: defaultFolder, name: 'ViraLoop Studio' }
     } catch (error) {
       return { success: false, error: error.message }
     }

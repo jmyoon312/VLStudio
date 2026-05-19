@@ -7,10 +7,10 @@
 > W6는 **CSV 파일만** 만든다. 프롬프트 텍스트까지만 작성하고, **이미지 생성은 하지 않는다.**
 >
 > **W6에서 금지** — 아래 MCP 도구/HTTP 엔드포인트를 W6 중에 호출하면 안 된다:
-> - `mcp__autoflowcut__app_start_ref_batch` / `POST /api/start-ref-batch`
-> - `mcp__autoflowcut__app_start_scene_batch` / `POST /api/start-scene-batch`
-> - `mcp__autoflowcut__app_generate_reference` / `POST /api/generate-reference`
-> - `mcp__autoflowcut__app_generate_scene` / `POST /api/generate-scene`
+> - `mcp__viraloop__app_start_ref_batch` / `POST /api/start-ref-batch`
+> - `mcp__viraloop__app_start_scene_batch` / `POST /api/start-scene-batch`
+> - `mcp__viraloop__app_generate_reference` / `POST /api/generate-reference`
+> - `mcp__viraloop__app_generate_scene` / `POST /api/generate-scene`
 >
 > 실제 이미지 생성은 **W7의 단독 책임**이다. W6에서 배치를 돌리면 검토되지 않은 CSV에 Flow API 크레딧을 소모하게 되고, "CSV 검토 → 이미지 생성" 경계가 무너진다.
 >
@@ -18,7 +18,7 @@
 >
 > W6가 CSV 생성 + 검토를 마치고 이슈가 없으면, **그 자리에서 멈추고 W7로 넘긴다.** "CSV 준비됐으니" 이미지 생성을 선제적으로 시작하지 말 것.
 
-> **W6는 외부 스크립트를 호출하지 않는다.** scenes.csv는 W5의 `final_{파트}.srt` + `timeline_{파트}.json`을 입력으로 **AutoFlowCut MCP 도구**(`get_schema`, `load_csv`, `update_field`, `save_csv`)로 직접 작성한다.
+> **W6는 외부 스크립트를 호출하지 않는다.** scenes.csv는 W5의 `final_{파트}.srt` + `timeline_{파트}.json`을 입력으로 **ViraLoop Studio MCP 도구**(`get_schema`, `load_csv`, `update_field`, `save_csv`)로 직접 작성한다.
 
 ---
 
@@ -37,12 +37,12 @@
 - `dialogs_{파트}.json` + `segments_{파트}/index.json` (있는 경우) — W4/W5 중간 산출. **fallback** 으로만 사용: 단일 대사 paragraph 에서는 `after_paragraph` → `paragraph_idx` 매칭으로 정확하지만, **같은 paragraph에 연속 대사가 있을 경우 stacking을 알 수 없어 부정확**. voices output이 있으면 우선.
 
 대본과 SRT/타임라인을 기반으로 **레퍼런스 CSV**와 **씬 CSV**를 생성한다.
-AutoFlowCut MCP의 `get_schema` 도구로 CSV 스키마를 조회하여 정확한 구조를 따른다.
+ViraLoop Studio MCP의 `get_schema` 도구로 CSV 스키마를 조회하여 정확한 구조를 따른다.
 
 ```
-AutoFlowCut MCP: get_schema({ type: "scenes" })      → 씬 CSV 컬럼 확인
-AutoFlowCut MCP: get_schema({ type: "references" })   → 레퍼런스 CSV 컬럼 확인
-AutoFlowCut MCP: get_schema({ type: "prompt-image" }) → 프롬프트 작성 가이드
+ViraLoop Studio MCP: get_schema({ type: "scenes" })      → 씬 CSV 컬럼 확인
+ViraLoop Studio MCP: get_schema({ type: "references" })   → 레퍼런스 CSV 컬럼 확인
+ViraLoop Studio MCP: get_schema({ type: "prompt-image" }) → 프롬프트 작성 가이드
 ```
 
 ### 6-1. 레퍼런스 CSV 작성 (`references.csv`)

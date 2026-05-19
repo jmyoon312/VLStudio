@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useAppSettings } from '../../src/hooks/useAppSettings'
 
-const STORAGE_KEY = 'autoflowcut_settings'
+const STORAGE_KEY = 'viraloop_settings'
 
 beforeEach(() => {
   localStorage.clear()

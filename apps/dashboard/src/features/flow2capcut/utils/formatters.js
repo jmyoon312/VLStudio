@@ -231,10 +231,10 @@ export function formatPercent(value, decimals = 0) {
 
 /**
  * 기본 프로젝트명 생성
- * @param {string} prefix - 접두사 (기본: 'autoflowcut')
- * @returns {string} "autoflowcut_1706348400000" 형식
+ * @param {string} prefix - 접두사 (기본: 'viraloop')
+ * @returns {string} "viraloop_1706348400000" 형식
  */
-export function generateProjectName(prefix = 'autoflowcut') {
+export function generateProjectName(prefix = 'viraloop') {
   return `${prefix}_${Date.now()}`
 }
 

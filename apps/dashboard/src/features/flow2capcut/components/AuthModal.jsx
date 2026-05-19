@@ -41,7 +41,7 @@ export function AuthModal({ isOpen, onClose }) {
         </button>
 
         <div className="auth-modal-header">
-          <img className="auth-modal-logo" src={appIconUrl} alt="AutoFlowCut" />
+          <img className="auth-modal-logo" src={appIconUrl} alt="ViraLoop Studio" />
           <h2>{t('auth.title')}</h2>
           <p>{t('auth.subtitle')}</p>
         </div>

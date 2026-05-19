@@ -1,11 +1,11 @@
 /**
- * AppClient — AutoFlowCut Electron 앱과의 HTTP 통신 클라이언트
+ * AppClient — ViraLoop Studio Electron 앱과의 HTTP 통신 클라이언트
  */
 
 import http from 'http';
 
 /**
- * AutoFlowCut 앱의 MCP HTTP 서버에 요청 보내기
+ * ViraLoop Studio 앱의 MCP HTTP 서버에 요청 보내기
  * @param {number} port - HTTP 포트 (기본: 3210)
  * @param {string} method - HTTP 메서드
  * @param {string} pathname - 요청 경로

@@ -10,9 +10,9 @@ Before starting W1, verify the environment is capable of completing the full pip
 
 | # | Item | How to check | On failure |
 |---|------|--------------|-----------|
-| 1 | **AutoFlowCut app running** | Call `app_status` MCP (localhost:3210) | Guide user to launch the app |
+| 1 | **ViraLoop Studio app running** | Call `app_status` MCP (localhost:3210) | Guide user to launch the app |
 | 2 | **Work folder set** | Check `app_list_projects` response | Guide user to set work folder in app settings |
-| 3 | **Claude Code MCP connected** | `mcp__autoflowcut__*` tools accessible | Guide user to register MCP / restart Claude Code |
+| 3 | **Claude Code MCP connected** | `mcp__viraloop__*` tools accessible | Guide user to register MCP / restart Claude Code |
 
 ### Optional items (missing any = that Wave blocked)
 
@@ -20,7 +20,7 @@ Before starting W1, verify the environment is capable of completing the full pip
 |---|------|---------|----------|--------------------|
 | 4 | **ElevenLabs API** | W5 TTS / SFX generation | `~/.elevenlabs/credentials` | Vrew manual / Google AI Studio / skip W5 |
 | 5 | **Typecast API** | W5 dialogue TTS (emotion-tagged) | `~/.typecast/credentials` | Replace with ElevenLabs per-character voice split |
-| 6 | **Google Flow login** | W7 image / video generation | Flow tab login state in the AutoFlowCut app | Insert images manually in CapCut |
+| 6 | **Google Flow login** | W7 image / video generation | Flow tab login state in the ViraLoop Studio app | Insert images manually in CapCut |
 | 7 | **Google AI Studio API** | W5 Gemini TTS (to be integrated) | `~/.google-ai-studio/credentials` | Use ElevenLabs or Typecast instead |
 
 ### Reporting the result
@@ -29,7 +29,7 @@ Present the precheck result as a table to the user. **If any optional item is mi
 
 ```
 Environment check:
-✅ AutoFlowCut app running
+✅ ViraLoop Studio app running
 ✅ Work folder set
 ✅ MCP connected
 ⚠️ ElevenLabs credentials missing → W5 TTS / SFX blocked

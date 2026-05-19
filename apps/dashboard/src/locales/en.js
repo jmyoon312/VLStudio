@@ -4,7 +4,7 @@
 
 export default {
   // App name
-  appName: 'AutoFlowCut',
+  appName: 'ViraLoop Studio',
   
   // Header
   header: {
@@ -21,7 +21,7 @@ export default {
   
   // Welcome screen
   welcome: {
-    title: 'AutoFlowCut',
+    title: 'ViraLoop Studio',
     description: 'Generate images & videos with Flow AI\nand export to CapCut projects',
     openFlow: 'Open Flow',
     waitingLogin: 'Waiting for login...',
@@ -383,14 +383,14 @@ Ocean waves crashing against a lighthouse during a dramatic storm`,
     mcpBtnRegister: 'Register',
     mcpBtnUnregister: 'Unregister',
     mcpBtnUpdatePath: 'Update path',
-    mcpRegisterHint: 'Register the MCP server so Claude Code can talk to AutoFlowCut. Restart Claude Code after register/unregister to apply.',
+    mcpRegisterHint: 'Register the MCP server so Claude Code can talk to ViraLoop Studio. Restart Claude Code after register/unregister to apply.',
     mcpPath: 'Path',
     mcpRegisterSuccess: 'MCP registered! Restart Claude Code to apply.',
     mcpUnregisterSuccess: 'MCP unregistered! Restart Claude Code to apply.',
     mcpRegisterFailed: 'Registration failed: {error}',
     mcpUnregisterFailed: 'Unregister failed: {error}',
     mcpInstallTitle: 'Claude Code is not installed',
-    mcpInstallDesc: 'You need to install Claude Code first to register the AutoFlowCut MCP server. After installing, run it once and try again.',
+    mcpInstallDesc: 'You need to install Claude Code first to register the ViraLoop Studio MCP server. After installing, run it once and try again.',
     mcpClose: 'Close',
     mcpDownload: 'Download Claude Code',
     mcpSkills: 'Skills',
@@ -686,7 +686,7 @@ Ocean waves crashing against a lighthouse during a dramatic storm`,
 
   // Auth Modal
   auth: {
-    title: 'AutoFlowCut',
+    title: 'ViraLoop Studio',
     subtitle: 'Login and start your free trial',
     feature1: 'Export to CapCut project',
     feature2: 'Free: 5/month + 5 signup bonus',

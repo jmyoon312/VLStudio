@@ -60,7 +60,7 @@ export async function getUserDoc(userId, { source = 'default' } = {}) {
  * @param {string} userId - Firebase Auth UID
  * @param {Object} [options]
  * @param {'default'|'server'} [options.source='default']
- * @param {string} [options.appId=APP_ID] - 앱 ID (기본: autoflowcut)
+ * @param {string} [options.appId=APP_ID] - 앱 ID (기본: viraloop)
  * @returns {Promise<Object|null>}
  */
 export async function getAppDoc(userId, { source = 'default', appId = APP_ID } = {}) {

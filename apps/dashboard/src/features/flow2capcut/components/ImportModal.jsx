@@ -9,7 +9,7 @@ import Modal from './Modal'
 // 가이드 URL 설정
 const getGuideBaseUrl = (lang) => {
   const langCode = lang === 'ko' ? 'ko' : lang === 'ja' ? 'ja' : lang === 'de' ? 'de' : 'en'
-  return `https://touchizen.com/guide/${langCode}/autoflowcut`
+  return `https://touchizen.com/guide/${langCode}/viraloop`
 }
 
 export default function ImportModal({ onImport, onImportAudio, onClose }) {

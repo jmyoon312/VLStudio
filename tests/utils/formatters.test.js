@@ -215,7 +215,7 @@ describe('formatPercent', () => {
 describe('generateProjectName', () => {
   it('starts with default prefix', () => {
     const name = generateProjectName()
-    expect(name).toMatch(/^autoflowcut_\d+$/)
+    expect(name).toMatch(/^viraloop_\d+$/)
   })
 
   it('uses custom prefix', () => {

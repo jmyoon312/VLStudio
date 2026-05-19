@@ -6,12 +6,12 @@
   "variables": {
     "PROJECT": {
       "required": false,
-      "description": "AutoFlowCut work folder (parent of project folders). If omitted, MUST be resolved at runtime via mcp__autoflowcut__app_list_projects (the '작업폴더:' line). NEVER fall back to cwd or the source repo — that creates episodes inside the source tree.",
-      "example": "C:\\Users\\tuxxo\\OneDrive\\문서\\AutoFlowCut"
+      "description": "ViraLoop Studio work folder (parent of project folders). If omitted, MUST be resolved at runtime via mcp__viraloop__app_list_projects (the '작업폴더:' line). NEVER fall back to cwd or the source repo — that creates episodes inside the source tree.",
+      "example": "C:\\Users\\tuxxo\\OneDrive\\문서\\ViraLoop Studio"
     }
   },
   "changelog": {
     "2.2.0": "9-wave pipeline (W7 split into image-production + assembly; new W9 upload). Bespoke 3rd genre (universal + reference-driven meta-prompts). Engagement principle elevated to all-wave anchor. /story-rewrite skill added.",
-    "2.1.0": "Fix: PROJECT_DIR must resolve from AutoFlowCut MCP work folder, never cwd/source repo. Reference docs must use installed $SKILL_DIR path, not source repo path."
+    "2.1.0": "Fix: PROJECT_DIR must resolve from ViraLoop Studio MCP work folder, never cwd/source repo. Reference docs must use installed $SKILL_DIR path, not source repo path."
   }
 }

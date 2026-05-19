@@ -41,10 +41,10 @@ Only proceed to 8-1 import once this validation passes.
 
 ## 8-1. Audio import (narration + SFX)
 
-Import the W5-generated audio files into AutoFlowCut.
+Import the W5-generated audio files into ViraLoop Studio.
 After import, narration / SFX will auto-land on the timeline when you export to CapCut.
 
-> **AudioTab SFX prompts** — from W5-5 onward, the AudioTab in AutoFlowCut surfaces each SFX clip's anchor narration, placement, English prompt, and duration inline (parsed from `08_sfx_list.md`). Use this to QA SFX without cross-referencing the markdown by hand.
+> **AudioTab SFX prompts** — from W5-5 onward, the AudioTab in ViraLoop Studio surfaces each SFX clip's anchor narration, placement, English prompt, and duration inline (parsed from `08_sfx_list.md`). Use this to QA SFX without cross-referencing the markdown by hand.
 
 **Import targets (episode folder):**
 ```
@@ -157,11 +157,11 @@ Add motion to scene images to produce video clips (Image-to-Video, Google Flow A
 
 ```
 🛑 AskUserQuestion: "Shall I start per-scene video generation? ~{N} scenes, expected cost: ..."
-   - "Yes" → run AutoFlowCut's video mode
+   - "Yes" → run ViraLoop Studio's video mode
    - "No / Skip" → skip 8-3 and advance to W9 (edit directly in CapCut)
 ```
 
-- If user approves → run AutoFlowCut's video mode
+- If user approves → run ViraLoop Studio's video mode
 - If user wants to handle it themselves → skip
 - Export similarly — run only after user confirmation
 

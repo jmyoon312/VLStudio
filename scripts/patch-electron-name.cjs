@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Dev 모드에서 macOS 메뉴바 bold 텍스트가 "Electron" 대신 "AutoFlowCut"으로
+ * Dev 모드에서 macOS 메뉴바 bold 텍스트가 "Electron" 대신 "ViraLoop Studio"으로
  * 보이게 한다. plist만 고치는 걸로는 부족하고, .app 폴더명 + 바이너리 이름 +
  * electron 패키지의 path.txt까지 다 바꿔야 함.
  *
@@ -13,7 +13,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { execSync } = require('node:child_process')
 
-const APP_NAME = 'AutoFlowCut'
+const APP_NAME = 'ViraLoop Studio'
 
 if (process.platform !== 'darwin') {
   // 메뉴바 bold 동작은 macOS 전용 — 다른 OS는 skip
@@ -57,14 +57,14 @@ try {
     execSync(`/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" "${plistPath}"`)
   }
 
-  // 2. 실행 바이너리 이름 변경 (Electron → AutoFlowCut)
+  // 2. 실행 바이너리 이름 변경 (Electron → ViraLoop Studio)
   const oldBin = path.join(appDir, 'Contents', 'MacOS', 'Electron')
   const newBin = path.join(appDir, 'Contents', 'MacOS', APP_NAME)
   if (fs.existsSync(oldBin) && !fs.existsSync(newBin)) {
     fs.renameSync(oldBin, newBin)
   }
 
-  // 3. .app 폴더 이름 변경 (Electron.app → AutoFlowCut.app)
+  // 3. .app 폴더 이름 변경 (Electron.app → ViraLoop Studio.app)
   if (fs.existsSync(oldAppDir) && oldAppDir !== newAppDir) {
     fs.renameSync(oldAppDir, newAppDir)
   }

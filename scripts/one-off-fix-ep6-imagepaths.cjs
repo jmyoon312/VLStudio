@@ -31,7 +31,7 @@ const fs = require('fs')
 const path = require('path')
 
 const DEFAULT_PROJECT_DIR =
-  'C:\\Users\\tuxxo\\OneDrive\\문서\\AutoFlowCut\\ep6_babo_yeonggam'
+  'C:\\Users\\tuxxo\\OneDrive\\문서\\ViraLoop Studio\\ep6_babo_yeonggam'
 
 const args = process.argv.slice(2)
 const WRITE = args.includes('--write')

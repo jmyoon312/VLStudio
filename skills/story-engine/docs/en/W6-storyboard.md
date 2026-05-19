@@ -7,10 +7,10 @@ This document is the W6 (storyboard CSV creation + review) stage guide for the s
 > W6 produces **CSV files only**. It writes prompt text; it does **NOT** generate images.
 >
 > **FORBIDDEN in W6** — do not call any of these MCP tools or HTTP endpoints during W6:
-> - `mcp__autoflowcut__app_start_ref_batch` / `POST /api/start-ref-batch`
-> - `mcp__autoflowcut__app_start_scene_batch` / `POST /api/start-scene-batch`
-> - `mcp__autoflowcut__app_generate_reference` / `POST /api/generate-reference`
-> - `mcp__autoflowcut__app_generate_scene` / `POST /api/generate-scene`
+> - `mcp__viraloop__app_start_ref_batch` / `POST /api/start-ref-batch`
+> - `mcp__viraloop__app_start_scene_batch` / `POST /api/start-scene-batch`
+> - `mcp__viraloop__app_generate_reference` / `POST /api/generate-reference`
+> - `mcp__viraloop__app_generate_scene` / `POST /api/generate-scene`
 >
 > Actual image generation is the exclusive responsibility of **W7**. If W6 kicks off image batches it burns Flow API credits against an unreviewed CSV and corrupts the "CSV review → image generation" boundary.
 >
@@ -18,7 +18,7 @@ This document is the W6 (storyboard CSV creation + review) stage guide for the s
 >
 > If W6 completes CSV generation + review and there are no remaining issues, **STOP and hand off to W7**. Do not proactively start image generation "since it's ready".
 
-> **W6 invokes no external scripts.** `scenes.csv` is built directly via **AutoFlowCut MCP tools** (`get_schema`, `load_csv`, `update_field`, `save_csv`) using W5's `final_{part}.srt` + `timeline_{part}.json` as inputs.
+> **W6 invokes no external scripts.** `scenes.csv` is built directly via **ViraLoop Studio MCP tools** (`get_schema`, `load_csv`, `update_field`, `save_csv`) using W5's `final_{part}.srt` + `timeline_{part}.json` as inputs.
 
 ---
 
@@ -37,12 +37,12 @@ This document is the W6 (storyboard CSV creation + review) stage guide for the s
 - `dialogs_{part}.json` + `segments_{part}/index.json` (when present) — W4/W5 intermediate output. **Fallback only**: accurate for single-dialog-per-paragraph cases (match `after_paragraph` against `paragraph_idx` to get the base start), but **cannot account for consecutive-dialogue stacking within the same `after_paragraph`**. Prefer `voices/` when available.
 
 Using the script and SRT/timeline, generate a **references CSV** and a **scenes CSV**.
-Use AutoFlowCut MCP's `get_schema` tool to look up the CSV schema and follow it exactly.
+Use ViraLoop Studio MCP's `get_schema` tool to look up the CSV schema and follow it exactly.
 
 ```
-AutoFlowCut MCP: get_schema({ type: "scenes" })       → scene CSV columns
-AutoFlowCut MCP: get_schema({ type: "references" })   → reference CSV columns
-AutoFlowCut MCP: get_schema({ type: "prompt-image" }) → prompt-writing guide
+ViraLoop Studio MCP: get_schema({ type: "scenes" })       → scene CSV columns
+ViraLoop Studio MCP: get_schema({ type: "references" })   → reference CSV columns
+ViraLoop Studio MCP: get_schema({ type: "prompt-image" }) → prompt-writing guide
 ```
 
 ### 6-1. Reference CSV (`references.csv`)

@@ -28,7 +28,7 @@ OpenClaude는 `@modelcontextprotocol/sdk` 기반의 Stdio 전송을 완벽히 �
 ```json
 {
   "mcpServers": {
-    "autoflowcut": {
+    "viraloop": {
       "command": "node",
       "args": ["c:/ViraLoopMedia/VLStudio/mcp-server/index.js"]
     }

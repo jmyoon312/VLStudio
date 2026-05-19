@@ -4,7 +4,7 @@
 
 export default {
   // 앱 이름
-  appName: 'AutoFlowCut',
+  appName: 'ViraLoop Studio',
   
   // 헤더
   header: {
@@ -21,7 +21,7 @@ export default {
   
   // 시작 화면
   welcome: {
-    title: 'AutoFlowCut',
+    title: 'ViraLoop Studio',
     description: 'Flow AI로 이미지/비디오를 생성하고\nCapCut 프로젝트로 내보내세요',
     openFlow: 'Flow 열기',
     waitingLogin: '로그인 대기 중...',
@@ -383,14 +383,14 @@ Ocean waves crashing against a lighthouse during a dramatic storm`,
     mcpBtnRegister: '등록',
     mcpBtnUnregister: '해제',
     mcpBtnUpdatePath: '경로 업데이트',
-    mcpRegisterHint: 'Claude Code에서 AutoFlowCut과 대화할 수 있도록 MCP 서버를 등록합니다. 등록/해제 후 Claude Code를 재시작해야 반영됩니다.',
+    mcpRegisterHint: 'Claude Code에서 ViraLoop Studio과 대화할 수 있도록 MCP 서버를 등록합니다. 등록/해제 후 Claude Code를 재시작해야 반영됩니다.',
     mcpPath: '경로',
     mcpRegisterSuccess: 'MCP 등록 완료! Claude Code를 재시작하세요.',
     mcpUnregisterSuccess: 'MCP 해제 완료! Claude Code를 재시작하세요.',
     mcpRegisterFailed: '등록 실패: {error}',
     mcpUnregisterFailed: '해제 실패: {error}',
     mcpInstallTitle: 'Claude Code가 설치되어 있지 않습니다',
-    mcpInstallDesc: 'AutoFlowCut의 MCP 서버를 등록하려면 먼저 Claude Code를 설치해야 합니다. 설치 후 한 번 실행한 뒤 다시 시도해주세요.',
+    mcpInstallDesc: 'ViraLoop Studio의 MCP 서버를 등록하려면 먼저 Claude Code를 설치해야 합니다. 설치 후 한 번 실행한 뒤 다시 시도해주세요.',
     mcpClose: '닫기',
     mcpDownload: 'Claude Code 다운로드',
     mcpSkills: '스킬',
@@ -686,7 +686,7 @@ Ocean waves crashing against a lighthouse during a dramatic storm`,
 
   // 로그인 모달
   auth: {
-    title: 'AutoFlowCut',
+    title: 'ViraLoop Studio',
     subtitle: '로그인하고 무료 체험을 시작하세요',
     feature1: 'CapCut 프로젝트 내보내기',
     feature2: '무료: 매월 5회 + 가입 보너스 5회',

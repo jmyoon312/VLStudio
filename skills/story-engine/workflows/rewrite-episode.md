@@ -12,7 +12,7 @@ shifts). Forks to a new ep dir to preserve the original.
 <process>
 
 **Step 0: Resolve {PROJECT_DIR}** — same protocol as `new-episode.md` Step 0
-(call `mcp__autoflowcut__app_list_projects` for the work folder).
+(call `mcp__viraloop__app_list_projects` for the work folder).
 
 **Step 1: Parse arguments**
 
@@ -262,7 +262,7 @@ rewritten, the gate confirms only those chapters; unchanged chapters stay.
 
 For Polish/Restructure: reused assets stay in original `{ep}/` location;
 new assets land in `{ep}-v2/`. CapCut export from `{ep}-v2/` references
-both (or copies needed assets — depends on AutoFlowCut conventions).
+both (or copies needed assets — depends on ViraLoop Studio conventions).
 
 ---
 

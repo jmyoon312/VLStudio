@@ -30,7 +30,7 @@ function makeMocks() {
   appMock = {
     isPackaged: false, // dev mode — setupAppMenuAndUpdater skips the update timer
     getVersion: () => '1.0.0',
-    name: 'AutoFlowCut',
+    name: 'ViraLoop Studio',
     getPath: () => storeDir, // isolated recent-projects.json per test
   }
   menuMock = {

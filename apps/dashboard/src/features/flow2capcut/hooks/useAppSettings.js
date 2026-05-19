@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { DEFAULTS, UI } from '../config/defaults'
 import { generateProjectName } from '../utils/formatters'
 
-const STORAGE_KEY = 'autoflowcut_settings'
+const STORAGE_KEY = 'viraloop_settings'
 
 function createDefaults() {
   const randomSeed = () => Math.floor(Math.random() * 1000000)
@@ -66,7 +66,7 @@ export function useAppSettings() {
    * - 이미 유효한 값이 있으면 그대로 반환
    * - 없으면(빈 문자열/falsy) 새 이름을 생성해 settings에 고정하고 반환
    *
-   * 호출마다 Date.now()가 새로 찍혀 여러 개의 autoflowcut_<ts> 고아 폴더가
+   * 호출마다 Date.now()가 새로 찍혀 여러 개의 viraloop_<ts> 고아 폴더가
    * 만들어지는 문제를 방지하기 위해, 한 번 생성한 이름은 settings에 영구 저장한다.
    */
   const ensureProjectName = useCallback(() => {

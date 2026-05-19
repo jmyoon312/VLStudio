@@ -8,7 +8,7 @@ cd /d "%PROJDIR%"
 
 REM Get version from package.json
 for /f "tokens=*" %%v in ('node -p "require('./package.json').version"') do set VERSION=%%v
-set OUTPUT=%PROJDIR%\release\AutoFlowCut_%VERSION%.appx
+set OUTPUT=%PROJDIR%\release\ViraLoop Studio_%VERSION%.appx
 
 echo [1/2] Running electron-builder to generate mapping.txt...
 call npx electron-builder --win appx 2>nul

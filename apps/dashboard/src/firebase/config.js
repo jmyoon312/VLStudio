@@ -29,7 +29,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 
 // 앱 ID (Firestore 경로에 사용 — GCF APP_VARIANTS 키와 일치)
-export const APP_ID = 'autoflowcut'
+export const APP_ID = 'viraloop'
 
 // Firebase 서비스 인스턴스
 export const auth = getAuth(app)

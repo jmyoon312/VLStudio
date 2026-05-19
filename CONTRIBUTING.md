@@ -1,4 +1,4 @@
-# Contributing to AutoFlowCut
+# Contributing to ViraLoop Studio
 
 Thanks for your interest in contributing! This guide covers the basics of
 opening issues, submitting pull requests, and the legal/license requirements
@@ -9,8 +9,8 @@ for contributions.
 1. **Fork** the repository on GitHub.
 2. **Clone** your fork and create a feature branch:
    ```sh
-   git clone https://github.com/<your-username>/AutoFlowCut.git
-   cd AutoFlowCut
+   git clone https://github.com/<your-username>/ViraLoop Studio.git
+   cd ViraLoop Studio
    git checkout -b fix/short-description
    ```
 3. **Install dependencies**:
@@ -56,7 +56,7 @@ Before opening a PR, please confirm:
 
 ## License
 
-AutoFlowCut is licensed under **GNU AGPL v3.0-only**. See [LICENSE](LICENSE).
+ViraLoop Studio is licensed under **GNU AGPL v3.0-only**. See [LICENSE](LICENSE).
 
 By submitting a pull request, you agree that your contribution is licensed
 under the same AGPL v3 terms as the rest of the project (this is the standard
@@ -70,4 +70,4 @@ For substantial contributions or any uncertainty, feel free to email
 
 ---
 
-*Thanks for helping make AutoFlowCut better.*
+*Thanks for helping make ViraLoop Studio better.*

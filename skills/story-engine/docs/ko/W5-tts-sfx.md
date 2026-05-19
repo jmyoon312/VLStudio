@@ -277,9 +277,9 @@ API: https://api.elevenlabs.io/v1/sound-generation
 인증: ~/.elevenlabs/credentials
 ```
 
-**SFX 파일명 타임코드 규칙 (AutoFlowCut 연동):**
+**SFX 파일명 타임코드 규칙 (ViraLoop Studio 연동):**
 
-SFX 파일은 AutoFlowCut에서 자동으로 타임라인에 overlay 배치된다.
+SFX 파일은 ViraLoop Studio에서 자동으로 타임라인에 overlay 배치된다.
 파일명의 **마지막 `_` 뒤 숫자**가 타임코드로 파싱된다.
 
 | 자릿수 | 형식 | 예시 파일명 | 의미 |
@@ -288,7 +288,7 @@ SFX 파일은 AutoFlowCut에서 자동으로 타임라인에 overlay 배치된�
 | 6자리 | `HHMMSS` | `밤바람_촛불_010056.mp3` | 1시간 00분 56초 |
 
 - 타임코드는 전체 오디오(final mp3) 기준 절대 시간
-- AutoFlowCut의 `parseTimecodeFromFilename()` 함수가 자동 파싱
+- ViraLoop Studio의 `parseTimecodeFromFilename()` 함수가 자동 파싱
 - 타임코드 없는 SFX 파일은 타임라인에 배치되지 않음
 
 **타임코드 계산 방법 (SRT 앵커 기반):**
@@ -320,7 +320,7 @@ W4의 `08_sfx_목록.md`에 기록된 **앵커 나레이션**을 `final_{파트}
    - 파일명의 `_MMSS`는 해당 파트의 `final_{파트}.mp3` 기준 시간
 2. **`media/sfx/`** — 전체 타임라인 기준 (5-3 병합 후 변환)
    - 파일명의 `_MMSS`는 `final_full.mp3` 기준 절대 시간
-   - AutoFlowCut 임포트 시 이 파일을 사용
+   - ViraLoop Studio 임포트 시 이 파일을 사용
 
 **전체 타임코드 변환:**
 ```
@@ -357,7 +357,7 @@ media/sfx/                    ← 최종 (전체 기준)
 
 ## 5-3. 전체 오디오 병합 + SFX 타임코드 변환
 
-> **`production_scope.sfx: false` 일 때**: 나레이션 mp3/SRT 병합은 그대로 실행 (항상 실행). **SFX 타임코드 변환 부분은 no-op** (변환할 `sfx/*.mp3`가 없음). `media/sfx/`는 생성되지 않고, AutoFlowCut import 시 SFX 트랙도 없음. 다운스트림 (W6 / W8) 모두 `media/sfx/` 부재를 정상 상태로 받아들임.
+> **`production_scope.sfx: false` 일 때**: 나레이션 mp3/SRT 병합은 그대로 실행 (항상 실행). **SFX 타임코드 변환 부분은 no-op** (변환할 `sfx/*.mp3`가 없음). `media/sfx/`는 생성되지 않고, ViraLoop Studio import 시 SFX 트랙도 없음. 다운스트림 (W6 / W8) 모두 `media/sfx/` 부재를 정상 상태로 받아들임.
 
 4파트의 `final_{파트}.mp3`와 `final_{파트}.srt`를 하나로 병합하여 `media/`에 저장한다.
 SFX 파일은 파트별 타임코드에서 전체 타임라인 기준으로 변환하여 `media/sfx/`에 저장한다.

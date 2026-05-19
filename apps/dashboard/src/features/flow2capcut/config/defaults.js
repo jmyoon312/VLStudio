@@ -1,5 +1,5 @@
 /**
- * AutoFlowCut - Default Configuration
+ * ViraLoop Studio - Default Configuration
  */
 
 export const DEFAULTS = {

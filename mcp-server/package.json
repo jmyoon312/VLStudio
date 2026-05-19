@@ -1,10 +1,10 @@
 {
-  "name": "autoflowcut-mcp",
+  "name": "viraloop-mcp",
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
   "bin": {
-    "autoflowcut-mcp": "./index.js"
+    "viraloop-mcp": "./index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
