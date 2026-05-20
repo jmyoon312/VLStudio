@@ -57,9 +57,12 @@ function ShellContent({ children }) {
         setActiveViews(viewsRes.activeIds)
       }
 
-      // Failsafe: if any modals/dialogs/overlays/menus/dropdowns are open in the DOM, ensure the flow views are hidden; otherwise make them visible.
+      // Failsafe: if any modals/dialogs are actually visible in the DOM, ensure the flow views are hidden; otherwise make them visible.
+      // NOTE: [role="listbox"] and [role="menu"] are intentionally excluded because Radix UI
+      // mounts these in the DOM even when closed (hidden state), causing false positives.
+      // We only check for dialog/alertdialog with data-state="open" to detect truly open overlays.
       const hasOpenDialogInDOM = document.querySelectorAll(
-        '[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"], .export-modal-overlay, .auth-modal-overlay, .modal-overlay, .paywall-overlay, .drawer-overlay'
+        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], .export-modal-overlay, .auth-modal-overlay, .modal-overlay, .paywall-overlay, .drawer-overlay'
       ).length > 0
       if (hasOpenDialogInDOM) {
         window.electronAPI?.setModalVisible?.({ visible: true })
