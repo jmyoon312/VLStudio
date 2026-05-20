@@ -92,9 +92,9 @@ const BulkWarmupPanel = () => {
 
     return (
         <>
-            <Card className="mb-6 border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50">
+            <Card className="mb-6 border-orange-500/20 bg-gradient-to-r from-orange-500/5 to-amber-500/5">
                 <CardHeader className="py-3 px-4 border-b">
-                    <div className="flex items-center gap-2 text-orange-700">
+                    <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
                         <Flame className="w-4 h-4" />
                         <span className="text-xs font-bold uppercase tracking-wider">Bulk Warmup Control</span>
                     </div>
@@ -102,33 +102,33 @@ const BulkWarmupPanel = () => {
                 <CardContent>
                     {/* Status Summary Cards */}
                     <div className="grid grid-cols-7 gap-3 mb-6">
-                        <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
-                            <div className="text-2xl font-bold text-gray-700">{status?.total || 0}</div>
-                            <div className="text-xs text-gray-500 mt-1">전체</div>
+                        <div className="bg-card rounded-lg p-3 border border-border text-center">
+                            <div className="text-2xl font-bold text-foreground">{status?.total || 0}</div>
+                            <div className="text-xs text-muted-foreground mt-1">전체</div>
                         </div>
-                        <div className="bg-orange-50 rounded-lg p-3 border border-orange-200 text-center">
-                            <div className="text-2xl font-bold text-orange-600">{status?.running || 0}</div>
-                            <div className="text-xs text-orange-600 mt-1">진행중</div>
+                        <div className="bg-orange-500/10 rounded-lg p-3 border border-orange-500/20 text-center">
+                            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{status?.running || 0}</div>
+                            <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">진행중</div>
                         </div>
-                        <div className="bg-green-50 rounded-lg p-3 border border-green-200 text-center">
-                            <div className="text-2xl font-bold text-green-600">{status?.completed || 0}</div>
-                            <div className="text-xs text-green-600 mt-1">완료</div>
+                        <div className="bg-green-500/10 rounded-lg p-3 border border-green-500/20 text-center">
+                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{status?.completed || 0}</div>
+                            <div className="text-xs text-green-600 dark:text-green-400 mt-1">완료</div>
                         </div>
-                        <div className="bg-red-50 rounded-lg p-3 border border-red-200 text-center">
-                            <div className="text-2xl font-bold text-red-600">{status?.failed || 0}</div>
-                            <div className="text-xs text-red-600 mt-1">실패</div>
+                        <div className="bg-red-500/10 rounded-lg p-3 border border-red-500/20 text-center">
+                            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{status?.failed || 0}</div>
+                            <div className="text-xs text-red-600 dark:text-red-400 mt-1">실패</div>
                         </div>
-                        <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200 text-center">
-                            <div className="text-2xl font-bold text-yellow-600">{status?.paused || 0}</div>
-                            <div className="text-xs text-yellow-600 mt-1">일시정지</div>
+                        <div className="bg-yellow-500/10 rounded-lg p-3 border border-yellow-500/20 text-center">
+                            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{status?.paused || 0}</div>
+                            <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">일시정지</div>
                         </div>
-                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 text-center">
-                            <div className="text-2xl font-bold text-blue-600">{status?.pending || 0}</div>
-                            <div className="text-xs text-blue-600 mt-1">대기</div>
+                        <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20 text-center">
+                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{status?.pending || 0}</div>
+                            <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">대기</div>
                         </div>
-                        <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 text-center">
-                            <div className="text-2xl font-bold text-purple-600">{status?.in_progress || 0}</div>
-                            <div className="text-xs text-purple-600 mt-1">진행중 (1-6일)</div>
+                        <div className="bg-purple-500/10 rounded-lg p-3 border border-purple-500/20 text-center">
+                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{status?.in_progress || 0}</div>
+                            <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">진행중 (1-6일)</div>
                         </div>
                     </div>
 
@@ -137,7 +137,7 @@ const BulkWarmupPanel = () => {
                         <Button
                             onClick={() => startMutation.mutate("all")}
                             disabled={startMutation.isPending}
-                            className="bg-pixie-blue hover:bg-blue-600 shadow-sm"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
                         >
                             <Flame className="w-4 h-4 mr-2" />
                             전체 시작
@@ -146,7 +146,7 @@ const BulkWarmupPanel = () => {
                             onClick={() => startMutation.mutate("pending")}
                             disabled={startMutation.isPending}
                             variant="outline"
-                            className="border-blue-200 text-pixie-blue hover:bg-blue-50"
+                            className="border-border text-primary hover:bg-muted"
                         >
                             대기중만 시작
                         </Button>
@@ -154,7 +154,7 @@ const BulkWarmupPanel = () => {
                             onClick={() => startMutation.mutate("failed")}
                             disabled={startMutation.isPending}
                             variant="outline"
-                            className="border-red-200 text-red-600 hover:bg-red-50"
+                            className="border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/10"
                         >
                             실패만 재시작
                         </Button>
@@ -162,7 +162,7 @@ const BulkWarmupPanel = () => {
                             onClick={() => pauseMutation.mutate()}
                             disabled={pauseMutation.isPending}
                             variant="outline"
-                            className="border-slate-200 text-slate-600 hover:bg-slate-50"
+                            className="border-border text-muted-foreground hover:bg-muted"
                         >
                             전체 일시정지
                         </Button>
@@ -177,7 +177,7 @@ const BulkWarmupPanel = () => {
                         <Button
                             onClick={() => setGuideOpen(true)}
                             variant="outline"
-                            className="border-pixie-blue/30 text-pixie-blue hover:bg-blue-50 ml-auto"
+                            className="border-primary/30 text-primary hover:bg-primary/10 ml-auto"
                         >
                             📚 인큐베이팅 가이드
                         </Button>
@@ -280,50 +280,50 @@ const CaptainQuarters = () => {
             <BulkWarmupPanel />
 
             <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2 text-slate-500">
+                <div className="flex items-center gap-2 text-muted-foreground">
                     <Shield className="w-4 h-4" />
                     <span className="text-xs font-bold uppercase tracking-wider">Channel & Account List ({displayProfiles.length})</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <Badge variant="outline" className="px-3 py-1">System Ready</Badge>
-                    <Button onClick={() => { setDraftData(null); setIsWizardOpen(true); }} className="bg-pixie-blue hover:bg-blue-600 text-white gap-2 shadow-sm">
+                    <Button onClick={() => { setDraftData(null); setIsWizardOpen(true); }} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shadow-sm">
                         <UserPlus className="w-4 h-4" /> 관리자 계정 등록
                     </Button>
                 </div>
             </div>
 
             {isLoading ? (
-                <div className="text-center py-10 text-slate-500">프로필 목록을 불러오는 중...</div>
+                <div className="text-center py-10 text-muted-foreground">프로필 목록을 불러오는 중...</div>
             ) : (
                 <div className="grid grid-cols-1 gap-4">
                     {displayProfiles.map((p: any) => {
                         const isQuarantined = p.status === 'QUARANTINED';
                         return (
-                            <Card key={p.id} className={`transition-all shadow-sm ${isQuarantined ? 'border-red-500 bg-red-50/10' : 'hover:border-indigo-300'}`}>
+                            <Card key={p.id} className={`transition-all shadow-sm ${isQuarantined ? 'border-red-500 bg-red-500/5' : 'hover:border-primary/50'}`}>
                                 <CardContent className="p-6 flex items-center justify-between">
 
                                     {/* Info */}
                                     <div className="flex items-center gap-5">
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold
-                                            ${isQuarantined ? 'bg-red-100 text-red-700' :
-                                                p.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                            ${isQuarantined ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
+                                                p.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
                                             {isQuarantined ? <Lock className="w-5 h-5" /> : (p.email?.[0]?.toUpperCase() || 'U')}
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                                            <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
                                                 {p.email || `Unknown (${p.id})`}
                                                 {isQuarantined && <Badge variant="destructive" className="text-[10px] h-5">⛔ UPLOAD BLOCKED</Badge>}
                                             </h3>
-                                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                 <span>{p.profile_type}</span>
-                                                <span className="text-slate-300">|</span>
+                                                <span className="text-border">|</span>
                                                 {p.client_secret_json ?
-                                                    <Badge variant="outline" className="text-[10px] border-emerald-200 text-emerald-600 bg-emerald-50">JSON ✅</Badge> :
-                                                    <Badge variant="outline" className="text-[10px] border-red-200 text-red-600 bg-red-50">JSON ❌</Badge>
+                                                    <Badge variant="outline" className="text-[10px] border-emerald-500/20 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">JSON ✅</Badge> :
+                                                    <Badge variant="outline" className="text-[10px] border-red-500/20 text-red-600 dark:text-red-400 bg-red-500/10">JSON ❌</Badge>
                                                 }
                                                 {p.refresh_token ?
-                                                    <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 bg-blue-50">API Connected</Badge> :
-                                                    <Badge variant="outline" className="text-[10px] border-amber-200 text-amber-600 bg-amber-50">API Pending</Badge>
+                                                    <Badge variant="outline" className="text-[10px] border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10">API Connected</Badge> :
+                                                    <Badge variant="outline" className="text-[10px] border-amber-500/20 text-amber-600 dark:text-amber-400 bg-amber-500/10">API Pending</Badge>
                                                 }
                                             </div>
                                         </div>
@@ -335,8 +335,8 @@ const CaptainQuarters = () => {
                                             onClick={() => handleSecureLaunch(p)}
                                             disabled={loadingMap[p.id]}
                                             className={`min-w-[140px] ${isQuarantined
-                                                ? 'bg-red-100 text-red-600 hover:bg-red-200 cursor-not-allowed'
-                                                : loadingMap[p.id] ? 'bg-slate-100 text-slate-400' : 'bg-slate-900 hover:bg-black text-white'}`}
+                                                ? 'bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/20 cursor-not-allowed'
+                                                : loadingMap[p.id] ? 'bg-muted text-muted-foreground' : 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm'}`}
                                         >
                                             {isQuarantined ? (
                                                 <><Lock className="w-4 h-4 mr-2" /> 접속 차단</>
@@ -385,12 +385,12 @@ const CaptainQuarters = () => {
                                                     ? (() => { setDraftData(p); setIsWizardOpen(true); })()
                                                     : setEditProfile(p)
                                                 }
-                                                className="h-8 w-8 text-slate-400 hover:text-blue-600"
+                                                className="h-8 w-8 text-muted-foreground hover:text-primary"
                                                 title={p.status?.toLowerCase() === 'draft' ? "등록 계속하기" : "프로필 수정"}
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="h-8 w-8 text-slate-400 hover:text-red-600">
+                                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
                                                 <Trash2 className="w-4 h-4" />
                                             </Button>
                                         </div>
@@ -401,7 +401,7 @@ const CaptainQuarters = () => {
                                 {/* [New] Delegated Channel List (Expandable or Always Visible?) */}
                                 {/* Let's make it visible if ACTIVE */}
                                 {p.status?.toLowerCase() === 'active' && !isQuarantined && (
-                                    <div className="px-6 pb-6 border-t pt-4 bg-slate-50/50">
+                                    <div className="px-6 pb-6 border-t pt-4 bg-muted/20">
                                         <CaptainChannelList profileId={p.id} parentScan={loadingMap[p.id]} />
                                     </div>
                                 )}
@@ -620,7 +620,7 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-slate-600 flex items-center gap-2">
+                <h4 className="text-sm font-bold text-muted-foreground flex items-center gap-2">
                     <Activity className="w-4 h-4" /> 위임된 브랜드 채널 ({displayChannels.length})
                 </h4>
                 <div className="flex items-center gap-2">
@@ -639,7 +639,7 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
             </div>
 
             {isLoading ? (
-                <div className="text-xs text-slate-400 py-2">채널 목록 로딩 중...</div>
+                <div className="text-xs text-muted-foreground py-2">채널 목록 로딩 중...</div>
             ) : displayChannels.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3">
                     {displayChannels.map((ch: any) => {
@@ -651,8 +651,8 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                                 key={ch.channel_id}
                                 className={`
                                     transition-all
-                                    ${isActive ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''}
-                                    ${isQuarantined ? 'border-red-500 bg-red-50/10' : 'hover:border-indigo-300'}
+                                    ${isActive ? 'ring-2 ring-primary bg-primary/5' : ''}
+                                    ${isQuarantined ? 'border-red-500 bg-red-500/5' : 'hover:border-primary/50'}
                                 `}
                             >
                                 <CardContent className="p-4">
@@ -667,7 +667,7 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                                                     className="w-12 h-12 rounded-full object-cover"
                                                 />
                                             ) : (
-                                                <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg font-bold">
+                                                <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-bold">
                                                     {ch.channel_name?.[0] || 'C'}
                                                 </div>
                                             )}
@@ -675,9 +675,9 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                                             {/* Details */}
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2">
-                                                    <h5 className="font-bold text-slate-900">{ch.channel_name}</h5>
+                                                    <h5 className="font-bold text-foreground">{ch.channel_name}</h5>
                                                     {isActive && (
-                                                        <Badge className="bg-blue-500 text-white text-[10px] h-5">
+                                                        <Badge className="bg-primary text-primary-foreground text-[10px] h-5">
                                                             🟢 ACTIVE
                                                         </Badge>
                                                     )}
@@ -687,14 +687,14 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                                                         </Badge>
                                                     )}
                                                     {ch.warmup_status === 'RUNNING' && (
-                                                        <Badge variant="outline" className="border-orange-500 text-orange-600 bg-orange-50 text-[10px] h-5 animate-pulse">
+                                                        <Badge variant="outline" className="border-orange-500/20 text-orange-600 dark:text-orange-400 bg-orange-500/10 text-[10px] h-5 animate-pulse">
                                                             🔥 WARMUP ACTIVE
                                                         </Badge>
                                                     )}
                                                 </div>
                                                 <div className="flex items-center gap-3 mt-1">
                                                     {ch.channel_handle && (
-                                                        <span className="text-xs text-slate-500">{ch.channel_handle}</span>
+                                                        <span className="text-xs text-muted-foreground">{ch.channel_handle}</span>
                                                     )}
                                                     {ch.last_used_ip && (
                                                         <Badge variant="outline" className="text-[10px] h-5">
@@ -703,7 +703,7 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                                                     )}
                                                     {/* Warmup Stage Indicator */}
                                                     {ch.warmup_stage > 0 && (
-                                                        <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                                        <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-1 rounded">
                                                             Day {ch.warmup_stage}
                                                             {ch.warmup_status === 'COMPLETED' && ' ✅'}
                                                             {ch.warmup_status === 'FAILED' && ' ❌'}
@@ -725,8 +725,8 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                                                 disabled={isQuarantined || launchMutation.isPending}
                                                 className={`
                                                     min-w-[120px]
-                                                    ${isActive ? 'bg-slate-400' : 'bg-pixie-blue hover:bg-blue-600'}
-                                                    ${isQuarantined ? 'bg-red-100 text-red-600 cursor-not-allowed' : ''}
+                                                    ${isActive ? 'bg-muted text-muted-foreground' : 'bg-primary hover:bg-primary/90 text-primary-foreground'}
+                                                    ${isQuarantined ? 'bg-red-500/15 text-red-600 dark:text-red-400 cursor-not-allowed' : ''}
                                                 `}
                                                 size="sm"
                                             >
@@ -754,7 +754,7 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                     })}
                 </div>
             ) : (
-                <div className="text-center py-8 border border-dashed rounded-lg text-slate-400 text-xs">
+                <div className="text-center py-8 border border-dashed rounded-lg text-muted-foreground text-xs">
                     등록된 채널이 없습니다. 위 '채널 동기화'를 눌러주세요.
                 </div>
             )}
@@ -821,20 +821,20 @@ const WarmupButton = ({ channel, profileId, onOpenLogs }: { channel: any, profil
         <div className="flex items-center gap-2">
             {/* Enhanced Status Badge - Always show day info */}
             {warmupStatus === "RUNNING" ? (
-                <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-200 animate-pulse">
+                <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 animate-pulse">
                     <Flame className="w-3 h-3 mr-1 fill-current" />
                     웜업 진행중 (Day {warmupStage})
                 </Badge>
             ) : warmupStage > 0 && warmupStage < 7 ? (
-                <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
                     🔄 Day {warmupStage} 완료 → 다음: Day {warmupStage + 1}
                 </Badge>
             ) : warmupStage >= 7 ? (
-                <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
                     ✅ 웜업 완료 (7일)
                 </Badge>
             ) : (
-                <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200">
+                <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
                     ⏳ 웜업 대기중
                 </Badge>
             )}
@@ -845,7 +845,7 @@ const WarmupButton = ({ channel, profileId, onOpenLogs }: { channel: any, profil
                     <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 border-orange-200 text-orange-600 hover:bg-orange-50"
+                        className="h-8 border-orange-500/20 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10"
                         disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
                     >
                         <Flame className="w-4 h-4 mr-2" />

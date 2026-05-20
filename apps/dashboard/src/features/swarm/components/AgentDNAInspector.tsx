@@ -46,26 +46,26 @@ export const AgentDNAInspector: React.FC<AgentDNAInspectorProps> = ({ nodeId, no
     const activeBrain = getActiveModelInfo();
 
     return (
-        <div className="absolute top-0 right-0 w-[450px] h-full bg-white/95 backdrop-blur-2xl border-l border-slate-200 shadow-[-20px_0_50px_rgba(0,0,0,0.05)] flex flex-col z-[100] animate-in slide-in-from-right-full duration-500 ease-out">
+        <div className="absolute top-0 right-0 w-[450px] h-full bg-card/95 backdrop-blur-2xl border-l border-border shadow-2xl flex flex-col z-[100] animate-in slide-in-from-right-full duration-500 ease-out">
             {/* Header */}
-            <div className="p-10 border-b border-slate-100 flex items-start justify-between bg-white/50">
+            <div className="p-10 border-b border-border flex items-start justify-between bg-card/50">
                 <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-[2rem] bg-indigo-600 shadow-xl shadow-indigo-100 flex items-center justify-center border border-indigo-500/20">
-                        <BrainCircuit className="w-8 h-8 text-white" />
+                    <div className="w-16 h-16 rounded-[2rem] bg-primary shadow-md flex items-center justify-center border border-primary/20">
+                        <BrainCircuit className="w-8 h-8 text-primary-foreground" />
                     </div>
                     <div>
-                        <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] mb-1">SOVEREIGN AGENT DNA</div>
-                        <h2 className="text-2xl font-black text-slate-900 tracking-tighter italic uppercase">{nodeData.label}</h2>
+                        <div className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-1">SOVEREIGN AGENT DNA</div>
+                        <h2 className="text-2xl font-black text-foreground tracking-tighter italic uppercase">{nodeData.label}</h2>
                         <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-[9px] font-black uppercase text-slate-400 border-slate-200">{nodeData.role}</Badge>
-                            <div className="w-1 h-1 rounded-full bg-slate-300" />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Node ID: {nodeId}</span>
+                            <Badge variant="outline" className="text-[9px] font-black uppercase text-muted-foreground border-border">{nodeData.role}</Badge>
+                            <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Node ID: {nodeId}</span>
                         </div>
                     </div>
                 </div>
                 <button 
                     onClick={onClose} 
-                    className="p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 hover:text-slate-900 transition-all border border-slate-200/50"
+                    className="p-3 bg-muted hover:bg-accent rounded-2xl text-muted-foreground hover:text-foreground transition-all border border-border"
                 >
                     <X className="w-5 h-5" />
                 </button>
@@ -77,53 +77,53 @@ export const AgentDNAInspector: React.FC<AgentDNAInspectorProps> = ({ nodeId, no
                     
                     {/* Live Telemetry Overview */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-2 flex items-center gap-2">
+                        <div className="bg-muted/50 p-6 rounded-[2rem] border border-border shadow-sm">
+                            <div className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-2 flex items-center gap-2">
                                 <Activity className="w-3.5 h-3.5 text-emerald-500" /> 운영 상태
                             </div>
-                            <div className="text-lg font-black text-slate-900 uppercase italic">{nodeData.status}</div>
+                            <div className="text-lg font-black text-foreground uppercase italic">{nodeData.status}</div>
                         </div>
-                        <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-                            <div className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-2 flex items-center gap-2">
+                        <div className="bg-muted/50 p-6 rounded-[2rem] border border-border shadow-sm">
+                            <div className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-2 flex items-center gap-2">
                                 <Award className="w-3.5 h-3.5 text-amber-500" /> 지능 숙련도
                             </div>
-                            <div className="text-lg font-black text-amber-600 italic uppercase">Lv. 14 Prime</div>
+                            <div className="text-lg font-black text-warning italic uppercase">Lv. 14 Prime</div>
                         </div>
                     </div>
 
                     {/* Brain Config (LLM & Temp) */}
                     <div className="space-y-6">
-                        <h3 className="text-[11px] font-black uppercase text-slate-900 tracking-[0.2em] flex items-center gap-3">
-                            <Sliders className="w-4 h-4 text-indigo-600" /> 신경망 인지 구성 (Cognition)
+                        <h3 className="text-[11px] font-black uppercase text-foreground tracking-[0.2em] flex items-center gap-3">
+                            <Sliders className="w-4 h-4 text-primary" /> 신경망 인지 구성 (Cognition)
                         </h3>
                         
-                        <div className="space-y-8 bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-xl">
+                        <div className="space-y-8 bg-card rounded-[2.5rem] p-8 border border-border shadow-md">
                             <div className="space-y-3">
-                                <Label className="text-[10px] text-slate-400 font-black uppercase tracking-widest ml-1">액티브 추론 뇌 (LangChain 연동)</Label>
-                                <div className="flex flex-col gap-2.5 p-4 bg-slate-50 border border-slate-100 rounded-2xl shadow-inner mt-1">
+                                <Label className="text-[10px] text-muted-foreground font-black uppercase tracking-widest ml-1">액티브 추론 뇌 (LangChain 연동)</Label>
+                                <div className="flex flex-col gap-2.5 p-4 bg-muted border border-border rounded-2xl shadow-inner mt-1">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-500">Provider</span>
-                                        <Badge className="bg-indigo-50 text-indigo-700 font-bold uppercase text-[9px] tracking-wider border border-indigo-100">
+                                        <span className="text-xs font-bold text-muted-foreground">Provider</span>
+                                        <Badge className="bg-primary/10 text-primary font-bold uppercase text-[9px] tracking-wider border border-primary/20">
                                             {activeBrain.provider}
                                         </Badge>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-500">Active Model</span>
-                                        <span className="text-xs font-mono font-black text-slate-800">
+                                        <span className="text-xs font-bold text-muted-foreground">Active Model</span>
+                                        <span className="text-xs font-mono font-black text-foreground">
                                             {activeBrain.model.split('/').pop()}
                                         </span>
                                     </div>
-                                    <div className="text-[9px] text-slate-400 mt-1 italic border-t pt-2 border-slate-200/50">
+                                    <div className="text-[9px] text-muted-foreground mt-1 italic border-t pt-2 border-border">
                                         * 이 에이전트의 뇌는 LangChain 기반 brain_router를 통해 지정된 모델로 동적 오케스트레이션됩니다.
                                     </div>
                                 </div>
                             </div>
                             <div className="space-y-4">
-                                <div className="flex justify-between items-center text-[10px] text-slate-400 font-black uppercase tracking-widest px-1">
+                                <div className="flex justify-between items-center text-[10px] text-muted-foreground font-black uppercase tracking-widest px-1">
                                     <Label>창의성 임계값 (Temperature)</Label>
-                                    <span className="text-indigo-600 font-black">0.7 / 1.0</span>
+                                    <span className="text-primary font-black">0.7 / 1.0</span>
                                 </div>
-                                <Progress value={70} className="h-2 bg-slate-100" />
+                                <Progress value={70} className="h-2 bg-muted" />
                             </div>
                         </div>
                     </div>
@@ -131,11 +131,11 @@ export const AgentDNAInspector: React.FC<AgentDNAInspectorProps> = ({ nodeId, no
                     {/* Skill Bindings (Tool Use) */}
                     <div className="space-y-6">
                         <div className="flex items-center justify-between px-1">
-                            <h3 className="text-[11px] font-black uppercase text-slate-900 tracking-[0.2em] flex items-center gap-3">
+                            <h3 className="text-[11px] font-black uppercase text-foreground tracking-[0.2em] flex items-center gap-3">
                                 <Zap className="w-4 h-4 text-amber-500" /> Sovereign MCP Skills
                             </h3>
                             {nodeData.isThinking && (
-                                <Badge className="bg-amber-100 text-amber-600 border-amber-200 animate-pulse font-black text-[9px] uppercase px-3 py-1">
+                                <Badge className="bg-warning/10 text-warning-foreground border-warning/20 animate-pulse font-black text-[9px] uppercase px-3 py-1">
                                     TOOL EXECUTING...
                                 </Badge>
                             )}
@@ -143,27 +143,27 @@ export const AgentDNAInspector: React.FC<AgentDNAInspectorProps> = ({ nodeId, no
                         
                         <div className="grid grid-cols-1 gap-3">
                             {nodeData.skills.length > 0 ? nodeData.skills.map((skill, i) => (
-                                <div key={i} className="bg-slate-50 border border-slate-100 p-5 rounded-3xl flex items-center justify-between group hover:border-indigo-500/30 hover:bg-indigo-50/30 transition-all cursor-pointer shadow-sm">
+                                <div key={i} className="bg-muted border border-border p-5 rounded-3xl flex items-center justify-between group hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer shadow-sm">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shadow-sm">
+                                        <div className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-sm">
                                             <Key className="w-4 h-4 text-amber-500" />
                                         </div>
                                         <div>
-                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Protocol v1.2</div>
-                                            <span className="text-sm font-black text-slate-900 italic uppercase">{skill}</span>
+                                            <div className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Protocol v1.2</div>
+                                            <span className="text-sm font-black text-foreground italic uppercase">{skill}</span>
                                         </div>
                                     </div>
                                     {nodeData.isThinking && i === 0 && (
-                                        <RefreshCw className="w-5 h-5 text-indigo-600 animate-spin" />
+                                        <RefreshCw className="w-5 h-5 text-primary animate-spin" />
                                     )}
                                 </div>
                             )) : (
-                                <div className="bg-slate-50 border border-slate-100 p-10 rounded-[2.5rem] text-center border-dashed">
-                                    <span className="text-[10px] text-slate-300 font-black uppercase tracking-widest italic">할당된 자율 스킬 없음</span>
+                                <div className="bg-muted border border-border p-10 rounded-[2.5rem] text-center border-dashed">
+                                    <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest italic">할당된 자율 스킬 없음</span>
                                 </div>
                             )}
                             
-                            <Button variant="outline" className="w-full mt-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 bg-white hover:bg-indigo-50/30 h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                            <Button variant="outline" className="w-full mt-2 border-dashed border-border text-muted-foreground hover:text-primary hover:border-primary/50 bg-card hover:bg-primary/5 h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
                                 + Add MCP Skill Binding
                             </Button>
                         </div>
@@ -171,10 +171,10 @@ export const AgentDNAInspector: React.FC<AgentDNAInspectorProps> = ({ nodeId, no
                     
                     {/* Evolution Context */}
                     <div className="space-y-6">
-                        <h3 className="text-[11px] font-black uppercase text-slate-900 tracking-[0.2em] flex items-center gap-3">
+                        <h3 className="text-[11px] font-black uppercase text-foreground tracking-[0.2em] flex items-center gap-3">
                             <Fingerprint className="w-4 h-4 text-emerald-500" /> 진화 가이드라인 (Policy)
                         </h3>
-                        <div className="bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+                        <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-md relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                                 <Network className="w-32 h-32 text-emerald-400" />
                             </div>
@@ -196,8 +196,8 @@ export const AgentDNAInspector: React.FC<AgentDNAInspectorProps> = ({ nodeId, no
             </ScrollArea>
             
             {/* Footer */}
-            <div className="p-10 border-t border-slate-100 bg-slate-50/50 backdrop-blur-xl">
-                <Button className="w-full h-16 rounded-2xl bg-indigo-600 hover:bg-slate-900 text-white font-black uppercase tracking-[0.2em] shadow-2xl shadow-indigo-200 transition-all transform hover:-translate-y-1">
+            <div className="p-10 border-t border-border bg-muted/50 backdrop-blur-xl">
+                <Button className="w-full h-16 rounded-2xl bg-primary hover:bg-accent text-primary-foreground font-black uppercase tracking-[0.2em] shadow-md transition-all transform hover:-translate-y-1">
                     신경망 변이 프로필 저장
                 </Button>
             </div>

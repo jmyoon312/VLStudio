@@ -237,7 +237,7 @@ const AssetInspector = ({ node, updateData }: AssetInspectorProps) => {
                 </Tabs>
 
                 <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-600" />
                     <Input
                         placeholder="제목 또는 키워드 검색..."
                         className="pl-9 bg-slate-50"
@@ -320,7 +320,7 @@ const AssetInspector = ({ node, updateData }: AssetInspectorProps) => {
             {/* Grid Content - Z-0 */}
             <ScrollArea className="flex-1 p-4 bg-slate-50 z-0">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                    <div className="flex flex-col items-center justify-center py-20 text-slate-600">
                         <RefreshCw className="w-8 h-8 animate-spin mb-3 text-blue-500" />
                         <span className="text-sm">자산을 불러오는 중...</span>
                     </div>
@@ -349,7 +349,7 @@ const AssetInspector = ({ node, updateData }: AssetInspectorProps) => {
                         ))}
 
                         {assets.length === 0 && (
-                            <div className="text-center py-20 text-slate-400">
+                            <div className="text-center py-20 text-slate-600">
                                 <p className="text-sm">조건에 맞는 자산이 없습니다.</p>
                             </div>
                         )}

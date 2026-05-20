@@ -1020,7 +1020,9 @@ function App() {
         onExport={handleExportClick}
         hasImages={true} // 분석을 위해 항상 활성화
         getAccessToken={flowAPI.getAccessToken}
+        clearTokenCache={flowAPI.clearTokenCache}
         authReady={authReady}
+        setAuthReady={setAuthReady}
         projectName={settings.projectName}
         onProjectChange={handleProjectChange}
         onNewProject={() => openSettings('storage')}

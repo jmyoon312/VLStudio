@@ -75,23 +75,17 @@ class Socks5Handler(StreamRequestHandler):
                     connected = True
                     # logger.info(f"[Proxy] Connected via LTE ({lte_ip})")
                 except Exception as e:
-                    logger.warning(f"[Proxy] Connection via LTE ({lte_ip}) Failed: {e}. Falling back to System Route.")
+                    logger.error(f"[Proxy] Connection via LTE ({lte_ip}) Failed: {e}. Strict mode active: Aborting connection to prevent IP leak.")
                     if remote: remote.close()
                     remote = None
+            else:
+                logger.error(f"[Proxy] LTE IP not detected ({lte_ip}). Strict mode active: Aborting connection to prevent IP leak via System Route.")
             
-            # Attempt 2: Fallback to System Route (Wi-Fi/Default)
+            # Strict mode: DO NOT fallback to System Route!
             if not connected:
-                try:
-                    remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    remote.settimeout(10.0)
-                    remote.connect((addr, port))
-                    connected = True
-                    logger.info(f"[Proxy] Connected via System Route (Fallback)")
-                except Exception as e:
-                    logger.error(f"[Proxy] Remote Connect Failed (System Route) to {addr}:{port} - {e}")
-                    # SOCKS5 Error: Host unreachable (4)
-                    self.connection.send(b"\x05\x04\x00\x01\x00\x00\x00\x00\x00\x00")
-                    return
+                # SOCKS5 Error: Host unreachable (4)
+                self.connection.send(b"\x05\x04\x00\x01\x00\x00\x00\x00\x00\x00")
+                return
 
             # Connection Successful
             bind_addr, bind_port = remote.getsockname()
@@ -111,6 +105,109 @@ class Socks5Handler(StreamRequestHandler):
         finally: 
             self.connection.close()
             if remote: remote.close()
+
+class WifiSocks5Handler(StreamRequestHandler):
+    def handle(self):
+        remote = None
+        try:
+            # SOCKS5 Initial Handshake
+            header = recvall(self.connection, 2)
+            if not header or header[0] != 5: return
+            
+            nmethods = header[1]
+            methods = recvall(self.connection, nmethods)
+            if not methods: return
+            
+            self.connection.send(b"\x05\x00")
+            
+            # SOCKS5 Request
+            header = recvall(self.connection, 4)
+            if not header or header[1] != 1: return 
+            addr_type = header[3]
+            if addr_type == 1: 
+                raw_ip = recvall(self.connection, 4)
+                if not raw_ip: return
+                addr = socket.inet_ntoa(raw_ip)
+            elif addr_type == 3: 
+                len_byte = recvall(self.connection, 1)
+                if not len_byte: return
+                domain_len = len_byte[0]
+                addr_bytes = recvall(self.connection, domain_len)
+                if not addr_bytes: return
+                addr = addr_bytes.decode()
+            else: return
+            
+            port_bytes = recvall(self.connection, 2)
+            if not port_bytes: return
+            port = int.from_bytes(port_bytes, 'big')
+            
+            # === Wi-Fi Isolation Connection Strategy ===
+            # We strictly bind to the Wi-Fi interface IP to ensure Google Flow never leaks via LTE
+            connected = False
+            
+            # Try to get Wi-Fi interface IP from network_monitor
+            wifi_ip = None
+            if hasattr(network_monitor, 'current_status') and 'wifi' in network_monitor.current_status:
+                wifi_status = network_monitor.current_status['wifi']
+                if 'ip' in wifi_status and wifi_status['ip']:
+                    wifi_ip = wifi_status['ip']
+                    
+            if not wifi_ip:
+                # Fallback: get host IP (which usually resolves to primary Wi-Fi/Wired adapter if route is correct)
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    s.connect(("8.8.8.8", 80))
+                    wifi_ip = s.getsockname()[0]
+                    s.close()
+                except:
+                    pass
+                    
+            if wifi_ip and "169.254" not in wifi_ip:
+                try: 
+                    remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    remote.settimeout(10.0)
+                    remote.bind((wifi_ip, 0))
+                    remote.connect((addr, port))
+                    connected = True
+                except Exception as e:
+                    logger.warning(f"[Wifi-Proxy] Failed to connect using Wi-Fi IP ({wifi_ip}): {e}")
+                    if remote: remote.close()
+                    remote = None
+            
+            # If explicit Wi-Fi bind failed, we try a fallback ONLY IF the system default is NOT LTE
+            if not connected:
+                system_mode = network_monitor.current_status.get("system_gateway_mode", "WIFI")
+                if system_mode == "LTE":
+                    logger.error(f"[Wifi-Proxy] Blocked: System default is LTE and Wi-Fi bind failed. Preventing leak.")
+                else:
+                    try:
+                        remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        remote.settimeout(10.0)
+                        remote.connect((addr, port))
+                        connected = True
+                    except Exception as e:
+                        logger.error(f"[Wifi-Proxy] Fallback Connect Failed: {e}")
+            
+            if not connected:
+                self.connection.send(b"\x05\x04\x00\x01\x00\x00\x00\x00\x00\x00")
+                return
+
+            bind_addr, bind_port = remote.getsockname()
+            try:
+                addr_ip = socket.inet_aton(bind_addr)
+            except:
+                addr_ip = b"\x00\x00\x00\x00"
+                
+            self.connection.send(b"\x05\x00\x00\x01" + addr_ip + int(bind_port).to_bytes(2, 'big'))
+            self.pipe(self.connection, remote)
+            
+        except Exception as e:
+            if "WinError 10053" not in str(e):
+                logger.error(f"[Wifi-Proxy] Handler Error: {e}")
+        finally: 
+            self.connection.close()
+            if remote: remote.close()
+
 
     def pipe(self, client, remote):
         try:
@@ -132,36 +229,34 @@ class Socks5Handler(StreamRequestHandler):
 class NetworkService:
     def __init__(self):
         self.proxy_server = None
-        # print("[NET] NetworkService Init")
+        self.wifi_proxy_server = None
 
     def initialize(self):
         self.start_proxy_server()
         network_monitor.start()
 
     def start_proxy_server(self):
-        if self.proxy_server: return
+        if not self.proxy_server:
+            # LTE Proxy
+            for attempt in range(3):
+                try:
+                    self.proxy_server = ThreadingTCPServer(('127.0.0.1', 10800), Socks5Handler)
+                    threading.Thread(target=self.proxy_server.serve_forever, daemon=True).start()
+                    print(f"[NET] LTE Proxy server started (127.0.0.1:10800)")
+                    break
+                except OSError as e:
+                    import time; time.sleep(1)
         
-        # [FIX] Retry logic for port binding (handle frequent reloads)
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                self.proxy_server = ThreadingTCPServer(('127.0.0.1', 10800), Socks5Handler)
-                thread = threading.Thread(target=self.proxy_server.serve_forever)
-                thread.daemon = True
-                thread.start()
-                print(f"[NET] Proxy server started (127.0.0.1:10800) - Attempt {attempt+1}")
-                return
-            except OSError as e:
-                import time
-                if "Address already in use" in str(e):
-                    print(f"[NET] Port 10800 in use (Attempt {attempt+1}/{max_retries})... Waiting...")
-                    time.sleep(1)
-                else:
-                    print(f"[NET] Proxy Start Failed: {e}")
-                    return
-            except Exception as e:
-                print(f"[NET] Unknown Proxy Error: {e}")
-                return
+        if not self.wifi_proxy_server:
+            # Wi-Fi Proxy
+            for attempt in range(3):
+                try:
+                    self.wifi_proxy_server = ThreadingTCPServer(('127.0.0.1', 10801), WifiSocks5Handler)
+                    threading.Thread(target=self.wifi_proxy_server.serve_forever, daemon=True).start()
+                    print(f"[NET] Wi-Fi Proxy server started (127.0.0.1:10801)")
+                    break
+                except OSError as e:
+                    import time; time.sleep(1)
         
         print("[NET] Failed to bind port 10800 after retries. Proxy disabled.")
 

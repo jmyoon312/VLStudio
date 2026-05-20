@@ -58,7 +58,7 @@ const ProductionNode = ({ id, data, selected }: NodeProps) => {
                         <Handle
                             type="target"
                             position={Position.Left}
-                            className="w-4 h-4 bg-orange-500 border-2 border-white dark:border-slate-800"
+                            className="w-4 h-4 bg-orange-500 border-2 border-white dark:border-slate-200"
                         />
                     </TooltipTrigger>
                     <TooltipContent side="left">
@@ -67,7 +67,7 @@ const ProductionNode = ({ id, data, selected }: NodeProps) => {
                 </Tooltip>
             </TooltipProvider>
 
-            <Card className="overflow-hidden border-0 shadow-lg bg-slate-900 text-white group">
+            <Card className="overflow-hidden border-0 shadow-lg bg-white text-slate-800 border border-slate-200 group">
                 {/* Header */}
                 <div className="p-3 bg-gradient-to-r from-orange-600 to-red-600 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ const ProductionNode = ({ id, data, selected }: NodeProps) => {
 
                 {/* Body */}
                 <div className="p-4 space-y-3">
-                    <div className="flex items-center justify-between text-xs text-slate-400">
+                    <div className="flex items-center justify-between text-xs text-slate-600">
                         <span>Status</span>
                         <span className={`font-mono ${isRunning ? 'text-orange-400 animate-pulse' : 'text-green-400'}`}>
                             {isRunning ? 'EXECUTING...' : 'IDLE'}
@@ -115,7 +115,7 @@ const ProductionNode = ({ id, data, selected }: NodeProps) => {
                         <Handle
                             type="source"
                             position={Position.Right}
-                            className="w-4 h-4 bg-orange-500 border-2 border-white dark:border-slate-800"
+                            className="w-4 h-4 bg-orange-500 border-2 border-white dark:border-slate-200"
                         />
                     </TooltipTrigger>
                     <TooltipContent side="right">

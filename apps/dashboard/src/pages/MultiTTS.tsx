@@ -473,29 +473,29 @@ const MultiTTS = () => {
     };
 
     return (
-        <div className="max-w-[1800px] mx-auto space-y-8 p-8 font-sans">
+        <div className="max-w-[1800px] mx-auto space-y-8 p-8 font-sans text-foreground">
             <div />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Step 1: TTS Generation (Main Stage - Wider) */}
-                <Card className="lg:col-span-7 h-fit border border-gray-100 shadow-sm rounded-xl bg-white">
+                <Card className="lg:col-span-7 h-fit border border-border shadow-sm rounded-xl bg-card">
                     <CardHeader className="pb-4">
-                        <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-900">
-                            <span className="bg-blue-100 text-blue-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                        <CardTitle className="flex items-center gap-3 text-xl font-bold text-foreground">
+                            <span className="bg-primary/10 text-primary w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">1</span>
                             음성 생성
                         </CardTitle>
-                        <CardDescription className="text-base">AI 음성을 생성합니다.</CardDescription>
+                        <CardDescription className="text-base text-muted-foreground">AI 음성을 생성합니다.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
 
                         <div className="space-y-2 relative">
                             <textarea
-                                className="flex h-[20vh] w-full rounded-lg border border-gray-200 bg-white px-4 py-4 text-base leading-relaxed shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-sans pr-4 pb-8"
+                                className="flex h-[20vh] w-full rounded-lg border border-border bg-background px-4 py-4 text-base leading-relaxed shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-sans pr-4 pb-8 text-foreground"
                                 placeholder="여기에 텍스트를 입력하세요..."
                                 value={text}
                                 onChange={(e) => setText(e.target.value)}
                             />
-                            <div className="absolute bottom-3 right-4 text-xs font-medium text-gray-400 pointer-events-none select-none">
+                            <div className="absolute bottom-3 right-4 text-xs font-medium text-muted-foreground pointer-events-none select-none">
                                 {text.length}자
                             </div>
                         </div>
@@ -517,29 +517,29 @@ const MultiTTS = () => {
                         {/* Recommended Presets (Redesigned) */}
                         {engine === 'google' || engine === 'edge' ? (
                             <div className="space-y-3 pt-2">
-                                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
                                     <Zap className="w-4 h-4 text-amber-500" />
                                     추천 프리셋 (Presets)
                                 </Label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                                     {[
-                                        { id: 'shorts', icon: Zap, label: '쇼츠 (Shorts)', bg: 'bg-amber-50 text-amber-700' },
-                                        { id: 'news', icon: Mic, label: '뉴스 (News)', bg: 'bg-blue-50 text-blue-700' },
-                                        { id: 'docu', icon: FileText, label: '다큐 (Docu)', bg: 'bg-emerald-50 text-emerald-700' },
-                                        { id: 'conv', icon: MessageCircle, label: '대화 (Conv)', bg: 'bg-purple-50 text-purple-700' },
-                                        { id: 'vlog', icon: Coffee, label: '브이로그 (Vlog)', bg: 'bg-pink-50 text-pink-700' },
+                                        { id: 'shorts', icon: Zap, label: '쇼츠 (Shorts)', bg: 'bg-amber-500/10 text-amber-505' },
+                                        { id: 'news', icon: Mic, label: '뉴스 (News)', bg: 'bg-blue-500/10 text-blue-505' },
+                                        { id: 'docu', icon: FileText, label: '다큐 (Docu)', bg: 'bg-emerald-500/10 text-emerald-505' },
+                                        { id: 'conv', icon: MessageCircle, label: '대화 (Conv)', bg: 'bg-purple-500/10 text-purple-505' },
+                                        { id: 'vlog', icon: Coffee, label: '브이로그 (Vlog)', bg: 'bg-pink-500/10 text-pink-505' },
                                     ].map((cat) => (
-                                        <div key={cat.id} className="flex flex-col items-center p-2.5 rounded-xl border border-gray-100 shadow-sm bg-white hover:shadow-md transition-all gap-2">
+                                        <div key={cat.id} className="flex flex-col items-center p-2.5 rounded-xl border border-border shadow-sm bg-card hover:shadow-md transition-all gap-2">
                                             <div className={`p-2 rounded-full ${cat.bg} mb-1`}>
                                                 <cat.icon className="w-4 h-4" />
                                             </div>
-                                            <span className="text-xs font-bold text-gray-700">{cat.label}</span>
+                                            <span className="text-xs font-bold text-foreground">{cat.label}</span>
                                             <div className="grid grid-cols-2 w-full gap-1.5">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => applyPreset(`${cat.id}_f`)}
-                                                    className="h-7 text-[10px] px-0 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
+                                                    className="h-7 text-[10px] px-0 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20"
                                                 >
                                                     여성
                                                 </Button>
@@ -547,7 +547,7 @@ const MultiTTS = () => {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => applyPreset(`${cat.id}_m`)}
-                                                    className="h-7 text-[10px] px-0 hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200"
+                                                    className="h-7 text-[10px] px-0 hover:bg-sky-500/10 hover:text-sky-500 hover:border-sky-500/20"
                                                 >
                                                     남성
                                                 </Button>
@@ -562,26 +562,26 @@ const MultiTTS = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <Label className="text-sm font-semibold text-gray-700">엔진</Label>
+                                <Label className="text-sm font-semibold text-foreground">엔진</Label>
                                 <select
-                                    className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
+                                    className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
                                     value={engine}
                                     onChange={(e) => setEngine(e.target.value)}
                                 >
-                                    <option value="edge">Microsoft Edge (자연스러운 무료)</option>
-                                    <option value="google">Google TTS (무료/기본)</option>
-                                    <option value="kokoro">Kokoro (로컬/고품질)</option>
-                                    <option value="elevenlabs">ElevenLabs (유료)</option>
-                                    <option value="supertone">Supertone (유료)</option>
-                                    <option value="supertone-local">Supertonic (Local)</option>
-                                    <option value="typecast">Typecast (유료)</option>
-                                    <option value="qwen">Qwen 2.5 (Remote)</option>
+                                    <option value="edge" className="bg-card text-foreground">Microsoft Edge (자연스러운 무료)</option>
+                                    <option value="google" className="bg-card text-foreground">Google TTS (무료/기본)</option>
+                                    <option value="kokoro" className="bg-card text-foreground">Kokoro (로컬/고품질)</option>
+                                    <option value="elevenlabs" className="bg-card text-foreground">ElevenLabs (유료)</option>
+                                    <option value="supertone" className="bg-card text-foreground">Supertone (유료)</option>
+                                    <option value="supertone-local" className="bg-card text-foreground">Supertonic (Local)</option>
+                                    <option value="typecast" className="bg-card text-foreground">Typecast (유료)</option>
+                                    <option value="qwen" className="bg-card text-foreground">Qwen 2.5 (Remote)</option>
                                 </select>
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-sm font-semibold text-gray-700">언어</Label>
+                                <Label className="text-sm font-semibold text-foreground">언어</Label>
                                 <select
-                                    className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
+                                    className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
                                     value={language}
                                     onChange={(e) => setLanguage(e.target.value)}
                                 >
@@ -603,51 +603,51 @@ const MultiTTS = () => {
                         {/* Global Gender & Age Filters */}
                         <div className="flex justify-end -mt-2 mb-2 gap-2">
                             {/* Gender Filter */}
-                            <div className="flex items-center gap-2 bg-blue-50/50 p-1.5 rounded-lg border border-blue-100">
-                                <Label className="text-xs px-2 font-medium text-blue-800">성별:</Label>
+                            <div className="flex items-center gap-2 bg-primary/5 p-1.5 rounded-lg border border-primary/20">
+                                <Label className="text-xs px-2 font-medium text-primary">성별:</Label>
                                 <select
                                     value={gender}
                                     onChange={(e: any) => setGender(e.target.value)}
-                                    className="h-7 w-[80px] text-xs rounded-md border-gray-200 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                    className="h-7 w-[80px] text-xs rounded-md border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
                                 >
-                                    <option value="all">전체</option>
-                                    <option value="male">남성</option>
-                                    <option value="female">여성</option>
+                                    <option value="all" className="bg-card text-foreground">전체</option>
+                                    <option value="male" className="bg-card text-foreground">남성</option>
+                                    <option value="female" className="bg-card text-foreground">여성</option>
                                 </select>
                             </div>
 
                             {/* Age Filter */}
-                            <div className="flex items-center gap-2 bg-green-50/50 p-1.5 rounded-lg border border-green-100">
-                                <Label className="text-xs px-2 font-medium text-green-800">나이:</Label>
+                            <div className="flex items-center gap-2 bg-primary/5 p-1.5 rounded-lg border border-primary/20">
+                                <Label className="text-xs px-2 font-medium text-primary">나이:</Label>
                                 <select
                                     value={ageGroup}
                                     onChange={(e: any) => setAgeGroup(e.target.value)}
-                                    className="h-7 w-[90px] text-xs rounded-md border-gray-200 focus:ring-2 focus:ring-green-500/20 outline-none"
+                                    className="h-7 w-[90px] text-xs rounded-md border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
                                 >
-                                    <option value="all">전체</option>
-                                    <option value="youth">청소년/아이</option>
-                                    <option value="adult">청년/중년</option>
-                                    <option value="senior">노년 (Senior)</option>
+                                    <option value="all" className="bg-card text-foreground">전체</option>
+                                    <option value="youth" className="bg-card text-foreground">청소년/아이</option>
+                                    <option value="adult" className="bg-card text-foreground">청년/중년</option>
+                                    <option value="senior" className="bg-card text-foreground">노년 (Senior)</option>
                                 </select>
                             </div>
                         </div>
 
                         {/* Qwen Control Panel */}
                         {engine === 'qwen' && (
-                            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-5 rounded-xl border border-indigo-100 space-y-5 animate-in fade-in slide-in-from-top-4 mb-6">
+                            <div className="bg-gradient-to-br from-primary/5 to-secondary/5 dark:from-primary/10 dark:to-secondary/10 p-5 rounded-xl border border-border space-y-5 animate-in fade-in slide-in-from-top-4 mb-6">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">REMOTE</span>
-                                    <Label className="text-sm font-bold text-indigo-900">Qwen 2.5 Studio</Label>
+                                    <span className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">REMOTE</span>
+                                    <Label className="text-sm font-bold text-foreground">Qwen 2.5 Studio</Label>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     {/* Voice */}
                                     <div className="space-y-1.5 ">
-                                        <Label className="text-xs font-semibold text-gray-600">성우 (Voice)</Label>
+                                        <Label className="text-xs font-semibold text-muted-foreground">성우 (Voice)</Label>
                                         <select
                                             value={voiceId}
                                             onChange={(e) => setVoiceId(e.target.value)}
-                                            className="w-full h-9 text-xs rounded border border-indigo-200 focus:ring-2 focus:ring-indigo-500/20"
+                                            className="w-full h-9 text-xs rounded border border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20"
                                         >
                                             <optgroup label="한국어 (Korean)">
                                                 <option value="sohee">👩 소희 (한국어 표준/메인)</option>
@@ -752,34 +752,34 @@ const MultiTTS = () => {
                                 </div>
 
                                 {/* Seed Control */}
-                                <div className="flex items-center gap-2 pt-2 border-t border-indigo-100/50">
+                                <div className="flex items-center gap-2 pt-2 border-t border-border">
                                     <div className="flex items-center space-x-2">
                                         <input
                                             type="checkbox"
                                             id="maintainTone"
                                             checked={maintainTone}
                                             onChange={(e) => setMaintainTone(e.target.checked)}
-                                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                                            className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary/20"
                                         />
                                         <label
                                             htmlFor="maintainTone"
-                                            className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-700"
+                                            className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground"
                                         >
                                             방금 그 목소리 톤 유지하기 (Seed 고정)
                                         </label>
                                     </div>
                                     {maintainTone && (
-                                        <span className="text-[10px] text-indigo-500 font-mono ml-auto">
+                                        <span className="text-[10px] text-primary font-mono ml-auto">
                                             Locked: {lastQwenSeed !== -1 ? lastQwenSeed : "Next Gen"}
                                         </span>
                                     )}
                                 </div>
 
                                 {/* Voice Design / Instruction Input */}
-                                <div className="space-y-2 pt-2 border-t border-indigo-100/50">
-                                    <Label className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                                <div className="space-y-2 pt-2 border-t border-border">
+                                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                                         ✨ 보이스 디자인 / 추가 지시어 (Optional)
-                                        <span className="text-[9px] text-gray-400 font-normal ml-1">
+                                        <span className="text-[9px] text-muted-foreground font-normal ml-1">
                                             (예: "울면서 말해줘", "속삭이듯이", "Speak with hesitation")
                                         </span>
                                     </Label>
@@ -788,7 +788,7 @@ const MultiTTS = () => {
                                         value={qwenInstruction}
                                         onChange={(e) => setQwenInstruction(e.target.value)}
                                         placeholder="AI에게 세부 연기 지시를 내려보세요..."
-                                        className="w-full h-8 text-xs rounded border border-indigo-200 px-2 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-gray-300"
+                                        className="w-full h-8 text-xs rounded border border-border bg-background text-foreground px-2 focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground"
                                     />
                                 </div>
                             </div>
@@ -797,9 +797,9 @@ const MultiTTS = () => {
                         {engine !== 'qwen' && (
                             <>
                                 <div className="space-y-1.5">
-                                    <Label className="text-sm font-semibold text-gray-700">목소리</Label>
+                                    <Label className="text-sm font-semibold text-foreground">목소리</Label>
                                     <select
-                                        className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
+                                        className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
                                         value={voiceId || ""}
                                         onChange={(e) => setVoiceId(e.target.value)}
                                     >
@@ -814,15 +814,15 @@ const MultiTTS = () => {
                                             }
                                             return true;
                                         }).map(v => (
-                                            <option key={v.id} value={v.id}>{getFriendlyVoiceName(v)}</option>
+                                            <option key={v.id} value={v.id} className="bg-card text-foreground">{getFriendlyVoiceName(v)}</option>
                                         ))}
                                     </select>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-6 pt-4 bg-gray-50/50 p-5 rounded-xl border border-gray-100">
+                                <div className="grid grid-cols-2 gap-6 pt-4 bg-muted/50 p-5 rounded-xl border border-border">
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
-                                            <Label className="text-sm font-semibold text-gray-700">속도 (Speed)</Label>
+                                            <Label className="text-sm font-semibold text-foreground">속도 (Speed)</Label>
                                             <span className="text-sm font-mono text-primary font-medium">x{speed.toFixed(1)}</span>
                                         </div>
                                         <Slider
@@ -836,7 +836,7 @@ const MultiTTS = () => {
                                     {engine === 'typecast' ? (
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-center">
-                                                <Label className="text-sm font-semibold text-gray-700">감정 (Emotion)</Label>
+                                                <Label className="text-sm font-semibold text-foreground">감정 (Emotion)</Label>
                                                 <span className="text-sm font-mono text-primary font-medium">
                                                     {emotion}
                                                 </span>
@@ -851,11 +851,11 @@ const MultiTTS = () => {
                                     ) : (engine === 'supertone-local') ? (
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center mb-1">
-                                                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                                <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
                                                     🎭 감정 & 스타일 (Emotion Engine)
                                                     <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">NEW</span>
                                                 </Label>
-                                                <Button variant="ghost" size="sm" onClick={() => setShowProMode(!showProMode)} className="h-6 text-[10px] text-gray-400 hover:text-gray-700">
+                                                <Button variant="ghost" size="sm" onClick={() => setShowProMode(!showProMode)} className="h-6 text-[10px] text-muted-foreground hover:text-foreground">
                                                     {showProMode ? "간편 모드" : "고급 설정 (Pro)"}
                                                 </Button>
                                             </div>
@@ -874,7 +874,7 @@ const MultiTTS = () => {
                                                     variant={emotion === "happy" ? "default" : "outline"}
                                                     size="sm"
                                                     onClick={() => { setEmotion("happy"); setNoiseScale(0.0); setPitch(0); }}
-                                                    className={cn("h-9 text-xs flex flex-col items-center justify-center gap-0.5 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200", emotion === "happy" && "bg-amber-500 hover:bg-amber-600 border-amber-600")}
+                                                    className={cn("h-9 text-xs flex flex-col items-center justify-center gap-0.5 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/20", emotion === "happy" && "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white")}
                                                 >
                                                     <span>😄</span> 기쁨
                                                 </Button>
@@ -882,7 +882,7 @@ const MultiTTS = () => {
                                                     variant={emotion === "sad" ? "default" : "outline"}
                                                     size="sm"
                                                     onClick={() => { setEmotion("sad"); setNoiseScale(0.0); setPitch(0); }}
-                                                    className={cn("h-9 text-xs flex flex-col items-center justify-center gap-0.5 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200", emotion === "sad" && "bg-blue-500 hover:bg-blue-600 border-blue-600")}
+                                                    className={cn("h-9 text-xs flex flex-col items-center justify-center gap-0.5 hover:bg-blue-500/10 hover:text-blue-500 hover:border-blue-500/20", emotion === "sad" && "bg-blue-500 hover:bg-blue-600 border-blue-600 text-white")}
                                                 >
                                                     <span>😢</span> 슬픔
                                                 </Button>
@@ -890,22 +890,22 @@ const MultiTTS = () => {
                                                     variant={emotion === "angry" ? "default" : "outline"}
                                                     size="sm"
                                                     onClick={() => { setEmotion("angry"); setNoiseScale(0.0); setPitch(0); }}
-                                                    className={cn("h-9 text-xs flex flex-col items-center justify-center gap-0.5 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200", emotion === "angry" && "bg-rose-500 hover:bg-rose-600 border-rose-600")}
+                                                    className={cn("h-9 text-xs flex flex-col items-center justify-center gap-0.5 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20", emotion === "angry" && "bg-rose-500 hover:bg-rose-600 border-rose-600 text-white")}
                                                 >
                                                     <span>😡</span> 분노
                                                 </Button>
                                             </div>
-                                            <p className="text-[10px] text-gray-400 text-center">
+                                            <p className="text-[10px] text-muted-foreground text-center">
                                                 * 감정 프리셋은 속도, 톤, 떨림(Noise)을 자동으로 조절합니다.
                                             </p>
 
                                             {/* 2. Pro Mode (Manual Overrides) */}
                                             {showProMode && (
-                                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 border-t border-gray-100 mt-2 pt-2">
+                                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 border-t border-border mt-2 pt-2">
                                                     {/* Pitch (Decoupled) */}
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between text-xs">
-                                                            <span className="text-gray-600 font-medium">톤 높낮이 (Pitch)</span>
+                                                            <span className="text-muted-foreground font-medium">톤 높낮이 (Pitch)</span>
                                                             <span className="font-mono text-primary">{pitch > 0 ? `+${pitch}` : pitch} ST</span>
                                                         </div>
                                                         <Slider value={[pitch]} min={-12} max={12} step={1} onValueChange={v => setPitch(v[0])} />
@@ -914,34 +914,34 @@ const MultiTTS = () => {
                                                     {/* Noise Scale (Latent) */}
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between text-xs">
-                                                            <span className="text-gray-600 font-medium">목소리 질감 (Noise / Variance)</span>
+                                                            <span className="text-muted-foreground font-medium">목소리 질감 (Noise / Variance)</span>
                                                             <span className="font-mono text-primary">{noiseScale.toFixed(2)}</span>
                                                         </div>
                                                         <Slider value={[noiseScale]} min={0.0} max={2.0} step={0.1} onValueChange={v => setNoiseScale(v[0])} />
-                                                        <p className="text-[10px] text-gray-400">값이 높을수록 목소리가 거칠고 예측 불가능해집니다 (감정 표현용).</p>
+                                                        <p className="text-[10px] text-muted-foreground">값이 높을수록 목소리가 거칠고 예측 불가능해집니다 (감정 표현용).</p>
                                                     </div>
 
                                                     {/* Voice Mixing */}
-                                                    <div className="space-y-2 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
-                                                        <Label className="text-xs font-semibold text-gray-700 block mb-2">🧬 목소리 섞기 (Voice Mixing)</Label>
+                                                    <div className="space-y-2 p-3 bg-card rounded-lg border border-border shadow-sm">
+                                                        <Label className="text-xs font-semibold text-foreground block mb-2">🧬 목소리 섞기 (Voice Mixing)</Label>
                                                         <div className="flex gap-2">
                                                             <select
-                                                                className="flex-1 h-8 text-xs rounded border border-gray-200 outline-none"
+                                                                className="flex-1 h-8 text-xs rounded border border-border bg-background text-foreground outline-none"
                                                                 value={mixVoiceId}
                                                                 onChange={(e) => setMixVoiceId(e.target.value)}
                                                             >
-                                                                <option value="">섞을 목소리 선택...</option>
+                                                                <option value="" className="bg-card text-foreground">섞을 목소리 선택...</option>
                                                                 {voices?.filter(v => v.id !== voiceId).map(v => (
-                                                                    <option key={v.id} value={v.id}>{getFriendlyVoiceName(v)}</option>
+                                                                    <option key={v.id} value={v.id} className="bg-card text-foreground">{getFriendlyVoiceName(v)}</option>
                                                                 ))}
                                                             </select>
                                                         </div>
                                                         {mixVoiceId && (
                                                             <div className="pt-2">
                                                                 <div className="flex justify-between text-xs mb-1">
-                                                                    <span className="text-gray-500">Main</span>
+                                                                    <span className="text-muted-foreground">Main</span>
                                                                     <span className="text-primary font-bold">{Math.round(mixRatio * 100)}% Mix</span>
-                                                                    <span className="text-gray-500">Mix</span>
+                                                                    <span className="text-muted-foreground">Mix</span>
                                                                 </div>
                                                                 <Slider value={[mixRatio]} min={0.0} max={1.0} step={0.05} onValueChange={v => setMixRatio(v[0])} />
                                                             </div>
@@ -953,7 +953,7 @@ const MultiTTS = () => {
                                     ) : (engine === 'supertone') ? (
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-center">
-                                                <Label className="text-sm font-semibold text-gray-700">스타일 (Emotion)</Label>
+                                                <Label className="text-sm font-semibold text-foreground">스타일 (Emotion)</Label>
                                                 <span className="text-sm font-mono text-primary font-medium">
                                                     {emotion || "Default"}
                                                 </span>
@@ -985,7 +985,7 @@ const MultiTTS = () => {
 
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center mb-1">
-                                                <Label className="text-sm font-semibold text-gray-700">세부 설정 (Voice Settings)</Label>
+                                                <Label className="text-sm font-semibold text-foreground">세부 설정 (Voice Settings)</Label>
                                             </div>
 
                                             {/* Presets */}
@@ -998,9 +998,9 @@ const MultiTTS = () => {
                                             {/* Stability */}
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-xs">
-                                                    <span className="text-gray-500">불안정 (감정적)</span>
+                                                    <span className="text-muted-foreground">불안정 (감정적)</span>
                                                     <span className="font-mono text-primary">{Math.round(stability * 100)}%</span>
-                                                    <span className="text-gray-500">안정적</span>
+                                                    <span className="text-muted-foreground">안정적</span>
                                                 </div>
                                                 <Slider value={[stability]} min={0.0} max={1.0} step={0.05} onValueChange={v => setStability(v[0])} />
                                             </div>
@@ -1008,7 +1008,7 @@ const MultiTTS = () => {
                                             {/* Similarity */}
                                             {/* <div className="space-y-2">
                                         <div className="flex justify-between text-xs">
-                                          <span className="text-gray-500">Clarify</span>
+                                          <span className="text-muted-foreground">Clarify</span>
                                           <span className="font-mono text-primary">{Math.round(similarity * 100)}%</span>
                                         </div>
                                         <Slider value={[similarity]} min={0.0} max={1.0} step={0.05} onValueChange={v => setSimilarity(v[0])} />
@@ -1017,7 +1017,7 @@ const MultiTTS = () => {
                                             {/* Style */}
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-xs">
-                                                    <span className="text-gray-500">스타일 강도</span>
+                                                    <span className="text-muted-foreground">스타일 강도</span>
                                                     <span className="font-mono text-primary">{Math.round(styleExaggeration * 100)}%</span>
                                                 </div>
                                                 <Slider value={[styleExaggeration]} min={0.0} max={1.0} step={0.05} onValueChange={v => setStyleExaggeration(v[0])} />
@@ -1026,7 +1026,7 @@ const MultiTTS = () => {
                                     ) : (
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-center">
-                                                <Label className="text-sm font-semibold text-gray-700">높낮이 (Pitch)</Label>
+                                                <Label className="text-sm font-semibold text-foreground">높낮이 (Pitch)</Label>
                                                 <span className="text-sm font-mono text-primary font-medium">{pitch > 0 ? `+${pitch}` : pitch}Hz</span>
                                             </div>
                                             <Slider
@@ -1052,16 +1052,16 @@ const MultiTTS = () => {
 
                         {
                             step1Result && (
-                                <div className="mt-6 p-5 bg-blue-50/50 border border-blue-100 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2">
+                                <div className="mt-6 p-5 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-base font-bold text-blue-800 flex items-center gap-2">
+                                        <span className="text-base font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                                             생성 완료
                                         </span>
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            className="h-9 bg-white hover:bg-blue-50 text-blue-700 border-blue-200 font-medium"
+                                            className="h-9 bg-card hover:bg-accent text-foreground border-border font-medium"
                                             onClick={() => downloadFile(step1Result.web_url, `tts_output_${Date.now()}.mp3`)}
                                         >
                                             <Download className="w-4 h-4 mr-2" /> 다운로드
@@ -1078,52 +1078,52 @@ const MultiTTS = () => {
                 < div className="lg:col-span-5 space-y-6" >
 
                     {/* Step 2: Silence Removal */}
-                    < Card className={cn("transition-all duration-300 border border-gray-100 shadow-sm rounded-xl bg-white", !step1Result && "opacity-50 grayscale pointer-events-none")}>
+                    < Card className={cn("transition-all duration-300 border border-border shadow-sm rounded-xl bg-card", !step1Result && "opacity-50 grayscale pointer-events-none")}>
                         <CardHeader className="pb-4">
-                            <CardTitle className="flex items-center gap-3 text-lg font-bold text-gray-900">
-                                <span className="bg-orange-100 text-orange-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+                            <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
+                                <span className="bg-orange-500/10 text-orange-500 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">2</span>
                                 무음 제거 (선택)
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             {/* Compact Presets */}
                             <div className="flex flex-wrap gap-2">
-                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-35, 200, 10)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -35 && minSilenceLen === 200 && "bg-orange-100 text-orange-800 border-orange-200 ring-1 ring-orange-200")}>
+                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-35, 200, 10)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -35 && minSilenceLen === 200 && "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30 ring-1 ring-orange-500/20")}>
                                     <Zap className="w-3 h-3 mr-1.5" /> 스피드
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-40, 300, 50)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -40 && minSilenceLen === 300 && "bg-orange-100 text-orange-800 border-orange-200 ring-1 ring-orange-200")}>
+                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-40, 300, 50)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -40 && minSilenceLen === 300 && "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30 ring-1 ring-orange-500/20")}>
                                     <Gamepad2 className="w-3 h-3 mr-1.5" /> 게임
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-45, 500, 150)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -45 && minSilenceLen === 500 && "bg-orange-100 text-orange-800 border-orange-200 ring-1 ring-orange-200")}>
+                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-45, 500, 150)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -45 && minSilenceLen === 500 && "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30 ring-1 ring-orange-500/20")}>
                                     <Mic className="w-3 h-3 mr-1.5" /> 뉴스
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-50, 800, 300)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -50 && minSilenceLen === 800 && "bg-orange-100 text-orange-800 border-orange-200 ring-1 ring-orange-200")}>
+                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-50, 800, 300)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -50 && minSilenceLen === 800 && "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30 ring-1 ring-orange-500/20")}>
                                     <Coffee className="w-3 h-3 mr-1.5" /> 감성
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-45, 400, 200)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -45 && minSilenceLen === 400 && "bg-orange-100 text-orange-800 border-orange-200 ring-1 ring-orange-200")}>
+                                <Button variant="outline" size="sm" onClick={() => applySilencePreset(-45, 400, 200)} className={cn("h-8 px-3 text-xs font-medium transition-all", silenceThreshold === -45 && minSilenceLen === 400 && "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30 ring-1 ring-orange-500/20")}>
                                     <MessageCircle className="w-3 h-3 mr-1.5" /> 대화
                                 </Button>
                             </div>
 
-                            <div className="space-y-5 bg-gray-50/50 p-5 rounded-xl border border-gray-100">
+                            <div className="space-y-5 bg-muted/50 p-5 rounded-xl border border-border">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <Label className="text-xs font-semibold text-gray-600">감지 임계값</Label>
-                                        <span className="text-xs font-mono text-gray-500">{silenceThreshold}dB</span>
+                                        <Label className="text-xs font-semibold text-muted-foreground">감지 임계값</Label>
+                                        <span className="text-xs font-mono text-muted-foreground">{silenceThreshold}dB</span>
                                     </div>
                                     <Slider value={[silenceThreshold]} min={-60} max={-10} step={1} onValueChange={(v) => setSilenceThreshold(v[0])} />
                                 </div>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <Label className="text-xs font-semibold text-gray-600">최소 무음 길이</Label>
-                                        <span className="text-xs font-mono text-gray-500">{minSilenceLen}ms</span>
+                                        <Label className="text-xs font-semibold text-muted-foreground">최소 무음 길이</Label>
+                                        <span className="text-xs font-mono text-muted-foreground">{minSilenceLen}ms</span>
                                     </div>
                                     <Slider value={[minSilenceLen]} min={100} max={2000} step={50} onValueChange={(v) => setMinSilenceLen(v[0])} />
                                 </div>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <Label className="text-xs font-semibold text-gray-600">남길 무음 길이</Label>
-                                        <span className="text-xs font-mono text-gray-500">{keepSilenceLen}ms</span>
+                                        <Label className="text-xs font-semibold text-muted-foreground">남길 무음 길이</Label>
+                                        <span className="text-xs font-mono text-muted-foreground">{keepSilenceLen}ms</span>
                                     </div>
                                     <Slider value={[keepSilenceLen]} min={0} max={500} step={10} onValueChange={(v) => setKeepSilenceLen(v[0])} />
                                 </div>
@@ -1132,7 +1132,7 @@ const MultiTTS = () => {
                             <Button
                                 onClick={handleProcessSilence}
                                 disabled={isProcessingSilence || !step1Result}
-                                className="w-full h-10 font-medium"
+                                className="w-full h-10 font-medium text-foreground bg-secondary hover:bg-secondary/80 border border-border"
                                 variant="secondary"
                             >
                                 {isProcessingSilence ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Scissors className="w-4 h-4 mr-2" />}
@@ -1140,16 +1140,16 @@ const MultiTTS = () => {
                             </Button>
 
                             {step2Result && (
-                                <div className="p-4 bg-green-50/50 border border-green-100 rounded-xl space-y-3 animate-in fade-in zoom-in-95">
+                                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-3 animate-in fade-in zoom-in-95">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-bold text-green-800 flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                             처리 완료
                                         </span>
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-8 text-xs text-green-700 hover:text-green-800 hover:bg-green-100 font-medium"
+                                            className="h-8 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 font-medium"
                                             onClick={() => downloadFile(step2Result.web_url, `tts_silence_removed_${Date.now()}.mp3`)}
                                         >
                                             <Download className="w-3 h-3 mr-1" /> 다운로드
@@ -1162,24 +1162,24 @@ const MultiTTS = () => {
                     </Card >
 
                     {/* Step 3: SRT Extraction */}
-                    < Card className={cn("transition-all duration-300 border border-gray-100 shadow-sm rounded-xl bg-white", !step1Result && "opacity-50 grayscale pointer-events-none")}>
+                    < Card className={cn("transition-all duration-300 border border-border shadow-sm rounded-xl bg-card", !step1Result && "opacity-50 grayscale pointer-events-none")}>
                         <CardHeader className="pb-4">
-                            <CardTitle className="flex items-center gap-3 text-lg font-bold text-gray-900">
-                                <span className="bg-purple-100 text-purple-700 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                            <CardTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
+                                <span className="bg-purple-500/10 text-purple-500 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">3</span>
                                 자막 추출 (편집 이동)
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-5">
                             <div className="space-y-3">
-                                <Label className="text-sm font-semibold text-gray-700">추출 대상 소스</Label>
+                                <Label className="text-sm font-semibold text-foreground">추출 대상 소스</Label>
                                 <RadioGroup value={srtSource} onValueChange={(v) => setSrtSource(v as any)} className="flex flex-col gap-2">
-                                    <div className="flex items-center space-x-3 bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200 cursor-pointer">
+                                    <div className="flex items-center space-x-3 bg-muted p-3 rounded-lg hover:bg-accent transition-colors border border-border cursor-pointer">
                                         <RadioGroupItem value="original" id="r1" />
-                                        <Label htmlFor="r1" className="cursor-pointer text-sm font-medium flex-1 text-gray-700">원본 오디오 (Step 1)</Label>
+                                        <Label htmlFor="r1" className="cursor-pointer text-sm font-medium flex-1 text-foreground">원본 오디오 (Step 1)</Label>
                                     </div>
-                                    <div className="flex items-center space-x-3 bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200 cursor-pointer">
+                                    <div className="flex items-center space-x-3 bg-muted p-3 rounded-lg hover:bg-accent transition-colors border border-border cursor-pointer">
                                         <RadioGroupItem value="cleaned" id="r2" disabled={!step2Result} />
-                                        <Label htmlFor="r2" className={cn("cursor-pointer text-sm font-medium flex-1 text-gray-700", !step2Result && "text-muted-foreground")}>
+                                        <Label htmlFor="r2" className={cn("cursor-pointer text-sm font-medium flex-1 text-foreground", !step2Result && "text-muted-foreground")}>
                                             무음 제거된 오디오 (Step 2)
                                         </Label>
                                     </div>

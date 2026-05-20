@@ -79,7 +79,7 @@ const EffectsPanel = () => {
                                 className="aspect-video rounded-lg border border-slate-200 bg-slate-50 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center gap-2 group"
                                 onClick={() => alert(`Effect ${e.label} applied (Placeholder)`)}
                             >
-                                <Sparkles className="w-6 h-6 text-slate-400 group-hover:text-blue-500" />
+                                <Sparkles className="w-6 h-6 text-slate-600 group-hover:text-blue-500" />
                                 <span className="text-xs font-medium text-slate-600 group-hover:text-blue-600">{e.label}</span>
                             </button>
                         ))}
@@ -94,12 +94,12 @@ const EffectsPanel = () => {
                                 className="aspect-video rounded-lg border border-slate-200 bg-slate-50 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center gap-2 group"
                                 onClick={() => handleApplyTransition(t.type)}
                             >
-                                <ArrowRightLeft className="w-6 h-6 text-slate-400 group-hover:text-blue-500" />
+                                <ArrowRightLeft className="w-6 h-6 text-slate-600 group-hover:text-blue-500" />
                                 <span className="text-xs font-medium text-slate-600 group-hover:text-blue-600">{t.label}</span>
                             </button>
                         ))}
                     </div>
-                    <p className="text-xs text-slate-400 text-center mt-4">
+                    <p className="text-xs text-slate-600 text-center mt-4">
                         선택한 클립의 앞뒤에 적용됩니다.
                     </p>
                 </TabsContent>
@@ -112,7 +112,7 @@ const EffectsPanel = () => {
                                 className="aspect-video rounded-lg border border-slate-200 bg-slate-50 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center gap-2 group"
                                 onClick={() => handleApplyFilter(f.config)}
                             >
-                                <Wand2 className="w-6 h-6 text-slate-400 group-hover:text-blue-500" />
+                                <Wand2 className="w-6 h-6 text-slate-600 group-hover:text-blue-500" />
                                 <span className="text-xs font-medium text-slate-600 group-hover:text-blue-600">{f.label}</span>
                             </button>
                         ))}

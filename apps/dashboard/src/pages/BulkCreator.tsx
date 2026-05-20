@@ -71,76 +71,76 @@ const BulkCreator = () => {
     const mappableClips = selectedTemplate?.tracks.flatMap(t => t.clips).filter(c => c.type === 'text' || c.type === 'image' || c.type === 'video') || [];
 
     return (
-        <div className="p-8 max-w-6xl mx-auto space-y-8">
+        <div className="p-8 max-w-6xl mx-auto space-y-8 bg-background text-foreground min-h-screen">
             <div className="flex items-center justify-end">
-                <Button onClick={handleGenerate} disabled={!selectedTemplateId || csvData.length === 0} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={handleGenerate} disabled={!selectedTemplateId || csvData.length === 0} className="bg-primary hover:bg-primary-hover text-primary-foreground">
                     <Play className="w-4 h-4 mr-2" /> Start Batch Generation
                 </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Step 1: Template */}
-                <Card>
+                <Card className="bg-card border-border">
                     <CardHeader>
-                        <CardTitle className="text-lg">1. Select Template</CardTitle>
+                        <CardTitle className="text-lg text-foreground">1. Select Template</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-muted border-border text-foreground">
                                 <SelectValue placeholder="Choose a template..." />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-card border-border text-foreground">
                                 {templates.map(t => (
                                     <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                                 ))}
-                                {templates.length === 0 && <div className="p-2 text-sm text-gray-500">No templates saved. Save one in the Editor first.</div>}
+                                {templates.length === 0 && <div className="p-2 text-sm text-muted-foreground">No templates saved. Save one in the Editor first.</div>}
                             </SelectContent>
                         </Select>
                     </CardContent>
                 </Card>
 
                 {/* Step 2: Data */}
-                <Card>
+                <Card className="bg-card border-border">
                     <CardHeader>
-                        <CardTitle className="text-lg">2. Upload Data (CSV)</CardTitle>
+                        <CardTitle className="text-lg text-foreground">2. Upload Data (CSV)</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors relative">
+                        <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:bg-muted/50 transition-colors relative">
                             <input type="file" accept=".csv" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                            <FileSpreadsheet className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-600">{csvData.length > 0 ? `${csvData.length} rows loaded` : "Drop CSV here"}</p>
+                            <FileSpreadsheet className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                            <p className="text-sm text-muted-foreground">{csvData.length > 0 ? `${csvData.length} rows loaded` : "Drop CSV here"}</p>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Step 3: Mapping */}
-                <Card className="md:col-span-3">
+                <Card className="md:col-span-3 bg-card border-border">
                     <CardHeader>
-                        <CardTitle className="text-lg">3. Map Variables</CardTitle>
+                        <CardTitle className="text-lg text-foreground">3. Map Variables</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {selectedTemplateId && csvData.length > 0 ? (
                             <div className="grid grid-cols-2 gap-8">
                                 <div className="space-y-4">
-                                    <h4 className="font-medium text-sm text-gray-500 uppercase">Template Layers</h4>
+                                    <h4 className="font-medium text-sm text-muted-foreground uppercase">Template Layers</h4>
                                     {mappableClips.map(clip => (
-                                        <div key={clip.id} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-100">
+                                        <div key={clip.id} className="flex items-center justify-between p-3 bg-muted rounded border border-border">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-2 h-8 rounded ${clip.type === 'text' ? 'bg-purple-400' : 'bg-blue-400'}`} />
+                                                <div className={`w-2 h-8 rounded ${clip.type === 'text' ? 'bg-purple-500' : 'bg-blue-500'}`} />
                                                 <div>
-                                                    <div className="font-medium text-sm">{clip.name}</div>
-                                                    <div className="text-xs text-gray-400">{clip.type}</div>
+                                                    <div className="font-medium text-sm text-foreground">{clip.name}</div>
+                                                    <div className="text-xs text-muted-foreground">{clip.type}</div>
                                                 </div>
                                             </div>
-                                            <ArrowRight className="w-4 h-4 text-gray-300" />
+                                            <ArrowRight className="w-4 h-4 text-muted-foreground" />
                                             <Select
                                                 value={mapping[clip.id] || ''}
                                                 onValueChange={(v) => setMapping(prev => ({ ...prev, [clip.id]: v }))}
                                             >
-                                                <SelectTrigger className="w-[180px]">
+                                                <SelectTrigger className="w-[180px] bg-card border-border text-foreground">
                                                     <SelectValue placeholder="Select Column" />
                                                 </SelectTrigger>
-                                                <SelectContent>
+                                                <SelectContent className="bg-card border-border text-foreground">
                                                     {headers.map(h => (
                                                         <SelectItem key={h} value={h}>{h}</SelectItem>
                                                     ))}
@@ -151,14 +151,14 @@ const BulkCreator = () => {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <h4 className="font-medium text-sm text-gray-500 uppercase">Data Preview (Row 1)</h4>
-                                    <div className="bg-gray-900 text-gray-100 p-4 rounded-lg font-mono text-xs overflow-auto h-[300px]">
+                                    <h4 className="font-medium text-sm text-muted-foreground uppercase">Data Preview (Row 1)</h4>
+                                    <div className="bg-muted text-foreground p-4 rounded-lg font-mono text-xs overflow-auto h-[300px] border border-border">
                                         {mappableClips.map(clip => {
                                             const col = mapping[clip.id];
                                             const val = col ? csvData[0][col] : '(Unmapped)';
                                             return (
                                                 <div key={clip.id} className="mb-2">
-                                                    <span className="text-blue-400">{clip.name}:</span> <span className="text-green-400">"{val}"</span>
+                                                    <span className="text-blue-400">{clip.name}:</span> <span className="text-emerald-400">"{val}"</span>
                                                 </div>
                                             );
                                         })}
@@ -166,7 +166,7 @@ const BulkCreator = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-center py-12 text-gray-400">
+                            <div className="text-center py-12 text-muted-foreground">
                                 Select a template and upload data to start mapping.
                             </div>
                         )}
@@ -175,7 +175,7 @@ const BulkCreator = () => {
             </div>
 
             {status && (
-                <div className="p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 text-center font-medium">
+                <div className="p-4 bg-emerald-500/10 text-emerald-500 rounded-lg border border-emerald-500/20 text-center font-medium">
                     {status}
                 </div>
             )}

@@ -182,15 +182,15 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = () => {
                                     </Button>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    <Badge variant={profile.tiktok_count > 0 ? "default" : "secondary"} className={`text-[10px] ${profile.tiktok_count > 0 ? 'bg-black' : 'bg-slate-100 text-slate-400'}`}>
+                                    <Badge variant={profile.tiktok_count > 0 ? "default" : "secondary"} className={`text-[10px] ${profile.tiktok_count > 0 ? 'bg-black' : 'bg-slate-100 text-slate-600'}`}>
                                         <Music2 className="w-3 h-3 mr-1" />
                                         TikTok {profile.tiktok_count > 0 ? `(${profile.tiktok_count})` : '미연결'}
                                     </Badge>
-                                    <Badge variant={profile.insta_count > 0 ? "default" : "secondary"} className={`text-[10px] ${profile.insta_count > 0 ? 'bg-pink-500' : 'bg-slate-100 text-slate-400'}`}>
+                                    <Badge variant={profile.insta_count > 0 ? "default" : "secondary"} className={`text-[10px] ${profile.insta_count > 0 ? 'bg-pink-500' : 'bg-slate-100 text-slate-600'}`}>
                                         <Instagram className="w-3 h-3 mr-1" />
                                         Instagram {profile.insta_count > 0 ? `(${profile.insta_count})` : '미연결'}
                                     </Badge>
-                                    <Badge variant={profile.notebooklm_count > 0 ? "default" : "secondary"} className={`text-[10px] ${profile.notebooklm_count > 0 ? 'bg-purple-600' : 'bg-slate-100 text-slate-400'}`}>
+                                    <Badge variant={profile.notebooklm_count > 0 ? "default" : "secondary"} className={`text-[10px] ${profile.notebooklm_count > 0 ? 'bg-purple-600' : 'bg-slate-100 text-slate-600'}`}>
                                         <Brain className="w-3 h-3 mr-1" />
                                         NotebookLM {profile.notebooklm_count > 0 ? `(${profile.notebooklm_count})` : '미연결'}
                                     </Badge>
@@ -201,7 +201,7 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = () => {
                 ))}
 
                 {profiles.length === 0 && !loading && (
-                    <div className="col-span-full py-12 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    <div className="col-span-full py-12 text-center text-slate-600 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                         <Chrome className="w-12 h-12 mx-auto mb-3 opacity-20" />
                         <p>생성된 브라우저 프로필이 없습니다.</p>
                         <Button variant="link" onClick={() => setIsAddOpen(true)}>

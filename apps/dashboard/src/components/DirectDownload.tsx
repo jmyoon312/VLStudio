@@ -23,7 +23,7 @@ interface QueueItem {
 const SUPPORTED_PLATFORMS = [
     // Global
     { name: 'YouTube', url: 'https://www.youtube.com', color: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300' },
-    { name: 'TikTok', url: 'https://www.tiktok.com', color: 'bg-black text-white border-gray-800 dark:bg-white dark:text-black' },
+    { name: 'TikTok', url: 'https://www.tiktok.com', color: 'bg-black text-white border-slate-200 dark:bg-white dark:text-black' },
     { name: 'Instagram', url: 'https://www.instagram.com', color: 'bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300' },
 
     // Chinese Platforms (Direct Links)
@@ -424,14 +424,14 @@ const DirectDownload = () => {
             {/* Queue Section */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between border-t pt-8">
-                    <div className="flex items-center gap-2 text-slate-400">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                         <Download className="w-4 h-4" />
                         <span className="text-xs font-bold uppercase tracking-wider">Batch Queue</span>
                     </div>
                     <Button
                         onClick={processBatch}
                         disabled={isBatchProcessing || queue.filter(i => i.status === 'pending').length === 0}
-                        className="bg-green-600 hover:bg-green-700 text-white px-8"
+                        className="bg-primary hover:bg-primary-hover text-primary-foreground px-8"
                     >
                         {isBatchProcessing ? (
                             <>
@@ -475,9 +475,9 @@ const DirectDownload = () => {
                                         )}>
                                             <td className="p-4 align-middle">
                                                 {item.status === 'pending' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">대기</span>}
-                                                {item.status === 'processing' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-blue-100 text-blue-800"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> 처리중</span>}
-                                                {item.status === 'success' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-green-100 text-green-800"><CheckCircle2 className="w-3 h-3 mr-1" /> {item.message}</span>}
-                                                {item.status === 'error' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-red-100 text-red-800"><AlertCircle className="w-3 h-3 mr-1" /> {item.message}</span>}
+                                                {item.status === 'processing' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-blue-500/10 text-blue-500"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> 처리중</span>}
+                                                {item.status === 'success' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-emerald-500/10 text-emerald-500"><CheckCircle2 className="w-3 h-3 mr-1" /> {item.message}</span>}
+                                                {item.status === 'error' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-red-500/10 text-red-500"><AlertCircle className="w-3 h-3 mr-1" /> {item.message}</span>}
                                             </td>
                                             <td className="p-4 align-middle font-medium">
                                                 {getCategoryName(item.categoryId)}

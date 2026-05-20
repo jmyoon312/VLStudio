@@ -155,7 +155,7 @@ const AIPersonaInspector = ({ node, updateData }: AIPersonaInspectorProps) => {
                             onChange={(e) => setSystemPrompt(e.target.value)}
                             placeholder="Define the writer's personality..."
                         />
-                        <p className="text-[10px] text-slate-400">
+                        <p className="text-[10px] text-slate-600">
                             Available variables: <code className="bg-slate-100 px-1 rounded">{`{analysis}`}</code>
                         </p>
                     </div>
@@ -175,8 +175,8 @@ const AIPersonaInspector = ({ node, updateData }: AIPersonaInspectorProps) => {
                         </Button>
 
                         {testOutput && (
-                            <div className="mt-2 bg-slate-900 rounded-md p-3">
-                                <Label className="text-[10px] text-slate-400 mb-1 block">Preview Draft</Label>
+                            <div className="mt-2 bg-white rounded-md p-3">
+                                <Label className="text-[10px] text-slate-600 mb-1 block">Preview Draft</Label>
                                 <pre className="text-[11px] text-cyan-400 font-mono whitespace-pre-wrap max-h-[150px] overflow-y-auto">
                                     {testOutput}
                                 </pre>

@@ -80,7 +80,7 @@ const AssetBrowser = () => {
             <div className="p-4 border-b border-gray-100 space-y-4">
                 <h3 className="font-semibold text-sm">Assets</h3>
                 <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-600" />
                     <Input
                         placeholder="Search..."
                         className="pl-8 h-9 text-xs"
@@ -110,7 +110,7 @@ const AssetBrowser = () => {
                         >
                             {asset.type === 'audio' ? (
                                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                                    <Music className="w-8 h-8 text-gray-300" />
+                                    <Music className="w-8 h-8 text-slate-700" />
                                 </div>
                             ) : (
                                 <img src={asset.thumbnail} alt={asset.title} className="w-full h-full object-cover" />
@@ -132,7 +132,7 @@ const AssetBrowser = () => {
                             </div>
                         </div>
                     ))}
-                    {loading && <div className="col-span-2 text-center text-xs text-gray-400 py-4">Loading...</div>}
+                    {loading && <div className="col-span-2 text-center text-xs text-slate-600 py-4">Loading...</div>}
                 </div>
             </ScrollArea>
         </div>

@@ -73,7 +73,7 @@ const Dashboard = () => {
         } else {
             badges.push(
                 <Badge key="normal" variant="secondary" className="bg-slate-100 text-slate-500 border-0 gap-1 text-[10px] h-5 px-1.5 whitespace-nowrap">
-                    <span className="text-slate-400">☁️</span> C {score.toFixed(0)}%
+                    <span className="text-slate-600">☁️</span> C {score.toFixed(0)}%
                 </Badge>
             );
         }
@@ -164,7 +164,7 @@ const Dashboard = () => {
                         </div>
                     </div>
                     
-                    <Button variant="outline" className="glass-panel border-white/10 hover:bg-white/5 h-12 uppercase tracking-widest text-[10px] font-bold">
+                    <Button variant="outline" className="glass-panel border-slate-200 hover:bg-white/5 h-12 uppercase tracking-widest text-[10px] font-bold">
                         Emergency Swarm Reboot
                     </Button>
                 </div>

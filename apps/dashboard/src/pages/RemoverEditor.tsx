@@ -317,8 +317,8 @@ const RemoverEditor = () => {
                 payload.rois = rectangles.map(r => ({
                     x: Math.round(r.x * scaleX),
                     y: Math.round(r.y * scaleY),
-                    width: Math.round((r.width || 0) * scaleX),
-                    height: Math.round((r.height || 0) * scaleY)
+                    width: Math.round((r.w || 0) * scaleX),
+                    height: Math.round((r.h || 0) * scaleY)
                 }));
             }
 
@@ -360,14 +360,14 @@ const RemoverEditor = () => {
     };
 
     return (
-        <div className="flex h-[calc(100vh-theme(spacing.16))] bg-slate-50 text-slate-900 border-t border-slate-200">
+        <div className="flex h-[calc(100vh-theme(spacing.16))] bg-background text-foreground border-t border-border">
             {/* Sidebar */}
-            <aside className="w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm z-10">
-                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                    <Badge variant="outline" className="text-[10px] font-black uppercase border-blue-200 text-blue-600 bg-blue-50">Object Removal System</Badge>
+            <aside className="w-80 bg-card border-r border-border flex flex-col shadow-sm z-10">
+                <div className="p-4 border-b border-border flex items-center justify-between">
+                    <Badge variant="outline" className="text-[10px] font-black uppercase border-primary/30 text-primary bg-primary/10">Object Removal System</Badge>
                     <div className="flex gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                        <div className="w-1.5 h-1.5 rounded-full bg-slate-200" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-border" />
                     </div>
                 </div>
 
@@ -376,23 +376,23 @@ const RemoverEditor = () => {
                     <div className="space-y-3">
                         <label className="text-sm font-semibold flex items-center gap-2">
                             <MousePointer2 className="w-4 h-4" /> 시각적 지우개
-                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 ml-auto">OpenCV</Badge>
+                            <Badge variant="secondary" className="bg-primary/10 text-primary ml-auto">OpenCV</Badge>
                         </label>
-                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                        <div className="p-4 bg-muted/40 rounded-xl border border-border space-y-3">
                             <div className="grid grid-cols-2 gap-2">
-                                <Button variant={tool === 'draw' ? "default" : "outline"} onClick={() => setTool('draw')} className="w-full text-xs">
+                                <Button variant={tool === 'draw' ? "default" : "outline"} onClick={() => setTool('draw')} className="w-full text-xs border-border">
                                     <Eraser className="w-3 h-3 mr-2" /> 영역 선택
                                 </Button>
                                 {/* New Project Button */}
-                                <Button variant="outline" onClick={() => window.location.reload()} className="w-full text-xs hover:bg-slate-100">
+                                <Button variant="outline" onClick={() => window.location.reload()} className="w-full text-xs border-border hover:bg-muted">
                                     <RefreshCcw className="w-3 h-3 mr-2" /> 새 작업
                                 </Button>
-                                <Button variant="outline" onClick={() => setRectangles([])} className="w-full col-span-2 text-xs text-red-600 hover:bg-red-50 mt-1">
+                                <Button variant="outline" onClick={() => setRectangles([])} className="w-full col-span-2 text-xs text-destructive border-destructive/20 hover:bg-destructive/10 mt-1">
                                     <Trash2 className="w-3 h-3 mr-2" /> 선택 초기화
                                 </Button>
                             </div>
                             {rectangles.length > 0 && (
-                                <p className="text-xs text-green-600 font-medium">✨ {rectangles.length}개 영역 선택됨</p>
+                                <p className="text-xs text-emerald-500 font-medium">✨ {rectangles.length}개 영역 선택됨</p>
                             )}
                         </div>
                     </div>
@@ -401,30 +401,30 @@ const RemoverEditor = () => {
                     <div className="space-y-3">
                         <label className="text-sm font-semibold flex items-center gap-2">
                             <Music className="w-4 h-4" /> 오디오 클리너
-                            <Badge variant="secondary" className="bg-green-50 text-green-700 ml-auto">AI</Badge>
+                            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 ml-auto">AI</Badge>
                         </label>
                         <div className="space-y-2">
-                            <div onClick={() => setAudioMode('remove_vocal')} className={cn("flex items-center gap-3 p-3 rounded-lg border cursor-pointer", audioMode === 'remove_vocal' ? "border-blue-500 bg-blue-50/50" : "border-slate-200 hover:bg-slate-50")}>
-                                <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center", audioMode === 'remove_vocal' ? "border-blue-500" : "border-slate-300")}>
-                                    {audioMode === 'remove_vocal' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                            <div onClick={() => setAudioMode('remove_vocal')} className={cn("flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors", audioMode === 'remove_vocal' ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50")}>
+                                <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center", audioMode === 'remove_vocal' ? "border-primary" : "border-border")}>
+                                    {audioMode === 'remove_vocal' && <div className="w-2 h-2 rounded-full bg-primary" />}
                                 </div>
                                 <div className="text-xs">
                                     <p className="font-medium">보컬 제거</p>
-                                    <p className="text-slate-500">배경음악만 남김</p>
+                                    <p className="text-muted-foreground">배경음악만 남김</p>
                                 </div>
                             </div>
-                            <div onClick={() => setAudioMode('remove_bgm')} className={cn("flex items-center gap-3 p-3 rounded-lg border cursor-pointer", audioMode === 'remove_bgm' ? "border-blue-500 bg-blue-50/50" : "border-slate-200 hover:bg-slate-50")}>
-                                <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center", audioMode === 'remove_bgm' ? "border-blue-500" : "border-slate-300")}>
-                                    {audioMode === 'remove_bgm' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                            <div onClick={() => setAudioMode('remove_bgm')} className={cn("flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors", audioMode === 'remove_bgm' ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50")}>
+                                <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center", audioMode === 'remove_bgm' ? "border-primary" : "border-border")}>
+                                    {audioMode === 'remove_bgm' && <div className="w-2 h-2 rounded-full bg-primary" />}
                                 </div>
                                 <div className="text-xs">
                                     <p className="font-medium">배경음악 제거</p>
-                                    <p className="text-slate-500">목소리만 남김</p>
+                                    <p className="text-muted-foreground">목소리만 남김</p>
                                 </div>
                             </div>
-                            <div onClick={() => setAudioMode('none')} className={cn("flex items-center gap-3 p-3 rounded-lg border cursor-pointer", audioMode === 'none' ? "border-slate-400 bg-slate-100" : "border-slate-200")}>
-                                <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center", audioMode === 'none' ? "border-slate-500" : "border-slate-300")}>
-                                    {audioMode === 'none' && <div className="w-2 h-2 rounded-full bg-slate-500" />}
+                            <div onClick={() => setAudioMode('none')} className={cn("flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors", audioMode === 'none' ? "border-muted-foreground/50 bg-muted/40" : "border-border")}>
+                                <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center", audioMode === 'none' ? "border-muted-foreground" : "border-border")}>
+                                    {audioMode === 'none' && <div className="w-2 h-2 rounded-full bg-muted-foreground" />}
                                 </div>
                                 <span className="text-xs font-medium">오디오 처리 안 함</span>
                             </div>
@@ -432,14 +432,14 @@ const RemoverEditor = () => {
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-2">
-                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700" size="lg" onClick={handleProcess} disabled={isProcessing || (!rectangles.length && audioMode === 'none')}>
+                <div className="p-4 border-t border-border bg-muted/20 space-y-2">
+                    <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" size="lg" onClick={handleProcess} disabled={isProcessing || (!rectangles.length && audioMode === 'none')}>
                         {isProcessing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 처리 중...</> : "처리 시작"}
                     </Button>
 
                     {/* Download Button - Shows only when result exists */}
                     {processResult && (
-                        <Button variant="outline" className="w-full border-green-500 text-green-600 hover:bg-green-50" onClick={handleDownload}>
+                        <Button variant="outline" className="w-full border-emerald-500 text-emerald-500 hover:bg-emerald-500/10" onClick={handleDownload}>
                             <Download className="w-4 h-4 mr-2" /> 결과 다운로드
                         </Button>
                     )}
@@ -447,24 +447,24 @@ const RemoverEditor = () => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col min-w-0 bg-slate-100/50 relative">
+            <main className="flex-1 flex flex-col min-w-0 bg-muted/30 relative">
                 {/* Canvas */}
                 <div className="flex-1 relative overflow-hidden flex items-center justify-center p-8">
                     {!videoState.src ? (
                         <div 
                             className={cn(
                                 "flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl transition-all w-full max-w-lg",
-                                isDragging ? "border-blue-500 bg-blue-50 scale-105" : "border-slate-300 bg-white/50"
+                                isDragging ? "border-primary bg-primary/10 scale-105" : "border-border bg-card/50"
                             )}
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                             onDrop={handleDrop}
                         >
-                            <Upload className={cn("w-12 h-12 mb-4 transition-colors", isDragging ? "text-blue-500" : "text-slate-300")} />
-                            <h3 className="text-lg font-bold text-slate-700">비디오 업로드</h3>
-                            <p className="text-sm text-slate-500 mb-6">편집할 파일을 드래그하거나 선택하세요</p>
+                            <Upload className={cn("w-12 h-12 mb-4 transition-colors", isDragging ? "text-primary" : "text-muted-foreground")} />
+                            <h3 className="text-lg font-bold text-foreground">비디오 업로드</h3>
+                            <p className="text-sm text-muted-foreground mb-6">편집할 파일을 드래그하거나 선택하세요</p>
                             <div className="relative">
-                                <Button className={isDragging ? "bg-blue-600" : ""}>파일 선택</Button>
+                                <Button className={isDragging ? "bg-primary text-primary-foreground" : "border-border"}>파일 선택</Button>
                                 <input type="file" accept="video/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} />
                             </div>
                         </div>
@@ -472,15 +472,15 @@ const RemoverEditor = () => {
                         <TransformWrapper initialScale={1} minScale={0.5} maxScale={8} disabled={tool !== 'hand'} wheel={{ disabled: tool === 'draw' }} panning={{ disabled: tool !== 'hand' }}>
                             {({ zoomIn, zoomOut, resetTransform }) => (
                                 <>
-                                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur shadow-sm border rounded-lg p-1 flex gap-1 z-50">
+                                    <div className="absolute top-4 right-4 bg-card/90 backdrop-blur shadow-sm border border-border rounded-lg p-1 flex gap-1 z-50">
                                         <Button size="icon" variant={tool === 'select' ? 'secondary' : 'ghost'} onClick={() => setTool('select')} title="선택 도구"><MousePointer2 className="w-4 h-4" /></Button>
                                         <Button size="icon" variant={tool === 'hand' ? 'secondary' : 'ghost'} onClick={() => setTool('hand')} title="이동 도구"><Hand className="w-4 h-4" /></Button>
-                                        <div className="w-px h-6 bg-slate-200 mx-1 self-center" />
+                                        <div className="w-px h-6 bg-border mx-1 self-center" />
                                         <Button size="icon" variant="ghost" onClick={() => zoomIn()} title="확대"><ZoomIn className="w-4 h-4" /></Button>
                                         <Button size="icon" variant="ghost" onClick={() => zoomOut()} title="축소"><ZoomOut className="w-4 h-4" /></Button>
                                         <Button size="icon" variant="ghost" onClick={() => resetTransform()} title="초기화"><Maximize className="w-4 h-4" /></Button>
-                                        <div className="w-px h-6 bg-slate-200 mx-1 self-center" />
-                                        <Button size="icon" variant="ghost" className="text-red-500 hover:bg-red-50 hover:text-red-600" onClick={() => {
+                                        <div className="w-px h-6 bg-border mx-1 self-center" />
+                                        <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => {
                                             setVideoState({
                                                 id: null,
                                                 src: null,
@@ -534,9 +534,9 @@ const RemoverEditor = () => {
                 </div>
 
                 {/* Timeline */}
-                <div className="h-20 bg-white border-t border-slate-200 flex items-center px-6 gap-6 z-20">
+                <div className="h-20 bg-card border-t border-border flex items-center px-6 gap-6 z-20">
                     <div className="flex items-center gap-2">
-                        <Button size="icon" variant="outline" className="rounded-full w-12 h-12" onClick={togglePlay}>
+                        <Button size="icon" variant="outline" className="rounded-full w-12 h-12 border-border" onClick={togglePlay}>
                             {videoState.isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
                         </Button>
                         <Button size="icon" variant="ghost" onClick={toggleMute}>
@@ -544,7 +544,7 @@ const RemoverEditor = () => {
                         </Button>
                     </div>
                     <div className="flex-1">
-                        <div className="flex justify-between text-xs text-slate-500 mb-2 font-mono">
+                        <div className="flex justify-between text-xs text-muted-foreground mb-2 font-mono">
                             <span>{formatTime(videoState.currentTime)}</span>
                             <span>{formatTime(videoState.duration)}</span>
                         </div>

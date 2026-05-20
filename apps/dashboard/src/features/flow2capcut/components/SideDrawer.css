@@ -25,7 +25,7 @@
   left: 0;
   width: 280px;
   height: calc(100% - 40px);
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   display: flex;
@@ -44,7 +44,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #F3F4F6;
   background: rgba(0, 0, 0, 0.2);
 }
 
@@ -82,7 +82,7 @@
 }
 
 .drawer-close:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #F3F4F6;
   color: #fff;
 }
 
@@ -125,7 +125,7 @@
   gap: 12px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid #F3F4F6;
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
@@ -134,8 +134,8 @@
 }
 
 .drawer-link:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: #F3F4F6;
+  border-color: #E5E7EB;
   transform: translateX(4px);
 }
 
@@ -146,7 +146,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: #F3F4F6;
   border-radius: 8px;
 }
 
@@ -182,7 +182,7 @@
 /* 푸터 */
 .drawer-footer {
   padding: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid #F3F4F6;
   text-align: center;
 }
 

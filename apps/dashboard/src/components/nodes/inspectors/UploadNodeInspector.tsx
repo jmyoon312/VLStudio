@@ -76,7 +76,7 @@ export const UploadNodeInspector = ({ node, onUpdate }: UploadNodeInspectorProps
                         placeholder="{title} - {date}"
                         className="h-8 text-xs"
                     />
-                    <p className="text-[10px] text-slate-400 mt-1">변수: {'{title}'}, {'{date}'}, {'{channel}'}, {'{id}'}</p>
+                    <p className="text-[10px] text-slate-600 mt-1">변수: {'{title}'}, {'{date}'}, {'{channel}'}, {'{id}'}</p>
                 </div>
 
                 <div className="space-y-1.5">

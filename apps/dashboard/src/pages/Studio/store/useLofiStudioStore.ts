@@ -41,10 +41,7 @@ export interface Layer {
 
     // Widget properties
     widgetType?: WidgetType;
-    widgetConfig?: {
-        variant?: 'bars' | 'circle' | 'wave';
-        color?: string;
-    };
+    widgetConfig?: any;
 }
 
 export interface Track {

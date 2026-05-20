@@ -310,7 +310,7 @@ const StockAssetNode = ({ data, selected }: NodeProps) => {
                                 )}
 
                                 {searchResults.length === 0 && !searching && (
-                                    <div className="text-center py-12 text-slate-400">
+                                    <div className="text-center py-12 text-slate-600">
                                         <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
                                         <p className="text-sm">검색 탭에서 자산을 검색하세요</p>
                                     </div>
@@ -392,7 +392,7 @@ const StockAssetNode = ({ data, selected }: NodeProps) => {
                             {/* 즐겨찾기 탭 */}
                             <TabsContent value="favorites" className="space-y-4">
                                 {favorites.length === 0 && (
-                                    <div className="text-center py-12 text-slate-400">
+                                    <div className="text-center py-12 text-slate-600">
                                         <Heart className="w-12 h-12 mx-auto mb-4 opacity-50" />
                                         <p className="text-sm">즐겨찾기한 자산이 없습니다</p>
                                     </div>

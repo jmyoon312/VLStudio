@@ -101,7 +101,7 @@ const BrandChannelManager = () => {
         }
     };
 
-    if (isLoading) return <div className="p-8 text-center text-slate-500">Loading Brand System...</div>;
+    if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading Brand System...</div>;
 
     // Group channels by Worker (frontend grouping)
     // Actually API returns flat list. 
@@ -124,14 +124,14 @@ const BrandChannelManager = () => {
     const activeWorkers = Array.from(workersMap.values());
 
     return (
-        <div className="p-6 space-y-8 max-w-7xl mx-auto">
+        <div className="p-6 space-y-8 max-w-7xl mx-auto bg-background text-foreground min-h-screen">
             {/* Header */}
             {/* Header Actions Only */}
             <div className="flex justify-end items-center gap-3">
                 <Button variant="outline" onClick={() => handleOAuth('worker')} className="gap-2">
                     <UserCheck className="w-4 h-4" /> Add Worker Account
                 </Button>
-                <Button onClick={() => handleOAuth('channel')} className="gap-2 bg-red-600 hover:bg-red-700">
+                <Button onClick={() => handleOAuth('channel')} className="gap-2 bg-primary hover:bg-primary-hover text-primary-foreground">
                     <ShieldCheck className="w-4 h-4" /> Connect Brand Channel
                 </Button>
             </div>
@@ -155,10 +155,10 @@ const BrandChannelManager = () => {
             </div>
 
             {activeWorkers.length === 0 && (
-                <div className="text-center py-20 bg-slate-50 rounded-xl border border-dashed border-slate-300">
-                    <UserCheck className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-slate-900">No Workers Connected</h3>
-                    <p className="text-slate-500 mb-6 max-w-sm mx-auto">
+                <div className="text-center py-20 bg-muted/30 rounded-xl border border-dashed border-border">
+                    <UserCheck className="w-12 h-12 text-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground">No Workers Connected</h3>
+                    <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
                         Connect a Google Workspace/Gmail account to start managing API quotas and uploading videos.
                     </p>
                     <Button onClick={() => handleOAuth('worker')}>Connect First Worker</Button>
@@ -189,19 +189,19 @@ const WorkerCard = ({
     const healthText = percent > 90 ? "Critical" : percent > 70 ? "Warning" : "Healthy";
 
     return (
-        <Card className="overflow-hidden border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="overflow-hidden border-border shadow-sm hover:shadow-md transition-shadow bg-card">
             {/* Worker Header */}
-            <div className="p-4 bg-slate-50/50 border-b flex justify-between items-start">
+            <div className="p-4 bg-muted/30 border-b border-border flex justify-between items-start">
                 <div className="flex gap-3 items-center">
-                    <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                    <Avatar className="h-10 w-10 border-2 border-border shadow-sm">
                         <AvatarImage src={worker.picture} />
                         <AvatarFallback>{worker.name[0]}</AvatarFallback>
                     </Avatar>
                     <div>
-                        <div className="font-semibold text-sm text-slate-900">{worker.name}</div>
-                        <div className="text-xs text-slate-500 flex items-center gap-1">
+                        <div className="font-semibold text-sm text-foreground">{worker.name}</div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
                             {worker.email}
-                            <Badge variant="outline" className="h-4 px-1 text-[10px] bg-white">
+                            <Badge variant="outline" className="h-4 px-1 text-[10px] bg-card border-border text-muted-foreground">
                                 {worker.google_projects.length} Projects
                             </Badge>
                         </div>
@@ -209,20 +209,20 @@ const WorkerCard = ({
                 </div>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
                             <LogOut className="w-4 h-4" />
                         </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent className="bg-card border-border">
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Disconnect Worker?</AlertDialogTitle>
-                            <AlertDialogDescription>
+                            <AlertDialogTitle className="text-foreground">Disconnect Worker?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-muted-foreground">
                                 Accompanying channels will also be unlinked. This action cannot be undone.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={onUnlink} className="bg-red-600">Disconnect</AlertDialogAction>
+                            <AlertDialogCancel className="border-border">Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={onUnlink} className="bg-destructive hover:bg-destructive-hover text-destructive-foreground">Disconnect</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
@@ -230,9 +230,9 @@ const WorkerCard = ({
 
             <CardContent className="p-0">
                 {/* Quota Health Card */}
-                <div className="p-4 bg-white border-b">
+                <div className="p-4 bg-card border-b border-border">
                     <div className="flex justify-between items-center mb-2">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                             <Clock className="w-3 h-3" /> Quota Health
                         </div>
                         <div className={`text-[10px] px-2 py-0.5 rounded-full text-white font-medium ${healthColor}`}>
@@ -240,15 +240,15 @@ const WorkerCard = ({
                         </div>
                     </div>
                     <Progress value={percent} className="h-2 mb-2" indicatorColor={healthColor} />
-                    <div className="flex justify-between text-xs text-slate-400">
+                    <div className="flex justify-between text-xs text-muted-foreground">
                         <span>Used: {totalUsed.toLocaleString()} / {totalLimit.toLocaleString()}</span>
                         <span>Resets: Midnight PT</span>
                     </div>
                 </div>
 
                 {/* Channels List */}
-                <div className="p-4 space-y-3 bg-slate-50/30">
-                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Connected Channels</div>
+                <div className="p-4 space-y-3 bg-muted/30">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Connected Channels</div>
                     {channels.map(channel => (
                         <ChannelItem
                             key={channel.id}
@@ -259,7 +259,7 @@ const WorkerCard = ({
                         />
                     ))}
                     {channels.length === 0 && (
-                        <div className="text-center py-4 text-xs text-slate-400 italic">
+                        <div className="text-center py-4 text-xs text-muted-foreground italic">
                             No channels linked to this worker
                         </div>
                     )}
@@ -303,14 +303,14 @@ const ChannelItem = ({ channel, onReauth, onDelete, onUpdate }: {
     };
 
     return (
-        <div className="bg-white border rounded-lg p-3 shadow-sm flex items-center justify-between group">
+        <div className="bg-card border border-border rounded-lg p-3 shadow-sm flex items-center justify-between group">
             <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8 rounded-md">
                     <AvatarImage src={channel.thumbnail_url} />
                     <AvatarFallback>{channel.title[0]}</AvatarFallback>
                 </Avatar>
                 <div>
-                    <div className="text-sm font-medium text-slate-800 leading-tight flex items-center gap-1">
+                    <div className="text-sm font-medium text-foreground leading-tight flex items-center gap-1">
                         {channel.title}
                         {isTokenExpired && (
                             <TooltipProvider>
@@ -323,7 +323,7 @@ const ChannelItem = ({ channel, onReauth, onDelete, onUpdate }: {
                             </TooltipProvider>
                         )}
                     </div>
-                    <div className="text-[10px] text-slate-400">
+                    <div className="text-[10px] text-muted-foreground">
                         {channel.default_privacy} • Delay: {channel.default_upload_delay_minutes || 0}m
                     </div>
                 </div>
@@ -340,39 +340,39 @@ const ChannelItem = ({ channel, onReauth, onDelete, onUpdate }: {
                 {/* Config Sheet */}
                 <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                     <SheetTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:text-blue-600">
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary">
                             <Settings2 className="w-3.5 h-3.5" />
                         </Button>
                     </SheetTrigger>
-                    <SheetContent className="w-[400px] sm:w-[540px]">
+                    <SheetContent className="w-[400px] sm:w-[540px] bg-card border-border text-foreground">
                         <SheetHeader>
-                            <SheetTitle>Channel Configuration</SheetTitle>
-                            <SheetDescription>
+                            <SheetTitle className="text-foreground">Channel Configuration</SheetTitle>
+                            <SheetDescription className="text-muted-foreground">
                                 Set default behaviors for <b>{channel.title}</b>. These settings apply to all auto-uploads.
                             </SheetDescription>
                         </SheetHeader>
 
                         <div className="py-6 space-y-6">
                             {/* [SAIF-2026] Sovereign Identity Section */}
-                            <div className="p-4 bg-slate-900 rounded-xl border border-slate-700 shadow-inner">
+                            <div className="p-4 bg-card rounded-xl border border-border shadow-inner">
                                 <div className="flex items-center justify-between mb-4">
-                                    <Label className="flex items-center gap-2 text-blue-400 font-bold uppercase tracking-wider text-xs">
+                                    <Label className="flex items-center gap-2 text-primary font-bold uppercase tracking-wider text-xs">
                                         <ShieldCheck className="w-4 h-4" /> Sovereign Identity (DNA)
                                     </Label>
-                                    <Badge className="h-5 text-[9px] bg-blue-900/40 text-blue-300 border-blue-800">LOCKED</Badge>
+                                    <Badge className="h-5 text-[9px] bg-primary/20 text-primary border-primary/30">LOCKED</Badge>
                                 </div>
                                 
                                 <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] text-slate-400 uppercase font-semibold">Stealth Engine</Label>
+                                        <Label className="text-[10px] text-muted-foreground uppercase font-semibold">Stealth Engine</Label>
                                         <Select 
                                             value={channel.engine_mode || "standard"} 
                                             onValueChange={(val) => onUpdate(channel.id, { engine_mode: val })}
                                         >
-                                            <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-100 font-medium h-9 text-xs">
+                                            <SelectTrigger className="bg-muted border-border text-foreground font-medium h-9 text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
-                                            <SelectContent className="bg-slate-800 border-slate-700 text-slate-100">
+                                            <SelectContent className="bg-card border-border text-foreground">
                                                 <SelectItem value="standard">Standard (Chromium Hardened)</SelectItem>
                                                 <SelectItem value="cloak">Cloak (Native Masking)</SelectItem>
                                                 <SelectItem value="fox">Fox (Diversified Signature)</SelectItem>
@@ -381,82 +381,83 @@ const ChannelItem = ({ channel, onReauth, onDelete, onUpdate }: {
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-                                        <div className="p-2 bg-slate-800/50 rounded border border-slate-700/50">
-                                            <div className="text-slate-500 mb-1">CPU DNA</div>
-                                            <div className="text-emerald-400">{channel.warmup_config?.persistent_dna?.cpu || "8"} Cores</div>
+                                        <div className="p-2 bg-muted rounded border border-border">
+                                            <div className="text-muted-foreground mb-1">CPU DNA</div>
+                                            <div className="text-emerald-500">{channel.warmup_config?.persistent_dna?.cpu || "8"} Cores</div>
                                         </div>
-                                        <div className="p-2 bg-slate-800/50 rounded border border-slate-700/50">
-                                            <div className="text-slate-500 mb-1">RAM DNA</div>
-                                            <div className="text-emerald-400">{channel.warmup_config?.persistent_dna?.ram || "16"} GB</div>
+                                        <div className="p-2 bg-muted rounded border border-border">
+                                            <div className="text-muted-foreground mb-1">RAM DNA</div>
+                                            <div className="text-emerald-500">{channel.warmup_config?.persistent_dna?.ram || "16"} GB</div>
                                         </div>
-                                        <div className="col-span-2 p-2 bg-slate-800/50 rounded border border-slate-700/50">
-                                            <div className="text-slate-500 mb-1">GPU Renderer</div>
-                                            <div className="text-emerald-400 truncate">{channel.warmup_config?.persistent_dna?.gpu?.r || "NVIDIA RTX 3060"}</div>
+                                        <div className="col-span-2 p-2 bg-muted rounded border border-border">
+                                            <div className="text-muted-foreground mb-1">GPU Renderer</div>
+                                            <div className="text-emerald-500 truncate">{channel.warmup_config?.persistent_dna?.gpu?.r || "NVIDIA RTX 3060"}</div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <Separator />
+                            <Separator className="bg-border" />
 
                             <div className="space-y-2">
-                                <Label>Default Privacy</Label>
+                                <Label className="text-foreground">Default Privacy</Label>
                                 <Select value={tempPrivacy} onValueChange={setTempPrivacy}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="bg-muted border-border text-foreground">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-card border-border text-foreground">
                                         <SelectItem value="public">Public</SelectItem>
                                         <SelectItem value="unlisted">Unlisted</SelectItem>
                                         <SelectItem value="private">Private</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <p className="text-[11px] text-slate-500">
+                                <p className="text-[11px] text-muted-foreground">
                                     "Private" is recommended for review before publishing.
                                 </p>
                             </div>
 
-                            <Separator />
+                            <Separator className="bg-border" />
 
                             <div className="space-y-2">
-                                <Label>Default Tags (Comma Separated)</Label>
+                                <Label className="text-foreground">Default Tags (Comma Separated)</Label>
                                 <Input
                                     value={tagsInput}
                                     onChange={(e) => setTagsInput(e.target.value)}
                                     placeholder="e.g. funny, viral, shorts"
+                                    className="bg-muted border-border text-foreground"
                                 />
-                                <p className="text-[11px] text-slate-500">
+                                <p className="text-[11px] text-muted-foreground">
                                     These tags are automatically appended to every video.
                                 </p>
                             </div>
 
-                            <Separator />
+                            <Separator className="bg-border" />
 
                             <div className="space-y-2">
-                                <Label>Upload Delay (Minutes)</Label>
+                                <Label className="text-foreground">Upload Delay (Minutes)</Label>
                                 <div className="flex flex-wrap gap-1.5 mb-2">
-                                    <Badge variant="outline" className="text-[9px] h-4 border-slate-200 text-slate-500">
+                                    <Badge variant="outline" className="text-[9px] h-4 border-border text-muted-foreground">
                                         격리 중
                                     </Badge>
-                                    <Badge className="text-[9px] h-4 bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-50">
+                                    <Badge className="text-[9px] h-4 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20">
                                         LTE 터널링
                                     </Badge>
                                     {/* [SAIF-2026] Hardware DNA Quick View */}
-                                    <Badge className="text-[9px] h-4 bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-50 font-mono">
+                                    <Badge className="text-[9px] h-4 bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/20 font-mono">
                                         DNA: {channel.warmup_config?.persistent_dna?.cpu || "8"}C/{channel.warmup_config?.persistent_dna?.ram || "16"}G
                                     </Badge>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-slate-400" />
+                                    <Clock className="w-4 h-4 text-muted-foreground" />
                                     <Input
                                         type="number"
                                         value={tempDelay}
                                         onChange={(e) => setTempDelay(e.target.value)}
-                                        className="w-24"
+                                        className="w-24 bg-muted border-border text-foreground"
                                         min="0"
                                     />
                                 </div>
-                                <p className="text-[11px] text-slate-500">
+                                <p className="text-[11px] text-muted-foreground">
                                     Randomized delay loop (± 10%) will be applied around this value to simulate human behavior.
                                 </p>
                             </div>
@@ -464,14 +465,14 @@ const ChannelItem = ({ channel, onReauth, onDelete, onUpdate }: {
 
                         <SheetFooter>
                             <SheetClose asChild>
-                                <Button variant="outline">Cancel</Button>
+                                <Button variant="outline" className="border-border text-foreground">Cancel</Button>
                             </SheetClose>
                             <Button onClick={saveConfig}>Save Changes</Button>
                         </SheetFooter>
                     </SheetContent>
                 </Sheet>
 
-                <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:text-red-500" onClick={onDelete}>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={onDelete}>
                     <Trash2 className="w-3.5 h-3.5" />
                 </Button>
             </div>

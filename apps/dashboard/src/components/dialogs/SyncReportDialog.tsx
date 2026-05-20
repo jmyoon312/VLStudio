@@ -79,7 +79,7 @@ const SyncReportDialog: React.FC<SyncReportDialogProps> = ({ isOpen, onClose, re
                                         {type === 'removed' && <Trash2 className="w-4 h-4 text-red-500 mt-0.5" />}
                                         {type === 'updated' && <Edit className="w-4 h-4 text-blue-500 mt-0.5" />}
 
-                                        <span className={`flex-1 ${type === 'removed' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                                        <span className={`flex-1 ${type === 'removed' ? 'text-slate-600 line-through' : 'text-slate-700'}`}>
                                             {line}
                                         </span>
                                     </div>

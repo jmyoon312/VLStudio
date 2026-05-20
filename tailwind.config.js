@@ -4,10 +4,7 @@ export default {
     content: [
         './index.html',
         './apps/dashboard/index.html',
-        './apps/dashboard/src/**/*.{ts,tsx,html}',
-        './apps/dashboard/src/components/**/*.{ts,tsx}',
-        './apps/dashboard/src/pages/**/*.{ts,tsx}',
-        './apps/dashboard/src/app/**/*.{ts,tsx}',
+        './apps/dashboard/src/**/*.{js,jsx,ts,tsx,html}',
     ],
     theme: {
         container: {
@@ -20,44 +17,46 @@ export default {
         extend: {
             colors: {
                 primary: {
-                    DEFAULT: "#3B82F6",
-                    foreground: "#FFFFFF",
-                    hover: "#2563EB",
+                    DEFAULT: "var(--primary)",
+                    foreground: "var(--primary-foreground)",
+                    hover: "var(--primary-hover)",
                 },
                 secondary: {
-                    DEFAULT: "#F3F4F6",
-                    foreground: "#1F2937",
+                    DEFAULT: "var(--secondary)",
+                    foreground: "var(--secondary-foreground)",
                 },
                 destructive: {
-                    DEFAULT: "#EF4444",
-                    foreground: "#FFFFFF",
+                    DEFAULT: "var(--destructive)",
+                    foreground: "var(--destructive-foreground)",
                 },
                 muted: {
-                    DEFAULT: "#F3F4F6",
-                    foreground: "#6B7280",
+                    DEFAULT: "var(--muted)",
+                    foreground: "var(--muted-foreground)",
                 },
                 accent: {
-                    DEFAULT: "#F3F4F6",
-                    foreground: "#1F2937",
+                    DEFAULT: "var(--accent)",
+                    foreground: "var(--accent-foreground)",
                 },
                 popover: {
-                    DEFAULT: "#FFFFFF",
-                    foreground: "#1F2937",
+                    DEFAULT: "var(--popover)",
+                    foreground: "var(--popover-foreground)",
                 },
                 card: {
-                    DEFAULT: "#FFFFFF",
-                    foreground: "#1F2937",
+                    DEFAULT: "var(--card)",
+                    foreground: "var(--card-foreground)",
                 },
-                border: "#E5E7EB",
-                input: "#E5E7EB",
-                ring: "#3B82F6",
-                background: "#F8F9FC",
-                foreground: "#1F2937",
-                "pixie-blue": "#3B82F6",
-                "pixie-gray": "#F8F9FC",
-                "pixie-border": "#E5E7EB",
-                "pixie-text": "#1F2937",
-                "pixie-sub": "#6B7280",
+                border: "var(--border)",
+                input: "var(--input)",
+                ring: "var(--ring)",
+                background: "var(--background)",
+                foreground: "var(--foreground)",
+                sidebar: "var(--sidebar)",
+                "sidebar-border": "var(--sidebar-border)",
+                "pixie-blue": "var(--primary)",
+                "pixie-gray": "var(--background)",
+                "pixie-border": "var(--border)",
+                "pixie-text": "var(--foreground)",
+                "pixie-sub": "var(--muted-foreground)",
             },
             borderRadius: {
                 lg: "12px",
@@ -70,7 +69,7 @@ export default {
                 'pixie-float': '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
             },
             fontFamily: {
-                sans: ["Pretendard", "Inter", "system-ui", "-apple-system", "sans-serif"],
+                sans: ["var(--font-sans)", "Wanted Sans Variable", "Wanted Sans", "Pretendard Variable", "Pretendard", "Noto Sans KR", "Inter", "system-ui", "-apple-system", "sans-serif"],
             },
             keyframes: {
                 "accordion-down": {

@@ -35,7 +35,7 @@ class NetworkMonitor:
 
         self._stop_event = threading.Event()
         self._thread = None
-        self.interval = 5  # Check every 5 seconds
+        self.interval = 60  # Check every 60 seconds to prevent CPU spikes and resource waste
         self.last_elevation_request = 0  # [NEW] Cooldown for UAC popups
         
         # Target Metrics
@@ -67,13 +67,34 @@ class NetworkMonitor:
             self._thread.join()
 
     def _monitor_loop(self):
+        try:
+            import psutil
+        except ImportError:
+            psutil = None
+            
+        last_interfaces = set()
+        last_heavy_check = 0
+        
         while not self._stop_event.is_set():
             try:
-                self._check_and_enforce()
+                now = time.time()
+                needs_heavy_check = False
+                
+                if psutil:
+                    current_interfaces = set(psutil.net_if_addrs().keys())
+                    if current_interfaces != last_interfaces:
+                        needs_heavy_check = True
+                        last_interfaces = current_interfaces
+                
+                if needs_heavy_check or (now - last_heavy_check) >= 60:
+                    if needs_heavy_check:
+                        logger.info("🔄 Network adapter change detected! Instantly triggering routing enforcement.")
+                    self._check_and_enforce()
+                    last_heavy_check = now
             except Exception as e:
                 logger.error(f"Network Monitor Error: {e}")
             
-            time.sleep(self.interval)
+            time.sleep(2) # Fast, zero-CPU poll
 
     def _run_ps(self, cmd):
         # [FIX] Use Absolute Path with env override for total portability
@@ -343,8 +364,10 @@ class NetworkMonitor:
         logger.debug(f"Current Status: {self.current_status}")
 
         # Enforcement Logic
-        if self.current_status['enforcement_active']:
+        if self.current_status['enforcement_active'] and getattr(self, 'is_admin', False):
             self._enforce_rules(wifi_idx, wired_idx, lte_idx)
+        elif self.current_status['enforcement_active'] and not getattr(self, 'is_admin', False):
+            logger.debug("Skipping routing enforcement because process is running with standard privileges.")
 
     def _enforce_rules(self, wifi_idx, wired_idx, lte_idx):
         # Rule: System Main = 10 (Wired priority), Secondary System = 20, LTE = 9000
@@ -496,7 +519,7 @@ class NetworkMonitor:
             if now - getattr(self, 'last_elevation_request', 0) < 1800: # 30 mins
                 return False, "Access Denied (Non-Admin & Cooldown)"
             self.last_elevation_request = now
-            logger.info("Access Denied: Enforcing network metrics requires administrator privileges. Skipping automatic UAC prompt in background.")
+            logger.debug("Access Denied: Enforcing network metrics requires administrator privileges. Skipping automatic UAC prompt in background.")
             return False, "Access Denied (Non-Admin)"
 
         # [Windows Native Turbo Fix]

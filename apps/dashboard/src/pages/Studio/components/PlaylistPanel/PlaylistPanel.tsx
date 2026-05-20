@@ -283,7 +283,7 @@ export const PlaylistPanel: React.FC = () => {
 
                 {/* Search */}
                 <div className="relative mb-3">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
                     <Input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -316,8 +316,8 @@ export const PlaylistPanel: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {filteredTracks.length === 0 && !searchQuery && (
                     <div className="text-center py-12">
-                        <Music className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                        <p className="text-sm text-gray-400 mb-4">트랙이 없습니다</p>
+                        <Music className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+                        <p className="text-sm text-slate-600 mb-4">트랙이 없습니다</p>
                         <Button
                             onClick={() => fileInputRef.current?.click()}
                             size="sm"
@@ -330,7 +330,7 @@ export const PlaylistPanel: React.FC = () => {
 
                 {filteredTracks.length === 0 && searchQuery && (
                     <div className="text-center py-12">
-                        <p className="text-sm text-gray-400">트랙을 찾을 수 없습니다</p>
+                        <p className="text-sm text-slate-600">트랙을 찾을 수 없습니다</p>
                     </div>
                 )}
 

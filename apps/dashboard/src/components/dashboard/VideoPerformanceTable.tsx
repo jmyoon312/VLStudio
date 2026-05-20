@@ -99,7 +99,7 @@ export const VideoPerformanceTable: React.FC<VideoPerformanceTableProps> = ({
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                                <div className="w-full h-full flex items-center justify-center text-slate-600">
                                                     <BarChart2 className="w-6 h-6" />
                                                 </div>
                                             )}
@@ -119,7 +119,7 @@ export const VideoPerformanceTable: React.FC<VideoPerformanceTableProps> = ({
                                             >
                                                 {video.title}
                                             </a>
-                                            <span className="text-xs text-slate-400 font-mono">
+                                            <span className="text-xs text-slate-600 font-mono">
                                                 {video.video_id}
                                             </span>
                                         </div>

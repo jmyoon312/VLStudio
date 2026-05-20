@@ -63,7 +63,7 @@
 .audio-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid var(--border, rgba(255, 255, 255, 0.15));
+  border: 3px solid var(--border, #E5E7EB);
   border-top-color: var(--accent, #4FC3F7);
   border-radius: 50%;
   animation: audio-panel-spin 0.8s linear infinite;
@@ -240,7 +240,7 @@
   color: #c97070;
 }
 .audio-detail-card {
-  background: rgba(255,255,255,0.04);
+  background: rgba(0, 0, 0, 0.04);
   border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 8px;

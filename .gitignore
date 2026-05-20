@@ -33,3 +33,16 @@ __pycache__/
 # User Workspaces & Scratch Data
 story/
 projects/
+
+# Dev, Build, and Credentials (Ignored from Commit)
+backend/
+credentials/
+dist-backend/
+dist-dummy/
+legacy_backups/
+scratch/
+venv/
+refactor.cjs
+css_light_migrator.py
+theme_converter.py
+apps/dashboard/public/test_font.woff2

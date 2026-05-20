@@ -13,9 +13,9 @@ export const pixelingTheme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#3B82F6',
-      light: '#60A5FA',
-      dark: '#2563EB',
+      main: '#2563EB',
+      light: '#3B82F6',
+      dark: '#1D4ED8',
       contrastText: '#FFFFFF',
     },
     secondary: {
@@ -40,28 +40,28 @@ export const pixelingTheme = createTheme({
       dark: '#059669',
     },
     info: {
-      main: '#3B82F6',
-      light: '#60A5FA',
-      dark: '#2563EB',
+      main: '#2563EB',
+      light: '#3B82F6',
+      dark: '#1D4ED8',
     },
     neutral: {
-      main: '#6B7280',
-      light: '#9CA3AF',
-      dark: '#4B5563',
+      main: '#717695',
+      light: '#A0A4B8',
+      dark: '#4A4F7A',
     },
     background: {
       default: '#F8F9FC',
       paper: '#FFFFFF',
     },
     text: {
-      primary: '#1F2937',
-      secondary: '#6B7280',
-      disabled: '#9CA3AF',
+      primary: '#373C5C',
+      secondary: '#717695',
+      disabled: '#A0A4B8',
     },
-    divider: '#E5E7EB',
+    divider: '#D0D5E6',
   },
   typography: {
-    fontFamily: "'Pretendard', 'Inter', system-ui, -apple-system, sans-serif",
+    fontFamily: "'Wanted Sans Variable', 'wantedSans', 'Wanted Sans', 'Pretendard Variable', 'Pretendard', 'Noto Sans KR', 'Inter', system-ui, -apple-system, sans-serif",
     h1: { fontSize: '24px', fontWeight: 700 },
     h2: { fontSize: '20px', fontWeight: 700 },
     h3: { fontSize: '18px', fontWeight: 600 },
@@ -78,7 +78,7 @@ export const pixelingTheme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
-        body: { backgroundColor: '#F8F9FC', color: '#1F2937' },
+        body: { backgroundColor: '#F8F9FC', color: '#373C5C' },
       },
     },
     MuiButton: {
@@ -89,11 +89,11 @@ export const pixelingTheme = createTheme({
           fontWeight: 500,
           boxShadow: 'none',
           transition: 'all 0.2s ease',
-          '&:hover': { boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)' },
+          '&:hover': { boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)' },
         },
         containedPrimary: {
-          backgroundColor: '#3B82F6',
-          '&:hover': { backgroundColor: '#2563EB' },
+          backgroundColor: '#2563EB',
+          '&:hover': { backgroundColor: '#1D4ED8' },
         },
       },
     },
@@ -101,8 +101,8 @@ export const pixelingTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06)',
-          border: '1px solid #E5E7EB',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03)',
+          border: '1px solid #D0D5E6',
         },
       },
     },
@@ -111,9 +111,9 @@ export const pixelingTheme = createTheme({
         root: {
           '& .MuiOutlinedInput-root': {
             borderRadius: '8px',
-            '& fieldset': { borderColor: '#E5E7EB' },
-            '&:hover fieldset': { borderColor: '#3B82F6' },
-            '&.Mui-focused fieldset': { borderColor: '#3B82F6', borderWidth: '2px' },
+            '& fieldset': { borderColor: '#D0D5E6' },
+            '&:hover fieldset': { borderColor: '#2563EB' },
+            '&.Mui-focused fieldset': { borderColor: '#2563EB', borderWidth: '2px' },
           },
         },
       },
@@ -131,13 +131,13 @@ export const pixelingTheme = createTheme({
           fontSize: '14px',
           minWidth: 'auto',
           padding: '12px 16px',
-          '&.Mui-selected': { color: '#3B82F6' },
+          '&.Mui-selected': { color: '#2563EB' },
         },
       },
     },
     MuiTabs: {
       styleOverrides: {
-        indicator: { height: '3px', borderRadius: '3px 3px 0 0', backgroundColor: '#3B82F6' },
+        indicator: { height: '3px', borderRadius: '3px 3px 0 0', backgroundColor: '#2563EB' },
       },
     },
   },

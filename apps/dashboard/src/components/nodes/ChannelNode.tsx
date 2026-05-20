@@ -21,7 +21,7 @@ const ChannelNode = ({ data, selected }: NodeProps) => {
     const hasStrikes = (data.strike_count || 0) > 0;
 
     // Dynamic Styles for Card
-    const cardBorder = isFailed ? 'border-red-500' : isUploading ? 'border-blue-400' : 'border-white/10';
+    const cardBorder = isFailed ? 'border-red-500' : isUploading ? 'border-blue-400' : 'border-slate-200';
     const pulseClass = !isEdit && isUploading ? 'shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-pulse' : '';
     const shakeClass = !isEdit && hasStrikes ? 'animate-shake' : '';
 
@@ -35,7 +35,7 @@ const ChannelNode = ({ data, selected }: NodeProps) => {
                         <Handle
                             type="target"
                             position={Position.Left}
-                            className="w-4 h-4 bg-red-600 border-2 border-white dark:border-slate-800"
+                            className="w-4 h-4 bg-red-600 border-2 border-white dark:border-slate-200"
                         />
                     </TooltipTrigger>
                     <TooltipContent side="left">
@@ -57,7 +57,7 @@ const ChannelNode = ({ data, selected }: NodeProps) => {
                                 {data.upload_status || 'IDLE'}
                             </Badge>
                             {data.default_privacy && (
-                                <span className="text-[10px] text-slate-400 capitalize">{data.default_privacy}</span>
+                                <span className="text-[10px] text-slate-600 capitalize">{data.default_privacy}</span>
                             )}
                         </div>
                     </div>
@@ -112,7 +112,7 @@ const ChannelNode = ({ data, selected }: NodeProps) => {
                                     type="source"
                                     position={Position.Right}
                                     id="success-handle"
-                                    className="w-4 h-4 bg-indigo-600 border-2 border-white dark:border-slate-800 !right-0 !relative"
+                                    className="w-4 h-4 bg-indigo-600 border-2 border-white dark:border-slate-200 !right-0 !relative"
                                     style={{ right: 0 }}
                                 />
                             </div>

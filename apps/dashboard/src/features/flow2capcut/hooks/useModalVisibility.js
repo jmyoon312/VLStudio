@@ -8,13 +8,14 @@
  */
 
 import { useEffect } from 'react'
+import { adjustModalCount } from '../../../lib/utils'
 
 export function useModalVisibility(isOpen) {
   useEffect(() => {
     if (!isOpen) return
-    window.electronAPI?.setModalVisible?.({ visible: true })
+    adjustModalCount(1)
     return () => {
-      window.electronAPI?.setModalVisible?.({ visible: false })
+      adjustModalCount(-1)
     }
   }, [isOpen])
 }

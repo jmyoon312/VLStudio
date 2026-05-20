@@ -48,7 +48,7 @@ import {
 
 export default function GuideCenter() {
     // [FIX] Full Synchronization with Layout.tsx + Detailed Content for EVERY item
-    const detailedGuides = {
+    const detailedGuides: Record<string, { image?: string; titleOverride?: string; overview: string; features: { icon: any; title: string; desc: string; }[]; steps: string[]; }> = {
         // --- 1. Analytics & Insights (분석 & 인사이트) ---
         dashboard: {
             image: "/guide/dashboard.png",

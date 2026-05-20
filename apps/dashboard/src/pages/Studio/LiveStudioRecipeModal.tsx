@@ -63,7 +63,7 @@ export const LiveStudioRecipeModal: React.FC<LiveStudioRecipeModalProps> = ({ on
                 {/* Close Button */}
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 p-2 text-gray-300 hover:text-gray-500 rounded-full hover:bg-gray-100 transition-colors"
+                    className="absolute top-4 right-4 p-2 text-slate-700 hover:text-gray-500 rounded-full hover:bg-gray-100 transition-colors"
                 >
                     <X className="w-6 h-6" />
                 </button>
@@ -81,7 +81,7 @@ export const LiveStudioRecipeModal: React.FC<LiveStudioRecipeModalProps> = ({ on
                             </div>
                             <h3 className="text-lg font-bold text-gray-900 mb-1">{recipe.title}</h3>
                             <p className="text-sm text-gray-500 font-medium mb-2">{recipe.subtitle}</p>
-                            <p className="text-xs text-gray-400">{recipe.desc}</p>
+                            <p className="text-xs text-slate-600">{recipe.desc}</p>
 
                             {/* Select Badge on Hover */}
                             <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -95,7 +95,7 @@ export const LiveStudioRecipeModal: React.FC<LiveStudioRecipeModalProps> = ({ on
 
                 {/* Footer */}
                 <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm font-medium hover:underline transition-colors">
+                    <button onClick={onClose} className="text-slate-600 hover:text-gray-600 text-sm font-medium hover:underline transition-colors">
                         건너뛰고 빈 프로젝트 열기
                     </button>
                 </div>

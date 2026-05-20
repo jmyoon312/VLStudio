@@ -121,7 +121,7 @@ const LoopieTab = () => {
                         <Button
                             variant="outline"
                             size="icon"
-                            className="h-9 w-9 text-slate-400 hover:text-slate-900"
+                            className="h-9 w-9 text-slate-600 hover:text-slate-900"
                             onClick={() => window.open('https://github.com/NousResearch/hermes-agent', '_blank')}
                         >
                             <ExternalLink className="w-4 h-4" />
@@ -129,7 +129,7 @@ const LoopieTab = () => {
                         <Button
                             variant="outline"
                             size="icon"
-                            className="h-9 w-9 text-slate-400 hover:text-indigo-600"
+                            className="h-9 w-9 text-slate-600 hover:text-indigo-600"
                             onClick={() => window.open(`http://${window.location.hostname}:9119`, '_blank')}
                             title="Open Hermes Kanban Dashboard"
                         >

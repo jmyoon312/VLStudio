@@ -147,7 +147,7 @@ const WorkerCreationWizard: React.FC<WorkerCreationWizardProps> = ({ session, is
                                 <AccordionTrigger className="hover:no-underline flex-1 py-2">
                                     <div className="flex items-center gap-3 text-left">
                                         {task.icon}
-                                        <span className={`font-medium ${isChecked ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                                        <span className={`font-medium ${isChecked ? 'text-slate-600 line-through' : 'text-slate-900'}`}>
                                             {task.title}
                                         </span>
                                         {task.badge && (

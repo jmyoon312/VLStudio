@@ -523,10 +523,10 @@ ${keyframes}
                     </Button>
                     <div className="h-4 w-px bg-slate-300" />
                     <div className="flex bg-white rounded-md border p-0.5">
-                        <button onClick={() => setAspectRatio('9:16')} className={`p-1 rounded ${aspectRatio === '9:16' ? 'bg-slate-200 text-blue-600' : 'text-slate-400'}`}>
+                        <button onClick={() => setAspectRatio('9:16')} className={`p-1 rounded ${aspectRatio === '9:16' ? 'bg-slate-200 text-blue-600' : 'text-slate-600'}`}>
                             <Smartphone className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => setAspectRatio('16:9')} className={`p-1 rounded ${aspectRatio === '16:9' ? 'bg-slate-200 text-blue-600' : 'text-slate-400'}`}>
+                        <button onClick={() => setAspectRatio('16:9')} className={`p-1 rounded ${aspectRatio === '16:9' ? 'bg-slate-200 text-blue-600' : 'text-slate-600'}`}>
                             <Monitor className="w-3.5 h-3.5" />
                         </button>
                     </div>
@@ -546,7 +546,7 @@ ${keyframes}
                 <div className="p-4 bg-slate-100 border-b flex flex-col justify-center items-center gap-4 relative">
                     {/* Screen */}
                     <div
-                        className={`bg-slate-900 rounded-lg overflow-hidden relative flex shadow-xl items-center justify-center transition-all duration-300 ring-1 ring-slate-300`}
+                        className={`bg-white rounded-lg overflow-hidden relative flex shadow-xl items-center justify-center transition-all duration-300 ring-1 ring-slate-300`}
                         style={{
                             width: aspectRatio === '9:16' ? '180px' : '320px',
                             height: aspectRatio === '9:16' ? '320px' : '180px',
@@ -579,7 +579,7 @@ ${keyframes}
                                 </div>
                             ) : (
                                 !currentItem.srt && (
-                                    <div className="text-slate-500 text-[10px] text-center bg-black/50 p-2 rounded backdrop-blur-sm border border-slate-700">
+                                    <div className="text-slate-500 text-[10px] text-center bg-black/50 p-2 rounded backdrop-blur-sm border border-slate-200">
                                         <Wand2 className="w-4 h-4 mx-auto mb-1 opacity-50" />
                                         미리보기를 생성해주세요
                                     </div>
@@ -620,7 +620,7 @@ ${keyframes}
                                 <span className="text-[9px] font-bold text-slate-700">
                                     {(currentItem.srt && currentSubtitleText) ? "재생 중" : "대기"}
                                 </span>
-                                <span className="text-[8px] text-slate-400 truncate max-w-[60px]">
+                                <span className="text-[8px] text-slate-600 truncate max-w-[60px]">
                                     {currentItem.audioUrl ? "Audio ON" : "No Audio"}
                                 </span>
                             </div>
@@ -641,7 +641,7 @@ ${keyframes}
                                 min={5} max={50}
                                 title="한 줄 최대 글자 수"
                             />
-                            <span className="text-[9px] text-slate-400">자</span>
+                            <span className="text-[9px] text-slate-600">자</span>
                         </div>
 
                         <Button

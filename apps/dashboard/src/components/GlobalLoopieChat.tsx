@@ -481,10 +481,10 @@ const GlobalLoopieChat = () => {
                     </div>
                     
                     <div className="absolute right-6 top-8 flex items-center gap-2">
-                        <button onClick={toggleVoice} className={cn("p-2.5 rounded-[18px] transition-all", isVoiceEnabled ? "bg-blue-600 text-white shadow-xl scale-110" : "text-slate-300 hover:text-slate-600 hover:bg-slate-100")}>
+                        <button onClick={toggleVoice} className={cn("p-2.5 rounded-[18px] transition-all", isVoiceEnabled ? "bg-blue-600 text-white shadow-xl scale-110" : "text-slate-700 hover:text-slate-600 hover:bg-slate-100")}>
                             {isVoiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
                         </button>
-                        <button onClick={() => setIsOpen(false)} className="p-2.5 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-[18px] transition-all">
+                        <button onClick={() => setIsOpen(false)} className="p-2.5 text-slate-700 hover:text-slate-600 hover:bg-slate-100 rounded-[18px] transition-all">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
@@ -534,7 +534,7 @@ const GlobalLoopieChat = () => {
                                 onClick={startListening} 
                                 className={cn(
                                     "absolute right-4 top-4 p-2.5 rounded-2xl transition-all", 
-                                    isListening ? "text-red-500 bg-red-50 shadow-inner scale-110" : "text-slate-400 hover:text-blue-600"
+                                    isListening ? "text-red-500 bg-red-50 shadow-inner scale-110" : "text-slate-600 hover:text-blue-600"
                                 )}
                             >
                                 <Mic className={cn("w-6 h-6", isListening && "animate-pulse")} />

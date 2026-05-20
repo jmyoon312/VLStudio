@@ -56,7 +56,7 @@ const AudioPanel = () => {
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-slate-700">{item.name}</div>
-                                    <div className="text-xs text-slate-400">{item.duration}</div>
+                                    <div className="text-xs text-slate-600">{item.duration}</div>
                                 </div>
                             </div>
                             <Button
@@ -80,7 +80,7 @@ const AudioPanel = () => {
                                 </div>
                                 <div>
                                     <div className="text-sm font-medium text-slate-700">{item.name}</div>
-                                    <div className="text-xs text-slate-400">{item.duration}</div>
+                                    <div className="text-xs text-slate-600">{item.duration}</div>
                                 </div>
                             </div>
                             <Button

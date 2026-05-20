@@ -76,8 +76,8 @@ const getViralBadge = (viralScore: number | undefined, velocity: number | undefi
         );
     } else {
         badges.push(
-            <Badge key="normal" variant="secondary" className="gap-1 text-[11px] h-6 px-2 bg-slate-100 text-slate-500 border-slate-200 whitespace-nowrap">
-                <span className="text-slate-400">☁️</span> C등급 {score.toFixed(1)}%
+            <Badge key="normal" variant="secondary" className="gap-1 text-[11px] h-6 px-2 bg-muted text-muted-foreground border-border whitespace-nowrap">
+                <span className="text-muted-foreground">☁️</span> C등급 {score.toFixed(1)}%
             </Badge>
         );
     }
@@ -270,7 +270,7 @@ const ScriptLab = () => {
                     );
                 }
                 return (
-                    <Badge variant="secondary" className="bg-slate-100 text-slate-500 border-slate-200 w-8 h-8 rounded-full p-0 flex items-center justify-center">
+                    <Badge variant="secondary" className="bg-muted text-muted-foreground border-border w-8 h-8 rounded-full p-0 flex items-center justify-center">
                         C
                     </Badge>
                 );
@@ -284,7 +284,7 @@ const ScriptLab = () => {
             cell: info => (
                 <div className="flex flex-col w-full max-w-md">
                     <span
-                        className="font-medium truncate text-slate-800 cursor-pointer hover:underline hover:text-indigo-600 transition-colors"
+                        className="font-medium truncate text-foreground cursor-pointer hover:underline hover:text-primary transition-colors"
                         title={info.getValue()}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -293,7 +293,7 @@ const ScriptLab = () => {
                     >
                         {info.getValue()}
                     </span>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                         <Youtube className="w-3 h-3 text-red-500" />
                         <span className="truncate max-w-sm">{info.row.original.content || "Youtube Shorts"}</span>
                     </div>
@@ -314,7 +314,7 @@ const ScriptLab = () => {
                     catName = ch.folder_name;
                 }
                 return (
-                    <Badge variant="outline" className="text-xs font-normal text-slate-500 truncate max-w-[100px]">
+                    <Badge variant="outline" className="text-xs font-normal text-muted-foreground truncate max-w-[100px]">
                         {catName}
                     </Badge>
                 )
@@ -329,8 +329,8 @@ const ScriptLab = () => {
                 const ch = chId ? channelMap[chId] : null;
                 return (
                     <div className="flex flex-col">
-                        <span className="font-semibold text-slate-700 truncate max-w-[90px]" title={ch?.name || '-'}>{ch?.name || '-'}</span>
-                        <span className="text-xs text-slate-500 font-mono">
+                        <span className="font-semibold text-foreground truncate max-w-[90px]" title={ch?.name || '-'}>{ch?.name || '-'}</span>
+                        <span className="text-xs text-muted-foreground font-mono">
                             {ch ? formatCount(ch.subscriber_count) : '-'} subs
                         </span>
                     </div>
@@ -346,7 +346,7 @@ const ScriptLab = () => {
                 const score = info.getValue() ?? 0;
                 const isHigh = score > 100;
                 return (
-                    <div className={cn("font-mono font-bold text-right", isHigh ? "text-red-600" : "text-slate-600")}>
+                    <div className={cn("font-mono font-bold text-right", isHigh ? "text-red-600" : "text-muted-foreground")}>
                         {score.toFixed(0)}%
                     </div>
                 );
@@ -358,15 +358,15 @@ const ScriptLab = () => {
             header: '급상승 지수', // [CHANGED]
             cell: info => {
                 const score = info.getValue() ?? 0;
-                if (!score) return <span className="text-slate-300">-</span>;
+                if (!score) return <span className="text-foreground">-</span>;
                 const isHigh = score > 1000;
                 return (
                     <div
                         className={cn(
-                            "flex items-center justify-end gap-1 font-mono font-bold text-xs cursor-pointer p-1 rounded transition-colors group",
-                            // [CHANGED] Brighter hover color
-                            "hover:bg-indigo-100/80 hover:text-indigo-700",
-                            isHigh ? "text-indigo-600" : "text-slate-600"
+                             "flex items-center justify-end gap-1 font-mono font-bold text-xs cursor-pointer p-1 rounded transition-colors group",
+                             // [CHANGED] Brighter hover color
+                             "hover:bg-primary/10 hover:text-primary",
+                             isHigh ? "text-primary" : "text-muted-foreground"
                         )}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -385,7 +385,7 @@ const ScriptLab = () => {
             header: '조회수',
             cell: info => {
                 const val = info.row.original.view_count ?? info.row.original.metadata_json?.view_count;
-                return <div className="font-mono text-slate-600 text-right font-medium">{formatCount(val)}</div>
+                return <div className="font-mono text-muted-foreground text-right font-medium">{formatCount(val)}</div>
             },
             size: 80,
         }),
@@ -396,7 +396,7 @@ const ScriptLab = () => {
                 const date = info.getValue();
                 if (!date) return '-';
                 const d = new Date(date);
-                return <div className="text-xs text-slate-500 font-mono text-right">
+                return <div className="text-xs text-muted-foreground font-mono text-right">
                     {d.getFullYear().toString().slice(2)}.{String(d.getMonth() + 1).padStart(2, '0')}.{String(d.getDate()).padStart(2, '0')}
                 </div>;
             },
@@ -541,7 +541,7 @@ const ScriptLab = () => {
     }, [videoHistory, statsVideo]);
 
     return (
-        <div className="h-full flex flex-col bg-slate-50/50 p-6 space-y-4" ref={tableContainerRef}>
+        <div className="h-full flex flex-col bg-background p-6 space-y-4" ref={tableContainerRef}>
             {/* Header Area */}
             <div className="flex items-center justify-between">
                 <div />
@@ -551,7 +551,7 @@ const ScriptLab = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleSelectAll(table.getFilteredRowModel().rows.map(r => r.original))}
-                        className="text-slate-500 hover:text-indigo-600"
+                        className="text-muted-foreground hover:text-primary"
                     >
                         {selectedIds.size === table.getFilteredRowModel().rows.length && table.getFilteredRowModel().rows.length > 0
                             ? "전체 해제"
@@ -572,10 +572,10 @@ const ScriptLab = () => {
                     )}
 
                     <div className="relative w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
                             placeholder="제목, 채널 검색..."
-                            className="pl-9 bg-white shadow-sm"
+                            className="pl-9 bg-card shadow-sm"
                             value={globalFilter}
                             onChange={e => setGlobalFilter(e.target.value)}
                         />
@@ -584,7 +584,7 @@ const ScriptLab = () => {
             </div>
 
             {/* Data Table */}
-            <div className="flex-1 rounded-xl border bg-white shadow-sm overflow-hidden flex flex-col select-none relative">
+            <div className="flex-1 rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col select-none relative">
                 <div
                     className="overflow-auto flex-1 w-full"
                     onMouseDown={handleMouseDown}
@@ -592,7 +592,7 @@ const ScriptLab = () => {
                 >
                     <Table className="w-full table-fixed">
                         {/* ... Headers ... */}
-                        <TableHeader className="sticky top-0 bg-slate-50 z-10 shadow-sm">
+                        <TableHeader className="sticky top-0 bg-muted z-10 shadow-sm">
                             {table.getHeaderGroups().map(headerGroup => (
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map(header => {
@@ -607,7 +607,7 @@ const ScriptLab = () => {
                                                     ? null
                                                     : (
                                                         <div
-                                                            className={`flex items-center gap-1 cursor-pointer select-none ${alignClass} ${header.column.getCanSort() ? 'hover:text-indigo-600' : ''}`}
+                                                            className={`flex items-center gap-1 cursor-pointer select-none ${alignClass} ${header.column.getCanSort() ? 'hover:text-primary' : ''}`}
                                                             onClick={header.column.getToggleSortingHandler()}
                                                         >
                                                             {flexRender(header.column.columnDef.header, header.getContext())}
@@ -632,7 +632,7 @@ const ScriptLab = () => {
                                         data-state={row.getIsSelected() && "selected"}
                                         className={cn(
                                             "cursor-pointer transition-colors h-14",
-                                            row.getIsSelected() ? "bg-indigo-50 hover:bg-indigo-100" : "hover:bg-slate-50/80"
+                                            row.getIsSelected() ? "bg-primary/10 hover:bg-primary/20" : "hover:bg-muted/80"
                                         )}
                                         onClick={(e) => {
                                             // [FIX] Only open dialog if NOT dragged
@@ -661,7 +661,7 @@ const ScriptLab = () => {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-end space-x-2 p-4 border-t bg-slate-50">
+                <div className="flex items-center justify-end space-x-2 p-4 border-t bg-muted">
                     <div className="flex-1 text-sm text-muted-foreground">
                         {table.getFilteredSelectedRowModel().rows.length} of{" "}
                         {table.getFilteredRowModel().rows.length} row(s) selected.
@@ -687,7 +687,7 @@ const ScriptLab = () => {
 
             {/* Script Reader Dialog (Instead of Sheet) */}
             <Dialog open={!!selectedVideo} onOpenChange={(open) => !open && setSelectedVideo(null)}>
-                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden bg-white/95 backdrop-blur-xl">
+                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden bg-card/95 backdrop-blur-xl">
                     {selectedVideo && (
                         <>
                             {/* Header with Title and Actions */}
@@ -696,14 +696,14 @@ const ScriptLab = () => {
                                     <DialogTitle className="text-lg font-bold truncate">
                                         {selectedVideo.title}
                                     </DialogTitle>
-                                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                         <Badge variant="secondary" className="font-normal">
                                             {channelMap[selectedVideo.channel_id]?.name || 'Unknown Channel'}
                                         </Badge>
                                         <span>•</span>
                                         <span>{new Date(selectedVideo.upload_date).toLocaleDateString()}</span>
                                         <span>•</span>
-                                        <span className="font-mono text-indigo-600 font-medium whitespace-nowrap">
+                                        <span className="font-mono text-primary font-medium whitespace-nowrap">
                                             Viral Score: {selectedVideo.viral_score?.toFixed(0)}%
                                         </span>
                                     </div>
@@ -715,7 +715,7 @@ const ScriptLab = () => {
                                     </Button>
                                     <Button
                                         size="sm"
-                                        className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8"
+                                        className="gap-2 bg-primary hover:bg-primary-hover text-primary-foreground text-xs h-8"
                                         onClick={() => {
                                             if (subtitleContent?.content) {
                                                 navigate('/script-writer', { state: { initialScript: subtitleContent.content } });
@@ -731,15 +731,15 @@ const ScriptLab = () => {
 
                             <div className="flex-1 flex overflow-hidden">
                                 {/* Left: Script Content */}
-                                <div className="flex-1 p-6 overflow-hidden flex flex-col bg-slate-50/30">
+                                <div className="flex-1 p-6 overflow-hidden flex flex-col bg-muted/30">
                                     <ScrollArea className="flex-1 h-full pr-4">
                                         {isScriptLoading ? (
                                             <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
-                                                <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                                 <p className="text-sm">대본을 불러오는 중...</p>
                                             </div>
                                         ) : subtitleContent && subtitleContent.content ? (
-                                            <pre className="whitespace-pre-wrap text-base font-sans leading-loose text-slate-700">
+                                            <pre className="whitespace-pre-wrap text-base font-sans leading-loose text-foreground">
                                                 {subtitleContent.content.replace(/>>/g, '').replace(/&gt;&gt;/g, '')}
                                             </pre>
                                         ) : (
@@ -752,28 +752,28 @@ const ScriptLab = () => {
                                 </div>
 
                                 {/* Right: Metadata Panel (Optional, kept minimal) */}
-                                <div className="w-64 border-l bg-slate-50 p-4 space-y-6 overflow-y-auto">
+                                <div className="w-64 border-l bg-muted p-4 space-y-6 overflow-y-auto">
                                     <div>
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Performance</h4>
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Performance</h4>
                                         <div className="space-y-3">
-                                            <div className="flex justify-between items-center bg-white p-2 rounded border shadow-sm">
-                                                <span className="text-xs text-slate-500">Viral Score</span>
+                                            <div className="flex justify-between items-center bg-card p-2 rounded border shadow-sm">
+                                                <span className="text-xs text-muted-foreground">Viral Score</span>
                                                 <span className="font-bold text-red-600">{selectedVideo.viral_score?.toFixed(0) ?? 0}%</span>
                                             </div>
-                                            <div className="flex justify-between items-center bg-white p-2 rounded border shadow-sm">
-                                                <span className="text-xs text-slate-500">Velocity</span>
-                                                <span className="font-bold text-indigo-600">{formatVelocity(selectedVideo.velocity_score ?? 0)}</span>
+                                            <div className="flex justify-between items-center bg-card p-2 rounded border shadow-sm">
+                                                <span className="text-xs text-muted-foreground">Velocity</span>
+                                                <span className="font-bold text-primary">{formatVelocity(selectedVideo.velocity_score ?? 0)}</span>
                                             </div>
-                                            <div className="flex justify-between items-center bg-white p-2 rounded border shadow-sm">
-                                                <span className="text-xs text-slate-500">Views</span>
-                                                <span className="font-mono text-slate-700">{formatCount(selectedVideo.view_count)}</span>
+                                            <div className="flex justify-between items-center bg-card p-2 rounded border shadow-sm">
+                                                <span className="text-xs text-muted-foreground">Views</span>
+                                                <span className="font-mono text-foreground">{formatCount(selectedVideo.view_count)}</span>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Details</h4>
-                                        <div className="text-xs space-y-2 text-slate-600">
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Details</h4>
+                                        <div className="text-xs space-y-2 text-foreground">
                                             <div className="flex justify-between">
                                                 <span>Duration</span>
                                                 <span className="font-mono">{selectedVideo.duration}s</span>
@@ -795,29 +795,29 @@ const ScriptLab = () => {
 
             {/* Graph Popover (Dialog) matches Gallery.tsx exactly */}
             <Dialog open={!!statsVideo} onOpenChange={(open) => !open && setStatsVideo(null)}>
-                <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-xl">
+                <DialogContent className="max-w-2xl bg-card border border-border backdrop-blur-xl text-foreground">
                     <DialogHeader>
-                        <DialogTitle>바이럴 변화 추이</DialogTitle>
+                        <DialogTitle className="text-foreground">바이럴 변화 추이</DialogTitle>
                     </DialogHeader>
                     {statsVideo && videoHistory && videoHistory.length > 0 ? (
                         <div className="h-[350px] mt-4 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RechartsLineChart data={chartData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                                     <XAxis
                                         dataKey="timestamp"
                                         tickFormatter={(time) => new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        stroke="#888"
+                                        stroke="var(--muted-foreground)"
                                         fontSize={12}
                                     />
-                                    <YAxis yAxisId="left" stroke="#6366f1" fontSize={12} tickFormatter={(val) => formatCount(val)} />
-                                    <YAxis yAxisId="right" orientation="right" stroke="#f59e0b" fontSize={12} tickFormatter={(val) => formatCount(val) + '/h'} />
+                                    <YAxis yAxisId="left" stroke="var(--primary)" fontSize={12} tickFormatter={(val) => formatCount(val)} />
+                                    <YAxis yAxisId="right" orientation="right" stroke="var(--accent)" fontSize={12} tickFormatter={(val) => formatCount(val) + '/h'} />
                                     <Tooltip
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        contentStyle={{ borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--popover)', color: 'var(--popover-foreground)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                         labelFormatter={(label) => new Date(label).toLocaleString()}
                                     />
-                                    <Line yAxisId="left" type="monotone" dataKey="view_count" name="누적 조회수" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                    <Line yAxisId="right" type="monotone" dataKey="velocity" name="시간당 조회수 (Vel)" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="5 5" />
+                                    <Line yAxisId="left" type="monotone" dataKey="view_count" name="누적 조회수" stroke="var(--primary)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                                    <Line yAxisId="right" type="monotone" dataKey="velocity" name="시간당 조회수 (Vel)" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="5 5" />
                                 </RechartsLineChart>
                             </ResponsiveContainer>
                         </div>

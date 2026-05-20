@@ -575,12 +575,12 @@ def list_profiles(type: str = None, db: Session = Depends(get_db)):
 # --- Legacy & Network Endpoints (Maintained for Backward Compatibility) ---
 # --- Legacy & Network Endpoints (Maintained for Backward Compatibility) ---
 @router.get("/network/status")
-def get_network_status():
+def get_network_status(force: bool = False):
     """ Passive Status Check (Fast) """
-    print(f"API HIT: /resources/network/status")
+    print(f"API HIT: /resources/network/status (force={force})")
     try:
         # returns { adb_connected, mobile_data_enabled, tethering_ip, status ... }
-        return adb_service.get_network_status_detail()
+        return adb_service.get_network_status_detail(force=force)
     except Exception as e:
         return {"status": "ERROR", "detail": str(e)}
 

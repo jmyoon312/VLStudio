@@ -278,7 +278,7 @@ class YTDLPDownloader:
         # [FIX] Don't use cookies with android client (causes warnings)
         if cookies_path and os.path.exists(cookies_path):
             ydl_opts['cookiefile'] = cookies_path
-            print(f"✅ [get_video_info] Using cookies: {os.path.basename(cookies_path)}")
+            logger.debug(f"[get_video_info] Using cookies: {os.path.basename(cookies_path)}")
         
         def _extract():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -322,7 +322,7 @@ class YTDLPDownloader:
         # [FIX] Don't use cookies with android client
         if cookies_path and os.path.exists(cookies_path):
             ydl_opts_info['cookiefile'] = cookies_path
-            print(f"✅ Using cookies for authentication: {cookies_path}")
+            logger.debug(f"Using cookies for authentication: {cookies_path}")
         
         info = None
         with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
@@ -449,9 +449,9 @@ class YTDLPDownloader:
         # [FIX] Don't use cookies with android client (causes warnings)
         if cookies_path and os.path.exists(cookies_path): 
             ydl_opts['cookiefile'] = cookies_path
-            print(f"✅ Using cookies for authentication: {cookies_path}")
+            logger.debug(f"Using cookies for authentication: {cookies_path}")
         else:
-            print(f"⚠️ WARNING: No cookies found - may result in 360p quality restriction!")
+            logger.debug("No cookies found - may result in 360p quality restriction!")
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:

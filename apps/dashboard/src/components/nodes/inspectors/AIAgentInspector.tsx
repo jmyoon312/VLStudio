@@ -379,9 +379,9 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
         <div className="flex flex-col h-full bg-white relative">
 
             {/* 1. Header: Batch Navigator & Run Node */}
-            <div className="bg-slate-900 text-white p-2 flex items-center justify-between shrink-0 h-12">
+            <div className="bg-white text-slate-800 border border-slate-200 p-2 flex items-center justify-between shrink-0 h-12">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white"
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-white"
                         onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                         disabled={currentIndex === 0}>
                         <ChevronLeft className="w-4 h-4" />
@@ -391,19 +391,19 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                         <span className="text-xs font-mono font-bold text-blue-200">
                             Asset {inputAssets.length > 0 ? currentIndex + 1 : 0} / {inputAssets.length}
                         </span>
-                        <span className="text-[10px] text-slate-400 truncate max-w-[150px]">
+                        <span className="text-[10px] text-slate-600 truncate max-w-[150px]">
                             {loadingAssets ? "데이터 불러오는 중..." : (currentAsset.title || "선택된 자산 없음")}
                         </span>
                     </div>
 
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white"
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-white"
                         onClick={() => setCurrentIndex(prev => Math.min(inputAssets.length - 1, prev + 1))}
                         disabled={currentIndex >= inputAssets.length - 1}>
                         <ChevronRight className="w-4 h-4" />
                     </Button>
                 </div>
 
-                <div className="flex items-center gap-1 pl-2 border-l border-slate-700">
+                <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
                     <Button
                         size="icon"
                         className="h-7 w-7 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg hover:scale-105 transition-all"
@@ -561,7 +561,7 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                             <Settings className="w-3 h-3" />
                             고급 설정 (Advanced)
                         </div>
-                        <ChevronRight className={`w-3 h-3 text-slate-400 transform transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
+                        <ChevronRight className={`w-3 h-3 text-slate-600 transform transition-transform ${showAdvanced ? 'rotate-90' : ''}`} />
                     </div>
 
                     {showAdvanced && (
@@ -609,7 +609,7 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                             <Globe className="w-3 h-3 text-sky-600" />
                             도구 및 리서치 (Research Tools)
                         </div>
-                        <ChevronRight className={`w-3 h-3 text-slate-400 transform transition-transform ${showResearch ? 'rotate-90' : ''}`} />
+                        <ChevronRight className={`w-3 h-3 text-slate-600 transform transition-transform ${showResearch ? 'rotate-90' : ''}`} />
                     </div>
 
                     {showResearch && (
@@ -618,9 +618,9 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                                 <div className="space-y-0.5">
                                     <div className="flex items-center gap-2">
                                         <Label className="text-[10px] text-slate-600">최신 정보 검색 (Web Search)</Label>
-                                        <Badge variant="outline" className="text-[9px] h-4 px-1 text-slate-400 font-normal">Tavily</Badge>
+                                        <Badge variant="outline" className="text-[9px] h-4 px-1 text-slate-600 font-normal">Tavily</Badge>
                                     </div>
-                                    <p className="text-[10px] text-slate-400 leading-tight">AI가 검색어를 판단하여 정보를 찾습니다.</p>
+                                    <p className="text-[10px] text-slate-600 leading-tight">AI가 검색어를 판단하여 정보를 찾습니다.</p>
                                 </div>
                                 <Switch checked={useWebSearch} onCheckedChange={setUseWebSearch} disabled={isAutoRun} className="scale-75" />
                             </div>
@@ -671,10 +671,10 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
 
                     <TabsContent value="source" className="flex-1 p-0 m-0 relative overflow-hidden h-full data-[state=active]:flex flex-col min-h-0">
                         {(!currentAsset.transcript && !currentAsset.text && !currentAsset.script && !currentAsset.content && !currentAsset.generated_text && !loadingAssets && !sourceScript) && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-6 text-center z-10 pointer-events-none">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600 p-6 text-center z-10 pointer-events-none">
                                 <AlertTriangle className="w-8 h-8 mb-2 opacity-50" />
                                 <span className="font-semibold text-xs">⚠️ 자막 데이터 없음</span>
-                                <span className="text-[10px] mt-1 text-slate-400">이 자산에는 사용할 수 있는 텍스트가 없습니다.</span>
+                                <span className="text-[10px] mt-1 text-slate-600">이 자산에는 사용할 수 있는 텍스트가 없습니다.</span>
                             </div>
                         )}
                         <Textarea
@@ -684,7 +684,7 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                             onChange={(e) => setSourceScript(e.target.value)}
                         />
                         {/* Character Count Overlay */}
-                        <div className="absolute bottom-2 right-4 text-[10px] text-slate-400 bg-white/80 px-1.5 py-0.5 rounded pointer-events-none">
+                        <div className="absolute bottom-2 right-4 text-[10px] text-slate-600 bg-white/80 px-1.5 py-0.5 rounded pointer-events-none">
                             {sourceScript.length.toLocaleString()} 자
                         </div>
                     </TabsContent>
@@ -697,7 +697,7 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                             onChange={(e) => setOutputScript(e.target.value)}
                         />
                         {/* Character Count Overlay */}
-                        <div className="absolute bottom-2 right-4 text-[10px] text-slate-400 bg-white/80 px-1.5 py-0.5 rounded pointer-events-none border border-slate-100 shadow-sm">
+                        <div className="absolute bottom-2 right-4 text-[10px] text-slate-600 bg-white/80 px-1.5 py-0.5 rounded pointer-events-none border border-slate-100 shadow-sm">
                             {outputScript.length.toLocaleString()} 자
                         </div>
 
@@ -747,12 +747,12 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                                             {currentResultItem.json._execution_meta.tool_data.results.map((res: any, idx: number) => (
                                                 <a key={idx} href={res.url} target="_blank" rel="noopener noreferrer"
                                                     className="flex items-start gap-2 p-1.5 rounded hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all group">
-                                                    <div className="bg-white p-1 rounded border text-[8px] font-mono text-slate-400 group-hover:text-sky-500 min-w-[20px] text-center">{idx + 1}</div>
+                                                    <div className="bg-white p-1 rounded border text-[8px] font-mono text-slate-600 group-hover:text-sky-500 min-w-[20px] text-center">{idx + 1}</div>
                                                     <div className="min-w-0 flex-1">
                                                         <div className="text-[10px] font-medium text-slate-700 truncate group-hover:text-sky-700">{res.title}</div>
-                                                        <div className="text-[9px] text-slate-400 truncate">{res.url}</div>
+                                                        <div className="text-[9px] text-slate-600 truncate">{res.url}</div>
                                                     </div>
-                                                    <ExternalLink className="w-3 h-3 text-slate-300 group-hover:text-sky-400 opacity-0 group-hover:opacity-100" />
+                                                    <ExternalLink className="w-3 h-3 text-slate-700 group-hover:text-sky-400 opacity-0 group-hover:opacity-100" />
                                                 </a>
                                             ))}
                                         </div>
@@ -796,7 +796,7 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
 
                     <DialogFooter className="flex justify-between sm:justify-between">
                         {editingStyle ? (
-                            <div className="text-xs text-slate-400 p-2">수정 모드</div>
+                            <div className="text-xs text-slate-600 p-2">수정 모드</div>
                         ) : <div></div>}
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={() => setIsStyleModalOpen(false)}>취소</Button>
@@ -845,12 +845,12 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                                     )}
                                 </Label>
                                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleRefreshMemory}>
-                                    <RefreshCcw className="w-3 h-3 text-slate-400 hover:text-blue-500" />
+                                    <RefreshCcw className="w-3 h-3 text-slate-600 hover:text-blue-500" />
                                 </Button>
                             </div>
 
                             {!useMemory ? (
-                                <div className="p-4 bg-slate-50 border border-dashed border-slate-300 rounded text-center text-xs text-slate-400">
+                                <div className="p-4 bg-slate-50 border border-dashed border-slate-300 rounded text-center text-xs text-slate-600">
                                     기억 기능이 비활성화되어 있습니다. (Memory Disabled)
                                 </div>
                             ) : (
@@ -860,7 +860,7 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                                         {debugContextData?.memory?.history?.length > 0 ? (
                                             debugContextData.memory.history.map((msg: any, idx: number) => (
                                                 <div key={idx} className={`flex flex-col gap-1 max-w-[90%] ${msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'}`}>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                                                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-wider px-1">
                                                         {msg.role === 'user' ? 'User Input' : 'AI Output'}
                                                     </span>
                                                     <div className={`text-xs px-3 py-2 rounded-lg leading-relaxed shadow-sm ${msg.role === 'user'
@@ -872,7 +872,7 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                                            <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2">
                                                 <History className="w-6 h-6 opacity-20" />
                                                 <span className="text-xs">이전 대화 기억이 없습니다. (First Run)</span>
                                             </div>
@@ -895,7 +895,7 @@ const AIAgentInspector = ({ node, updateData }: AIAgentInspectorProps) => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-3 bg-slate-50 rounded-md border text-xs">
                                     <div className="font-semibold mb-1 text-slate-500">Config Snapshot</div>
-                                    <pre className="text-[10px] text-slate-400 overflow-hidden text-ellipsis">
+                                    <pre className="text-[10px] text-slate-600 overflow-hidden text-ellipsis">
                                         {JSON.stringify(debugContextData?.config, null, 2)}
                                     </pre>
                                 </div>

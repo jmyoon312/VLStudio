@@ -198,7 +198,9 @@ export default function Header({
   onExport,
   hasImages,
   getAccessToken,
+  clearTokenCache,
   authReady,
+  setAuthReady,
   projectName,
   onProjectChange,
   onNewProject,
@@ -244,6 +246,8 @@ export default function Header({
     setShowProfileDropdown(false)
     try {
       setAuthStatus('checking')
+      clearTokenCache?.()
+      setAuthReady?.(false)
       const result = await window.electronAPI.switchProfile({ profileId })
       if (result.success) {
         await loadFlowProfiles()
@@ -262,6 +266,8 @@ export default function Header({
     e.preventDefault()
     if (!newProfileName.trim()) return
     try {
+      clearTokenCache?.()
+      setAuthReady?.(false)
       const result = await window.electronAPI.createProfile({
         name: newProfileName,
         email: newProfileEmail
@@ -390,6 +396,7 @@ export default function Header({
   const checkAuth = async (quickCheck = false) => {
     if (!getAccessToken) {
       setAuthStatus('unauthenticated')
+      setAuthReady?.(false)
       return
     }
     
@@ -397,9 +404,16 @@ export default function Header({
     try {
       // quickCheck: 탭 열기/대기 없이 빠르게 확인만
       const token = await getAccessToken(false, quickCheck)
-      setAuthStatus(token ? 'authenticated' : 'unauthenticated')
+      if (token) {
+        setAuthStatus('authenticated')
+        setAuthReady?.(true)
+      } else {
+        setAuthStatus('unauthenticated')
+        setAuthReady?.(false)
+      }
     } catch (e) {
       setAuthStatus('unauthenticated')
+      setAuthReady?.(false)
     }
   }
   
@@ -417,12 +431,14 @@ export default function Header({
       window.electronAPI.switchTab('flow')
     }
     setAuthStatus('waiting')
+    setAuthReady?.(false)
     stopPolling()
     pollingRef.current = setInterval(async () => {
       try {
         const token = await getAccessToken(true)
         if (token) {
           setAuthStatus('authenticated')
+          setAuthReady?.(true)
           stopPolling()
         }
       } catch {}
@@ -476,9 +492,11 @@ export default function Header({
 
     try {
       setAuthStatus('checking')
+      clearTokenCache?.()
       const result = await window.electronAPI.clearFlowSession()
       if (result?.success) {
         setAuthStatus('unauthenticated')
+        setAuthReady?.(false)
         alert(
           lang === 'ko'
             ? '구글/Flow 세션이 완전히 초기화되었습니다. 새로운 구글 계정으로 로그인해 주세요!'

@@ -38,7 +38,7 @@ const ViralBadges: React.FC<ViralBadgesProps> = ({ viralScore = 0, velocity = 0,
         } else {
             return (
                 <Badge variant="secondary" className="gap-1 text-[11px] h-6 px-2 bg-slate-100/90 backdrop-blur text-slate-500 border-slate-200">
-                    <span className="text-slate-400">☁️</span> C등급 {viralScore.toFixed(1)}%
+                    <span className="text-slate-600">☁️</span> C등급 {viralScore.toFixed(1)}%
                 </Badge>
             );
         }

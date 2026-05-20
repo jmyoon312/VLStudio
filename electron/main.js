@@ -16,7 +16,7 @@ import { registerVideoIPC } from './ipc/video.js'
 import { registerDomIPC } from './ipc/dom.js'
 import { registerYoutubeIPC } from './ipc/ytExportManager.js'
 import { createSharedHelpers } from './ipc/shared.js'
-import { updateBounds, registerLayoutIPC, setLayoutMode, setSplitRatio, setModalVisible } from './ipc/layout.js'
+import { updateBounds, registerLayoutIPC, setLayoutMode, setSplitRatio, setModalVisible, resetModalState } from './ipc/layout.js'
 import { openApiSpec, getSwaggerHtml } from './api-docs.js'
 import { setupAppMenuAndUpdater, noteProjectActivated } from './updater.js'
 import { selectCdpCase } from './video-cdp-dispatch.js'
@@ -158,6 +158,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 900,
+    minWidth: 1024,
+    minHeight: 768,
     title: `ViraLoop Studio v${app.getVersion()}`,
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
@@ -167,6 +169,9 @@ function createWindow() {
       webSecurity: false  // 로컬 file:// 이미지 로드 허용
     }
   })
+
+  // Start the window maximized (전체 창)
+  mainWindow.maximize()
 
   // Hide the legacy File/Edit menu bar on Windows/Linux for a modern premium look
   if (process.platform !== 'darwin') {
@@ -932,20 +937,71 @@ function createWindow() {
     }
 
     const partitionName = `persist:flow_profile_${profileId}`;
+    
+    // Load hardware DNA settings for this profile
+    let hardware = {
+      cores: 8,
+      memory: 16,
+      vendor: 'Google Inc. (NVIDIA)',
+      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    };
+    let proxyPort = null;
+    let targetUrl = FLOW_URL;
+    let isUploadSlot = false;
+    
+    try {
+      const configPath = path.join(app.getPath('userData'), 'flow-profiles-config.json');
+      if (fsSync.existsSync(configPath)) {
+        const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'));
+        const targetProf = config.profiles.find(p => p.id === profileId);
+        if (targetProf) {
+          if (targetProf.hardware) {
+            hardware = targetProf.hardware;
+          }
+          if (targetProf.type === 'BRAND_CHANNEL') {
+            proxyPort = 10800; // Only use LTE proxy for Brand Channels
+            targetUrl = 'https://studio.youtube.com/';
+            isUploadSlot = true;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Proxy/Hardware] Failed to load profile config:', e);
+    }
+
     const newView = new WebContentsView({
       webPreferences: {
         partition: partitionName,
         contextIsolation: true,
         webSecurity: false,
+        preload: path.join(__dirname, 'stealth_preload.js'),
+        additionalArguments: [
+          `--hardware-cores=${hardware.cores || 8}`,
+          `--hardware-memory=${hardware.memory || 16}`,
+          `--hardware-vendor=${hardware.vendor || 'Google Inc. (NVIDIA)'}`,
+          `--hardware-renderer=${hardware.renderer || 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)'}`
+        ]
       }
     });
+
+    if (proxyPort) {
+      newView.webContents.session.setProxy({ proxyRules: `socks5://127.0.0.1:${proxyPort}` }).then(() => {
+        console.log(`[Proxy] Enforced LTE isolation (${proxyPort}) for profile: ${profileId}`);
+      }).catch(err => {
+        console.error(`[Proxy] Failed to set proxy for ${profileId}:`, err);
+      });
+    } else {
+      newView.webContents.session.setProxy({ proxyRules: 'direct://' }).then(() => {
+        console.log(`[Proxy] Set direct (Wi-Fi default) for profile: ${profileId}`);
+      });
+    }
 
     setupFlowView(newView, profileId);
 
     global.flowViews.set(profileId, newView);
     mainWindow.contentView.addChildView(newView);
 
-    newView.webContents.loadURL(FLOW_URL);
+    newView.webContents.loadURL(targetUrl);
     
     // Trigger layout bounds updates
     if (typeof updateBounds === 'function') {
@@ -975,11 +1031,22 @@ function createWindow() {
     console.log('[Profile Switch] Bound hardware associated:', targetProf.hardware.renderer)
 
     // 3. active profile set
+    const oldProfileId = global.activeFlowProfileId;
     global.activeFlowProfileId = profileId;
 
     // 4. Create or get the view
+    const hadTargetView = global.flowViews.has(profileId);
+    const previousSize = global.flowViews.size;
     const view = global.createOrGetFlowView(profileId);
     flowView = view; // Keep for backward compatibility
+
+    // If we were in single-view mode and switching profiles, destroy the old view to replace it
+    if (!hadTargetView && previousSize === 1 && oldProfileId && oldProfileId !== profileId) {
+      console.log(`[Profile Switch] Replacing single view: destroying old view for profile: ${oldProfileId}`);
+      if (typeof global.destroyFlowView === 'function') {
+        global.destroyFlowView(oldProfileId);
+      }
+    }
 
     // 5. Trigger layout bounds updates
     if (typeof updateBounds === 'function') {
@@ -1030,6 +1097,12 @@ function createWindow() {
 
   // Split 레이아웃 적용
   updateBounds(mainWindow, flowView)
+
+  // Reset modal visibility state on navigation/reload
+  mainWindow.webContents.on('did-start-navigation', () => {
+    console.log('[Navigation] Resetting modal visible state on reload/navigate')
+    resetModalState(mainWindow, flowView)
+  })
 
   // Open DevTools in development (detached so it doesn't cover WebContentsView)
   // if (process.env.VITE_DEV_SERVER_URL) {
@@ -1592,8 +1665,7 @@ function startMcpHttpServer(port) {
             // Windows EPERM fallback (OneDrive 등 파일 잠금 시)
             if (process.platform === 'win32' && err.code === 'EPERM') {
               try {
-                const { execSync } = require('child_process')
-                execSync(`rmdir /s /q "${projectDir}"`, { windowsHide: true })
+                execSyncRaw(`rmdir /s /q "${projectDir}"`, { windowsHide: true })
                 res.writeHead(200)
                 res.end(JSON.stringify({ success: true, deleted: projectName }))
               } catch (fallbackErr) {
@@ -1934,16 +2006,10 @@ app.on('before-quit', () => {
     console.log('[Orchestration] Terminating direct FastAPI backend process...');
     infraProcess.kill('SIGTERM');
   }
-  // 1순위: ViraLoop 공식 종료 배치 스크립트 실행
-  const stopScript = path.join(__dirname, '..', 'infra', 'ViraLoop_Stop.bat')
-  if (fsSync.existsSync(stopScript)) {
-    exec(`"${stopScript}"`, { cwd: path.join(__dirname, '..', 'infra') }, (err) => {
-      if (err) console.warn('[Orchestration] ViraLoop_Stop.bat warning:', err.message)
-    })
-  }
   
   // 2순위: 윈도우 작업 관리자 레벨 강제 종료 (좀비 프로세스 원천 소멸)
-  exec('taskkill /F /T /IM python.exe /IM redis-server.exe /IM celerys.exe /IM uvicorn.exe 2>NUL', () => {
+  // UAC 권한 요구 및 cmd 창이 뜨는 ViraLoop_Stop.bat 대신 직접 조용히 taskkill을 수행합니다.
+  exec('taskkill /F /T /IM python.exe /IM redis-server.exe /IM celerys.exe /IM uvicorn.exe /IM postgres.exe 2>NUL', () => {
     console.log('[Orchestration] All local infrastructure processes cleaned successfully.')
   })
 })

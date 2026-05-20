@@ -13,6 +13,8 @@ import { Plus, Clock, ShieldCheck, Mail, Pencil, Trash2, AlertCircle } from 'luc
 import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TinCanWizard from './TinCanWizard';
+// @ts-ignore
+import { useModalVisibility } from '@/features/flow2capcut/hooks/useModalVisibility';
 
 // API Base
 const API_BASE = "/api";
@@ -54,6 +56,13 @@ const TinCanVault = () => {
     const [deleteId, setDeleteId] = useState<string | null>(null); // For Delete Alert
     const [quarantineTarget, setQuarantineTarget] = useState<any>(null); // For Quarantine Dialog
     const [quarantineReason, setQuarantineReason] = useState("");
+
+    // @ts-ignore
+    useModalVisibility(!!editProfile);
+    // @ts-ignore
+    useModalVisibility(!!quarantineTarget);
+    // @ts-ignore
+    useModalVisibility(!!deleteId);
 
     // Fetch Profiles
     const { data: profiles, isLoading } = useQuery({
@@ -171,9 +180,9 @@ const TinCanVault = () => {
             <TableCell>
                 <div className="flex flex-col">
                     <div className="flex items-center gap-2 font-medium">
-                        <Mail className="w-4 h-4 text-slate-400" />
+                        <Mail className="w-4 h-4 text-slate-600" />
                         {p.email ? <span>{p.email}</span> : (
-                            <span className="text-slate-400 italic flex items-center gap-1">
+                            <span className="text-slate-600 italic flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" /> 미설정 ({p.id.slice(0, 6)})
                             </span>
                         )}
@@ -252,12 +261,12 @@ const TinCanVault = () => {
                     {/* Fallback to normal Secure Connect if not in Electron (e.g. normal browser testing) */}
                     {p.status?.toLowerCase() === 'active' && !(window as any).electronAPI && (
                         <Button
-                            variant="default"
+                            variant="outline"
                             size="sm"
-                            className="bg-slate-900 hover:bg-black text-white h-7 text-xs"
+                            className="border-slate-300 text-slate-700 hover:bg-slate-50 h-7 text-xs shadow-sm transition-all"
                             onClick={() => handleSecureConnect(p)}
                         >
-                            <ShieldCheck className="w-3 h-3 mr-1" /> 보안 접속
+                            <ShieldCheck className="w-3 h-3 mr-1 text-slate-500" /> 보안 접속
                         </Button>
                     )}
                     <Clock className="w-3 h-3 ml-2" />

@@ -41,7 +41,7 @@ const StatsDialog: React.FC<StatsDialogProps> = ({ open, onOpenChange, videoId, 
 
                 <div className="h-[350px] w-full mt-4 bg-slate-50 rounded-lg border p-4">
                     {isLoading ? (
-                        <div className="flex h-full items-center justify-center text-slate-400">
+                        <div className="flex h-full items-center justify-center text-slate-600">
                             <RefreshCw className="w-8 h-8 animate-spin" />
                         </div>
                     ) : (

@@ -210,7 +210,7 @@ export const ScenePanel: React.FC = () => {
 
                 {scenes.length === 0 && (
                     <div className="text-center py-12">
-                        <p className="text-sm text-gray-400 mb-4">씬이 없습니다</p>
+                        <p className="text-sm text-slate-600 mb-4">씬이 없습니다</p>
                         <Button onClick={handleCreateScene} size="sm">
                             <Plus className="w-4 h-4 mr-2" />
                             첫 씬 만들기

@@ -36,7 +36,7 @@ const StudioSubtitleNode = ({ data, selected }: NodeProps) => {
             <CardContent className="p-3 space-y-4">
                 {/* Preview Area */}
                 <div
-                    className="relative h-24 bg-slate-900 rounded-md flex items-center justify-center overflow-hidden bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=100&auto=format&fit=crop')] bg-cover bg-center"
+                    className="relative h-24 bg-white rounded-md flex items-center justify-center overflow-hidden bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=100&auto=format&fit=crop')] bg-cover bg-center"
                 >
                     <div className="absolute inset-0 bg-black/40" /> {/* Dimmer */}
                     <div className="relative z-10 max-w-[90%]">
@@ -79,10 +79,10 @@ const StudioSubtitleNode = ({ data, selected }: NodeProps) => {
 
                 <div className="relative h-4 pt-2">
                     <Handle type="target" position={Position.Left} id="input" className="w-2.5 h-2.5 bg-slate-400 border-2 border-white top-2" />
-                    <span className="absolute left-3 top-0.5 text-[10px] text-slate-400">Audio/Script</span>
+                    <span className="absolute left-3 top-0.5 text-[10px] text-slate-600">Audio/Script</span>
 
                     <Handle type="source" position={Position.Right} id="output" className="w-2.5 h-2.5 bg-purple-500 border-2 border-white top-2" />
-                    <span className="absolute right-3 top-0.5 text-[10px] text-slate-400">Subtitle Asset</span>
+                    <span className="absolute right-3 top-0.5 text-[10px] text-slate-600">Subtitle Asset</span>
                 </div>
             </CardContent>
         </Card>

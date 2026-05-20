@@ -45,7 +45,7 @@ const TemplateManager = () => {
                                 {template.thumbnail ? (
                                     <img src={template.thumbnail} className="w-full h-full object-cover" />
                                 ) : (
-                                    <LayoutTemplate className="w-8 h-8 text-slate-300" />
+                                    <LayoutTemplate className="w-8 h-8 text-slate-700" />
                                 )}
                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                     <span className="text-white font-medium text-xs bg-black/50 px-2 py-1 rounded">Apply</span>
@@ -53,7 +53,7 @@ const TemplateManager = () => {
                             </div>
                             <div className="p-2 bg-white flex items-center justify-between">
                                 <span className="text-xs font-medium truncate flex-1">{template.name}</span>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-red-500" onClick={(e) => handleDelete(e, template.id)}>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-600 hover:text-red-500" onClick={(e) => handleDelete(e, template.id)}>
                                     <Trash2 className="w-3 h-3" />
                                 </Button>
                             </div>
@@ -61,7 +61,7 @@ const TemplateManager = () => {
                     ))}
 
                     {templates.length === 0 && (
-                        <div className="col-span-2 py-8 text-center text-slate-400 text-sm">
+                        <div className="col-span-2 py-8 text-center text-slate-600 text-sm">
                             No templates saved yet.
                         </div>
                     )}

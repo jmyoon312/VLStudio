@@ -89,7 +89,7 @@ export const UploadToQueueNode = ({ data, selected }: UploadToQueueNodeProps) =>
                                     </Badge>
                                 ))
                             ) : (
-                                <span className="text-[10px] text-slate-400">None</span>
+                                <span className="text-[10px] text-slate-600">None</span>
                             )}
                         </div>
                     </div>

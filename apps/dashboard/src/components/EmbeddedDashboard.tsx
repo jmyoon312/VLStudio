@@ -58,7 +58,7 @@ const MENU_GROUPS = [
         title: '생산 코어',
         items: [
             { name: '대시보드 홈',        path: '/',                    icon: LayoutDashboard },
-            { name: '에이전트 관제 센터', path: '/swarm-hub',           icon: Zap },
+            { name: '에이전트 관제 센터', path: '/swarm/synthesis',     icon: Zap },
             { name: '미션 컨트롤',        path: '/work-queue',          icon: Rocket },
             { name: '워크플로우 빌더',    path: '/workflows',           icon: Share2 },
             { name: '자동 업로드 배포',   path: '/distribution-network',icon: UploadCloud },
@@ -197,6 +197,7 @@ function EmbeddedRoutes() {
                 <Routes>
                     <Route path="/"                    element={<Home />} />
                     <Route path="/swarm-hub"           element={<SwarmHub />} />
+                    <Route path="/swarm/:stage"        element={<SwarmHub />} />
                     <Route path="/work-queue"          element={<WorkQueue />} />
                     <Route path="/workflows"           element={<WorkflowDashboard />} />
                     <Route path="/distribution-network" element={<OperationsDashboard />} />

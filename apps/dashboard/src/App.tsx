@@ -31,6 +31,7 @@ import Shell from './features/flow2capcut/Shell'; // [NEW] Flow2CapCut Integrati
 import Flow2CapCutApp from './features/flow2capcut/Flow2CapCutApp';
 import { I18nProvider } from './features/flow2capcut/hooks/useI18n';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ThemeProvider } from './components/theme-provider';
 import ToastProvider from './features/flow2capcut/components/Toast';
 import LoginPage from './pages/LoginPage';
 
@@ -113,7 +114,7 @@ function MainAppContent() {
                 <div className="relative flex items-center justify-center">
                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-blue-600"></div>
                 </div>
-                <p className="mt-4 text-[10px] font-bold text-slate-400 tracking-wider uppercase animate-pulse">
+                <p className="mt-4 text-[10px] font-bold text-slate-600 tracking-wider uppercase animate-pulse">
                     ViraLoop Studio 세션 초기화 중...
                 </p>
             </div>
@@ -129,10 +130,8 @@ function MainAppContent() {
             <Layout>
                 <Routes>
                     <Route path="/" element={<Home />} />
-                    <Route path="/swarm-hub" element={<SwarmHub defaultStage="synthesis" />} />
-                    <Route path="/swarm/scouter" element={<SwarmHub defaultStage="scan" />} />
-                    <Route path="/swarm/strategy" element={<SwarmHub defaultStage="strategy" />} />
-                    <Route path="/swarm/console" element={<SwarmHub defaultStage="skills" />} />
+                    <Route path="/swarm/:stage" element={<SwarmHub />} />
+                    <Route path="/swarm-hub" element={<Navigate to="/swarm/synthesis" replace />} />
                     <Route path="/ai-copilot" element={<AICoPilotStudio />} /> {/* [NEW] AI Copilot Studio */}
                     <Route path="/flow2capcut" element={
                         <RouteErrorBoundary>
@@ -211,15 +210,17 @@ function MainAppContent() {
 
 function App() {
     return (
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <I18nProvider>
-                <AuthProvider>
-                    <ToastProvider>
-                        <MainAppContent />
-                    </ToastProvider>
-                </AuthProvider>
-            </I18nProvider>
-        </Router>
+        <ThemeProvider defaultTheme="light" storageKey="viraloop-theme">
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <I18nProvider>
+                    <AuthProvider>
+                        <ToastProvider>
+                            <MainAppContent />
+                        </ToastProvider>
+                    </AuthProvider>
+                </I18nProvider>
+            </Router>
+        </ThemeProvider>
     );
 }
 

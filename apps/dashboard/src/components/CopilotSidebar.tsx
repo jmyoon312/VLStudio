@@ -139,15 +139,15 @@ const CopilotSidebar: React.FC<CopilotSidebarProps> = ({ videoTitle, currentStep
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#0F172A] border-l border-gray-800 w-[280px]">
-            <div className="p-4 border-b border-gray-800 bg-[#1E293B] flex flex-col gap-2">
+        <div className="flex flex-col h-full bg-[#0F172A] border-l border-slate-200 w-[280px]">
+            <div className="p-4 border-b border-slate-200 bg-[#1E293B] flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-purple-400" />
-                        <h3 className="font-bold text-[11px] text-gray-400 tracking-tighter uppercase">Operations Log (Loopie)</h3>
+                        <h3 className="font-bold text-[11px] text-slate-600 tracking-tighter uppercase">Operations Log (Loopie)</h3>
                     </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowSettings(!showSettings)}>
-                        <Settings2 className="w-4 h-4 text-gray-400" />
+                        <Settings2 className="w-4 h-4 text-slate-600" />
                     </Button>
                 </div>
 

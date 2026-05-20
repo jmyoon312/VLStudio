@@ -144,7 +144,7 @@ const ScriptAssetCard: React.FC<ScriptAssetCardProps> = ({
                 {onViewSubtitle && (
                     <div
                         onClick={(e) => { e.stopPropagation(); onViewSubtitle(script); }}
-                        className="flex items-center gap-1 bg-black/60 hover:bg-black/80 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm cursor-pointer transition-colors border border-white/10 shadow-sm"
+                        className="flex items-center gap-1 bg-black/60 hover:bg-black/80 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm cursor-pointer transition-colors border border-slate-200 shadow-sm"
                         title="스크립트 보기"
                     >
                         <FileText className="w-3 h-3 text-orange-300" />
@@ -170,7 +170,7 @@ const ScriptAssetCard: React.FC<ScriptAssetCardProps> = ({
 
             {/* 4. Text Length Indicator (Duration Equivalent) - Z-20 - Non-interactive */}
             <div className="absolute bottom-16 right-2 z-20 pointer-events-none">
-                <div className="flex items-center gap-1 text-white text-[10px] bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-sm font-mono border border-white/10">
+                <div className="flex items-center gap-1 text-white text-[10px] bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-sm font-mono border border-slate-200">
                     <span className="text-xs">T</span>
                     <span>{wordCount.toLocaleString()}자</span>
                 </div>
@@ -185,7 +185,7 @@ const ScriptAssetCard: React.FC<ScriptAssetCardProps> = ({
                 </h3>
 
                 {/* Channel & Stats Row */}
-                <div className="flex items-center justify-between text-[10px] text-slate-300">
+                <div className="flex items-center justify-between text-[10px] text-slate-700">
                     {/* Channel Info */}
                     <div className="flex items-center gap-1.5 min-w-0">
                         <div className="w-4 h-4 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
@@ -209,11 +209,11 @@ const ScriptAssetCard: React.FC<ScriptAssetCardProps> = ({
                     {/* Stats Icons */}
                     <div className="flex items-center gap-2 flex-shrink-0 font-medium">
                         <div className="flex items-center gap-0.5" title="구독자 수">
-                            <Users className="w-3 h-3 text-slate-400" />
+                            <Users className="w-3 h-3 text-slate-600" />
                             <span>{formatCount(script.channel?.subscriber_count)}</span>
                         </div>
                         <div className="flex items-center gap-0.5" title="조회수">
-                            <Eye className="w-3 h-3 text-slate-400" />
+                            <Eye className="w-3 h-3 text-slate-600" />
                             <span>{formatCount(script.view_count)}</span>
                         </div>
                     </div>

@@ -1340,10 +1340,10 @@ const Settings = () => {
                         <div className="space-y-1 font-mono text-xs">
                             {logs.filter(l => l.toLowerCase().includes(searchQuery.toLowerCase())).map((log, i) => (
                                 <div key={i} className={cn(
-                                    "break-all border-b border-white/10 pb-0.5 mb-0.5",
+                                    "break-all border-b border-slate-200 pb-0.5 mb-0.5",
                                     log.includes("ERROR") ? "text-red-400 font-bold" :
                                         log.includes("WARNING") ? "text-yellow-400" :
-                                            log.includes("INFO") ? "text-blue-300" : "text-slate-300"
+                                            log.includes("INFO") ? "text-blue-300" : "text-slate-700"
                                 )}>
                                     {log}
                                 </div>

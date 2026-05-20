@@ -46,6 +46,7 @@ export interface Beat {
     opacity?: number;   // 0 to 1
     rotate?: number;    // -180 to 180 (deg)
   };
+  fx?: any;
   external_url?: string;
   variations?: Partial<Beat>[];
   // [ADDED] Production Sync Fields

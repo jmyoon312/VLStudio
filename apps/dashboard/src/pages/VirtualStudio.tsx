@@ -134,7 +134,7 @@ const VirtualStudio = () => {
 
     if (error) {
         return (
-            <div className="flex items-center justify-center h-64 bg-red-50 text-red-600 rounded-xl border border-red-200 p-6">
+            <div className="flex items-center justify-center h-64 bg-destructive/10 text-destructive rounded-xl border border-destructive/20 p-6">
                 <AlertCircle className="w-6 h-6 mr-2" />
                 <span>{error}</span>
                 <Button variant="outline" size="sm" className="ml-4" onClick={() => setError(null)}>닫기</Button>
@@ -143,17 +143,17 @@ const VirtualStudio = () => {
     }
 
     return (
-        <div className="w-full h-[80vh] relative bg-gray-900 rounded-xl overflow-hidden shadow-2xl border border-gray-800">
+        <div className="w-full h-[80vh] relative bg-card rounded-xl overflow-hidden shadow-2xl border border-border">
             {/* 3D Canvas */}
             <Canvas camera={{ position: [0, 1.5, 2], fov: 45 }}>
                 <ambientLight intensity={0.5} />
                 <directionalLight position={[1, 2, 3]} intensity={1} />
                 <Environment preset="studio" />
 
-                <Suspense fallback={<Html center><div className="text-white flex items-center"><Loader2 className="animate-spin mr-2" /> 3D 로딩중...</div></Html>}>
+                <Suspense fallback={<Html center><div className="text-foreground flex items-center"><Loader2 className="animate-spin mr-2" /> 3D 로딩중...</div></Html>}>
                     {vrmUrl ? <Avatar url={vrmUrl} rig={rig} /> : (
                         <Html center>
-                            <div className="text-gray-400 text-center">
+                            <div className="text-muted-foreground text-center">
                                 <p className="mb-2">VRM 아바타 파일을 업로드해주세요</p>
                                 <p className="text-xs opacity-50">(.vrm 파일)</p>
                             </div>
@@ -167,22 +167,22 @@ const VirtualStudio = () => {
 
             {/* UI Overlay */}
             <div className="absolute top-4 left-4 w-80 space-y-4">
-                <Card className="p-4 bg-white/90 backdrop-blur shadow-lg">
+                <Card className="p-4 bg-card/90 backdrop-blur shadow-lg border-border">
                     {/* Neural Rig Interface */}
 
                     <div className="space-y-4">
                         {/* Avatar Upload */}
                         <div>
-                            <label className="text-xs font-semibold uppercase text-gray-500 mb-1 block">아바타 파일 (.vrm)</label>
+                            <label className="text-xs font-semibold uppercase text-muted-foreground mb-1 block">아바타 파일 (.vrm)</label>
                             <div className="flex gap-2">
-                                <input type="file" accept=".vrm" onChange={handleFileChange} className="text-xs cursor-pointer" />
+                                <input type="file" accept=".vrm" onChange={handleFileChange} className="text-xs cursor-pointer text-foreground" />
                             </div>
                         </div>
 
                         {/* Webcam Toggle */}
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-slate-700">
-                                <Video className="w-4 h-4" />
+                            <div className="flex items-center gap-2 text-foreground">
+                                <Video className="w-4 h-4 text-muted-foreground" />
                                 <span className="text-sm font-medium">모션 캡처 (Motion Capture)</span>
                             </div>
                             <Switch checked={webcamEnabled} onCheckedChange={setWebcamEnabled} />
@@ -191,14 +191,14 @@ const VirtualStudio = () => {
                 </Card>
 
                 {/* Webcam Preview */}
-                <div className={`relative rounded-lg overflow-hidden border-2 border-purple-500 bg-black transition-all duration-300 ${webcamEnabled ? 'h-48 opacity-100' : 'h-0 opacity-0 border-0'}`}>
+                <div className={`relative rounded-lg overflow-hidden border-2 border-primary bg-black transition-all duration-300 ${webcamEnabled ? 'h-48 opacity-100' : 'h-0 opacity-0 border-0'}`}>
                     <video
                         ref={videoRef}
                         className="w-full h-full object-cover transform scale-x-[-1]"
                         muted
                         playsInline
                     />
-                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded animate-pulse">
+                    <div className="absolute top-2 right-2 px-2 py-0.5 bg-destructive text-destructive-foreground text-[10px] font-bold rounded animate-pulse">
                         LIVE
                     </div>
                 </div>

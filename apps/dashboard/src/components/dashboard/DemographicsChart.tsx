@@ -32,7 +32,7 @@ export const DemographicsChart: React.FC<DemographicsChartProps> = ({ data }) =>
     if (!data || !data.age_groups || data.age_groups.length === 0) {
         return (
             <ChartCard title="시청자 연령대" subtitle="인구통계 분석" height={320}>
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="flex flex-col items-center justify-center h-full text-slate-600">
                     <p>데이터가 없습니다</p>
                     <p className="text-xs mt-1">(Manager 권한 제한)</p>
                 </div>

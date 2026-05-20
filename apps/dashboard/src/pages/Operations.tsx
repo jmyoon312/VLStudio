@@ -23,6 +23,10 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 
 import { Video } from '@/lib/api';
 
+const TypedBox = Box as any;
+const TypedTabs = Tabs as any;
+const TypedTab = Tab as any;
+
 const Operations = () => {
     const [tabIndex, setTabIndex] = useState(0);
     const [videos, setVideos] = useState<Video[]>([]);
@@ -66,11 +70,11 @@ const Operations = () => {
         return () => clearInterval(interval);
     }, [tabIndex]);
 
-    const handleTabChange = (event, newValue) => {
+    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setTabIndex(newValue);
     };
 
-    const handleToggleMode = async (video, checked) => {
+    const handleToggleMode = async (video: Video, checked: boolean) => {
         const newMode = checked ? "AUTO_FULL" : "MANUAL_FINISH";
         // Optimistic update
         const updatedVideos = videos.map(v => v.id === video.id ? { ...v, workflow_mode: newMode } : v);
@@ -88,7 +92,7 @@ const Operations = () => {
         }
     };
 
-    const handleStartUpload = async (video) => {
+    const handleStartUpload = async (video: Video) => {
         if (!confirm(`Start upload for "${video.title}" in ${video.workflow_mode || "AUTO_FULL"} mode?`)) return;
 
         // Optimistic: Set status to UPLOADING locally
@@ -115,7 +119,7 @@ const Operations = () => {
         }
     };
 
-    const handleMarkDone = async (video) => {
+    const handleMarkDone = async (video: Video) => {
         if (!confirm("Confirm you noticed/edited this on mobile?")) return;
         try {
             await fetch(`/videos/${video.id}`, {
@@ -130,7 +134,7 @@ const Operations = () => {
     };
 
     // Helper to get Studio Link
-    const getStudioLink = (channelId) => {
+    const getStudioLink = (channelId: string | number) => {
         // We'd ideally need the external channel ID, but if we only have DB ID it's tough.
         // Assuming video.channel object is populated by backend (it is usually lazy loaded or eager?)
         // The default 'read_videos' calls 'get_videos' which usually eager loads channel?
@@ -140,7 +144,7 @@ const Operations = () => {
         return `https://studio.youtube.com/`;
     };
 
-    const QuotaWidget = () => (
+    const QuotaWidget = (): any => (
         <Card sx={{ mb: 3, bgcolor: '#f8f9fa' }}>
             <CardContent>
                 <Typography variant="h6" gutterBottom>API Quota Usage (Daily)</Typography>
@@ -150,17 +154,17 @@ const Operations = () => {
                         const color = percent > 95 ? 'error' : percent > 80 ? 'warning' : 'success';
                         return (
                             <Grid item xs={12} md={4} lg={3} key={idx}>
-                                <Box sx={{ mb: 1 }}>
+                                <TypedBox sx={{ mb: 1 }}>
                                     <Typography variant="subtitle2" noWrap>Project: {s.project_id}</Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{ flexGrow: 1 }}>
+                                    <TypedBox sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <TypedBox sx={{ flexGrow: 1 }}>
                                             <LinearProgress variant="determinate" value={percent} color={color} sx={{ height: 8, borderRadius: 4 }} />
-                                        </Box>
+                                        </TypedBox>
                                         <Typography variant="caption" color={color === 'error' ? 'error' : 'textSecondary'}>
                                             {s.quota_used.toLocaleString()} / {s.quota_limit.toLocaleString()}
                                         </Typography>
-                                    </Box>
-                                </Box>
+                                    </TypedBox>
+                                </TypedBox>
                             </Grid>
                         );
                     })}
@@ -170,7 +174,7 @@ const Operations = () => {
         </Card>
     );
 
-    const renderQueueTab = () => (
+    const renderQueueTab = (): any => (
         <Grid container spacing={2}>
             {videos.map(video => (
                 <Grid item xs={12} md={6} lg={4} key={video.id}>
@@ -181,7 +185,7 @@ const Operations = () => {
                         <CardContent>
                             <Typography variant="h6" noWrap>{video.title}</Typography>
                             <Typography variant="body2" color="textSecondary" gutterBottom>
-                                Channel: {video.channel_id} | Created: {new Date(video.created_at).toLocaleDateString()}
+                                Channel: {video.channel_id} | Created: {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'N/A'}
                             </Typography>
 
                             {video.upload_status === 'FAILED' && (
@@ -190,7 +194,7 @@ const Operations = () => {
                                 </Typography>
                             )}
 
-                            <Box sx={{ my: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <TypedBox sx={{ my: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <FormControlLabel
                                     control={
                                         <Switch
@@ -200,7 +204,7 @@ const Operations = () => {
                                     }
                                     label={video.workflow_mode === "AUTO_FULL" ? "Auto Mode (Public)" : "Manual Mode (Private)"}
                                 />
-                            </Box>
+                            </TypedBox>
 
                             <Button
                                 variant="contained"
@@ -220,23 +224,23 @@ const Operations = () => {
         </Grid>
     );
 
-    const renderMobileTab = () => (
+    const renderMobileTab = (): any => (
         <Grid container spacing={2}>
             {videos.map(video => (
                 <Grid item xs={12} md={6} lg={4} key={video.id}>
                     <Card variant="outlined" sx={{ borderColor: 'warning.main' }}>
                         <CardContent>
                             <Typography variant="h6" noWrap>{video.title}</Typography>
-                            <Box sx={{ display: 'flex', gap: 1, my: 1 }}>
+                            <TypedBox sx={{ display: 'flex', gap: 1, my: 1 }}>
                                 <Chip icon={<PhoneIphoneIcon />} label="Waiting for Mobile" color="warning" size="small" />
                                 <Chip label="Private" size="small" />
-                            </Box>
+                            </TypedBox>
 
                             <Typography variant="body2" sx={{ mb: 2 }}>
                                 This video was uploaded as private. Please open YouTube Studio App to add tags, check copyright, and publish.
                             </Typography>
 
-                            <Box sx={{ display: 'flex', gap: 1 }}>
+                            <TypedBox sx={{ display: 'flex', gap: 1 }}>
                                 <Button
                                     variant="outlined"
                                     startIcon={<OpenInNewIcon />}
@@ -253,7 +257,7 @@ const Operations = () => {
                                 >
                                     Mark Done
                                 </Button>
-                            </Box>
+                            </TypedBox>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -262,36 +266,36 @@ const Operations = () => {
         </Grid>
     );
 
-    const renderHistoryTab = () => (
-        <Box>
+    const renderHistoryTab = (): any => (
+        <TypedBox>
             {videos.map(video => (
-                <Box key={video.id} sx={{ p: 2, borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
-                    <Box>
+                <TypedBox key={video.id} sx={{ p: 2, borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
+                    <TypedBox>
                         <Typography variant="subtitle1">{video.title}</Typography>
                         <Typography variant="caption" color="textSecondary">
-                            Uploaded: {new Date(video.updated_at).toLocaleString()} | Status: {video.privacy_status}
+                            Uploaded: {video.updated_at ? new Date(video.updated_at).toLocaleString() : 'N/A'} | Status: {video.privacy_status}
                         </Typography>
-                    </Box>
+                    </TypedBox>
                     <Chip label="Completed" color="success" size="small" />
-                </Box>
+                </TypedBox>
             ))}
-        </Box>
+        </TypedBox>
     );
 
     return (
-        <Box sx={{ p: 3 }}>
+        <TypedBox sx={{ p: 3 }}>
             {/* Pure Operational Focus */}
             <QuotaWidget />
-            <Tabs value={tabIndex} onChange={handleTabChange} sx={{ mb: 3 }}>
-                <Tab label="Upload Queue" />
-                <Tab label="Mobile Action Required" />
-                <Tab label="Completed History" />
-            </Tabs>
+            <TypedTabs value={tabIndex} onChange={handleTabChange} sx={{ mb: 3 }}>
+                <TypedTab label="Upload Queue" />
+                <TypedTab label="Mobile Action Required" />
+                <TypedTab label="Completed History" />
+            </TypedTabs>
 
             {tabIndex === 0 && renderQueueTab()}
             {tabIndex === 1 && renderMobileTab()}
             {tabIndex === 2 && renderHistoryTab()}
-        </Box>
+        </TypedBox>
     );
 };
 

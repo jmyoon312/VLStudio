@@ -26,7 +26,7 @@ const SmartCutNode = ({ data, selected }: NodeProps) => {
                                 <Badge variant="outline" className="text-[10px] border-pink-200 text-pink-700 flex gap-1">
                                     {data.count || 3} Clips
                                 </Badge>
-                                <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                                <div className="text-[10px] text-slate-600 flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
                                     {data.target_duration ? `${data.target_duration}s` : "Auto"}
                                 </div>

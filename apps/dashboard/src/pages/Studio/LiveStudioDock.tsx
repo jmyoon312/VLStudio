@@ -106,13 +106,13 @@ export const LiveStudioDock: React.FC = () => {
 
             {/* 1. Tabs */}
             <div className="flex border-b border-gray-200">
-                <button onClick={() => setActiveTab('media')} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${activeTab === 'media' ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+                <button onClick={() => setActiveTab('media')} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${activeTab === 'media' ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600' : 'text-slate-600 hover:text-gray-600 hover:bg-gray-50'}`}>
                     <Image className="w-4 h-4" /> 미디어
                 </button>
-                <button onClick={() => setActiveTab('text')} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${activeTab === 'text' ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+                <button onClick={() => setActiveTab('text')} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${activeTab === 'text' ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600' : 'text-slate-600 hover:text-gray-600 hover:bg-gray-50'}`}>
                     <Type className="w-4 h-4" /> 텍스트
                 </button>
-                <button onClick={() => setActiveTab('template')} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${activeTab === 'template' ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+                <button onClick={() => setActiveTab('template')} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition-colors ${activeTab === 'template' ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600' : 'text-slate-600 hover:text-gray-600 hover:bg-gray-50'}`}>
                     <LayoutTemplate className="w-4 h-4" /> 템플릿
                 </button>
             </div>
@@ -120,13 +120,13 @@ export const LiveStudioDock: React.FC = () => {
             {/* 2. Search */}
             <div className="p-3 border-b border-gray-200">
                 <div className="relative">
-                    <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
+                    <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-600" />
                     <input
                         type="text"
                         placeholder="자산 검색..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-gray-100 text-gray-900 text-xs rounded-md pl-8 pr-3 py-1.5 border border-transparent focus:bg-white focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
+                        className="w-full bg-gray-100 text-gray-900 text-xs rounded-md pl-8 pr-3 py-1.5 border border-transparent focus:bg-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
                     />
                 </div>
             </div>
@@ -137,7 +137,7 @@ export const LiveStudioDock: React.FC = () => {
                     <div className="grid grid-cols-1 gap-2">
                         <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="aspect-video bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 hover:border-blue-500 hover:bg-blue-50 transition-all"
+                            className="aspect-video bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-slate-600 hover:text-blue-500 hover:border-blue-500 hover:bg-blue-50 transition-all"
                         >
                             <Plus className="w-5 h-5 mb-1" />
                             <span className="text-xs font-medium">업로드</span>
@@ -178,21 +178,21 @@ export const LiveStudioDock: React.FC = () => {
 
                 {activeTab === 'text' && (
                     <div className="space-y-3">
-                        <div onClick={() => handleAddText('제목', 48)} className="p-4 bg-[#2a2a2a] rounded border border-gray-700 cursor-pointer hover:border-white hover:bg-[#333]">
+                        <div onClick={() => handleAddText('제목', 48)} className="p-4 bg-[#2a2a2a] rounded border border-slate-200 cursor-pointer hover:border-white hover:bg-[#333]">
                             <h1 className="text-2xl font-bold text-white pointer-events-none">제목 (Heading)</h1>
                         </div>
-                        <div onClick={() => handleAddText('부제목', 32)} className="p-4 bg-[#2a2a2a] rounded border border-gray-700 cursor-pointer hover:border-white hover:bg-[#333]">
+                        <div onClick={() => handleAddText('부제목', 32)} className="p-4 bg-[#2a2a2a] rounded border border-slate-200 cursor-pointer hover:border-white hover:bg-[#333]">
                             <h3 className="text-lg font-semibold text-white pointer-events-none">부제목 (Subheading)</h3>
                         </div>
-                        <div onClick={() => handleAddText('본문 내용', 18)} className="p-4 bg-[#2a2a2a] rounded border border-gray-700 cursor-pointer hover:border-white hover:bg-[#333]">
-                            <p className="text-sm text-gray-300 pointer-events-none">본문 내용 (Body Text)</p>
+                        <div onClick={() => handleAddText('본문 내용', 18)} className="p-4 bg-[#2a2a2a] rounded border border-slate-200 cursor-pointer hover:border-white hover:bg-[#333]">
+                            <p className="text-sm text-slate-700 pointer-events-none">본문 내용 (Body Text)</p>
                         </div>
                     </div>
                 )}
 
                 {activeTab === 'widget' && (
                     <div className="space-y-3">
-                        <div className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded border border-gray-700 cursor-pointer hover:border-white">
+                        <div className="flex items-center gap-3 p-3 bg-[#2a2a2a] rounded border border-slate-200 cursor-pointer hover:border-white">
                             <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center text-green-500">
                                 <Layers className="w-5 h-5" />
                             </div>
@@ -209,12 +209,12 @@ export const LiveStudioDock: React.FC = () => {
                             <div
                                 key={template.id}
                                 onClick={() => handleApplyTemplate(template)}
-                                className="group relative aspect-video bg-[#2a2a2a] rounded-lg border border-gray-700 hover:border-blue-500 cursor-pointer overflow-hidden"
+                                className="group relative aspect-video bg-[#2a2a2a] rounded-lg border border-slate-200 hover:border-blue-500 cursor-pointer overflow-hidden"
                             >
                                 {/* Placeholder Preview */}
                                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
                                     <LayoutTemplate className="w-8 h-8 text-gray-600 mb-2 group-hover:text-blue-500" />
-                                    <span className="text-sm font-bold text-gray-300 group-hover:text-white">{template.name}</span>
+                                    <span className="text-sm font-bold text-slate-700 group-hover:text-white">{template.name}</span>
                                     <span className="text-[10px] text-gray-500 text-center mt-1 px-4">{template.description}</span>
                                 </div>
 

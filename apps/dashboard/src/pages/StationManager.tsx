@@ -240,13 +240,13 @@ export default function StationManager() {
 
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8 bg-gray-50 min-h-screen">
+        <div className="p-8 max-w-7xl mx-auto space-y-8 bg-background text-foreground min-h-screen">
             <header className="flex items-center justify-between">
                 <div />
                 <div className="flex gap-2">
                     <button
                         onClick={fetchStations}
-                        className="p-2 text-gray-500 hover:bg-gray-200 rounded-lg transition-colors"
+                        className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                         title="새로고침"
                     >
                         <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -258,13 +258,13 @@ export default function StationManager() {
                             <button
                                 onClick={handleBatchDelete}
                                 disabled={selectedIds.size === 0}
-                                className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-4 py-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 <Trash2 className="w-4 h-4" /> 삭제 ({selectedIds.size})
                             </button>
                             <button
                                 onClick={toggleSelectionMode}
-                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium"
+                                className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg font-medium"
                             >
                                 취소
                             </button>
@@ -272,7 +272,7 @@ export default function StationManager() {
                     ) : (
                         <button
                             onClick={toggleSelectionMode}
-                            className="p-2 text-gray-500 hover:bg-gray-200 rounded-lg transition-colors"
+                            className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                             title="선택 모드"
                         >
                             <span className="text-xs font-bold">선택</span>
@@ -283,7 +283,7 @@ export default function StationManager() {
 
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm font-bold transition-all active:scale-95"
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 shadow-sm font-bold transition-all active:scale-95"
                     >
                         <Plus className="w-5 h-5" /> 새 스테이션 만들기
                     </button>
@@ -295,7 +295,7 @@ export default function StationManager() {
                 {stations.map(station => (
                     <div
                         key={station.id}
-                        className={`bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-all group flex flex-col relative ${selectedIds.has(station.id) ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/10' : 'border-gray-200'}`}
+                        className={`bg-card rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-all group flex flex-col relative ${selectedIds.has(station.id) ? 'ring-2 ring-indigo-600 border-indigo-600 bg-indigo-500/10' : 'border-border'}`}
                         onClick={() => {
                             if (isSelectionMode) toggleSelection(station.id);
                         }}
@@ -303,14 +303,14 @@ export default function StationManager() {
                         {/* [NEW] Selection Overlay */}
                         {isSelectionMode && (
                             <div className="absolute inset-0 z-50 cursor-pointer flex items-start justify-end p-3">
-                                <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.has(station.id) ? 'bg-blue-500 border-blue-500' : 'bg-white/80 border-gray-300'}`}>
+                                <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${selectedIds.has(station.id) ? 'bg-indigo-600 border-indigo-600' : 'bg-card border-border'}`}>
                                     {selectedIds.has(station.id) && <div className="w-2.5 h-1.5 border-b-2 border-l-2 border-white -rotate-45 mb-0.5" />}
                                 </div>
                             </div>
                         )}
 
                         {/* Thumbnail Preview Area */}
-                        <div className="w-full aspect-video bg-gray-900 border-b border-gray-800 relative overflow-hidden group/thumb">
+                        <div className="w-full aspect-video bg-card border-b border-border relative overflow-hidden group/thumb">
                             {station.thumbnail_path ? (
                                 <img
                                     src={station.thumbnail_path}
@@ -323,7 +323,7 @@ export default function StationManager() {
                                     }}
                                 />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-700 bg-gray-100">
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-muted">
                                     <div className="text-center">
                                         <Cast className="w-12 h-12 mx-auto mb-2 opacity-50" />
                                         <span className="text-xs">No Preview</span>
@@ -335,13 +335,13 @@ export default function StationManager() {
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 p-4">
                                 <Link
                                     to={`/live-studio?stationId=${station.id}`}
-                                    className="w-32 py-2 bg-white text-gray-900 rounded-lg text-sm font-bold hover:bg-gray-100 flex items-center justify-center gap-2 shadow-lg hover:scale-105 transition-transform"
+                                    className="w-32 py-2 bg-background text-foreground rounded-lg text-sm font-bold hover:bg-muted flex items-center justify-center gap-2 shadow-lg hover:scale-105 transition-transform"
                                 >
                                     <Cast className="w-4 h-4" /> 채널 편집
                                 </Link>
                                 <button
                                     onClick={() => fetchPlaylist(station.id)}
-                                    className="w-32 py-2 bg-white/20 text-white backdrop-blur-sm rounded-lg text-sm font-bold hover:bg-white/30 flex items-center justify-center gap-2 shadow-lg hover:scale-105 transition-transform"
+                                    className="w-32 py-2 bg-muted/20 text-foreground backdrop-blur-sm rounded-lg text-sm font-bold hover:bg-muted/30 flex items-center justify-center gap-2 shadow-lg hover:scale-105 transition-transform"
                                 >
                                     <Server className="w-4 h-4" /> 오디오 목록
                                 </button>
@@ -357,7 +357,7 @@ export default function StationManager() {
                                             setPreviewVideoUrl(url);
                                             setShowVideoModal(true);
                                         }}
-                                        className="w-32 py-2 bg-blue-600/80 text-white backdrop-blur-sm rounded-lg text-sm font-bold hover:bg-blue-600 flex items-center justify-center gap-2 shadow-lg hover:scale-105 transition-transform"
+                                        className="w-32 py-2 bg-indigo-600/80 text-white backdrop-blur-sm rounded-lg text-sm font-bold hover:bg-indigo-600 flex items-center justify-center gap-2 shadow-lg hover:scale-105 transition-transform"
                                     >
                                         <Video className="w-4 h-4" /> 동영상 보기
                                     </button>
@@ -368,25 +368,25 @@ export default function StationManager() {
                         <div className="p-5 flex-1 flex flex-col">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
-                                    <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                                    <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
                                         {station.name}
                                     </h3>
                                     <div className="flex items-center gap-2 mt-2">
                                         <span className={`w-2.5 h-2.5 rounded-full ${station.status === 'ONLINE' ? 'bg-green-500 animate-pulse' :
                                             station.status === 'ERROR' ? 'bg-red-500' :
-                                                !station.rtmp_url ? 'bg-yellow-400' : 'bg-gray-300'
+                                                !station.rtmp_url ? 'bg-amber-500' : 'bg-muted'
                                             }`} />
-                                        <span className={`text-sm font-bold uppercase tracking-wide ${station.status === 'ONLINE' ? 'text-green-600' :
+                                        <span className={`text-sm font-bold uppercase tracking-wide ${station.status === 'ONLINE' ? 'text-green-600 dark:text-green-400' :
                                             station.status === 'ERROR' ? 'text-red-600' :
-                                                !station.rtmp_url ? 'text-yellow-600' : 'text-gray-500'
+                                                !station.rtmp_url ? 'text-amber-500' : 'text-muted-foreground'
                                             }`}>
                                             {station.status === 'ONLINE' ? '방송 중' :
                                                 station.status === 'STARTING' ? '시작 중...' :
                                                     station.status === 'ERROR' ? '오류 발생' :
                                                         !station.rtmp_url ? '설정 필요 (DRAFT)' : '준비됨 (READY)'}
                                         </span>
-                                        {station.pid && <span className="text-xs text-gray-300 font-mono">PID: {station.pid}</span>}
-                                        {station.server_mode === 'external' && <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-[10px] font-bold">RELAY</span>}
+                                        {station.pid && <span className="text-xs text-muted-foreground font-mono">PID: {station.pid}</span>}
+                                        {station.server_mode === 'external' && <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold">RELAY</span>}
                                     </div>
                                 </div>
                                 {!isSelectionMode && (
@@ -395,7 +395,7 @@ export default function StationManager() {
                                             e.stopPropagation();
                                             handleDelete(station);
                                         }}
-                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors absolute top-5 right-5"
+                                        className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors absolute top-5 right-5"
                                         title="스테이션 삭제"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -403,21 +403,21 @@ export default function StationManager() {
                                 )}
                             </div>
 
-                            <div className="text-sm text-gray-500 space-y-2 mb-6 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                            <div className="text-sm text-muted-foreground space-y-2 mb-6 bg-muted/30 p-3 rounded-lg border border-border">
                                 <div className="flex justify-between">
-                                    <span className="text-xs font-medium text-gray-400">현재 플레이리스트</span>
-                                    <span className="font-bold text-gray-700">{station.current_playlist_id ? `#${station.current_playlist_id}` : '미지정'}</span>
+                                    <span className="text-xs font-medium text-muted-foreground">현재 플레이리스트</span>
+                                    <span className="font-bold text-foreground">{station.current_playlist_id ? `#${station.current_playlist_id}` : '미지정'}</span>
                                 </div>
                                 <div className="flex justify-between items-center group/url">
-                                    <span className="text-xs font-medium text-gray-400">송출 대상</span>
-                                    <span className="font-mono text-xs truncate max-w-[150px] opacity-50 group-hover/url:opacity-100 transition-opacity">
+                                    <span className="text-xs font-medium text-muted-foreground">송출 대상</span>
+                                    <span className="font-mono text-xs truncate max-w-[150px] opacity-50 group-hover/url:opacity-100 transition-opacity text-foreground">
                                         {station.rtmp_url || '-'}
                                     </span>
                                 </div>
                             </div>
 
                             {station.last_error && (
-                                <div className="mb-4 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100 flex gap-2 break-all">
+                                <div className="mb-4 p-2 bg-red-500/10 text-red-500 text-xs rounded border border-red-500/20 flex gap-2 break-all">
                                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                     {station.last_error}
                                 </div>
@@ -427,7 +427,7 @@ export default function StationManager() {
                                 {station.status === 'ONLINE' ? (
                                     <button
                                         onClick={() => handleStop(station.id)}
-                                        className="py-2.5 px-3 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 flex items-center justify-center gap-2 text-sm font-bold transition-colors"
+                                        className="py-2.5 px-3 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg hover:bg-red-500/20 flex items-center justify-center gap-2 text-sm font-bold transition-colors"
                                     >
                                         <Square className="w-4 h-4" /> 방송 종료
                                     </button>
@@ -436,8 +436,8 @@ export default function StationManager() {
                                         onClick={() => handleStart(station.id)}
                                         disabled={!station.rtmp_url}
                                         className={`py-2.5 px-3 border rounded-lg flex items-center justify-center gap-2 text-sm font-bold transition-colors ${!station.rtmp_url
-                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                                            : 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100'
+                                            ? 'bg-muted text-muted-foreground border-border cursor-not-allowed'
+                                            : 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/20'
                                             }`}
                                     >
                                         <Play className="w-4 h-4" /> 방송 시작
@@ -445,7 +445,7 @@ export default function StationManager() {
                                 )}
                                 <button
                                     onClick={() => openConfig(station)}
-                                    className="py-2.5 px-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2 text-sm font-bold transition-colors"
+                                    className="py-2.5 px-3 bg-card text-foreground border border-border rounded-lg hover:bg-muted flex items-center justify-center gap-2 text-sm font-bold transition-colors"
                                 >
                                     <Settings className="w-4 h-4" /> 설정
                                 </button>
@@ -458,32 +458,32 @@ export default function StationManager() {
             {/* Playlist Preview Modal */}
             {showPlaylistModal && previewPlaylist && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                    <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col text-foreground">
+                        <div className="p-4 border-b border-border flex justify-between items-center bg-muted/30 rounded-t-2xl">
                             <h3 className="font-bold text-lg flex items-center gap-2">
-                                <Server className="w-5 h-5 text-purple-600" />
+                                <Server className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                                 {previewPlaylist.name}
                             </h3>
-                            <button onClick={() => setShowPlaylistModal(false)} className="text-gray-500 hover:text-gray-900 bg-gray-200 rounded-full p-1 w-8 h-8 flex items-center justify-center">
+                            <button onClick={() => setShowPlaylistModal(false)} className="text-muted-foreground hover:text-foreground bg-muted rounded-full p-1 w-8 h-8 flex items-center justify-center">
                                 ✕
                             </button>
                         </div>
                         <div className="p-4 overflow-y-auto flex-1 space-y-2">
                             {previewPlaylist.tracks.length === 0 && (
                                 <div className="text-center py-10 space-y-2">
-                                    <Music className="w-12 h-12 mx-auto text-gray-300" />
-                                    <p className="text-gray-500">트랙이 없습니다.</p>
+                                    <Music className="w-12 h-12 mx-auto text-muted-foreground opacity-55" />
+                                    <p className="text-muted-foreground">트랙이 없습니다.</p>
                                 </div>
                             )}
                             {previewPlaylist.tracks.map((track, i) => (
-                                <div key={i} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-200 transition-all">
-                                    <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center text-xs font-bold font-mono">
+                                <div key={i} className="flex items-center gap-3 p-3 hover:bg-muted rounded-lg border border-transparent hover:border-border transition-all">
+                                    <div className="w-8 h-8 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center text-xs font-bold font-mono">
                                         {i + 1}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-gray-800 text-sm truncate">{track.title || track.name || track.path ? (track.title || track.name || (track.path ? track.path.split('/').pop() : 'Unknown Track')) : 'Unknown Track'}</p>
-                                        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-                                            {track.artist && <span className="text-gray-600">{track.artist}</span>}
+                                        <p className="font-bold text-foreground text-sm truncate">{track.title || track.name || track.path ? (track.title || track.name || (track.path ? track.path.split('/').pop() : 'Unknown Track')) : 'Unknown Track'}</p>
+                                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                                            {track.artist && <span className="text-muted-foreground">{track.artist}</span>}
                                             {track.duration && <span>• {Math.floor(track.duration)}s</span>}
                                         </p>
                                     </div>
@@ -497,42 +497,42 @@ export default function StationManager() {
             {/* Create Modal */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100">
-                        <h2 className="text-xl font-bold mb-1 text-gray-900">새 스테이션 만들기 (Draft)</h2>
-                        <p className="text-sm text-gray-500 mb-6">방송 디자인 초안을 생성합니다. 송출 설정은 이후에 진행합니다.</p>
+                    <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all scale-100 text-foreground">
+                        <h2 className="text-xl font-bold mb-1 text-foreground">새 스테이션 만들기 (Draft)</h2>
+                        <p className="text-sm text-muted-foreground mb-6">방송 디자인 초안을 생성합니다. 송출 설정은 이후에 진행합니다.</p>
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">스테이션 이름</label>
+                                <label className="block text-sm font-bold text-muted-foreground mb-1">스테이션 이름</label>
                                 <input
                                     value={newName}
                                     onChange={e => setNewName(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full border border-border bg-background text-foreground rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                     placeholder="예: Morning Lofi Radio"
                                     autoFocus
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">배경 영상 경로 (Optional)</label>
+                                <label className="block text-sm font-bold text-muted-foreground mb-1">배경 영상 경로 (Optional)</label>
                                 <input
                                     value={newBgPath}
                                     onChange={e => setNewBgPath(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg p-3 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"
+                                    className="w-full border border-border bg-background text-foreground rounded-lg p-3 font-mono text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                     placeholder="C:\assets\background_loop.mp4"
                                 />
-                                <p className="text-xs text-gray-400 mt-1">스튜디오에서 편집 시 변경할 수 있습니다.</p>
+                                <p className="text-xs text-muted-foreground mt-1">스튜디오에서 편집 시 변경할 수 있습니다.</p>
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 mt-8">
                             <button
                                 onClick={() => setShowCreateModal(false)}
-                                className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
+                                className="px-5 py-2.5 text-muted-foreground hover:bg-muted rounded-lg font-medium transition-colors"
                             >
                                 취소
                             </button>
                             <button
                                 onClick={handleCreate}
-                                className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg shadow-blue-200 transition-all hover:shadow-xl hover:-translate-y-0.5"
+                                className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-500/10 transition-all hover:shadow-xl hover:-translate-y-0.5"
                             >
                                 스테이션 생성
                             </button>
@@ -557,15 +557,15 @@ export default function StationManager() {
             {/* Playlist Preview Modal */}
             {showPlaylistModal && previewPlaylist && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
-                        <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center flex-shrink-0">
+                    <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] text-foreground">
+                        <div className="p-4 border-b border-border bg-muted/30 flex justify-between items-center flex-shrink-0">
                             <div className="flex items-center gap-2">
-                                <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                                <div className="p-2 bg-purple-500/10 rounded-lg text-purple-600 dark:text-purple-400">
                                     <Server className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-gray-900">{previewPlaylist.name}</h3>
-                                    <p className="text-xs text-gray-500">{previewPlaylist.tracks.length} Tracks</p>
+                                    <h3 className="font-bold text-foreground">{previewPlaylist.name}</h3>
+                                    <p className="text-xs text-muted-foreground">{previewPlaylist.tracks.length} Tracks</p>
                                 </div>
                             </div>
                             <button onClick={() => {
@@ -574,28 +574,28 @@ export default function StationManager() {
                                     (window as any).currentAudio.pause();
                                     (window as any).currentAudio = null;
                                 }
-                            }} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200">
+                            }} className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted">
                                 ✕
                             </button>
                         </div>
 
                         <div className="overflow-y-auto p-4 space-y-2 custom-scrollbar">
                             {previewPlaylist.tracks.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500">
+                                <div className="text-center py-8 text-muted-foreground">
                                     <Music className="w-12 h-12 mx-auto mb-2 opacity-20" />
                                     <p>트랙이 없습니다.</p>
                                 </div>
                             ) : (
                                 previewPlaylist.tracks.map((track: any, idx: number) => (
-                                    <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group">
-                                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-purple-100 text-purple-600 rounded-lg font-bold text-xs">
+                                    <div key={idx} className="flex items-center gap-3 p-3 bg-muted/10 rounded-xl hover:bg-muted/20 transition-colors group">
+                                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-lg font-bold text-xs">
                                             {idx + 1}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <div className="font-medium text-sm text-gray-900 truncate">
+                                            <div className="font-medium text-sm text-foreground truncate">
                                                 {track.name || track.filename || `Track ${idx + 1}`}
                                             </div>
-                                            <div className="text-xs text-gray-500 flex items-center gap-2">
+                                            <div className="text-xs text-muted-foreground flex items-center gap-2">
                                                 <span>• {Math.floor(track.duration || 0)}s</span>
                                             </div>
                                         </div>
@@ -615,7 +615,7 @@ export default function StationManager() {
                                                 audio.play();
                                                 (window as any).currentAudio = audio;
                                             }}
-                                            className="p-2 bg-white text-gray-900 border border-gray-200 rounded-lg hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 shadow-sm transition-all"
+                                            className="p-2 bg-card text-foreground border border-border rounded-lg hover:bg-purple-500/10 hover:text-purple-600 hover:border-purple-500/20 shadow-sm transition-all"
                                         >
                                             <Play className="w-4 h-4" />
                                         </button>
@@ -632,8 +632,8 @@ export default function StationManager() {
                 <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
                     <div className="relative w-full max-w-4xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl">
                         <button
-                            onClick={() => setShowVideoModal(false)}
-                            className="absolute top-4 right-4 z-10 text-white/50 hover:text-white bg-black/50 rounded-full p-2"
+                             onClick={() => setShowVideoModal(false)}
+                             className="absolute top-4 right-4 z-10 text-white/50 hover:text-white bg-black/50 rounded-full p-2"
                         >
                             ✕
                         </button>

@@ -148,7 +148,7 @@ const ChannelManager = () => {
             {/* Category Management */}
             <div className="bg-card border border-border rounded-xl p-6 space-y-4">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-400">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                         <Plus className="w-3 h-3" />
                         <span className="text-[10px] font-bold uppercase tracking-wider">Category Management</span>
                     </div>
@@ -311,7 +311,7 @@ const ChannelManager = () => {
                                     <td className="p-4 align-middle">
                                         <span className={cn(
                                             "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                                            channel.status === 'active' ? "border-transparent bg-green-100 text-green-700" : "border-transparent bg-gray-100 text-gray-700"
+                                            channel.status === 'active' ? "border-transparent bg-emerald-500/10 text-emerald-500" : "border-transparent bg-muted text-muted-foreground"
                                         )}>
                                             {channel.status === 'active' ? '활성' : '일시정지'}
                                         </span>
@@ -335,7 +335,7 @@ const ChannelManager = () => {
                                             onClick={() => updateMutation.mutate({ id: channel.id, data: { default_script_only: !channel.default_script_only } })}
                                             className={cn(
                                                 "w-10 h-6 rounded-full transition-colors relative",
-                                                channel.default_script_only ? "bg-blue-600" : "bg-input"
+                                                channel.default_script_only ? "bg-primary" : "bg-input"
                                             )}
                                             title="스크립트 전용 모드 (영상 다운로드 건너뛰기)"
                                         >

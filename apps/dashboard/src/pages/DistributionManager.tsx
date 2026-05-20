@@ -103,13 +103,13 @@ const DistributionManager = () => {
     const isWifi = networkStatus.status_detail === 'WIFI_MODE';
 
     return (
-        <div className="p-8 space-y-6 bg-slate-50 min-h-screen text-slate-900 font-sans">
+        <div className="p-8 space-y-6 bg-background min-h-screen text-foreground font-sans">
 
             {/* Header */}
             {/* Pure Resource Control */}
 
             {/* Tabs */}
-            <div className="flex space-x-1 bg-slate-200/50 p-1 rounded-lg w-fit">
+            <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit border border-border">
                 {[
                     { id: 'vault', label: '기밀 보관소 (Vault)', icon: Shield },
                     { id: 'captains', label: '소유주 관리 (Captain)', icon: User },
@@ -119,8 +119,8 @@ const DistributionManager = () => {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
                         className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === tab.id
-                            ? 'bg-white text-indigo-600 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                            ? 'bg-card text-primary shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
                         <tab.icon className="w-4 h-4 mr-2" />
@@ -135,49 +135,49 @@ const DistributionManager = () => {
 
                 {activeTab === 'network' && (
                     <div className="max-w-4xl mx-auto">
-                        <Card className="border-slate-200 shadow-sm bg-white">
+                        <Card className="border-border shadow-sm bg-card">
                             <CardContent className="p-8 space-y-8">
 
                                 {/* Status Row */}
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-xl border ${isConnected ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                        <div className={`p-3 rounded-xl border ${isConnected ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-muted border-border text-muted-foreground'}`}>
                                             <Smartphone className="w-8 h-8" />
                                         </div>
                                         <div>
-                                            <h2 className="text-lg font-bold text-slate-800">테더링 게이트웨이</h2>
+                                            <h2 className="text-lg font-bold text-foreground">테더링 게이트웨이</h2>
                                             <div className="flex items-center gap-2 mt-1 text-sm">
                                                 {isConnected ? (
-                                                    <span className="flex items-center text-emerald-600 font-medium">
+                                                    <span className="flex items-center text-emerald-500 font-medium">
                                                         <CheckCircle2 className="w-4 h-4 mr-1" /> 온라인
                                                     </span>
                                                 ) : (
-                                                    <span className="flex items-center text-rose-500 font-medium">
+                                                    <span className="flex items-center text-destructive font-medium">
                                                         <XCircle className="w-4 h-4 mr-1" /> 오프라인
                                                     </span>
                                                 )}
-                                                <span className="text-slate-300">|</span>
-                                                <span className="text-slate-400 font-mono">IF: {networkStatus.interface_ip}</span>
+                                                <span className="text-muted-foreground">|</span>
+                                                <span className="text-muted-foreground font-mono">IF: {networkStatus.interface_ip}</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <Button variant="outline" size="sm" onClick={() => loadNetworkStatus(true)} disabled={isNetworkLoading}>
+                                    <Button variant="outline" size="sm" className="border-border" onClick={() => loadNetworkStatus(true)} disabled={isNetworkLoading}>
                                         <RefreshCw className={`w-4 h-4 mr-2 ${isNetworkLoading ? 'animate-spin' : ''}`} />
                                         상태 확인
                                     </Button>
                                 </div>
 
-                                <hr className="border-slate-100" />
+                                <hr className="border-border" />
 
                                 {/* Info Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-3">
-                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">현재 모드</label>
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide">현재 모드</label>
                                         <div className={`flex items-center gap-3 p-4 rounded-lg border ${isLte
-                                            ? 'bg-emerald-50/50 border-emerald-200 text-emerald-700'
+                                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
                                             : isWifi
-                                                ? 'bg-blue-50/50 border-blue-200 text-blue-700'
-                                                : 'bg-slate-50 border-slate-200 text-slate-500'
+                                                ? 'bg-primary/10 border-primary/20 text-primary'
+                                                : 'bg-muted border-border text-muted-foreground'
                                             }`}>
                                             {isLte ? <Signal className="w-6 h-6" /> : <Wifi className="w-6 h-6" />}
                                             <span className="text-lg font-bold">
@@ -187,10 +187,10 @@ const DistributionManager = () => {
                                     </div>
 
                                     <div className="space-y-3">
-                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">공인 IP 주소</label>
-                                        <div className="flex items-center p-4 bg-slate-50 rounded-lg border border-slate-100">
-                                            <Globe className="w-5 h-5 text-slate-400 mr-3" />
-                                            <span className="text-2xl font-mono font-bold text-slate-800 tracking-tight">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide">공인 IP 주소</label>
+                                        <div className="flex items-center p-4 bg-muted/40 rounded-lg border border-border">
+                                            <Globe className="w-5 h-5 text-muted-foreground mr-3" />
+                                            <span className="text-2xl font-mono font-bold text-foreground tracking-tight">
                                                 {networkStatus.current_ip}
                                             </span>
                                         </div>
@@ -200,14 +200,14 @@ const DistributionManager = () => {
                                 {/* Controls */}
                                 <div className="space-y-6 pt-2">
                                     <div className="space-y-3">
-                                        <label className="text-sm font-medium text-slate-700">모드 전환 (수동)</label>
+                                        <label className="text-sm font-medium text-foreground">모드 전환 (수동)</label>
                                         <div className="grid grid-cols-2 gap-4">
                                             <button
                                                 onClick={() => handleSourceSwitch('lte')}
                                                 disabled={isLte || isNetworkLoading}
                                                 className={`flex justify-center items-center py-3 rounded-md border text-sm font-medium transition-all ${isLte
-                                                    ? 'bg-slate-100 text-slate-400 border-transparent cursor-default'
-                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-500 hover:text-emerald-600'
+                                                    ? 'bg-muted text-muted-foreground border-transparent cursor-default'
+                                                    : 'bg-card border-border text-foreground hover:border-emerald-500 hover:text-emerald-500 hover:bg-emerald-500/5'
                                                     }`}
                                             >
                                                 <Signal className="w-4 h-4 mr-2" /> LTE로 전환
@@ -216,8 +216,8 @@ const DistributionManager = () => {
                                                 onClick={() => handleSourceSwitch('wifi')}
                                                 disabled={isWifi || isNetworkLoading}
                                                 className={`flex justify-center items-center py-3 rounded-md border text-sm font-medium transition-all ${isWifi
-                                                    ? 'bg-slate-100 text-slate-400 border-transparent cursor-default'
-                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-blue-500 hover:text-blue-600'
+                                                    ? 'bg-muted text-muted-foreground border-transparent cursor-default'
+                                                    : 'bg-card border-border text-foreground hover:border-primary hover:text-primary hover:bg-primary/5'
                                                     }`}
                                             >
                                                 <Wifi className="w-4 h-4 mr-2" /> Wi-Fi로 전환
@@ -226,12 +226,12 @@ const DistributionManager = () => {
                                     </div>
 
                                     <div className="space-y-3">
-                                        <label className="text-sm font-medium text-slate-700">IP 신원 교체</label>
+                                        <label className="text-sm font-medium text-foreground">IP 신원 교체</label>
                                         <div className="grid grid-cols-2 gap-4">
                                             <Button
                                                 onClick={() => handleRotate('soft')}
                                                 disabled={isRotating || isNetworkLoading}
-                                                className="bg-slate-800 hover:bg-slate-900 text-white h-11"
+                                                className="bg-card hover:bg-muted text-foreground border border-border h-11"
                                             >
                                                 {isRotating ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                                                 소프트 교체 (Data Toggle)
@@ -240,7 +240,7 @@ const DistributionManager = () => {
                                                 onClick={() => handleRotate('hard')}
                                                 disabled={isRotating || isNetworkLoading}
                                                 variant="outline"
-                                                className="border-slate-300 text-slate-700 hover:bg-slate-50 h-11"
+                                                className="border-border text-foreground hover:bg-muted h-11"
                                             >
                                                 {isRotating ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Rocket className="w-4 h-4 mr-2" />}
                                                 하드 교체 (Airplane Mode)

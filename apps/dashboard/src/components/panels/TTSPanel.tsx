@@ -116,7 +116,7 @@ const TTSPanel = () => {
                         value={text}
                         onChange={(e) => setText(e.target.value)}
                     />
-                    <div className="text-xs text-right text-slate-400">
+                    <div className="text-xs text-right text-slate-600">
                         {text.length}자
                     </div>
                 </div>

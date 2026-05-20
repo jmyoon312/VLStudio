@@ -540,14 +540,13 @@ const BrandChannelNodeEditor = () => {
     };
 
     // --- Styles ---
-    // Fixed: Light Mode for Op Mode (Slate 100)
-    const bgClass = mode === 'op' ? 'bg-slate-100' : 'bg-slate-50';
-    const gridColor = mode === 'op' ? '#cbd5e1' : '#e2e8f0';
+    const bgClass = mode === 'op' ? 'bg-muted' : 'bg-background';
+    const gridColor = mode === 'op' ? 'rgba(148,163,184,0.15)' : 'rgba(148,163,184,0.08)';
 
     return (
-        <div className="w-full h-[calc(100vh-64px)] flex flex-col" ref={ref}>
+        <div className="w-full h-[calc(100vh-64px)] flex flex-col animate-in fade-in duration-300" ref={ref}>
             {/* Header */}
-            <div className={`px-6 py-3 border-b flex items-center justify-between transition-colors duration-500 bg-white text-slate-900 border-slate-200`}>
+            <div className={`px-6 py-3 border-b flex items-center justify-between transition-colors duration-500 bg-card text-foreground border-border`}>
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => navigate('/workflows')} className="mr-2">
                         <ArrowLeft className="w-5 h-5" />
@@ -558,38 +557,38 @@ const BrandChannelNodeEditor = () => {
                             <Input
                                 value={tempTitle}
                                 onChange={e => setTempTitle(e.target.value)}
-                                className="h-8 w-[220px] text-sm font-bold bg-slate-50 border-blue-400 focus-visible:ring-blue-500"
+                                className="h-8 w-[220px] text-sm font-bold bg-muted border-primary focus-visible:ring-primary"
                                 autoFocus
                                 onKeyDown={e => e.key === 'Enter' && handleSaveTitle()}
                             />
-                            <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-green-100 text-green-600" onClick={handleSaveTitle}>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-emerald-500/10 text-emerald-500" onClick={handleSaveTitle}>
                                 <Check className="w-4 h-4" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-red-100 text-red-500" onClick={() => setIsEditingTitle(false)}>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={() => setIsEditingTitle(false)}>
                                 <X className="w-4 h-4" />
                             </Button>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 group cursor-pointer py-1.5 px-3 rounded-lg hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100"
+                        <div className="flex items-center gap-2 group cursor-pointer py-1.5 px-3 rounded-lg hover:bg-muted/50 transition-all border border-transparent hover:border-border"
                             onClick={() => { setTempTitle(workflowTitle); setIsEditingTitle(true); }}>
-                            <Network className="w-4 h-4 text-pixie-blue" />
-                            <span className="text-sm font-bold text-slate-900 max-w-[220px] truncate tracking-tight" title={workflowTitle}>
+                            <Network className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-bold text-foreground max-w-[220px] truncate tracking-tight" title={workflowTitle}>
                                 {workflowTitle}
                             </span>
-                            <Pencil className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                     )}
 
-                    <Badge variant={mode === 'op' ? 'default' : 'secondary'} className={`ml-3 ${mode === 'op' ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-200 text-slate-700'}`}>
+                    <Badge variant={mode === 'op' ? 'default' : 'secondary'} className={`ml-3 ${mode === 'op' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-muted text-muted-foreground border-border border'}`}>
                         {mode === 'op' ? '운영 모드 (OP)' : '설계 모드 (DESIGN)'}
                     </Badge>
 
                     {/* Persistence Indicator */}
-                    <div className="flex items-center gap-2 ml-4 text-xs text-slate-400">
+                    <div className="flex items-center gap-2 ml-4 text-xs text-muted-foreground">
                         {isSaving ? (
                             <><Cloud className="w-3 h-3 animate-pulse" /> 저장 중...</>
                         ) : lastSaved ? (
-                            <><CheckCircle2 className="w-3 h-3 text-green-500" /> 저장됨 ({lastSaved.toLocaleTimeString()})</>
+                            <><CheckCircle2 className="w-3 h-3 text-emerald-500" /> 저장됨 ({lastSaved.toLocaleTimeString()})</>
                         ) : null}
                     </div>
                 </div>
@@ -600,7 +599,7 @@ const BrandChannelNodeEditor = () => {
                         <Save className="w-4 h-4" /> 시나리오 저장 (Ctrl+S)
                     </Button>
                     <div className="flex items-center gap-2 text-sm font-medium">
-                        <Switch checked={mode === 'edit'} onCheckedChange={(c) => setMode(c ? 'edit' : 'op')} className="data-[state=checked]:bg-blue-600 data-[state=unchecked]:bg-green-600" />
+                        <Switch checked={mode === 'edit'} onCheckedChange={(c) => setMode(c ? 'edit' : 'op')} className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-emerald-500" />
                     </div>
                 </div>
             </div>
@@ -610,12 +609,12 @@ const BrandChannelNodeEditor = () => {
                 {/* TOOLBAR */}
                 {mode === 'edit' && (
                     <div className={cn(
-                        "absolute top-4 left-4 z-10 flex flex-col transition-all duration-300 bg-white/95 backdrop-blur shadow-xl rounded-xl border border-slate-200 overflow-hidden",
+                        "absolute top-4 left-4 z-10 flex flex-col transition-all duration-300 bg-card/95 backdrop-blur shadow-xl rounded-xl border border-border overflow-hidden",
                         isSidebarOpen ? "w-44 max-h-[calc(100vh-100px)]" : "w-10 h-10"
                     )}>
                         {/* Toggle Header */}
-                        <div className={cn("flex items-center p-2", isSidebarOpen ? "justify-between border-b border-slate-100" : "justify-center")}>
-                            {isSidebarOpen && <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">노드 목록</span>}
+                        <div className={cn("flex items-center p-2", isSidebarOpen ? "justify-between border-b border-border" : "justify-center")}>
+                            {isSidebarOpen && <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">노드 목록</span>}
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -623,7 +622,7 @@ const BrandChannelNodeEditor = () => {
                                 onClick={() => setSidebarOpen(!isSidebarOpen)}
                                 title={isSidebarOpen ? "목록 숨기기" : "목록 보이기"}
                             >
-                                {isSidebarOpen ? <PanelLeftClose className="w-4 h-4 text-slate-400" /> : <PanelLeftOpen className="w-4 h-4 text-slate-600" />}
+                                {isSidebarOpen ? <PanelLeftClose className="w-4 h-4 text-muted-foreground" /> : <PanelLeftOpen className="w-4 h-4 text-muted-foreground" />}
                             </Button>
                         </div>
 
@@ -632,7 +631,7 @@ const BrandChannelNodeEditor = () => {
                             "flex flex-col gap-1 p-2 overflow-y-auto scrollbar-hide",
                             isSidebarOpen ? "opacity-100 visible" : "opacity-0 invisible h-0 p-0"
                         )}>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1 mt-1">입력 (Input)</span>
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest px-1 mt-1">입력 (Input)</span>
                             <Button variant="ghost" size="sm" className="justify-start gap-2 text-[11px] h-7 px-2" onClick={() => createNode('schedulerNode', '스케줄러')}>
                                 <Clock className="w-3 h-3 text-emerald-500" /> 스케줄러 (Cron)
                             </Button>
@@ -652,8 +651,8 @@ const BrandChannelNodeEditor = () => {
                                 <Image className="w-3 h-3 text-teal-500" /> 스톡 자산
                             </Button>
 
-                            <div className="h-px bg-slate-100 my-1" />
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">처리 (Process)</span>
+                            <div className="h-px bg-border my-1" />
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest px-1">처리 (Process)</span>
 
                             <Button variant="ghost" size="sm" className="justify-start gap-2 text-[11px] h-7 px-2" onClick={() => createNode('aiAgentNode', 'AI 에이전트')}>
                                 <Bot className="w-3 h-3 text-pink-500" /> AI 에이전트
@@ -694,8 +693,8 @@ const BrandChannelNodeEditor = () => {
                             </Button>
 
 
-                            <div className="h-px bg-slate-100 my-1" />
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-1">배포 (Dist)</span>
+                            <div className="h-px bg-border my-1" />
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest px-1">배포 (Dist)</span>
                             <Button variant="ghost" size="sm" className="justify-start gap-2 text-[11px] h-7 px-2" onClick={() => createNode('distributionNode', '배포 매니저')}>
                                 <Share2 className="w-3 h-3 text-green-600" /> 배포 매니저
                             </Button>
@@ -721,7 +720,7 @@ const BrandChannelNodeEditor = () => {
                     onConnect={onConnect}
                     nodeTypes={nodeTypes}
                     edgeTypes={edgeTypes}
-                    defaultEdgeOptions={{ type: 'animatedEdge', animated: true, style: { strokeWidth: 2, stroke: mode === 'op' ? '#94a3b8' : '#94a3b8' } }}
+                    defaultEdgeOptions={{ type: 'animatedEdge', animated: true, style: { strokeWidth: 2, stroke: 'var(--border)' } }}
                     minZoom={0.1}
                     fitView
 
@@ -744,7 +743,7 @@ const BrandChannelNodeEditor = () => {
                 >
                     <Background color={gridColor} gap={20} size={1} />
                     <Controls
-                        className="bg-white border-slate-200 text-slate-900 shadow-sm flex flex-row gap-1"
+                        className="bg-card border-border text-foreground shadow-sm flex flex-row gap-1"
                         position="bottom-center" // ReactFlow 11 support position? Or we leverage layout
                         style={{ display: 'flex', flexDirection: 'row' }}
                     >
@@ -762,20 +761,20 @@ const BrandChannelNodeEditor = () => {
                             <Trash strokeWidth={2} className="text-red-500" />
                         </ControlButton>
                     </Controls>
-                    {mode === 'edit' && <MiniMap className="bg-white/50" />}
+                    {mode === 'edit' && <MiniMap className="bg-card/50" />}
                 </ReactFlow>
 
                 {menu && (
-                    <div style={{ top: menu.top, left: menu.left }} className="fixed z-50 min-w-[160px] bg-white rounded-md border shadow-xl p-1 animate-in zoom-in-95 duration-100">
-                        <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider bg-slate-50 rounded-t mb-1">동작</div>
+                    <div style={{ top: menu.top, left: menu.left }} className="fixed z-50 min-w-[160px] bg-card rounded-md border border-border shadow-xl p-1 animate-in zoom-in-95 duration-100">
+                        <div className="text-[10px] font-bold text-muted-foreground px-2 py-1 uppercase tracking-wider bg-muted rounded-t mb-1">동작</div>
                         <Button variant="ghost" className="w-full justify-start h-8 text-sm font-normal" onClick={() => handleMenuAction('edit')}>
                             <Edit className="w-4 h-4 mr-2 text-blue-500" /> 편집 (Edit)
                         </Button>
                         <Button variant="ghost" className="w-full justify-start h-8 text-sm font-normal" onClick={() => handleMenuAction('duplicate')}>
                             <Copy className="w-4 h-4 mr-2 text-green-500" /> 복제 (Duplicate)
                         </Button>
-                        <div className="h-px bg-slate-100 my-1" />
-                        <Button variant="ghost" className="w-full justify-start h-8 text-sm font-normal text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleMenuAction('delete')}>
+                        <div className="h-px bg-border my-1" />
+                        <Button variant="ghost" className="w-full justify-start h-8 text-sm font-normal text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleMenuAction('delete')}>
                             <Trash className="w-4 h-4 mr-2" /> 삭제 (Delete)
                         </Button>
                     </div>

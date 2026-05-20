@@ -140,7 +140,7 @@ const NotebookLMManager: React.FC = () => {
                                 <span className="text-xs text-slate-500">생성된 노트북</span>
                                 <span className="text-sm font-bold text-slate-700">{acc.notebook_count}개</span>
                             </div>
-                            <Button variant="default" className="w-full bg-slate-900 hover:bg-black text-white h-9" onClick={() => handleLaunch(acc.id)}>
+                            <Button variant="default" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-9 shadow-sm" onClick={() => handleLaunch(acc.id)}>
                                 <ShieldCheck className="w-4 h-4 mr-2" />
                                 보안 접속 (Secure Connect)
                             </Button>
@@ -149,7 +149,7 @@ const NotebookLMManager: React.FC = () => {
                 ))}
 
                 {accounts.length === 0 && !loading && (
-                    <div className="col-span-full py-12 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    <div className="col-span-full py-12 text-center text-slate-600 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                         <p>연동된 NotebookLM 계정이 없습니다.</p>
                         <p className="text-xs mt-1">브라우저 프로필에서 수동 로그인 후 등록해주세요.</p>
                     </div>

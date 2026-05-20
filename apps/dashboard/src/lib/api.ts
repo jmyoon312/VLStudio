@@ -78,6 +78,7 @@ export interface Video {
     workflow_mode?: string;
     created_at?: string;
     updated_at?: string;
+    content?: string;
 }
 
 export interface Settings {
@@ -188,6 +189,8 @@ export interface BrandChannel {
     default_tags?: string;
     default_upload_delay_minutes?: number;
     status?: string;
+    engine_mode?: string;
+    warmup_config?: any;
 }
 
 export interface ConfigPreset {

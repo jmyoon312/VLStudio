@@ -60,6 +60,7 @@ export default defineConfig(({ mode }) => {
   const backendProxy = createProxy('http://127.0.0.1:8000');
 
   return {
+    base: './',
     plugins: [
       react(),
       electron({

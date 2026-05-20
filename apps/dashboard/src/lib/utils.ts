@@ -166,3 +166,18 @@ export async function fetchWithRetry(
     }
     throw lastError;
 }
+
+// Modal visibility manager (prevents native Flow view overlay collision)
+let activeModalCount = 0;
+
+export function adjustModalCount(change: number) {
+    activeModalCount = Math.max(0, activeModalCount + change);
+    const shouldHide = activeModalCount > 0;
+    window.electronAPI?.setModalVisible?.({ visible: shouldHide });
+}
+
+export function resetModalCount() {
+    activeModalCount = 0;
+    window.electronAPI?.setModalVisible?.({ visible: false });
+}
+

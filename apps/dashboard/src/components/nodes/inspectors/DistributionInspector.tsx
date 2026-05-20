@@ -66,7 +66,7 @@ const DistributionInspector: React.FC<DistributionInspectorProps> = ({ node, upd
 
                     {loading ? (
                         <div className="flex items-center justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                            <Loader2 className="w-6 h-6 animate-spin text-slate-600" />
                         </div>
                     ) : (
                         <div className="space-y-2 max-h-80 overflow-y-auto">
@@ -92,7 +92,7 @@ const DistributionInspector: React.FC<DistributionInspectorProps> = ({ node, upd
                             ))}
 
                             {channels.length === 0 && (
-                                <div className="text-center py-8 text-slate-400">
+                                <div className="text-center py-8 text-slate-600">
                                     <Youtube className="w-12 h-12 mx-auto mb-2 opacity-50" />
                                     <p className="text-sm">등록된 채널이 없습니다</p>
                                 </div>

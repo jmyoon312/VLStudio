@@ -76,7 +76,7 @@ const WizardDialog: React.FC<WizardDialogProps> = ({
 
                 {/* Footer Section */}
                 <div className="p-4 border-t bg-white flex justify-between items-center">
-                    <div className="text-sm text-slate-400">
+                    <div className="text-sm text-slate-600">
                         {canComplete ? '오늘의 할 일을 모두 완료했습니다! 🎉' : '모든 항목을 완료해야 다음으로 넘어갑니다.'}
                     </div>
                     <div className="flex gap-2">

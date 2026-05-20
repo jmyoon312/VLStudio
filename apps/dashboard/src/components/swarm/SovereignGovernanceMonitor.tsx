@@ -21,20 +21,20 @@ export const SovereignGovernanceMonitor: React.FC<SovereignGovernanceMonitorProp
             <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_bottom_right,rgba(79,70,229,0.05),transparent)] pointer-events-none" />
             
             <div className="relative z-10 flex items-center justify-between">
-                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                <h4 className="text-[11px] font-black text-slate-600 uppercase tracking-[0.3em] flex items-center gap-3">
                     <Smartphone className="w-5 h-5 text-indigo-600" /> 시스템 거버넌스
                 </h4>
-                <Badge variant="outline" className="border-slate-200 text-slate-400 font-black text-[9px] uppercase px-4 py-1.5 rounded-full tracking-widest bg-slate-50">24시간 자동 감사 활성</Badge>
+                <Badge variant="outline" className="border-slate-200 text-slate-600 font-black text-[9px] uppercase px-4 py-1.5 rounded-full tracking-widest bg-slate-50">24시간 자동 감사 활성</Badge>
             </div>
 
             <div className="relative z-10 grid grid-cols-2 gap-12">
                 <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">예상 운영 비용 (OPEX)</span>
+                        <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">예상 운영 비용 (OPEX)</span>
                         <Badge className="bg-rose-50 text-rose-500 border-0 text-[8px] font-black h-4 px-1.5 uppercase">Live</Badge>
                     </div>
                     <div className="text-5xl font-black italic tracking-tighter tabular-nums text-slate-900">${cost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-[8px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-2">
                         <div className="w-1.5 h-1.5 bg-slate-200 rounded-full" /> Tokens / Compute / Storage
                     </p>
                 </div>
@@ -58,14 +58,14 @@ export const SovereignGovernanceMonitor: React.FC<SovereignGovernanceMonitorProp
                         <History className="w-8 h-8 text-white relative z-10" />
                     </div>
                     <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">대기 중인 전문가 개입 (HITL)</span>
+                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest leading-none">대기 중인 전문가 개입 (HITL)</span>
                         <h5 className="text-2xl font-black italic tracking-tighter uppercase text-slate-900 tabular-nums">{pending}건의 승인 대기</h5>
                     </div>
                 </div>
                 <Button 
                     variant="ghost" 
                     size="icon"
-                    className="h-14 w-14 rounded-[1.2rem] hover:bg-white text-slate-300 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md border border-transparent hover:border-slate-100"
+                    className="h-14 w-14 rounded-[1.2rem] hover:bg-white text-slate-700 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md border border-transparent hover:border-slate-100"
                 >
                     <ArrowRight className="w-6 h-6" />
                 </Button>
@@ -74,11 +74,11 @@ export const SovereignGovernanceMonitor: React.FC<SovereignGovernanceMonitorProp
             <div className="relative z-10 flex items-center gap-8 px-2 pt-2">
                 <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sovereign Integrity: 100%</span>
+                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Sovereign Integrity: 100%</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-indigo-500" />
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Efficiency: 94.2%</span>
+                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Efficiency: 94.2%</span>
                 </div>
             </div>
         </Card>

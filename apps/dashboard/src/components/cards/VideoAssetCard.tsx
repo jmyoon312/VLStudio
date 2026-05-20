@@ -147,7 +147,7 @@ const VideoAssetCard: React.FC<VideoAssetCardProps> = ({ video, selected, onClic
                 {onViewSubtitle && (
                     <div
                         onClick={(e) => { e.stopPropagation(); onViewSubtitle(video); }}
-                        className="flex items-center gap-1 bg-black/60 hover:bg-black/80 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm cursor-pointer transition-colors border border-white/10 shadow-sm"
+                        className="flex items-center gap-1 bg-black/60 hover:bg-black/80 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm cursor-pointer transition-colors border border-slate-200 shadow-sm"
                         title="자막 보기"
                     >
                         <FileText className="w-3 h-3 text-indigo-300" />
@@ -188,7 +188,7 @@ const VideoAssetCard: React.FC<VideoAssetCardProps> = ({ video, selected, onClic
                     {video.title}
                 </h3>
 
-                <div className="flex items-center justify-between text-[10px] text-slate-300">
+                <div className="flex items-center justify-between text-[10px] text-slate-700">
                     {/* Channel */}
                     <div className="flex items-center gap-1.5 min-w-0">
                         <div className="w-4 h-4 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
@@ -210,11 +210,11 @@ const VideoAssetCard: React.FC<VideoAssetCardProps> = ({ video, selected, onClic
                     {/* Stats */}
                     <div className="flex items-center gap-2 flex-shrink-0 font-medium">
                         <div className="flex items-center gap-0.5" title="구독자 수">
-                            <Users className="w-3 h-3 text-slate-400" />
+                            <Users className="w-3 h-3 text-slate-600" />
                             <span>{formatCount(video.channel?.subscriber_count || 0)}</span>
                         </div>
                         <div className="flex items-center gap-0.5" title="조회수">
-                            <Eye className="w-3 h-3 text-slate-400" />
+                            <Eye className="w-3 h-3 text-slate-600" />
                             <span>{formatCount(video.view_count || 0)}</span>
                         </div>
                     </div>

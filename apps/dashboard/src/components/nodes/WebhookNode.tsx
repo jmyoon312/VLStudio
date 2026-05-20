@@ -179,10 +179,10 @@ ${headers.map(h => `  -H "${h.key}: ${h.value}"`).join(' \\\n')} \\
                                 {method}
                             </Badge>
                             <Radio className="w-3 h-3 text-green-400 animate-pulse" />
-                            <span className="text-xs text-slate-300">활성</span>
+                            <span className="text-xs text-slate-700">활성</span>
                         </div>
 
-                        <div className="text-[10px] font-mono bg-black/30 p-2 rounded truncate text-slate-300 border border-white/10">
+                        <div className="text-[10px] font-mono bg-black/30 p-2 rounded truncate text-slate-700 border border-slate-200">
                             {url || 'https://api.example.com/webhook'}
                         </div>
 
@@ -522,7 +522,7 @@ ${headers.map(h => `  -H "${h.key}: ${h.value}"`).join(' \\\n')} \\
 
                                         <div>
                                             <Label>응답 데이터</Label>
-                                            <pre className="mt-2 p-4 bg-slate-900 text-slate-100 rounded-lg text-xs overflow-auto max-h-60">
+                                            <pre className="mt-2 p-4 bg-white text-slate-800 rounded-lg text-xs overflow-auto max-h-60">
                                                 {JSON.stringify(testResult.data, null, 2)}
                                             </pre>
                                         </div>
@@ -530,7 +530,7 @@ ${headers.map(h => `  -H "${h.key}: ${h.value}"`).join(' \\\n')} \\
                                 )}
 
                                 {!testResult && !testing && (
-                                    <div className="text-center py-12 text-slate-400">
+                                    <div className="text-center py-12 text-slate-600">
                                         <Webhook className="w-12 h-12 mx-auto mb-4 opacity-50" />
                                         <p className="text-sm">테스트 요청을 보내서 응답을 확인하세요</p>
                                     </div>

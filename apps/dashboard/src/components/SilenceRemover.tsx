@@ -552,7 +552,7 @@ export default function SilenceRemover() {
                         {logs.map((log, i) => (
                             <div key={i}>{log}</div>
                         ))}
-                        {logs.length === 0 && <div className="text-slate-400 italic">준비됨...</div>}
+                        {logs.length === 0 && <div className="text-slate-600 italic">준비됨...</div>}
                     </div>
                 </ScrollArea>
             </div>

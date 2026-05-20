@@ -82,7 +82,7 @@ export const EnhancedVideoPerformanceTable: React.FC<EnhancedVideoPerformanceTab
 
     const SortIcon: React.FC<{ field: SortField }> = ({ field }) => {
         if (sortField !== field) {
-            return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+            return <ArrowUpDown className="w-4 h-4 text-slate-600" />;
         }
         return sortDirection === 'asc' ? (
             <ArrowUp className="w-4 h-4 text-blue-600" />

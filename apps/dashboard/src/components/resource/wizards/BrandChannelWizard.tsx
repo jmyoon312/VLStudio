@@ -90,7 +90,7 @@ const BRAND_TASKS: Record<number, TaskDef[]> = {
             id: 'wait_warmup',
             title: '휴식 및 반응 관찰',
             description: '첫 영상 업로드 후 하루 정도는 추가 활동 없이 반응을 지켜보세요. 조회수가 0이어도 정상입니다.',
-            icon: <Tv className="w-5 h-5 text-slate-400" />,
+            icon: <Tv className="w-5 h-5 text-slate-600" />,
         }
     ],
     6: [
@@ -155,7 +155,7 @@ const BrandChannelWizard: React.FC<BrandChannelWizardProps> = ({ session, isOpen
                                 <AccordionTrigger className="hover:no-underline flex-1 py-2">
                                     <div className="flex items-center gap-3 text-left">
                                         {task.icon}
-                                        <span className={`font-medium ${isChecked ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                                        <span className={`font-medium ${isChecked ? 'text-slate-600 line-through' : 'text-slate-900'}`}>
                                             {task.title}
                                         </span>
                                         {task.badge && (

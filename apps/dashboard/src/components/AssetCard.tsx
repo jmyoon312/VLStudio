@@ -114,7 +114,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ video, selected, onClick, onDetai
             onMouseLeave={() => setIsHovered(false)}
         >
             {/* Main Container */}
-            <div className="absolute inset-0 rounded-xl overflow-hidden bg-slate-900">
+            <div className="absolute inset-0 rounded-xl overflow-hidden bg-white">
                 {/* Image / Video Layer */}
                 {isHovered && video.file_path ? (
                     <video
@@ -179,7 +179,7 @@ const AssetCard: React.FC<AssetCardProps> = ({ video, selected, onClick, onDetai
                         {video.title}
                     </h3>
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-300">
+                    <div className="flex items-center justify-between text-[10px] text-slate-700">
                         {/* Channel */}
                         <div className="flex items-center gap-1.5 min-w-0">
                             <div className="w-4 h-4 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
@@ -197,11 +197,11 @@ const AssetCard: React.FC<AssetCardProps> = ({ video, selected, onClick, onDetai
                         {/* Stats */}
                         <div className="flex items-center gap-2 flex-shrink-0 font-medium">
                             <div className="flex items-center gap-0.5" title="Subscribers">
-                                <Users className="w-3 h-3 text-slate-400" />
+                                <Users className="w-3 h-3 text-slate-600" />
                                 <span>{formatCount(video.channel?.subscriber_count || 0)}</span>
                             </div>
                             <div className="flex items-center gap-0.5" title="Views">
-                                <Eye className="w-3 h-3 text-slate-400" />
+                                <Eye className="w-3 h-3 text-slate-600" />
                                 <span>{formatCount(video.view_count)}</span>
                             </div>
                         </div>

@@ -44,7 +44,7 @@ const CognitiveTrace = () => {
         <div className="sovereign-card h-[450px] flex flex-col relative overflow-hidden">
             <div className="scanline" />
             
-            <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-2">
                 <div className="flex items-center gap-2">
                     <div className="p-2 bg-primary/20 rounded-lg">
                         <Terminal className="w-4 h-4 text-primary" />

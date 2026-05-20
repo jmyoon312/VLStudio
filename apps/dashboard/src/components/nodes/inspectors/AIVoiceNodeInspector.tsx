@@ -293,9 +293,9 @@ const AIVoiceNodeInspector = ({ data, nodeId }: { data: any, nodeId: string }) =
     return (
         <div className="flex flex-col h-full bg-white relative">
             {/* 1. Header: Batch Navigator & Run Node */}
-            <div className="bg-slate-900 text-white p-2 flex items-center justify-between shrink-0 h-12">
+            <div className="bg-white text-slate-800 border border-slate-200 p-2 flex items-center justify-between shrink-0 h-12">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white"
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-white"
                         onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                         disabled={currentIndex === 0}>
                         <ChevronLeft className="w-4 h-4" />
@@ -305,19 +305,19 @@ const AIVoiceNodeInspector = ({ data, nodeId }: { data: any, nodeId: string }) =
                         <span className="text-xs font-mono font-bold text-blue-200">
                             Asset {inputAssets.length > 0 ? currentIndex + 1 : 0} / {inputAssets.length}
                         </span>
-                        <span className="text-[10px] text-slate-400 truncate max-w-[150px]">
+                        <span className="text-[10px] text-slate-600 truncate max-w-[150px]">
                             {loadingAssets ? "데이터 불러오는 중..." : (currentAsset.title || "선택된 자산 없음")}
                         </span>
                     </div>
 
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-white"
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-white"
                         onClick={() => setCurrentIndex(prev => Math.min(inputAssets.length - 1, prev + 1))}
                         disabled={currentIndex >= inputAssets.length - 1}>
                         <ChevronRight className="w-4 h-4" />
                     </Button>
                 </div>
 
-                <div className="flex items-center gap-1 pl-2 border-l border-slate-700">
+                <div className="flex items-center gap-1 pl-2 border-l border-slate-200">
                     <Button
                         size="icon"
                         className="h-7 w-7 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg hover:scale-105 transition-all"
@@ -384,10 +384,10 @@ const AIVoiceNodeInspector = ({ data, nodeId }: { data: any, nodeId: string }) =
 
                     <TabsContent value="source" className="flex-1 p-0 m-0 relative overflow-hidden h-full data-[state=active]:flex flex-col min-h-0">
                         {(!sourceScript) && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-6 text-center z-10 pointer-events-none">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-600 p-6 text-center z-10 pointer-events-none">
                                 <AlertTriangle className="w-8 h-8 mb-2 opacity-50" />
                                 <span className="font-semibold text-xs">⚠️ 대본 데이터 없음</span>
-                                <span className="text-[10px] mt-1 text-slate-400">이전 노드에서 전달된 텍스트가 없습니다.</span>
+                                <span className="text-[10px] mt-1 text-slate-600">이전 노드에서 전달된 텍스트가 없습니다.</span>
                             </div>
                         )}
                         <Textarea
@@ -396,7 +396,7 @@ const AIVoiceNodeInspector = ({ data, nodeId }: { data: any, nodeId: string }) =
                             value={loadingAssets ? "데이터 불러오는 중..." : sourceScript}
                             onChange={(e) => setSourceScript(e.target.value)}
                         />
-                        <div className="absolute bottom-2 right-4 text-[10px] text-slate-400 bg-white/80 px-1.5 py-0.5 rounded pointer-events-none">
+                        <div className="absolute bottom-2 right-4 text-[10px] text-slate-600 bg-white/80 px-1.5 py-0.5 rounded pointer-events-none">
                             {sourceScript.length.toLocaleString()} 자
                         </div>
                     </TabsContent>
@@ -414,7 +414,7 @@ const AIVoiceNodeInspector = ({ data, nodeId }: { data: any, nodeId: string }) =
                                         {currentResult.timestamp ? new Date(currentResult.timestamp).toLocaleTimeString() : '방금 전'} 생성됨
                                     </p>
                                     {/* Debug Info (Optional) */}
-                                    {/* <p className="text-[9px] text-slate-300 mt-1">{currentResult.audio_url.split('/').pop()}</p> */}
+                                    {/* <p className="text-[9px] text-slate-700 mt-1">{currentResult.audio_url.split('/').pop()}</p> */}
                                 </div>
 
                                 {/* Key is important to force reload on url change */}
@@ -444,13 +444,13 @@ const AIVoiceNodeInspector = ({ data, nodeId }: { data: any, nodeId: string }) =
                                         <Save className="w-3 h-3 mr-1.5" />
                                         {isSaving ? "저장 중..." : "자산 저장"}
                                     </Button>
-                                    <Button size="sm" variant="ghost" className="h-7 text-[10px] text-slate-400" onClick={() => window.open(currentResult.audio_url, '_blank')}>
+                                    <Button size="sm" variant="ghost" className="h-7 text-[10px] text-slate-600" onClick={() => window.open(currentResult.audio_url, '_blank')}>
                                         <Download className="w-3 h-3 mr-1.5" /> 다운로드
                                     </Button>
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-center text-slate-400">
+                            <div className="text-center text-slate-600">
                                 {currentResult?.status === 'failed' ? (
                                     <>
                                         <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-red-400" />

@@ -77,7 +77,7 @@ const MediaPanel = () => {
                     <Upload className="w-4 h-4" /> 미디어 가져오기
                 </Button>
                 {assets.length === 0 ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-2 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => fileInputRef.current?.click()}>
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-600 gap-2 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => fileInputRef.current?.click()}>
                         <Upload className="w-8 h-8 opacity-20" />
                         <span className="text-xs">미디어를 가져오세요</span>
                     </div>
@@ -103,7 +103,7 @@ const MediaPanel = () => {
                                 ) : asset.type === 'image' ? (
                                     <img src={asset.thumbnail || asset.source} alt={asset.name} className="w-full h-full object-cover pointer-events-none" />
                                 ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900">
+                                    <div className="w-full h-full flex flex-col items-center justify-center bg-white">
                                         <AudioWaveform src={asset.source} color="#3b82f6" height="60%" />
                                     </div>
                                 )}

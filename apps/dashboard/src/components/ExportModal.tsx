@@ -112,7 +112,7 @@ const ExportModal = ({ isOpen, onClose, onExport }: ExportModalProps) => {
                             <div className="space-y-4 animate-in fade-in slide-in-from-left-2">
                                 <h3 className="font-semibold text-sm flex items-center"><ImageIcon className="w-3 h-3 mr-2" /> Image Settings</h3>
                                 <div className="space-y-1"><Label className="text-xs text-slate-500">Format</Label><SelectRoot value={iFormat} onChange={setIFormat} opts={['png', 'jpg']} /></div>
-                                <p className="text-[10px] text-slate-400">Exports the current frame.</p>
+                                <p className="text-[10px] text-slate-600">Exports the current frame.</p>
                             </div>
                         )}
 
@@ -124,7 +124,7 @@ const ExportModal = ({ isOpen, onClose, onExport }: ExportModalProps) => {
                         )}
 
                         {(!isVideo && !isAudio && !isImage && !isSubtitle) && (
-                            <div className="h-full flex items-center justify-center text-slate-400 text-sm italic">
+                            <div className="h-full flex items-center justify-center text-slate-600 text-sm italic">
                                 Select an export type to see settings
                             </div>
                         )}

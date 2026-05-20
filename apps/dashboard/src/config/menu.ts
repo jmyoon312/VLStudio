@@ -53,7 +53,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         defaultExpanded: true,
         items: [
             { name: '대시보드 홈', path: '/', icon: Home, highlight: true },
-            { name: '스웜 관제소 홈 (C2)', path: '/swarm-hub', icon: Shield, highlight: true },
+            { name: '스웜 관제소 홈 (C2)', path: '/swarm/synthesis', icon: Shield, highlight: true },
             { name: '스마트 스카우터', path: '/swarm/scouter', icon: Target },
             { name: '소버린 전략 연구소', path: '/swarm/strategy', icon: FileText },
             { name: '자동화 작업 대기열', path: '/work-queue', icon: Activity, highlight: true },

@@ -123,7 +123,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                         <div className="col-span-2 space-y-1">
                             <div className="flex justify-between items-center">
                                 <Label className="text-[10px] text-slate-500 font-medium">크기</Label>
-                                <span className="text-[9px] text-slate-400">{localConfig.fontSize}px</span>
+                                <span className="text-[9px] text-slate-600">{localConfig.fontSize}px</span>
                             </div>
                             <Slider
                                 value={[localConfig.fontSize]}
@@ -151,21 +151,21 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                         <div className="flex gap-0.5">
                             <button
                                 onClick={() => updateInstant('textAlign', 'left')}
-                                className={cn("p-1 rounded transition-colors", localConfig.textAlign === 'left' ? "bg-slate-900 text-white shadow-sm" : "hover:bg-slate-100 text-slate-600")}
+                                className={cn("p-1 rounded transition-colors", localConfig.textAlign === 'left' ? "bg-white text-slate-800 border border-slate-200 shadow-sm" : "hover:bg-slate-100 text-slate-600")}
                                 title="왼쪽 정렬"
                             >
                                 <AlignJustify className="w-3.5 h-3.5" />
                             </button>
                             <button
                                 onClick={() => updateInstant('textAlign', 'center')}
-                                className={cn("p-1 rounded transition-colors", (localConfig.textAlign === 'center' || !localConfig.textAlign) ? "bg-slate-900 text-white shadow-sm" : "hover:bg-slate-100 text-slate-600")}
+                                className={cn("p-1 rounded transition-colors", (localConfig.textAlign === 'center' || !localConfig.textAlign) ? "bg-white text-slate-800 border border-slate-200 shadow-sm" : "hover:bg-slate-100 text-slate-600")}
                                 title="가운데 정렬"
                             >
                                 <AlignCenter className="w-3.5 h-3.5" />
                             </button>
                             <button
                                 onClick={() => updateInstant('textAlign', 'right')}
-                                className={cn("p-1 rounded transition-colors", localConfig.textAlign === 'right' ? "bg-slate-900 text-white shadow-sm" : "hover:bg-slate-100 text-slate-600")}
+                                className={cn("p-1 rounded transition-colors", localConfig.textAlign === 'right' ? "bg-white text-slate-800 border border-slate-200 shadow-sm" : "hover:bg-slate-100 text-slate-600")}
                                 title="오른쪽 정렬"
                             >
                                 <AlignJustify className="w-3.5 h-3.5 scale-x-[-1]" />
@@ -264,7 +264,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                                 className={cn(
                                     "px-2 py-1.5 text-[10px] border rounded transition-all",
                                     localConfig.position === pos
-                                        ? "bg-slate-800 text-white border-slate-800 font-bold"
+                                        ? "bg-slate-50 text-slate-800 border border-slate-200 border-slate-200 font-bold"
                                         : "bg-white text-slate-600 hover:bg-slate-50"
                                 )}
                             >
@@ -281,7 +281,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                             <div className="space-y-1">
                                 <div className="flex justify-between">
                                     <Label className="text-[10px]">수직 여백 (Margin Y)</Label>
-                                    <span className="text-[9px] text-slate-400">{localConfig.marginV}px</span>
+                                    <span className="text-[9px] text-slate-600">{localConfig.marginV}px</span>
                                 </div>
                                 <Slider
                                     value={[localConfig.marginV]}
@@ -540,7 +540,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                                 min={5} max={50} step={1}
                                 onValueChange={(v) => updateDebounced('splitLimit', v[0])}
                             />
-                            <div className="flex justify-between text-[9px] text-slate-400">
+                            <div className="flex justify-between text-[9px] text-slate-600">
                                 <span>Shorts 권장 (10-15)</span>
                                 <span>Longform (20-30)</span>
                             </div>

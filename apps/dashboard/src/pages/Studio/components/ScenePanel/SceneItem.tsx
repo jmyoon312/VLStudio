@@ -114,7 +114,7 @@ export const SceneItem: React.FC<SceneItemProps> = ({
                             className="w-full h-full object-cover"
                         />
                     ) : (
-                        <div className="flex items-center justify-center w-full h-full text-gray-300">
+                        <div className="flex items-center justify-center w-full h-full text-slate-700">
                             <ImageIcon className="w-8 h-8" />
                         </div>
                     )}
@@ -203,7 +203,7 @@ export const SceneItem: React.FC<SceneItemProps> = ({
                             />
                         </div>
                     ) : (
-                        <div className="mb-2 rounded bg-gray-100 aspect-video flex flex-col items-center justify-center gap-1 text-gray-300">
+                        <div className="mb-2 rounded bg-gray-100 aspect-video flex flex-col items-center justify-center gap-1 text-slate-700">
                             <ImageIcon className="w-6 h-6" />
                         </div>
                     )}

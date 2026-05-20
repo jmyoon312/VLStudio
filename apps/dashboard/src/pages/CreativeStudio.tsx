@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
     Loader2, ImageIcon, Music, Film, Upload, Download, Clapperboard, Plus, Trash2,
     Sparkles, Copy, ChevronDown, ChevronUp, RefreshCw, Save, Wand2, RotateCcw, Play,
-    MonitorPlay, Smartphone, Eye, EyeOff, Mic
+    MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign
 } from "lucide-react";
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
 import MotionSettingsDialog from '@/components/MotionSettingsDialog';
@@ -378,7 +378,8 @@ const CreativeStudio = () => {
         customX: 0,
         customY: 0,
         animation: 'none',
-        splitLimit: 20
+        splitLimit: 20,
+        maxLines: 2
     });
 
     // State: UI Toggles
@@ -468,7 +469,7 @@ const CreativeStudio = () => {
 
     // Mutations
     const segmentScriptMutation = useMutation({
-        mutationFn: async (data: { text: string, mode: string, provider: string, model: string, stylePrompt: string, auto_generate_images: boolean, auto_generate_audio: boolean }) => {
+        mutationFn: async (data: { text: string, mode: string, provider: string, model: string, stylePrompt: string, auto_generate_images: boolean, auto_generate_audio: boolean, pacing_config?: any }) => {
             const res = await api.post('/creative/split-script', {
                 text: data.text,
                 mode: data.mode,
@@ -476,7 +477,8 @@ const CreativeStudio = () => {
                 model: data.model,
                 style_prompt: data.stylePrompt,
                 auto_generate_images: data.auto_generate_images,
-                auto_generate_audio: data.auto_generate_audio
+                auto_generate_audio: data.auto_generate_audio,
+                pacing_config: data.pacing_config
             });
             return res.data;
         },
@@ -1105,7 +1107,7 @@ const CreativeStudio = () => {
             <Card className="border-l-4 border-l-purple-500 shadow-sm">
                 <CardHeader className="py-3 px-4 cursor-pointer hover:bg-muted/5 transition-colors border-b" onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}>
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-slate-500">
+                        <div className="flex items-center gap-2 text-muted-foreground">
                             <Wand2 className="w-4 h-4" />
                             <span className="text-xs font-bold uppercase tracking-wider">Style & Configuration</span>
                         </div>
@@ -1203,7 +1205,7 @@ const CreativeStudio = () => {
             <Card className="border-l-4 border-l-blue-500 shadow-sm">
                 <CardHeader className="py-3 px-4 cursor-pointer hover:bg-muted/5 transition-colors border-b" onClick={() => setIsScriptCollapsed(!isScriptCollapsed)}>
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-slate-500">
+                        <div className="flex items-center gap-2 text-muted-foreground">
                             <Clapperboard className="w-4 h-4" />
                             <span className="text-xs font-bold uppercase tracking-wider">Script Workspace</span>
                         </div>
@@ -1213,9 +1215,9 @@ const CreativeStudio = () => {
                 {!isScriptCollapsed && (
                     <CardContent className="space-y-4 pt-0">
                         <Tabs value={scriptMode} onValueChange={setScriptMode} className="w-full">
-                            <TabsList className="grid w-full grid-cols-2">
-                                <TabsTrigger value="manual">📝 직접 입력 (Manual Input)</TabsTrigger>
-                                <TabsTrigger value="creative">✨ AI 작가 (Creative Writer)</TabsTrigger>
+                            <TabsList className="grid w-full grid-cols-2 bg-muted p-1 rounded-lg h-9">
+                                <TabsTrigger value="manual" className="text-xs px-2">📝 직접 입력</TabsTrigger>
+                                <TabsTrigger value="creative" className="text-xs px-2">✨ AI 작가</TabsTrigger>
                             </TabsList>
                             <TabsContent value="creative" className="space-y-4">
                                 <div className="col-span-3"> {/* Expanded to full width of grid -> actually it was 3 cols, so we just use full space */}
@@ -1356,7 +1358,7 @@ const CreativeStudio = () => {
                     {/* Row 1: Title & Segment Mode */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 text-slate-400">
+                            <div className="flex items-center gap-2 text-muted-foreground">
                                 <Film className="w-4 h-4" />
                                 <span className="text-xs font-bold uppercase tracking-wider">Scene Board</span>
                                 <Badge variant="secondary" className="ml-2 h-5 text-[10px]">{scenes.length} Scenes</Badge>

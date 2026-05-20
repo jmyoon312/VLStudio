@@ -245,9 +245,9 @@ const AIModelSelector = ({
                         <SelectContent className="max-h-[400px] min-w-[300px]">
                             {/* [NEW] Search Input */}
                             <div className="flex items-center px-3 py-2 border-b sticky top-0 bg-white z-10">
-                                <Search className="w-3.5 h-3.5 mr-2 text-slate-400" />
+                                <Search className="w-3.5 h-3.5 mr-2 text-slate-600" />
                                 <input
-                                    className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-400"
+                                    className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-600"
                                     placeholder="모델 검색..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -257,7 +257,7 @@ const AIModelSelector = ({
                                 {searchTerm && (
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); setSearchTerm(""); }}
-                                        className="text-slate-400 hover:text-slate-600 ml-1"
+                                        className="text-slate-600 hover:text-slate-600 ml-1"
                                     >
                                         ×
                                     </button>
@@ -272,7 +272,7 @@ const AIModelSelector = ({
                                         </SelectItem>
                                     ))
                                 ) : (
-                                    <div className="py-6 text-center text-xs text-slate-400 italic">
+                                    <div className="py-6 text-center text-xs text-slate-600 italic">
                                         검색 결과가 없습니다
                                     </div>
                                 )}

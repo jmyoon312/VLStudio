@@ -46,7 +46,7 @@ const PropertyPanel = () => {
 
     if (!selectedClip || !selectedTrack) {
         return (
-            <div className="h-full flex items-center justify-center text-slate-400">
+            <div className="h-full flex items-center justify-center text-slate-600">
                 <div className="text-center">
                     <p>클립을 선택하여 속성을 편집하세요</p>
                 </div>
@@ -175,7 +175,7 @@ const PropertyPanel = () => {
         <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 ml-1 text-slate-400 hover:text-blue-500"
+            className="h-6 w-6 ml-1 text-slate-600 hover:text-blue-500"
             onClick={() => addKeyframe(property)}
             title="Add Keyframe"
         >
@@ -193,7 +193,7 @@ const PropertyPanel = () => {
                     {selectedClip.type === 'audio' && <div className="w-4 h-4 rounded bg-green-500" />}
                     <h2 className="font-semibold text-slate-800 truncate">{selectedClip.name}</h2>
                 </div>
-                <div className="flex gap-4 text-xs text-slate-400 font-mono">
+                <div className="flex gap-4 text-xs text-slate-600 font-mono">
                     <span>{selectedClip.id.slice(0, 8)}</span>
                     <span>{selectedClip.duration.toFixed(1)}s</span>
                 </div>
@@ -218,9 +218,9 @@ const PropertyPanel = () => {
                                         className="flex-1"
                                     />
                                 </div>
-                                <span className="text-xs text-slate-400 w-8 text-right">{selectedClip.speed.toFixed(1)}x</span>
+                                <span className="text-xs text-slate-600 w-8 text-right">{selectedClip.speed.toFixed(1)}x</span>
                             </div>
-                            <div className="flex justify-between text-[10px] text-slate-400 px-1">
+                            <div className="flex justify-between text-[10px] text-slate-600 px-1">
                                 <span>0.1x</span>
                                 <span>1x</span>
                                 <span>5x</span>
@@ -265,7 +265,7 @@ const PropertyPanel = () => {
                                                 {Object.entries(availableFonts).map(([category, fonts]) => (
                                                     <React.Fragment key={category}>
                                                         {Object.keys(availableFonts).length > 1 && (
-                                                            <div className="px-2 py-1 text-xs font-semibold text-slate-400 bg-slate-50">
+                                                            <div className="px-2 py-1 text-xs font-semibold text-slate-600 bg-slate-50">
                                                                 {category}
                                                             </div>
                                                         )}
@@ -352,7 +352,7 @@ const PropertyPanel = () => {
                                                 onChange={(e) => handleStyleUpdate({ letterSpacing: Number(e.target.value) })}
                                                 className="h-7 text-xs"
                                             />
-                                            <span className="text-xs text-slate-400">px</span>
+                                            <span className="text-xs text-slate-600">px</span>
                                         </div>
                                     </div>
                                     <div className="space-y-2">
@@ -413,7 +413,7 @@ const PropertyPanel = () => {
                                                     className="w-20"
                                                 />
                                             </div>
-                                            <span className="text-xs text-slate-400 font-mono">
+                                            <span className="text-xs text-slate-600 font-mono">
                                                 {selectedClip.style.backgroundColor === 'transparent' ? 'Off' : 'On'}
                                             </span>
                                         </div>
@@ -440,7 +440,7 @@ const PropertyPanel = () => {
                                                     min={0} max={500} step={10}
                                                     onValueChange={(v) => handleStyleUpdate({ marginV: v[0] } as any)} // Cast as any because marginV is new
                                                 />
-                                                <span className="text-xs text-slate-400 w-8">{selectedClip.style.marginV || 50}</span>
+                                                <span className="text-xs text-slate-600 w-8">{selectedClip.style.marginV || 50}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -627,7 +627,7 @@ const PropertyPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
                                             <Label className="text-xs text-slate-500 flex items-center">크기 (Scale) <KeyframeBtn property="scale" /></Label>
-                                            <span className="text-[10px] text-slate-400">{Math.round(selectedClip.transform.scale * 100)}%</span>
+                                            <span className="text-[10px] text-slate-600">{Math.round(selectedClip.transform.scale * 100)}%</span>
                                         </div>
                                         <Slider
                                             value={[selectedClip.transform.scale]}
@@ -638,7 +638,7 @@ const PropertyPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
                                             <Label className="text-xs text-slate-500 flex items-center">회전 <KeyframeBtn property="rotation" /></Label>
-                                            <span className="text-[10px] text-slate-400">{Math.round(selectedClip.transform.rotation)}°</span>
+                                            <span className="text-[10px] text-slate-600">{Math.round(selectedClip.transform.rotation)}°</span>
                                         </div>
                                         <Slider
                                             value={[selectedClip.transform.rotation]}
@@ -650,7 +650,7 @@ const PropertyPanel = () => {
                                 <div className="space-y-2">
                                     <div className="flex justify-between">
                                         <Label className="text-xs text-slate-500 flex items-center">불투명도 <KeyframeBtn property="opacity" /></Label>
-                                        <span className="text-[10px] text-slate-400">{Math.round(selectedClip.transform.opacity * 100)}%</span>
+                                        <span className="text-[10px] text-slate-600">{Math.round(selectedClip.transform.opacity * 100)}%</span>
                                     </div>
                                     <Slider
                                         value={[selectedClip.transform.opacity]}
@@ -699,7 +699,7 @@ const PropertyPanel = () => {
                                         <div className="space-y-2">
                                             <div className="flex justify-between">
                                                 <Label className="text-xs text-slate-500">유사도 (Similarity)</Label>
-                                                <span className="text-[10px] text-slate-400">{((selectedClip.chromakey?.similarity || 0.1) * 100).toFixed(0)}%</span>
+                                                <span className="text-[10px] text-slate-600">{((selectedClip.chromakey?.similarity || 0.1) * 100).toFixed(0)}%</span>
                                             </div>
                                             <Slider
                                                 value={[selectedClip.chromakey?.similarity || 0.1]}
@@ -710,7 +710,7 @@ const PropertyPanel = () => {
                                         <div className="space-y-2">
                                             <div className="flex justify-between">
                                                 <Label className="text-xs text-slate-500">블렌드 (Blend)</Label>
-                                                <span className="text-[10px] text-slate-400">{((selectedClip.chromakey?.blend || 0.1) * 100).toFixed(0)}%</span>
+                                                <span className="text-[10px] text-slate-600">{((selectedClip.chromakey?.blend || 0.1) * 100).toFixed(0)}%</span>
                                             </div>
                                             <Slider
                                                 value={[selectedClip.chromakey?.blend || 0.1]}
@@ -738,7 +738,7 @@ const PropertyPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
                                             <Label className="text-xs text-slate-500 flex items-center gap-1"><Sun className="w-3 h-3" /> 밝기</Label>
-                                            <span className="text-[10px] text-slate-400">{selectedClip.filter.brightness.toFixed(2)}</span>
+                                            <span className="text-[10px] text-slate-600">{selectedClip.filter.brightness.toFixed(2)}</span>
                                         </div>
                                         <Slider
                                             value={[selectedClip.filter.brightness]}
@@ -749,7 +749,7 @@ const PropertyPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
                                             <Label className="text-xs text-slate-500 flex items-center gap-1"><Contrast className="w-3 h-3" /> 대비</Label>
-                                            <span className="text-[10px] text-slate-400">{selectedClip.filter.contrast.toFixed(2)}</span>
+                                            <span className="text-[10px] text-slate-600">{selectedClip.filter.contrast.toFixed(2)}</span>
                                         </div>
                                         <Slider
                                             value={[selectedClip.filter.contrast]}
@@ -760,7 +760,7 @@ const PropertyPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
                                             <Label className="text-xs text-slate-500 flex items-center gap-1"><Droplet className="w-3 h-3" /> 채도</Label>
-                                            <span className="text-[10px] text-slate-400">{selectedClip.filter.saturation.toFixed(2)}</span>
+                                            <span className="text-[10px] text-slate-600">{selectedClip.filter.saturation.toFixed(2)}</span>
                                         </div>
                                         <Slider
                                             value={[selectedClip.filter.saturation]}
@@ -771,7 +771,7 @@ const PropertyPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
                                             <Label className="text-xs text-slate-500 flex items-center gap-1"><Palette className="w-3 h-3" /> 색조</Label>
-                                            <span className="text-[10px] text-slate-400">{selectedClip.filter.hue}°</span>
+                                            <span className="text-[10px] text-slate-600">{selectedClip.filter.hue}°</span>
                                         </div>
                                         <Slider
                                             value={[selectedClip.filter.hue]}
@@ -783,7 +783,7 @@ const PropertyPanel = () => {
                                 <div className="space-y-2 pt-2">
                                     <div className="flex justify-between">
                                         <Label className="text-xs text-slate-500 flex items-center gap-1"><Aperture className="w-3 h-3" /> 흐림 (Blur)</Label>
-                                        <span className="text-[10px] text-slate-400">{selectedClip.filter.blur}px</span>
+                                        <span className="text-[10px] text-slate-600">{selectedClip.filter.blur}px</span>
                                     </div>
                                     <Slider
                                         value={[selectedClip.filter.blur]}
@@ -812,7 +812,7 @@ const PropertyPanel = () => {
                                 <div className="space-y-2">
                                     <div className="flex justify-between">
                                         <Label className="text-xs text-slate-500">볼륨</Label>
-                                        <span className="text-[10px] text-slate-400">{Math.round(selectedClip.audio.volume * 100)}%</span>
+                                        <span className="text-[10px] text-slate-600">{Math.round(selectedClip.audio.volume * 100)}%</span>
                                     </div>
                                     <Slider
                                         value={[selectedClip.audio.volume]}
@@ -824,7 +824,7 @@ const PropertyPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
                                             <Label className="text-xs text-slate-500">페이드 인</Label>
-                                            <span className="text-[10px] text-slate-400">{selectedClip.audio.fadeIn}s</span>
+                                            <span className="text-[10px] text-slate-600">{selectedClip.audio.fadeIn}s</span>
                                         </div>
                                         <Slider
                                             value={[selectedClip.audio.fadeIn]}
@@ -835,7 +835,7 @@ const PropertyPanel = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between">
                                             <Label className="text-xs text-slate-500">페이드 아웃</Label>
-                                            <span className="text-[10px] text-slate-400">{selectedClip.audio.fadeOut}s</span>
+                                            <span className="text-[10px] text-slate-600">{selectedClip.audio.fadeOut}s</span>
                                         </div>
                                         <Slider
                                             value={[selectedClip.audio.fadeOut]}

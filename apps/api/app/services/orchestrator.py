@@ -70,8 +70,113 @@ class SovereignOrchestrator:
 
     def sync_paperclip(self):
         """[Elite] Paperclip 컨테이너가 제거됨 — 안전하게 스킵."""
-        logger.info("[Elite] Paperclip service removed. sync_paperclip() skipped (no-op).")
-        return
+        logger.debug("[Elite] Paperclip service removed. sync_paperclip() skipped (no-op).")
+        return {"status": "success", "message": "Paperclip service removed (no-op)"}
+
+    def sync_openclaude(self) -> dict:
+        """
+        Synchronizes LLM settings and MCP server configuration to OpenClaude's configuration files.
+        """
+        logger.info("Starting OpenClaude configuration sync...")
+        try:
+            import os
+            import json
+            
+            home_dir = os.path.expanduser("~")
+            claude_dir = os.path.join(home_dir, ".claude")
+            os.makedirs(claude_dir, exist_ok=True)
+            
+            # Paths to OpenClaude configurations
+            openclaude_path = os.path.join(home_dir, ".openclaude.json")
+            settings_path = os.path.join(claude_dir, "settings.json")
+            
+            # Determine API Key and Provider based on settings
+            provider = self.settings.openclaude_provider or "google"
+            api_key = ""
+            model = self.settings.openclaude_model or ""
+            
+            if provider == "google" and self.settings.gemini_api_keys:
+                api_key = self.settings.gemini_api_keys[0]
+                if not model: model = "gemini-2.5-flash"
+            elif provider == "openrouter" and self.settings.openrouter_api_keys:
+                api_key = self.settings.openrouter_api_keys[0]
+                if not model: model = "google/gemini-2.0-flash-lite-preview-02-05:free"
+            elif provider == "groq" and self.settings.groq_api_keys:
+                api_key = self.settings.groq_api_keys[0]
+                if not model: model = "llama-3.3-70b-versatile"
+            elif provider == "openai" and self.settings.openai_api_key:
+                api_key = self.settings.openai_api_key
+                if not model: model = "gpt-4o-mini"
+            else:
+                # Fallback to whatever key is available
+                if self.settings.gemini_api_keys:
+                    provider = "google"
+                    api_key = self.settings.gemini_api_keys[0]
+                    if not model: model = "gemini-2.5-flash"
+                elif self.settings.openrouter_api_keys:
+                    provider = "openrouter"
+                    api_key = self.settings.openrouter_api_keys[0]
+                    if not model: model = "google/gemini-2.0-flash-lite-preview-02-05:free"
+                elif self.settings.groq_api_keys:
+                    provider = "groq"
+                    api_key = self.settings.groq_api_keys[0]
+                    if not model: model = "llama-3.3-70b-versatile"
+            
+            # 1. Update/Create .openclaude.json
+            config_data = {}
+            if os.path.exists(openclaude_path):
+                try:
+                    with open(openclaude_path, "r", encoding="utf-8") as f:
+                        config_data = json.load(f)
+                except Exception as e:
+                    logger.warning(f"Failed to parse existing .openclaude.json: {e}")
+            
+            config_data["provider"] = provider
+            if api_key:
+                config_data["apiKey"] = api_key
+            if model:
+                config_data["model"] = model
+                
+            # Configure MCP server
+            from app.config import settings as app_settings
+            mcp_script_path = os.path.join(app_settings.PROJECT_ROOT, "mcp-server", "index.js").replace("\\", "/")
+            
+            mcp_servers = config_data.setdefault("mcpServers", {})
+            mcp_servers["viraloop"] = {
+                "command": "node",
+                "args": [mcp_script_path]
+            }
+            
+            with open(openclaude_path, "w", encoding="utf-8") as f:
+                json.dump(config_data, f, indent=2)
+                
+            # 2. Update/Create .claude/settings.json (also used by some OpenClaude/Claude CLI distributions)
+            settings_data = {}
+            if os.path.exists(settings_path):
+                try:
+                    with open(settings_path, "r", encoding="utf-8") as f:
+                        settings_data = json.load(f)
+                except Exception as e:
+                    logger.warning(f"Failed to parse existing .claude/settings.json: {e}")
+            
+            # Sync key fields to settings.json
+            settings_data.update({
+                "provider": provider,
+                "model": model,
+                "mcpServers": mcp_servers
+            })
+            if api_key:
+                settings_data["apiKey"] = api_key
+                
+            with open(settings_path, "w", encoding="utf-8") as f:
+                json.dump(settings_data, f, indent=2)
+                
+            logger.info("Successfully synchronized OpenClaude settings.")
+            return {"status": "success", "message": "OpenClaude configuration synchronized."}
+            
+        except Exception as e:
+            logger.error(f"Failed to sync OpenClaude config: {e}")
+            return {"status": "error", "message": str(e)}
 
 
     def sync_n8n_env(self):

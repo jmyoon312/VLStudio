@@ -215,7 +215,7 @@ const ReferenceMonitorNode = ({ data, selected }: NodeProps) => {
                                             >
                                                 <Youtube className={cn(
                                                     "w-5 h-5 flex-shrink-0",
-                                                    channel.active ? 'text-emerald-600' : 'text-slate-400'
+                                                    channel.active ? 'text-emerald-600' : 'text-slate-600'
                                                 )} />
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium truncate">{channel.url}</p>
@@ -251,7 +251,7 @@ const ReferenceMonitorNode = ({ data, selected }: NodeProps) => {
                                         ))}
 
                                         {channels.length === 0 && (
-                                            <div className="text-center py-12 text-slate-400">
+                                            <div className="text-center py-12 text-slate-600">
                                                 <Youtube className="w-12 h-12 mx-auto mb-4 opacity-50" />
                                                 <p className="text-sm">모니터링할 채널을 추가하세요</p>
                                             </div>
@@ -391,7 +391,7 @@ const ReferenceMonitorNode = ({ data, selected }: NodeProps) => {
                                 </div>
 
                                 {discoveredVideos.length === 0 && (
-                                    <div className="text-center py-12 text-slate-400">
+                                    <div className="text-center py-12 text-slate-600">
                                         <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
                                         <p className="text-sm">아직 발견된 영상이 없습니다</p>
                                     </div>

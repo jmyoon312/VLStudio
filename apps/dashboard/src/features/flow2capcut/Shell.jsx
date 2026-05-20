@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { resetModalCount } from '../../lib/utils'
 
 const DEFAULT_LAYOUT = 'split-left'
 const DEFAULT_RATIO = 0.5
@@ -54,6 +55,16 @@ function ShellContent({ children }) {
       const viewsRes = await window.electronAPI?.getActiveViews?.()
       if (viewsRes?.success) {
         setActiveViews(viewsRes.activeIds)
+      }
+
+      // Failsafe: if any modals/dialogs/overlays/menus/dropdowns are open in the DOM, ensure the flow views are hidden; otherwise make them visible.
+      const hasOpenDialogInDOM = document.querySelectorAll(
+        '[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"], .export-modal-overlay, .auth-modal-overlay, .modal-overlay, .paywall-overlay, .drawer-overlay'
+      ).length > 0
+      if (hasOpenDialogInDOM) {
+        window.electronAPI?.setModalVisible?.({ visible: true })
+      } else {
+        resetModalCount()
       }
     } catch (e) {
       console.warn("Failed to load profiles/views in Shell:", e)

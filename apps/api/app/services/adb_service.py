@@ -119,23 +119,29 @@ class ADBService:
             logger.error(f"❌ ADB 명령 실패: {' '.join(full_cmd)} - {e}")
             return ""
 
-    def get_current_ip(self, serial: Optional[str] = None) -> str:
+    def get_current_ip(self, serial: Optional[str] = None, force: bool = False) -> str:
         """핸드폰 내부에서 공인 IP 확인 (최적화 버전)"""
+        target = serial or "default"
+        
+        # 너무 잦은 폴링 부하 방지: 강제 갱신이 아니고 유효한 IP가 있다면 15초간 캐시 유지
+        cached = self._cached_public_ips.get(target)
+        last_check = getattr(self, f"_last_check_{target}", 0)
+        
+        if not force and cached and "." in cached and (time.time() - last_check < 15):
+            return cached
+            
         providers = ["https://api.ipify.org", "https://ifconfig.me/ip"]
         
         for url in providers:
             # 타임아웃을 2초로 단축
             res = self.run_command(['shell', 'curl', '-s', '--connect-timeout', '2', '--max-time', '3', url], serial)
             if res and len(res) > 6 and "." in res:
-                self._cached_public_ips[serial or "default"] = res
+                self._cached_public_ips[target] = res
+                setattr(self, f"_last_check_{target}", time.time())
                 return res
         
-        # [FALLBACK] ADB 실패 시 시스템 IP 확인
-        system_ip = self.get_system_public_ip()
-        if system_ip and system_ip != "Unknown":
-            return system_ip
-            
-        return self._cached_public_ips.get(serial or "default", "확인 실패")
+        # [FALLBACK] 통신 실패 시 절대 시스템 IP(Wi-Fi)로 덮어쓰지 않음 -> UI Flickering(깜빡임) 방지
+        return cached if cached else "오프라인 (연결 안됨)"
 
     def get_system_public_ip(self) -> str:
         """윈도우 호스트의 공인 IP 확인"""
@@ -152,19 +158,23 @@ class ADBService:
         logger.info(f"🔄 [{target}] IP 로테이션 시작 (방식: {method})")
         
         try:
+            # 갱신 시작 즉시 상태를 변경하여 UI 깜빡임 방지
+            self._cached_public_ips[target] = "갱신 중..."
+            setattr(self, f"_last_check_{target}", time.time()) # 폴링으로 인한 불필요한 curl 방지
+            
             if method == 'soft':
                 self.run_command(['shell', 'svc', 'data', 'disable'], serial)
                 time.sleep(1)
                 self.run_command(['shell', 'svc', 'data', 'enable'], serial)
-                time.sleep(1)
+                time.sleep(3) # 망 접속 대기 (기존 1초는 이전 IP를 다시 잡아오는 경우 발생)
             else:
                 self.run_command(['shell', 'cmd', 'connectivity', 'airplane-mode', 'enable'], serial)
                 time.sleep(5)
                 self.run_command(['shell', 'cmd', 'connectivity', 'airplane-mode', 'disable'], serial)
                 time.sleep(10)
             
-            self._cached_public_ips[serial or "default"] = "갱신 중..."
-            new_ip = self.get_current_ip(serial)
+            setattr(self, f"_last_check_{target}", 0) # 다음 확인 시 즉시 curl 하도록 캐시 무효화
+            new_ip = self.get_current_ip(serial, force=True)
             logger.info(f"✅ [{target}] IP 갱신 완료: {new_ip}")
             return True
         except Exception as e:
@@ -205,7 +215,7 @@ class ADBService:
         except:
             return "Error"
 
-    def get_network_status_detail(self) -> dict:
+    def get_network_status_detail(self, force: bool = False) -> dict:
         """프론트엔드용 네트워크 상세 상태 반환"""
         try:
             from .network_monitor import network_monitor
@@ -221,7 +231,7 @@ class ADBService:
             # Refresh Mobile IP if adb is connected
             mobile_ip = "Unknown"
             if adb_connected:
-                 mobile_ip = self.get_current_ip() # Actual adb check
+                 mobile_ip = self.get_current_ip(force=force) # Actual adb check
             
             # Determine status_detail for frontend logic
             mode = monitor_status.get("system_gateway_mode", "WIFI")

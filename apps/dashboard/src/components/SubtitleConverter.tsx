@@ -304,7 +304,7 @@ const SubtitleConverter = () => {
                 {/* Left Column: Original Script */}
                 <Card className="flex flex-col h-full border border-gray-100 shadow-sm rounded-xl bg-white overflow-hidden">
                     <CardHeader className="py-2 px-4 border-b bg-gray-50/50 flex flex-row items-center justify-between space-y-0 shrink-0">
-                        <div className="flex items-center gap-2 text-slate-400">
+                        <div className="flex items-center gap-2 text-slate-600">
                             <FileText className="w-3 h-3" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Original Script</span>
                         </div>
@@ -356,7 +356,7 @@ const SubtitleConverter = () => {
                             value={originalScript}
                             onChange={(e) => setOriginalScript(e.target.value)}
                             placeholder="여기에 원본 대본을 붙여넣으세요... (// 로 수동 분절 가능)"
-                            className="h-full resize-none border-0 focus-visible:ring-0 p-4 font-sans text-base leading-relaxed text-gray-800 placeholder:text-gray-400"
+                            className="h-full resize-none border-0 focus-visible:ring-0 p-4 font-sans text-base leading-relaxed text-gray-800 placeholder:text-slate-600"
                         />
                     </CardContent>
                 </Card>
@@ -364,7 +364,7 @@ const SubtitleConverter = () => {
                 {/* Right Column: SRT Source */}
                 <Card className="flex flex-col h-full border border-gray-100 shadow-sm rounded-xl bg-white overflow-hidden">
                     <CardHeader className="py-2 px-4 border-b bg-gray-50/50 flex flex-row items-center justify-between space-y-0 shrink-0">
-                        <div className="flex items-center gap-2 text-slate-400">
+                        <div className="flex items-center gap-2 text-slate-600">
                             <Wand2 className="w-3 h-3" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">SRT Source</span>
                         </div>
@@ -393,7 +393,7 @@ const SubtitleConverter = () => {
                             value={srtContent}
                             onChange={(e) => setSrtContent(e.target.value)}
                             placeholder="SRT 자막 내용이 여기에 표시됩니다..."
-                            className="flex-1 resize-none border-0 focus-visible:ring-0 p-4 font-mono text-sm leading-relaxed text-gray-800 placeholder:text-gray-400"
+                            className="flex-1 resize-none border-0 focus-visible:ring-0 p-4 font-mono text-sm leading-relaxed text-gray-800 placeholder:text-slate-600"
                         />
                         {/* Footer: Progress */}
                         <div className="h-8 border-t bg-gray-50/50 flex items-center px-4 gap-4 text-xs font-medium text-gray-500 shrink-0">
@@ -530,10 +530,10 @@ const SubtitleConverter = () => {
                         System Logs
                     </h3>
                     <div className="space-y-1">
-                        {logs.length === 0 && <div className="text-gray-400 italic">No logs yet.</div>}
+                        {logs.length === 0 && <div className="text-slate-600 italic">No logs yet.</div>}
                         {logs.map((log, i) => (
                             <div key={i} className={log.type === 'error' ? 'text-red-500' : 'text-gray-600'}>
-                                <span className="opacity-50 mr-2 text-gray-400">[{log.time}]</span>
+                                <span className="opacity-50 mr-2 text-slate-600">[{log.time}]</span>
                                 {log.message}
                             </div>
                         ))}

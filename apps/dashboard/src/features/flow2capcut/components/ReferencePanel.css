@@ -327,7 +327,7 @@
 }
 
 .remove-menu button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #F3F4F6;
 }
 
 .remove-menu button:last-child:hover {

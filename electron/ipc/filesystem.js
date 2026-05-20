@@ -23,7 +23,7 @@
 import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
-import { execFile } from 'child_process'
+import { execFile, execSync } from 'child_process'
 import { app, dialog } from 'electron'
 import { parseSfxList } from '../../apps/dashboard/src/features/flow2capcut/utils/parseSfxList.js'
 
@@ -940,7 +940,6 @@ export function registerFilesystemIPC(ipcMain) {
       // Windows EPERM fallback (OneDrive 등 파일 잠금 시)
       if (process.platform === 'win32' && error.code === 'EPERM') {
         try {
-          const { execSync } = require('child_process')
           execSync(`rmdir /s /q "${path.join(workFolder, project)}"`, { windowsHide: true })
           return { success: true }
         } catch (fallbackErr) {

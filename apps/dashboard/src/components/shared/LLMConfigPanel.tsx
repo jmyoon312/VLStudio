@@ -113,7 +113,7 @@ const LLMConfigPanel = ({ config, setConfig, compact = false }: LLMConfigPanelPr
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-4 w-4 p-0 text-slate-400 hover:text-indigo-600"
+                            className="h-4 w-4 p-0 text-slate-600 hover:text-indigo-600"
                             onClick={(e) => { e.stopPropagation(); fetchModels(); }}
                             title="Refresh Models"
                         >
@@ -127,7 +127,7 @@ const LLMConfigPanel = ({ config, setConfig, compact = false }: LLMConfigPanelPr
                     >
                         <SelectTrigger className="h-8">
                             {isLoading && activeModels.length === 0 ? (
-                                <span className="flex items-center gap-2 text-slate-400">
+                                <span className="flex items-center gap-2 text-slate-600">
                                     <Loader2 className="w-3 h-3 animate-spin" /> Loading...
                                 </span>
                             ) : (
@@ -136,7 +136,7 @@ const LLMConfigPanel = ({ config, setConfig, compact = false }: LLMConfigPanelPr
                         </SelectTrigger>
                         <SelectContent>
                             {activeModels.length === 0 && !isLoading && (
-                                <div className="p-2 text-xs text-center text-slate-400">
+                                <div className="p-2 text-xs text-center text-slate-600">
                                     No models available found.
                                 </div>
                             )}
@@ -151,7 +151,7 @@ const LLMConfigPanel = ({ config, setConfig, compact = false }: LLMConfigPanelPr
             <div className="space-y-2">
                 <div className="flex justify-between items-center">
                     <Label className={compact ? "text-[10px]" : "text-sm"}>Temperature: {config.temperature}</Label>
-                    <span className="text-[10px] text-slate-400">Creativity</span>
+                    <span className="text-[10px] text-slate-600">Creativity</span>
                 </div>
                 <Slider
                     value={[config.temperature]}

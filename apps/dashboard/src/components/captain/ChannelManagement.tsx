@@ -211,21 +211,21 @@ const ChannelManagement: React.FC<ChannelManagementProps> = ({ profileId }) => {
                                             가상 기기 격리 모드 (Device Isolation)
                                         </Badge>
                                     </div>
-                                    <p className="text-[8px] text-slate-400">
+                                    <p className="text-[8px] text-slate-600">
                                         * 각 채널은 물리적으로 분리된 별도의 기기 정체성을 가집니다.
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-1 mt-2">
                                     <div className="bg-white/50 border border-slate-200 rounded p-1.5 flex flex-col">
-                                        <span className="text-[8px] text-slate-400 uppercase font-bold">CPU DNA</span>
+                                        <span className="text-[8px] text-slate-600 uppercase font-bold">CPU DNA</span>
                                         <span className="text-[10px] font-mono text-indigo-600 font-bold">8 Cores (Locked)</span>
                                     </div>
                                     <div className="bg-white/50 border border-slate-200 rounded p-1.5 flex flex-col">
-                                        <span className="text-[8px] text-slate-400 uppercase font-bold">RAM DNA</span>
+                                        <span className="text-[8px] text-slate-600 uppercase font-bold">RAM DNA</span>
                                         <span className="text-[10px] font-mono text-indigo-600 font-bold">16 GB (Fixed)</span>
                                     </div>
                                     <div className="col-span-2 bg-white/50 border border-slate-200 rounded p-1.5 flex flex-col">
-                                        <span className="text-[8px] text-slate-400 uppercase font-bold">GPU RENDERER DNA</span>
+                                        <span className="text-[8px] text-slate-600 uppercase font-bold">GPU RENDERER DNA</span>
                                         <span className="text-[9px] font-mono text-slate-600 truncate">NVIDIA GeForce RTX 3060 (SAIF-Masked)</span>
                                     </div>
                                 </div>

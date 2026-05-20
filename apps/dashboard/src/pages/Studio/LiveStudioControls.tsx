@@ -466,20 +466,20 @@ export const LiveStudioControls: React.FC = () => {
             {/* Search */}
             <div className="p-3 border-b border-gray-200">
                 <div className="relative">
-                    <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
+                    <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-600" />
                     <input
                         type="text"
                         placeholder="자산 검색..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-gray-100 text-gray-900 text-xs rounded-md pl-8 pr-3 py-1.5 border border-transparent focus:bg-white focus:border-blue-500 outline-none transition-all placeholder:text-gray-400"
+                        className="w-full bg-gray-100 text-gray-900 text-xs rounded-md pl-8 pr-3 py-1.5 border border-transparent focus:bg-white focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
                     />
                 </div>
             </div>
 
             {/* Sub Tabs */}
             <div className="flex border-b border-gray-200 bg-gray-50/50">
-                <button onClick={() => setLibTab('media')} className={`flex-1 py-2 text-[10px] font-bold uppercase ${libTab === 'media' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}>미디어</button>
+                <button onClick={() => setLibTab('media')} className={`flex-1 py-2 text-[10px] font-bold uppercase ${libTab === 'media' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-600'}`}>미디어</button>
 
             </div>
 
@@ -487,7 +487,7 @@ export const LiveStudioControls: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-3">
                 {libTab === 'media' && (
                     <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => fileInputRef.current?.click()} className="aspect-video bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:text-blue-500 hover:border-blue-500 hover:bg-blue-50 transition-all">
+                        <button onClick={() => fileInputRef.current?.click()} className="aspect-video bg-gray-50 rounded-lg border border-dashed border-gray-300 flex flex-col items-center justify-center text-slate-600 hover:text-blue-500 hover:border-blue-500 hover:bg-blue-50 transition-all">
                             <Plus className="w-5 h-5 mb-1" />
                             <span className="text-xs">업로드</span>
                         </button>
@@ -553,7 +553,7 @@ export const LiveStudioControls: React.FC = () => {
                         <Image className="w-3 h-3" /> 배경 화면
                     </label>
                     <label className="flex-1 h-16 bg-gray-50 border border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
-                        <Repeat className="w-5 h-5 text-gray-400 mb-0.5" />
+                        <Repeat className="w-5 h-5 text-slate-600 mb-0.5" />
                         <span className="text-[10px] text-gray-500">영상 선택</span>
                         <input type="file" className="hidden" accept="video/*" onChange={async (e) => {
                             const file = e.target.files?.[0];
@@ -628,7 +628,7 @@ export const LiveStudioControls: React.FC = () => {
                             onClick={() => setPlaybackOrder('sequential')}
                             className={cn(
                                 "flex-1 py-1 text-[9px] font-bold rounded transition-all",
-                                playbackOrder === 'sequential' ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:bg-gray-200"
+                                playbackOrder === 'sequential' ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:bg-gray-200"
                             )}
                         >
                             순서
@@ -637,7 +637,7 @@ export const LiveStudioControls: React.FC = () => {
                             onClick={() => setPlaybackOrder('random')}
                             className={cn(
                                 "flex-1 py-1 text-[9px] font-bold rounded transition-all",
-                                playbackOrder === 'random' ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:bg-gray-200"
+                                playbackOrder === 'random' ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:bg-gray-200"
                             )}
                         >
                             랜덤
@@ -646,7 +646,7 @@ export const LiveStudioControls: React.FC = () => {
                             onClick={() => setPlaybackOrder('reverse')}
                             className={cn(
                                 "flex-1 py-1 text-[9px] font-bold rounded transition-all",
-                                playbackOrder === 'reverse' ? "bg-white text-blue-600 shadow-sm" : "text-gray-400 hover:bg-gray-200"
+                                playbackOrder === 'reverse' ? "bg-white text-blue-600 shadow-sm" : "text-slate-600 hover:bg-gray-200"
                             )}
                         >
                             역순
@@ -654,7 +654,7 @@ export const LiveStudioControls: React.FC = () => {
                     </div>
 
                     <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                        {lofiPlaylist.length === 0 && <p className="text-[10px] text-gray-400 text-center py-3">음악 파일 추가</p>}
+                        {lofiPlaylist.length === 0 && <p className="text-[10px] text-slate-600 text-center py-3">음악 파일 추가</p>}
                         {lofiPlaylist.map((track) => (
                             <div key={track.id} className="flex items-center justify-between p-1.5 bg-gray-50 rounded text-[10px]">
                                 <span className="truncate flex-1 font-medium text-gray-700">{track.title}</span>
@@ -711,14 +711,14 @@ export const LiveStudioControls: React.FC = () => {
                 <div className="flex flex-col gap-2 mt-4 w-full px-2">
                     <button
                         onClick={() => { setMainTab('settings'); setIsCollapsed(false); }}
-                        className={cn("p-2 rounded-lg flex justify-center transition-colors", mainTab === 'settings' && !isCollapsed ? "bg-blue-100 text-blue-600" : "text-gray-400 hover:bg-gray-100")}
+                        className={cn("p-2 rounded-lg flex justify-center transition-colors", mainTab === 'settings' && !isCollapsed ? "bg-blue-100 text-blue-600" : "text-slate-600 hover:bg-gray-100")}
                         title="설정"
                     >
                         <Settings className="w-5 h-5" />
                     </button>
                     <button
                         onClick={() => { setMainTab('library'); setIsCollapsed(false); }}
-                        className={cn("p-2 rounded-lg flex justify-center transition-colors", mainTab === 'library' && !isCollapsed ? "bg-blue-100 text-blue-600" : "text-gray-400 hover:bg-gray-100")}
+                        className={cn("p-2 rounded-lg flex justify-center transition-colors", mainTab === 'library' && !isCollapsed ? "bg-blue-100 text-blue-600" : "text-slate-600 hover:bg-gray-100")}
                         title="라이브러리"
                     >
                         <FolderOpen className="w-5 h-5" />
@@ -811,7 +811,7 @@ export const LiveStudioControls: React.FC = () => {
                                             <div className="text-xs font-bold text-gray-700">
                                                 {selectedLayer.type === 'text' ? '텍스트 레이어' : (selectedLayer.type === 'video' ? '비디오 레이어' : '이미지 레이어')}
                                             </div>
-                                            <div className="text-[10px] text-gray-400">
+                                            <div className="text-[10px] text-slate-600">
                                                 ID: {selectedLayer.id.slice(0, 8)}
                                             </div>
                                         </div>
@@ -867,7 +867,7 @@ export const LiveStudioControls: React.FC = () => {
                                                     </div>
 
                                                     <div className="p-2 bg-gray-50 rounded border border-gray-200">
-                                                        <label className="text-[10px] text-gray-400 block mb-1">크기 ({selectedLayer.fontSize}px)</label>
+                                                        <label className="text-[10px] text-slate-600 block mb-1">크기 ({selectedLayer.fontSize}px)</label>
                                                         <input
                                                             type="range"
                                                             min="12"
@@ -878,7 +878,7 @@ export const LiveStudioControls: React.FC = () => {
                                                         />
                                                     </div>
                                                     <div className="p-2 bg-gray-50 rounded border border-gray-200 flex items-center justify-between">
-                                                        <label className="text-[10px] text-gray-400">색상</label>
+                                                        <label className="text-[10px] text-slate-600">색상</label>
                                                         <input
                                                             type="color"
                                                             value={selectedLayer.fill || '#ffffff'}
@@ -895,7 +895,7 @@ export const LiveStudioControls: React.FC = () => {
                                                                 onClick={() => updateLayer(selectedLayer.id, { textAlign: align as any })}
                                                                 className={cn(
                                                                     "flex-1 py-1 text-[10px] uppercase font-bold rounded hover:bg-white hover:shadow-sm transition-all",
-                                                                    selectedLayer.textAlign === align ? "bg-white shadow text-blue-600" : "text-gray-400"
+                                                                    selectedLayer.textAlign === align ? "bg-white shadow text-blue-600" : "text-slate-600"
                                                                 )}
                                                             >
                                                                 {align}
@@ -905,7 +905,7 @@ export const LiveStudioControls: React.FC = () => {
 
                                                     {/* Animation */}
                                                     <div className="col-span-2">
-                                                        <label className="text-[10px] text-gray-400 block mb-1">애니메이션</label>
+                                                        <label className="text-[10px] text-slate-600 block mb-1">애니메이션</label>
                                                         <select
                                                             value={selectedLayer.animation || 'none'}
                                                             onChange={(e) => updateLayer(selectedLayer.id, { animation: e.target.value as any })}
@@ -926,19 +926,19 @@ export const LiveStudioControls: React.FC = () => {
                                         <div className="space-y-2">
                                             <div className="grid grid-cols-2 gap-2 text-xs">
                                                 <div className="bg-gray-50 p-2 rounded">
-                                                    <span className="text-gray-400 block">너비</span>
+                                                    <span className="text-slate-600 block">너비</span>
                                                     <span className="font-mono">{Math.round(selectedLayer.width || 0)}px</span>
                                                 </div>
                                                 <div className="bg-gray-50 p-2 rounded">
-                                                    <span className="text-gray-400 block">높이</span>
+                                                    <span className="text-slate-600 block">높이</span>
                                                     <span className="font-mono">{Math.round(selectedLayer.height || 0)}px</span>
                                                 </div>
                                                 <div className="bg-gray-50 p-2 rounded">
-                                                    <span className="text-gray-400 block">X 좌표</span>
+                                                    <span className="text-slate-600 block">X 좌표</span>
                                                     <span className="font-mono">{Math.round(selectedLayer.x || 0)}</span>
                                                 </div>
                                                 <div className="bg-gray-50 p-2 rounded">
-                                                    <span className="text-gray-400 block">Y 좌표</span>
+                                                    <span className="text-slate-600 block">Y 좌표</span>
                                                     <span className="font-mono">{Math.round(selectedLayer.y || 0)}</span>
                                                 </div>
                                             </div>

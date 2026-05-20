@@ -102,7 +102,7 @@ export async function diagnoseGPU() {
     console.log('5️⃣ GPU 정보 (WebGL):');
     try {
         const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
 
         if (gl) {
             const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');

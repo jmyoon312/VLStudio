@@ -92,16 +92,16 @@ const CaptainQuarters: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="min-h-screen bg-background">
             <div className="container mx-auto p-6 space-y-6">
                 {/* Header with Tabs and Captain Selector */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div className="bg-card rounded-xl shadow-sm border border-border p-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             {/* Captain Selector */}
                             {!loading && captains.length > 1 && (
                                 <Select value={selectedCaptain} onValueChange={handleCaptainChange}>
-                                    <SelectTrigger className="w-[280px] bg-white border-slate-300">
+                                    <SelectTrigger className="w-[280px] bg-background border-border">
                                         <Users className="w-4 h-4 mr-2" />
                                         <SelectValue placeholder="관리자 선택" />
                                     </SelectTrigger>
@@ -125,24 +125,24 @@ const CaptainQuarters: React.FC = () => {
                             const path = selectedCaptain === "all" ? `/captain/${val}` : `/captain/${selectedCaptain}/${val}`;
                             navigate(path);
                         }}>
-                            <TabsList className="bg-slate-100 border border-slate-200 p-1 h-auto">
+                            <TabsList className="bg-muted border border-border p-1 h-auto">
                                 <TabsTrigger
                                     value="dashboard"
-                                    className="data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm px-4 py-2 gap-2"
+                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm px-4 py-2 gap-2"
                                 >
                                     <BarChart3 className="w-4 h-4" />
                                     대시보드
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="channels"
-                                    className="data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm px-4 py-2 gap-2"
+                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm px-4 py-2 gap-2"
                                 >
                                     <Layers className="w-4 h-4" />
                                     채널 관리
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="settings"
-                                    className="data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm px-4 py-2 gap-2"
+                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm px-4 py-2 gap-2"
                                     disabled={selectedCaptain === "all"}
                                 >
                                     <Settings className="w-4 h-4" />

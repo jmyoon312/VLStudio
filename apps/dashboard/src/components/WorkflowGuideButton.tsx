@@ -551,7 +551,7 @@ const DetailedNodeCard: React.FC<DetailedNodeCardProps> = ({ icon, title, descri
                         </div>
                         <p className="text-sm text-gray-600">{description}</p>
                     </div>
-                    <div className="text-gray-400">
+                    <div className="text-slate-600">
                         {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                     </div>
                 </div>

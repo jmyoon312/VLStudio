@@ -183,7 +183,7 @@ const CaptainSettings: React.FC<CaptainSettingsProps> = ({ profileId }) => {
                                     <div>
                                         <span className="text-slate-500">Token 만료일</span>
                                         <div className="flex items-center gap-2">
-                                            <Clock className="w-4 h-4 text-slate-400" />
+                                            <Clock className="w-4 h-4 text-slate-600" />
                                             <p className="text-slate-900">
                                                 {tokenExpiry.toLocaleString('ko-KR')}
                                             </p>
@@ -194,7 +194,7 @@ const CaptainSettings: React.FC<CaptainSettingsProps> = ({ profileId }) => {
                         </>
                     ) : (
                         <>
-                            <div className="flex items-center gap-2 text-slate-400">
+                            <div className="flex items-center gap-2 text-slate-600">
                                 <XCircle className="w-5 h-5" />
                                 <span className="font-semibold">
                                     {isTokenExpired ? '인증 만료됨' : '인증 안됨'}
@@ -237,7 +237,7 @@ const CaptainSettings: React.FC<CaptainSettingsProps> = ({ profileId }) => {
                             <span className="text-slate-500">일일 한도</span>
                             <span className="font-semibold">10,000 units</span>
                         </div>
-                        <div className="text-xs text-slate-400">
+                        <div className="text-xs text-slate-600">
                             실시간 사용량 추적 기능은 추후 추가 예정입니다.
                         </div>
                     </div>

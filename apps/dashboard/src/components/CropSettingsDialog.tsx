@@ -143,8 +143,8 @@ const CropSettingsDialog: React.FC<CropSettingsDialogProps> = ({ open, onOpenCha
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl h-[90vh] bg-[#1e1e1e] text-white border-slate-700 flex flex-col p-0 overflow-hidden">
-                <DialogHeader className="p-4 border-b border-white/10 shrink-0">
+            <DialogContent className="max-w-4xl h-[90vh] bg-[#1e1e1e] text-white border-slate-200 flex flex-col p-0 overflow-hidden">
+                <DialogHeader className="p-4 border-b border-slate-200 shrink-0">
                     <DialogTitle className="flex items-center gap-2"><CropIcon className="w-5 h-5" /> 자르기 (Crop)</DialogTitle>
                 </DialogHeader>
 
@@ -181,13 +181,13 @@ const CropSettingsDialog: React.FC<CropSettingsDialogProps> = ({ open, onOpenCha
                     </div>
                 </div>
 
-                <div className="h-16 border-t border-white/10 bg-[#1e1e1e] px-4 flex items-center justify-between shrink-0">
+                <div className="h-16 border-t border-slate-200 bg-[#1e1e1e] px-4 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-4">
-                        <Button variant="ghost" onClick={handleReset} className="text-slate-400 hover:text-white">
+                        <Button variant="ghost" onClick={handleReset} className="text-slate-600 hover:text-white">
                             <RotateCcw className="w-4 h-4 mr-2" /> 초기화
                         </Button>
                         <div className="w-px h-6 bg-white/10" />
-                        <span className="text-sm text-slate-400">자르기 비율:</span>
+                        <span className="text-sm text-slate-600">자르기 비율:</span>
                         <Select value={selectedRatio} onValueChange={handleRatioChange}>
                             <SelectTrigger className="w-[100px] bg-black/50 border-slate-600 text-white h-8">
                                 <SelectValue placeholder="자유" />

@@ -329,7 +329,7 @@ const ManualTaskNode = ({ data, selected }: NodeProps) => {
                                         ))}
 
                                         {inputFields.length === 0 && (
-                                            <div className="text-center py-8 text-slate-400">
+                                            <div className="text-center py-8 text-slate-600">
                                                 <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
                                                 <p className="text-sm">입력 필드를 추가하세요</p>
                                             </div>
@@ -385,9 +385,9 @@ const ManualTaskNode = ({ data, selected }: NodeProps) => {
                                 </div>
 
                                 <div className="p-4 border-2 border-dashed border-slate-200 rounded-lg text-center">
-                                    <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                                    <Upload className="w-8 h-8 mx-auto mb-2 text-slate-600" />
                                     <p className="text-sm text-slate-600">드래그 앤 드롭 영역 미리보기</p>
-                                    <p className="text-xs text-slate-400 mt-1">
+                                    <p className="text-xs text-slate-600 mt-1">
                                         최대 {maxSize}MB, {maxCount}개 파일
                                     </p>
                                 </div>

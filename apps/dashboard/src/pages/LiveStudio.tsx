@@ -1,5 +1,5 @@
 import React from 'react';
-import LiveStudioNew from './Studio/LiveStudio';
+import { LiveStudio as LiveStudioNew } from './Studio/LiveStudio';
 
 const LiveStudio = () => {
     return <LiveStudioNew />;

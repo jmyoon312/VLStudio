@@ -46,10 +46,10 @@ const TTSNode = ({ data, selected }: NodeProps) => {
                         </div>
 
                         {(data.speed !== undefined || data.pitch !== undefined) && (
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                            <div className="flex items-center gap-2 text-[10px] text-slate-600">
                                 <Gauge className="w-3 h-3" />
                                 <span>Speed: {data.speed || 0}%</span>
-                                <span className="text-slate-300">|</span>
+                                <span className="text-slate-700">|</span>
                                 <span>Pitch: {data.pitch || 0}%</span>
                             </div>
                         )}

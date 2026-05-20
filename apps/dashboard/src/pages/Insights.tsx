@@ -93,7 +93,7 @@ const Insights = () => {
                             onChange={e => setScript(e.target.value)}
                         />
                         <div className="flex gap-2">
-                            <Button onClick={handleAnalyze} disabled={loading || !script} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                            <Button onClick={handleAnalyze} disabled={loading || !script} className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground">
                                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TrendingUp className="mr-2 h-4 w-4" />}
                                 바이럴 가능성 분석
                             </Button>
@@ -110,23 +110,23 @@ const Insights = () => {
                         {viralResult ? (
                             <div className="space-y-6">
                                 <div className="flex items-center justify-center">
-                                    <div className="relative w-40 h-40 flex items-center justify-center rounded-full border-8 border-gray-100">
-                                        <div className="absolute inset-0 rounded-full border-8 border-green-500" style={{ clipPath: `inset(0 0 ${100 - viralResult.score}% 0)` }}></div>
-                                        <div className="text-4xl font-bold text-green-600">{viralResult.score}</div>
+                                    <div className="relative w-40 h-40 flex items-center justify-center rounded-full border-8 border-muted">
+                                        <div className="absolute inset-0 rounded-full border-8 border-emerald-500" style={{ clipPath: `inset(0 0 ${100 - viralResult.score}% 0)` }}></div>
+                                        <div className="text-4xl font-bold text-emerald-600 dark:text-emerald-400">{viralResult.score}</div>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-4 text-center">
-                                    <div className="p-3 bg-gray-50 rounded-lg">
-                                        <div className="text-sm text-gray-500">후킹</div>
+                                    <div className="p-3 bg-muted/50 rounded-lg">
+                                        <div className="text-sm text-muted-foreground">후킹</div>
                                         <div className="text-xl font-bold">{viralResult.metrics.hook}</div>
                                     </div>
-                                    <div className="p-3 bg-gray-50 rounded-lg">
-                                        <div className="text-sm text-gray-500">유지력</div>
+                                    <div className="p-3 bg-muted/50 rounded-lg">
+                                        <div className="text-sm text-muted-foreground">유지력</div>
                                         <div className="text-xl font-bold">{viralResult.metrics.retention}</div>
                                     </div>
-                                    <div className="p-3 bg-gray-50 rounded-lg">
-                                        <div className="text-sm text-gray-500">공유성</div>
+                                    <div className="p-3 bg-muted/50 rounded-lg">
+                                        <div className="text-sm text-muted-foreground">공유성</div>
                                         <div className="text-xl font-bold">{viralResult.metrics.shareability}</div>
                                     </div>
                                 </div>
@@ -136,7 +136,7 @@ const Insights = () => {
                                         <Lightbulb className="w-4 h-4 text-yellow-500" />
                                         AI 조언
                                     </h4>
-                                    <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                                    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
                                         {viralResult.advice.map((tip: string, i: number) => (
                                             <li key={i}>{tip}</li>
                                         ))}
@@ -144,7 +144,7 @@ const Insights = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-gray-400">
+                            <div className="h-full flex items-center justify-center text-muted-foreground">
                                 분석을 실행하여 점수를 확인하세요
                             </div>
                         )}
@@ -185,21 +185,21 @@ const Insights = () => {
                             {seoResult && (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                     {seoResult.map((item, i) => (
-                                        <div key={i} className="border rounded-lg p-4 space-y-3 bg-gray-50">
+                                        <div key={i} className="border border-border rounded-lg p-4 space-y-3 bg-muted/30">
                                             <div className="font-bold text-purple-600">{item.strategy}</div>
                                             <div>
-                                                <div className="text-xs text-gray-500 uppercase">제목</div>
+                                                <div className="text-xs text-muted-foreground uppercase">제목</div>
                                                 <div className="font-medium text-sm">{item.title}</div>
                                             </div>
                                             <div>
-                                                <div className="text-xs text-gray-500 uppercase">설명</div>
-                                                <div className="text-xs text-gray-600 line-clamp-3">{item.description}</div>
+                                                <div className="text-xs text-muted-foreground uppercase">설명</div>
+                                                <div className="text-xs text-muted-foreground line-clamp-3">{item.description}</div>
                                             </div>
                                             <div>
-                                                <div className="text-xs text-gray-500 uppercase">태그</div>
+                                                <div className="text-xs text-muted-foreground uppercase">태그</div>
                                                 <div className="flex flex-wrap gap-1 mt-1">
                                                     {item.tags.slice(0, 5).map((tag: string, j: number) => (
-                                                        <span key={j} className="text-[10px] bg-white border px-1 rounded">{tag}</span>
+                                                        <span key={j} className="text-[10px] bg-card border border-border px-1 rounded text-foreground">{tag}</span>
                                                     ))}
                                                 </div>
                                             </div>
@@ -243,7 +243,7 @@ const Insights = () => {
                                 변형 생성하기
                             </Button>
                             {abResult && (
-                                <div className="p-4 bg-green-50 text-green-700 rounded-lg text-center">
+                                <div className="p-4 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg text-center">
                                     {abResult}
                                 </div>
                             )}

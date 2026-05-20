@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+// @ts-ignore
+import { useModalVisibility } from '@/features/flow2capcut/hooks/useModalVisibility';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +39,8 @@ const CAPTAIN_STEPS = [
 ];
 
 const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete, initialData, accountType = 'TIN_CAN' }) => {
+    // @ts-ignore
+    useModalVisibility(isOpen);
     const { toast } = useToast();
     const [step, setStep] = useState(1);
 
@@ -582,7 +586,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                 `}>
                                         {isCompleted ? <Check className="w-4 h-4" /> : stepNum}
                                     </div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>{s.title}</span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isActive ? 'text-indigo-600' : 'text-slate-600'}`}>{s.title}</span>
                                 </div>
                             )
                         })}
@@ -616,7 +620,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                         {step === 2 && (
                             <div className="space-y-6 text-center py-4 animate-in fade-in zoom-in-95 duration-200">
                                 <div className={`mx-auto p-6 rounded-2xl border-2 w-full max-w-sm flex flex-col items-center gap-3 ${lteStatus.connected ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-                                    {lteStatus.connected ? <Smartphone className="w-12 h-12 text-emerald-600" /> : <Wifi className="w-12 h-12 text-slate-300" />}
+                                    {lteStatus.connected ? <Smartphone className="w-12 h-12 text-emerald-600" /> : <Wifi className="w-12 h-12 text-slate-700" />}
                                     <div className="text-2xl font-mono font-black text-slate-800">{lteStatus.ip}</div>
                                     <p className={`text-sm font-medium ${lteStatus.connected ? 'text-emerald-700' : 'text-slate-500'}`}>
                                         {lteStatus.connected ? (lteStatus.ip.includes("223.") || lteStatus.ip.includes("211.") ? "LTE 통신이 준비되었습니다." : "네트워크 통신이 준비되었습니다.") : "LTE 어댑터가 감지되지 않았습니다."}
@@ -796,7 +800,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                             )}
                                         </div>
 
-                                        <div className="text-center text-xs text-slate-400 py-2">
+                                        <div className="text-center text-xs text-slate-600 py-2">
                                             또는 기존 방식으로 진행 ↓
                                         </div>
 
@@ -832,7 +836,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                         {/* 2. Setup Guide & Verification (Manual) */}
                                         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4 opacity-100">
                                             <div className="flex items-center gap-2 border-b pb-2">
-                                                <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm shrink-0">2</span>
+                                                <span className="bg-slate-50 text-slate-800 border border-slate-200 w-6 h-6 rounded-full flex items-center justify-center text-sm shrink-0">2</span>
                                                 <h4 className="font-bold text-slate-900">채널 및 권한 (수동 설정)</h4>
                                             </div>
 
@@ -968,7 +972,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                                 />
                                                 <Button
                                                     onClick={() => fileInputRef.current?.click()}
-                                                    className="h-16 px-8 text-lg bg-slate-900 hover:bg-slate-800 gap-3 shadow-xl transition-transform hover:scale-105"
+                                                    className="h-16 px-8 text-lg bg-white hover:bg-slate-50 gap-3 shadow-xl transition-transform hover:scale-105"
                                                     disabled={isLoading}
                                                 >
                                                     {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
@@ -1029,7 +1033,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                             />
                                             <Button
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="h-16 px-8 text-lg bg-slate-900 hover:bg-slate-800 gap-3 shadow-xl transition-transform hover:scale-105"
+                                                className="h-16 px-8 text-lg bg-white hover:bg-slate-50 gap-3 shadow-xl transition-transform hover:scale-105"
                                                 disabled={isLoading}
                                             >
                                                 {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
@@ -1093,7 +1097,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                                 </Button>
                                             </div>
 
-                                            <div className="flex items-center justify-center gap-4 text-xs text-slate-400 mt-2">
+                                            <div className="flex items-center justify-center gap-4 text-xs text-slate-600 mt-2">
                                                 <button
                                                     onClick={() => window.open(`${API_BASE}/oauth2/authorize/${draftId}`, '_blank')}
                                                     className="hover:text-blue-600 underline"
@@ -1216,7 +1220,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                 <textarea
                                     readOnly
                                     value={debugLog}
-                                    className="w-full h-40 text-xs font-mono bg-slate-900 text-green-400 p-3 rounded-lg border border-slate-700 resize-none"
+                                    className="w-full h-40 text-xs font-mono bg-white text-green-400 p-3 rounded-lg border border-slate-200 resize-none"
                                 />
                             </div>
                         )}

@@ -136,8 +136,8 @@ const WorkQueue = () => {
     };
 
     // === 상태별 배지 ===
-    const getStatusBadge = (status) => {
-        const variants = {
+    const getStatusBadge = (status: string) => {
+        const variants: Record<string, any> = {
             'QUEUED': { variant: 'secondary', icon: Clock, text: '대기 중' },
             'UPLOADING': { variant: 'default', icon: Upload, text: '업로드 중' },
             'COMPLETED': { variant: 'success', icon: CheckCircle, text: '완료' },
@@ -153,8 +153,8 @@ const WorkQueue = () => {
         );
     };
 
-    const getApprovalBadge = (approvalStatus) => {
-        const variants = {
+    const getApprovalBadge = (approvalStatus: string) => {
+        const variants: Record<string, any> = {
             'PENDING': { variant: 'outline', text: '승인 대기' },
             'APPROVED': { variant: 'success', text: '승인됨' },
             'REJECTED': { variant: 'destructive', text: '반려됨' },
@@ -165,7 +165,7 @@ const WorkQueue = () => {
     };
 
     // === 승인/반려 (HITL Gateway) ===
-    const handleApprove = async (itemId) => {
+    const handleApprove = async (itemId: number) => {
         try {
             // [NEW] Call the LangGraph Resume API
             await fetchWithRetry(`/api/swarm/missions/resume`, {
@@ -180,7 +180,7 @@ const WorkQueue = () => {
         }
     };
 
-    const handleReject = async (itemId, reason) => {
+    const handleReject = async (itemId: number, reason: string) => {
         try {
             // [NEW] Call the LangGraph Resume API with REJECT action
             await fetchWithRetry(`/api/swarm/missions/resume`, {
@@ -344,15 +344,15 @@ const WorkQueue = () => {
     };
 
     return (
-        <div className="p-8 space-y-6 bg-slate-50 min-h-screen">
+        <div className="p-8 space-y-6 bg-background text-foreground min-h-screen">
             {/* 헤더 */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">자동화 작업 대기열</h1>
-                    <p className="text-sm text-slate-500 font-medium mt-1">인간 개입(HITL) 및 팩토리 승인 대기열 관리</p>
+                    <h1 className="text-2xl font-black text-foreground tracking-tight">자동화 작업 대기열</h1>
+                    <p className="text-sm text-muted-foreground font-medium mt-1">인간 개입(HITL) 및 팩토리 승인 대기열 관리</p>
                 </div>
                 <Button
-                    className="bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
                     onClick={() => {
                         setEditingItem(null);
                         setIsAddDialogOpen(true);
@@ -365,15 +365,15 @@ const WorkQueue = () => {
 
             {/* [NEW] HITL Emergency Orange Pulse Banner */}
             {queueItems.some(item => item.approval_status === 'PENDING') && (
-                <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg shadow-sm flex items-center justify-between">
+                <div className="bg-orange-500/10 border-l-4 border-orange-500 p-4 rounded-r-lg shadow-sm flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="bg-orange-100 p-2 rounded-full relative">
-                            <AlertTriangle className="w-5 h-5 text-orange-600" />
+                        <div className="bg-orange-500/20 p-2 rounded-full relative">
+                            <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                             <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-orange-500 rounded-full animate-ping" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-orange-900">긴급 검수 대기 중 (HITL)</h3>
-                            <p className="text-sm text-orange-700">에이전트가 렌더링 직전 인간 디렉터의 승인을 기다리며 프로세스를 일시 정지(Suspend)했습니다.</p>
+                            <h3 className="font-bold text-orange-600 dark:text-orange-400">긴급 검수 대기 중 (HITL)</h3>
+                            <p className="text-sm text-muted-foreground">에이전트가 렌더링 직전 인간 디렉터의 승인을 기다리며 프로세스를 일시 정지(Suspend)했습니다.</p>
                         </div>
                     </div>
                     <Button 
@@ -412,7 +412,7 @@ const WorkQueue = () => {
 
             {/* 일괄 작업 툴바 */}
             {selectedItems.length > 0 && (
-                <Card className="bg-blue-50 border-blue-200">
+                <Card className="bg-blue-500/10 border-blue-500/20">
                     <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -420,7 +420,7 @@ const WorkQueue = () => {
                                     checked={selectedItems.length === queueItems.length}
                                     onCheckedChange={toggleAllSelection}
                                 />
-                                <span className="font-medium text-blue-900">
+                                <span className="font-medium text-blue-600 dark:text-blue-400">
                                     {selectedItems.length}개 선택됨
                                 </span>
                             </div>
@@ -428,7 +428,7 @@ const WorkQueue = () => {
                                 <Button
                                     size="sm"
                                     onClick={handleBatchApprove}
-                                    className="bg-green-600 hover:bg-green-700"
+                                    className="bg-green-600 hover:bg-green-700 text-white"
                                 >
                                     <CheckCircle className="w-4 h-4 mr-1" />
                                     일괄 승인
@@ -445,6 +445,7 @@ const WorkQueue = () => {
                                     size="sm"
                                     variant="outline"
                                     onClick={handleBatchDelete}
+                                    className="border-border text-foreground"
                                 >
                                     <Trash2 className="w-4 h-4 mr-1" />
                                     일괄 삭제
@@ -453,7 +454,7 @@ const WorkQueue = () => {
                                     size="sm"
                                     variant="secondary"
                                     onClick={handleBatchReset}
-                                    className="bg-slate-200 hover:bg-slate-300 text-slate-700"
+                                    className="bg-muted hover:bg-accent text-muted-foreground"
                                 >
                                     <RotateCcw className="w-4 h-4 mr-1" />
                                     재설정 (Retry)
@@ -473,7 +474,7 @@ const WorkQueue = () => {
 
             {/* 탭 */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
+                <TabsList className="bg-muted border border-border">
                     <TabsTrigger value="queued">대기열 ({stats.queued || 0})</TabsTrigger>
                     <TabsTrigger value="uploading">진행 중 ({stats.uploading || 0})</TabsTrigger>
                     <TabsTrigger value="completed">완료됨 ({stats.completed || 0})</TabsTrigger>
@@ -492,11 +493,11 @@ const WorkQueue = () => {
                                     onApprove={handleApprove}
                                     onReject={handleReject}
                                     onDelete={handleDelete}
-                                    onEdit={(item) => {
+                                    onEdit={(item: any) => {
                                         setEditingItem(item);
                                         setIsAddDialogOpen(true);
                                     }}
-                                    onPlay={(item) => {
+                                    onPlay={(item: any) => {
                                         setPlayingItem(item);
                                         setIsPlayerOpen(true);
                                     }}
@@ -515,24 +516,24 @@ const WorkQueue = () => {
 };
 
 // === 통계 카드 ===
-const StatCard = ({ title, value, icon: Icon, color = 'slate' }) => {
+const StatCard = ({ title, value, icon: Icon, color = 'slate' }: { title: string; value: number; icon: any; color?: string; }) => {
     const colors = {
-        slate: 'bg-slate-100 text-slate-600',
-        blue: 'bg-blue-100 text-blue-600',
-        yellow: 'bg-yellow-100 text-yellow-600',
-        green: 'bg-green-100 text-green-600',
-        red: 'bg-red-100 text-red-600'
+        slate: 'bg-muted text-muted-foreground',
+        blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+        yellow: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        green: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+        red: 'bg-destructive/10 text-destructive'
     };
 
     return (
-        <Card>
+        <Card className="bg-card border-border">
             <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-sm text-slate-500">{title}</p>
-                        <p className="text-2xl font-bold mt-1">{value}</p>
+                        <p className="text-sm text-muted-foreground">{title}</p>
+                        <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
                     </div>
-                    <div className={`p-3 rounded-lg ${colors[color]}`}>
+                    <div className={`p-3 rounded-lg ${(colors as Record<string, string>)[color]}`}>
                         <Icon className="w-6 h-6" />
                     </div>
                 </div>
@@ -546,36 +547,36 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <Card className="hover:shadow-md transition-shadow">
+        <Card className="hover:shadow-md transition-shadow bg-card border-border">
             <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
                         <Checkbox
                             checked={selectedItems.includes(item.id)}
                             onCheckedChange={() => toggleItemSelection(item.id)}
-                            className="mt-1"
+                            className="mt-1 border-border"
                         />
                         <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-lg font-semibold">{item.title}</h3>
+                                <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
                                 {getStatusBadge(item.status)}
                                 {getApprovalBadge(item.approval_status)}
                             </div>
 
-                            <div className="flex items-center gap-4 text-sm text-slate-500">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                     <FileVideo className="w-4 h-4" />
                                     {item.source_type || 'MANUAL'}
                                 </span>
-                                <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600" onClick={() => onPlay(item)}>
+                                <span className="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" onClick={() => onPlay(item)}>
                                     <Play className="w-3 h-3" />
                                     미리보기
                                 </span>
                                 <span>생성: {new Date(item.created_at).toLocaleString('ko-KR')}</span>
                                 {item.target_platforms && (
                                     <span className="flex items-center gap-1">
-                                        {item.target_platforms.map(platform => (
-                                            <Badge key={platform} variant="outline" className="text-xs">
+                                        {item.target_platforms.map((platform: string) => (
+                                            <Badge key={platform} variant="outline" className="text-xs border-border">
                                                 {platform}
                                             </Badge>
                                         ))}
@@ -585,11 +586,11 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
 
                             {item.status === 'UPLOADING' && (
                                 <div className="mt-3">
-                                    <div className="flex items-center justify-between text-sm mb-1">
+                                    <div className="flex items-center justify-between text-sm mb-1 text-muted-foreground">
                                         <span>업로드 진행률</span>
-                                        <span className="font-medium">{item.upload_progress}%</span>
+                                        <span className="font-medium text-foreground">{item.upload_progress}%</span>
                                     </div>
-                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                    <div className="w-full bg-muted rounded-full h-2">
                                         <div
                                             className="bg-blue-600 h-2 rounded-full transition-all"
                                             style={{ width: `${item.upload_progress}%` }}
@@ -599,26 +600,26 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
                             )}
 
                             {isExpanded && (
-                                <div className="mt-4 p-4 bg-slate-50 rounded-lg space-y-2 text-sm">
-                                    <p><strong>설명:</strong> {item.description || '없음'}</p>
-                                    <p><strong>파일 경로:</strong> {item.video_file_path}</p>
-                                    <p><strong>업로드 방식:</strong> {item.upload_method || 'API'}</p>
+                                <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2 text-sm text-muted-foreground border border-border">
+                                    <p><strong className="text-foreground">설명:</strong> {item.description || '없음'}</p>
+                                    <p><strong className="text-foreground">파일 경로:</strong> {item.video_file_path}</p>
+                                    <p><strong className="text-foreground">업로드 방식:</strong> {item.upload_method || 'API'}</p>
                                     {item.failure_reason && (
-                                        <p className="text-red-600"><strong>실패 사유:</strong> {item.failure_reason}</p>
+                                        <p className="text-destructive"><strong className="text-foreground">실패 사유:</strong> {item.failure_reason}</p>
                                     )}
-                                    <div className="pt-2 border-t border-slate-200 mt-2">
-                                        <p className="text-xs text-slate-400">전체 데이터 확인</p>
+                                    <div className="pt-2 border-t border-border mt-2">
+                                        <p className="text-xs text-muted-foreground">전체 데이터 확인</p>
                                         <div className="grid grid-cols-2 gap-4 mt-1">
                                             <div>
-                                                <span className="text-xs font-semibold block text-slate-500">업로드 방식</span>
+                                                <span className="text-xs font-semibold block text-muted-foreground">업로드 방식</span>
                                                 <Badge variant={item.upload_method === 'BROWSER_AUTO' ? 'default' : 'secondary'} className="mt-0.5">
                                                     {item.upload_method === 'BROWSER_AUTO' ? '브라우저 자동화 (Anti-Detect)' : '공식 API'}
                                                 </Badge>
                                             </div>
                                             <div>
-                                                <span className="text-xs font-semibold block text-slate-500">공개 설정</span>
+                                                <span className="text-xs font-semibold block text-muted-foreground">공개 설정</span>
                                                 {/* Platform Configs Check */}
-                                                <span className="text-sm">
+                                                <span className="text-sm text-foreground">
                                                     {item.platform_configs?.youtube?.privacy || '기본값'}
                                                     {item.platform_configs?.youtube?.privacy === 'private' && ' (검토 후 공개)'}
                                                 </span>
@@ -632,7 +633,7 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
                         <div className="flex items-center gap-2 ml-4">
                             {item.approval_status === 'PENDING' && (
                                 <>
-                                    <Button size="sm" onClick={() => onApprove(item.id)} className="bg-green-600 hover:bg-green-700">
+                                    <Button size="sm" onClick={() => onApprove(item.id)} className="bg-green-600 hover:bg-green-700 text-white">
                                         <CheckCircle className="w-4 h-4 mr-1" />
                                         승인
                                     </Button>
@@ -642,13 +643,13 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
                                     </Button>
                                 </>
                             )}
-                            <Button size="sm" variant="outline" onClick={() => onEdit(item)}>
+                            <Button size="sm" variant="outline" onClick={() => onEdit(item)} className="border-border text-foreground">
                                 <Edit className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => setIsExpanded(!isExpanded)}>
+                            <Button size="sm" variant="outline" onClick={() => setIsExpanded(!isExpanded)} className="border-border text-foreground">
                                 <Eye className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => onDelete(item.id)}>
+                            <Button size="sm" variant="outline" onClick={() => onDelete(item.id)} className="border-border text-foreground">
                                 <Trash2 className="w-4 h-4" />
                             </Button>
                         </div>
@@ -661,11 +662,11 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
 
 // === 빈 상태 ===
 const EmptyState = () => (
-    <Card>
+    <Card className="bg-card border-border">
         <CardContent className="p-12 text-center">
-            <FileVideo className="w-16 h-16 mx-auto text-slate-300 mb-4" />
-            <h3 className="text-lg font-semibold text-slate-600 mb-2">대기열이 비어있습니다</h3>
-            <p className="text-slate-500">영상을 추가하여 업로드를 시작하세요</p>
+            <FileVideo className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold text-muted-foreground mb-2">대기열이 비어있습니다</h3>
+            <p className="text-muted-foreground">영상을 추가하여 업로드를 시작하세요</p>
         </CardContent>
     </Card>
 );
@@ -679,7 +680,7 @@ const VideoPlayerDialog = ({ isOpen, setIsOpen, item }: any) => {
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-4xl bg-black p-1 border-slate-800">
+            <DialogContent className="max-w-4xl bg-black p-1 border-border">
                 <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                     <video
                         src={videoUrl}
@@ -689,9 +690,9 @@ const VideoPlayerDialog = ({ isOpen, setIsOpen, item }: any) => {
                         onError={(e) => console.error("Video load error", e)}
                     />
                 </div>
-                <div className="p-4 bg-slate-900 text-white rounded-b-lg">
+                <div className="p-4 bg-card text-foreground border border-border rounded-b-lg">
                     <h3 className="font-semibold text-lg">{item.title}</h3>
-                    <p className="text-slate-400 text-sm mt-1">{item.video_file_path}</p>
+                    <p className="text-muted-foreground text-sm mt-1">{item.video_file_path}</p>
                 </div>
             </DialogContent>
         </Dialog>
@@ -908,65 +909,70 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-card text-foreground border-border">
                 <DialogHeader>
-                    <DialogTitle>{initialData ? '작업 대기열 수정' : '작업 대기열에 영상 추가'}</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-foreground">{initialData ? '작업 대기열 수정' : '작업 대기열에 영상 추가'}</DialogTitle>
+                    <DialogDescription className="text-muted-foreground">
                         업로드할 영상의 정보를 입력하고 대상 플랫폼을 선택하세요.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* 기본 정보 */}
-                    <div className="space-y-4 p-4 bg-slate-50 rounded-lg">
-                        <h3 className="font-semibold text-sm text-slate-700">기본 정보</h3>
+                    <div className="space-y-4 p-4 bg-muted/50 rounded-lg border border-border">
+                        <h3 className="font-semibold text-sm text-foreground">기본 정보</h3>
 
                         <div>
-                            <Label>제목 *</Label>
+                            <Label className="text-foreground">제목 *</Label>
                             <Input
                                 value={formData.title}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                 required
+                                className="bg-background text-foreground border-border"
                             />
                         </div>
 
                         <div>
-                            <Label>설명</Label>
+                            <Label className="text-foreground">설명</Label>
                             <Textarea
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 rows={8}
                                 placeholder="영상 설명을 입력하세요."
+                                className="bg-background text-foreground border-border"
                             />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label>해시태그 (설명에 포함)</Label>
+                                <Label className="text-foreground">해시태그 (설명에 포함)</Label>
                                 <Input
                                     value={formData.hashtags}
                                     onChange={(e) => setFormData({ ...formData, hashtags: e.target.value })}
                                     placeholder="#Shorts #Viral #Tending"
+                                    className="bg-background text-foreground border-border"
                                 />
-                                <p className="text-xs text-slate-500 mt-1">공백으로 구분, 자동으로 # 붙음</p>
+                                <p className="text-xs text-muted-foreground mt-1">공백으로 구분, 자동으로 # 붙음</p>
                             </div>
                             <div>
-                                <Label>태그 (메타데이터, 쉼표 구분)</Label>
+                                <Label className="text-foreground">태그 (메타데이터, 쉼표 구분)</Label>
                                 <Input
                                     value={formData.tags}
                                     onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                                     placeholder="shorts, viral, 추천"
+                                    className="bg-background text-foreground border-border"
                                 />
                             </div>
                         </div>
 
                         <div>
-                            <Label>영상 파일 경로 *</Label>
+                            <Label className="text-foreground">영상 파일 경로 *</Label>
                             <div className="flex gap-2">
                                 <Input
                                     value={formData.video_file_path}
                                     onChange={(e) => setFormData({ ...formData, video_file_path: e.target.value })}
                                     placeholder="F:\download\video.mp4"
                                     required
+                                    className="bg-background text-foreground border-border"
                                 />
                                 <Button
                                     type="button"
@@ -976,6 +982,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                         const path = prompt('Enter full file path:', 'F:\\download\\video.mp4');
                                         if (path) setFormData({ ...formData, video_file_path: path });
                                     }}
+                                    className="border-border text-foreground"
                                 >
                                     탐색기 열기
                                 </Button>
@@ -985,7 +992,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                         {/* AI button simplified */}
                         {formData.video_file_path && (
                             <div className="flex justify-end">
-                                <Button type="button" variant="outline" onClick={() => toast({ title: "AI Analysis", description: "Analyzing..." })}>
+                                <Button type="button" variant="outline" onClick={() => toast({ title: "AI Analysis", description: "Analyzing..." })} className="border-border text-foreground">
                                     AI 자동 채우기
                                 </Button>
                             </div>
@@ -993,14 +1000,14 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     </div>
 
                     {/* 유입 경로 및 업로드 설정 */}
-                    <div className="space-y-4 p-4 bg-slate-50 rounded-lg">
-                        <h3 className="font-semibold text-sm text-slate-700">업로드 설정</h3>
+                    <div className="space-y-4 p-4 bg-muted/50 rounded-lg border border-border">
+                        <h3 className="font-semibold text-sm text-foreground">업로드 설정</h3>
 
                         <div>
-                            <Label>유입 경로</Label>
+                            <Label className="text-foreground">유입 경로</Label>
                             <Select value={formData.source_type} onValueChange={(value) => setFormData({ ...formData, source_type: value })}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
+                                <SelectTrigger className="bg-background text-foreground border-border"><SelectValue /></SelectTrigger>
+                                <SelectContent className="bg-card text-foreground border-border">
                                     <SelectItem value="MANUAL">수동 업로드</SelectItem>
                                     <SelectItem value="WORKFLOW">워크플로우</SelectItem>
                                     <SelectItem value="SCRIPT_REMIX">스크립트 리믹스</SelectItem>
@@ -1010,10 +1017,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                         </div>
 
                         <div>
-                            <Label>업로드 방식</Label>
+                            <Label className="text-foreground">업로드 방식</Label>
                             <Select value={formData.upload_method} onValueChange={(value) => setFormData({ ...formData, upload_method: value })}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
+                                <SelectTrigger className="bg-background text-foreground border-border"><SelectValue /></SelectTrigger>
+                                <SelectContent className="bg-card text-foreground border-border">
                                     <SelectItem value="API">Google API 자동화</SelectItem>
                                     <SelectItem value="BROWSER_AUTO">브라우저 자동화</SelectItem>
                                     <SelectItem value="MANUAL">수동 업로드</SelectItem>
@@ -1026,14 +1033,15 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                 id="approval_required"
                                 checked={formData.approval_required}
                                 onCheckedChange={(checked) => setFormData({ ...formData, approval_required: !!checked })}
+                                className="border-border"
                             />
-                            <Label htmlFor="approval_required" className="cursor-pointer">검토 필요 (체크 해제 시 자동 순차 업로드)</Label>
+                            <Label htmlFor="approval_required" className="cursor-pointer text-foreground">검토 필요 (체크 해제 시 자동 순차 업로드)</Label>
                         </div>
                     </div >
 
                     {/* [NEW] 업로드 일정 (Schedule) */}
-                    < div className="space-y-4 pt-4 border-t border-slate-100" >
-                        <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                    <div className="space-y-4 pt-4 border-t border-border" >
+                        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                             <Clock className="w-4 h-4" /> 업로드 일정 설정
                         </h3>
                         <div className="space-y-3 pl-1">
@@ -1046,9 +1054,9 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                         value="immediate"
                                         checked={formData.uploadScheduleMode === 'immediate'}
                                         onChange={() => setFormData({ ...formData, uploadScheduleMode: 'immediate' })}
-                                        className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                        className="w-4 h-4 text-blue-600 border-border focus:ring-blue-500 bg-background"
                                     />
-                                    <Label htmlFor="schedule-immediate" className="font-normal cursor-pointer">⚡ 즉시 업로드</Label>
+                                    <Label htmlFor="schedule-immediate" className="font-normal cursor-pointer text-foreground">⚡ 즉시 업로드</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <input
@@ -1058,23 +1066,23 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                         value="scheduled"
                                         checked={formData.uploadScheduleMode === 'scheduled'}
                                         onChange={() => setFormData({ ...formData, uploadScheduleMode: 'scheduled' })}
-                                        className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                                        className="w-4 h-4 text-blue-600 border-border focus:ring-blue-500 bg-background"
                                     />
-                                    <Label htmlFor="schedule-later" className="font-normal cursor-pointer">📅 예약 업로드 (날짜 지정)</Label>
+                                    <Label htmlFor="schedule-later" className="font-normal cursor-pointer text-foreground">📅 예약 업로드 (날짜 지정)</Label>
                                 </div>
                             </div>
 
                             {formData.uploadScheduleMode === 'scheduled' && (
-                                <div className="flex flex-col gap-2 p-3 bg-blue-50 rounded-md animate-in fade-in slide-in-from-top-1">
-                                    <Label className="text-xs text-blue-700 font-semibold">업로드 예정 일시</Label>
+                                <div className="flex flex-col gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-md animate-in fade-in slide-in-from-top-1">
+                                    <Label className="text-xs text-blue-600 dark:text-blue-400 font-semibold">업로드 예정 일시</Label>
                                     <Input
                                         type="datetime-local"
                                         value={formData.scheduledTime}
                                         onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
-                                        className="bg-white"
+                                        className="bg-background text-foreground border-border"
                                         min={new Date().toISOString().slice(0, 16)}
                                     />
-                                    <p className="text-xs text-blue-500">
+                                    <p className="text-xs text-blue-600 dark:text-blue-400">
                                         * 지정된 시간에 자동으로 업로드가 시작됩니다. (PC가 켜져 있어야 합니다)
                                     </p>
                                 </div>
@@ -1083,11 +1091,11 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     </div >
 
                     {/* 플랫폼 선택 */}
-                    < div className="space-y-4 p-4 bg-slate-50 rounded-lg" >
-                        <h3 className="font-semibold text-sm text-slate-700">대상 플랫폼</h3>
+                    <div className="space-y-4 p-4 bg-muted/50 rounded-lg border border-border" >
+                        <h3 className="font-semibold text-sm text-foreground">대상 플랫폼</h3>
                         <div className="flex gap-4">
                             {['youtube', 'tiktok', 'instagram'].map(platform => (
-                                <label key={platform} className="flex items-center gap-2">
+                                <label key={platform} className="flex items-center gap-2 text-foreground">
                                     <Checkbox
                                         checked={formData.target_platforms.includes(platform)}
                                         onCheckedChange={(checked) => {
@@ -1097,6 +1105,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                                 setFormData({ ...formData, target_platforms: formData.target_platforms.filter(p => p !== platform) });
                                             }
                                         }}
+                                        className="border-border"
                                     />
                                     <span className="capitalize">{platform}</span>
                                 </label>
@@ -1107,14 +1116,14 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     {/* YouTube 설정 */}
                     {
                         formData.target_platforms.includes('youtube') && (
-                            <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                <h3 className="font-semibold text-sm text-blue-900 flex items-center gap-2">
+                            <div className="space-y-4 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                                <h3 className="font-semibold text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
                                     <Youtube className="w-4 h-4" />
                                     YouTube 설정
                                 </h3>
 
                                 <div>
-                                    <Label>채널 선택 *</Label>
+                                    <Label className="text-foreground">채널 선택 *</Label>
                                     <Select
                                         value={formData.platform_configs.youtube.channel_id}
                                         onValueChange={(value) => setFormData({
@@ -1126,7 +1135,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                         })}
                                         disabled={channels.length === 0}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="bg-background text-foreground border-border">
                                             <SelectValue placeholder={
                                                 channels.length === 0
                                                     ? (formData.upload_method === 'API'
@@ -1135,9 +1144,9 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                                     : "채널을 선택하세요"
                                             } />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-card text-foreground border-border">
                                             {channels.length === 0 ? (
-                                                <div className="p-4 text-sm text-slate-500 text-center">
+                                                <div className="p-4 text-sm text-muted-foreground text-center">
                                                     {formData.upload_method === 'API'
                                                         ? "일반 계정에 소유한 브랜드 채널이 없습니다."
                                                         : "관리자 계정에 위임받은 브랜드 채널이 없습니다."}
@@ -1146,13 +1155,13 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                                 channels.map(channel => (
                                                     <SelectItem key={channel.channel_id} value={channel.channel_id}>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="font-medium">
+                                                            <span className="font-medium text-foreground">
                                                                 {channel.channel_name || channel.title} ({channel.subscriber_count?.toLocaleString()} 구독자)
                                                             </span>
-                                                            <Badge variant="outline" className="text-xs">
+                                                            <Badge variant="outline" className="text-xs border-border text-foreground">
                                                                 {formData.upload_method === 'API' ? 'OWNER' : 'MANAGER'}
                                                             </Badge>
-                                                            <span className="text-xs text-slate-500">
+                                                            <span className="text-xs text-muted-foreground">
                                                                 {formData.upload_method === 'API' ? '일반계정' : '관리자계정'}
                                                             </span>
                                                         </div>
@@ -1162,7 +1171,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                         </SelectContent>
                                     </Select>
                                     {channels.length === 0 && (
-                                        <p className="text-xs text-amber-600 mt-1">
+                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                             {formData.upload_method === 'API'
                                                 ? "💡 Google Accounts에서 브랜드 채널을 생성하거나 연결하세요."
                                                 : "💡 Captain 계정에서 브랜드 채널 위임을 받으세요."}
@@ -1171,7 +1180,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                 </div>
 
                                 <div>
-                                    <Label>공개 범위</Label>
+                                    <Label className="text-foreground">공개 범위</Label>
                                     <Select
                                         value={formData.platform_configs.youtube.privacy}
                                         onValueChange={(value) => setFormData({
@@ -1182,10 +1191,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                             }
                                         })}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="bg-background text-foreground border-border">
                                             <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-card text-foreground border-border">
                                             <SelectItem value="public">공개</SelectItem>
                                             <SelectItem value="unlisted">일부 공개</SelectItem>
                                             <SelectItem value="private">비공개</SelectItem>
@@ -1201,11 +1210,11 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     {/* TikTok 설정 */}
                     {
                         formData.target_platforms.includes('tiktok') && (
-                            <div className="space-y-4 p-4 bg-pink-50 rounded-lg border border-pink-200">
-                                <h3 className="font-semibold text-sm text-pink-900">TikTok 설정</h3>
+                            <div className="space-y-4 p-4 bg-pink-500/10 rounded-lg border border-pink-500/20">
+                                <h3 className="font-semibold text-sm text-pink-600 dark:text-pink-400">TikTok 설정</h3>
 
                                 <div>
-                                    <Label>계정 선택 *</Label>
+                                    <Label className="text-foreground">계정 선택 *</Label>
                                     <Select
                                         value={formData.platform_configs.tiktok.account_id}
                                         onValueChange={(value) => setFormData({
@@ -1216,10 +1225,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                             }
                                         })}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="bg-background text-foreground border-border">
                                             <SelectValue placeholder={tiktokChannels.length === 0 ? "연결된 계정이 없습니다" : "TikTok 계정 선택"} />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-card text-foreground border-border">
                                             {tiktokChannels.map(ch => (
                                                 <SelectItem key={ch.id} value={ch.id}>
                                                     {ch.nickname || ch.id} ({ch.status})
@@ -1230,7 +1239,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                 </div>
 
                                 <div>
-                                    <Label>공개 범위</Label>
+                                    <Label className="text-foreground">공개 범위</Label>
                                     <Select
                                         value={formData.platform_configs.tiktok.privacy}
                                         onValueChange={(value) => setFormData({
@@ -1241,10 +1250,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                             }
                                         })}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="bg-background text-foreground border-border">
                                             <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-card text-foreground border-border">
                                             <SelectItem value="public">공개</SelectItem>
                                             <SelectItem value="friends">친구만</SelectItem>
                                             <SelectItem value="private">나만 보기</SelectItem>
@@ -1262,8 +1271,9 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                                 tiktok: { ...formData.platform_configs.tiktok, allow_comments: !!checked }
                                             }
                                         })}
+                                        className="border-border"
                                     />
-                                    <Label>댓글 허용</Label>
+                                    <Label className="text-foreground">댓글 허용</Label>
                                 </div>
 
                                 <div className="flex items-center gap-2">
@@ -1276,8 +1286,9 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                                 tiktok: { ...formData.platform_configs.tiktok, allow_duet: !!checked }
                                             }
                                         })}
+                                        className="border-border"
                                     />
-                                    <Label>듀엣 허용</Label>
+                                    <Label className="text-foreground">듀엣 허용</Label>
                                 </div>
 
                             </div>
@@ -1287,11 +1298,11 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     {/* Instagram 설정 */}
                     {
                         formData.target_platforms.includes('instagram') && (
-                            <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                                <h3 className="font-semibold text-sm text-purple-900">Instagram 설정</h3>
+                            <div className="space-y-4 p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                                <h3 className="font-semibold text-sm text-purple-600 dark:text-purple-400">Instagram 설정</h3>
 
                                 <div>
-                                    <Label>계정 선택 *</Label>
+                                    <Label className="text-foreground">계정 선택 *</Label>
                                     <Select
                                         value={formData.platform_configs.instagram.account_id}
                                         onValueChange={(value) => setFormData({
@@ -1302,10 +1313,10 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                             }
                                         })}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="bg-background text-foreground border-border">
                                             <SelectValue placeholder={instagramChannels.length === 0 ? "연결된 계정이 없습니다" : "Instagram 계정 선택"} />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="bg-card text-foreground border-border">
                                             {instagramChannels.map(ch => (
                                                 <SelectItem key={ch.id} value={ch.id}>
                                                     {ch.nickname || ch.id} ({ch.status})
@@ -1316,7 +1327,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                 </div>
 
                                 <div>
-                                    <Label>캡션</Label>
+                                    <Label className="text-foreground">캡션</Label>
                                     <Textarea
                                         value={formData.platform_configs.instagram.caption}
                                         onChange={(e) => setFormData({

@@ -141,7 +141,7 @@ const CaptainDashboard: React.FC<{ profileId?: string | null }> = ({ profileId }
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
     }
@@ -188,7 +188,7 @@ const CaptainDashboard: React.FC<{ profileId?: string | null }> = ({ profileId }
                 <select
                     value={period}
                     onChange={(e) => setPeriod(Number(e.target.value))}
-                    className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="px-4 py-2 border border-border bg-background text-foreground rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                     <option value={7}>최근 7일</option>
                     <option value={30}>최근 30일</option>
@@ -197,7 +197,7 @@ const CaptainDashboard: React.FC<{ profileId?: string | null }> = ({ profileId }
                 <Button
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="bg-indigo-600 hover:bg-indigo-700"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                     {refreshing ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -258,8 +258,8 @@ const CaptainDashboard: React.FC<{ profileId?: string | null }> = ({ profileId }
             {
                 analyticsLoading ? (
                     <div className="flex items-center justify-center h-96">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                        <span className="ml-3 text-slate-600">고급 분석 데이터 로딩 중...</span>
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <span className="ml-3 text-muted-foreground">고급 분석 데이터 로딩 중...</span>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -268,13 +268,13 @@ const CaptainDashboard: React.FC<{ profileId?: string | null }> = ({ profileId }
                         {watchTimeData && <WatchTimeTrendChart data={watchTimeData} />}
                         {engagementData && <EngagementChart data={engagementData} />}
                         {channels.length > 0 && (
-                            <div className="bg-white rounded-lg border border-slate-200 p-4">
-                                <h3 className="text-sm font-semibold text-slate-700 mb-2">채널 개요</h3>
+                            <div className="bg-card rounded-lg border border-border p-4">
+                                <h3 className="text-sm font-semibold text-foreground mb-2">채널 개요</h3>
                                 <div className="space-y-2">
                                     {channels.slice(0, 5).map((channel, idx) => (
                                         <div key={idx} className="flex items-center justify-between text-sm">
                                             <span className="truncate">{channel.channel_name}</span>
-                                            <span className="text-slate-500">{(channel.subscriber_count || 0).toLocaleString()}</span>
+                                            <span className="text-muted-foreground">{(channel.subscriber_count || 0).toLocaleString()}</span>
                                         </div>
                                     ))}
                                 </div>

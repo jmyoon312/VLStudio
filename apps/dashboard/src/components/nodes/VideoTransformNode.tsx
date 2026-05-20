@@ -15,7 +15,7 @@ const VideoTransformNode = ({ data, selected }: NodeProps) => {
                 </div>
                 <div className="p-3 space-y-2">
                     <div className="flex items-center gap-2 text-xs">
-                        <Film className="w-3 h-3 text-slate-400" />
+                        <Film className="w-3 h-3 text-slate-600" />
                         <span className="font-medium text-slate-700">{data.preset || '스타일 미지정'}</span>
                     </div>
                 </div>

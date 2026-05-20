@@ -192,11 +192,11 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                         <SelectContent className="max-h-[200px]">
                             <SelectItem value="edge" className="text-xs">
                                 <span className="font-semibold text-blue-600 mr-1">Edge</span>
-                                <span className="text-slate-400 text-[10px]">(무료/자연스러움)</span>
+                                <span className="text-slate-600 text-[10px]">(무료/자연스러움)</span>
                             </SelectItem>
                             <SelectItem value="google" className="text-xs">
                                 <span className="font-semibold text-green-600 mr-1">Google</span>
-                                <span className="text-slate-400 text-[10px]">(무료/기본)</span>
+                                <span className="text-slate-600 text-[10px]">(무료/기본)</span>
                             </SelectItem>
                             <SelectItem value="kokoro" className="text-xs">Kokoro (로컬)</SelectItem>
                             <SelectItem value="elevenlabs" className="text-xs">ElevenLabs (유료)</SelectItem>
@@ -225,9 +225,9 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
             {/* Recommended Presets (Grid Layout) */}
             {(config.engine === 'google' || config.engine === 'edge') && (
                 <div className="space-y-1.5 pt-1">
-                    <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                    <Label className="text-[9px] font-bold text-slate-600 uppercase tracking-wider flex items-center justify-between">
                         <span className="flex items-center gap-1"><Zap className="w-2.5 h-2.5" /> Quick Style</span>
-                        <span className="text-[8px] font-normal normal-case text-slate-300">Gender + Style + Speed</span>
+                        <span className="text-[8px] font-normal normal-case text-slate-700">Gender + Style + Speed</span>
                     </Label>
                     <div className="grid grid-cols-4 gap-1.5">
                         {[
@@ -307,7 +307,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                         <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
                                 <Label className="text-[10px] text-slate-500">Speed</Label>
-                                <span className={cn("text-[10px] font-mono px-1 rounded", speed !== 1.0 ? "bg-amber-100 text-amber-700" : "text-slate-400")}>x{speed.toFixed(1)}</span>
+                                <span className={cn("text-[10px] font-mono px-1 rounded", speed !== 1.0 ? "bg-amber-100 text-amber-700" : "text-slate-600")}>x{speed.toFixed(1)}</span>
                             </div>
                             <Slider
                                 value={[speed]} min={0.5} max={2.0} step={0.1}
@@ -319,7 +319,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                         <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
                                 <Label className="text-[10px] text-slate-500">Pitch</Label>
-                                <span className={cn("text-[10px] font-mono px-1 rounded", pitch !== 0 ? "bg-purple-100 text-purple-700" : "text-slate-400")}>
+                                <span className={cn("text-[10px] font-mono px-1 rounded", pitch !== 0 ? "bg-purple-100 text-purple-700" : "text-slate-600")}>
                                     {pitch > 0 ? `+${pitch}` : pitch}
                                 </span>
                             </div>
@@ -336,7 +336,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                 {/* ... (Keep other engine sliders same but compact) ... */}
                 {config.engine === 'typecast' ? (
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-bold text-slate-400">Typecast Emotion</Label>
+                        <Label className="text-[10px] font-bold text-slate-600">Typecast Emotion</Label>
                         <div className="grid grid-cols-4 gap-1">
                             {['normal', 'happy', 'sad', 'angry'].map(e => (
                                 <Button
@@ -353,7 +353,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                     </div>
                 ) : config.engine === 'supertone' ? (
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-bold text-slate-400">Supertone Style</Label>
+                        <Label className="text-[10px] font-bold text-slate-600">Supertone Style</Label>
                         <div className="flex flex-wrap gap-1">
                             <Button
                                 variant={config.emotion === "normal" ? "default" : "outline"}
@@ -378,7 +378,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                     </div>
                 ) : config.engine === 'elevenlabs' && (
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-bold text-slate-400">ElevenLabs Settings</Label>
+                        <Label className="text-[10px] font-bold text-slate-600">ElevenLabs Settings</Label>
                         <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                                 <Label className="text-[9px]">Stability</Label>

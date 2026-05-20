@@ -79,7 +79,7 @@ export const OperationsDashboardEnhancement = () => {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">System Status</p>
+                <p className="text-sm text-slate-600">System Status</p>
                 <p className={`text-2xl font-bold capitalize ${getStatusColor(healthData?.overall_status)}`}>
                   {healthData?.overall_status || 'loading...'}
                 </p>
@@ -93,7 +93,7 @@ export const OperationsDashboardEnhancement = () => {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">CPU Usage</p>
+                <p className="text-sm text-slate-600">CPU Usage</p>
                 <p className="text-2xl font-bold">
                   {healthData?.system_metrics?.cpu_percent || 0}%
                 </p>
@@ -107,7 +107,7 @@ export const OperationsDashboardEnhancement = () => {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Memory Usage</p>
+                <p className="text-sm text-slate-600">Memory Usage</p>
                 <p className="text-2xl font-bold">
                   {healthData?.system_metrics?.memory_percent || 0}%
                 </p>
@@ -121,7 +121,7 @@ export const OperationsDashboardEnhancement = () => {
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Active Alerts</p>
+                <p className="text-sm text-slate-600">Active Alerts</p>
                 <p className="text-2xl font-bold text-yellow-500">
                   {alerts.length}
                 </p>
@@ -147,11 +147,11 @@ export const OperationsDashboardEnhancement = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {healthData?.service_health?.services && 
               Object.entries(healthData.service_health.services).map(([name, service]: [string, any]) => (
-                <div key={name} className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
+                <div key={name} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                   {getStatusIcon(service.status)}
                   <div>
                     <p className="font-medium capitalize">{name}</p>
-                    <p className="text-xs text-gray-400">{service.endpoint}</p>
+                    <p className="text-xs text-slate-600">{service.endpoint}</p>
                   </div>
                 </div>
               ))
@@ -219,10 +219,10 @@ export const OperationsDashboardEnhancement = () => {
           <CardContent>
             <div className="space-y-2">
               {alerts.map((alert: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-800 rounded-lg">
+                <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                   <div>
                     <p className="font-medium">{alert.message}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-slate-600">
                       {alert.service_name} • {new Date(alert.created_at).toLocaleString()}
                     </p>
                   </div>

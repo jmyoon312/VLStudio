@@ -93,7 +93,7 @@
   --error-color: var(--color-error, #EF4444);
   --border-color: var(--border-light, #E5E7EB);
   --border-radius: 12px;
-  --font-family: var(--font-main, 'Pretendard', 'Inter', system-ui, sans-serif);
+  --font-family: var(--font-wanted-sans, var(--font-sans, 'Wanted Sans Variable', 'Pretendard', 'Inter', system-ui, sans-serif));
 }
 
 * {
@@ -146,7 +146,7 @@ html, body {
 .project-loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
+  border: 3px solid #E5E7EB;
   border-top-color: #3b82f6;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -384,7 +384,7 @@ html, body {
 
 .seed-control .seed-btn:hover:not(:disabled) {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.08);
+  background: #F3F4F6;
 }
 
 .seed-control .seed-btn:disabled {
@@ -1688,7 +1688,7 @@ html, body {
 
 .prompt-edit-input:focus {
   border-color: var(--accent, #3b82f6);
-  background: var(--bg-secondary, #1a1a2e);
+  background: var(--bg-secondary, #ffffff);
   outline: none;
 }
 

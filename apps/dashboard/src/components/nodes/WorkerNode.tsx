@@ -47,7 +47,7 @@ const WorkerNode = ({ data, selected }: NodeProps) => {
                         <Handle
                             type="target"
                             position={Position.Left}
-                            className="w-4 h-4 bg-blue-500 border-2 border-white dark:border-slate-800"
+                            className="w-4 h-4 bg-blue-500 border-2 border-white dark:border-slate-200"
                         />
                     </TooltipTrigger>
                     <TooltipContent side="left">
@@ -73,13 +73,13 @@ const WorkerNode = ({ data, selected }: NodeProps) => {
                 <div className="p-3 space-y-3 bg-slate-50">
                     <div className="grid grid-cols-2 gap-2">
                         <div className="bg-white p-2 rounded border flex flex-col items-center justify-center gap-1">
-                            <span className="text-[10px] text-slate-400 uppercase">Daily Limit</span>
+                            <span className="text-[10px] text-slate-600 uppercase">Daily Limit</span>
                             <Badge variant="outline" className="font-mono text-xs border-blue-200 text-blue-700">
                                 {used} / {limit}
                             </Badge>
                         </div>
                         <div className="bg-white p-2 rounded border flex flex-col items-center justify-center gap-1">
-                            <span className="text-[10px] text-slate-400 uppercase">Cooldown</span>
+                            <span className="text-[10px] text-slate-600 uppercase">Cooldown</span>
                             <Badge variant="outline" className="font-mono text-xs border-amber-200 text-amber-700 flex items-center gap-1">
                                 <Clock className="w-3 h-3" /> 15m
                             </Badge>
@@ -100,7 +100,7 @@ const WorkerNode = ({ data, selected }: NodeProps) => {
                         <Handle
                             type="source"
                             position={Position.Right}
-                            className="w-4 h-4 bg-blue-500 border-2 border-white dark:border-slate-800"
+                            className="w-4 h-4 bg-blue-500 border-2 border-white dark:border-slate-200"
                         />
                     </TooltipTrigger>
                     <TooltipContent side="right">

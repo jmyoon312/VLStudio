@@ -881,9 +881,9 @@ const SwarmHub: React.FC<SwarmHubProps> = ({ defaultStage = 'synthesis' }) => {
             <SwarmControlPanel />
 
             {/* 🔗 Row 3: Unified Sovereign Navigator */}
-            <div className="w-full bg-white border-b border-slate-200 px-8 py-2 z-40 shrink-0">
-                <div className="max-w-[1800px] mx-auto flex items-center justify-between">
-                    <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="w-full bg-card border-b border-border px-8 py-2 z-40 shrink-0 overflow-x-auto scrollbar-none">
+                <div className="max-w-[1800px] mx-auto flex items-center justify-between gap-4">
+                    <div className="flex bg-muted p-1 rounded-2xl border border-border shadow-sm flex-nowrap overflow-x-auto scrollbar-none shrink-0">
                         {[
                             { id: 'scan', label: '트렌드 감지', sub: 'HORIZON SCAN', icon: Search },
                             { id: 'strategy', label: '전략 수립', sub: 'STRATEGIC FORMULATION', icon: Lightbulb },
@@ -896,26 +896,26 @@ const SwarmHub: React.FC<SwarmHubProps> = ({ defaultStage = 'synthesis' }) => {
                                 key={nav.id}
                                 onClick={() => handleStageChange(nav.id)}
                                 className={cn(
-                                    "flex items-center gap-4 px-6 py-2.5 rounded-xl transition-all duration-300 relative group",
+                                    "flex items-center gap-2 md:gap-4 px-3 md:px-6 py-2.5 rounded-xl transition-all duration-300 relative group shrink-0 whitespace-nowrap",
                                     activeStage === nav.id
-                                        ? "bg-indigo-600 text-white shadow-xl scale-105 z-10" 
-                                        : "text-slate-400 hover:bg-slate-50"
+                                        ? "bg-primary text-primary-foreground shadow-md scale-105 z-10 font-bold" 
+                                        : "text-muted-foreground hover:bg-muted"
                                 )}
                             >
-                                <nav.icon className={cn("w-5 h-5", activeStage === nav.id ? "text-indigo-400" : "text-slate-300")} />
+                                <nav.icon className={cn("w-5 h-5 shrink-0", activeStage === nav.id ? "text-primary-foreground" : "text-muted-foreground/60")} />
                                 <div className="flex flex-col items-start leading-none gap-1">
                                     <span className="text-[10px] font-black uppercase tracking-tighter">{nav.label}</span>
-                                    <span className="text-[8px] font-bold opacity-50 uppercase tracking-[0.1em]">{nav.sub}</span>
+                                    <span className="text-[8px] font-bold opacity-50 uppercase tracking-[0.1em] hide-on-slim">{nav.sub}</span>
                                 </div>
                             </button>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                          <Button 
                             variant="ghost" 
                             size="sm"
-                            className="rounded-xl h-11 border-slate-100 text-slate-400 font-bold text-[10px] uppercase tracking-widest gap-2 hover:bg-white hover:text-indigo-600 transition-all"
+                            className="rounded-xl h-11 border-border text-muted-foreground font-black text-[10px] uppercase tracking-widest gap-2 hover:bg-muted hover:text-primary transition-all whitespace-nowrap"
                             onClick={() => {
                                 console.log("Opening Settings Dialog...");
                                 setSettingsDialogOpen(true);
@@ -924,7 +924,7 @@ const SwarmHub: React.FC<SwarmHubProps> = ({ defaultStage = 'synthesis' }) => {
                             <Settings className="w-4 h-4" /> 하이브 설정
                         </Button>
                         <Button 
-                            className="bg-indigo-600 hover:bg-slate-900 text-white font-black rounded-xl h-11 text-[10px] uppercase tracking-widest px-8 shadow-lg shadow-indigo-100 transition-all flex items-center gap-3"
+                            className="bg-primary hover:bg-accent text-primary-foreground font-black rounded-xl h-11 text-[10px] uppercase tracking-widest px-8 shadow-md transition-all flex items-center gap-3 whitespace-nowrap"
                             onClick={() => setLaunchDialogOpen(true)}
                         >
                             <Rocket className="w-4 h-4 animate-bounce" /> 미션 즉시 투입
@@ -1299,14 +1299,14 @@ const SwarmHub: React.FC<SwarmHubProps> = ({ defaultStage = 'synthesis' }) => {
                             {activeStage === 'strategy' && (
                                 <div className="space-y-8 animate-in fade-in duration-700">
                                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 animate-in zoom-in-95 duration-500">
-                                        <Card className="lg:col-span-1 border-0 shadow-3xl bg-white rounded-[3rem] overflow-hidden flex flex-col h-[750px] border border-slate-100">
-                                            <div className="p-8 border-b border-slate-50 bg-slate-50/50 flex flex-col gap-4">
-                                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-3">
-                                                    <BrainCircuit className="w-5 h-5 text-indigo-600" /> 마인드 금고 (Brain Vault)
+                                        <Card className="lg:col-span-1 border-0 shadow-3xl bg-card rounded-[3rem] overflow-hidden flex flex-col h-[500px] lg:h-[calc(100vh-280px)] lg:min-h-[600px] border border-border">
+                                            <div className="p-8 border-b border-border bg-muted/20 flex flex-col gap-4">
+                                                <h3 className="text-[11px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-3">
+                                                    <BrainCircuit className="w-5 h-5 text-primary" /> 마인드 금고 (Brain Vault)
                                                 </h3>
                                                 <Button 
                                                     size="sm" 
-                                                    className="w-full bg-indigo-600 hover:bg-slate-900 text-white font-black text-[9px] uppercase tracking-widest rounded-xl"
+                                                    className="w-full bg-primary hover:bg-accent text-primary-foreground font-black text-[9px] uppercase tracking-widest rounded-xl"
                                                     onClick={() => selectedCategoryId && createBriefMutation.mutate(selectedCategoryId)}
                                                     disabled={!selectedCategoryId || createBriefMutation.isPending}
                                                 >
@@ -1321,19 +1321,19 @@ const SwarmHub: React.FC<SwarmHubProps> = ({ defaultStage = 'synthesis' }) => {
                                                             onClick={() => setSelectedMission(brief)}
                                                             className={cn(
                                                                 "w-full text-left p-6 rounded-[2rem] transition-all flex flex-col gap-3 group border border-transparent",
-                                                                selectedMission?.id === brief.id ? "bg-indigo-600 text-white shadow-2xl scale-[1.02]" : "hover:bg-slate-50 hover:border-slate-100"
+                                                                selectedMission?.id === brief.id ? "bg-primary text-primary-foreground shadow-2xl scale-[1.02]" : "hover:bg-muted/40 hover:border-border"
                                                             )}
                                                         >
                                                             <div className="flex items-center justify-between w-full">
                                                                 <Badge className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-md", 
-                                                                    selectedMission?.id === brief.id ? "bg-white/20 text-white border-white/30" : "bg-indigo-50 text-indigo-600 border-indigo-100")}>
+                                                                    selectedMission?.id === brief.id ? "bg-white/20 text-white border-white/30" : "bg-primary/10 text-primary border-primary/20")}>
                                                                     {brief.niche}
                                                                 </Badge>
                                                                 <span className="text-[8px] opacity-60 font-bold">{new Date(brief.updated_at).toLocaleDateString()}</span>
                                                             </div>
                                                             <span className="text-xs font-black italic uppercase leading-tight">{brief.title}</span>
                                                             <p className={cn("text-[9px] font-medium line-clamp-2 leading-relaxed opacity-70", 
-                                                                selectedMission?.id === brief.id ? "text-white" : "text-slate-500")}>
+                                                                selectedMission?.id === brief.id ? "text-white" : "text-muted-foreground")}>
                                                                 {brief.summary}
                                                             </p>
                                                         </button>
@@ -1348,7 +1348,7 @@ const SwarmHub: React.FC<SwarmHubProps> = ({ defaultStage = 'synthesis' }) => {
                                             </ScrollArea>
                                         </Card>
 
-                                        <Card className="lg:col-span-3 border-0 shadow-3xl bg-white rounded-[4rem] overflow-hidden flex flex-col h-[750px] border border-slate-100 shadow-[0_0_60px_rgba(79,70,229,0.05)]">
+                                        <Card className="lg:col-span-3 border-0 shadow-3xl bg-card rounded-[4rem] overflow-hidden flex flex-col h-[500px] lg:h-[calc(100vh-280px)] lg:min-h-[600px] border border-border shadow-sm">
                                             {selectedMission && 'content_markdown' in selectedMission ? (
                                                 <div className="flex flex-col h-full">
                                                     <div className="p-10 border-b border-slate-50 bg-white flex items-center justify-between">
@@ -1525,76 +1525,76 @@ const SwarmHub: React.FC<SwarmHubProps> = ({ defaultStage = 'synthesis' }) => {
 
                             {activeStage === 'conquest' && (
                                 <div className="space-y-8 animate-in fade-in zoom-in-95 duration-1000">
-                                    <div className="bg-white rounded-[4rem] p-16 border border-indigo-100 shadow-[0_0_50px_rgba(79,70,229,0.05)] relative overflow-hidden h-[850px] flex flex-col items-center justify-between">
+                                    <div className="bg-card rounded-[3rem] md:rounded-[4rem] p-6 md:p-12 lg:p-16 border border-border shadow-sm relative overflow-hidden h-auto lg:h-[calc(100vh-280px)] lg:min-h-[700px] flex flex-col items-center justify-between gap-8">
                                         {/* Grid Background */}
                                         <div className="absolute inset-0 opacity-40 pointer-events-none" 
-                                             style={{ backgroundImage: 'radial-gradient(circle, #4f46e5 1px, transparent 1px)', backgroundSize: '40px 40px' }} 
+                                             style={{ backgroundImage: 'radial-gradient(circle, hsl(var(--primary)) 1px, transparent 1px)', backgroundSize: '40px 40px' }} 
                                         />
                                         
-                                        <div className="w-full flex items-center justify-between relative z-10 mb-10">
+                                        <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
                                             <div className="flex flex-col gap-2">
-                                                <Badge className="w-fit bg-indigo-50 text-indigo-600 border-indigo-100 text-[10px] font-black uppercase px-4 py-1.5 rounded-full">
+                                                <Badge className="w-fit bg-primary/10 text-primary border-primary/20 text-[10px] font-black uppercase px-4 py-1.5 rounded-full">
                                                     Tactical Overwatch v4.2
                                                 </Badge>
-                                                <h2 className="text-4xl font-black text-slate-900 italic tracking-tighter uppercase leading-none">Sovereign <span className="text-indigo-600">Conquest Radar</span></h2>
+                                                <h2 className="text-2xl md:text-4xl font-black text-foreground italic tracking-tighter uppercase leading-none">Sovereign <span className="text-primary">Conquest Radar</span></h2>
                                             </div>
-                                            <div className="flex items-center gap-6">
-                                                <div className="text-right">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Target Niche</span>
-                                                    <span className="text-xl font-black text-slate-900 italic uppercase tracking-tight">{selectedInterest || "GLOBAL HORIZON"}</span>
+                                            <div className="flex flex-wrap items-center gap-4 md:gap-6 w-full sm:w-auto justify-between sm:justify-end">
+                                                <div className="text-left">
+                                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Target Niche</span>
+                                                    <span className="text-lg md:text-xl font-black text-foreground italic uppercase tracking-tight">{selectedInterest || "GLOBAL HORIZON"}</span>
                                                 </div>
-                                                <div className="h-12 w-[1px] bg-slate-200" />
-                                                <Button className="h-14 px-10 bg-indigo-600 hover:bg-slate-900 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-2xl shadow-indigo-100 transition-all">
+                                                <div className="h-10 w-[1px] bg-border hidden sm:block" />
+                                                <Button className="h-11 md:h-14 px-6 md:px-10 bg-primary hover:bg-primary/95 text-primary-foreground font-black text-[10px] md:text-[11px] uppercase tracking-widest rounded-2xl shadow-lg transition-all whitespace-nowrap">
                                                     신규 구역 정찰 시작 (RE-SCAN)
                                                 </Button>
                                             </div>
                                         </div>
 
                                         {/* REAL-TIME RADAR COMPONENT (LIGHT MODE) */}
-                                        <div className="relative w-[500px] h-[500px] flex items-center justify-center">
+                                        <div className="relative w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] md:w-[480px] md:h-[480px] flex items-center justify-center shrink-0">
                                             {/* Radar Rings */}
-                                            <div className="absolute inset-0 border border-indigo-100 rounded-full" />
-                                            <div className="absolute inset-[15%] border border-indigo-200/50 rounded-full" />
+                                            <div className="absolute inset-0 border border-primary/20 rounded-full" />
+                                            <div className="absolute inset-[15%] border border-primary/30 rounded-full" />
                                             <div className="absolute inset-[30%] border border-indigo-200/50 rounded-full" />
                                             <div className="absolute inset-[45%] border border-indigo-200/50 rounded-full" />
                                             
                                             {/* Sweep Effect */}
                                             <div className="absolute inset-0 rounded-full animate-spin-slow origin-center" 
-                                                 style={{ background: 'conic-gradient(from 0deg, rgba(79,70,229,0.05) 0%, transparent 40%)', animationDuration: '6s' }} 
+                                                 style={{ background: 'conic-gradient(from 0deg, hsl(var(--primary)/0.05) 0%, transparent 40%)', animationDuration: '6s' }} 
                                             />
 
                                             {/* Tactical Points */}
                                             {scoutCandidates?.slice(0, 12).map((c, idx) => (
                                                 <div 
                                                     key={c.id}
-                                                    className="absolute w-4 h-4 rounded-full bg-indigo-600 shadow-[0_0_15px_rgba(79,70,229,0.3)] flex items-center justify-center group cursor-pointer animate-pulse"
+                                                    className="absolute w-4 h-4 rounded-full bg-primary shadow-[0_0_15px_rgba(var(--primary),0.3)] flex items-center justify-center group cursor-pointer animate-pulse"
                                                     style={{ 
                                                         top: `${30 + Math.random() * 40}%`, 
                                                         left: `${30 + Math.random() * 40}%`,
                                                         animationDelay: `${idx * 0.2}s`
                                                     }}
                                                 >
-                                                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white border border-slate-200 text-slate-900 px-3 py-1.5 rounded-xl text-[9px] font-black shadow-2xl opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 pointer-events-none whitespace-nowrap z-50">
-                                                        {c.channel_name} <br/> <span className="text-indigo-600">SCORE: {Math.round(c.total_sovereign_score)}</span>
+                                                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-card border border-border text-foreground px-3 py-1.5 rounded-xl text-[9px] font-black shadow-2xl opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 pointer-events-none whitespace-nowrap z-50">
+                                                        {c.channel_name} <br/> <span className="text-primary">SCORE: {Math.round(c.total_sovereign_score)}</span>
                                                     </div>
                                                 </div>
                                             ))}
 
                                             {/* Center Point */}
-                                            <div className="w-4 h-4 bg-indigo-600 rounded-full shadow-[0_0_20px_rgba(79,70,229,0.5)] z-20 relative" />
+                                            <div className="w-4 h-4 bg-primary rounded-full shadow-[0_0_20px_rgba(var(--primary),0.5)] z-20 relative" />
                                         </div>
 
                                         {/* Bottom Stats Grid (Light Mode) */}
-                                        <div className="grid grid-cols-4 gap-12 w-full pt-10 border-t border-slate-100 relative z-10 bg-white/50 backdrop-blur-md">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-12 w-full pt-6 md:pt-10 border-t border-border relative z-10 bg-card/50 backdrop-blur-md">
                                             {[
-                                                { label: "침투 성공 확률", value: "89.4%", color: "text-emerald-600" },
-                                                { label: "시장 저항 계수", value: "LOW", color: "text-amber-600" },
-                                                { label: "예상 파급력", value: "HIGH", color: "text-indigo-600" },
-                                                { label: "전략적 우위", value: "DOMINANT", color: "text-indigo-900" }
+                                                { label: "침투 성공 확률", value: "89.4%", color: "text-emerald-500" },
+                                                { label: "시장 저항 계수", value: "LOW", color: "text-amber-500" },
+                                                { label: "예상 파급력", value: "HIGH", color: "text-primary" },
+                                                { label: "전략적 우위", value: "DOMINANT", color: "text-foreground" }
                                             ].map((stat) => (
-                                                <div key={stat.label} className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</span>
-                                                    <span className={cn("text-3xl font-black italic tracking-tighter", stat.color)}>{stat.value}</span>
+                                                <div key={stat.label} className="flex flex-col gap-1 md:gap-2">
+                                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{stat.label}</span>
+                                                    <span className={cn("text-xl md:text-3xl font-black italic tracking-tighter", stat.color)}>{stat.value}</span>
                                                 </div>
                                             ))}
                                         </div>

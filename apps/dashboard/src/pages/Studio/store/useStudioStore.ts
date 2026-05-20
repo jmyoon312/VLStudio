@@ -124,8 +124,6 @@ export const useStudioStore = create<StudioState>((set) => ({
     playbackOrder: 'sequential',
     setPlaybackOrder: (order) => set({ playbackOrder: order }),
     addToPlaylist: (track) => set((state) => ({ lofiPlaylist: [...state.lofiPlaylist, track] })),
-    setPlaybackOrder: (order) => set({ playbackOrder: order }),
-    addToPlaylist: (track) => set((state) => ({ lofiPlaylist: [...state.lofiPlaylist, track] })),
     setPlaylist: (tracks) => set({ lofiPlaylist: tracks }),
     removeFromPlaylist: (id) => set((state) => ({ lofiPlaylist: state.lofiPlaylist.filter(t => t.id !== id) })),
 

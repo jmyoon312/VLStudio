@@ -325,7 +325,7 @@ export const LayerPanel: React.FC = () => {
 
                 {/* Search */}
                 <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
                     <Input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -339,7 +339,7 @@ export const LayerPanel: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {sortedLayers.length === 0 && !searchQuery && (
                     <div className="text-center py-12">
-                        <p className="text-sm text-gray-400 mb-4">레이어가 없습니다</p>
+                        <p className="text-sm text-slate-600 mb-4">레이어가 없습니다</p>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button size="sm">
@@ -364,7 +364,7 @@ export const LayerPanel: React.FC = () => {
 
                 {sortedLayers.length === 0 && searchQuery && (
                     <div className="text-center py-12">
-                        <p className="text-sm text-gray-400">레이어를 찾을 수 없습니다</p>
+                        <p className="text-sm text-slate-600">레이어를 찾을 수 없습니다</p>
                     </div>
                 )}
 

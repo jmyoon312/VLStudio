@@ -137,14 +137,14 @@ const OperationsDashboard: React.FC = () => {
         const isHighPriority = (video.priority_level || 0) > 0;
 
         return (
-            <div key={video.id} className={`group flex gap-4 p-3 border rounded-lg transition-all ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card hover:bg-slate-50'}`}>
+            <div key={video.id} className={`group flex gap-4 p-3 border rounded-lg transition-all ${isSelected ? 'bg-blue-500/10 border-blue-500/20' : 'bg-card hover:bg-accent/40 border-border'}`}>
                 {/* Checkbox */}
                 <div className="flex items-center justify-center pl-1">
                     <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(video.id)} />
                 </div>
 
                 {/* Thumbnail */}
-                <div className="w-32 aspect-video bg-slate-100 rounded overflow-hidden relative flex-shrink-0 cursor-pointer" onClick={() => setEditVideo(video)}>
+                <div className="w-32 aspect-video bg-muted rounded overflow-hidden relative flex-shrink-0 cursor-pointer" onClick={() => setEditVideo(video)}>
                     {video.thumbnail_path ? (
                         <img
                             src={getMediaUrl(video.thumbnail_path, settings?.root_download_path)}
@@ -153,7 +153,7 @@ const OperationsDashboard: React.FC = () => {
                             onError={(e) => (e.target as HTMLImageElement).style.display = 'none'}
                         />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">No Image</div>
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No Image</div>
                     )}
                     {video.duration && (
                         <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] px-1 rounded font-mono">
@@ -167,17 +167,17 @@ const OperationsDashboard: React.FC = () => {
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <h3
-                                className="font-semibold text-sm line-clamp-1 cursor-pointer hover:text-blue-600 hover:underline decoration-blue-300 underline-offset-2"
+                                className="font-semibold text-sm line-clamp-1 cursor-pointer hover:text-primary hover:underline decoration-primary/50 underline-offset-2 text-foreground"
                                 onClick={() => setEditVideo(video)}
                             >
                                 {video.title}
                             </h3>
                             {isHighPriority && <Star className="w-3 h-3 fill-amber-400 text-amber-400" />}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                            <Badge variant="secondary" className={`h-5 px-1.5 font-normal ${video.upload_status === 'FAILED' ? 'bg-red-100 text-red-700 hover:bg-red-200' :
-                                video.upload_status === 'COMPLETED' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
-                                    'bg-slate-100 text-slate-700'
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="secondary" className={`h-5 px-1.5 font-normal ${video.upload_status === 'FAILED' ? 'bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20' :
+                                video.upload_status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20' :
+                                    'bg-muted text-muted-foreground'
                                 }`}>
                                 {video.upload_status || "준비됨"}
                             </Badge>
@@ -187,8 +187,8 @@ const OperationsDashboard: React.FC = () => {
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                                                <ShieldCheck size={10} className="fill-emerald-100" />
+                                            <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                                <ShieldCheck size={10} className="fill-emerald-500/20" />
                                                 <span className="text-[10px] font-bold">WASHED</span>
                                             </div>
                                         </TooltipTrigger>
@@ -196,7 +196,7 @@ const OperationsDashboard: React.FC = () => {
                                     </Tooltip>
                                 </TooltipProvider>
                             ) : (
-                                <div className="flex items-center gap-1 text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 grayscale">
+                                <div className="flex items-center gap-1 text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border grayscale">
                                     <ShieldCheck size={10} />
                                     <span className="text-[10px] font-medium">RAW</span>
                                 </div>
@@ -207,7 +207,7 @@ const OperationsDashboard: React.FC = () => {
                         </div>
                     </div>
                     {video.failure_reason && (
-                        <div className="text-red-500 text-xs flex items-center gap-1 mt-1 font-medium bg-red-50 p-1 rounded w-fit">
+                        <div className="text-red-500 dark:text-red-400 text-xs flex items-center gap-1 mt-1 font-medium bg-red-500/10 p-1 rounded w-fit">
                             <AlertCircle size={12} />
                             <span className="truncate max-w-[300px]">{video.failure_reason}</span>
                         </div>
@@ -217,7 +217,7 @@ const OperationsDashboard: React.FC = () => {
                 {/* Active Progress */}
                 {activeTab === 'active' && (
                     <div className="w-32 flex flex-col justify-center px-2">
-                        <div className="text-[10px] text-slate-500 mb-1 text-right">업로드 중...</div>
+                        <div className="text-[10px] text-muted-foreground mb-1 text-right">업로드 중...</div>
                         <Progress value={45} className="h-1.5 animate-pulse" />
                     </div>
                 )}
@@ -227,7 +227,7 @@ const OperationsDashboard: React.FC = () => {
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-amber-500" onClick={() => togglePriority(video)}>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-amber-500" onClick={() => togglePriority(video)}>
                                     <Star className={`w-4 h-4 ${isHighPriority ? 'fill-amber-400 text-amber-400' : ''}`} />
                                 </Button>
                             </TooltipTrigger>
@@ -237,7 +237,7 @@ const OperationsDashboard: React.FC = () => {
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-400 hover:text-slate-800">
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                                 <MoreHorizontal className="w-4 h-4" />
                             </Button>
                         </DropdownMenuTrigger>
@@ -253,7 +253,7 @@ const OperationsDashboard: React.FC = () => {
                     </DropdownMenu>
 
                     {video.uploaded_video_id && (
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:bg-red-50" onClick={() => window.open(`https://youtu.be/${video.uploaded_video_id}`, '_blank')}>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:bg-red-500/10" onClick={() => window.open(`https://youtu.be/${video.uploaded_video_id}`, '_blank')}>
                             <ExternalLink className="w-4 h-4" />
                         </Button>
                     )}
@@ -262,49 +262,49 @@ const OperationsDashboard: React.FC = () => {
         );
     }
 
-    if (isVideosLoading) return <div className="p-12 flex justify-center text-slate-400"><Loader2 className="animate-spin w-8 h-8" /></div>;
+    if (isVideosLoading) return <div className="p-12 flex justify-center text-muted-foreground"><Loader2 className="animate-spin w-8 h-8" /></div>;
 
     const currentList = filteredVideos[activeTab as keyof typeof filteredVideos] as Video[];
 
     return (
         <div className="space-y-6 container mx-auto p-6 max-w-7xl">
             {/* [SAIF-2026] Tactical Network Control Center */}
-            <Card className="bg-slate-900 border-slate-800 shadow-2xl overflow-hidden mb-6">
-                <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                    <ShieldCheck className="w-24 h-24 text-blue-500" />
+            <Card className="bg-card border-border shadow-md overflow-hidden mb-6 relative">
+                <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
+                    <ShieldCheck className="w-24 h-24 text-foreground" />
                 </div>
-                <CardContent className="p-6">
+                <CardContent className="p-6 relative z-10">
                     <div className="flex flex-col lg:flex-row gap-8 items-center justify-between">
                         {/* Status Group */}
                         <div className="flex flex-wrap gap-6 items-center">
                             <div className="space-y-1">
-                                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest flex items-center gap-1">
+                                <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest flex items-center gap-1">
                                     <div className={`w-2 h-2 rounded-full animate-pulse ${netStatus?.status_detail !== 'WIFI_MODE' ? 'bg-emerald-500' : 'bg-red-500'}`} />
                                     Network Isolation
                                 </div>
-                                <div className="text-xl font-black text-white flex items-center gap-2">
+                                <div className="text-xl font-black text-foreground flex items-center gap-2">
                                     {netStatus?.status_detail === 'LTE_MODE' ? 'FULL-TUNNEL ACTIVE' : 
                                      netStatus?.status_detail === 'DUAL_MODE' ? 'DUAL BINDING' : 'WIFI EXPOSED'}
                                     {netStatus?.status_detail === 'WIFI_MODE' && <AlertCircle className="text-red-500 w-5 h-5 animate-bounce" />}
                                 </div>
                             </div>
 
-                            <Separator orientation="vertical" className="h-10 bg-slate-800 hidden lg:block" />
+                            <Separator orientation="vertical" className="h-10 bg-border hidden lg:block" />
 
                             <div className="space-y-1">
-                                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Public Identity (IP)</div>
-                                <div className="text-sm font-mono text-blue-300 bg-blue-900/20 px-2 py-0.5 rounded border border-blue-800/50">
+                                <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Public Identity (IP)</div>
+                                <div className="text-sm font-mono text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
                                     {netStatus?.public_ip || "SCANNING..."}
                                 </div>
                             </div>
 
-                            <Separator orientation="vertical" className="h-10 bg-slate-800 hidden lg:block" />
+                            <Separator orientation="vertical" className="h-10 bg-border hidden lg:block" />
 
                             <div className="space-y-1">
-                                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">ADB Tethering</div>
-                                <div className="text-sm font-medium text-slate-300">
+                                <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">ADB Tethering</div>
+                                <div className="text-sm font-medium">
                                     {netStatus?.adb_connected ? (
-                                        <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/20">
+                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">
                                             CONNECTED ({netStatus?.device_count})
                                         </Badge>
                                     ) : (
@@ -318,7 +318,7 @@ const OperationsDashboard: React.FC = () => {
                         <div className="flex gap-3 w-full lg:w-auto">
                             <Button 
                                 variant="outline" 
-                                className="bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 flex-1 lg:flex-none h-12"
+                                className="bg-card border-border text-foreground hover:bg-accent flex-1 lg:flex-none h-12 shadow-sm"
                                 onClick={() => rotateMutation.mutate()}
                                 disabled={rotateMutation.isPending}
                             >
@@ -326,7 +326,7 @@ const OperationsDashboard: React.FC = () => {
                                 Force IP Rotation
                             </Button>
                             <Button 
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 h-12 flex-1 lg:flex-none shadow-lg shadow-blue-900/20"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 h-12 flex-1 lg:flex-none shadow-sm shadow-primary/20"
                                 onClick={() => queryClient.invalidateQueries({ queryKey: ['network-status'] })}
                             >
                                 Security Audit
@@ -354,7 +354,7 @@ const OperationsDashboard: React.FC = () => {
                         <Trash2 className="w-4 h-4 mr-2" /> 삭제
                     </Button>
                     <Button
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
                         onClick={() => batchUploadMutation.mutate(selectedVideos)}
                     >
                         <UploadCloud className="w-4 h-4 mr-2" /> 일괄 업로드
@@ -370,14 +370,14 @@ const OperationsDashboard: React.FC = () => {
                 </TabsList>
 
                 <div className="mt-6 space-y-4 min-h-[500px]">
-                    <Card className="border-slate-200 shadow-sm">
-                        <CardHeader className="pb-3 border-b">
+                    <Card className="border-border bg-card shadow-sm">
+                        <CardHeader className="pb-3 border-b border-border">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <CardTitle className="text-lg">
+                                    <CardTitle className="text-lg text-foreground">
                                         {activeTab === 'queue' ? '업로드 대기열' : activeTab === 'active' ? '진행 중인 작업' : '완료된 기록'}
                                     </CardTitle>
-                                    <CardDescription>
+                                    <CardDescription className="text-muted-foreground">
                                         {activeTab === 'queue' ? '배포 준비가 완료된 영상들입니다. 일괄 업로드를 선택하세요.' :
                                             activeTab === 'active' ? '실시간 업로드 진행 상황을 모니터링합니다.' :
                                                 ' 성공적으로 게시된 영상들의 아카이브입니다.'}
@@ -392,12 +392,12 @@ const OperationsDashboard: React.FC = () => {
                         </CardHeader>
                         <CardContent className="p-0">
                             {currentList.length === 0 ? (
-                                <div className="py-20 text-center text-slate-400 flex flex-col items-center">
+                                <div className="py-20 text-center text-muted-foreground flex flex-col items-center">
                                     <Clock className="w-12 h-12 mb-4 opacity-20" />
                                     <p>이 뷰에는 영상이 없습니다.</p>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-slate-100">
+                                <div className="divide-y divide-border">
                                     {currentList.map(renderVideoRow)}
                                 </div>
                             )}
@@ -408,26 +408,27 @@ const OperationsDashboard: React.FC = () => {
 
             {/* Quick Edit Modal */}
             <Dialog open={!!editVideo} onOpenChange={(open) => !open && setEditVideo(null)}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[500px] bg-card border-border text-foreground">
                     <DialogHeader>
-                        <DialogTitle>빠른 메타데이터 수정</DialogTitle>
-                        <DialogDescription>업로드 전에 세부 정보를 수정하세요.</DialogDescription>
+                        <DialogTitle className="text-foreground">빠른 메타데이터 수정</DialogTitle>
+                        <DialogDescription className="text-muted-foreground">업로드 전에 세부 정보를 수정하세요.</DialogDescription>
                     </DialogHeader>
                     {editVideo && (
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="title">제목</Label>
+                                <Label htmlFor="title" className="text-foreground">제목</Label>
                                 <Input
                                     id="title"
                                     defaultValue={editVideo.title}
+                                    className="bg-background border-border text-foreground"
                                     onChange={(e) => setEditVideo({ ...editVideo, title: e.target.value })}
                                 />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="desc">설명</Label>
+                                <Label htmlFor="desc" className="text-foreground">설명</Label>
                                 <Textarea
                                     id="desc"
-                                    className="h-24"
+                                    className="h-24 bg-background border-border text-foreground"
                                     defaultValue={editVideo.metadata_json?.description || ""}
                                     onChange={(e) => {
                                         const meta = editVideo.metadata_json || {};

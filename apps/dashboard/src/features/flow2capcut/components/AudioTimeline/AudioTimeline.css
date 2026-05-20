@@ -337,7 +337,7 @@
   cursor: pointer;
 }
 .atl-label-clickable:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.04);
 }
 .atl-file-count {
   margin-left: auto;

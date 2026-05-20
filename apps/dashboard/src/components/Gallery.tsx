@@ -42,10 +42,10 @@ const VideoPlayer = ({ src, title }: { src: string, title: string }) => {
                     autoPlay
                 />
             </div>
-            <div className="p-4 bg-gray-900 text-white border-t border-gray-800">
-                <h3 className="mb-3 text-sm truncate font-medium text-gray-200">{title}</h3>
+            <div className="p-4 bg-white text-slate-800 border border-slate-200 border-t border-slate-200">
+                <h3 className="mb-3 text-sm truncate font-medium text-slate-800">{title}</h3>
                 <div className="flex justify-between items-center">
-                    <span className="text-xs text-gray-400 font-mono">Playback Speed</span>
+                    <span className="text-xs text-slate-600 font-mono">Playback Speed</span>
                     <div className="flex items-center gap-1 bg-white/10 p-1 rounded-lg">
                         {[1.0, 1.25, 1.5, 2.0].map((speed) => (
                             <button
@@ -55,7 +55,7 @@ const VideoPlayer = ({ src, title }: { src: string, title: string }) => {
                                     "px-3 py-1.5 text-xs font-medium rounded transition-colors",
                                     playbackRate === speed
                                         ? "bg-primary text-primary-foreground shadow-sm"
-                                        : "hover:bg-white/10 text-gray-400 hover:text-white"
+                                        : "hover:bg-white/10 text-slate-600 hover:text-white"
                                 )}
                             >
                                 {speed}x
@@ -280,7 +280,7 @@ const Gallery = () => {
         } else {
             badges.push(
                 <Badge key="normal" variant="secondary" className="gap-1 text-[11px] h-6 px-2 bg-slate-100 text-slate-500 border-slate-200">
-                    <span className="text-slate-400">☁️</span> C등급 {score.toFixed(1)}%
+                    <span className="text-slate-600">☁️</span> C등급 {score.toFixed(1)}%
                 </Badge>
             );
         }
@@ -461,8 +461,8 @@ const Gallery = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 select-none">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">갤러리</h1>
-                    <p className="text-slate-600 mt-2">
+                    <h1 className="text-3xl font-bold text-foreground">갤러리</h1>
+                    <p className="text-muted-foreground mt-2">
                         수집된 영상 데이터를 <strong>바이럴 지수</strong>를 통해 분석합니다 ({filteredVideos.length}개)
                     </p>
                 </div>
@@ -470,7 +470,7 @@ const Gallery = () => {
                     {/* [NEW] Auto HD Settings Button */}
                     <AutoHDSettingsDialog
                         trigger={
-                            <Button variant="outline" size="sm" className="h-[36px] gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                            <Button variant="outline" size="sm" className="h-[36px] gap-1.5 text-primary border-primary/20 hover:bg-primary/10">
                                 <Settings2 className="w-4 h-4" />
                                 Auto HD 설정
                             </Button>
@@ -498,7 +498,7 @@ const Gallery = () => {
                     if (groupVids.length === 0) return null;
                     return (
                         <div key={catName} className="space-y-4">
-                            <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                            <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
                                 {catName === "임시저장 (미분류)" ? <FolderOpen className="text-muted-foreground w-5 h-5"/> : <Filter className="text-primary w-5 h-5"/>}
                                 {catName} <Badge variant="secondary" className="ml-2 font-mono text-sm">{groupVids.length}</Badge>
                             </h2>
@@ -514,15 +514,15 @@ const Gallery = () => {
                             ref={el => videoRefs.current[video.id] = el}
                             className={`relative group rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 ${video.metadata_json?.is_hd
                                 ? 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 ring-2 ring-amber-400/50'
-                                : 'bg-white dark:bg-gray-800'
+                                : 'bg-card'
                                 }`}
                         >
                             <Card className={cn(
-                                "overflow-hidden hover:shadow-xl transition-all duration-300 border-border/60 hover:border-primary/50 bg-white",
+                                "overflow-hidden hover:shadow-xl transition-all duration-300 border-border/60 hover:border-primary/50 bg-card",
                                 isSelected && "ring-2 ring-primary scale-[0.99] bg-accent/10"
                             )}>
                                 {/* Thumbnail Section */}
-                                <div className="relative aspect-video bg-slate-100 overflow-hidden">
+                                <div className="relative aspect-video bg-muted overflow-hidden">
                                     {thumbUrl ? (
                                         <img
                                             src={thumbUrl}
@@ -599,10 +599,10 @@ const Gallery = () => {
                                         {video.title}
                                     </h3>
 
-                                    <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-slate-100 pb-2">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground border-b border-border pb-2">
                                         <div className="flex items-center gap-1.5 overflow-hidden">
                                             {/* [FIX] Channel Profile Image */}
-                                            <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 border border-slate-200 relative">
+                                            <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border relative">
                                                 <img
                                                     src={resolveFileUrl(video.channel_id && channelMap[video.channel_id] ? channelMap[video.channel_id].thumbnail_path : null)}
                                                     alt="Ch"
@@ -614,30 +614,30 @@ const Gallery = () => {
                                                         if (p) {
                                                             const chName = video.channel_id && channelMap[video.channel_id] ? channelMap[video.channel_id].name : (video.metadata_json?.uploader || "?");
                                                             p.innerText = chName[0] || '?';
-                                                            p.className = "w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-bold text-slate-600 shrink-0 border border-slate-200";
+                                                            p.className = "w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0 border border-border";
                                                         }
                                                     }}
                                                 />
                                             </div>
                                             {/* [FIX] Prefer Channel Map Name */}
-                                            <span className="truncate font-medium text-slate-700">
+                                            <span className="truncate font-medium text-foreground">
                                                 {video.channel_id && channelMap[video.channel_id]
                                                     ? channelMap[video.channel_id].name
                                                     : (video.metadata_json?.uploader || "Unknown")}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-1 shrink-0 text-[10px] text-slate-400">
+                                        <div className="flex items-center gap-1 shrink-0 text-[10px] text-muted-foreground">
                                             <Calendar className="w-3 h-3" />
                                             <span>{new Date(video.upload_date).toLocaleDateString()}</span>
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-                                        <div className="text-slate-500 font-medium">조회수</div>
-                                        <div className="font-mono text-right font-bold text-slate-700">{formatCount(video.view_count ?? video.metadata_json?.view_count)}</div>
+                                        <div className="text-muted-foreground font-medium">조회수</div>
+                                        <div className="font-mono text-right font-bold text-foreground">{formatCount(video.view_count ?? video.metadata_json?.view_count)}</div>
 
-                                        <div className="text-slate-500 font-medium">구독자</div>
-                                        <div className="font-mono text-right font-medium text-slate-600">
+                                        <div className="text-muted-foreground font-medium">구독자</div>
+                                        <div className="font-mono text-right font-medium text-muted-foreground">
                                             {video.channel_id && channelMap[video.channel_id]
                                                 ? formatCount(channelMap[video.channel_id].subscriber_count)
                                                 : "-"}

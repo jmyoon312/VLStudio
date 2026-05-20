@@ -207,7 +207,7 @@ const WorkflowDashboard = () => {
     const filteredTemplates = selectedCategory === "전체" ? templates : templates.filter(t => t.category === selectedCategory);
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8">
+        <div className="p-8 max-w-7xl mx-auto space-y-8 bg-background text-foreground min-h-screen">
             <div className="flex items-center justify-between">
                 <div />
 
@@ -215,12 +215,12 @@ const WorkflowDashboard = () => {
                     <WorkflowGuideButton />
 
                     {/* [NEW] AI Generator & N8n Link */}
-                    <div className="flex items-center gap-2 border-l pl-3 ml-2 border-slate-200">
+                    <div className="flex items-center gap-2 border-l pl-3 ml-2 border-border">
                         <AIWorkflowGeneratorModal />
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-slate-500 hover:text-slate-900"
+                            className="text-muted-foreground hover:text-foreground"
                             onClick={() => window.open('http://localhost:5678', '_blank')}
                         >
                             <ExternalLink className="w-4 h-4 mr-1" /> n8n 열기
@@ -229,42 +229,42 @@ const WorkflowDashboard = () => {
 
                     <Dialog open={newWorkflowOpen} onOpenChange={setNewWorkflowOpen}>
                         <DialogTrigger asChild>
-                            <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+                            <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
                                 <Plus className="w-4 h-4" /> 새 시나리오 만들기
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-[1000px] h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
-                            <div className="p-6 border-b bg-slate-50">
+                        <DialogContent className="max-w-[1000px] h-[80vh] flex flex-col p-0 gap-0 overflow-hidden bg-card border-border">
+                            <div className="p-6 border-b bg-muted/30 border-border">
                                 <DialogHeader>
-                                    <DialogTitle>새 워크플로우 생성</DialogTitle>
-                                    <DialogDescription>
+                                    <DialogTitle className="text-foreground">새 워크플로우 생성</DialogTitle>
+                                    <DialogDescription className="text-muted-foreground">
                                         검증된 바이럴 템플릿을 선택하거나 빈 캔버스에서 시작하세요.
                                     </DialogDescription>
                                 </DialogHeader>
                             </div>
 
-                            <div className="flex border-b bg-white px-6">
+                            <div className="flex border-b bg-card px-6 border-border">
                                 <button
-                                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'template' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'template' ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                                     onClick={() => setActiveTab('template')}
                                 >
                                     템플릿 사용 (추천)
                                 </button>
                                 <button
-                                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'blank' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'blank' ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                                     onClick={() => setActiveTab('blank')}
                                 >
                                     빈 워크플로우 (Blank)
                                 </button>
                                 <button
-                                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'n8n' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'n8n' ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                                     onClick={() => setActiveTab('n8n')}
                                 >
                                     n8n 자동화 (External)
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-hidden bg-slate-50/50">
+                            <div className="flex-1 overflow-hidden bg-muted/10">
                                 {activeTab === 'template' ? (
                                     <div className="h-full flex flex-col p-6 overflow-hidden">
                                         <div className="flex flex-wrap gap-2 mb-6">
@@ -272,7 +272,7 @@ const WorkflowDashboard = () => {
                                                 <Badge
                                                     key={cat}
                                                     variant={selectedCategory === cat ? "default" : "outline"}
-                                                    className={`cursor-pointer px-3 py-1 text-xs ${selectedCategory === cat ? 'bg-slate-800' : 'bg-white hover:bg-slate-100'}`}
+                                                    className={`cursor-pointer px-3 py-1 text-xs border-border ${selectedCategory === cat ? 'bg-indigo-600 text-white' : 'bg-background text-foreground hover:bg-muted'}`}
                                                     onClick={() => setSelectedCategory(cat)}
                                                 >
                                                     {cat}
@@ -285,20 +285,20 @@ const WorkflowDashboard = () => {
                                                 {filteredTemplates.map(t => (
                                                     <Card
                                                         key={t.id}
-                                                        className={`cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all hover:shadow-md group flex flex-col h-full border-slate-200 relative ${processingId === t.id ? 'ring-2 ring-blue-500 bg-blue-50/10' : ''}`}
+                                                        className={`cursor-pointer hover:ring-2 hover:ring-indigo-600 transition-all hover:shadow-md group flex flex-col h-full border-border bg-card relative ${processingId === t.id ? 'ring-2 ring-indigo-600 bg-indigo-500/10' : ''}`}
                                                         onClick={() => handleUseTemplate(t.id)}
                                                     >
                                                         <CardHeader className="pb-3 space-y-3">
-                                                            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                            <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                                                 {getIcon(t.icon)}
                                                             </div>
                                                             <div>
-                                                                <CardTitle className="text-base">{t.title}</CardTitle>
-                                                                <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wide">{t.category}</div>
+                                                                <CardTitle className="text-base text-foreground">{t.title}</CardTitle>
+                                                                <div className="text-xs text-muted-foreground font-medium mt-1 uppercase tracking-wide">{t.category}</div>
                                                             </div>
                                                         </CardHeader>
                                                         <CardContent className="pb-3 flex-1">
-                                                            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                                                                 {t.description}
                                                             </p>
                                                         </CardContent>
@@ -323,7 +323,7 @@ const WorkflowDashboard = () => {
                                                     </Card>
                                                 ))}
                                                 {filteredTemplates.length === 0 && (
-                                                    <div className="col-span-full py-20 text-center text-slate-400">
+                                                    <div className="col-span-full py-20 text-center text-muted-foreground">
                                                         해당 카테고리에 템플릿이 없습니다.
                                                     </div>
                                                 )}
@@ -332,24 +332,26 @@ const WorkflowDashboard = () => {
                                     </div>
                                 ) : activeTab === 'blank' ? (
                                     <div className="p-6 max-w-md mx-auto mt-10">
-                                        <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4">
+                                        <div className="bg-card p-6 rounded-xl border border-border shadow-sm space-y-4">
                                             <div className="space-y-2">
-                                                <Label>워크플로우 이름</Label>
+                                                <Label className="text-foreground">워크플로우 이름</Label>
                                                 <Input
                                                     placeholder="예: 새로운 프로젝트"
                                                     value={newTitle}
                                                     onChange={(e) => setNewTitle(e.target.value)}
+                                                    className="bg-background text-foreground border-border"
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>설명 (선택)</Label>
+                                                <Label className="text-foreground">설명 (선택)</Label>
                                                 <Input
                                                     placeholder="간단한 설명..."
                                                     value={newDesc}
                                                     onChange={(e) => setNewDesc(e.target.value)}
+                                                    className="bg-background text-foreground border-border"
                                                 />
                                             </div>
-                                            <Button className="w-full mt-4" onClick={handleCreateWorkflow} disabled={!newTitle}>
+                                            <Button className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white" onClick={handleCreateWorkflow} disabled={!newTitle}>
                                                 <Plus className="w-4 h-4 mr-2" /> 빈 워크플로우 생성
                                             </Button>
                                         </div>
@@ -358,29 +360,29 @@ const WorkflowDashboard = () => {
                                     <div className="h-full flex flex-col p-6 overflow-hidden">
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-10">
                                             {n8nWorkflows.length === 0 && (
-                                                <div className="col-span-full py-20 text-center text-slate-400">
+                                                <div className="col-span-full py-20 text-center text-muted-foreground">
                                                     연결된 n8n 워크플로우가 없습니다.
                                                 </div>
                                             )}
                                             {n8nWorkflows.map(nw => (
-                                                <Card key={nw.id} className="cursor-pointer hover:ring-2 hover:ring-green-500 transition-all hover:shadow-md group flex flex-col h-full border-green-100 bg-green-50/30">
+                                                <Card key={nw.id} className="cursor-pointer hover:ring-2 hover:ring-green-500 transition-all hover:shadow-md group flex flex-col h-full border-green-500/20 bg-green-500/5">
                                                     <CardHeader className="pb-3 space-y-3">
-                                                        <div className="w-10 h-10 rounded-lg bg-green-100 text-green-600 flex items-center justify-center">
+                                                        <div className="w-10 h-10 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center">
                                                             <ExternalLink className="w-5 h-5" />
                                                         </div>
                                                         <div>
-                                                            <CardTitle className="text-base">{nw.title}</CardTitle>
-                                                            <div className="text-xs text-green-600 font-medium mt-1 uppercase tracking-wide">N8N AUTOMATION</div>
+                                                            <CardTitle className="text-base text-foreground">{nw.title}</CardTitle>
+                                                            <div className="text-xs text-green-600 dark:text-green-400 font-medium mt-1 uppercase tracking-wide">N8N AUTOMATION</div>
                                                         </div>
                                                     </CardHeader>
                                                     <CardContent className="pb-3 flex-1">
-                                                        <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                                                             {nw.description}
                                                         </p>
                                                     </CardContent>
                                                     <CardFooter className="pt-0">
                                                         <Button
-                                                            className="w-full gap-2 h-8 text-xs bg-green-600 hover:bg-green-700"
+                                                            className="w-full gap-2 h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
                                                             onClick={() => handleRunN8n(nw.original_id)}
                                                         >
                                                             <PlayCircle className="w-3 h-3" /> 실행 (Activate)
@@ -399,22 +401,22 @@ const WorkflowDashboard = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {workflows.length === 0 && !loading && (
-                    <div className="col-span-full flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl text-slate-400">
+                    <div className="col-span-full flex flex-col items-center justify-center p-12 border-2 border-dashed border-border rounded-xl text-muted-foreground">
                         <Layout className="w-12 h-12 mb-4 opacity-20" />
                         <p>생성된 워크플로우가 없습니다.</p>
-                        <Button variant="link" onClick={() => setNewWorkflowOpen(true)}>+ 첫 시나리오 만들기</Button>
+                        <Button variant="link" onClick={() => setNewWorkflowOpen(true)} className="text-indigo-600 dark:text-indigo-400">+ 첫 시나리오 만들기</Button>
                     </div>
                 )}
 
                 {workflows.map((workflow) => (
-                    <Card key={workflow.id} className="group hover:shadow-lg transition-all duration-300 border-slate-200 cursor-pointer" onClick={() => navigate(`/workflows/${workflow.id}`)}>
+                    <Card key={workflow.id} className="group hover:shadow-lg transition-all duration-300 border-border bg-card cursor-pointer" onClick={() => navigate(`/workflows/${workflow.id}`)}>
                         <CardHeader className="pb-3">
                             <div className="flex justify-between items-start">
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Badge
                                             variant={workflow.is_active ? "default" : "secondary"}
-                                            className={`${workflow.is_active ? "bg-green-600 hover:bg-green-700" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`}
+                                            className={`${workflow.is_active ? "bg-green-600 hover:bg-green-700 text-white" : "bg-muted text-muted-foreground hover:bg-accent"}`}
                                         >
                                             {workflow.is_active ? "운영 모드" : "설계 모드"}
                                         </Badge>
@@ -425,17 +427,17 @@ const WorkflowDashboard = () => {
                                             </span>
                                         )}
                                     </div>
-                                    <CardTitle className="leading-tight group-hover:text-blue-600 transition-colors">
+                                    <CardTitle className="leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors text-foreground">
                                         {workflow.title}
                                     </CardTitle>
                                 </div>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground hover:text-foreground">
                                             <MoreVertical className="w-4 h-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuContent align="end" className="bg-card text-foreground border-border">
                                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/workflows/${workflow.id}`); }}>
                                             <Edit className="w-4 h-4 mr-2" /> 편집
                                         </DropdownMenuItem>
@@ -448,16 +450,16 @@ const WorkflowDashboard = () => {
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
-                            <CardDescription className="line-clamp-2 h-10">
+                            <CardDescription className="line-clamp-2 h-10 text-muted-foreground">
                                 {workflow.description || "설명 없음"}
                             </CardDescription>
                         </CardHeader>
-                        <CardFooter className="pt-3 border-t bg-slate-50/50 text-xs text-slate-500 flex justify-between items-center">
+                        <CardFooter className="pt-3 border-t border-border bg-muted/20 text-xs text-muted-foreground flex justify-between items-center">
                             <div className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
                                 {formatDate(workflow.updated_at)}
                             </div>
-                            <Button variant="ghost" size="sm" className="h-6 text-xs hover:bg-blue-100 hover:text-blue-700">
+                            <Button variant="ghost" size="sm" className="h-6 text-xs hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400">
                                 열기 <PlayCircle className="w-3 h-3 ml-1" />
                             </Button>
                         </CardFooter>

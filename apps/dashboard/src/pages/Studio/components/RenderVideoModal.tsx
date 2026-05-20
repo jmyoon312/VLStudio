@@ -172,7 +172,7 @@ export const RenderVideoModal: React.FC<RenderVideoModalProps> = ({ isOpen, onCl
                                 </div>
                             </div>
                         )}
-                        <p className="text-xs text-gray-400">서버에서 FFmpeg로 렌더링 중입니다. 창을 닫아도 작업은 계속됩니다.</p>
+                        <p className="text-xs text-slate-600">서버에서 FFmpeg로 렌더링 중입니다. 창을 닫아도 작업은 계속됩니다.</p>
                     </div>
                 )}
 

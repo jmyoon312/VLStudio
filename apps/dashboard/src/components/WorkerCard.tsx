@@ -110,7 +110,7 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, channels, onDelete, onS
                                                 style={{ width: `${quotaPercent}%` }}
                                             />
                                         </div>
-                                        <p className="text-[10px] text-slate-400 mt-1">{quotaUsed.toLocaleString()} / {quotaLimit.toLocaleString()}</p>
+                                        <p className="text-[10px] text-slate-600 mt-1">{quotaUsed.toLocaleString()} / {quotaLimit.toLocaleString()}</p>
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -148,7 +148,7 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, channels, onDelete, onS
                         </div>
                     ) : (
                         <div className="text-center py-4 bg-slate-50 border border-dashed rounded-md">
-                            <p className="text-xs text-slate-400">연결된 채널이 없습니다.</p>
+                            <p className="text-xs text-slate-600">연결된 채널이 없습니다.</p>
                             <Button variant="link" size="sm" onClick={handleSync} className="text-xs h-auto p-0 text-blue-500">
                                 동기화하여 가져오기
                             </Button>

@@ -138,7 +138,7 @@ export const AutoHDSettingsDialog: React.FC<AutoHDSettingsDialogProps> = ({ open
                                         <Badge variant="outline" className="h-4 px-1 text-[9px] bg-white border-red-200 text-red-600 gap-0.5"><Flame className="w-2 h-2 fill-red-600" />S: 300%↑</Badge>
                                         <Badge variant="outline" className="h-4 px-1 text-[9px] bg-white border-orange-200 text-orange-600 gap-0.5"><Zap className="w-2 h-2" />A: 100%↑</Badge>
                                         <Badge variant="outline" className="h-4 px-1 text-[9px] bg-white border-emerald-200 text-emerald-600">B: 30%↑</Badge>
-                                        <Badge variant="outline" className="h-4 px-1 text-[9px] bg-white border-slate-200 text-slate-400">C: 30%↓</Badge>
+                                        <Badge variant="outline" className="h-4 px-1 text-[9px] bg-white border-slate-200 text-slate-600">C: 30%↓</Badge>
                                     </div>
                                 </div>
                             </div>
@@ -208,7 +208,7 @@ export const AutoHDSettingsDialog: React.FC<AutoHDSettingsDialogProps> = ({ open
                                     >
                                         <div className="flex flex-col truncate">
                                             <span className="font-medium truncate">{preset.name}</span>
-                                            <span className="text-[9px] text-gray-400">🔥{preset.config.viral}% ⚡{preset.config.velocity}</span>
+                                            <span className="text-[9px] text-slate-600">🔥{preset.config.viral}% ⚡{preset.config.velocity}</span>
                                         </div>
                                         <button
                                             className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-red-400 rounded transition-opacity"
@@ -219,7 +219,7 @@ export const AutoHDSettingsDialog: React.FC<AutoHDSettingsDialogProps> = ({ open
                                     </div>
                                 ))
                             ) : (
-                                <div className="col-span-2 text-center text-xs text-gray-300 py-2">저장된 프리셋이 없습니다</div>
+                                <div className="col-span-2 text-center text-xs text-slate-700 py-2">저장된 프리셋이 없습니다</div>
                             )}
                         </div>
                     </div>

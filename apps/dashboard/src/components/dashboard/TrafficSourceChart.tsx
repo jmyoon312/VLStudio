@@ -43,7 +43,7 @@ export const TrafficSourceChart: React.FC<TrafficSourceChartProps> = ({ data }) 
     if (!data || data.length === 0) {
         return (
             <ChartCard title="트래픽 소스" subtitle="유입 경로 분석" height={320}>
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <div className="flex flex-col items-center justify-center h-full text-slate-600">
                     <p>데이터가 없습니다</p>
                     <p className="text-xs mt-1">(Manager 권한 제한)</p>
                 </div>

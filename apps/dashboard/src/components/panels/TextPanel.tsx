@@ -65,7 +65,7 @@ const TextPanel = () => {
                             className="aspect-square rounded-xl border border-slate-200 bg-slate-50 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center gap-2 group"
                             onClick={() => handleAddText(preset)}
                         >
-                            <Type className="w-8 h-8 text-slate-400 group-hover:text-blue-500" />
+                            <Type className="w-8 h-8 text-slate-600 group-hover:text-blue-500" />
                             <span className="text-xs font-medium text-slate-600 group-hover:text-blue-600">{preset.label}</span>
                         </button>
                     ))}

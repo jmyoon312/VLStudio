@@ -127,7 +127,7 @@ export const LayerItem: React.FC<LayerItemProps> = ({
                         }}
                         className={cn(
                             'p-0.5 hover:bg-gray-100 rounded transition-colors',
-                            !layer.visible && 'text-gray-400'
+                            !layer.visible && 'text-slate-600'
                         )}
                         title={layer.visible ? 'Hide layer' : 'Show layer'}
                     >
@@ -242,7 +242,7 @@ export const LayerItem: React.FC<LayerItemProps> = ({
 
             {/* Opacity Indicator */}
             {layer.opacity < 1 && (
-                <div className="absolute bottom-1 right-1 text-xs text-gray-400">
+                <div className="absolute bottom-1 right-1 text-xs text-slate-600">
                     {Math.round(layer.opacity * 100)}%
                 </div>
             )}

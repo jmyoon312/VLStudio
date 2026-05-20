@@ -219,7 +219,7 @@ const WebScraperInspector: React.FC<WebScraperInspectorProps> = ({ node, updateD
                         )}
 
                         {!testResult && !testing && (
-                            <div className="text-center py-12 text-slate-400">
+                            <div className="text-center py-12 text-slate-600">
                                 <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
                                 <p className="text-sm">테스트를 실행하여 스크래핑 결과를 확인하세요</p>
                             </div>

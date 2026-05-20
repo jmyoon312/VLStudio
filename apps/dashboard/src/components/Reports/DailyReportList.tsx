@@ -117,7 +117,7 @@ function SystemHealthDashboard() {
     };
 
     return (
-        <Card className="mb-8 border-border/50 shadow-sm bg-slate-50/50 dark:bg-slate-900/20">
+        <Card className="mb-8 border-border/50 shadow-sm bg-card">
             <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                     <div>
@@ -138,7 +138,7 @@ function SystemHealthDashboard() {
                             <span className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-blue-500" /> CPU 사용량</span>
                             <span>{metrics.cpu_percent}%</span>
                         </div>
-                        <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div className={`h-full transition-all duration-500 ${getStatusColor(metrics.cpu_percent)}`} style={{ width: `${metrics.cpu_percent}%` }} />
                         </div>
                     </div>
@@ -149,7 +149,7 @@ function SystemHealthDashboard() {
                             <span className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-purple-500" /> 메모리 ({metrics.memory.percent}%)</span>
                             <span className="text-xs text-muted-foreground">{metrics.memory.used_gb}GB / {metrics.memory.total_gb}GB</span>
                         </div>
-                        <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div className={`h-full transition-all duration-500 ${getStatusColor(metrics.memory.percent)}`} style={{ width: `${metrics.memory.percent}%` }} />
                         </div>
                     </div>
@@ -160,19 +160,19 @@ function SystemHealthDashboard() {
                             <span className="flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-green-500" /> 저장소 ({metrics.storage.percent}%)</span>
                             <span className="text-xs text-muted-foreground">{metrics.storage.free_gb}GB Free</span>
                         </div>
-                        <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div className={`h-full transition-all duration-500 ${getStatusColor(metrics.storage.percent)}`} style={{ width: `${metrics.storage.percent}%` }} />
                         </div>
                     </div>
 
                     {/* Queue stats */}
                     <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border text-center">
+                        <div className="bg-card p-3 rounded-lg border border-border text-center">
                             <div className="text-2xl font-bold text-primary">{metrics.queue?.active_downloads || 0}</div>
                             <div className="text-xs text-muted-foreground">다운로드 중</div>
                         </div>
-                        <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border text-center">
-                            <div className="text-2xl font-bold text-slate-700 dark:text-slate-300">{metrics.queue?.pending_videos || 0}</div>
+                        <div className="bg-card p-3 rounded-lg border border-border text-center">
+                            <div className="text-2xl font-bold text-foreground">{metrics.queue?.pending_videos || 0}</div>
                             <div className="text-xs text-muted-foreground">대기열</div>
                         </div>
                     </div>
@@ -399,7 +399,7 @@ export function DailyReportList() {
                             ) : reports?.map((report) => (
                                 <TableRow
                                     key={report.id}
-                                    className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200' : 'hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}
+                                    className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-primary/10 dark:bg-primary/20 hover:bg-primary/20' : 'hover:bg-accent'}`}
                                     onClick={() => handleViewReport(report)}
                                     data-id={report.id}
                                 >
@@ -506,14 +506,14 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
 
                             {/* Auto-Fix Logs Section */}
                             {(selectedReport!.auto_fix_log && selectedReport!.auto_fix_log.length > 0) && (
-                                <div className="mx-6 mt-6 p-4 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
+                                <div className="mx-6 mt-6 p-4 bg-muted rounded-lg border border-border">
                                     <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
                                         <Activity className="h-4 w-4 text-primary" />
                                         자율 조치 로그 (Self-Healing Process)
                                     </h4>
                                     <div className="space-y-1 font-mono text-xs max-h-40 overflow-y-auto custom-scrollbar">
                                         {selectedReport!.auto_fix_log.map((log: any, idx: number) => (
-                                            <div key={idx} className={`flex gap-2 ${log.level === 'error' ? 'text-red-600' : log.level === 'success' ? 'text-green-600' : 'text-slate-600 dark:text-slate-400'}`}>
+                                            <div key={idx} className={`flex gap-2 ${log.level === 'error' ? 'text-destructive' : log.level === 'success' ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
                                                 <span className="text-muted-foreground opacity-50">[{format(new Date(log.timestamp), 'HH:mm:ss')}]</span>
                                                 <span>{log.message}</span>
                                             </div>
@@ -573,12 +573,12 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                         </CardContent>
                                     </Card>
 
-                                    <Card className="bg-slate-50/50 dark:bg-slate-900/10 border-slate-100 dark:border-slate-800">
+                                    <Card className="bg-muted/50 border-border">
                                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                                            <div className="mb-2 p-2 bg-slate-100 dark:bg-slate-800 rounded-full">
-                                                <TrendingUp className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                                            <div className="mb-2 p-2 bg-muted rounded-full">
+                                                <TrendingUp className="h-5 w-5 text-muted-foreground" />
                                             </div>
-                                            <div className="text-2xl font-bold text-slate-700 dark:text-slate-400">
+                                            <div className="text-2xl font-bold text-foreground">
                                                 {selectedReport!.raw_stats_json.trends_cached}
                                             </div>
                                             <div className="text-xs text-muted-foreground font-medium">트렌드 갱신</div>
@@ -589,25 +589,25 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                 {/* [NEW] System Infrastructure Card */}
                                 {selectedReport!.raw_stats_json.system_health && (
                                     <div className="grid grid-cols-3 gap-4">
-                                        <Card className="bg-slate-50 border-slate-200">
+                                        <Card className="bg-muted/30 border-border">
                                             <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                                <div className="text-sm font-semibold text-slate-700">💾 저장소 ({selectedReport!.raw_stats_json.system_health.storage.free_gb}GB Free)</div>
-                                                <div className="w-full bg-slate-200 rounded-full h-2 mt-2">
+                                                <div className="text-sm font-semibold text-foreground">💾 저장소 ({selectedReport!.raw_stats_json.system_health.storage.free_gb}GB Free)</div>
+                                                <div className="w-full bg-muted rounded-full h-2 mt-2">
                                                     <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${selectedReport!.raw_stats_json.system_health.storage.percent}%` }} />
                                                 </div>
                                                 <div className="text-xs text-muted-foreground mt-1">{selectedReport!.raw_stats_json.system_health.storage.percent}% 사용 중</div>
                                             </CardContent>
                                         </Card>
-                                        <Card className="bg-slate-50 border-slate-200">
+                                        <Card className="bg-muted/30 border-border">
                                             <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                                <div className="text-sm font-semibold text-slate-700">🗄️ DB 크기</div>
-                                                <div className="text-lg font-bold text-slate-900 mt-1">{selectedReport!.raw_stats_json.system_health.db_size_mb} MB</div>
+                                                <div className="text-sm font-semibold text-foreground">🗄️ DB 크기</div>
+                                                <div className="text-lg font-bold text-foreground mt-1">{selectedReport!.raw_stats_json.system_health.db_size_mb} MB</div>
                                             </CardContent>
                                         </Card>
-                                        <Card className="bg-slate-50 border-slate-200">
+                                        <Card className="bg-muted/30 border-border">
                                             <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                                <div className="text-sm font-semibold text-slate-700">🧟 좀비 태스크</div>
-                                                <div className={`text-lg font-bold mt-1 ${selectedReport!.raw_stats_json.system_health.zombie_tasks > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                <div className="text-sm font-semibold text-foreground">🧟 좀비 태스크</div>
+                                                <div className={`text-lg font-bold mt-1 ${selectedReport!.raw_stats_json.system_health.zombie_tasks > 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
                                                     {selectedReport!.raw_stats_json.system_health.zombie_tasks}개
                                                 </div>
                                             </CardContent>
@@ -618,22 +618,22 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                 {/* [NEW] Operational Intelligence Card */}
                                 {selectedReport!.raw_stats_json.operational_metrics && (
                                     <div className="grid grid-cols-2 gap-4">
-                                        <Card className="bg-slate-50 border-slate-200">
+                                        <Card className="bg-muted/30 border-border">
                                             <CardHeader className="pb-2">
-                                                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                                <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
                                                     <RefreshCw className="h-4 w-4" /> 웹 검색 엔진 상태
                                                 </CardTitle>
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="space-y-4">
                                                     <div>
-                                                        <div className="flex justify-between text-xs mb-1">
+                                                        <div className="flex justify-between text-xs mb-1 text-muted-foreground">
                                                             <span>SearXNG (Self-Hosted)</span>
                                                             <span className="font-mono">
                                                                 {selectedReport!.raw_stats_json.operational_metrics.search.searxng.success} OK / {selectedReport!.raw_stats_json.operational_metrics.search.searxng.fail} Fail
                                                             </span>
                                                         </div>
-                                                        <div className="w-full bg-slate-200 rounded-full h-1.5">
+                                                        <div className="w-full bg-muted rounded-full h-1.5">
                                                             <div
                                                                 className={`h-1.5 rounded-full ${selectedReport!.raw_stats_json.operational_metrics.search.searxng.fail > 0 ? 'bg-orange-500' : 'bg-green-500'}`}
                                                                 style={{ width: `${(selectedReport!.raw_stats_json.operational_metrics.search.searxng.success / (selectedReport!.raw_stats_json.operational_metrics.search.searxng.success + selectedReport!.raw_stats_json.operational_metrics.search.searxng.fail + 0.1)) * 100}%` }}
@@ -641,11 +641,11 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <div className="flex justify-between text-xs mb-1">
+                                                        <div className="flex justify-between text-xs mb-1 text-muted-foreground">
                                                             <span>Tavily (Fallback)</span>
                                                             <span className="font-mono">{selectedReport!.raw_stats_json.operational_metrics.search.tavily.success} Used</span>
                                                         </div>
-                                                        <div className="w-full bg-slate-200 rounded-full h-1.5">
+                                                        <div className="w-full bg-muted rounded-full h-1.5">
                                                             <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: '100%' }} />
                                                         </div>
                                                     </div>
@@ -653,29 +653,29 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                             </CardContent>
                                         </Card>
 
-                                        <Card className="bg-slate-50 border-slate-200">
+                                        <Card className="bg-muted/30 border-border">
                                             <CardHeader className="pb-2">
-                                                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                                <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
                                                     <Activity className="h-4 w-4" /> AI 엔진/LLM 상태
                                                 </CardTitle>
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="grid grid-cols-2 gap-4 text-center">
                                                     <div>
-                                                        <div className="text-2xl font-bold text-slate-800">
+                                                        <div className="text-2xl font-bold text-foreground">
                                                             {selectedReport!.raw_stats_json.operational_metrics.llm.requests}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">총 요청 수</div>
                                                     </div>
                                                     <div>
-                                                        <div className={`text-2xl font-bold ${selectedReport!.raw_stats_json.operational_metrics.llm.rate_limits > 0 ? 'text-red-500' : 'text-slate-800'}`}>
+                                                        <div className={`text-2xl font-bold ${selectedReport!.raw_stats_json.operational_metrics.llm.rate_limits > 0 ? 'text-destructive' : 'text-foreground'}`}>
                                                             {selectedReport!.raw_stats_json.operational_metrics.llm.rate_limits}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">Rate Limits</div>
                                                     </div>
                                                 </div>
                                                 {selectedReport!.raw_stats_json.operational_metrics.llm.rate_limits > 0 && (
-                                                    <div className="mt-3 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100">
+                                                    <div className="mt-3 text-xs text-destructive bg-destructive/10 p-2 rounded border border-destructive/20">
                                                         ⚠️ API 키 회전이 {selectedReport!.raw_stats_json.operational_metrics.llm.rate_limits}회 발생했습니다.
                                                     </div>
                                                 )}
@@ -741,7 +741,7 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                         <FileText className="h-5 w-5 text-primary" />
                                         <h3 className="font-semibold text-lg">AI 상세 분석 브리핑</h3>
                                     </div>
-                                    <div className="prose prose-slate dark:prose-invert max-w-none bg-slate-50 dark:bg-slate-950 p-8 rounded-xl border border-border/50 shadow-inner">
+                                    <div className="prose prose-slate dark:prose-invert max-w-none bg-muted/30 p-8 rounded-xl border border-border/50 shadow-inner">
                                         <ReactMarkdown
                                             remarkPlugins={[remarkGfm]}
                                             components={markdownComponents}

@@ -102,11 +102,11 @@ const DistributionNode = ({ id, data, selected }: NodeProps) => {
                         <img src={channelInfo.thumbnail_url} alt="Channel" className="w-8 h-8 rounded-full border border-slate-200 object-cover" />
                         <div className="flex-1 min-w-0">
                             <p className="font-semibold truncate text-slate-800">{channelInfo.title}</p>
-                            <p className="text-[9px] text-slate-400 truncate">Privacy: {channelInfo.default_privacy || "Public"}</p>
+                            <p className="text-[9px] text-slate-600 truncate">Privacy: {channelInfo.default_privacy || "Public"}</p>
                         </div>
                     </div>
                 ) : (
-                    <div className="text-slate-400 italic text-center py-4 bg-slate-50 rounded border border-dashed border-slate-200">
+                    <div className="text-slate-600 italic text-center py-4 bg-slate-50 rounded border border-dashed border-slate-200">
                         {data.brand_channel_id ? "Loading info..." : "채널을 선택해주세요"}
                     </div>
                 )}
@@ -124,7 +124,7 @@ const DistributionNode = ({ id, data, selected }: NodeProps) => {
                                 Active
                             </span>
                         </div>
-                        <div className="bg-slate-800 text-slate-200 p-2 rounded flex items-center justify-between">
+                        <div className="bg-slate-50 text-slate-800 p-2 rounded flex items-center justify-between">
                             <span className="truncate max-w-[120px]">{channelInfo.worker.email}</span>
                             <Badge className="bg-slate-600 hover:bg-slate-600 text-[9px] h-4 px-1">Worker {channelInfo.worker.id}</Badge>
                         </div>
@@ -143,7 +143,7 @@ const DistributionNode = ({ id, data, selected }: NodeProps) => {
 
                 <div className="relative h-4 mt-1 pt-2">
                     <Handle type="target" position={Position.Left} id="input" className="w-2.5 h-2.5 bg-slate-400 border-2 border-white top-2" />
-                    <span className="absolute left-3 top-0.5 text-[10px] text-slate-400">Final Video</span>
+                    <span className="absolute left-3 top-0.5 text-[10px] text-slate-600">Final Video</span>
                 </div>
             </CardContent>
         </Card>

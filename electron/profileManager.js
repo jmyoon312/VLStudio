@@ -58,10 +58,20 @@ function getConfigPath() {
 }
 
 /**
- * Generate random hardware fingerprint
+ * Generate random hardware fingerprint, preferring unused templates for diversity
  */
-function getRandomHardware() {
-  return HARDWARE_TEMPLATES[Math.floor(Math.random() * HARDWARE_TEMPLATES.length)]
+function getRandomHardware(existingProfiles = []) {
+  if (existingProfiles && existingProfiles.length > 0) {
+    const usedRenderers = new Set(
+      existingProfiles.map(p => p.hardware?.renderer).filter(Boolean)
+    );
+    const unusedTemplates = HARDWARE_TEMPLATES.filter(t => !usedRenderers.has(t.renderer));
+    if (unusedTemplates.length > 0) {
+      console.log(`[Profile Manager] Picked from ${unusedTemplates.length} unused hardware templates.`);
+      return unusedTemplates[Math.floor(Math.random() * unusedTemplates.length)];
+    }
+  }
+  return HARDWARE_TEMPLATES[Math.floor(Math.random() * HARDWARE_TEMPLATES.length)];
 }
 
 /**
@@ -128,7 +138,7 @@ export async function createProfile(name, email = '') {
     id,
     name: name || `새 프로필 ${config.profiles.length + 1}`,
     email,
-    hardware: getRandomHardware() // 프로필 고유 1:1 하드웨어 영구 바인딩!
+    hardware: getRandomHardware(config.profiles) // 중복 회피를 위해 기존 프로필 정보 전달
   }
 
   config.profiles.push(newProfile)

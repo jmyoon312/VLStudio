@@ -237,7 +237,7 @@ const CaptionPanel = () => {
                             className="scale-90"
                         />
                     </div>
-                    <p className="text-[10px] text-slate-400 px-1">
+                    <p className="text-[10px] text-slate-600 px-1">
                         켜져 있으면 설정 변경 시 모든 자막 클립에 스타일이 적용됩니다.
                     </p>
                 </div>

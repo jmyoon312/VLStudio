@@ -179,7 +179,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                     {/* Preset List */}
                     <div className="space-y-1">
                         {presets.length === 0 && !isSaveMode && (
-                            <div className="text-center py-6 text-slate-400 text-xs">
+                            <div className="text-center py-6 text-slate-600 text-xs">
                                 저장된 프리셋이 없습니다.
                             </div>
                         )}
@@ -210,7 +210,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                             setIsOpen(false);
                                         }}>
                                             <span className="text-xs font-medium text-slate-700 truncate">{preset.name}</span>
-                                            <span className="text-[10px] text-slate-400">
+                                            <span className="text-[10px] text-slate-600">
                                                 {new Date(preset.updatedAt).toLocaleDateString()}
                                             </span>
                                         </div>
@@ -221,7 +221,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 w-6 p-0 text-slate-400 hover:text-indigo-600"
+                                        className="h-6 w-6 p-0 text-slate-600 hover:text-indigo-600"
                                         title="이름 변경"
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -233,7 +233,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 w-6 p-0 text-slate-400 hover:text-indigo-600"
+                                        className="h-6 w-6 p-0 text-slate-600 hover:text-indigo-600"
                                         title="현재 설정으로 덮어쓰기"
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -247,7 +247,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 w-6 p-0 text-slate-400 hover:text-red-600"
+                                        className="h-6 w-6 p-0 text-slate-600 hover:text-red-600"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleDelete(preset.id);

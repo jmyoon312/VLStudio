@@ -29,18 +29,18 @@ const SyncVideoNode = ({ data, selected }: NodeProps) => {
             <CardContent className="pt-3 space-y-3">
                 <div className="flex items-center justify-between text-xs">
                     <div className="text-gray-500">Video</div>
-                    <ArrowRightLeft className="w-3 h-3 text-gray-300" />
+                    <ArrowRightLeft className="w-3 h-3 text-slate-700" />
                     <div className="text-orange-600 font-bold">Audio (Master)</div>
                 </div>
 
                 <div className="bg-slate-100 rounded p-2 text-xs flex justify-between items-center">
                     <div className="flex flex-col items-center">
-                        <span className="text-gray-400 text-[10px]">SRC</span>
+                        <span className="text-slate-600 text-[10px]">SRC</span>
                         <span className="font-mono">{sourceDur}s</span>
                     </div>
                     <div className="h-px bg-gray-300 w-8"></div>
                     <div className="flex flex-col items-center">
-                        <span className="text-gray-400 text-[10px]">TGT</span>
+                        <span className="text-slate-600 text-[10px]">TGT</span>
                         <span className="font-mono">{targetDur}s</span>
                     </div>
                 </div>
