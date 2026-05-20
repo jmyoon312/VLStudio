@@ -42,6 +42,7 @@ dist-dummy/
 legacy_backups/
 scratch/
 venv/
+test_env/
 refactor.cjs
 css_light_migrator.py
 theme_converter.py

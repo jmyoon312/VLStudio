@@ -1175,6 +1175,8 @@ def manual_hd_download(
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="ignore",
             timeout=600  # 10 minutes
         )
         

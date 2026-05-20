@@ -30,7 +30,7 @@ class YouTubeScoutV2:
                 channel_url
             ]
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=30)
             
             if result.returncode != 0:
                 logger.error(f"yt-dlp failed: {result.stderr}")

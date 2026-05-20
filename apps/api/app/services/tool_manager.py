@@ -177,7 +177,7 @@ class WebSearchTool:
             ]
             
             # Using subprocess directly to avoid complexity
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="ignore")
             stdout, stderr = process.communicate(timeout=20)
             
             if process.returncode != 0:

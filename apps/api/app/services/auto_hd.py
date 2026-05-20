@@ -123,6 +123,8 @@ def process_video_for_auto_hd(db: Session, video: models.Video, settings: models
                     cmd,
                     capture_output=True,
                     text=True,
+                    encoding="utf-8",
+                    errors="ignore",
                     timeout=900
                 )
                 
