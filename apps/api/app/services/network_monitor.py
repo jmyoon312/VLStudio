@@ -96,7 +96,7 @@ class NetworkMonitor:
             
             time.sleep(2) # Fast, zero-CPU poll
 
-    def _run_ps(self, cmd):
+    def _run_ps(self, cmd, silence_errors=False):
         # [FIX] Use Absolute Path with env override for total portability
         PS_PATH = os.getenv("POWERSHELL_PATH", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe")
         try:
@@ -135,6 +135,8 @@ class NetworkMonitor:
                 # Check for Access Denied specifically to return it without screaming ERROR
                 if "AccessDenied" in stderr_txt or "액세스가 거부" in stderr_txt:
                      logger.debug(f"PS Authorization Error (Code {result.returncode}): Access Denied (Silenced)")
+                elif silence_errors:
+                     logger.debug(f"PS Error (Code {result.returncode}): {stderr_txt} (Silenced)")
                 else:
                      logger.error(f"PS Error (Code {result.returncode}): {stderr_txt}")
                      
@@ -148,7 +150,7 @@ class NetworkMonitor:
     def _get_ip_info(self, index):
         """Helper to get IPv4 address for a specific interface index (Windows)"""
         cmd = f"Get-NetIPAddress -InterfaceIndex {index} -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress"
-        out, success, _ = self._run_ps(cmd)
+        out, success, _ = self._run_ps(cmd, silence_errors=True)
         if success and out:
             # Handle multiple IPs if returned
             return out.splitlines()[0] if "\n" in out else out
