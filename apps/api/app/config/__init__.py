@@ -5,7 +5,16 @@ from typing import Optional
 
 # Detection for Native Windows
 IS_WINDOWS = platform.system() == "Windows"
-DEFAULT_MEDIA_ROOT = "C:\\ViraLoopMedia" if IS_WINDOWS else "/app/media"
+
+def get_default_media_root() -> str:
+    if IS_WINDOWS:
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if not local_app_data:
+            local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+        return os.path.join(local_app_data, "ViraLoop Studio", "media").replace("\\", "/")
+    return "/app/media"
+
+DEFAULT_MEDIA_ROOT = get_default_media_root()
 DEFAULT_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 DEFAULT_DB_HOST = "127.0.0.1" if IS_WINDOWS else "postgres"
 DEFAULT_REDIS_HOST = "127.0.0.1" if IS_WINDOWS else "redis"
@@ -15,9 +24,13 @@ def discover_ffmpeg() -> str:
     if not IS_WINDOWS: return "ffmpeg"
     import shutil
     import os
-    # 1. Check system PATH
+    # 1. Check bundled ViraLoop FFmpeg
+    bundled_path = r"C:\ViraLoopMedia\bin\ffmpeg\bin\ffmpeg.exe"
+    if os.path.exists(bundled_path):
+        return bundled_path
+    # 2. Check system PATH
     if shutil.which("ffmpeg"): return "ffmpeg"
-    # 2. Check Playwright's bundled FFmpeg
+    # 3. Check Playwright's bundled FFmpeg
     pw_path: str = os.path.expanduser("~\\AppData\\Local\\ms-playwright")
     if os.path.exists(pw_path):
         for root, dirs, files in os.walk(pw_path):
@@ -33,11 +46,12 @@ class Settings(BaseSettings):
     
     # Media Storage Configuration (Unified)
     MEDIA_ROOT: str = os.getenv("VIRALOOP_MEDIA_ROOT", DEFAULT_MEDIA_ROOT)
-    TEMP_DIR: str = os.path.join(MEDIA_ROOT, "temp")
+    TEMP_DIR: str = os.path.join(MEDIA_ROOT, "02_Operations", "Temp")
     DOWNLOADS_DIR: str = os.path.join(MEDIA_ROOT, "downloads")
-    ASSETS_DIR: str = os.path.join(MEDIA_ROOT, "assets")
-    OPERATIONS_DIR: str = os.path.join(MEDIA_ROOT, "operations")
-    INBOX_DIR: str = os.path.join(MEDIA_ROOT, "inbox")
+    ASSETS_DIR: str = os.path.join(MEDIA_ROOT, "03_Assets")
+    OPERATIONS_DIR: str = os.path.join(MEDIA_ROOT, "02_Operations")
+    INBOX_DIR: str = os.path.join(MEDIA_ROOT, "01_Inbox")
+    EXPORTS_DIR: str = os.path.join(MEDIA_ROOT, "05_Exports")
     
     # Legacy Path Support
     root_download_path: str = os.path.join(MEDIA_ROOT, "downloads")
@@ -47,12 +61,19 @@ class Settings(BaseSettings):
     
     # Database — Standalone(Windows)에서는 SQLite, Docker에서는 PostgreSQL
     # Electron main.js가 DATABASE_URL=sqlite:///./viral_loop.db 를 환경변수로 주입함
-    _default_db_url = (
-        f"sqlite:///{os.path.join(os.getenv('VIRALOOP_STORAGE_DIR', DEFAULT_MEDIA_ROOT), 'viral_loop.db')}"
-        if IS_WINDOWS
-        else f"postgresql://viraloop:viraloop@{DEFAULT_DB_HOST}:5432/viraloop"
-    )
-    DATABASE_URL: str = os.getenv("DATABASE_URL", _default_db_url)
+    def get_default_db_url(self) -> str:
+        if IS_WINDOWS:
+            local_app_data = os.environ.get("LOCALAPPDATA")
+            if not local_app_data:
+                local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+            storage_dir = os.path.join(local_app_data, "ViraLoop Studio").replace("\\", "/")
+            return f"sqlite:///{os.path.join(os.getenv('VIRALOOP_STORAGE_DIR', storage_dir), 'viral_loop.db').replace('\\\\', '/')}"
+        return f"postgresql://viraloop:viraloop@{DEFAULT_DB_HOST}:5432/viraloop"
+
+    @property
+    def DATABASE_URL(self) -> str:
+        return os.getenv("DATABASE_URL", self.get_default_db_url())
+
     
     # LLM Provider Keys (Multi-key Rotation Support)
     gemini_api_keys: list[str] = []
@@ -121,7 +142,7 @@ settings = Settings()
 
 # Ensure critical directories exist
 def initialize_directories():
-    for path in [settings.MEDIA_ROOT, settings.TEMP_DIR, settings.DOWNLOADS_DIR, settings.ASSETS_DIR, settings.OPERATIONS_DIR, settings.INBOX_DIR]:
+    for path in [settings.MEDIA_ROOT, settings.TEMP_DIR, settings.DOWNLOADS_DIR, settings.ASSETS_DIR, settings.OPERATIONS_DIR, settings.INBOX_DIR, settings.EXPORTS_DIR]:
         if not os.path.exists(path):
             try:
                 os.makedirs(path, exist_ok=True)

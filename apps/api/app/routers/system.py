@@ -42,9 +42,10 @@ def open_folder(request: PathRequest, db: Session = Depends(database.get_db)):
             # 3. Try resolving against Download Root (Settings)
             try:
                 settings = db.query(models.Settings).first()
-                if settings and settings.root_download_path:
-                    # Try joining with root
-                    joined_path = os.path.join(settings.root_download_path, original_path)
+                from app.config import settings as settings_conf
+                root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+                if root_path:
+                    joined_path = os.path.join(root_path, original_path)
                     if os.path.exists(joined_path):
                         path = joined_path
             except Exception as e:

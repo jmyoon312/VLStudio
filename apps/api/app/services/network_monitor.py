@@ -202,7 +202,20 @@ class NetworkMonitor:
                         wifi_name = adp.get('Name')
                         continue 
 
-                    # 2. Identify LTE/Tethering (Priority: USB or Known Driver)
+                    # [Bug 5] 2. Identify Wired LAN (Physical Ethernet, NOT tethering)
+                    # Excludes known tethering keywords. BusType=5 is PCI (physical NIC)
+                    is_physical_wired = False
+                    if bus == 5 and not any(k in desc for k in ['samsung', 'apple', 'rndis', 'remote ndis', 'mobile', 'tether', 'ndis']):
+                        # PCI adapter with no tethering fingerprint = Wired LAN
+                        if any(k in desc for k in ['realtek', 'intel', 'ethernet', 'gigabit', 'lan', 'pcie']):
+                            is_physical_wired = True
+                    if is_physical_wired:
+                        wired_idx = idx
+                        wired_name = adp.get('Name')
+                        logger.debug(f"✅ Identified Wired LAN (PCI): {wired_name} ({desc})")
+                        continue
+
+                    # 3. Identify LTE/Tethering (Priority: USB or Known Driver)
                     is_known_lte = False
                     if any(k in desc for k in ['samsung', 'apple', 'rndis', 'remote ndis', 'mobile', 'remote', 'ndis', 'tether']):
                         is_known_lte = True
@@ -214,29 +227,32 @@ class NetworkMonitor:
                         
                     if is_known_lte:
                         lte_idx = idx
+                        # [Bug 4] lte_name에 실제 OS Alias만 저장 (접미사 오염 금지)
                         lte_name = adp.get('Name')
                         logger.debug(f"✅ Identified LTE via Driver/Bus: {lte_name} ({desc})")
                         continue
 
-                    # 3. Generic active adapters (Potential LTE if unidentified)
+                    # 4. Generic active adapters (Potential LTE if unidentified)
                     generic_candidates.append((idx, adp.get('Name')))
 
-                # NEW: Ultimate Fallback - Use IP Signature Matching
+                # Fallback: IP Signature Matching
                 if lte_idx is None and generic_candidates:
                     for cand in generic_candidates:
                         c_idx, c_name = cand
-                        # Check if this adapter has a private IP that typical phones use
                         ip_res = self._get_ip_info(c_idx)
-                        if ip_res and any(p in ip_res for p in ["192.168.42.", "172.20.10.", "192.168.43.", "192.168.49.", "192.168.1."]):
+                        # [Bug 5] 192.168.1. 제거 (공유기 대역과 충돌 방지)
+                        if ip_res and any(p in ip_res for p in ["192.168.42.", "172.20.10.", "192.168.43.", "192.168.49.", "192.168.100."]):
                             lte_idx = c_idx
-                            lte_name = f"{c_name} (IP-Match)"
-                            logger.debug(f"🎯 Aggressively Identified LTE: {lte_name}")
+                            # [Bug 4] 실제 Alias만 저장, 디버그 정보는 로그로
+                            lte_name = c_name
+                            logger.debug(f"🎯 IP-Match Identified LTE: {lte_name} (ip={ip_res})")
                             break
                     
-                # Final fallback: If still nothing, pick the first active non-wifi
+                # Final fallback: If still nothing, pick the first active non-wifi/non-wired
                 if lte_idx is None and generic_candidates:
                     lte_idx, lte_name = generic_candidates[0]
-                    lte_name = f"{lte_name} (Active-Fallback)"
+                    # [Bug 4] Fallback에서도 실제 Alias만 저장 (접미사 붙이지 않음)
+                    logger.debug(f"[⚠️ Fallback] 실리주의: Active-Fallback LTE: {lte_name}")
             
             except Exception as e:
                 logger.error(f"Adapter Parse Error: {e}")
@@ -310,14 +326,18 @@ class NetworkMonitor:
                 wifi_metric = wifi_metric_v4 if wifi_metric_v4 != -1 else wifi_metric_v6
                 wifi_status = "Connected" if wifi_metric != -1 else "No-Route"
             
+            # Retrieve IP address for cache
+            wifi_ip = self._get_ip_info(wifi_idx)
+            
             self.current_status['wifi'] = {
                 "name": wifi_name,
                 "index": wifi_idx,
                 "metric": wifi_metric,
-                "status": wifi_status
+                "status": wifi_status,
+                "ip": wifi_ip
             }
         else:
-            self.current_status['wifi'] = {"name": "Disconnected", "index": None, "metric": -1, "status": "Disconnected"}
+            self.current_status['wifi'] = {"name": "Disconnected", "index": None, "metric": -1, "status": "Disconnected", "ip": ""}
 
         # Update current_status for Wired LAN
         if wired_idx:
@@ -331,14 +351,17 @@ class NetworkMonitor:
                 wired_metric = wired_metric_v4 if wired_metric_v4 != -1 else wired_metric_v6
                 wired_status = "Connected" if wired_metric != -1 else "No-Route"
 
+            wired_ip = self._get_ip_info(wired_idx)
+
             self.current_status['wired'] = {
                 "name": wired_name,
                 "index": wired_idx,
                 "metric": wired_metric,
-                "status": wired_status
+                "status": wired_status,
+                "ip": wired_ip
             }
         else:
-            self.current_status['wired'] = {"name": "Disconnected", "index": None, "metric": -1, "status": "Disconnected"}
+            self.current_status['wired'] = {"name": "Disconnected", "index": None, "metric": -1, "status": "Disconnected", "ip": ""}
 
         # Update current_status for LTE
         if lte_idx:
@@ -352,14 +375,17 @@ class NetworkMonitor:
                 lte_metric = lte_metric_v4 if lte_metric_v4 != -1 else lte_metric_v6
                 lte_status = "Connected" if lte_metric != -1 else "No-Route"
 
+            lte_ip = self._get_ip_info(lte_idx)
+
             self.current_status['lte'] = {
                 "name": lte_name,
                 "index": lte_idx,
                 "metric": lte_metric,
-                "status": lte_status
+                "status": lte_status,
+                "ip": lte_ip
             }
         else:
-            self.current_status['lte'] = {"name": "Disconnected", "index": None, "metric": -1, "status": "Disconnected"}
+            self.current_status['lte'] = {"name": "Disconnected", "index": None, "metric": -1, "status": "Disconnected", "ip": ""}
 
         self.current_status['last_check'] = now_str
         
@@ -547,6 +573,13 @@ class NetworkMonitor:
             cmds.append(f"Enable-NetAdapter -Name '{wifi['name']}' -Confirm:$false -ErrorAction SilentlyContinue")
             target = self.WIFI_SECONDARY_METRIC_TARGET if (wired and wired.get('index')) else self.WIFI_METRIC_TARGET
             cmds.append(f"Set-NetIPInterface -InterfaceIndex {wifi['index']} -InterfaceMetric {target} -AutomaticMetric Disabled")
+            # [Bug 8] Wi-Fi IPv6 비활성화 — IPv6를 통한 IP 누수 원천 차단
+            if wifi.get('name'):
+                cmds.append(f"Disable-NetAdapterBinding -Name '{wifi['name']}' -ComponentID ms_tcpip6 -ErrorAction SilentlyContinue")
+        
+        # Wired LAN IPv6 비활성화
+        if wired and wired.get('index') and wired.get('name'):
+            cmds.append(f"Disable-NetAdapterBinding -Name '{wired['name']}' -ComponentID ms_tcpip6 -ErrorAction SilentlyContinue")
 
         # 3. LTE -> Priority 9000 (Last)
         if lte and lte.get('index'):

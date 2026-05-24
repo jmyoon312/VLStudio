@@ -229,7 +229,8 @@ def get_network_status_bypass():
 
 # --- Media Hosting ---
 # Use local media folder unless overridden by docker env
-download_dir = os.environ.get("MEDIA_DIR", "media")
+from app.config import settings as app_settings
+download_dir = os.environ.get("MEDIA_DIR", app_settings.MEDIA_ROOT)
 os.makedirs(download_dir, exist_ok=True)
 os.makedirs(os.path.join(download_dir, "downloads"), exist_ok=True)
 

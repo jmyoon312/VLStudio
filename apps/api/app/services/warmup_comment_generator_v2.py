@@ -98,3 +98,105 @@ def get_intelligence_generator(settings):
     if _generator is None:
         _generator = WarmupIntelligenceGenerator(settings)
     return _generator
+
+def generate_channel_dna(target_niche: str) -> dict:
+    """
+    Generates a full ChannelDNA JSON based on a simple target niche keyword using LLM.
+    """
+    from app.database import SessionLocal
+    from app import crud
+    
+    db = SessionLocal()
+    settings = crud.get_settings(db)
+    generator = get_intelligence_generator(settings)
+    
+    prompt = f"""
+    당신은 세계 최고의 유튜브 채널 브랜딩 전문가입니다.
+    사용자가 제공한 다음 니치/키워드를 바탕으로 초정밀 유튜브 채널 DNA(페르소나 및 전략)를 JSON 형태로 생성하세요.
+    반드시 앱에 정의된 ChannelDNA 스키마 포맷을 완벽하게 따라야 합니다.
+    
+    [타겟 키워드/니치]: {target_niche}
+    
+    출력은 오직 JSON 형식이어야 합니다. 예시 포맷:
+    {{
+        "version": 1,
+        "target_audience_avatar": "구체적인 시청자 페르소나",
+        "positioning": {{
+            "macro_category": "대분류",
+            "micro_niche": "소분류",
+            "competitor_channels": ["채널1", "채널2"],
+            "differentiation_strategy": "차별화 포인트"
+        }},
+        "script": {{
+            "hook_formula": "오프닝 훅 공식",
+            "adjective_enhancement": "표현 강화 규칙",
+            "tone_and_manner": "어조",
+            "prohibited_words": ["금칙어1"],
+            "signature_closing": "아웃트로 멘트"
+        }},
+        "visual": {{
+            "primary_layout": "주요 화면 배치",
+            "font_family": "폰트",
+            "caption_layout": "자막 스타일",
+            "color_grading": "영상 색감",
+            "b_roll_density": "시각 자료 빈도",
+            "safe_zone_awareness": true
+        }},
+        "pacing": {{
+            "cut_frequency_seconds": 3.0,
+            "silence_removal_level": "STANDARD",
+            "transition_style": "전환 기법",
+            "bgm_genre_and_bpm": "BGM 장르 및 템포"
+        }},
+        "evolution": {{
+            "retention_hooks_proven": ["검증된 유지 패턴"],
+            "past_failures": ["실패 패턴"]
+        }}
+    }}
+    """
+    
+    try:
+        response = generator.llm.generate_content(prompt, generator.default_model)
+        start = response.find("{")
+        end = response.rfind("}") + 1
+        if start != -1 and end != -1:
+            dna_data = json.loads(response[start:end])
+            logger.info(f"✅ DNA Auto-generated for niche: {target_niche}")
+            return dna_data
+    except Exception as e:
+        logger.error(f"❌ Failed to auto-generate DNA: {e}")
+        
+    # Fallback to simple stub
+    return {
+        "version": 1,
+        "target_audience_avatar": target_niche,
+        "positioning": {
+            "macro_category": target_niche,
+            "micro_niche": target_niche,
+            "competitor_channels": [],
+            "differentiation_strategy": "일관성 유지"
+        },
+        "script": {
+            "hook_formula": "핵심만 간결하게",
+            "adjective_enhancement": "담담하게",
+            "tone_and_manner": "전문가 톤",
+            "prohibited_words": [],
+            "signature_closing": "감사합니다."
+        },
+        "visual": {
+            "primary_layout": "중앙 집중형",
+            "color_grading": "Normal",
+            "b_roll_density": "Moderate",
+            "safe_zone_awareness": True
+        },
+        "pacing": {
+            "cut_frequency_seconds": 3.0,
+            "silence_removal_level": "STANDARD",
+            "transition_style": "Cut",
+            "bgm_genre_and_bpm": "None"
+        },
+        "evolution": {
+            "retention_hooks_proven": [],
+            "past_failures": []
+        }
+    }

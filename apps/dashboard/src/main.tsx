@@ -53,7 +53,6 @@ if (typeof window !== 'undefined' && typeof (window as any).electronAPI === 'und
     rescanAudioPackage: async () => ({ success: false }),
     readFileAbsolute: async () => ({ success: false }),
     writeFileAbsolute: async () => ({ success: false }),
-    googleSignIn: async () => ({ success: false, error: 'Mock environment' }),
     
     // Listeners
     onFlowStatus: (cb: any) => {

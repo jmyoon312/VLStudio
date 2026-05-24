@@ -18,6 +18,14 @@ def read_settings(db: Session = Depends(database.get_db)):
         # Create default
         settings = crud.create_settings(db, schemas.SettingsCreate())
     
+    # [NEW] Expunge from session to modify paths in memory only (dynamic display)
+    db.expunge(settings)
+    from app.config import settings as settings_conf
+    if not settings.root_download_path:
+        settings.root_download_path = settings_conf.MEDIA_ROOT
+    if not settings.cookies_path:
+        settings.cookies_path = os.path.join(settings_conf.MEDIA_ROOT, "cookies.txt").replace("\\", "/")
+
     # Safe FFmpeg Check
     try:
         try:
@@ -32,9 +40,9 @@ def read_settings(db: Session = Depends(database.get_db)):
             
         ffmpeg_path = dependency_manager.DependencyManager.get_ffmpeg_path()
         if os.path.exists(ffmpeg_path):
-             settings.ffmpeg_status = ffmpeg_path # Return full path
+            settings.ffmpeg_status = ffmpeg_path # Return full path
         else:
-             settings.ffmpeg_status = "Missing"
+            settings.ffmpeg_status = "Missing"
     except Exception as e:
         print(f"FFmpeg check failed in settings: {e}")
         settings.ffmpeg_status = f"Error: {str(e)}"
@@ -47,6 +55,14 @@ def update_settings(
     background_tasks: BackgroundTasks,
     db: Session = Depends(database.get_db)
 ):
+    from app.config import settings as settings_conf
+    # If the user saved the default resolved path, convert it back to empty string for portability
+    if settings.root_download_path in [settings_conf.MEDIA_ROOT, settings_conf.root_download_path]:
+        settings.root_download_path = ""
+    default_cookies_path = os.path.join(settings_conf.MEDIA_ROOT, "cookies.txt").replace("\\", "/")
+    if settings.cookies_path in [default_cookies_path, os.path.join(settings_conf.MEDIA_ROOT, "cookies.txt")]:
+        settings.cookies_path = None
+        
     updated = crud.update_settings(db, settings)
     
     # [FIX] Clear LLM Cache on Settings Update
@@ -91,6 +107,14 @@ def patch_settings(
         current_settings = crud.create_settings(db, schemas.SettingsCreate())
 
     update_data = settings.model_dump(exclude_unset=True)
+    from app.config import settings as settings_conf
+    if 'root_download_path' in update_data:
+        if update_data['root_download_path'] in [settings_conf.MEDIA_ROOT, settings_conf.root_download_path]:
+            update_data['root_download_path'] = ""
+    if 'cookies_path' in update_data:
+        default_cookies_path = os.path.join(settings_conf.MEDIA_ROOT, "cookies.txt").replace("\\", "/")
+        if update_data['cookies_path'] in [default_cookies_path, os.path.join(settings_conf.MEDIA_ROOT, "cookies.txt")]:
+            update_data['cookies_path'] = None
     
     threshold_changed = (
         'auto_hd_viral_threshold' in update_data or 

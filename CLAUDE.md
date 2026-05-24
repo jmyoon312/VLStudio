@@ -1,4 +1,4 @@
-# AutoCraft Studio (Flow2CapCut Desktop)
+# ViraLoop Studio (Flow2CapCut Desktop)
 
 Electron 데스크톱 앱 - Google Flow AI로 이미지/비디오 생성 후 CapCut 프로젝트로 내보내기
 

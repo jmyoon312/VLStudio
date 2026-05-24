@@ -185,7 +185,8 @@ def get_system_metrics(db: Session = Depends(database.get_db)):
         settings = crud.get_settings(db)
         
         # 1. Storage Usage (Download Path)
-        root_path = settings.root_download_path if settings else "downloads"
+        from app.config import settings as settings_conf
+        root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
         if not os.path.isabs(root_path):
             root_path = os.path.abspath(root_path)
             
@@ -200,7 +201,9 @@ def get_system_metrics(db: Session = Depends(database.get_db)):
             }
             
         # 2. Database Size
-        db_path = "viraloop.db" # Default SQLite
+        db_path = "viral_loop.db"
+        if settings_conf.DATABASE_URL.startswith("sqlite:///"):
+            db_path = settings_conf.DATABASE_URL[10:]
         db_size_mb = 0
         if os.path.exists(db_path):
             db_size_mb = round(os.path.getsize(db_path) / (1024**2), 2)

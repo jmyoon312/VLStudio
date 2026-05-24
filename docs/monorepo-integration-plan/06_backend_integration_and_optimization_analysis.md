@@ -9,7 +9,7 @@
 ### 📄 기획 문서의 백엔드 처리 계획 (`04_standalone_packaging_and_ms_store_guide.md`)
 1. **단일 파일 컴파일**: 파이썬 FastAPI 백엔드를 `PyInstaller`를 이용해 `api_server.exe`로 컴파일하여 내장.
 2. **인프라 경량화**: 무거운 외부 의존성(PostgreSQL, Redis)을 SQLite 및 파이썬 인메모리 큐로 완벽히 대체하여 독립 실행 보장.
-3. **Electron 오케스트레이션**: `main.js`가 앱 실행 시점에 `api_server.exe`를 `spawn`하고, 윈도우 샌드박스 정책을 우회하기 위해 `%APPDATA%` 경로를 환경 변수로 주입.
+3. **Electron 오케스트레이션**: `main.js`가 앱 실행 시점에 `api_server.exe`를 `spawn`하고, 윈도우 샌드박스 정책을 우회하기 위해 `%LOCALAPPDATA%` 경로를 환경 변수로 주입.
 
 ### 💻 실제 코드 구현 상태 (`main.js` 및 `.bat` 파일들)
 현재 백엔드가 실행되지 않고 React에서 "연결 끊김" 에러가 발생한 원인은 **문서화된 계획과 실제 코드 간의 심각한 불일치(단절)** 때문입니다.

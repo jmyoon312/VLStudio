@@ -11,7 +11,7 @@ def get_settings(db: Session):
         from app.config import settings as settings_conf
         # Create default settings if not exists
         settings = models.Settings(
-            root_download_path=settings_conf.MEDIA_ROOT,
+            root_download_path="",
             cookies_path=None,
             default_tts_engine="google",
             

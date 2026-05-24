@@ -54,8 +54,10 @@ async def cleanup_temp_file(file_path: str = Form(...), db: Session = Depends(da
         # [FIX] Check user settings for custom root
         allowed_roots = [temp_storage]
         settings = crud.get_settings(db)
-        if settings.root_download_path and os.path.exists(settings.root_download_path):
-             allowed_roots.append(os.path.abspath(settings.root_download_path))
+        from app.config import settings as settings_conf
+        root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+        if root_path and os.path.exists(root_path):
+             allowed_roots.append(os.path.abspath(root_path))
         
         # Check if path starts with allowed root
         allowed = False
@@ -107,6 +109,7 @@ async def process_silence(
 
     # 1. Load Settings
     settings = crud.get_settings(db)
+    from app.config import settings as settings_conf
     
     # Use managed FFmpeg
     try:
@@ -114,7 +117,7 @@ async def process_silence(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"FFmpeg not available: {e}")
 
-    root_path = settings.root_download_path
+    root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
     
     # Parse options
     try:
@@ -709,8 +712,10 @@ def get_system_fonts(db: Session = Depends(database.get_db)):
         os.path.join(backend_root, "assets", "fonts"),
     ]
     
-    if settings.root_download_path:
-        candidates.insert(0, os.path.join(settings.root_download_path, "fonts"))
+    from app.config import settings as settings_conf
+    root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+    if root_path:
+        candidates.insert(0, os.path.join(root_path, "fonts"))
         
     final_fonts = {}
     
@@ -749,9 +754,10 @@ async def extract_subtitle(
         raise HTTPException(status_code=500, detail=f"FFmpeg not available: {e}")
         
     # 1. Use User Settings Temp Directory
-    if settings.root_download_path and os.path.exists(settings.root_download_path):
-         root_path = settings.root_download_path
-         save_dir = os.path.join(settings.root_download_path, "temp")
+    from app.config import settings as settings_conf
+    root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+    if root_path and os.path.exists(root_path):
+         save_dir = os.path.join(root_path, "temp")
     else:
          base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
          root_path = os.path.join(base_dir, "temp_storage")
@@ -858,8 +864,10 @@ async def extract_subtitle_from_path(
         raise HTTPException(status_code=500, detail=f"FFmpeg not available: {e}")
         
     # Create temp dir (if needed for intermediate processing)
-    if settings.root_download_path and os.path.exists(settings.root_download_path):
-         TEMP_DIR = os.path.join(settings.root_download_path, "temp")
+    from app.config import settings as settings_conf
+    root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+    if root_path and os.path.exists(root_path):
+         TEMP_DIR = os.path.join(root_path, "temp")
     else:
          BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
          TEMP_DIR = os.path.join(BASE_DIR, "temp_storage")

@@ -74,6 +74,10 @@ class YouTubeUploader:
             if tin_can.status != "ACTIVE":
                 raise Exception(f"TinCan Account is {tin_can.status}")
 
+            # [DEATH_VALLEY Blocker] Uploads are strictly forbidden in this recovery mode
+            if brand_channel.youtube_channel and brand_channel.youtube_channel.cultivation_strategy == "DEATH_VALLEY":
+                raise Exception("Uploads are blocked during Death Valley recovery. The channel is in pure viewer mode.")
+
             # --- 2. Stealth Guard (IP Rotation) ---
             # Only if proxy_config is None (meaning using local/ADB)
             if not tin_can.proxy_config:

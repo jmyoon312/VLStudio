@@ -67,9 +67,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
     const [captains, setCaptains] = useState<any[]>([]);
     const [selectedCaptain, setSelectedCaptain] = useState("");
 
-    const [setupProgress, setSetupProgress] = useState(0);
-    const [progressMessage, setProgressMessage] = useState("");
-    const [loginRequired, setLoginRequired] = useState(false);
+    const [isDelegated, setIsDelegated] = useState(false);
 
     // Auth State
     const [isAuthorized, setIsAuthorized] = useState(false);
@@ -340,35 +338,36 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
         }
     };
 
-    const handleSetupFromCaptain = async () => {
-        if (!selectedCaptain) {
-            toast({ variant: "destructive", title: "선택 필요", description: "관리자 계정을 선택하세요." });
+    const handleDelegateToCaptain = async (captainId: string) => {
+        if (!captainId) {
+            setSelectedCaptain("");
+            setIsDelegated(false);
             return;
         }
 
+        setSelectedCaptain(captainId);
         setIsLoading(true);
-        setSetupProgress(0);
-        setProgressMessage("프로필 복사 중...");
+        setIsDelegated(false);
 
         try {
-            setSetupProgress(30);
-            const response = await axios.post(
-                `${API_BASE}/youtube/resources/profiles/${draftId}/setup-from-captain`,
-                { captain_id: selectedCaptain, launch_browser: true }
+            await axios.post(
+                `${API_BASE}/resources/profiles/${draftId}/delegate-to-captain`,
+                { captain_id: captainId }
             );
 
-            setSetupProgress(100);
-            setProgressMessage("완료!");
-
-            if (response.data.login_required) {
-                setLoginRequired(true);
-                toast({ title: "로그인 필요", description: response.data.message });
-            } else {
-                toast({ title: "성공", description: "Captain 세션이 복사되었습니다." });
-            }
+            setIsDelegated(true);
+            toast({
+                title: "✅ 위임 대상 지정 완료",
+                description: "관리자(Captain) 계정과의 매핑 관계가 시스템에 등록되었습니다."
+            });
         } catch (error: any) {
-            console.error("Setup from captain failed:", error);
-            toast({ variant: "destructive", title: "오류", description: error.response?.data?.detail || "프로필 복사에 실패했습니다." });
+            console.error("Delegation setup failed:", error);
+            toast({
+                variant: "destructive",
+                title: "등록 실패",
+                description: error.response?.data?.detail || "관리자 계정 매핑에 실패했습니다."
+            });
+            setIsDelegated(false);
         } finally {
             setIsLoading(false);
         }
@@ -689,32 +688,40 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                         </div>
                                     </div>
                                 ) : (
-                                    // [TIN_CAN FLOW] Captain Session Reuse + Manual Login & Verification
+                                    // [TIN_CAN FLOW] Brand Channel Delegation Helper & Manual Setup
                                     <>
-                                        {/* [NEW] 0. Captain Selection & Session Reuse */}
+                                        {/* 1. Captain Selection & Email Copy */}
                                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5 shadow-sm space-y-4">
                                             <div className="flex items-center gap-2 border-b border-indigo-200 pb-2">
-                                                <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm shrink-0">0</span>
-                                                <h4 className="font-bold text-indigo-900">관리자 세션 재사용 (권장)</h4>
+                                                <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm shrink-0 font-bold">1</span>
+                                                <h4 className="font-bold text-indigo-900">위임할 관리자(Captain) 지정</h4>
                                             </div>
 
-                                            <div className="text-xs text-indigo-700 bg-indigo-100 p-3 rounded">
-                                                💡 <strong>Captain 계정의 로그인 세션을 복사</strong>하여 추가 로그인 없이 빠르게 설정할 수 있습니다.
-                                                <br />
-                                                <span className="text-[10px] text-indigo-600 mt-1 block">
-                                                    ※ 프로필 폴더만 복사되며, 브라우저는 실행되지 않습니다.
-                                                </span>
+                                            <div className="text-xs text-indigo-700 bg-indigo-100/50 p-3 rounded-lg leading-relaxed">
+                                                💡 브랜드 채널의 관리를 대행할 <strong>관리자(Captain) 계정</strong>을 선택하세요.<br />
+                                                선택된 관리자의 이메일 주소를 유튜브 권한설정에 초대해야 위임이 완료됩니다.
+                                                <div className="text-[10px] text-amber-700 mt-1 font-semibold">
+                                                    ※ 반드시 위임 대상인 관리자(Captain) 계정을 먼저 등록해 놓으셔야 합니다.
+                                                </div>
                                             </div>
 
-                                            {/* Captain Selection */}
+                                            {/* Captain Selection Dropdown */}
                                             <div className="space-y-2">
-                                                <Label className="text-sm font-semibold">관리자 계정 선택</Label>
+                                                <div className="flex justify-between items-center">
+                                                    <Label className="text-xs font-semibold text-slate-700">관리자(Captain) 선택</Label>
+                                                    {isDelegated && (
+                                                        <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-1 animate-in zoom-in-90 duration-150">
+                                                            <Check className="w-3 h-3" /> 연동 성공
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <select
                                                     value={selectedCaptain}
-                                                    onChange={(e) => setSelectedCaptain(e.target.value)}
-                                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+                                                    onChange={(e) => handleDelegateToCaptain(e.target.value)}
+                                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white"
+                                                    disabled={isLoading}
                                                 >
-                                                    <option value="">-- Captain 선택 --</option>
+                                                    <option value="">-- 관리자(Captain) 선택 --</option>
                                                     {captains.map((c) => (
                                                         <option key={c.id} value={c.id}>
                                                             {c.email} ({c.id})
@@ -723,106 +730,55 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                                 </select>
                                             </div>
 
-                                            {/* Setup Button */}
-                                            <Button
-                                                onClick={async () => {
-                                                    if (!selectedCaptain) return;
-                                                    setIsLoading(true);
-                                                    setProgressMessage("프로필 복사 중...");
-                                                    setSetupProgress(30);
-
-                                                    try {
-                                                        const res = await axios.post(
-                                                            `${API_BASE}/resources/profiles/${draftId}/copy-from-captain`,
-                                                            { captain_id: selectedCaptain }
-                                                        );
-
-                                                        setSetupProgress(100);
-                                                        setProgressMessage("복사 완료!");
-
-                                                        toast({
-                                                            title: "✅ 세션 복사 완료",
-                                                            description: res.data.message || "Captain 로그인 정보가 적용되었습니다.",
-                                                        });
-
-                                                        // 복사 성공 후 자동으로 다음 섹션으로 스크롤
-                                                        setTimeout(() => {
-                                                            setSetupProgress(0);
-                                                            setProgressMessage("");
-                                                        }, 1500);
-
-                                                    } catch (error: any) {
-                                                        toast({
-                                                            variant: "destructive",
-                                                            title: "복사 실패",
-                                                            description: error.response?.data?.detail || "프로필 복사에 실패했습니다.",
-                                                        });
-                                                        setSetupProgress(0);
-                                                    } finally {
-                                                        setIsLoading(false);
-                                                    }
-                                                }}
-                                                disabled={!selectedCaptain || isLoading}
-                                                className="w-full bg-indigo-600 hover:bg-indigo-700 h-11"
-                                            >
-                                                {isLoading ? (
-                                                    <>
-                                                        <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                                                        {progressMessage}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Copy className="w-4 h-4 mr-2" />
-                                                        Captain 세션 복사 (로그인 정보 자동 적용)
-                                                    </>
-                                                )}
-                                            </Button>
-
-                                            {/* Progress */}
-                                            {setupProgress > 0 && (
-                                                <div className="space-y-1">
-                                                    <div className="w-full bg-slate-200 rounded-full h-2">
-                                                        <div
-                                                            className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                                                            style={{ width: `${setupProgress}%` }}
-                                                        />
+                                            {/* Display Email & Copy Button */}
+                                            {selectedCaptain && (
+                                                <div className="bg-white border border-indigo-100 rounded-lg p-3 flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                                                    <div className="space-y-0.5">
+                                                        <span className="text-[9px] uppercase font-extrabold text-indigo-600 tracking-wider">복사할 관리자 이메일</span>
+                                                        <p className="text-sm font-mono font-bold text-slate-800">
+                                                            {captains.find(c => c.id === selectedCaptain)?.email || ""}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-xs text-center text-slate-600">{progressMessage}</p>
-                                                </div>
-                                            )}
-
-                                            {/* Login Required Alert */}
-                                            {loginRequired && (
-                                                <div className="bg-amber-50 border border-amber-200 p-3 rounded text-xs text-amber-800">
-                                                    <div className="font-bold mb-1">⚠️ 로그인 필요</div>
-                                                    세션이 만료되었습니다. 브라우저에서 로그인 후 계속 진행하세요.
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            const emailToCopy = captains.find(c => c.id === selectedCaptain)?.email;
+                                                            if (emailToCopy) {
+                                                                navigator.clipboard.writeText(emailToCopy);
+                                                                toast({
+                                                                    title: "📋 복사 완료",
+                                                                    description: "관리자 이메일이 클립보드에 복사되었습니다."
+                                                                });
+                                                            }
+                                                        }}
+                                                        className="h-9 px-3 gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shrink-0"
+                                                    >
+                                                        <Copy className="w-3.5 h-3.5" /> 복사
+                                                    </Button>
                                                 </div>
                                             )}
                                         </div>
 
-                                        <div className="text-center text-xs text-slate-600 py-2">
-                                            또는 기존 방식으로 진행 ↓
-                                        </div>
-
-                                        {/* 1. Manual Login Section */}
+                                        {/* 2. Manual Login Section */}
                                         <div className="bg-white border border-blue-200 rounded-xl p-5 shadow-sm space-y-3">
                                             <div className="flex items-center justify-between">
-                                                <h3 className="font-bold text-blue-900 flex items-center gap-2 text-lg">
-                                                    <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
+                                                <h3 className="font-bold text-blue-900 flex items-center gap-2 text-md">
+                                                    <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold shrink-0">2</span>
                                                     로그인 (수동)
                                                 </h3>
                                                 <GoogleAuthGuide />
                                             </div>
-                                            <div className="text-sm text-slate-600">
-                                                먼저 브라우저를 열고 구글 로그인을 완료하세요.<br />
-                                                <span className="text-xs text-slate-500">* 로그인이 되어 있어야 채널 생성 등 다음 작업이 가능합니다.</span>
+                                            <div className="text-xs text-slate-600 leading-relaxed">
+                                                먼저 아래 버튼을 통해 **소유자(Tin Can) 전용 격리 브라우저**를 열고 구글 로그인을 완료하세요.<br />
+                                                <span className="text-slate-500">* 로그인이 정상 유지되어야 브랜드 채널을 위임할 수 있습니다.</span>
                                             </div>
                                             <div className="flex gap-2">
-                                                <Button onClick={handleLaunchSetup} disabled={isLoading} className="flex-1 bg-blue-600 hover:bg-blue-700 h-10">
-                                                    {isLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <ExternalLink className="w-4 h-4 mr-2" />}
+                                                <Button onClick={handleLaunchSetup} disabled={isLoading} className="flex-1 bg-blue-600 hover:bg-blue-700 h-10 gap-2">
+                                                    {isLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <ExternalLink className="w-4 h-4" />}
                                                     설정 브라우저 열기
                                                 </Button>
-                                                <Button variant="outline" onClick={handleConnectionTest} disabled={testResult === 'loading'}>
+                                                <Button variant="outline" onClick={handleConnectionTest} disabled={testResult === 'loading'} className="h-10">
                                                     <RefreshCw className={`w-4 h-4 ${testResult === 'loading' ? 'animate-spin' : ''}`} />
                                                 </Button>
                                             </div>
@@ -833,24 +789,31 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                             )}
                                         </div>
 
-                                        {/* 2. Setup Guide & Verification (Manual) */}
-                                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4 opacity-100">
+                                        {/* 3. Setup Guide & Verification (Manual) */}
+                                        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
                                             <div className="flex items-center gap-2 border-b pb-2">
-                                                <span className="bg-slate-50 text-slate-800 border border-slate-200 w-6 h-6 rounded-full flex items-center justify-center text-sm shrink-0">2</span>
-                                                <h4 className="font-bold text-slate-900">채널 및 권한 (수동 설정)</h4>
+                                                <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm shrink-0 font-bold">3</span>
+                                                <h4 className="font-bold text-slate-900">브랜드 채널 생성 및 위임 절차</h4>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4 text-xs text-slate-600 bg-slate-50 p-3 rounded">
-                                                <div className='border-r border-slate-200 pr-2'>
-                                                    <div className="font-bold text-slate-800 mb-1">❶ 브랜드 채널 생성</div>
-                                                    '채널 만들기'를 통해 브랜드 채널을 생성하세요.
-                                                    <br />
-                                                    (개인 채널이 아닌 브랜드 채널 권장)
+                                            <div className="space-y-3 text-xs text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                                <div className="flex gap-2.5">
+                                                    <span className="bg-slate-200 text-slate-800 w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">❶</span>
+                                                    <div>
+                                                        <strong>브랜드 채널 생성</strong>: 격리 브라우저에서 유튜브 페이지에 접속하여 '채널 만들기'를 클릭해 브랜드 채널을 생성해 줍니다.
+                                                    </div>
                                                 </div>
-                                                <div className='pl-2'>
-                                                    <div className="font-bold text-slate-800 mb-1">❷ 관리자 권한 위임</div>
-                                                    설정 {'>'} 권한 {'>'} 권한 관리에서<br />
-                                                    관리자 이메일을 초대하세요.
+                                                <div className="flex gap-2.5">
+                                                    <span className="bg-slate-200 text-slate-800 w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">❷</span>
+                                                    <div>
+                                                        <strong>관리자 초대 발송</strong>: 유튜브 스튜디오 우측 하단 <span className="font-bold">설정 &gt; 권한 &gt; 초대</span>를 클릭하고, 위에서 복사한 관리자 이메일을 입력한 뒤 역할은 <strong>"관리자(Manager)"</strong>로 지정하여 최종 저장을 누르세요.
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2.5">
+                                                    <span className="bg-slate-200 text-slate-800 w-5 h-5 rounded-full flex items-center justify-center shrink-0 font-bold">❸</span>
+                                                    <div>
+                                                        <strong>초대 수락</strong>: 관리자(Captain) 계정의 메일함으로 접속하여 <strong>초대 수락 링크</strong>를 클릭해야 위임 과정이 최종 완료됩니다.
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -866,6 +829,8 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                                                 skip_login: true // Prevent auto-login on verification
                                                             }
                                                         );
+
+                                                        setAutomationResult(response.data);
 
                                                         if (response.data.overall_success) {
                                                             const detectStep = response.data.steps.find((s: any) => s.step === 'detect_channel');
@@ -890,16 +855,16 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                                     }
                                                 }}
                                                 disabled={isLoading}
-                                                className="w-full bg-emerald-600 hover:bg-emerald-700 h-11"
+                                                className="w-full bg-emerald-600 hover:bg-emerald-700 h-11 gap-2"
                                             >
                                                 {isLoading ? (
                                                     <>
-                                                        <Loader2 className="animate-spin w-4 h-4 mr-2" />
+                                                        <Loader2 className="animate-spin w-4 h-4" />
                                                         확인 중...
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <ShieldCheck className="w-4 h-4 mr-2" />
+                                                        <ShieldCheck className="w-4 h-4" />
                                                         설정 확인 및 채널 감지
                                                     </>
                                                 )}
@@ -1012,35 +977,74 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                     </div>
                                 ) : (
                                     // [TIN_CAN FLOW] OAuth2 Key Upload
-                                    <>
-                                        <div className="bg-amber-50 border border-amber-200 p-5 rounded-lg text-amber-800 text-sm">
-                                            <h4 className="font-black flex justify-center items-center gap-2 mb-2 text-lg">
-                                                <FileJson className="w-6 h-6" /> JSON 키 등록
-                                            </h4>
-                                            <p>
-                                                다운로드 받은 <code>client_secret.json</code> 파일을 업로드하세요.<br />
-                                                파일이 검증되면 계정이 <strong>활성(Active)</strong> 상태가 됩니다.
+                                    <div className="bg-white border border-indigo-100 rounded-xl p-8 shadow-sm space-y-6">
+                                        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-sm text-blue-800">
+                                            <div className="font-bold mb-1">ℹ️ 선택 사항</div>
+                                            <p className="text-xs">
+                                                브라우저 자동화만 사용하는 경우 건너뛰기 가능합니다.<br />
+                                                API 기반 권한 검증이 필요한 경우에만 업로드하세요.
                                             </p>
                                         </div>
 
-                                        <div className="flex justify-center">
-                                            <input
-                                                type="file"
-                                                accept=".json"
-                                                ref={fileInputRef}
-                                                className="hidden"
-                                                onChange={handleFileUpload}
-                                            />
+                                        <div className="text-center space-y-2">
+                                            <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                                                <FileJson className="w-8 h-8 text-indigo-600" />
+                                            </div>
+                                            <h3 className="text-xl font-bold text-slate-800">YouTube API 인증 키 등록</h3>
+                                            <p className="text-slate-500 text-sm max-w-md mx-auto">
+                                                Google Cloud Console에서 발급받은 <code className="bg-slate-100 px-1 rounded">client_secret.json</code> 파일을 업로드하세요.
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-col gap-3">
+                                            <div className="flex justify-center gap-3">
+                                                <input
+                                                    type="file"
+                                                    accept=".json"
+                                                    ref={fileInputRef}
+                                                    className="hidden"
+                                                    onChange={handleFileUpload}
+                                                />
+                                                <Button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="h-16 px-8 text-lg bg-white hover:bg-slate-50 gap-3 shadow-xl transition-transform hover:scale-105"
+                                                    disabled={isLoading}
+                                                >
+                                                    {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
+                                                    client_secret.json 업로드
+                                                </Button>
+                                            </div>
+
+                                            {/* Skip Button */}
                                             <Button
-                                                onClick={() => fileInputRef.current?.click()}
-                                                className="h-16 px-8 text-lg bg-white hover:bg-slate-50 gap-3 shadow-xl transition-transform hover:scale-105"
-                                                disabled={isLoading}
+                                                variant="outline"
+                                                onClick={async () => {
+                                                    try {
+                                                        // Update status to ACTIVE
+                                                        await axios.put(`${API_BASE}/resources/profiles/${draftId}`, {
+                                                            status: 'ACTIVE'
+                                                        });
+
+                                                        toast({
+                                                            title: "등록 완료",
+                                                            description: "소유자 계정이 등록되었습니다. API 인증은 나중에 설정할 수 있습니다."
+                                                        });
+                                                        onComplete();
+                                                        onClose();
+                                                    } catch (error: any) {
+                                                        toast({
+                                                            variant: "destructive",
+                                                            title: "등록 실패",
+                                                            description: error.response?.data?.detail || "상태 업데이트에 실패했습니다."
+                                                        });
+                                                    }
+                                                }}
+                                                className="w-full"
                                             >
-                                                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
-                                                client_secret.json 업로드
+                                                건너뛰기 (브라우저 자동화만 사용)
                                             </Button>
                                         </div>
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         )}

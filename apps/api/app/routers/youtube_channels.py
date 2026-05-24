@@ -470,7 +470,7 @@ async def get_captain_top_videos(
 # ============================================
 
 @router.post("/channels/{channel_id}/launch")
-async def launch_channel_isolated(
+def launch_channel_isolated(
     channel_id: str,
     rotate_ip: bool = True,
     db: Session = Depends(get_db)
@@ -505,6 +505,11 @@ async def launch_channel_isolated(
             rotate_ip=rotate_ip
         )
         
+        # [NEW] 마법사 수동 셋업 창이 열렸다면 인증 대기 상태 해제
+        if channel.auth_status == "PENDING":
+            channel.auth_status = "COMPLETED"
+            db.commit()
+            
         # 5. 접속 로그 기록
         import uuid
         log = ChannelAccessLog(
@@ -590,17 +595,19 @@ async def trigger_sentinel_audit(
     }
 
 @router.post("/channels/{channel_id}/warmup")
-async def launch_channel_warmup(
+def launch_channel_warmup(
     channel_id: str,
     stage: int = 1,
+    visible: bool = False,
     db: Session = Depends(get_db)
 ):
     """
     Trigger warmup routine for a specific channel.
     Stage: 1-7 (Day 1 to Day 7)
+    visible: if True, runs in headed mode to show UI to user.
     """
     try:
-        logger.info(f"🚦 [Warmup] Received request for channel_id={channel_id}, stage={stage}")
+        logger.info(f"🚦 [Warmup] Received request for channel_id={channel_id}, stage={stage}, visible={visible}")
         
         # Find channel by channel_id (YouTube ID)
         channel = db.query(YouTubeChannel).filter(
@@ -611,16 +618,16 @@ async def launch_channel_warmup(
             logger.error(f"❌ [Warmup] Channel not found: {channel_id}")
             raise HTTPException(404, f"Channel not found: {channel_id}")
         
-        logger.info(f"✅ [Warmup] Found channel: {channel.channel_name} (DB ID: {channel.id})")
+        logger.info(f"✅ [Warmup] Found channel: {channel.channel_name} (DB ID: {channel.channel_id})")
         
-        # Update status to IDLE before starting
-        channel.warmup_status = "IDLE"
+        # Update status to RUNNING before starting
+        channel.warmup_status = "RUNNING"
         db.commit()
-        logger.info(f"📝 [Warmup] Status reset to IDLE for {channel_id}")
+        logger.info(f"📝 [Warmup] Status set to RUNNING for {channel_id}")
         
         # Execute warmup synchronously (no background task)
         logger.info(f"🎬 [Warmup] Starting warmup routine for {channel_id}, stage={stage}")
-        result = session_manager.run_warmup_routine(channel_id, stage)
+        result = session_manager.run_warmup_routine(channel_id, stage, visible)
         
         if result:
             logger.info(f"✅ [Warmup] Warmup completed successfully for {channel_id}")
@@ -642,11 +649,11 @@ async def launch_channel_warmup(
 
 
 @router.post("/channels/{channel_id}/warmup/reset")
-async def reset_channel_warmup(channel_id: int, db: Session = Depends(get_db)):
+async def reset_channel_warmup(channel_id: str, db: Session = Depends(get_db)):
     """개별 채널 웜업 초기화"""
     try:
-        # Use integer ID (database primary key)
-        channel = db.query(YouTubeChannel).filter(YouTubeChannel.id == channel_id).first()
+        # Use string channel_id
+        channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
         if not channel:
             raise HTTPException(404, "Channel not found")
         
@@ -839,7 +846,7 @@ async def get_recent_warmup_activity(
 # ==================== Bulk Warmup Control ====================
 
 @router.post("/warmup/bulk/start")
-async def bulk_start_warmup(
+def bulk_start_warmup(
     filter: str = "pending",  # pending, all, failed
     db: Session = Depends(get_db)
 ):
@@ -970,7 +977,7 @@ async def bulk_warmup_status(db: Session = Depends(get_db)):
             YouTubeChannel.warmup_status == "RUNNING"
         ).count()
         completed = db.query(YouTubeChannel).filter(
-            YouTubeChannel.warmup_stage == 7,
+            YouTubeChannel.warmup_stage >= 3,
             YouTubeChannel.warmup_status == "COMPLETED"
         ).count()
         failed = db.query(YouTubeChannel).filter(
@@ -984,7 +991,7 @@ async def bulk_warmup_status(db: Session = Depends(get_db)):
         ).count()
         in_progress = db.query(YouTubeChannel).filter(
             YouTubeChannel.warmup_stage > 0,
-            YouTubeChannel.warmup_stage < 7
+            YouTubeChannel.warmup_stage < 3
         ).count()
         
         return {
@@ -1090,100 +1097,7 @@ async def release_quarantine(
     return {"success": True, "channel_id": channel_id}
 
 
-# ============================================
-# TIN_CAN Registration with Captain Session Reuse
-# ============================================
 
-@router.post("/resources/profiles/{tin_can_id}/setup-from-captain")
-async def setup_tincan_from_captain(
-    tin_can_id: str,
-    captain_id: str,
-    launch_browser: bool = True,
-    db: Session = Depends(get_db)
-):
-    """
-    TIN_CAN 계정 설정: Captain 세션 복사 및 브라우저 실행
-    
-    Process:
-    1. Captain 브라우저 실행 중 확인
-    2. Captain 프로필 복사 (세션 쿠키 포함)
-    3. TIN_CAN 전용 프로필 생성
-    4. 브라우저 실행 및 로그인 상태 확인
-    """
-    import shutil
-    import os
-    
-    # 1. Profile 조회
-    tin_can = db.query(Profile).filter(Profile.id == tin_can_id).first()
-    captain = db.query(Profile).filter(Profile.id == captain_id).first()
-    
-    if not tin_can or not captain:
-        raise HTTPException(404, "Profile not found")
-    
-    if tin_can.profile_type != "TIN_CAN":
-        raise HTTPException(400, "Target profile must be TIN_CAN type")
-    
-    if captain.profile_type != "CAPTAIN":
-        raise HTTPException(400, "Source profile must be CAPTAIN type")
-    
-    # 2. Captain 브라우저 실행 중 확인
-    if session_manager.get_browser_for_profile(captain_id):
-        raise HTTPException(400, "Captain browser is currently running. Please close it first.")
-    
-    try:
-        # 3. 프로필 복사
-        captain_profile_path = captain.folder_path
-        tin_can_profile_path = f"{captain_profile_path}_{tin_can_id}"
-        
-        logger.info(f"📁 Copying profile from {captain_profile_path} to {tin_can_profile_path}")
-        
-        # 이미 존재하면 삭제
-        if os.path.exists(tin_can_profile_path):
-            shutil.rmtree(tin_can_profile_path)
-        
-        # 복사 (Cache, GPUCache 제외)
-        shutil.copytree(
-            captain_profile_path,
-            tin_can_profile_path,
-            ignore=shutil.ignore_patterns('Cache', 'GPUCache', 'Code Cache')
-        )
-        
-        
-        logger.info("✅ Profile copied successfully")
-        
-        # 4. DB 업데이트
-        # CRITICAL: DO NOT overwrite folder_path - causes Captain session leakage
-        # tin_can.folder_path = tin_can_profile_path  # REMOVED
-        db.commit()
-        
-        # 5. 브라우저 실행 및 로그인 확인
-        if launch_browser:
-            logger.info(f"🚀 Launching browser for TIN_CAN: {tin_can_id}")
-            browser = stealth_ops.create_page(tin_can_id)
-            
-            # Store session
-            session_manager._active_session = browser
-            session_manager._active_profile_id = tin_can_id
-            
-            # YouTube Studio 접속
-            browser.get("https://studio.youtube.com")
-            time.sleep(3)
-            
-            # 로그인 상태 확인
-            current_url = browser.url.lower()
-            login_required = "accounts.google.com" in current_url or "signin" in current_url
-            
-            return {
-                "success": True,
-                "login_required": login_required,
-                "message": "세션이 만료되었습니다. 브라우저에서 로그인하세요." if login_required else "로그인 상태 확인됨"
-            }
-        
-        return {"success": True, "login_required": False}
-    
-    except Exception as e:
-        logger.error(f"Failed to setup TIN_CAN from Captain: {e}")
-        raise HTTPException(500, f"Setup failed: {str(e)}")
 
 
 
@@ -1320,3 +1234,117 @@ async def verify_channel_delegation(
     except Exception as e:
         logger.error(f"Failed to verify delegation: {e}")
         raise HTTPException(500, f"Verification failed: {str(e)}")
+
+# ============================================
+# Strategic Cultivation (Auto Scheduler)
+# ============================================
+
+from pydantic import BaseModel
+from typing import Optional
+
+class CultivationUpdate(BaseModel):
+    strategy: str
+    active: bool
+    target_niche: Optional[str] = None
+
+@router.patch("/channels/{channel_id}/cultivation")
+async def update_cultivation_strategy(
+    channel_id: str,
+    data: CultivationUpdate,
+    db: Session = Depends(get_db)
+):
+    """채널의 육성 전략(Cultivation Strategy) 업데이트"""
+    channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
+    if not channel:
+        raise HTTPException(404, "Channel not found")
+        
+    # 전략이 변경되면 진행 일차를 리셋
+    if getattr(channel, 'cultivation_strategy', '') != data.strategy:
+        channel.cultivation_day = 0
+        channel.warmup_stage = 0
+        
+    channel.cultivation_strategy = data.strategy
+    channel.cultivation_active = data.active
+    
+    # 타겟 니치가 입력되었다면 DNA 자동 생성 로직 실행
+    if data.target_niche:
+        try:
+            from app.services.warmup_comment_generator_v2 import get_intelligence_generator
+            from app.database import SessionLocal
+            from app import crud
+            import json
+            
+            # TODO: 실제로는 Intelligence Generator를 통해 생성되도록 연결
+            # 임시로 더미/기본 ChannelDNA 포맷으로 저장 (따로 작성할 예정인 generate_channel_dna 사용)
+            # 여기서는 편의상 import해서 사용
+            from app.services.warmup_comment_generator_v2 import generate_channel_dna
+            
+            dna_data = generate_channel_dna(data.target_niche)
+            channel.warmup_config = json.dumps(dna_data)
+        except Exception as e:
+            logger.error(f"❌ Failed to generate DNA for {channel_id}: {e}")
+        
+    db.commit()
+    return {
+        "success": True,
+        "strategy": channel.cultivation_strategy,
+        "active": channel.cultivation_active,
+        "day": channel.cultivation_day
+    }
+
+@router.post("/warmup/bulk/auto-schedule")
+async def trigger_auto_scheduler(db: Session = Depends(get_db)):
+    """설정된 전략에 따라 모든 채널의 스케줄러를 실행 (일 단위 1회 호출 권장)"""
+    active_channels = db.query(YouTubeChannel).filter(
+        YouTubeChannel.cultivation_active == True
+    ).all()
+    
+    triggered_count = 0
+    failed_count = 0
+    
+    for channel in active_channels:
+        strategy = channel.cultivation_strategy
+        if not strategy:
+            continue
+            
+        # 하루 증가
+        channel.cultivation_day += 1
+        day = channel.cultivation_day
+        
+        # 전략별 타겟 Stage 계산
+        target_stage = 1
+        if strategy == "INITIAL":
+            # Day 1~2: Stage 1 / Day 3~5: Stage 2 / Day 6~7: Stage 3
+            if day <= 2: target_stage = 1
+            elif day <= 5: target_stage = 2
+            else: target_stage = 3
+        elif strategy == "NICHE_PIVOT":
+            target_stage = 2 # 계속 Stage 2
+        elif strategy == "TRAFFIC_HIJACK":
+            target_stage = 3 # 계속 Stage 3
+        elif strategy == "DEATH_VALLEY":
+            # Day 1~4: Stage 1 / Day 5~7: Stage 2
+            if day <= 4: target_stage = 1
+            else: target_stage = 2
+            
+        channel.warmup_stage = target_stage - 1 # run_warmup_routine will increment or use target
+        db.commit()
+        
+        try:
+            logger.info(f"📅 [Scheduler] Channel {channel.channel_name}: Strategy {strategy} (Day {day}) -> Stage {target_stage}")
+            # 백그라운드 태스크로 넘기는 것이 좋으나 우선 동기적 실행(Bulk처럼)
+            result = session_manager.run_warmup_routine(channel.channel_id, target_stage)
+            if result:
+                triggered_count += 1
+            else:
+                failed_count += 1
+        except Exception as e:
+            logger.error(f"Scheduler failed for {channel.channel_id}: {e}")
+            failed_count += 1
+            
+    return {
+        "success": True,
+        "processed": len(active_channels),
+        "success": triggered_count,
+        "failed": failed_count
+    }

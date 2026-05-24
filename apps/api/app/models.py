@@ -21,6 +21,8 @@ class ChannelStatus(str, enum.Enum):
     ACTIVE = "ACTIVE"
     QUARANTINED = "QUARANTINED"
     SUSPENDED = "SUSPENDED"
+    AUTH_DROPPED = "AUTH_DROPPED"
+    CAPTCHA_BLOCKED = "CAPTCHA_BLOCKED"
 
 class ChannelRole(str, enum.Enum):
     OWNER = "OWNER"      # TinCan (소유자)
@@ -751,6 +753,7 @@ class YouTubeChannel(Base):
     
     # 상태 관리
     status = Column(String(20), default=ChannelStatus.ACTIVE)
+    auth_status = Column(String(20), default="PENDING") # PENDING, COMPLETED, FAILED
     quarantine_reason = Column(Text, nullable=True)
     quarantine_until = Column(DateTime, nullable=True)
     
@@ -764,6 +767,11 @@ class YouTubeChannel(Base):
     warmup_error_count = Column(Integer, default=0)  # Error count
     warmup_last_error = Column(Text, nullable=True)  # Last error message
     warmup_config = Column(JSON, nullable=True)  # Custom settings
+    
+    # [Cultivation] Strategic Scheduler
+    cultivation_strategy = Column(String(50), nullable=True) # INITIAL, NICHE_PIVOT, TRAFFIC_HIJACK, DEATH_VALLEY
+    cultivation_day = Column(Integer, default=0)
+    cultivation_active = Column(Boolean, default=False)
     
     # 프로필 관리
     dedicated_profile_path = Column(String(500), nullable=True)

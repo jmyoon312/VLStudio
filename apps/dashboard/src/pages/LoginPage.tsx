@@ -95,18 +95,6 @@ export default function LoginPage() {
                         </span>
                     </button>
 
-                    {/* Footer System Status */}
-                    <div className="mt-8 text-center">
-                        <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground font-semibold tracking-wider uppercase">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            System Sovereign Link Active
-                        </div>
-                    </div>
-                </div>
-
-                {/* Copyright info */}
-                <div className="mt-6 text-center text-[10px] text-muted-foreground font-medium">
-                    © 2026 VIRALOOP INTELLIGENCE. ALL RIGHTS RESERVED.
                 </div>
             </div>
         </div>

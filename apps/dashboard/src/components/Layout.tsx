@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTheme } from './theme-provider';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import api from '@/lib/api';
 import { getMenuGroups } from '../config/menu';
 import GlobalLoopieChat from './GlobalLoopieChat';
@@ -380,6 +380,59 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     const [captainId, setCaptainId] = React.useState<string | null>(null);
     const [activeViews, setActiveViews] = React.useState<string[]>([]);
     const [activeProfileId, setActiveProfileId] = React.useState<string>('default');
+
+    const [showNetOptimizeModal, setShowNetOptimizeModal] = React.useState(false);
+    const [isOptimizing, setIsOptimizing] = React.useState(false);
+    const [netStatus, setNetStatus] = React.useState<any>(null);
+    const lastLteStateRef = React.useRef<boolean>(false);
+
+    const checkNetworkStatus = async () => {
+        try {
+            const res = await api.get(`/resources/network/status?t=${Date.now()}`);
+            const data = res.data;
+            setNetStatus(data);
+            
+            const monitorStatus = data.monitor;
+            const lteConnected = !!(monitorStatus?.lte && monitorStatus?.lte?.status === 'Connected');
+            const needsOptimize = lteConnected && monitorStatus?.lte?.metric !== 9000;
+            
+            // LTE가 새로 감지되었고 최적화가 필요할 때 팝업 자동 활성화 (Spam 방지를 위해 transition 감지)
+            if (needsOptimize) {
+                if (!lastLteStateRef.current) {
+                    setShowNetOptimizeModal(true);
+                }
+            }
+            
+            lastLteStateRef.current = lteConnected;
+        } catch (e) {
+            console.error("Failed to check network status in Layout:", e);
+        }
+    };
+
+    React.useEffect(() => {
+        checkNetworkStatus();
+        const interval = setInterval(checkNetworkStatus, 5000); // 5초 간격으로 핸드폰 연결 확인
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleExecuteOptimize = async () => {
+        setIsOptimizing(true);
+        try {
+            const res = await api.post('/resources/network/fix-permissions');
+            toast.success("네트워크 격리 최적화 요청", {
+                description: res.data.message || "UAC 관리자 승인 팝업이 활성화되었습니다."
+            });
+            setShowNetOptimizeModal(false);
+            // 3초 후 즉시 상태 리프레시
+            setTimeout(checkNetworkStatus, 3000);
+        } catch (e) {
+            toast.error("최적화 오류", {
+                description: "권한 승인 요청 실패"
+            });
+        } finally {
+            setIsOptimizing(false);
+        }
+    };
 
     const syncViewsAndProfiles = async () => {
         try {
@@ -880,6 +933,94 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             </main>
 
             <Toaster position="top-right" richColors />
+
+            {showNetOptimizeModal && (
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="relative w-full max-w-lg p-6 bg-card border border-border rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 font-sans text-foreground">
+                        {/* Smooth glowing gradient top border */}
+                        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-rose-500 rounded-t-2xl"></div>
+                        
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 bg-indigo-500/10 text-indigo-500 rounded-xl shrink-0">
+                                <Shield className="w-8 h-8 animate-pulse" />
+                            </div>
+                            <div className="flex-1 space-y-2">
+                                <h2 className="text-lg font-extrabold tracking-tight">🔒 네트워크 격리 최적화 요청</h2>
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                    새로운 모바일 LTE 네트워크 연결이 감지되었습니다. ViraLoop Studio는 유튜브 채널 간 IP 연좌제 전파를 완벽히 차단하기 위해 업로드 및 스튜디오 트래픽을 LTE망(Port 10800)으로 강제 분리하고, 일반 시스템 웹 요청은 기존 Wi-Fi 또는 유선망으로 흐르도록 윈도우 라우팅 테이블 메트릭을 고정합니다.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Checklist */}
+                        <div className="mt-5 p-4 rounded-xl border border-border bg-muted/30 space-y-3 font-mono text-[11px]">
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                    Wi-Fi / 유선 게이트웨이 메트릭 고정
+                                </span>
+                                <span className="font-bold text-blue-500">Metric: 10/20 (기본망)</span>
+                            </div>
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                    LTE 모바일 어댑터 메트릭 낮춤 (격리)
+                                </span>
+                                <span className="font-bold text-rose-500">Metric: 9000 (우회 차단)</span>
+                            </div>
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    LTE 미작동 시 Wi-Fi 우회 차단 (Hard-Gate)
+                                </span>
+                                <span className="font-bold text-emerald-500">활성화 (Fail-Closed)</span>
+                            </div>
+                        </div>
+
+                        <div className="mt-3 text-[10px] text-muted-foreground bg-amber-500/5 border border-amber-500/20 p-2.5 rounded-lg space-y-1">
+                            <p className="font-bold text-amber-500 flex items-center gap-1">
+                                ⚠️ [최적화 실행] 시 윈도우 관리자(UAC) 승인 창이 나타납니다.
+                            </p>
+                            <p className="text-[9px] text-muted-foreground">
+                                Windows OS 규정상 핸드폰이 끊겼다 다시 연결될 때마다 기본 우선순위(메트릭)가 강제로 초기화됩니다. 이 상태에서는 기본 인터넷 트래픽이 LTE로 유출될 수 있어 격리 복구를 위해 UAC 승인이 필요합니다.
+                            </p>
+                            <div className="pt-1.5 border-t border-amber-500/10 mt-1.5 space-y-1">
+                                <p className="font-semibold text-foreground text-[9.5px]">💡 매번 이 창을 띄우지 않고 자동화하는 2가지 방법:</p>
+                                <ul className="list-disc pl-4.5 space-y-0.5 text-[9px] text-muted-foreground">
+                                    <li><strong>앱을 관리자 권한으로 실행</strong>: ViraLoop Studio 실행 시 마우스 우클릭 &gt; <span className="underline text-foreground font-semibold">관리자 권한으로 실행</span>해 두시면, 휴대폰 연결 시 팝업창 없이 백그라운드에서 실시간으로 자동 격리가 즉시 완료됩니다.</li>
+                                    <li><strong>어댑터 메트릭 수동 고정 (영구)</strong>: 제어판 - 네트워크 연결에서 LTE 어댑터(Remote NDIS)의 속성 &gt; IPv4 속성 &gt; 고급 &gt; '자동 기본 설정'을 체크 해제하고 <strong>9000</strong>을 수동 입력해 두면, 재연결 시에도 UAC 승인 없이 완벽 격리가 영구 유지됩니다.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowNetOptimizeModal(false)}
+                                className="px-4 py-2 text-xs font-semibold rounded-lg hover:bg-muted text-muted-foreground transition-colors border border-transparent hover:border-border"
+                            >
+                                나중에 하기
+                            </button>
+                            <button
+                                onClick={handleExecuteOptimize}
+                                disabled={isOptimizing}
+                                className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all rounded-lg shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-2"
+                            >
+                                {isOptimizing ? (
+                                    <>
+                                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        <span>권한 승인 대기...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>격리 최적화 실행</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

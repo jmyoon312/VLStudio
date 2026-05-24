@@ -44,23 +44,18 @@ from app.services.automation.orchestrator import AutomationOrchestrator, Automat
 class LaunchSetupRequest(BaseModel):
     target_channel_id: Optional[str] = None
 
-class CopyFromCaptainRequest(BaseModel):
+class DelegateToCaptainRequest(BaseModel):
     captain_id: str
 
-# [NEW] Copy Captain Profile (No Browser Launch)
-@router.post("/profiles/{tin_can_id}/copy-from-captain")
-async def copy_from_captain(
+# [NEW] Delegate TinCan to Captain (No folder copy, cloud-level mapping only)
+@router.post("/profiles/{tin_can_id}/delegate-to-captain")
+async def delegate_to_captain(
     tin_can_id: str,
-    payload: CopyFromCaptainRequest,
+    payload: DelegateToCaptainRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Captain 프로필을 TIN_CAN 프로필로 복사 (브라우저 실행 없음)
-    
-    Step 0: Captain 세션 재사용
-    - Captain 프로필 폴더를 복사하여 TIN_CAN 전용 프로필 생성
-    - 로그인 세션, 쿠키 자동 복사
-    - 브라우저 실행 없이 백그라운드에서 처리
+    TIN_CAN 계정을 Captain(관리자) 계정에 매핑 및 위임 설정 등록 (DB 관계 기록)
     """
     try:
         captain_id = payload.captain_id
@@ -77,63 +72,20 @@ async def copy_from_captain(
         if not tin_can:
             raise HTTPException(404, "TIN_CAN profile not found")
         
-        # 3. 프로필 경로 설정
-        # [FIX] Use DB settings for cross-platform/environment support
-        settings_db = crud.get_settings(db)
-        profile_base = os.path.join(settings_db.root_download_path, "Profiles")
-        
-        captain_profile_path = f"{profile_base}/{captain_id}"
-        tin_can_profile_path = f"{profile_base}/{captain_id}_{tin_can_id}"
-        
-        # 4. Captain 프로필 존재 확인
-        if not os.path.exists(captain_profile_path):
-            raise HTTPException(404, f"Captain profile folder not found: {captain_profile_path}")
-        
-        # 5. 이미 복사된 프로필이 있으면 삭제
-        if os.path.exists(tin_can_profile_path):
-            logger.info(f"🗑️ Removing existing TIN_CAN profile: {tin_can_profile_path}")
-            def remove_readonly(func, path, _):
-                os.chmod(path, stat.S_IWRITE)
-                func(path)
-            shutil.rmtree(tin_can_profile_path, onerror=remove_readonly)
-        
-        # 6. Captain 프로필 복사
-        logger.info(f"📁 Copying Captain profile to TIN_CAN...")
-        logger.info(f"   Source: {captain_profile_path}")
-        logger.info(f"   Target: {tin_can_profile_path}")
-        
-        shutil.copytree(
-            captain_profile_path,
-            tin_can_profile_path,
-            ignore=shutil.ignore_patterns(
-                'Cache', 'Code Cache', 'GPUCache', 'Service Worker',
-                'ShaderCache', 'DawnCache', '*.log', 'Crashpad'
-            ),
-            dirs_exist_ok=True
-        )
-        
-        
-        logger.info(f"✅ Profile copied successfully")
-        
-        # 7. DB 업데이트
-        # CRITICAL FIX: DO NOT overwrite folder_path here!
-        # The backup folder (captain_id_tin_can_id) is for future delegation only
-        # The TinCan's folder_path must remain as "Profiles/{tin_can_id}" for clean login
-        # tin_can.folder_path = tin_can_profile_path  # REMOVED - causes Captain session leakage
-        
-        # Track delegation relationship in Captain profile
+        # 3. DB 관계 설정
         if captain.delegated_tincan_ids is None:
             captain.delegated_tincan_ids = []
-        if tin_can_id not in captain.delegated_tincan_ids:
-            captain.delegated_tincan_ids.append(tin_can_id)
-            logger.info(f"📝 Added {tin_can_id} to Captain's delegated list")
-        
-        db.commit()
-        
+            
+        delegated_list = list(captain.delegated_tincan_ids)
+        if tin_can_id not in delegated_list:
+            delegated_list.append(tin_can_id)
+            captain.delegated_tincan_ids = delegated_list
+            logger.info(f"📝 Added TinCan {tin_can_id} to Captain {captain_id}'s delegation list")
+            db.commit()
+            
         return {
             "success": True,
-            "backup_path": tin_can_profile_path,
-            "message": "Captain 세션이 백업되었습니다. 로그인은 본인 계정으로 진행하세요."
+            "message": f"성공적으로 {captain.email} 계정과의 위임 관계를 등록했습니다."
         }
         
     except HTTPException as e:
@@ -172,9 +124,11 @@ def create_draft_profile(type: str = "TIN_CAN", payload: dict = Body(None), db: 
         new_id = str(uuid.uuid4())[:8]
         p_type = ProfileType.TIN_CAN if type == "TIN_CAN" else ProfileType.CAPTAIN
         
-        # Get profile base path from settings (root_download_path/Profiles)
+        # Get profile base path from settings (root_download_path/04_Profiles)
         settings_db = crud.get_settings(db)
-        profile_base = os.path.join(settings_db.root_download_path, "Profiles")
+        from app.config import settings as settings_conf
+        root_path = settings_db.root_download_path if settings_db and settings_db.root_download_path else settings_conf.MEDIA_ROOT
+        profile_base = os.path.join(root_path, "04_Profiles")
         
         # Ensure directory exists immediately
         profile_path = os.path.join(profile_base, new_id)
@@ -267,20 +221,40 @@ def delete_profile(id: str, background_tasks: BackgroundTasks, db: Session = Dep
     # Import models
     from app.models import ChannelAccess, YouTubeChannel, ChannelRole, VideoMetadataCache, ChannelDailyStats
     
-    # 1. Find all channels owned by this profile (OWNER role)
+    # 1. Clean up associated channels (YouTubeChannel and BrandChannel)
     try:
-        owned_channel_accesses = db.query(ChannelAccess).filter(
-            ChannelAccess.profile_id == id,
-            ChannelAccess.role == ChannelRole.OWNER
+        from app.models import BrandChannel
+        
+        # Delete BrandChannel records owned by this profile
+        brand_channels = db.query(BrandChannel).filter(
+            BrandChannel.owner_profile_id == id
         ).all()
+        for bc in brand_channels:
+            print(f"🗑️ [DELETE] Deleting BrandChannel: {bc.title} ({bc.channel_id})")
+            db.delete(bc)
+        db.flush()
+
+        # Get all YouTube channel IDs that this profile accesses
+        profile_channel_accesses = db.query(ChannelAccess).filter(
+            ChannelAccess.profile_id == id
+        ).all()
+        profile_channel_ids = list(set([access.channel_id for access in profile_channel_accesses]))
         
-        owned_channel_ids = [access.channel_id for access in owned_channel_accesses]
+        # Delete all channel_access records for this profile
+        for access in profile_channel_accesses:
+            db.delete(access)
+        db.flush()
+        print(f"🔗 [DELETE] Deleted channel_access records for profile {id}")
         
-        if owned_channel_ids:
-            print(f"📺 [DELETE] Found {len(owned_channel_ids)} owned channels to delete")
+        # For each channel, check if it is now orphaned (has no remaining access records)
+        for channel_id in profile_channel_ids:
+            remaining_access_count = db.query(ChannelAccess).filter(
+                ChannelAccess.channel_id == channel_id
+            ).count()
             
-            # Delete cache data for these channels
-            for channel_id in owned_channel_ids:
+            if remaining_access_count == 0:
+                print(f"📺 [DELETE] Channel {channel_id} is orphaned. Cleaning up channel data...")
+                
                 # Delete video metadata cache
                 video_caches = db.query(VideoMetadataCache).filter(
                     VideoMetadataCache.channel_id == channel_id
@@ -295,39 +269,15 @@ def delete_profile(id: str, background_tasks: BackgroundTasks, db: Session = Dep
                 for stat in daily_stats:
                     db.delete(stat)
                 
-                print(f"🗑️ [DELETE] Cleaned cache data for channel {channel_id}")
-            
-            # Delete all channel_access records for these channels (both OWNER and MANAGER)
-            all_accesses = db.query(ChannelAccess).filter(
-                ChannelAccess.channel_id.in_(owned_channel_ids)
-            ).all()
-            for access in all_accesses:
-                db.delete(access)
-            
-            print(f"🔗 [DELETE] Deleted {len(all_accesses)} channel_access records")
-            
-            # Delete the YouTube channels themselves
-            channels = db.query(YouTubeChannel).filter(
-                YouTubeChannel.channel_id.in_(owned_channel_ids)
-            ).all()
-            for channel in channels:
-                print(f"📺 [DELETE] Deleting channel: {channel.channel_name} ({channel.channel_id})")
-                db.delete(channel)
-            
-            db.flush()
-            print(f"✅ [DELETE] Deleted {len(channels)} YouTube channels")
-        
-        # 2. Delete any remaining channel_access records where this profile is MANAGER
-        remaining_accesses = db.query(ChannelAccess).filter(
-            ChannelAccess.profile_id == id
-        ).all()
-        
-        if remaining_accesses:
-            print(f"🔗 [DELETE] Found {len(remaining_accesses)} remaining channel_access records (MANAGER role)")
-            for access in remaining_accesses:
-                db.delete(access)
-            db.flush()
-            print(f"✅ [DELETE] Deleted remaining channel_access records")
+                # Delete the YouTube channel itself
+                channel = db.query(YouTubeChannel).filter(
+                    YouTubeChannel.channel_id == channel_id
+                ).first()
+                if channel:
+                    print(f"📺 [DELETE] Deleting YouTube channel: {channel.channel_name} ({channel.channel_id})")
+                    db.delete(channel)
+                    
+        db.flush()
             
     except Exception as e:
         print(f"⚠️ [DELETE ERROR] Error deleting channel data: {e}")
@@ -349,7 +299,7 @@ def delete_profile(id: str, background_tasks: BackgroundTasks, db: Session = Dep
         "status": "deleted", 
         "id": id, 
         "message": "Profile, channels, and associated data deleted",
-        "channels_deleted": len(owned_channel_ids) if owned_channel_ids else 0
+        "channels_deleted": len(profile_channel_ids) if 'profile_channel_ids' in locals() else 0
     }
 
 
@@ -405,25 +355,6 @@ async def upload_profile_key(id: str, file: UploadFile = File(...), db: Session 
         db.rollback()
         logger.error(f"Failed to upload key for profile {id}: {e}")
         raise HTTPException(500, str(e))
-
-@router.get("/captain/{profile_id}/channels", response_model=List[schemas.BrandChannel])
-def list_captain_channels(profile_id: str, db: Session = Depends(get_db)):
-    """ List all brand channels managed by this Captain """
-    profile = db.query(Profile).filter(Profile.id == profile_id).first()
-    if not profile: return []
-    
-    # [Fix] Use BrandChannel directly, filtering by owner_profile_id if applicable
-    # or return all active channels if no explicit link established yet
-    # Assuming 'owner_profile_id' exists in BrandChannel as per previous migration
-    try:
-        channels = db.query(BrandChannel).filter(
-            BrandChannel.owner_profile_id == profile_id,
-            BrandChannel.is_active == True
-        ).all()
-        return channels
-    except Exception:
-        # Fallback if column issue persists, return all active
-        return db.query(BrandChannel).filter(BrandChannel.is_active == True).all()
 
 # --- Quarantine Management ---
 @router.post("/profiles/{id}/quarantine")
@@ -514,7 +445,14 @@ async def launch_setup(
         skip_proxy = (profile.profile_type == ProfileType.CAPTAIN and not rotate_ip_flag)
         
         logger.info(f"🚀 Launching browser for profile {profile_id}")
-        success = stealth_ops.launch_for_setup(profile_id, target_channel_id=target_channel_id, skip_proxy_check=skip_proxy, db=db)
+        success = stealth_ops.launch_for_setup(
+            profile_id, 
+            email=profile.email, 
+            password=profile.password, 
+            target_channel_id=target_channel_id, 
+            skip_proxy_check=skip_proxy, 
+            db=db
+        )
         
         if success:
             logger.info(f"✅ Browser launched successfully for profile {profile_id}")
@@ -525,9 +463,7 @@ async def launch_setup(
     except HTTPException:
         raise
     except Exception as e:
-        import logging
         import traceback
-        logger = logging.getLogger(__name__)
         logger.error(f"🚨 Unexpected error in launch_setup for {profile_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
@@ -948,71 +884,110 @@ async def execute_automation(
 
 @router.get("/captain/{profile_id}/channels")
 def get_captain_channels(profile_id: str, db: Session = Depends(get_db)):
-    """ List BrandChannels owned by this Profile (Captain) """
-    # 1. Fetch by owner_profile_id
-    channels = db.query(BrandChannel).filter(BrandChannel.owner_profile_id == profile_id).all()
-    
-    # 2. [Fallback/Migration] If no channels found, check valid CaptainAccount links (Legacy)
-    # This is optional, but if we want to support old data:
-    # return channels or []
-    
-    # Format response
-    return [
-        {
-            "id": ch.id,
+    from app.models import YouTubeChannel, ChannelAccess
+    # Fetch from new schema
+    channels = db.query(YouTubeChannel).join(ChannelAccess).filter(ChannelAccess.profile_id == profile_id).all()
+    response_data = []
+    for ch in channels:
+        # Find the owner profile (Tin Can)
+        owner = db.query(Profile).filter(Profile.channel_id == ch.channel_id, Profile.profile_type == "TIN_CAN").first()
+        owner_email = owner.email if owner and owner.email else (owner.google_email if owner and getattr(owner, "google_email", None) else "Unknown Owner")
+        
+        response_data.append({
+            "id": ch.channel_id,
             "channel_id": ch.channel_id,
-            "title": ch.title,
+            "title": ch.channel_name,
+            "channel_name": ch.channel_name,
+            "channel_handle": ch.channel_handle,
             "thumbnail_url": ch.thumbnail_url,
             "subscriber_count": ch.subscriber_count,
             "video_count": ch.video_count,
-            "revenue_text": ch.revenue_text,
-            "is_active": ch.is_active
-        }
-        for ch in channels
-    ]
+            "revenue_text": f"${ch.estimated_revenue}" if getattr(ch, "estimated_revenue", None) else "N/A",
+            "is_active": ch.status == "ACTIVE",
+            "warmup_stage": ch.warmup_stage,
+            "warmup_status": ch.warmup_status,
+            "last_used_ip": ch.last_used_ip,
+            "owner_email": owner_email,
+            "cultivation_strategy": getattr(ch, "cultivation_strategy", None),
+            "cultivation_day": getattr(ch, "cultivation_day", 0),
+            "cultivation_active": getattr(ch, "cultivation_active", False)
+        })
+        
+    return response_data
 
 @router.post("/captain/{profile_id}/scan-channels")
 async def scan_captain_channels(profile_id: str, db: Session = Depends(get_db)):
-    """ 
-    Trigger a scan for Brand Channels delegated to this Captain.
-    This simulates a scan or triggers a real one if automation is ready.
-    For now, we might just associate existing orphan channels or mock it.
-    """
     profile = db.query(Profile).filter(Profile.id == profile_id).first()
     if not profile:
         raise HTTPException(404, "Profile not found")
 
-    # [Logic]
-    # In a real scenario, we would:
-    # 1. Launch browser/automation to Youtube Studio > Permissions
-    # 2. Parse delegated channels
-    # 3. Update DB (BrandChannel table) setting owner_profile_id = profile_id
-    
-    # For this iteration, let's look for BrandChannels that match the profile's email (if we stored it)
-    # or just return a success message telling user to 'Connect'.
-    
-    # [Temporary Auto-Link]
-    # If the profile has a channel_id set, ensure that BrandChannel exists and is linked
     found_count = 0
-    if profile.channel_id:
-        existing_ch = db.query(BrandChannel).filter(BrandChannel.channel_id == profile.channel_id).first()
-        if existing_ch:
-            existing_ch.owner_profile_id = profile_id
-            found_count += 1
-            db.commit()
-        else:
-            # Create if missing (Basic)
-            new_ch = BrandChannel(
-                channel_id=profile.channel_id,
-                title="Monitored Channel",
-                owner_profile_id=profile_id
-            )
-            db.add(new_ch)
-            db.commit()
-            found_count += 1
+    updated_count = 0
+    
+    from app.models import YouTubeChannel, ChannelAccess
+    
+    if profile.delegated_tincan_ids:
+        tincan_ids = profile.delegated_tincan_ids
+        if isinstance(tincan_ids, str):
+            import json
+            try:
+                tincan_ids = json.loads(tincan_ids)
+            except:
+                tincan_ids = []
+                
+        import uuid
+        import requests
+        import re
+        
+        for tincan_id in tincan_ids:
+            tincan = db.query(Profile).filter(Profile.id == tincan_id).first()
+            if tincan and tincan.channel_id:
+                ch_id = tincan.channel_id
+                
+                yt_channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == ch_id).first()
+                
+                # Fetch real channel name
+                real_name = None
+                try:
+                    resp = requests.get(f"https://www.youtube.com/channel/{ch_id}", timeout=5)
+                    if resp.status_code == 200:
+                        match = re.search(r'<title>(.*?) - YouTube</title>', resp.text)
+                        if match:
+                            real_name = match.group(1).strip()
+                except Exception as e:
+                    print(f"Failed to fetch channel name for {ch_id}: {e}")
+                
+                if not yt_channel:
+                    yt_channel = YouTubeChannel(
+                        channel_id=ch_id,
+                        channel_name=real_name if real_name else f"Channel {ch_id[:8]}",
+                        status="ACTIVE"
+                    )
+                    db.add(yt_channel)
+                    found_count += 1
+                else:
+                    if real_name and (yt_channel.channel_name.startswith("Channel UC") or yt_channel.channel_name != real_name):
+                        yt_channel.channel_name = real_name
+                        updated_count += 1
+                    
+                access = db.query(ChannelAccess).filter(
+                    ChannelAccess.channel_id == ch_id,
+                    ChannelAccess.profile_id == profile_id
+                ).first()
+                if not access:
+                    access = ChannelAccess(
+                        id=str(uuid.uuid4()),
+                        channel_id=ch_id,
+                        profile_id=profile_id,
+                        role="MANAGER"
+                    )
+                    db.add(access)
+                    updated_count += 1
+        db.commit()
             
     return {
         "success": True,
-        "channels_found": found_count,
-        "msg": "스캔 완료 (연결된 채널 확인)"
+        "registered": found_count,
+        "updated": updated_count,
+        "msg": "스캔 완료"
     }

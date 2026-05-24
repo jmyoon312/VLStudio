@@ -56,7 +56,9 @@ def create_browser_profile(
     
     # [MODIFIED] Use root_download_path from settings instead of hardcoded 'userdata/profiles'
     settings = crud.get_settings(db)
-    base_user_data = os.path.join(settings.root_download_path, "04_Profiles")
+    from app.config import settings as settings_conf
+    root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+    base_user_data = os.path.join(root_path, "04_Profiles")
     os.makedirs(base_user_data, exist_ok=True)
     
     user_data_dir = os.path.join(base_user_data, profile_id)
@@ -114,20 +116,7 @@ def launch_browser_profile(profile_id: str, db: Session = Depends(get_db)):
     try:
         # We use a simple subprocess to launch Chrome with this user data dir
         # Assuming Chrome is in path or we find it. 
-        # Alternatively, use DrissionPage to launch it.
-        # DrissionPage is preferred as it handles finding chrome.
-        
-        from DrissionPage import ChromiumOptions, Chromium
-        
-        # We need to launch it in a way that doesn't block the API? 
-        # Or just launch and return success?
-        # Chromium() initialization blocks? No, it connects.
-        
         # Simple approach: Launch using os.system/subprocess for now to just "open" it.
-        # But DrissionPage is used elsewhere.
-        
-        # Let's try to find Chrome path logic used in other parts of app?
-        # For now, let's just attempt a robust launch.
         
         import subprocess
         import platform
@@ -156,15 +145,8 @@ def launch_browser_profile(profile_id: str, db: Session = Depends(get_db)):
                 break
                 
         if not chrome_exe:
-             # Try getting from DrissionPage default
-             try:
-                 from DrissionPage.easy_set import _get_chrome_path
-                 chrome_exe = _get_chrome_path({})
-             except:
-                 pass
-                 
-        if not chrome_exe:
-            raise HTTPException(500, "Chrome executable not found")
+             # Use general command path as fallback
+             chrome_exe = "chrome"
 
         # Command
         # --no-first-run --no-default-browser-check

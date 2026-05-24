@@ -25,7 +25,8 @@ async def extension_upload(
         if not settings:
             settings = crud.create_settings(db, schemas.SettingsCreate())
         
-        download_root = settings.root_download_path
+        from app.config import settings as settings_conf
+        download_root = settings.root_download_path if settings.root_download_path else settings_conf.MEDIA_ROOT
         
         # Create extension downloads directory
         extension_dir = os.path.join(download_root, "_extension_downloads")

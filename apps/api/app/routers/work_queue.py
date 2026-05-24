@@ -725,8 +725,10 @@ def generate_metadata(
         if not os.path.exists(request.video_path):
             # [FIX] Try to find in downloads folder if relative path provided
             from app import crud
+            from app.config import settings as settings_conf
             settings = crud.get_settings(db)
-            download_path = os.path.join(settings.root_download_path, request.video_path)
+            root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+            download_path = os.path.join(root_path, request.video_path)
             
             if os.path.exists(download_path):
                 logger.info(f"files resolved to: {download_path}")

@@ -6,12 +6,14 @@ import shutil
 import subprocess
 import uuid
 import logging
+import urllib.parse
 from app.dependency_manager import DependencyManager
 from app import crud, models, schemas
 from app.database import SessionLocal
 import datetime
 from app.editor_engine import build_complex_filter
 import numpy as np
+from app.config import settings as app_settings
 try:
     import librosa
 except ImportError:
@@ -53,6 +55,7 @@ class RenderRequest(BaseModel):
     height: int = 1920
     format: str = "mp4" # mp4, mp3, wav, etc.
     quality: str = "high"
+    mutate: bool = False
 
 def is_complex_project(clips: List[ClipData]) -> bool:
     """
@@ -76,7 +79,7 @@ async def render_video(request: RenderRequest):
             ext = 'mp4'
             
         output_filename = f"render_{uuid.uuid4()}.{ext}"
-        output_dir = os.path.join("downloads", "exports")
+        output_dir = os.path.join(app_settings.MEDIA_ROOT, "downloads", "exports")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, output_filename)
         absolute_output_path = os.path.abspath(output_path)
@@ -164,11 +167,13 @@ async def render_video(request: RenderRequest):
         except Exception as db_e:
             logger.error(f"Failed to save to DB: {db_e}")
 
+        # Stream API path to serve local files correctly on Windows setup
+        encoded_path = urllib.parse.quote(absolute_output_path)
         return {
             "status": "success",
             "output_path": absolute_output_path,
             "filename": output_filename,
-            "download_url": f"/downloads/exports/{output_filename}"
+            "download_url": f"/api/stream?path={encoded_path}"
         }
 
     except Exception as e:

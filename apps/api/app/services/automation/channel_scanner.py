@@ -1,6 +1,5 @@
 import time
 import logging
-from DrissionPage import ChromiumPage
 from sqlalchemy.orm import Session
 from app.models import Profile, BrandChannel, CaptainAccount
 from datetime import datetime
@@ -12,7 +11,7 @@ class ChannelScanner:
     def __init__(self, db: Session):
         self.db = db
 
-    def scan_delegated_channels(self, page: ChromiumPage, profile_id: str) -> dict:
+    def scan_delegated_channels(self, page: any, profile_id: str) -> dict:
         """
         Scans all delegated channels from https://www.youtube.com/channel_switcher
         Assumes the browser is already logged in as Captain.

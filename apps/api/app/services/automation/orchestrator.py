@@ -1,9 +1,8 @@
 import logging
 import asyncio
 from typing import Optional
-from DrissionPage import ChromiumPage
 from sqlalchemy.orm import Session
-from app.services.stealth_ops_v2 import DrissionStealth
+from app.services.stealth_ops_v2 import PatchrightStealth
 from app.services.automation.channel_creator import ChannelCreator
 from app.services.automation.admin_delegator import AdminDelegator
 
@@ -34,7 +33,7 @@ class AutomationOrchestrator:
     
     def __init__(self, db: Session):
         self.db = db
-        self.stealth = DrissionStealth(db)
+        self.stealth = PatchrightStealth(db)
         self.channel_creator = ChannelCreator(self.stealth)
         self.admin_delegator = AdminDelegator(self.stealth)
     
@@ -45,7 +44,7 @@ class AutomationOrchestrator:
     ) -> dict:
         """
         Execute automation workflow based on configuration
-        Runs DrissionPage code in separate thread to avoid blocking FastAPI
+        Runs Patchright code in separate thread to avoid blocking FastAPI
         """
         # Run sync code in separate thread to prevent blocking event loop
         return await asyncio.to_thread(
@@ -74,11 +73,11 @@ class AutomationOrchestrator:
         try:
             logger.info(f"🚀 Starting automation for profile {profile_id}")
             
-            # Create browser instance
+            # Create browser instance (Background mode)
             page = self.stealth.create_page(profile_id)
             
             # Navigate to Google to check login status
-            page.get('https://accounts.google.com')
+            page.goto('https://accounts.google.com')
             self.stealth.human_delay(2, 3)
             
             # Check if logged in
@@ -152,9 +151,7 @@ class AutomationOrchestrator:
             if config.auto_create_channel:
                 brand_name = config.brand_name
                 
-                # TODO: AI brand name generation
                 if config.use_ai_brand_name and not brand_name:
-                    # For now, use a default
                     brand_name = f"Channel_{profile_id}"
                     logger.warning(f"AI generation not implemented, using: {brand_name}")
                 
@@ -176,9 +173,7 @@ class AutomationOrchestrator:
                     
                     if not channel_result["success"]:
                         results["overall_success"] = False
-                        # Continue to next step even if this fails
             else:
-                # [NEW] Manual Mode Verification: Detect Active Channel
                 logger.info("🔍 Manual Mode: Detecting active channel...")
                 detect_result = self.channel_creator.detect_active_channel(page)
                 
@@ -187,10 +182,7 @@ class AutomationOrchestrator:
                     **detect_result
                 })
                 
-                if detect_result["success"]:
-                    # Pass header info if needed
-                    pass
-                else:
+                if not detect_result["success"]:
                     results["overall_success"] = False
             
             # Step 2: Delegate Admin (if enabled)
@@ -225,6 +217,4 @@ class AutomationOrchestrator:
             results["error"] = str(e)
             return results
         finally:
-            # Keep browser open for manual intervention if needed
-            if page:
-                logger.info("Browser kept open for manual review")
+            self.stealth.close()

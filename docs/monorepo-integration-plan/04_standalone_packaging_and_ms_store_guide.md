@@ -93,19 +93,20 @@ pause
 
 ### A. PostgreSQL ➔ SQLite 전환 (단일 파일 DB)
 ViraLoop 백엔드의 ORM 설정을 데스크톱 환경에 최적화된 **SQLite**(또는 DuckDB)로 전환합니다. 별도 서버 프로세스 없이 단일 파일(`viraloop.db`) 하나로 동작하므로 배포가 100% 간소화됩니다.
+ViraLoop 백엔드의 ORM 설정을 데스크톱 환경에 최적화된 **SQLite**(또는 DuckDB)로 전환합니다. 별도 서버 프로세스 없이 단일 파일(`viral_loop.db`) 하나로 동작하므로 배포가 100% 간소화됩니다.
 
 ```python
 # apps/api/config.py
 import os
 import sys
 
-# 윈도우 스토어 샌드박스 방어를 위해 DB 저장 경로를 %APPDATA%로 강제 지정
+# 윈도우 스토어 샌드박스 방어를 위해 DB 및 미디어 저장 경로를 %LOCALAPPDATA%로 강제 지정
 if sys.platform == "win32":
-    appdata_dir = os.path.join(os.environ.get("APPDATA", ""), "ViraLoop Studio")
-    os.makedirs(appdata_dir, exist_ok=True)
-    DATABASE_URL = f"sqlite:///{os.path.join(appdata_dir, 'viraloop.db')}"
+    local_appdata_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio")
+    os.makedirs(local_appdata_dir, exist_ok=True)
+    DATABASE_URL = f"sqlite:///{os.path.join(local_appdata_dir, 'viral_loop.db')}"
 else:
-    DATABASE_URL = "sqlite:///./viraloop.db"
+    DATABASE_URL = "sqlite:///./viral_loop.db"
 ```
 
 ### B. Redis ➔ 파이썬 내장 인메모리 큐 전환 (`asyncio.Queue`)
@@ -125,40 +126,42 @@ Microsoft Store 앱은 윈도우의 UWP 샌드박스(AppContainer) 내부에서 
 |  [설치 폴더 - C:\Program Files\WindowsApps\ViraLoopStudio]                        |
 |   ├── (완벽한 읽기 전용 / Read-Only 상태) ──► 파일 쓰기 시도 시 즉시 Crash!         |
 |                                                                                   |
-|  [사용자 데이터 폴더 - %APPDATA%\ViraLoop Studio\]                                |
-|   ├── viraloop.db                     # SQLite 메인 데이터베이스                  |
-|   ├── media/                          # AI 생성 이미지/비디오 임시 저장소           |
-|   └── logs/                           # 백엔드 및 워커 디버그 로그                |
+|  [사용자 데이터 폴더 - %LOCALAPPDATA%\ViraLoop Studio\]                           |
+|    └─ media/                 (임시 미디어, 캐시, 다운로드)                       |
+|    └─ viral_loop.db           (설정값, 템플릿, 사용자 상태)                     |
 +-----------------------------------------------------------------------------------+
 ```
 
-### 메인 프로세스 런타임 경로 주입 로직 (`main.js`)
-Electron 메인 프로세스가 앱 실행 시점에 쓰기 가능한 안전한 경로(`%APPDATA%`)를 파악하여 자식 프로세스(FastAPI) 실행 시 환경 변수로 주입합니다.
+---
 
+## 3. 권한 문제 해결을 위한 동적 경로(Dynamic Path) 오케스트레이션 전략
+
+Electron 메인 프로세스가 앱 실행 시점에 쓰기 가능한 안전한 경로(`%LOCALAPPDATA%`)를 파악하여 자식 프로세스(FastAPI) 실행 시 환경 변수로 주입합니다.
+
+### Electron 오케스트레이션 메인 코드 (`main.js` 발췌)
 ```javascript
-import { app } from 'electron';
-import path from 'path';
-import { spawn } from 'child_process';
+const { app } = require('electron');
+const path = require('path');
+const { spawn } = require('child_process');
 
-const userDataPath = app.getPath('userData'); // C:\Users\jmyoo\AppData\Roaming\ViraLoop Studio
+// 로컬 앱 데이터 경로 획득 (가장 안전한 쓰기 권한 보장)
+const localAppDataPath = process.env.LOCALAPPDATA || path.join(app.getPath('home'), 'AppData', 'Local');
+const userDataPath = path.join(localAppDataPath, 'ViraLoop Studio');
 
-function startFastAPIBackend() {
-  const apiExe = path.join(process.resourcesPath, 'extra', 'api_server.exe');
+function startBackendServer() {
+  console.log('[Orchestration] Launching FastAPI Backend with Sandbox-Safe LOCALAPPDATA path...');
   
-  console.log('[Orchestration] Launching FastAPI Backend with Sandbox-Safe APPDATA path...');
-  
-  const apiProcess = spawn(apiExe, [], {
+  const backendProcess = spawn(path.join(__dirname, '..', 'bin', 'api_server.exe'), [], {
     env: {
       ...process.env,
-      // 백엔드가 읽기 전용 설치 폴더 대신 쓰기 가능한 APPDATA 경로를 바라보도록 강제 주입
-      VIRALOOP_STORAGE_DIR: userDataPath,
-      VIRALOOP_PORT: "8000"
+      // 백엔드가 읽기 전용 설치 폴더 대신 쓰기 가능한 LOCALAPPDATA 경로를 바라보도록 강제 주입
+      DATABASE_URL: `sqlite:///${path.join(userDataPath, 'viral_loop.db')}`,
+      MEDIA_STORAGE_PATH: path.join(userDataPath, 'media')
     }
   });
 
   apiProcess.stdout.on('data', (data) => console.log(`[FastAPI] ${data}`));
   apiProcess.stderr.on('data', (data) => console.warn(`[FastAPI ERR] ${data}`));
-}
 ```
 
 ---

@@ -4,6 +4,8 @@ import axios from 'axios';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Eye, Youtube, Activity, Lock, Loader2, RefreshCw, ChevronRight, UserPlus, Pencil, Trash2, Flame } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -15,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import TinCanWizard from './TinCanWizard';
 import IncubationGuide from './IncubationGuide';
 import WarmupLogViewer from './WarmupLogViewer';
+import { CultivationWizard } from './CultivationWizard';
 
 const API_BASE = "/api";
 
@@ -78,6 +81,26 @@ const BulkWarmupPanel = () => {
         }
     });
 
+    // Auto schedule mutation
+    const autoScheduleMutation = useMutation({
+        mutationFn: async () => await axios.post(`${API_BASE}/youtube/warmup/bulk/auto-schedule`),
+        onSuccess: (res) => {
+            toast({
+                title: "오토 스케줄러 실행 완료",
+                description: `처리 대상: ${res.data.processed}개 / 실행: ${res.data.success}개 / 실패: ${res.data.failed}개`,
+            });
+            queryClient.invalidateQueries({ queryKey: ['bulk-warmup-status'] });
+            queryClient.invalidateQueries({ queryKey: ['captain-channels'] });
+        },
+        onError: (err: any) => {
+            toast({
+                title: "스케줄러 오류",
+                description: err.response?.data?.detail || "오류가 발생했습니다",
+                variant: "destructive",
+            });
+        }
+    });
+
     if (isLoading) {
         return (
             <Card className="mb-6">
@@ -128,7 +151,7 @@ const BulkWarmupPanel = () => {
                         </div>
                         <div className="bg-purple-500/10 rounded-lg p-3 border border-purple-500/20 text-center">
                             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{status?.in_progress || 0}</div>
-                            <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">진행중 (1-6일)</div>
+                            <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">진행중 (Stage 1-2)</div>
                         </div>
                     </div>
 
@@ -141,6 +164,13 @@ const BulkWarmupPanel = () => {
                         >
                             <Flame className="w-4 h-4 mr-2" />
                             전체 시작
+                        </Button>
+                        <Button
+                            onClick={() => autoScheduleMutation.mutate()}
+                            disabled={autoScheduleMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                        >
+                            {autoScheduleMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "▶ 오토 스케줄러 실행"}
                         </Button>
                         <Button
                             onClick={() => startMutation.mutate("pending")}
@@ -191,7 +221,7 @@ const BulkWarmupPanel = () => {
 };
 
 
-const CaptainQuarters = () => {
+const CaptainQuarters = ({ onOpenLogs }: { onOpenLogs?: (channelId: string) => void }) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
@@ -402,7 +432,7 @@ const CaptainQuarters = () => {
                                 {/* Let's make it visible if ACTIVE */}
                                 {p.status?.toLowerCase() === 'active' && !isQuarantined && (
                                     <div className="px-6 pb-6 border-t pt-4 bg-muted/20">
-                                        <CaptainChannelList profileId={p.id} parentScan={loadingMap[p.id]} />
+                                        <CaptainChannelList profileId={p.id} parentScan={loadingMap[p.id]} onOpenLogs={onOpenLogs} />
                                     </div>
                                 )}
                             </Card>
@@ -539,15 +569,19 @@ const CaptainQuarters = () => {
 };
 
 // --- Sub Component: Channel List ---
-const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, parentScan?: boolean }) => {
+const CaptainChannelList = ({ profileId, parentScan, onOpenLogs }: { profileId: string, parentScan?: boolean, onOpenLogs?: (channelId: string) => void }) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [scanning, setScanning] = useState(false);
+    
+    // For Cultivation Wizard
+    const [wizardOpen, setWizardOpen] = useState(false);
+    const [selectedChannelForWizard, setSelectedChannelForWizard] = useState<any>(null);
 
     // Fetch Channels from unified API (minimal info)
     const { data: channels, isLoading, refetch } = useQuery({
         queryKey: ['captain-channels', profileId],
-        queryFn: async () => (await axios.get(`${API_BASE}/captain/${profileId}/channels?view=list`)).data,
+        queryFn: async () => (await axios.get(`${API_BASE}/resources/captain/${profileId}/channels?view=list`)).data,
         enabled: !!profileId,
         staleTime: 24 * 60 * 60 * 1000,  // 24 hours cache
     });
@@ -565,7 +599,7 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
 
     // Scan mutation
     const scanMutation = useMutation({
-        mutationFn: async () => await axios.post(`${API_BASE}/youtube/captain/${profileId}/scan-channels`),
+        mutationFn: async () => await axios.post(`${API_BASE}/resources/captain/${profileId}/scan-channels`),
         onSuccess: (res) => {
             toast({
                 title: "✅ 스캔 완료",
@@ -691,8 +725,20 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                                                             🔥 WARMUP ACTIVE
                                                         </Badge>
                                                     )}
+                                                    {ch.cultivation_strategy && (
+                                                        <Badge variant="outline" className="border-blue-500/20 text-blue-600 dark:text-blue-400 bg-blue-500/10 text-[10px] h-5 cursor-pointer hover:bg-blue-500/20"
+                                                               onClick={() => { setSelectedChannelForWizard(ch); setWizardOpen(true); }}>
+                                                            🌱 {ch.cultivation_strategy === 'INITIAL' ? '초기육성' : ch.cultivation_strategy === 'NICHE_PIVOT' ? '니치최적화' : ch.cultivation_strategy === 'TRAFFIC_HIJACK' ? '트래픽유도' : '데스밸리복구'} 
+                                                            (Day {ch.cultivation_day}) {ch.cultivation_active ? '🤖' : ''}
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-3 mt-1">
+                                                    {ch.owner_email && (
+                                                        <Badge variant="outline" className="text-[10px] h-5 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                                                            👤 {ch.owner_email}
+                                                        </Badge>
+                                                    )}
                                                     {ch.channel_handle && (
                                                         <span className="text-xs text-muted-foreground">{ch.channel_handle}</span>
                                                     )}
@@ -715,9 +761,21 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
 
                                         {/* Action Button */}
                                         <div className="flex items-center gap-2">
+                                            {/* [NEW] Cultivation Wizard Button */}
+                                            {!isQuarantined && (
+                                                <Button 
+                                                    size="sm" 
+                                                    variant="ghost" 
+                                                    className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                    onClick={() => { setSelectedChannelForWizard(ch); setWizardOpen(true); }}
+                                                >
+                                                    전략 설정
+                                                </Button>
+                                            )}
+                                            
                                             {/* [NEW] Warmup Button */}
                                             {!isQuarantined && (
-                                                <WarmupButton channel={ch} profileId={profileId} />
+                                                <WarmupButton channel={ch} profileId={profileId} onOpenLogs={onOpenLogs} />
                                             )}
 
                                             <Button
@@ -758,6 +816,12 @@ const CaptainChannelList = ({ profileId, parentScan }: { profileId: string, pare
                     등록된 채널이 없습니다. 위 '채널 동기화'를 눌러주세요.
                 </div>
             )}
+            
+            <CultivationWizard 
+                open={wizardOpen} 
+                onOpenChange={setWizardOpen} 
+                channel={selectedChannelForWizard} 
+            />
         </div>
     );
 };
@@ -767,14 +831,18 @@ const WarmupButton = ({ channel, profileId, onOpenLogs }: { channel: any, profil
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const isRunning = channel.warmup_status === 'RUNNING';
+    const [isVisibleMode, setIsVisibleMode] = useState(false);
 
     const warmupStatus = channel.warmup_status || "IDLE";
     const warmupStage = channel.warmup_stage || 0;
 
     const warmupMutation = useMutation({
         mutationFn: async (selectedStage: number) =>
-            await axios.post(`${API_BASE}/youtube/channels/${channel.channel_id}/warmup`, null, {
-                params: { stage: selectedStage }
+            await axios.post(`${API_BASE}/youtube/channels/${channel.id}/warmup`, null, {
+                params: {
+                    stage: selectedStage,
+                    visible: isVisibleMode
+                }
             }),
         onSuccess: (res, selectedStage) => {
             toast({
@@ -819,25 +887,37 @@ const WarmupButton = ({ channel, profileId, onOpenLogs }: { channel: any, profil
 
     return (
         <div className="flex items-center gap-2">
-            {/* Enhanced Status Badge - Always show day info */}
+            {/* Enhanced Status Badge - Always show stage info */}
             {warmupStatus === "RUNNING" ? (
                 <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 animate-pulse">
                     <Flame className="w-3 h-3 mr-1 fill-current" />
-                    웜업 진행중 (Day {warmupStage})
+                    진화중 (Stage {warmupStage})
                 </Badge>
-            ) : warmupStage > 0 && warmupStage < 7 ? (
+            ) : warmupStage > 0 && warmupStage < 3 ? (
                 <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
-                    🔄 Day {warmupStage} 완료 → 다음: Day {warmupStage + 1}
+                    🔄 Stage {warmupStage} 완료 → 다음: Stage {warmupStage + 1}
                 </Badge>
-            ) : warmupStage >= 7 ? (
+            ) : warmupStage >= 3 ? (
                 <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
-                    ✅ 웜업 완료 (7일)
+                    ✅ 활성 계정 (Stage 3)
                 </Badge>
             ) : (
                 <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
                     ⏳ 웜업 대기중
                 </Badge>
             )}
+
+            <div className="flex items-center space-x-2 ml-1 mr-1">
+                <Switch
+                    id={`visible-mode-${channel.id}`}
+                    checked={isVisibleMode}
+                    onCheckedChange={setIsVisibleMode}
+                    disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
+                />
+                <Label htmlFor={`visible-mode-${channel.id}`} className="text-xs text-muted-foreground whitespace-nowrap cursor-pointer">
+                    UI 표시
+                </Label>
+            </div>
 
             {/* Dropdown Menu */}
             <DropdownMenu>
@@ -854,32 +934,20 @@ const WarmupButton = ({ channel, profileId, onOpenLogs }: { channel: any, profil
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem
-                        onClick={() => startWarmup(warmupStage < 7 ? warmupStage + 1 : 7)}
-                        disabled={warmupStage >= 7 || warmupStatus === "RUNNING"}
+                        onClick={() => startWarmup(warmupStage < 3 ? warmupStage + 1 : 3)}
+                        disabled={warmupStage >= 3 || warmupStatus === "RUNNING"}
                     >
-                        ▶️ 계속하기 (Day {warmupStage < 7 ? warmupStage + 1 : 7})
+                        ▶️ 진화 시작 (Stage {warmupStage < 3 ? warmupStage + 1 : 3})
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => startWarmup(1)}>
-                        🔍 Day 1: 탐색
+                        🔍 Stage 1: 순수 관찰자
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => startWarmup(2)}>
-                        🎯 Day 2: 관심사 형성
+                        🎯 Stage 2: 관심사 좁히기
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => startWarmup(3)}>
-                        🤝 Day 3: 커뮤니티 참여
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => startWarmup(4)}>
-                        🔬 Day 4: 심화 탐색
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => startWarmup(5)}>
-                        ⚖️ Day 5: 안정화
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => startWarmup(6)}>
-                        🌈 Day 6: 다양화
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => startWarmup(7)}>
-                        🎓 Day 7: 성숙
+                        🤝 Stage 3: 커뮤니티 일원화
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

@@ -53,10 +53,8 @@ def quick_register_notebooklm_account(data: dict = Body(...), db: Session = Depe
     import os
     profile_id = str(uuid.uuid4())
     db_settings = crud.get_settings(db)
-    media_base = getattr(app_settings, "MEDIA_ROOT", "/app/media")
-    if not os.path.exists(media_base) and db_settings.root_download_path:
-        media_base = db_settings.root_download_path
-    base_path = os.path.join(media_base, "Profiles")
+    media_base = db_settings.root_download_path if db_settings and db_settings.root_download_path else app_settings.MEDIA_ROOT
+    base_path = os.path.join(media_base, "04_Profiles")
     user_data_dir = os.path.join(base_path, profile_id)
     
     profile = db.query(models.Profile).filter(models.Profile.email == email).first()

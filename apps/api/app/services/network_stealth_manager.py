@@ -24,40 +24,49 @@ class NetworkStealthManager:
     def _get_windows_lte_info(self) -> dict:
         """윈도우 호스트에서 LTE 어댑터 정보(Index, Name, Gateway) 추출"""
         try:
-            # 1. Get Gateway
-            ps_gw = "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Where-Object { $_.InterfaceDescription -like '*SAMSUNG*' -or $_.InterfaceDescription -like '*Remote NDIS*' } | Select-Object -ExpandProperty NextHop"
-            gw_res = subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps_gw], capture_output=True, text=True)
-            gw = gw_res.stdout.strip().splitlines()[0] if gw_res.returncode == 0 and gw_res.stdout else None
-            
-            # 2. Get Adapter Details
+            # 1. Get Adapter Details first
             ps_adp = "Get-NetAdapter | Where-Object { $_.InterfaceDescription -like '*SAMSUNG*' -or $_.InterfaceDescription -like '*Remote NDIS*' } | Select-Object Name, InterfaceIndex | ConvertTo-Json"
             adp_res = subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps_adp], capture_output=True, text=True)
-            adp = {}
-            if adp_res.returncode == 0 and adp_res.stdout:
-                try:
-                    adp = json.loads(adp_res.stdout)
-                except:
-                    # JSON이 배열로 올 경우 첫 번째 것 사용
-                    raw = json.loads(adp_res.stdout)
-                    adp = raw[0] if isinstance(raw, list) else raw
+            
+            if adp_res.returncode != 0 or not adp_res.stdout.strip():
+                return {}
+                
+            try:
+                adp = json.loads(adp_res.stdout)
+            except:
+                adp = {}
+                
+            if isinstance(adp, list):
+                adp = adp[0]
+                
+            idx = adp.get("InterfaceIndex")
+            name = adp.get("Name")
+            
+            if not idx:
+                return {}
+                
+            # 2. Get Gateway using the InterfaceIndex
+            ps_gw = f"Get-NetRoute -DestinationPrefix '0.0.0.0/0' -InterfaceIndex {idx} | Select-Object -ExpandProperty NextHop"
+            gw_res = subprocess.run(["powershell.exe", "-NoProfile", "-Command", ps_gw], capture_output=True, text=True)
+            gw = gw_res.stdout.strip().splitlines()[0] if gw_res.returncode == 0 and gw_res.stdout.strip() else None
             
             return {
                 "gateway": gw,
-                "index": adp.get("InterfaceIndex"),
-                "name": adp.get("Name")
+                "index": idx,
+                "name": name
             }
         except Exception as e:
             logger.error(f"❌ LTE 정보 획득 실패: {e}")
         return {}
 
-    async def prepare_upload_session(self, serial: Optional[str], captain_id: str):
+    def prepare_upload_session(self, serial: Optional[str], captain_id: str):
         """[SAIF Phase 1] 업로드 세션 완전 격리 준비"""
         logger.info(f"🛡️ [SAIF-P1] Hardening network for Captain: {captain_id}")
         
         from app.services.adb_service import adb_service
         
         # 1. IP Rotation (선행 필수)
-        success = await adb_service.rotate_ip(serial)
+        success = adb_service.rotate_ip(serial)
         if not success:
             logger.error("❌ [SAIF-P1] IP Rotation failed. Safety breach risk. Aborting.")
             return False
@@ -99,14 +108,6 @@ class NetworkStealthManager:
             subprocess.run(["powershell.exe", "-NoProfile", "-Command", dns_cmd], capture_output=True)
             
             logger.info("✅ [SAIF-P1] Full-Tunnel Isolation Active. (Internal Comm Preserved)")
-            return True
-        except Exception as e:
-            logger.error(f"❌ [SAIF-P1] 보안 강화 중 오류 발생: {e}")
-            return False
-')"
-            subprocess.run(["powershell.exe", "-NoProfile", "-Command", dns_cmd], capture_output=True)
-            
-            logger.info("✅ [SAIF-P1] Full-Tunnel Isolation Active. (IPv6 Disabled, DNS Secured)")
             return True
         except Exception as e:
             logger.error(f"❌ [SAIF-P1] 보안 강화 중 오류 발생: {e}")

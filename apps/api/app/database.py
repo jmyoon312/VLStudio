@@ -52,13 +52,17 @@ else:
     else:
         # Standard system User Application Data folder to bypass Windows UAC permission limits
         if os.name == "nt":
-            app_data = os.environ.get("APPDATA")
-            if app_data:
-                db_dir = os.path.join(app_data, "ViraLoopStudio", "db")
+            local_app_data = os.environ.get("LOCALAPPDATA")
+            if local_app_data:
+                db_dir = os.path.join(local_app_data, "ViraLoop Studio")
             else:
-                db_dir = os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "ViraLoopStudio", "db")
+                app_data = os.environ.get("APPDATA")
+                if app_data:
+                    db_dir = os.path.join(app_data, "ViraLoop Studio").replace("Roaming", "Local")
+                else:
+                    db_dir = os.path.join(os.path.expanduser("~"), "AppData", "Local", "ViraLoop Studio")
         else:
-            db_dir = os.path.join(os.path.expanduser("~"), ".config", "viraloopstudio", "db")
+            db_dir = os.path.join(os.path.expanduser("~"), ".config", "viraloopstudio")
             
         try:
             os.makedirs(db_dir, exist_ok=True)
@@ -67,7 +71,7 @@ else:
             import tempfile
             db_dir = tempfile.gettempdir()
             
-        DB_PATH = os.path.join(db_dir, "viral_loop.db")
+        DB_PATH = os.path.join(db_dir, "viral_loop.db").replace("\\", "/")
         SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
     
     engine = create_engine(

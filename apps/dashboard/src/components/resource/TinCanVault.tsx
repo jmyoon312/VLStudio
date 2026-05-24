@@ -25,32 +25,7 @@ const TinCanVault = () => {
 
     // UI States
     const [isWizardOpen, setIsWizardOpen] = useState(false);
-    const [activeViews, setActiveViews] = useState<string[]>([]);
-    const [activeProfileId, setActiveProfileId] = useState<string>('default');
 
-    const syncViewsAndProfiles = async () => {
-        try {
-            const api = (window as any).electronAPI;
-            if (api) {
-                const viewsRes = await api.getActiveViews();
-                if (viewsRes?.success) {
-                    setActiveViews(viewsRes.activeIds);
-                }
-                const config = await api.loadProfiles();
-                if (config?.activeProfileId) {
-                    setActiveProfileId(config.activeProfileId);
-                }
-            }
-        } catch (e) {
-            console.warn("Failed to sync views in TinCanVault:", e);
-        }
-    };
-
-    useEffect(() => {
-        syncViewsAndProfiles();
-        const interval = setInterval(syncViewsAndProfiles, 3000);
-        return () => clearInterval(interval);
-    }, []);
     const [draftData, setDraftData] = useState<any>(null); // For Resuming Draft
     const [editProfile, setEditProfile] = useState<any>(null); // For Edit Dialog
     const [deleteId, setDeleteId] = useState<string | null>(null); // For Delete Alert
@@ -169,9 +144,9 @@ const TinCanVault = () => {
         <TableRow key={p.id}>
             <TableCell>
                 <Badge variant="outline" className={
-                    p.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
-                        p.status === 'draft' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                            p.status === 'QUARANTINED' ? 'bg-red-100 text-red-700 border-red-200' :
+                    p.status?.toLowerCase() === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
+                        p.status?.toLowerCase() === 'draft' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                            p.status?.toUpperCase() === 'QUARANTINED' ? 'bg-red-100 text-red-700 border-red-200' :
                                 'bg-slate-100 text-slate-700'
                 }>
                     {p.status ? p.status.toUpperCase() : 'UNKNOWN'}
@@ -202,64 +177,7 @@ const TinCanVault = () => {
             </TableCell>
             <TableCell className="text-right text-xs text-slate-500">
                 <div className="flex items-center justify-end gap-2">
-                    {/* [Electron Dynamic Grid Control Buttons] */}
-                    {p.status?.toLowerCase() === 'active' && (window as any).electronAPI && (
-                        <>
-                            {activeViews.includes(p.id) ? (
-                                <div className="flex gap-1.5 items-center">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className={`h-7 text-xs border-blue-200 text-blue-700 font-bold transition-all ${activeProfileId === p.id ? 'bg-blue-100 shadow-inner' : 'bg-blue-50/50 hover:bg-blue-100'}`}
-                                        onClick={async () => {
-                                            await (window as any).electronAPI?.switchProfile?.({ profileId: p.id });
-                                            syncViewsAndProfiles();
-                                        }}
-                                    >
-                                        🎯 {activeProfileId === p.id ? '포커스됨' : '선택/포커스'}
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        className="h-7 text-xs font-semibold px-2 hover:bg-red-600 transition-all"
-                                        onClick={async () => {
-                                            if (activeViews.length <= 1) {
-                                                alert("기본 창(최소 1개)은 항상 화면에 활성화 상태로 유지되어야 합니다.");
-                                                return;
-                                            }
-                                            const confirm = window.confirm(`정말 "${p.email || p.id}" 다중창을 종료하시겠습니까?`);
-                                            if (confirm) {
-                                                await (window as any).electronAPI?.destroyFlowView?.({ profileId: p.id });
-                                                syncViewsAndProfiles();
-                                            }
-                                        }}
-                                    >
-                                        ✕ 닫기
-                                    </Button>
-                                </div>
-                            ) : (
-                                <Button
-                                    variant="default"
-                                    size="sm"
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white h-7 text-xs font-bold shadow-sm transition-all"
-                                    onClick={async () => {
-                                        if (activeViews.length >= 4) {
-                                            alert("다중창은 최대 4개까지만 동시 구동할 수 있습니다. 기존 활성 창을 먼저 닫아주세요.");
-                                            return;
-                                        }
-                                        await (window as any).electronAPI?.createFlowView?.({ profileId: p.id });
-                                        await (window as any).electronAPI?.switchProfile?.({ profileId: p.id });
-                                        syncViewsAndProfiles();
-                                        toast({ title: "🚀 다중창 기동 완료", description: `${p.email || p.id} 뷰가 스플릿 창으로 기동되었습니다.` });
-                                    }}
-                                >
-                                    💻 다중창 기동
-                                </Button>
-                            )}
-                        </>
-                    )}
-                    {/* Fallback to normal Secure Connect if not in Electron (e.g. normal browser testing) */}
-                    {p.status?.toLowerCase() === 'active' && !(window as any).electronAPI && (
+                    {p.status?.toLowerCase() === 'active' && (
                         <Button
                             variant="outline"
                             size="sm"
@@ -316,37 +234,12 @@ const TinCanVault = () => {
                         <CardTitle className="flex items-center gap-2">
                             <ShieldCheck className="w-6 h-6 text-indigo-600" />
                             구글 계정 관리 (Google Accounts)
-                            {activeViews.length > 0 && (
-                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5 ml-2 font-bold animate-pulse">
-                                    💻 구동 중: {activeViews.length}/4
-                                </Badge>
-                            )}
                         </CardTitle>
                         <CardDescription>
                             안전하게 격리된 브라우저 프로필을 생성하고 관리합니다. (Import & Setup)
                         </CardDescription>
                     </div>
                     <div className="flex gap-2 items-center">
-                        {activeViews.length > 0 && (
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
-                                onClick={async () => {
-                                    const confirm = window.confirm("정말 구동 중인 모든 다중창을 종료하시겠습니까?");
-                                    if (confirm) {
-                                        for (const viewId of activeViews) {
-                                            if (viewId !== 'default') {
-                                                await (window as any).electronAPI?.destroyFlowView?.({ profileId: viewId });
-                                            }
-                                        }
-                                        syncViewsAndProfiles();
-                                    }
-                                }}
-                            >
-                                ✕ 모든 창 닫기
-                            </Button>
-                        )}
                         <Button onClick={() => { setDraftData(null); setIsWizardOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700">
                             <Plus className="w-4 h-4 mr-2" /> 새 계정 가져오기
                         </Button>
@@ -410,7 +303,10 @@ const TinCanVault = () => {
             {/* Dialogs */}
             <TinCanWizard
                 isOpen={isWizardOpen}
-                onClose={() => setIsWizardOpen(false)}
+                onClose={() => {
+                    setIsWizardOpen(false);
+                    queryClient.invalidateQueries({ queryKey: ['profiles'] });
+                }}
                 onComplete={() => queryClient.invalidateQueries({ queryKey: ['profiles'] })}
                 initialData={draftData}
             />

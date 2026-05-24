@@ -31,6 +31,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // in dev; the packaged build sets it correctly).
 app.setName('ViraLoop Studio')
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// [NEW-12 + Electron②] 전역 Chromium 스위치 — WebRTC IP 누출 차단 + QUIC 비활성화
+// app.on('ready') 이전에 설정해야 적용됨
+// ═══════════════════════════════════════════════════════════════════════════════
+app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp')
+app.commandLine.appendSwitch('disable-webrtc-multiple-routes')
+app.commandLine.appendSwitch('enforce-webrtc-ip-permission-check')
+app.commandLine.appendSwitch('disable-quic')  // [NEW-1] QUIC/UDP 트래픽 누출 차단
+app.commandLine.appendSwitch('disable-background-networking')
+app.commandLine.appendSwitch('enable-features', 'DnsOverHttps')
+app.commandLine.appendSwitch('dns-over-https-templates', 'https://chrome.cloudflare-dns.com/dns-query')
+// ═══════════════════════════════════════════════════════════════════════════════
+
 // macOS About 패널 + Dock 아이콘
 // (app.dock은 whenReady 이후에만 사용 가능 → 아래로 옮김)
 const __filename_main = fileURLToPath(import.meta.url)
@@ -1931,16 +1944,20 @@ function startViraLoopInfrastructure() {
     workingDir = apiDir
   }
 
+  // 대용량 미디어 및 브라우저 프로필을 위한 Local AppData 경로 생성 (AD Roaming 방지)
+  const localStorageDir = storageDir.replace('Roaming', 'Local')
+
   // SQLite 및 로컬 환경 강제 설정을 위한 환경 변수 주입
   const env = {
     ...process.env,
-    DATABASE_URL: `sqlite:///${path.join(storageDir, 'viral_loop.db').replace(/\\/g, '/')}`,
+    DATABASE_URL: `sqlite:///${path.join(localStorageDir, 'viral_loop.db').replace(/\\/g, '/')}`,
     REDIS_URL: '', // Redis 연결 무시 (In-memory 큐 사용)
     CELERY_BROKER_URL: '', // Celery 비활성화 (In-memory job_queue 사용)
     PYTHONPATH: isPackaged ? workingDir : path.join(__dirname, '..', 'apps', 'api'),
     PYTHONIOENCODING: 'utf-8', // Windows 인코딩(CP949) 방어용 글로벌 UTF-8 활성화
-    VIRALOOP_STORAGE_DIR: storageDir, // 다중 창 환경에서의 샌드박스 방어를 위한 통합 스토리지
-    VIRALOOP_MEDIA_ROOT: path.join(storageDir, 'media').replace(/\\/g, '/'), // 미디어 파일 통합 저장소
+    VIRALOOP_STORAGE_DIR: localStorageDir, // 다중 창 환경에서의 샌드박스 방어를 위한 통합 스토리지
+    VIRALOOP_MEDIA_ROOT: path.join(localStorageDir, 'media').replace(/\\/g, '/'), // 대용량 미디어 파일 통합 저장소 (Local)
+    CLOAK_PROFILE_DIR: path.join(localStorageDir, 'profiles').replace(/\\/g, '/'), // 브라우저 독립 격리 프로필 저장소 (Local)
     VIRALOOP_PROJECT_ROOT: path.join(__dirname, '..').replace(/\\/g, '/') // Project Root for DB/settings
   }
 

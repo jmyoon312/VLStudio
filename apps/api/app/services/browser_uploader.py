@@ -3,7 +3,6 @@ import time
 import os
 import random
 from sqlalchemy.orm import Session
-from DrissionPage import ChromiumPage
 
 # [Core Infrastructure]
 from app import models
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class BrowserUploader:
     """
-    Advanced Browser Automation for YouTube Uploads (DrissionPage Version).
+    Advanced Browser Automation for YouTube Uploads (Patchright Version).
     Leverages BrowserSessionManager for 'Secure Connection' and 'IP Rotation'.
     """
     
@@ -47,34 +46,42 @@ class BrowserUploader:
             db.commit()
             return
 
+        # [DEATH_VALLEY Blocker] Uploads are strictly forbidden in this recovery mode
+        brand_channel = db.query(models.BrandChannel).filter(models.BrandChannel.channel_id == channel_id).first()
+        if brand_channel and brand_channel.youtube_channel and brand_channel.youtube_channel.cultivation_strategy == "DEATH_VALLEY":
+            msg = "Uploads are blocked during Death Valley recovery. The channel is in pure viewer mode."
+            logger.error(msg)
+            item.status = "FAILED"
+            item.failure_reason = msg
+            db.commit()
+            return
+
         # 1. Launch Secure Browser (IP Rotation handled inside)
         try:
-            # NOTE: launch_channel opens a NEW TAB for the target URL.
             # [Smart Rotation] Use flag passed from worker
             rotate_decision = force_ip_rotation
             logger.info(f"🛡️ IP Rotation Policy: {'ROTATE' if rotate_decision else 'STICKY'} (Force={force_ip_rotation})")
             
-            browser = self.session_manager.launch_channel(channel_id, db, rotate_ip=rotate_decision)
-            if not browser:
+            page = self.session_manager.launch_channel(channel_id, db, rotate_ip=rotate_decision)
+            if not page:
                 raise Exception("Failed to launch secure browser session")
             
             # [Fix] Switch to the existing Studio tab if launch_channel opened it.
-            page_context = browser # Default to main
+            context = page.context
             
             # Wait for tabs to stabilize
             time.sleep(2)
-            # DrissionPage uses .tab_ids key to access tabs
-            for tab_id in browser.tab_ids:
-                try:
-                    tab = browser.get_tab(tab_id)
-                    if "studio.youtube.com" in tab.url:
-                        page_context = tab
-                        logger.info(f"✅ Switched to existing Studio tab: {tab.title}")
-                        break
-                except: continue
+            
+            target_page = page
+            for p in context.pages:
+                if "studio.youtube.com" in p.url:
+                    target_page = p
+                    target_page.bring_to_front()
+                    logger.info(f"✅ Switched to existing Studio tab: {target_page.title()}")
+                    break
             
             # Browser is now open at Studio dashboard (or target URL)
-            self._execute_upload_flow(page_context, item, db)
+            self._execute_upload_flow(target_page, item, db)
             
             logger.info("✅ Upload Task Complete.")
             item.status = "COMPLETED"
@@ -86,7 +93,7 @@ class BrowserUploader:
             item.failure_reason = f"Browser Error: {str(e)}"
             db.commit()
 
-    def _execute_upload_flow(self, page: ChromiumPage, item: models.WorkQueueItem, db: Session):
+    def _execute_upload_flow(self, page, item: models.WorkQueueItem, db: Session):
         """
         Robust Upload Flow (Fast Path + Localized Selectors)
         """
@@ -98,14 +105,15 @@ class BrowserUploader:
         # [Simplified Launch] Direct wait for Dashboard or Create Button
         try:
             # Wait for either the Create button OR the dashboard URL
-            # We look for the general container or the button to ensure load
-            if not page.ele("#create-icon", timeout=60):
-                 # Fallback check for text if ID missing
-                 if not (page.ele("text:만들기") or page.ele("text:Create")):
-                     raise Exception("Dashboard Create button not found")
+            create_btn = page.locator('#create-icon').first
+            if not create_btn.is_visible():
+                create_btn = page.locator('text="만들기"').first
+            if not create_btn.is_visible():
+                create_btn = page.locator('text="Create"').first
+                
+            create_btn.wait_for(state='visible', timeout=60000)
             logger.info("✅ Studio Dashboard Loaded (Secure Session)")
         except Exception as e:
-            # Last ditch check: maybe we are stuck on a login page?
             if "signin" in page.url or "accounts.google" in page.url:
                 raise Exception("Login Page Detected. Session isolation failed or cookie expired.")
             raise Exception(f"Dashboard failed to load: {e}")
@@ -113,29 +121,16 @@ class BrowserUploader:
         # 1. Click Create -> Upload
         try:
             logger.info("🖱️ Click: Create Button")
-            # Robust Selector Strategy: ID -> Korean Text -> English Text
-            create_btn = page.ele("#create-icon")
-            if not create_btn:
-                create_btn = page.ele("text:만들기") # Korean
-            if not create_btn:
-                create_btn = page.ele("text:Create") # English
-                
-            if create_btn:
-                create_btn.click()
-            else:
-                raise Exception("Could not find 'Create/만들기' button")
-                
+            create_btn.click()
             time.sleep(1)
             
-            # Click 'Upload videos' (first item usually, but safer to find text)
-            # Menu items: #text-item-0 is usually "Upload videos"
-            upload_menu = page.ele("#text-item-0") 
-            if not upload_menu:
-                upload_menu = page.ele("text:동영상 업로드") # Korean
-            if not upload_menu:
-                upload_menu = page.ele("text:Upload videos") # English
+            upload_menu = page.locator('#text-item-0').first
+            if not upload_menu.is_visible():
+                upload_menu = page.locator('text="동영상 업로드"').first
+            if not upload_menu.is_visible():
+                upload_menu = page.locator('text="Upload videos"').first
                 
-            if upload_menu:
+            if upload_menu.is_visible():
                 upload_menu.click()
             else:
                 raise Exception("Could not find 'Upload videos' menu item")
@@ -149,13 +144,9 @@ class BrowserUploader:
             # Wait for any potential overlay
             time.sleep(2)
             
-            # DrissionPage input() method works best on the <input type='file'> element directly
-            file_input = page.ele("css:input[type='file']")
-            if not file_input:
-                file_input = page.ele("xpath://input[@type='file']")
-            
-            if file_input:
-                file_input.input(item.video_file_path)
+            file_input = page.locator('input[type="file"]').first
+            if file_input.is_attached():
+                file_input.set_input_files(item.video_file_path)
             else:
                 raise Exception("File input element not found in DOM")
             
@@ -166,79 +157,67 @@ class BrowserUploader:
         try:
             # --- Title ---
             logger.info("✍️ Writing Title...")
-            # Wait for dialog to exist (triggered by file input)
-            page.wait.ele_displayed("ytcp-uploads-dialog", timeout=60)
+            page.locator('ytcp-uploads-dialog').first.wait_for(state='visible', timeout=60000)
             
-            # Direct ID selector is usually best. If strictly Korean interface failed before, 
-            # we try the aria-label strategy immediately.
-            title_input = page.ele("#title-textarea #textbox", timeout=10)
-            if not title_input:
-                title_input = page.ele("xpath://div[contains(@aria-label, '제목')]", timeout=2)
+            title_input = page.locator('#title-textarea #textbox').first
+            if not title_input.is_visible():
+                title_input = page.locator('div[aria-label*="제목"]').first
             
-            if title_input:
-                title_input.clear()
+            if title_input.is_visible():
+                title_input.fill("")
                 time.sleep(0.5)
-                title_input.input(item.title)
+                # Type title slowly to simulate human
+                title_input.type(item.title, delay=random.randint(50, 100))
             else:
                 raise Exception("Title input not found")
 
             # --- Description ---
             logger.info("✍️ Writing Description...")
-            # Use the ID directly, it is standard.
-            desc_input = page.ele("#description-textarea #textbox", timeout=2)
-            if not desc_input:
-                desc_input = page.ele("xpath://div[contains(@aria-label, '설명')]", timeout=2)
+            desc_input = page.locator('#description-textarea #textbox').first
+            if not desc_input.is_visible():
+                desc_input = page.locator('div[aria-label*="설명"]').first
             
-            if desc_input:
+            if desc_input.is_visible():
                 description = item.description or ""
                 if item.hashtags:
-                     # FORCE NEWLINE for Hashtags
                      tags_str = " ".join(item.hashtags) if isinstance(item.hashtags, list) else str(item.hashtags)
                      description += f"\n\n{tags_str}"
                 
-                desc_input.clear()
-                desc_input.input(description)
+                desc_input.fill("")
+                # Use fill here to avoid extremely long typing times for descriptions
+                desc_input.fill(description)
             else:
                 logger.warning("⚠️ Description input not found")
 
             # --- Audience (Not Made for Kids) ---
             logger.info("👶 Setting Audience...")
-            # User reported 'name:...' selector failed. Using visible text is safest for this localized UI.
-            # Korean: "아니요, 아동용이 아닙니다"
-            not_kids_btn = page.ele("text:아니요, 아동용이 아닙니다", timeout=2)
-            if not_kids_btn:
-                # Toggle check: check if already selected? 
-                # DrissionPage doesn't have easy is_selected for div-based radio, so just click.
+            not_kids_btn = page.locator('text="아니요, 아동용이 아닙니다"').first
+            if not not_kids_btn.is_visible():
+                not_kids_btn = page.locator('text="No, it\'s not made for kids"').first
+                
+            if not_kids_btn.is_visible():
                 not_kids_btn.click()
             else:
-                # Fallback to English text just in case
-                not_kids_btn = page.ele("text:No, it's not made for kids", timeout=1)
-                if not_kids_btn:
-                    not_kids_btn.click()
-                else:
-                    logger.warning("⚠️ 'Not Made for Kids' button not found. Maybe already set?")
+                logger.warning("⚠️ 'Not Made for Kids' button not found. Maybe already set?")
 
             # --- Tags (Show More) ---
             if item.tags:
                 try:
                     logger.info("🏷️ Processing Tags...")
-                    # 1. Click 'Show More' / '자세히 보기'
-                    # It's usually a button or div with text.
-                    show_more = page.ele("text:자세히 보기", timeout=2)
-                    if not show_more:
-                        show_more = page.ele("text:Show more", timeout=1)
+                    show_more = page.locator('text="자세히 보기"').first
+                    if not show_more.is_visible():
+                        show_more = page.locator('text="Show more"').first
                     
-                    if show_more:
+                    if show_more.is_visible():
                         show_more.click()
-                        time.sleep(1) # Allow expansion animation
+                        time.sleep(1)
                     
-                    # 2. Input Tags
-                    tag_input = page.ele("#tags-container #text-input", timeout=5)
-                    if tag_input:
+                    tag_input = page.locator('#tags-container #text-input').first
+                    if tag_input.is_visible():
                         tags_list = item.tags if isinstance(item.tags, list) else []
                         tags_str = ",".join(tags_list)
-                        tag_input.input(tags_str)
-                        tag_input.input("\n")
+                        tag_input.type(tags_str, delay=50)
+                        tag_input.press("Enter")
                     else:
                         logger.warning("⚠️ Tag input field not revealed.")
                 except Exception as e:
@@ -252,24 +231,25 @@ class BrowserUploader:
         logger.info("➡️ Finishing Upload Flow...")
         try:
             # Step 1: Details -> Video Elements
-            if page.ele("#next-button", timeout=5): 
-                page.ele("#next-button").click()
+            next_btn = page.locator('#next-button').first
+            if next_btn.is_visible():
+                next_btn.click()
                 logger.info("✅ Details -> Video Elements")
             time.sleep(1)
             
             # Step 2: Video Elements -> Checks
-            # Wait briefly for transition
-            if page.ele("#next-button", timeout=5): 
-                page.ele("#next-button").click()
+            if next_btn.is_visible():
+                next_btn.click()
                 logger.info("✅ Video Elements -> Checks")
             time.sleep(1)
             
             # Step 3: Checks -> Visibility
-            # [Checks Handling]
-            # YouTube takes time to check copyright. We DO NOT need to wait for 100% completion.
-            # If we see "Checks complete" (검사가 완료되었습니다), great. If not, we warn and proceed.
             try:
-                checks_done = page.ele("text:검사가 완료되었습니다", timeout=2) or page.ele("text:Checks complete", timeout=1)
+                checks_done = False
+                if page.locator('text="검사가 완료되었습니다"').first.is_visible() or \
+                   page.locator('text="Checks complete"').first.is_visible():
+                    checks_done = True
+                
                 if checks_done:
                     logger.info("✅ Checks Complete. No issues found.")
                 else:
@@ -277,20 +257,17 @@ class BrowserUploader:
             except:
                 pass
             
-            if page.ele("#next-button", timeout=5): 
-                page.ele("#next-button").click()
+            if next_btn.is_visible():
+                next_btn.click()
                 logger.info("✅ Checks -> Visibility")
             time.sleep(1)
             
             # [VISIBILITY LOGIC]
             logger.info("👁️ Setting Visibility...")
             
-            # Read config (default to private)
             yt_config = item.platform_configs.get('youtube', {})
             privacy = yt_config.get('privacy', 'private').lower()
             
-            # [Delayed Publication Feature]
-            # If delay is set, we MUST upload as PRIVATE first, then schedule the switch.
             is_delayed_publish = (item.upload_delay_minutes and item.upload_delay_minutes > 0)
             
             if is_delayed_publish:
@@ -299,29 +276,28 @@ class BrowserUploader:
             else:
                 target_privacy = privacy
 
-            # Explicitly CLICK the target radio button
             if target_privacy == 'public':
-                page.ele("#privacy-radios-public", timeout=10).click()
+                page.locator('#privacy-radios-public').first.click(timeout=10000)
                 logger.info("🔓 Selected PUBLIC")
             elif target_privacy == 'unlisted':
-                page.ele("#privacy-radios-unlisted", timeout=10).click()
+                page.locator('#privacy-radios-unlisted').first.click(timeout=10000)
             else:
-                page.ele("#privacy-radios-private", timeout=10).click()
+                page.locator('#privacy-radios-private').first.click(timeout=10000)
                 logger.info("🔒 Selected PRIVATE (Default/Forced)")
             
             # Final Click
             logger.info("🚀 Clicking Save/Publish...")
-            page.ele("#done-button", timeout=5).click()
+            page.locator('#done-button').first.click(timeout=5000)
             
             # Wait for confirmation dialog (Video Link available)
-            page.wait.ele_displayed("ytcp-video-share-dialog", timeout=60)
+            page.locator('ytcp-video-share-dialog').first.wait_for(state='visible', timeout=60000)
             
             # Grab URL
             uploaded_url = None
             try:
-                link_node = page.ele("css:a.style-scope.ytcp-video-share-dialog", timeout=2)
-                if link_node:
-                    uploaded_url = link_node.attr("href")
+                link_node = page.locator('a.style-scope.ytcp-video-share-dialog').first
+                if link_node.is_visible():
+                    uploaded_url = link_node.get_attribute("href")
                     logger.info(f"🎉 Upload Success! URL: {uploaded_url}")
                     item.uploaded_urls = {'youtube': uploaded_url}
             except:
@@ -333,12 +309,9 @@ class BrowserUploader:
         # [Status Update]
         if is_delayed_publish:
             item.status = "SCHEDULED_PUBLISH"
-            # scheduled_upload_time = Now + Delay
             from datetime import datetime, timedelta
             item.scheduled_upload_time = datetime.now() + timedelta(minutes=item.upload_delay_minutes)
             logger.info(f"📅 Scheduled for Public Release at: {item.scheduled_upload_time}")
-            
-            # We can log this "Upload Phase" as complete, but the item isn't fully done.
         else:
             item.status = "COMPLETED"
             logger.info("✅ Upload Task Fully Complete.")
@@ -358,45 +331,38 @@ class BrowserUploader:
         # 1. Launch Browser
         yt_config = item.platform_configs.get('youtube', {})
         channel_id = yt_config.get('channel_id')
-        browser = self.session_manager.launch_channel(channel_id, db, rotate_ip=False)
+        page = self.session_manager.launch_channel(channel_id, db, rotate_ip=False)
         
         try:
             # 2. Go to Content Tab
-            # Direct link is faster: studio.youtube.com/channel/ID/videos/upload
-            # Or just click "Content"
-            browser.get("https://studio.youtube.com/")
+            page.goto("https://studio.youtube.com/")
             time.sleep(3)
             
             # Click Content Icon
-            browser.ele("#menu-paper-icon-item-1", timeout=5).click() # Usually Content is 2nd item
+            page.locator('#menu-paper-icon-item-1').first.click(timeout=5000)
             time.sleep(2)
             
-            # 3. Find the Video (Assume latest? Or search?)
-            # Since we just uploaded it, it's at the top.
-            # Row 1 -> Visibility Column
-            
-            # We look for the FIRST video row
-            first_row = browser.ele("css:ytcp-video-row.style-scope.ytcp-video-section-content", timeout=10)
-            if not first_row:
+            # 3. Find the Video
+            first_row = page.locator('ytcp-video-row.style-scope.ytcp-video-section-content').first
+            if not first_row.is_visible():
                 raise Exception("No videos found in Content tab")
                 
-            # Check title matches (sanity check)
-            video_title = first_row.ele("#video-title", timeout=2).text
-            if item.title[:10] not in video_title: # Checking first 10 chars
+            video_title = first_row.locator('#video-title').first.inner_text()
+            if item.title[:10] not in video_title:
                 logger.warning(f"⚠️ Top video title '{video_title}' might not be '{item.title}'. Proceeding with caution.")
             
-            # Click Visibility Dropdown (Currently "Private")
-            visibility_cell = first_row.ele(".style-scope.ytcp-video-row-cell[id='visibility']", timeout=5)
-            visibility_cell.click()
+            # Click Visibility Dropdown
+            visibility_cell = first_row.locator('.style-scope.ytcp-video-row-cell#visibility').first
+            visibility_cell.click(timeout=5000)
             time.sleep(1)
             
             # Select Public
-            browser.ele("name:PUBLIC", timeout=5).click()
+            page.locator('[name="PUBLIC"]').first.click(timeout=5000)
             time.sleep(1)
             
             # Click Publish/Save (in the popup)
-            save_btn = browser.ele("#save-button", timeout=5)
-            save_btn.click()
+            save_btn = page.locator('#save-button').first
+            save_btn.click(timeout=5000)
             time.sleep(3)
             
             logger.info("✅ Video switched to PUBLIC.")
@@ -406,11 +372,10 @@ class BrowserUploader:
         except Exception as e:
             logger.error(f"❌ Delayed Publish Failed: {e}")
             item.failure_reason = f"Delayed Publish Error: {e}"
-            # Keep status as SCHEDULED_PUBLISH to retry? Or FAIL?
-            # Creating a 'PUBLISH_FAILED' status might be better, or retry count.
             item.retry_count = (item.retry_count or 0) + 1
             db.commit()
         finally:
-            browser.quit()
+            if page and page.context:
+                page.context.close()
 
 browser_uploader = BrowserUploader()

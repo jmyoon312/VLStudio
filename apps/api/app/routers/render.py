@@ -65,15 +65,18 @@ async def process_render_task(task_id: str, request: RenderRequest):
         # 1. Setup Paths
         from ..database import SessionLocal
         from .. import crud
+        from app.config import settings as settings_conf
         db = SessionLocal()
         try:
             settings = crud.get_settings(db)
-            download_root = settings.root_download_path if settings else "downloads"
-            media_root = settings.MEDIA_ROOT if (settings and hasattr(settings, "MEDIA_ROOT") and settings.MEDIA_ROOT) else os.path.dirname(download_root)
+            download_root = settings.root_download_path if settings and settings.root_download_path else settings_conf.root_download_path
         finally:
             db.close()
             
-        output_dir = os.path.join(media_root, "05_Exports")
+        if settings and settings.root_download_path:
+            output_dir = os.path.join(settings.root_download_path, "05_Exports")
+        else:
+            output_dir = settings_conf.EXPORTS_DIR
         os.makedirs(output_dir, exist_ok=True)
         final_output = os.path.join(output_dir, f"{request.output_filename}.mp4")
         

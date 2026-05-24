@@ -7,6 +7,7 @@ import os
 import time
 import random
 import logging
+import asyncio
 from typing import Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -27,7 +28,7 @@ class BrowserSessionManager:
     """
     
     _instance = None
-    _active_session = None # RemotePageProxy instance
+    _active_session = None # Patchright Page instance
     _active_channel_id: Optional[str] = None
     _active_profile_id: Optional[str] = None
     
@@ -36,33 +37,74 @@ class BrowserSessionManager:
             cls._instance = super().__new__(cls)
         return cls._instance
     
-    def _create_browser(self, profile_id: str, engine_mode: str = "standard") -> any:
+    def _create_browser(self, profile_id: str, engine_mode: str = "standard", headless: bool = True) -> any:
         """
         [Hybrid] 윈도우 에이전트에게 브라우저 생성을 요청합니다.
         engine_mode: standard, cloak, fox
         """
-        logger.info(f"🌐 Requesting hybrid browser for profile: {profile_id} (Mode: {engine_mode})")
+        logger.info(f"🌐 Requesting hybrid browser for profile: {profile_id} (Mode: {engine_mode}, Headless: {headless})")
         
         # 1. 윈도우 에이전트를 통해 브라우저 실행
-        browser = stealth_ops.create_page(profile_id=profile_id, engine_mode=engine_mode)
+        page = stealth_ops.create_page(profile_id=profile_id, headless=headless)
         
-        if not browser:
+        if not page:
             logger.error("❌ Failed to create hybrid browser session")
             raise Exception("Hybrid browser creation failed")
             
         logger.info(f"✅ Hybrid browser session active for {profile_id}")
-        return browser
+        return page
 
     def launch_channel(self, channel_id: str, db: Session, rotate_ip: bool = True) -> any:
         """ [Isolated Access] Launch browser for manual management """
-        return self._launch_orchestrator(
-            channel_id=channel_id,
+        # 1. SAIF Phase 1: 네트워크 완전 격리 (Total Isolation)
+        if rotate_ip:
+            from app.services.network_stealth_manager import network_stealth_manager
+            success = network_stealth_manager.prepare_upload_session(serial=None, captain_id=channel_id)
+            if not success:
+                logger.error("❌ [SAIF] Network hardening failed. Aborting session for safety.")
+                raise Exception("Network isolation failure")
+                
+        # Profile DB에서 해당 브랜드 채널을 위임받은 CAPTAIN(관리자) 이메일/비밀번호 추출
+        from app.models import Profile, ChannelAccess
+        
+        # 관리자(MANAGER) 권한을 가진 접근 기록 찾기
+        access = db.query(ChannelAccess).filter(ChannelAccess.channel_id == channel_id, ChannelAccess.role == "MANAGER").first()
+        
+        email = None
+        password = None
+        if access:
+            manager = db.query(Profile).filter(Profile.id == access.profile_id).first()
+            if manager:
+                email = manager.email
+                password = manager.password
+                
+        # 만약 매니저가 없다면 소유자(OWNER)로 폴백 시도
+        if not email:
+            owner_access = db.query(ChannelAccess).filter(ChannelAccess.channel_id == channel_id, ChannelAccess.role == "OWNER").first()
+            if owner_access:
+                owner = db.query(Profile).filter(Profile.id == owner_access.profile_id).first()
+                if owner:
+                    email = owner.email
+                    password = owner.password
+        
+        # 그래도 없다면 예전 방식 (fallback)
+        if not email:
+            owner = db.query(Profile).filter(Profile.channel_id == channel_id, Profile.profile_type == "Tin Can").first()
+            if owner:
+                email = owner.email
+                password = owner.password
+                
+        # 2. 독립적인 UI 브라우저 창 띄우기 (마법사 수동 설정 모드)
+        stealth_ops.launch_for_setup(
+            profile_id=channel_id,
             db=db,
-            rotate_ip=rotate_ip,
-            target_url=f"https://studio.youtube.com/channel/{channel_id}"
+            email=email,
+            password=password,
+            target_channel_id=channel_id
         )
+        return True
 
-    def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = True, target_url: str = None) -> any:
+    def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = True, target_url: str = None, headless: bool = True) -> any:
         from app.routers.resource_manager import _ensure_fresh_ip
         
         # 1. 기존 세션 종료
@@ -73,10 +115,7 @@ class BrowserSessionManager:
         if rotate_ip:
             from app.services.network_stealth_manager import network_stealth_manager
             # Captain ID 또는 Channel ID를 기반으로 세션 격리 수행
-            success = asyncio.run_coroutine_threadsafe(
-                network_stealth_manager.prepare_upload_session(serial=None, captain_id=channel_id),
-                asyncio.get_event_loop()
-            ).result()
+            success = network_stealth_manager.prepare_upload_session(serial=None, captain_id=channel_id)
             
             if not success:
                 logger.error("❌ [SAIF] Network hardening failed. Aborting session for safety.")
@@ -90,21 +129,35 @@ class BrowserSessionManager:
         engine_mode = channel.engine_mode if channel and channel.engine_mode else "standard"
         
         # 4. 하이브리드 브라우저 실행
-        browser = self._create_browser(profile_id, engine_mode=engine_mode)
+        page = self._create_browser(profile_id, engine_mode=engine_mode, headless=headless)
         
         # 5. 목표 URL 이동
         if target_url:
-            browser.get(target_url)
+            page.goto(target_url)
             time.sleep(3)
             
+        # [NEW] 비동기 글로벌 광고 스킵 핸들러 등록 (Playwright 1.42+)
+        try:
+            def handle_ad(locator):
+                logger.info("🎬 Ad detected! Attempting to skip asynchronously...")
+                if locator.is_visible():
+                    locator.click()
+            page.add_locator_handler(
+                page.locator('.ytp-ad-skip-button-modern, .ytp-skip-ad-button, button[aria-label^="Skip ad"]'), 
+                handle_ad
+            )
+            logger.info("✅ Global Ad Skip Handler registered.")
+        except Exception as e:
+            logger.warning(f"Failed to register ad handler: {e}")
+            
         # 6. 세션 저장
-        self._active_session = browser
+        self._active_session = page
         self._active_channel_id = channel_id
         self._active_profile_id = profile_id
         
-        return browser
+        return page
 
-    def run_warmup_routine(self, channel_id: str, stage: int = 1) -> bool:
+    def run_warmup_routine(self, channel_id: str, stage: int = 1, visible: bool = False) -> bool:
         """ [Warmup] Automated warmup routine using hybrid bridge """
         from app.database import SessionLocal
         db = SessionLocal()
@@ -123,25 +176,53 @@ class BrowserSessionManager:
                     logger.error(f"❌ Failed to parse DNA for {channel_id}: {e}")
 
             # Get Intelligence Generator
-            intel = get_intelligence_generator(self.settings)
+            from app import crud
+            settings = crud.get_settings(db)
+            intel = get_intelligence_generator(settings)
 
             # [DAY LOGIC]
             # Use discover as default target_url for now
             target_url = "https://www.youtube.com"
-            browser = self._launch_orchestrator(channel_id=channel_id, db=db, rotate_ip=True, target_url=target_url)
+            page = self._launch_orchestrator(channel_id=channel_id, db=db, rotate_ip=True, target_url=target_url, headless=not visible)
 
-            if stage == 1: success = self._warmup_day_1_discovery(browser, db, channel_id, stage, dna, intel)
-            elif stage == 2: success = self._warmup_day_2_interest(browser, db, channel_id, stage, dna, intel)
-            elif stage >= 3: success = self._warmup_day_3_community(browser, db, channel_id, stage, dna, intel)
+            if stage == 1: success = self._warmup_day_1_discovery(page, db, channel_id, stage, dna, intel)
+            elif stage == 2: success = self._warmup_day_2_interest(page, db, channel_id, stage, dna, intel)
+            elif stage >= 3: success = self._warmup_day_3_community(page, db, channel_id, stage, dna, intel)
             else: success = True
             
             # Update DB Status
             if channel:
-                channel.warmup_status = "COMPLETED" if success else "FAILED"
+                if success == "AUTH_DROPPED":
+                    channel.status = "AUTH_DROPPED"
+                    channel.warmup_status = "FAILED"
+                else:
+                    channel.warmup_status = "COMPLETED" if success else "FAILED"
                 channel.warmup_stage = stage
+                
+                # --- [NEW] Create Warmup Log ---
+                try:
+                    from app.models import WarmupLog
+                    import json
+                    log_status = "success" if success is True else "failed"
+                    error_msg = "AUTH_DROPPED" if success == "AUTH_DROPPED" else None
+                    if not success and success != "AUTH_DROPPED":
+                        error_msg = "Automated warmup encountered an error or was interrupted."
+                    
+                    warmup_log = WarmupLog(
+                        channel_id=channel_id,
+                        stage=stage,
+                        action=f"Stage {stage} Routine",
+                        status=log_status,
+                        error_message=error_msg,
+                        details=json.dumps({"planned_duration": 600, "actual_duration": 600})
+                    )
+                    db.add(warmup_log)
+                except Exception as e:
+                    logger.error(f"❌ Failed to save warmup log: {e}")
+                    
                 channel.warmup_last_run = datetime.now()
                 db.commit()
-            return success
+            return success == True
         finally:
             self.close_session()
             db.close()
@@ -149,82 +230,237 @@ class BrowserSessionManager:
     def close_session(self):
         if self._active_session:
             try:
-                self._active_session.quit()
+                if self._active_session.context:
+                    self._active_session.context.close()
             except: pass
             self._active_session = None
             self._active_channel_id = None
             self._active_profile_id = None
 
-    # --- 기존의 Day 1~7 로직은 RemotePageProxy가 ChromiumPage와 인터페이스가 같으므로 거의 그대로 유지됩니다 ---
-    # (공간 절약을 위해 핵심 로직만 보존하고 나머지는 생략하거나 프록시 호환성만 체크)
-    
-    def _warmup_day_1_discovery(self, page, db, channel_id, stage, dna, intel):
-        """DNA 기반 검색 및 관심사 형성"""
-        logger.info(f"🔍 [DNA Day 1] Discovery for {channel_id}")
+    def get_active_channel(self) -> Optional[str]:
+        return self._active_channel_id
+
+    def _verify_login(self, page) -> bool:
+        """ [Health Check] 로그인 세션 유지 여부 확인 """
         try:
-            # 1. DNA 기반 검색어 생성
-            queries = intel.generate_dna_search_queries(dna) if dna else ["shorts", "trending"]
-            query = random.choice(queries)
-            
-            # 2. 검색 수행
-            logger.info(f"🔎 Searching for: {query}")
-            page.get(f"https://www.youtube.com/results?search_query={query}")
-            time.sleep(random.uniform(3, 5))
-            
-            # 3. 첫 번째 영상 클릭 및 시청
-            video_card = page.ele('xpath://ytd-video-renderer')
-            if video_card:
-                video_card.click()
-                logger.info("📺 Video selected. Watching...")
-                # 60~120초 시청 시뮬레이션
-                time.sleep(random.uniform(60, 120))
-            
+            # 아바타 버튼 유무로 로그인 확인 (최대 15초 대기)
+            page.wait_for_selector('button#avatar-btn, yt-img-shadow#avatar, #avatar-btn', timeout=15000)
             return True
         except Exception as e:
-            logger.error(f"❌ Day 1 Failed: {e}")
+            logger.error(f"Login verification failed (Timeout): {e}")
+            return False
+            
+    def _active_watch(self, page, duration: int, allow_like: bool = False, allow_comment: bool = False, comment_text: str = ""):
+        """ 사람처럼 시청 시뮬레이션 (Micro-actions & Entropy) """
+        logger.info(f"👀 Active watching for {duration} seconds... (Like: {allow_like}, Comment: {allow_comment})")
+        end_time = time.time() + duration
+        
+        while time.time() < end_time:
+            remaining = end_time - time.time()
+            if remaining <= 0: break
+            
+            # 휴먼 딜레이 (가우스 분포 활용)
+            action_delay = max(2.0, random.gauss(5.0, 2.0))
+            time.sleep(min(action_delay, remaining))
+            
+            rand_action = random.random()
+            if rand_action < 0.15:
+                # 무작위 스크롤 (Hover or Reading comments)
+                scroll_amount = int(random.gauss(300, 100))
+                page.mouse.wheel(0, scroll_amount)
+            elif rand_action < 0.25:
+                # 반대 방향 스크롤 (Wobble)
+                scroll_amount = int(random.gauss(-200, 100))
+                page.mouse.wheel(0, scroll_amount)
+            elif rand_action < 0.30:
+                # 마우스 방황 (Idle Drift)
+                x = random.randint(100, 800)
+                y = random.randint(100, 600)
+                page.mouse.move(x, y, steps=10)
+                
+        # 좋아요 시도
+        if allow_like and random.random() < 0.5:
+            try:
+                like_btn = page.locator('like-button-view-model button').first
+                if like_btn.is_visible():
+                    page.mouse.wheel(0, -1000) # 영상 위로 스크롤
+                    time.sleep(random.uniform(1, 2))
+                    like_btn.click()
+                    logger.info("👍 Like button clicked.")
+            except Exception:
+                pass
+                
+        # 댓글 작성 시도
+        if allow_comment and comment_text and random.random() < 0.6:
+            try:
+                for _ in range(4):
+                    page.mouse.wheel(0, 400)
+                    time.sleep(random.uniform(0.5, 1.5))
+                
+                comment_box = page.locator('ytd-comment-simplebox-renderer').first
+                comment_box.wait_for(state='visible', timeout=8000)
+                if comment_box.is_visible():
+                    comment_box.scroll_into_view_if_needed()
+                    time.sleep(random.uniform(1, 2))
+                    comment_box.click()
+                    time.sleep(random.uniform(1, 2))
+                    
+                    input_box = page.locator('#contenteditable-root').first
+                    input_box.wait_for(state='visible', timeout=5000)
+                    
+                    if input_box.is_visible():
+                        # 인간적인 타이핑 시뮬레이션 (의도적 지연)
+                        input_box.fill("")
+                        for char in comment_text:
+                            input_box.type(char, delay=random.randint(50, 200))
+                        time.sleep(random.uniform(1, 2))
+                        
+                        submit_btn = page.locator('#submit-button').first
+                        if submit_btn.is_visible():
+                            submit_btn.click()
+                            logger.info("📝 Comment posted.")
+            except Exception as e:
+                logger.warning(f"Comment attempt failed: {e}")
+
+    def _warmup_day_1_discovery(self, page, db, channel_id, stage, dna, intel):
+        """[Stage 1: 순수 관찰자] 홈 피드 탐색, 검색 없이 무작위 시청, 상호작용 불가"""
+        logger.info(f"🔍 [Stage 1] Passive Observer for {channel_id}")
+        try:
+            if not self._verify_login(page):
+                logger.error("❌ Session Dropped or Captcha blocked.")
+                raise Exception("AUTH_DROPPED")
+                
+            # 홈 피드 진입
+            page.goto("https://www.youtube.com/")
+            time.sleep(random.uniform(3, 7))
+            
+            # 홈 피드 스크롤 하며 썸네일 탐색
+            for _ in range(random.randint(2, 5)):
+                page.mouse.wheel(0, int(random.gauss(500, 200)))
+                time.sleep(random.uniform(2, 5))
+            
+            # 홈 피드에서 영상 클릭 (1~3번째 중 하나)
+            video_card = page.locator('ytd-rich-item-renderer').nth(random.randint(0, 3))
+            try:
+                video_card.wait_for(state='visible', timeout=10000)
+                video_card.scroll_into_view_if_needed()
+                time.sleep(random.uniform(1, 3))
+                video_card.click()
+                logger.info("📺 Selected video from Home Feed.")
+                
+                # 시청 (45 ~ 120초), 상호작용 절대 금지
+                self._active_watch(page, random.randint(45, 120), allow_like=False, allow_comment=False)
+            except Exception as e:
+                logger.warning(f"Could not click video from home feed: {e}")
+                
+            return True
+        except Exception as e:
+            logger.error(f"❌ Stage 1 Failed: {e}")
+            if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
             return False
 
     def _warmup_day_2_interest(self, page, db, channel_id, stage, dna, intel):
-        """니치 관련 영상 시청 및 상호작용"""
-        # Day 1과 유사하되 좋아요 클릭 등 추가
-        return self._warmup_day_1_discovery(page, db, channel_id, stage, dna, intel)
-
-    def _warmup_day_3_community(self, page, db, channel_id, stage, dna, intel):
-        """DNA 기반 문맥 댓글 작성"""
-        logger.info(f"💬 [DNA Day 3] Community Activity for {channel_id}")
+        """[Stage 2: 관심사 좁히기] DNA 검색, Shorts 탐색, 제한적 상호작용"""
+        logger.info(f"🔍 [Stage 2] Niche Explorer for {channel_id}")
         try:
-            # 1. 영상 접속
-            self._warmup_day_1_discovery(page, db, channel_id, stage, dna, intel)
+            if not self._verify_login(page):
+                raise Exception("AUTH_DROPPED")
+                
+            queries = intel.generate_dna_search_queries(dna) if dna else ["재미있는 영상", "일상 브이로그"]
+            query = random.choice(queries)
             
-            # 2. 영상 제목 추출
-            title_ele = page.ele('xpath://h1[contains(@class, "ytd-watch-metadata")]')
-            video_title = title_ele.text if title_ele else "Interesting Video"
+            # 직접 타이핑하듯 검색
+            page.goto("https://www.youtube.com/")
+            time.sleep(random.uniform(2, 4))
+            search_input = page.locator('input#search')
+            if search_input.is_visible():
+                search_input.click()
+                search_input.fill("")
+                search_input.type(query, delay=random.randint(50, 150))
+                page.keyboard.press('Enter')
+                time.sleep(random.uniform(4, 7))
+            else:
+                page.goto(f"https://www.youtube.com/results?search_query={query}")
+                time.sleep(random.uniform(3, 5))
+                
+            # 검색 결과에서 2~4번째 영상 클릭 (최상단 회피)
+            video_card = page.locator('ytd-video-renderer').nth(random.randint(1, 3))
+            try:
+                video_card.wait_for(state='visible', timeout=10000)
+                video_card.scroll_into_view_if_needed()
+                time.sleep(random.uniform(1, 3))
+                video_card.click()
+                logger.info(f"📺 Selected niche video for '{query}'.")
+                
+                # 시청 (90 ~ 180초), 좋아요 50% 허용
+                self._active_watch(page, random.randint(90, 180), allow_like=True, allow_comment=False)
+            except Exception:
+                pass
             
-            # 3. DNA 기반 댓글 생성
-            comment_text = intel.generate_dna_comment(dna, video_title) if dna else "Nice video! 👍"
-            
-            # 4. 스크롤 및 댓글 입력 (Humanizer 로직 결합)
-            logger.info(f"📝 Posting AI comment: {comment_text}")
-            page.scroll.down(800) # 댓글 섹션으로 이동
-            time.sleep(3)
-            
-            # (댓글 입력 로직은 UI 구조에 따라 복잡할 수 있으므로 여기서는 로그만 남기거나 에이전트 명령 전달)
-            # page.ele('#placeholder-area').click()
-            # page.ele('#contenteditable-root').input(comment_text)
-            
+            # 숏츠 시청 로직
+            logger.info("📱 Exploring Shorts...")
+            page.goto("https://www.youtube.com/shorts/")
+            time.sleep(random.uniform(3, 6))
+            for _ in range(random.randint(3, 6)): # 3~6개 숏츠
+                # 숏츠 체류 시간 (3초 ~ 30초)
+                time.sleep(random.uniform(3, 30))
+                # 다음 숏츠로 넘어가기 (휠 내리기)
+                page.mouse.wheel(0, 800)
+                time.sleep(random.uniform(0.5, 1.5))
+                
             return True
         except Exception as e:
-            logger.error(f"❌ Day 3 Failed: {e}")
+            logger.error(f"❌ Stage 2 Failed: {e}")
+            if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
             return False
 
-    def _handle_ads(self, page):
-        # 프록시를 통해 광고 건너뛰기 버튼 클릭
+    def _warmup_day_3_community(self, page, db, channel_id, stage, dna, intel):
+        """[Stage 3: 커뮤니티 일원화] 롱테일 체류, 구독 및 댓글 작성"""
+        logger.info(f"💬 [Stage 3] Active Participant for {channel_id}")
         try:
-            btn = page.ele('xpath://button[contains(@class, "ytp-ad-skip-button")]')
-            if btn: btn.click()
+            # Stage 2의 검색 로직을 일부 차용하여 영상 진입
+            res = self._warmup_day_2_interest(page, db, channel_id, stage, dna, intel)
+            if res == "AUTH_DROPPED": return res
+            
+            # 추가적으로 한 번 더 영상을 클릭하여 깊은 상호작용 시도
+            queries = intel.generate_dna_search_queries(dna) if dna else ["인기 급상승", "추천 영상"]
+            page.goto(f"https://www.youtube.com/results?search_query={random.choice(queries)}")
+            time.sleep(random.uniform(3, 5))
+            
+            video_card = page.locator('ytd-video-renderer').nth(random.randint(0, 2))
+            try:
+                video_card.wait_for(state='visible', timeout=10000)
+                video_card.scroll_into_view_if_needed()
+                time.sleep(random.uniform(1, 3))
+                video_card.click()
+                time.sleep(random.uniform(3, 5))
+            except Exception:
+                pass
+            
+            title_ele = page.locator('h1.ytd-watch-metadata').first
+            video_title = title_ele.inner_text() if title_ele.is_visible() else "Interesting Video"
+            comment_text = intel.generate_dna_comment(dna, video_title) if dna else "정말 잘 봤습니다! 👍"
+            
+            # 긴 시청 (120 ~ 300초), 좋아요 & 댓글 허용
+            self._active_watch(page, random.randint(120, 300), allow_like=True, allow_comment=True, comment_text=comment_text)
+            
+            # 10% ~ 20% 확률로 구독 클릭
+            if random.random() < 0.2:
+                try:
+                    sub_btn = page.locator('#subscribe-button yt-button-shape button').first
+                    if sub_btn.is_visible():
+                        sub_btn.scroll_into_view_if_needed()
+                        time.sleep(random.uniform(1, 2))
+                        sub_btn.click()
+                        logger.info("🔔 Subscribed to channel.")
+                        time.sleep(random.uniform(2, 4))
+                except Exception:
+                    pass
+                    
             return True
-        except: return False
-
-    # ... (Day 2~7 등 나머지 메서드들은 구조적으로 동일하므로 프록시를 통해 계속 호출됨) ...
+        except Exception as e:
+            logger.error(f"❌ Stage 3 Failed: {e}")
+            if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
+            return False
 
 session_manager = BrowserSessionManager()

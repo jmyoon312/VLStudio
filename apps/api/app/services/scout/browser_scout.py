@@ -3,31 +3,34 @@ import time
 import logging
 import random
 from typing import List, Dict
-from DrissionPage import ChromiumPage, ChromiumOptions
+from patchright.sync_api import sync_playwright
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 class BrowserAssetScout:
     """
-    Autonomous Browser Scout using DrissionPage to bypass bot detection.
+    Autonomous Browser Scout using Patchright to bypass bot detection.
     Scours TikTok/Instagram/Pinterest for trending assets.
     """
     def __init__(self, headless: bool = True):
-        self.options = ChromiumOptions()
-        if headless:
-            self.options.set_argument('--headless')
-        self.options.set_argument('--no-sandbox')
-        self.options.set_argument('--mute-audio')
-        
-        # [Zero-Cost] No paid proxy used, relies on local IP or free browser profiles
+        self.headless = headless
+        self.playwright = None
+        self.browser = None
+        self.context = None
         self.page = None
         self.temp_dir = settings.TEMP_DIR
         os.makedirs(self.temp_dir, exist_ok=True)
 
     def _init_page(self):
         if not self.page:
-            self.page = ChromiumPage(self.options)
+            self.playwright = sync_playwright().start()
+            self.browser = self.playwright.chromium.launch(
+                headless=self.headless,
+                args=['--no-sandbox', '--mute-audio']
+            )
+            self.context = self.browser.new_context()
+            self.page = self.context.new_page()
 
     def scout_tiktok(self, query: str, limit: int = 5) -> List[Dict]:
         """
@@ -37,23 +40,23 @@ class BrowserAssetScout:
         search_url = f"https://www.tiktok.com/search?q={query.replace(' ', '%20')}"
         logger.info(f"🌐 Scouting TikTok: {search_url}")
         
-        self.page.get(search_url)
+        self.page.goto(search_url)
         time.sleep(random.uniform(3, 5)) # Wait for hydration
         
         # Scroll to load more
         for _ in range(2):
-            self.page.scroll.to_bottom()
+            self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             time.sleep(2)
             
         results = []
         # Find video link elements (pattern depends on TikTok layout)
-        video_links = self.page.eles('tag:a')
+        video_links = self.page.locator('a').all()
         
         for link in video_links:
-            href = link.attr('href')
+            href = link.get_attribute('href')
             if href and '/video/' in href:
                 # Basic metadata extraction if possible
-                title = link.attr('title') or query
+                title = link.get_attribute('title') or query
                 if href not in [r['url'] for r in results]:
                     results.append({"url": href, "title": title, "source": "tiktok"})
             if len(results) >= limit:
@@ -88,4 +91,19 @@ class BrowserAssetScout:
 
     def close(self):
         if self.page:
-            self.page.quit()
+            try:
+                self.page.close()
+            except: pass
+        if self.context:
+            try:
+                self.context.close()
+            except: pass
+        if self.browser:
+            try:
+                self.browser.close()
+            except: pass
+        if self.playwright:
+            try:
+                self.playwright.stop()
+            except: pass
+

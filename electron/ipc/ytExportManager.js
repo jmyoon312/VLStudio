@@ -77,17 +77,32 @@ async function switchYoutubeBrandChannel(nextBrandId, lteProxyPort, mainWindow) 
   const partitionName = `persist:yt_brand_${nextBrandId}`;
   const brandSession = session.fromPartition(partitionName);
 
-  // Set the outward-bound network proxy to route exclusively through the local LTE proxy adapter
+  // [Electron①] proxyRules -> SOCKS5 프로토콜 (HTTP/HTTPS가 아닌 SOCKS5로 수정)
   if (lteProxyPort) {
-    const proxyUrl = `127.0.0.1:${lteProxyPort}`;
+    const socksProxy = `socks5://127.0.0.1:${lteProxyPort}`;
     await brandSession.setProxy({
-      proxyRules: `http=${proxyUrl};https=${proxyUrl}`,
+      proxyRules: socksProxy,
       proxyBypassRules: '127.0.0.1,localhost'
     });
-    console.log(`[YouTube Switch] Stage 3: Proxy rules bound to local port ${lteProxyPort}`);
+    console.log(`[YouTube Switch] Stage 3: SOCKS5 proxy bound to port ${lteProxyPort}`);
   } else {
     console.log("[YouTube Switch] Stage 3: Direct connection active (no proxy specified).");
   }
+
+  // [NEW-6] DBSC (Device Bound Session Credentials) 등록 헤더 모니터링
+  brandSession.webRequest.onHeadersReceived(
+    { urls: ['https://*.google.com/*', 'https://*.youtube.com/*'] },
+    (details, callback) => {
+      const regHeader = details.responseHeaders?.['sec-session-registration'] ||
+                        details.responseHeaders?.['Sec-Session-Registration'];
+      if (regHeader) {
+        console.warn(`[DBSC] Device-Bound Session Credentials detected for brand ${nextBrandId}! Partition must NOT be deleted.`);
+        if (!global.dbscBoundBrands) global.dbscBoundBrands = new Set();
+        global.dbscBoundBrands.add(nextBrandId);
+      }
+      callback({ responseHeaders: details.responseHeaders });
+    }
+  );
 
   // Inject browser fingerprint protections
   rerollSessionHardwareProfile(brandSession, nextBrandId);
@@ -155,16 +170,39 @@ async function waitForLteIpRotation() {
 }
 
 /**
- * UserAgent and stealth hardware DNA random distribution logic.
+ * [NEW-7] UserAgent 최신화 (Chrome 136) 및 Sec-CH-UA 헤더 일치
+ * UA와 Client Hints의 불일치는 YouTube 탐지 시그널이 됨.
  */
 function rerollSessionHardwareProfile(sessionObj, brandId) {
-  const uaList = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
+  // 2025년 최신 Chrome UA 풀 (2025.05 기준)
+  const uaProfiles = [
+    {
+      ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+      secChUa: '"Chromium";v="136", "Google Chrome";v="136", "Not-A.Brand";v="99"',
+      version: '136'
+    },
+    {
+      ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36',
+      secChUa: '"Chromium";v="135", "Google Chrome";v="135", "Not-A.Brand";v="8"',
+      version: '135'
+    }
   ];
-  const selectedUa = uaList[Math.abs(hashCode(brandId)) % uaList.length];
-  sessionObj.setUserAgent(selectedUa);
+
+  const profile = uaProfiles[Math.abs(hashCode(String(brandId))) % uaProfiles.length];
+  sessionObj.setUserAgent(profile.ua);
+
+  // Sec-CH-UA 헤더를 UA와 일치시켜 Client Hints 불일치 탐지 방지
+  sessionObj.webRequest.onBeforeSendHeaders(
+    { urls: ['https://*.youtube.com/*', 'https://*.google.com/*', 'https://*.googlevideo.com/*'] },
+    (details, callback) => {
+      const headers = details.requestHeaders || {};
+      headers['Sec-CH-UA'] = profile.secChUa;
+      headers['Sec-CH-UA-Mobile'] = '?0';
+      headers['Sec-CH-UA-Platform'] = '"Windows"';
+      headers['Sec-CH-UA-Full-Version-List'] = profile.secChUa;
+      callback({ requestHeaders: headers });
+    }
+  );
 }
 
 function hashCode(str) {

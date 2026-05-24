@@ -655,7 +655,9 @@ class ProfileBase(BaseModel):
     status: str
     folder_path: Optional[str] = None
     email: Optional[str] = None
+    password: Optional[str] = None
     recovery_email: Optional[str] = None
+    channel_id: Optional[str] = None
     created_at: Optional[datetime] = None
     last_used_at: Optional[datetime] = None
     tags: Optional[List[str]] = []

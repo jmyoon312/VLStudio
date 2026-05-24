@@ -48,7 +48,8 @@ def upload_studio_file(
             settings = crud.get_settings(db)
             if not settings:
                 settings = crud.create_settings(db, schemas.SettingsCreate())
-            download_root = normalize_path(settings.root_download_path)
+            from app.config import settings as settings_conf
+            download_root = normalize_path(settings.root_download_path if settings.root_download_path else settings_conf.MEDIA_ROOT)
         finally:
             db.close()
     except Exception as e:
@@ -207,7 +208,8 @@ def upload_video(
         settings = crud.create_settings(db, schemas.SettingsCreate())
         
     # 1. Prepare Directory
-    download_root = normalize_path(settings.root_download_path)
+    from app.config import settings as settings_conf
+    download_root = normalize_path(settings.root_download_path if settings.root_download_path else settings_conf.MEDIA_ROOT)
     target_dir = os.path.join(download_root, subfolder)
     os.makedirs(target_dir, exist_ok=True)
     
@@ -417,7 +419,8 @@ def download_video(download_req: DownloadRequest, background_tasks: BackgroundTa
                     break
 
         # 4. Make paths relative to root_download_path
-        root = settings.root_download_path
+        from app.config import settings as settings_conf
+        root = settings.root_download_path if settings.root_download_path else settings_conf.MEDIA_ROOT
         rel_file = os.path.relpath(video_file, root) if root and os.path.isabs(video_file) else video_file
         rel_thumb = os.path.relpath(thumbnail_path, root) if (thumbnail_path and root and os.path.isabs(thumbnail_path)) else thumbnail_path
 
@@ -1116,7 +1119,8 @@ def manual_hd_download(
         raise HTTPException(status_code=404, detail="Channel not found")
     
     # Construct proper download path with category/channel structure
-    download_root = normalize_path(settings.root_download_path)
+    from app.config import settings as settings_conf
+    download_root = normalize_path(settings.root_download_path if settings.root_download_path else settings_conf.MEDIA_ROOT)
     
     if channel.category_id:
         category = crud.get_category(db, channel.category_id)

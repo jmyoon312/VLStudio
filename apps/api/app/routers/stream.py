@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Request, HTTPException
 import subprocess
 import os
 import logging
-import asyncio
-import asyncio
-from .. import dependency_manager, database, crud
-from ..database import SessionLocal
+import mimetypes
+from fastapi.responses import FileResponse
+from .. import dependency_manager
 
 router = APIRouter(tags=["stream"])
 logger = logging.getLogger(__name__)
@@ -145,9 +144,7 @@ async def start_lofi_stream(request: Request):
     # 1. Generate Audio Playlist File for Concat Demuxer
     # Format: file 'path/to/file.mp3'
     try:
-        # Create a named temp file that persists so FFmpeg can read it. 
-        # We need to manually delete it later or let OS handle it (tempfile default is /tmp)
-        # Windows requires closing the file before other process reads it.
+        # Create a named temp file that persists so FFmpeg can read it.
         # We use delete=False
         tf = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8')
         for audio_path in playlist:
@@ -168,14 +165,7 @@ async def start_lofi_stream(request: Request):
     
     # 2. Construct FFmpeg Command
     # -stream_loop -1 -i bg.mp4 (Loop Video Infinite)
-    # -f concat -safe 0 -i list.txt (Read Audio List)
-    # -map 0:v -map 1:a (Map Video from 0, Audio from 1)
-    # -c:v libx264 ... -c:a aac ...
-    # -shortest (Stop when shortest input ends? No, video is infinite. Audio is finite?)
-    # Wait, if Audio ends, we want it to loop? 
-    # 'concat' demuxer just plays through. To loop audio playlist, we need -stream_loop -1 on input 1?
-    # Yes, -stream_loop -1 before -i list.txt should loop the concat list.
-    
+    # -stream_loop -1 -f concat -safe 0 -i list.txt (Read Audio List Infinite)
     cmd = [
         ffmpeg_exe,
         '-re',
@@ -194,16 +184,11 @@ async def start_lofi_stream(request: Request):
     try:
         proc = subprocess.Popen(
             cmd,
-            stdin=subprocess.PIPE, # We might not need stdin but keep it consistent
+            stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE
         )
         active_streams[channel_id] = proc
-        
-        # We don't delete playlist_txt_path immediately because FFmpeg needs it.
-        # Ideally we track it and delete on stop. 
-        # For a hack/prototype, we leave it in temp. OS cleans up eventually.
-        
         return {"status": "started", "channel_id": channel_id, "mode": "headless"}
     except Exception as e:
         logger.error(f"Failed to start headless stream: {e}")
@@ -224,7 +209,6 @@ async def get_active_streams():
 
 @router.post("/stop")
 async def stop_stream(request: Request):
-
     """
     Stops the stream for a specific channel.
     Expects JSON: { "channel_id": "..." }
@@ -250,56 +234,55 @@ async def stop_stream(request: Request):
     return {"status": "stopped", "channel_id": channel_id}
 
 # [NEW] File Stream Endpoint for Playback
-from fastapi.responses import FileResponse
-import mimetypes
-
 @router.get("")
 async def stream_video(path: str):
     """
-    Stream video file from absolute path.
-    Used by frontend for local file playback.
+    Stream video/media file with smart path resolution.
+    Supports:
+    - Windows absolute paths (C:\\Users\\...)
+    - Docker /app/media/... paths → mapped to MEDIA_ROOT
+    - C:/app/media/... garbled paths → mapped to MEDIA_ROOT  
+    - C:/ViraLoopMedia/downloads/... legacy paths → mapped to MEDIA_ROOT/downloads
+    - Relative paths → resolved against MEDIA_ROOT
     """
-    # Standardized root for Docker
-    DOCKER_MEDIA_ROOT = "/app/media"
-    
-    # 1. Try absolute path as is
+    from app.config import settings as app_settings
+    MEDIA_ROOT = app_settings.MEDIA_ROOT
+
     target_path = path
 
-    if not os.path.exists(target_path):
-        # 2. Try relative to DOCKER_MEDIA_ROOT (Prioritize this)
-        stripped_path = path.lstrip("/\\")
-        potential_path = os.path.join(DOCKER_MEDIA_ROOT, stripped_path)
-        if os.path.exists(potential_path):
-            target_path = potential_path
-        else:
-            # 3. Special case: If path starts with downloads/ but it's nested
-            if "downloads/" in path:
-                rel_part = path.split("downloads/")[-1]
-                potential_path_dl = os.path.join(DOCKER_MEDIA_ROOT, "downloads", rel_part)
-                if os.path.exists(potential_path_dl):
-                    target_path = potential_path_dl
-            
-            # 4. Check temp_storage (For remover system)
-            if "temp_storage" in path:
-                # If path is already absolute within Docker, it might be /app/apps/api/temp_storage/...
-                if os.path.exists(path):
-                    target_path = path
-                else:
-                    # Try resolving relative to apps/api/
-                    rel_part = path.split("temp_storage")[-1].lstrip("/\\")
-                    potential_temp = os.path.join("/app/apps/api/temp_storage", rel_part)
-                    if os.path.exists(potential_temp):
-                        target_path = potential_temp
+    # Step 1: Try the path as-is (covers valid Windows absolute paths)
+    if os.path.exists(target_path):
+        pass  # Already resolved
 
+    # Step 2: /app/media/... → MEDIA_ROOT/...
+    elif path.startswith("/app/media/"):
+        rel = path[len("/app/media/"):]
+        target_path = os.path.join(MEDIA_ROOT, rel)
+
+    # Step 3: C:/app/media/... (garbled Docker path on Windows) → MEDIA_ROOT/...
+    elif "app/media/" in path or "app\\media\\" in path:
+        for marker in ["app/media/", "app\\media\\"]:
+            if marker in path:
+                rel = path.split(marker, 1)[-1]
+                target_path = os.path.join(MEDIA_ROOT, rel)
+                break
+
+    # Step 4: C:/ViraLoopMedia/downloads/... or C:/ViraLoopMedia\\downloads\\ → MEDIA_ROOT/downloads/...
+    elif "ViraLoopMedia" in path and ("downloads" in path):
+        for marker in ["ViraLoopMedia/downloads/", "ViraLoopMedia\\downloads\\"]:
+            if marker in path:
+                rel = path.split(marker, 1)[-1]
+                target_path = os.path.join(MEDIA_ROOT, "downloads", rel)
+                break
+
+    # Step 5: Relative path → MEDIA_ROOT
+    elif not os.path.isabs(path):
+        target_path = os.path.join(MEDIA_ROOT, path.lstrip("/\\"))
+
+    # Final check
     if not os.path.exists(target_path):
-        logger.error(f"Stream 404: Requested: {path} | Resolved: {target_path}")
+        logger.error(f"[Stream 404] Requested: {path!r} | Resolved: {target_path!r}")
         raise HTTPException(status_code=404, detail="File not found")
-        
-    # Security Check: Prevent accessing sensitive system files?
-    # For local desktop app, we usually trust the path if it's within expected drives, 
-    # but let's at least ensure it's not trying to read system config blindly.
-    # However, user assets can be anywhere (F:, C:, D:).
-    # We will allow it for now as this is a local tool.
-    
+
     media_type, _ = mimetypes.guess_type(target_path)
     return FileResponse(target_path, media_type=media_type or "application/octet-stream")
