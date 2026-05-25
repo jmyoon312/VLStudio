@@ -36,6 +36,8 @@ class WorkQueueItemCreate(BaseModel):
     target_platforms: Optional[List[str]] = ["youtube"]
     platform_configs: Optional[dict] = None
     scheduled_upload_time: Optional[datetime] = None  # [NEW] Scheduled Upload
+    enable_shopping_tag: bool = False
+    shopping_tag_keyword: Optional[str] = None
 
 
 class WorkQueueItemUpdate(BaseModel):
@@ -47,7 +49,8 @@ class WorkQueueItemUpdate(BaseModel):
     upload_method: Optional[str] = None
     target_platforms: Optional[List[str]] = None
     platform_configs: Optional[dict] = None
-    target_platforms: Optional[List[str]] = None
+    enable_shopping_tag: Optional[bool] = None
+    shopping_tag_keyword: Optional[str] = None
     platform_configs: Optional[dict] = None
     status: Optional[str] = None
     scheduled_upload_time: Optional[datetime] = None  # [NEW]
@@ -98,6 +101,10 @@ class BatchRejectRequest(BaseModel):
 class BatchDeleteRequest(BaseModel):
     item_ids: List[int]
 
+class BatchShieldConfigRequest(BaseModel):
+    item_ids: List[int]
+    shield_configs: dict
+
 
 class PriorityUpdateRequest(BaseModel):
     item_id: int
@@ -114,12 +121,42 @@ class ExpertApprovalRequest(BaseModel):
     update_master_identity: bool = False
     approved_by: str = "expert"
 
+
+class KeywordExtractionRequest(BaseModel):
+    title: str
+    description: str
+
+
 # === API Endpoints ===
+
+@router.post("/extract-shopping-keyword")
+def extract_shopping_keyword_api(
+    req: KeywordExtractionRequest,
+    db: Session = Depends(get_db)
+):
+    """AI를 이용해 제목과 설명에서 쇼핑 키워드를 추출합니다."""
+    settings = db.query(models.Settings).first()
+    if not settings:
+        raise HTTPException(500, "Settings not found")
+        
+    from app.services.ai_analyzer import ContentAnalyzer
+    analyzer = ContentAnalyzer(db, settings)
+    
+    try:
+        keyword = analyzer.extract_shopping_keyword(req.title, req.description)
+        if keyword.upper() == "NONE":
+            return {"keyword": ""}
+        return {"keyword": keyword}
+    except Exception as e:
+        logger.error(f"Failed to extract shopping keyword: {e}")
+        raise HTTPException(500, f"Keyword extraction failed: {str(e)}")
+
 
 @router.get("/items", response_model=List[WorkQueueItemResponse])
 def get_queue_items(
     status: Optional[str] = None,
     approval_status: Optional[str] = None,
+    date_filter: Optional[str] = None, # "today", "week", "month", "all"
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -132,6 +169,20 @@ def get_queue_items(
     
     if approval_status:
         query = query.filter(models.WorkQueueItem.approval_status == approval_status)
+        
+    if date_filter and date_filter != "all":
+        now = datetime.now()
+        if date_filter == "today":
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif date_filter == "week":
+            start_date = now - __import__('datetime').timedelta(days=7)
+        elif date_filter == "month":
+            start_date = now - __import__('datetime').timedelta(days=30)
+        else:
+            start_date = None
+            
+        if start_date:
+            query = query.filter(models.WorkQueueItem.created_at >= start_date)
     
     items = query.order_by(
         models.WorkQueueItem.upload_priority.desc(),
@@ -156,6 +207,26 @@ def create_queue_item(
     # 파일 존재 확인
     if not os.path.exists(item_data.video_file_path):
         raise HTTPException(404, f"Video file not found: {item_data.video_file_path}")
+        
+    # [NEW] 파일 안전 복사 로직
+    settings = db.query(models.Settings).first()
+    safe_dir = os.path.join(settings.root_download_path if settings and settings.root_download_path else os.getcwd(), "work_queue_uploads")
+    os.makedirs(safe_dir, exist_ok=True)
+    
+    # 고유한 파일명 생성
+    import shutil
+    import uuid
+    ext = os.path.splitext(item_data.video_file_path)[1]
+    safe_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+    safe_file_path = os.path.join(safe_dir, safe_filename)
+    
+    try:
+        shutil.copy2(item_data.video_file_path, safe_file_path)
+        logger.info(f"📁 Video safely copied to: {safe_file_path}")
+    except Exception as e:
+        logger.error(f"Failed to copy video file: {e}")
+        # 복사 실패 시 원본 경로 유지
+        safe_file_path = item_data.video_file_path
     
     # Determine initial status based on approval_required
     initial_status = "QUEUED"
@@ -175,7 +246,7 @@ def create_queue_item(
         description=item_data.description,
         hashtags=item_data.hashtags,
         tags=item_data.tags,
-        video_file_path=item_data.video_file_path,
+        video_file_path=safe_file_path, # [UPDATED] Use safe copy
         source_type=item_data.source_type,
         approval_required=item_data.approval_required,
         approval_status=initial_approval,
@@ -184,6 +255,8 @@ def create_queue_item(
         target_platforms=item_data.target_platforms,
         platform_configs=item_data.platform_configs or {},
         scheduled_upload_time=item_data.scheduled_upload_time, # [NEW]
+        enable_shopping_tag=item_data.enable_shopping_tag,
+        shopping_tag_keyword=item_data.shopping_tag_keyword,
         # Initial State
         status=initial_status,
         upload_progress=0,
@@ -340,6 +413,30 @@ def reject_queue_item(
     return item
 
 
+@router.post("/batch/shield", response_model=dict)
+def batch_apply_shield(
+    req: BatchShieldConfigRequest,
+    db: Session = Depends(get_db)
+):
+    from sqlalchemy.orm.attributes import flag_modified
+    items = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id.in_(req.item_ids)).all()
+    count = 0
+    for item in items:
+        configs = item.platform_configs or {}
+        if 'youtube' not in configs:
+            configs['youtube'] = {}
+            
+        configs['youtube']['anti_association'] = req.shield_configs.get('anti_association', {})
+        if 'headless_mode' in req.shield_configs:
+            configs['youtube']['headless_mode'] = req.shield_configs['headless_mode']
+            
+        item.platform_configs = configs
+        flag_modified(item, "platform_configs")
+        count += 1
+    
+    db.commit()
+    return {"status": "success", "updated": count}
+
 @router.get("/stats")
 def get_queue_stats(db: Session = Depends(get_db)):
     """작업 대기열 통계"""
@@ -348,6 +445,8 @@ def get_queue_stats(db: Session = Depends(get_db)):
     uploading = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "UPLOADING").count()
     completed = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "COMPLETED").count()
     failed = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "FAILED").count()
+    verifying = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "VERIFYING").count()
+    failed_review = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "FAILED_REVIEW").count()
     
     pending_approval = db.query(models.WorkQueueItem).filter(
         models.WorkQueueItem.approval_status == "PENDING"
@@ -359,6 +458,8 @@ def get_queue_stats(db: Session = Depends(get_db)):
         "uploading": uploading,
         "completed": completed,
         "failed": failed,
+        "verifying": verifying,
+        "failed_review": failed_review,
         "pending_approval": pending_approval
     }
 
@@ -456,6 +557,7 @@ def batch_approve(
     """일괄 승인 (Native Queue)"""
     approved_items = []
     failed_items = []
+    items_to_queue = []
     
     for item_id in request.item_ids:
         try:
@@ -473,8 +575,7 @@ def batch_approve(
             item.updated_at = datetime.now()
             item.status = "QUEUED"
             
-            # [Native Queue Trigger]
-            native_worker.add_task(item.id)
+            items_to_queue.append(item.id)
             
             approved_items.append({
                 "item_id": item.id,
@@ -486,6 +587,10 @@ def batch_approve(
             failed_items.append({"item_id": item_id, "reason": str(e)})
     
     db.commit()
+    
+    # [Native Queue Trigger] after commit
+    for item_id in items_to_queue:
+        native_worker.add_task(item_id)
     
     return {
         "approved": len(approved_items),

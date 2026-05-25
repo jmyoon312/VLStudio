@@ -88,7 +88,10 @@ export async function loadProfiles() {
       id: 'default',
       name: '기본 프로필',
       email: '',
-      hardware: getRandomHardware()
+      hardware: {
+        ...getRandomHardware(),
+        fpSeed: Math.floor(Math.random() * 1000000000)
+      }
     }
     const initialConfig = {
       activeProfileId: 'default',
@@ -138,7 +141,10 @@ export async function createProfile(name, email = '') {
     id,
     name: name || `새 프로필 ${config.profiles.length + 1}`,
     email,
-    hardware: getRandomHardware(config.profiles) // 중복 회피를 위해 기존 프로필 정보 전달
+    hardware: {
+      ...getRandomHardware(config.profiles),
+      fpSeed: Math.floor(Math.random() * 1000000000)
+    }
   }
 
   config.profiles.push(newProfile)

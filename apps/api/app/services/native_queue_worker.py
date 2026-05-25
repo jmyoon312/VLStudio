@@ -13,6 +13,7 @@ print(f"!!! [DEBUG] CWD: {os.getcwd()}")
 from app.services.upload_orchestrator import upload_orchestrator
 from app.services.workflow_runner import workflow_runner_singleton
 from app.database import SessionLocal
+from app.services.verification_worker import verification_worker  # [NEW] Hook Verification Worker
 
 logger = logging.getLogger(__name__)
 

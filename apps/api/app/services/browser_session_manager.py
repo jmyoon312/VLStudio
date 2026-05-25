@@ -107,29 +107,35 @@ class BrowserSessionManager:
     def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = True, target_url: str = None, headless: bool = True) -> any:
         from app.routers.resource_manager import _ensure_fresh_ip
         
-        # 1. 기존 세션 종료
-        if self._active_session:
-            self.close_session()
-        
-        # 2. SAIF Phase 1: 네트워크 완전 격리 및 IP 교체 (Total Isolation)
-        if rotate_ip:
-            from app.services.network_stealth_manager import network_stealth_manager
-            # Captain ID 또는 Channel ID를 기반으로 세션 격리 수행
-            success = network_stealth_manager.prepare_upload_session(serial=None, captain_id=channel_id)
-            
-            if not success:
-                logger.error("❌ [SAIF] Network hardening failed. Aborting session for safety.")
-                raise Exception("Network isolation failure")
-        
-        # 3. 채널 프로필 ID 및 엔진 모드 결정
         profile_id = channel_id
         
-        from app.models import YouTubeChannel
-        channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
-        engine_mode = channel.engine_mode if channel and channel.engine_mode else "standard"
-        
-        # 4. 하이브리드 브라우저 실행
-        page = self._create_browser(profile_id, engine_mode=engine_mode, headless=headless)
+        # [Optimization] Browser Context Reuse for the same profile
+        if self._active_session and self._active_profile_id == profile_id:
+            logger.info(f"⚡ [Context Reuse] Reusing active browser session for {profile_id}")
+            page = self._active_session
+        else:
+            # 1. 기존 세션 종료
+            if self._active_session:
+                self.close_session()
+            
+            # 2. SAIF Phase 1: 네트워크 완전 격리 및 IP 교체 (Total Isolation)
+            if rotate_ip:
+                from app.services.network_stealth_manager import network_stealth_manager
+                # Captain ID 또는 Channel ID를 기반으로 세션 격리 수행
+                success = network_stealth_manager.prepare_upload_session(serial=None, captain_id=channel_id)
+                
+                if not success:
+                    logger.error("❌ [SAIF] Network hardening failed. Aborting session for safety.")
+                    raise Exception("Network isolation failure")
+            
+            # 3. 채널 프로필 ID 및 엔진 모드 결정
+            from app.models import YouTubeChannel
+            channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
+            engine_mode = channel.engine_mode if channel and channel.engine_mode else "standard"
+            
+            # 4. 하이브리드 브라우저 실행
+            page = self._create_browser(profile_id, engine_mode=engine_mode, headless=headless)
+
         
         # 5. 목표 URL 이동
         if target_url:
@@ -462,5 +468,25 @@ class BrowserSessionManager:
             logger.error(f"❌ Stage 3 Failed: {e}")
             if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
             return False
+
+    def launch_tiktok_upload(self, profile_id: str, db: Session, video_path: str, caption: str, hashtags: list, privacy: str) -> dict:
+        logger.info(f"Launching TikTok Upload for profile {profile_id}")
+        page = self._create_browser(profile_id=profile_id, engine_mode="standard", headless=False)
+        try:
+            from app.services.tiktok_uploader import tiktok_uploader
+            return tiktok_uploader.upload_video(page, video_path, caption, hashtags, privacy)
+        finally:
+            if page and page.context:
+                page.context.close()
+
+    def launch_instagram_upload(self, profile_id: str, db: Session, video_path: str, caption: str) -> dict:
+        logger.info(f"Launching Instagram Upload for profile {profile_id}")
+        page = self._create_browser(profile_id=profile_id, engine_mode="standard", headless=False)
+        try:
+            from app.services.instagram_browser_uploader import instagram_browser_uploader
+            return instagram_browser_uploader.upload_reel(page, video_path, caption)
+        finally:
+            if page and page.context:
+                page.context.close()
 
 session_manager = BrowserSessionManager()

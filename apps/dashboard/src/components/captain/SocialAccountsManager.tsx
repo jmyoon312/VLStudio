@@ -12,6 +12,9 @@ import {
     DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
 import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from "@/components/ui/select";
+import {
     Chrome, Plus, Trash2, ExternalLink, RefreshCw,
     Instagram, Music2, Brain, Link
 } from 'lucide-react';
@@ -35,6 +38,16 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = () => {
     const [loading, setLoading] = useState(true);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newProfileName, setNewProfileName] = useState("");
+    
+    // YouTube Sync Modal State
+    const [isSyncOpen, setIsSyncOpen] = useState(false);
+    const [syncChannelId, setSyncChannelId] = useState("");
+    const [youtubeChannels, setYoutubeChannels] = useState<{channel_id: string, channel_name: string}[]>([]);
+
+    // NotebookLM Modal State
+    const [isNotebookLMOpen, setIsNotebookLMOpen] = useState(false);
+    const [notebookLMEmail, setNotebookLMEmail] = useState("");
+    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
     const fetchProfiles = async () => {
         try {
@@ -52,6 +65,14 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = () => {
     useEffect(() => {
         fetchProfiles();
     }, []);
+
+    useEffect(() => {
+        if (isSyncOpen && youtubeChannels.length === 0) {
+            axios.get('/api/youtube/all')
+                .then(res => setYoutubeChannels(res.data))
+                .catch(err => console.error("Failed to load YouTube channels:", err));
+        }
+    }, [isSyncOpen]);
 
     const handleCreateProfile = async () => {
         if (!newProfileName.trim()) return;
@@ -78,22 +99,50 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = () => {
     };
     const handleLaunchProfile = async (id: string, name: string) => {
         try {
-            await axios.post('/api/browser-profiles/launch', { id });
+            await axios.post(`/api/browser-profiles/${id}/launch`);
             toast.success(`${name} 브라우저를 실행했습니다.`);
         } catch (error) {
             console.error("Failed to launch profile:", error);
             toast.error("브라우저 실행 실패: 백인드 서버 연결을 확인하세요.");
         }
     };
-    const handleLinkIntelligence = async (profileId: string) => {
-        const email = prompt("연동할 NotebookLM 계정(이메일)을 입력하세요:");
-        if (!email) return;
+    const handleOpenNotebookLMModal = (profileId: string) => {
+        setSelectedProfileId(profileId);
+        setNotebookLMEmail("");
+        setIsNotebookLMOpen(true);
+    };
+
+    const handleLinkIntelligence = async () => {
+        if (!selectedProfileId || !notebookLMEmail.trim()) return;
         try {
-            await axios.post('/api/notebooklm-accounts', { id: email, browser_profile_id: profileId });
+            await axios.post('/api/notebooklm-accounts', { id: notebookLMEmail, browser_profile_id: selectedProfileId });
             toast.success("NotebookLM 계정이 연동되었습니다.");
+            setIsNotebookLMOpen(false);
             fetchProfiles();
         } catch (error) {
             toast.error("연동 실패: 이미 등록된 계정이거나 통신 오류입니다.");
+        }
+    };
+
+    const handleSyncYouTubeChannel = async () => {
+        if (!syncChannelId.trim()) return;
+        if (!syncChannelId.startsWith('UC') || syncChannelId.length !== 24) {
+            toast.error("유효한 유튜브 채널 ID(UC...)를 입력해주세요.");
+            return;
+        }
+        
+        try {
+            await axios.post('/api/browser-profiles/sync-youtube', { youtube_channel_id: syncChannelId });
+            toast.success("유튜브 채널이 프로필로 연동되었습니다.");
+            setIsSyncOpen(false);
+            setSyncChannelId("");
+            fetchProfiles();
+        } catch (error: any) {
+            if (error.response?.status === 404) {
+                toast.error("등록되지 않은 유튜브 채널 ID입니다. (먼저 채널을 위임/등록하세요)");
+            } else {
+                toast.error("연동 실패: 서버 오류가 발생했습니다.");
+            }
         }
     };
 
@@ -106,37 +155,99 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = () => {
                         소셜 미디어 계정 관리 (Browser Profiles)
                     </h2>
                     <p className="text-slate-500 text-sm mt-1">
-                        틱톡, 인스타그램 등 다중 계정을 위한 독립된 브라우저 프로필을 관리합니다.<br />
-                        각 프로필은 <b>독립된 쿠키와 로그인 정보</b>를 가집니다.
+                        틱톡, 인스타그램 등 다중 계정을 위한 브라우저 프로필을 관리합니다.<br />
+                        <span className="text-amber-600 font-semibold text-xs border border-amber-200 bg-amber-50 px-2 py-0.5 rounded ml-1">
+                            권장: 유튜브 브랜드 채널과 연동하여 동일한 브라우저 환경을 유지하세요.
+                        </span>
                     </p>
                 </div>
-                <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                    <DialogTrigger asChild>
-                        <Button>
-                            <Plus className="w-4 h-4 mr-2" />
-                            새 프로필 추가
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>새 브라우저 프로필 생성</DialogTitle>
-                            <DialogDescription>
-                                예: "게임 채널용", "일상 브랜드용" 등 용도에 맞는 이름을 입력하세요.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="py-4">
-                            <Input
-                                placeholder="프로필 이름 입력..."
-                                value={newProfileName}
-                                onChange={(e) => setNewProfileName(e.target.value)}
-                            />
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsAddOpen(false)}>취소</Button>
-                            <Button onClick={handleCreateProfile}>생성</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                <div className="flex gap-2">
+                    <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline">
+                                <Plus className="w-4 h-4 mr-2" />
+                                빈 프로필 생성
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>새 빈 브라우저 프로필 생성</DialogTitle>
+                                <DialogDescription>
+                                    예: "게임 채널용", "일상 브랜드용" 등 용도에 맞는 이름을 입력하세요.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                                <Input
+                                    placeholder="프로필 이름 입력..."
+                                    value={newProfileName}
+                                    onChange={(e) => setNewProfileName(e.target.value)}
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsAddOpen(false)}>취소</Button>
+                                <Button onClick={handleCreateProfile}>생성</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isSyncOpen} onOpenChange={setIsSyncOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="bg-red-600 hover:bg-red-700 text-white shadow-sm">
+                                <Link className="w-4 h-4 mr-2" />
+                                유튜브 채널 연동
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>유튜브 채널과 프로필 연동</DialogTitle>
+                                <DialogDescription>
+                                    유튜브 채널과 동일한 브라우저 쿠키를 사용하도록 연동합니다.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                                <Select value={syncChannelId} onValueChange={setSyncChannelId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="연동할 유튜브 채널을 선택하세요" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {youtubeChannels.map((ch) => (
+                                            <SelectItem key={ch.channel_id} value={ch.channel_id}>
+                                                {ch.channel_name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsSyncOpen(false)}>취소</Button>
+                                <Button onClick={handleSyncYouTubeChannel} className="bg-red-600 hover:bg-red-700 text-white">연동하기</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isNotebookLMOpen} onOpenChange={setIsNotebookLMOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>NotebookLM 연동</DialogTitle>
+                                <DialogDescription>
+                                    연동할 NotebookLM 계정의 이메일 주소를 입력하세요.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4">
+                                <Input
+                                    placeholder="example@gmail.com"
+                                    value={notebookLMEmail}
+                                    onChange={(e) => setNotebookLMEmail(e.target.value)}
+                                    type="email"
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsNotebookLMOpen(false)}>취소</Button>
+                                <Button onClick={handleLinkIntelligence}>연동하기</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -177,7 +288,7 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = () => {
                             <div className="space-y-2 pt-2 border-t border-slate-100">
                                 <div className="flex justify-between items-center">
                                     <p className="text-xs font-semibold text-slate-500">연결된 계정 상태</p>
-                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-indigo-500 hover:text-indigo-700" onClick={() => handleLinkIntelligence(profile.id)}>
+                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-indigo-500 hover:text-indigo-700" onClick={() => handleOpenNotebookLMModal(profile.id)}>
                                         <Plus className="w-3 h-3 mr-1" /> 연동 추가
                                     </Button>
                                 </div>

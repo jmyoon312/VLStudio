@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveWorkFolder: (params) => ipcRenderer.invoke('fs:save-work-folder', params),
   selectWorkFolder: () => ipcRenderer.invoke('fs:select-work-folder'),
   selectImageFile: () => ipcRenderer.invoke('fs:select-image-file'),
+  selectVideoFile: () => ipcRenderer.invoke('fs:select-video-file'),
   checkFolderExists: (params) => ipcRenderer.invoke('fs:check-folder-exists', params),
   listProjects: (params) => ipcRenderer.invoke('fs:list-projects', params),
   getProjectFolder: (params) => ipcRenderer.invoke('fs:get-project-folder', params),

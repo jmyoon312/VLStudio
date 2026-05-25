@@ -104,7 +104,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
             { name: '신규 채널 육성', path: '/incubator', icon: Sparkles },
             { name: '채널 성장 분석', path: '/insights', icon: Activity },
             { name: '통합 관리자 화면', path: captainId ? `/captain/${captainId}` : '/captain', icon: BarChart3 },
-            { name: '비공개 채널 제어', path: captainId ? `/captain/${captainId}/channels` : '/captain/channels', icon: Shield, highlight: true },
+            { name: '스텔스 채널 관리 (TinCan)', path: captainId ? `/captain/${captainId}/channels` : '/captain/channels', icon: Shield, highlight: true },
             { name: '실시간 검색어 탐색', path: '/keyword-explorer', icon: Globe },
             { name: '소셜 다계정 관리', path: '/account-manager', icon: Users },
         ]

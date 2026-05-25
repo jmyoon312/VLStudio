@@ -319,14 +319,16 @@ function getConfigPath() {
   return path.join(app.getPath('userData'), 'work-folder-config.json')
 }
 
+// 강제로 새로운 통합 미디어 폴더 경로를 반환합니다.
+function getUnifiedMediaFolder() {
+  return path.join(app.getPath('localAppData'), 'ViraLoop Studio', 'media')
+}
+
 async function readWorkFolderConfig() {
-  try {
-    const configPath = getConfigPath()
-    const text = await fs.readFile(configPath, 'utf-8')
-    return JSON.parse(text)
-  } catch {
-    return null
-  }
+  // 이전 AutoFlowCut 경로를 더 이상 사용하지 않고 통합 경로를 강제 반환합니다.
+  const unifiedPath = getUnifiedMediaFolder()
+  try { await fs.mkdir(unifiedPath, { recursive: true }) } catch {}
+  return { path: unifiedPath, name: 'ViraLoop Studio Media' }
 }
 
 async function writeWorkFolderConfig(workFolderPath, workFolderName) {
@@ -362,18 +364,12 @@ export function registerFilesystemIPC(ipcMain) {
 
   // ----------------------------------------------------------
   // 0. fs:get-default-work-folder — 기본 작업 폴더 경로 반환 + 생성
-  //    Mac: ~/Documents/ViraLoop Studio
-  //    Windows: C:\Users\{user}\Documents\ViraLoop Studio
   // ----------------------------------------------------------
   ipcMain.handle('fs:get-default-work-folder', async () => {
     try {
-      const documentsPath = app.getPath('documents')
-      const defaultFolder = path.join(documentsPath, 'ViraLoop Studio')
-
-      // 폴더가 없으면 생성
+      const defaultFolder = getUnifiedMediaFolder()
       await fs.mkdir(defaultFolder, { recursive: true })
-
-      return { success: true, path: defaultFolder, name: 'ViraLoop Studio' }
+      return { success: true, path: defaultFolder, name: 'ViraLoop Studio Media' }
     } catch (error) {
       return { success: false, error: error.message }
     }
@@ -424,6 +420,34 @@ export function registerFilesystemIPC(ipcMain) {
         success: true, 
         path: selectedPath, 
         data: dataUrl,
+        filename: path.basename(selectedPath)
+      }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // ----------------------------------------------------------
+  // 1c. fs:select-video-file — 비디오 파일 선택 탐색기 열기
+  // ----------------------------------------------------------
+  ipcMain.handle('fs:select-video-file', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          { name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm'] }
+        ]
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, error: 'cancelled' }
+      }
+
+      const selectedPath = result.filePaths[0]
+
+      return { 
+        success: true, 
+        path: selectedPath, 
         filename: path.basename(selectedPath)
       }
     } catch (error) {

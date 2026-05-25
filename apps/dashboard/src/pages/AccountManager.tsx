@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import {
     Shield, User, Activity, RefreshCw, Smartphone, Wifi,
-    Signal, Rocket, Globe, Server, CheckCircle2, XCircle, Cable
+    Signal, Rocket, Globe, Server, CheckCircle2, XCircle, Cable, Bot
 } from 'lucide-react';
 import TinCanVault from '@/components/resource/TinCanVault';
 import CaptainQuarters from '@/components/resource/CaptainQuarters';
 import SocialAccountsManager from '@/components/captain/SocialAccountsManager';
 import NotebookLMManager from '@/components/captain/NotebookLMManager';
+import FlowAccountsManager from '@/components/captain/FlowAccountsManager';
 import GoogleAuthGuide from '../components/GoogleAuthGuide';
 import { useToast } from '@/components/ui/use-toast';
 import api from '@/lib/api';
@@ -15,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const AccountManager = () => {
     const { toast } = useToast();
-    const [activeTab, setActiveTab] = useState<'vault' | 'captains' | 'network' | 'social' | 'notebooklm'>('vault');
+    const [activeTab, setActiveTab] = useState<'vault' | 'captains' | 'network' | 'social' | 'notebooklm' | 'flow'>('vault');
     const [isWizardOpen, setIsWizardOpen] = useState(false);
 
     // Network State
@@ -123,14 +124,15 @@ const AccountManager = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit">
+            <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit overflow-x-auto">
                 {[
                     { id: 'vault', label: '소유자 (Tin Can)', icon: Shield },
                     { id: 'captains', label: '관리자 (Captain)', icon: User },
-                    { id: 'social', label: '신원 (ID)', icon: Globe },
-                    { id: 'notebooklm', label: '지능 (Brain)', icon: Rocket },
+                    { id: 'social', label: '멀티 플랫폼 (Social)', icon: Globe },
+                    { id: 'notebooklm', label: '리서치 (NotebookLM)', icon: Rocket },
+                    { id: 'flow', label: 'Flow 연동 (Flow)', icon: Bot },
                     { id: 'network', label: '네트워크', icon: Activity }
-                ].map(tab => (
+                ].map((tab: any) => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
@@ -139,8 +141,8 @@ const AccountManager = () => {
                             : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
-                        <tab.icon className="w-4 h-4 mr-2" />
-                        {tab.label}
+                        <tab.icon className="w-4 h-4 mr-2 shrink-0" />
+                        <span className="whitespace-nowrap">{tab.label}</span>
                     </button>
                 ))}
             </div>
@@ -156,6 +158,11 @@ const AccountManager = () => {
                 {activeTab === 'notebooklm' && (
                     <div className="max-w-7xl mx-auto bg-card p-4 md:p-6 rounded-xl border border-border shadow-sm">
                         <NotebookLMManager />
+                    </div>
+                )}
+                {activeTab === 'flow' && (
+                    <div className="max-w-7xl mx-auto bg-card p-4 md:p-6 rounded-xl border border-border shadow-sm">
+                        <FlowAccountsManager />
                     </div>
                 )}
 

@@ -499,90 +499,7 @@ function createWindow() {
             return
           }
 
-          console.log(`[Flow API - ${profileId}] No project in URL, looking for Enter tool button...`)
-
-          let clicked = null
-          for (let retry = 0; retry < 6 && !capturedProjectId; retry++) {
-            if (retry > 0) {
-              await new Promise(r => setTimeout(r, 2000))
-              if (capturedProjectId) break
-              const retryUrl = view.webContents.getURL()
-              const retryMatch = retryUrl.match(/\/project\/([a-f0-9-]{36})/)
-              if (retryMatch) {
-                capturedProjectId = retryMatch[1]
-                console.log(`[Flow API - ${profileId}] ProjectId from URL during retry:`, capturedProjectId)
-                break
-              }
-            }
-
-            clicked = await view.webContents.executeJavaScript(`
-              (function() {
-                const allButtons = document.querySelectorAll('button');
-                try {
-                  const xr = document.evaluate(
-                    "//button[.//i[normalize-space(text())='add_2']] | (//button[.//i[normalize-space(.)='add_2']])",
-                    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
-                  );
-                  if (xr.singleNodeValue) { xr.singleNodeValue.click(); return 'add_2_xpath'; }
-                } catch {}
-
-                for (const b of allButtons) {
-                  const icons = b.querySelectorAll('i, span.material-icons, span.material-symbols-outlined, mat-icon');
-                  for (const icon of icons) {
-                    const t = icon.textContent.trim();
-                    if (t === 'add_2' || t === 'add') {
-                      b.click(); return 'icon_' + t;
-                    }
-                  }
-                }
-                for (const b of allButtons) {
-                  const icons = b.querySelectorAll('i, span.material-icons, span.material-symbols-outlined');
-                  for (const icon of icons) {
-                    if (icon.textContent.trim() === 'arrow_forward') {
-                      b.click(); return 'arrow_forward';
-                    }
-                  }
-                }
-                for (const b of allButtons) {
-                  const text = b.textContent.trim().toLowerCase();
-                  if (['start', '시작', 'enter', 'new', 'create', '새로 만들기', '새 프로젝트', '새프로젝트', '만들기'].some(k => text.includes(k))) {
-                    b.click(); return 'text_' + text.substring(0, 30);
-                  }
-                }
-                for (const b of allButtons) {
-                  const cls = b.className || '';
-                  if (cls.includes('primary') || cls.includes('filled') || cls.includes('cta')) {
-                    b.click(); return 'cta';
-                  }
-                }
-                return null;
-              })()
-            `).catch(() => null)
-
-            if (clicked) {
-              console.log(`[Flow API - ${profileId}] Clicked button (retry ${retry}):`, clicked)
-              pState.enterToolClicked = true
-              break
-            }
-          }
-
-          if (clicked && !capturedProjectId) {
-            console.log(`[Flow API - ${profileId}] Waiting for project creation after click...`)
-            for (let i = 0; i < 20; i++) {
-              await new Promise(r => setTimeout(r, 500))
-              if (capturedProjectId) {
-                console.log(`[Flow API - ${profileId}] ProjectId captured after button click:`, capturedProjectId)
-                break
-              }
-              const pollUrl = view.webContents.getURL()
-              const pollMatch = pollUrl.match(/\/project\/([a-f0-9-]{36})/)
-              if (pollMatch) {
-                capturedProjectId = pollMatch[1]
-                console.log(`[Flow API - ${profileId}] ProjectId from polled URL:`, capturedProjectId)
-                break
-              }
-            }
-          }
+          console.log(`[Flow API - ${profileId}] No project in URL, waiting for manual project creation or explicit generation trigger...`)
         } catch (e) {
           console.warn(`[Flow API - ${profileId}] ProjectId auto-extraction error:`, e.message)
         }
@@ -992,7 +909,8 @@ function createWindow() {
           `--hardware-cores=${hardware.cores || 8}`,
           `--hardware-memory=${hardware.memory || 16}`,
           `--hardware-vendor=${hardware.vendor || 'Google Inc. (NVIDIA)'}`,
-          `--hardware-renderer=${hardware.renderer || 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)'}`
+          `--hardware-renderer=${hardware.renderer || 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)'}`,
+          `--fp-seed=${hardware.fpSeed || 0}`
         ]
       }
     });

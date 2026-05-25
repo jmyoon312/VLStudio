@@ -26,6 +26,9 @@ class BrowserProfileResponse(BaseModel):
     tags: List[str] = [] # [NEW]
     daily_gen_count: int = 0
     last_gen_at: Optional[datetime] = None
+    tiktok_count: int = 0
+    insta_count: int = 0
+    notebooklm_count: int = 0
     
     class Config:
         from_attributes = True
@@ -67,10 +70,45 @@ def create_browser_profile(
         id=profile_id,
         name=profile_in.name,
         user_data_dir=user_data_dir,
-        user_agent=profile_in.user_agent,
-        tags=profile_in.tags or [] # [NEW]
+        user_agent=profile_in.user_agent
     )
     
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+class SyncYouTubeRequest(BaseModel):
+    youtube_channel_id: str
+
+@router.post("/sync-youtube", response_model=BrowserProfileResponse)
+def sync_youtube_channel_as_profile(
+    req: SyncYouTubeRequest,
+    db: Session = Depends(get_db)
+):
+    """Sync a YouTube Channel to act as a Browser Profile for TikTok/Insta"""
+    yt_channel = db.query(models.YouTubeChannel).filter(models.YouTubeChannel.channel_id == req.youtube_channel_id).first()
+    if not yt_channel:
+        raise HTTPException(404, "YouTube Channel not found")
+        
+    profile = db.query(models.BrowserProfile).filter(models.BrowserProfile.id == yt_channel.channel_id).first()
+    if profile:
+        return profile # Already exists
+        
+    settings = crud.get_settings(db)
+    from app.config import settings as settings_conf
+    root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+    base_user_data = os.path.join(root_path, "04_Profiles")
+    os.makedirs(base_user_data, exist_ok=True)
+    
+    user_data_dir = os.path.join(base_user_data, yt_channel.channel_id)
+    
+    profile = models.BrowserProfile(
+        id=yt_channel.channel_id,
+        name=f"{yt_channel.channel_name or '브랜드 채널'} (YouTube 연동)",
+        user_data_dir=user_data_dir,
+        user_agent=None
+    )
     db.add(profile)
     db.commit()
     db.refresh(profile)
@@ -93,8 +131,6 @@ def update_browser_profile(
         
     if update_in.name is not None:
         profile.name = update_in.name
-    if update_in.tags is not None:
-        profile.tags = update_in.tags
     
     db.commit()
     db.refresh(profile)

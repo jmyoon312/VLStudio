@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import { useI18n, LANGUAGES } from '../hooks/useI18n'
 import { TIMING } from '../config/defaults'
 import { fileSystemAPI } from '../hooks/useFileSystem'
@@ -227,9 +228,7 @@ export default function Header({
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
   const [newProfileEmail, setNewProfileEmail] = useState('')
-  const [showCreateForm, setShowCreateForm] = useState(false)
   const profileDropdownRef = useRef(null)
-
   const loadFlowProfiles = async () => {
     try {
       const config = await window.electronAPI.loadProfiles()
@@ -258,33 +257,6 @@ export default function Header({
       }
     } catch (err) {
       alert(`프로필 전환 에러: ${err.message}`)
-    }
-  }
-
-  // 신규 프로필 생성
-  const handleCreateProfile = async (e) => {
-    e.preventDefault()
-    if (!newProfileName.trim()) return
-    try {
-      clearTokenCache?.()
-      setAuthReady?.(false)
-      const result = await window.electronAPI.createProfile({
-        name: newProfileName,
-        email: newProfileEmail
-      })
-      if (result.success) {
-        setNewProfileName('')
-        setNewProfileEmail('')
-        setShowCreateForm(false)
-        await loadFlowProfiles()
-        setShowProfileDropdown(false)
-        // 전환 후 재인증 검증
-        setTimeout(() => checkAuth(true), 2500)
-      } else {
-        alert(`프로필 생성 실패: ${result.error}`)
-      }
-    } catch (err) {
-      alert(`프로필 생성 에러: ${err.message}`)
     }
   }
 
@@ -646,17 +618,6 @@ export default function Header({
                   </div>
                 ))}
               </div>
-              <div className="dropdown-divider"></div>
-              <button
-                className="profile-action-btn add-btn"
-                onClick={() => {
-                  setShowCreateForm(true)
-                  setShowProfileModal(true)
-                  setShowProfileDropdown(false)
-                }}
-              >
-                ➕ {lang === 'ko' ? '새 프로필 추가' : 'Add New Profile'}
-              </button>
             </div>
           )}
         </div>
@@ -691,60 +652,6 @@ export default function Header({
       <p className="modal-confirm-msg">
         <strong>"{deleteTarget}"</strong> {t('settings.deleteConfirm') || '프로젝트를 삭제하시겠습니까?\n모든 이미지와 데이터가 삭제됩니다.'}
       </p>
-    </Modal>
-
-    {/* 👤 Flow Multi-Profile 관리 모달 */}
-    <Modal
-      isOpen={showProfileModal}
-      onClose={() => {
-        setShowProfileModal(false)
-        setShowCreateForm(false)
-      }}
-      title={lang === 'ko' ? '👤 Flow 구글 멀티 프로필 추가' : '👤 Add Flow Google Profile'}
-      className="modal-profile-manage"
-    >
-      <form onSubmit={handleCreateProfile} className="profile-creation-form">
-        <p className="profile-modal-desc">
-          {lang === 'ko' 
-            ? '각 프로필은 물리적으로 완벽히 격리된 쿠키와 로컬 스토리지 공간을 가집니다. 추가로, 안티봇 차단 우회를 위해 구글이 전혀 다른 실제 PC 기기로 인식하도록 CPU 코어 수, RAM 용량, WebGL GPU 지문 정보가 1:1 고정 바인딩되어 매핑 생성됩니다.' 
-            : 'Each profile owns complete isolated cookies & storage partition. In addition, it binds unique hardware cores, RAM and GPU models automatically to evade anti-bot bans completely.'}
-        </p>
-        <div className="form-group-field">
-          <label>{lang === 'ko' ? '프로필 이름' : 'Profile Name'}</label>
-          <input
-            type="text"
-            placeholder={lang === 'ko' ? '예: 대성 서브계정 01' : 'e.g. Sub Account 01'}
-            value={newProfileName}
-            onChange={(e) => setNewProfileName(e.target.value)}
-            required
-            autoFocus
-          />
-        </div>
-        <div className="form-group-field">
-          <label>{lang === 'ko' ? '구글 이메일 (선택)' : 'Google Email (Optional)'}</label>
-          <input
-            type="email"
-            placeholder="example@gmail.com"
-            value={newProfileEmail}
-            onChange={(e) => setNewProfileEmail(e.target.value)}
-          />
-        </div>
-        <div className="profile-modal-actions">
-          <button
-            type="button"
-            className="btn-cancel"
-            onClick={() => {
-              setShowProfileModal(false)
-              setShowCreateForm(false)
-            }}
-          >
-            {lang === 'ko' ? '취소' : 'Cancel'}
-          </button>
-          <button type="submit" className="btn-create-submit">
-            {lang === 'ko' ? '생성 및 전환' : 'Create & Switch'}
-          </button>
-        </div>
-      </form>
     </Modal>
 
     {/* 사이드 드로워 */}

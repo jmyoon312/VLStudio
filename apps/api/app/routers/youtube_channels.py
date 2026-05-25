@@ -20,6 +20,11 @@ from app.services.stealth_ops_v2 import stealth_ops
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["YouTube Channels"])
+@router.get("/all")
+def get_all_youtube_channels(db: Session = Depends(get_db)):
+    """모든 유튜브 채널 목록 조회 (프론트엔드 연동 선택용)"""
+    return db.query(YouTubeChannel).all()
+
 @router.get("/captain/{profile_id}/channels")
 async def get_captain_channels(
     profile_id: str,
@@ -88,7 +93,10 @@ async def get_captain_channels(
             "engine_mode": ch.engine_mode or 'standard',
             "stealth_trust_score": ch.stealth_trust_score or 0,
             "is_network_isolated": ch.is_network_isolated or False,
-            "health_score": ch.stealth_trust_score if ch.stealth_trust_score is not None else 100
+            "health_score": ch.stealth_trust_score if ch.stealth_trust_score is not None else 100,
+            # [Cultivation]
+            "cultivation_strategy": getattr(ch, 'cultivation_strategy', None),
+            "cultivation_active": getattr(ch, 'cultivation_active', False)
         }
         for ch in channels
     ]

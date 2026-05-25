@@ -294,6 +294,10 @@ class WorkQueueItem(Base):
     video_file_path = Column(String, nullable=False)
     duration = Column(Integer, nullable=True)
     
+    # === 쇼핑 태그 (Shopping Tag) ===
+    enable_shopping_tag = Column(Boolean, default=False)
+    shopping_tag_keyword = Column(String, nullable=True)
+    
     # === 유입 경로 추적 ===
     source_type = Column(String, nullable=True)  # MANUAL, WORKFLOW, SCRIPT_REMIX, GALLERY_EXPORT
     source_workflow_id = Column(Integer, nullable=True)
@@ -324,6 +328,7 @@ class WorkQueueItem(Base):
     status = Column(String, default="QUEUED")
     upload_started_at = Column(DateTime, nullable=True)
     upload_completed_at = Column(DateTime, nullable=True)
+    published_at = Column(DateTime, nullable=True) # [NEW] Final publish or schedule time
     upload_progress = Column(Integer, default=0)
     
     # === 결과 ===
@@ -413,6 +418,7 @@ class Settings(Base):
     enable_trend_scheduling = Column(Boolean, default=True) # [NEW] Scheduler Toggle
     scan_interval_minutes = Column(Integer, default=60)
     enable_view_stats_collection = Column(Boolean, default=True) # [NEW] Prevent IP block if needed
+    auto_delete_mp4_days = Column(Integer, default=7) # [NEW] Delete MP4 files after X days (0 = disabled)
     
     # [NEW] Auto HD Download Thresholds
     auto_hd_viral_threshold = Column(Float, nullable=True)

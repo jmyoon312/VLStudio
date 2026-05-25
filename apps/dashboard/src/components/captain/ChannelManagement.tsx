@@ -30,6 +30,9 @@ interface Channel {
     engine_mode?: string;
     stealth_trust_score?: number;
     is_network_isolated?: boolean;
+    // [Cultivation] Fields
+    cultivation_strategy?: string;
+    cultivation_active?: boolean;
 }
 
 const ChannelManagement: React.FC<ChannelManagementProps> = ({ profileId }) => {
@@ -102,7 +105,7 @@ const ChannelManagement: React.FC<ChannelManagementProps> = ({ profileId }) => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900">채널 관리 및 보안 제어</h2>
+                    <h2 className="text-2xl font-bold text-slate-900">스텔스 채널 관리 (TinCan)</h2>
                     <p className="text-slate-500 mt-1">
                         관리 중인 {channels.length}개 채널의 격리 및 Stealth 상태를 모니터링합니다.
                     </p>
@@ -166,7 +169,7 @@ const ChannelManagement: React.FC<ChannelManagementProps> = ({ profileId }) => {
                             <div className="bg-slate-50 p-3 rounded-lg space-y-2 border border-slate-200">
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                                        🛡️ SAIF 보안 상태
+                                        🛡️ TinCan Stealth 엔진 상태
                                     </span>
                                     <Badge 
                                         className="text-[10px] px-1 py-0"
@@ -183,9 +186,9 @@ const ChannelManagement: React.FC<ChannelManagementProps> = ({ profileId }) => {
                                             onChange={(e) => handleUpdateSecurity(channel.channel_id, e.target.value)}
                                             disabled={updatingMap[channel.channel_id]}
                                         >
-                                            <option value="standard">Standard (Chrome) - 권장</option>
-                                            <option value="cloak">Cloak (Hardened) - 고보안</option>
-                                            <option value="fox">Fox (Diversified) - 최상위 격리</option>
+                                            <option value="standard">Patchright (Stealth Mode) - 권장</option>
+                                            <option value="cloak">Patchright (Hardened) - 고보안</option>
+                                            <option value="fox">API Upload Only - 비상용</option>
                                         </select>
                                         <div className="absolute right-2 top-1.5 pointer-events-none flex items-center gap-1">
                                             <Badge className="text-[7px] px-1 h-3 bg-blue-500 hover:bg-blue-500">SYSTEM</Badge>
@@ -200,33 +203,51 @@ const ChannelManagement: React.FC<ChannelManagementProps> = ({ profileId }) => {
                                         <RefreshCw className="h-3 w-3" />
                                     </Button>
                                 </div>
-                                <p className="text-[9px] text-indigo-500 font-medium leading-tight">
-                                    🛡️ 정체성 일관성 정책에 의해 시스템이 자동 보호 중입니다.
-                                </p>
+                                
+                                {/* Engine Mode Explanation */}
+                                <div className="bg-slate-50 border border-slate-200 rounded p-2 text-[10px] text-slate-600 leading-relaxed mt-2 mb-2">
+                                    {channel.engine_mode === 'cloak' ? (
+                                        <><span className="font-bold text-indigo-700">고보안(Hardened) 모드:</span> 섀도우밴 집중 감시 기간(Death Valley)이거나 경고 누적 채널에 필수적입니다. 모든 요청에 극강의 지문 변조와 프록시 회전이 강제되어 속도는 느리지만 생존율을 극대화합니다.</>
+                                    ) : channel.engine_mode === 'fox' ? (
+                                        <><span className="font-bold text-amber-700">API Upload Only 모드:</span> 브라우저 웜업 로직을 생략하고 공식 API만 사용하여 초고속으로 업로드합니다. 이미 인큐베이팅을 거쳐 신뢰도가 완벽히 확보된 채널에만 사용하세요.</>
+                                    ) : (
+                                        <><span className="font-bold text-blue-700">권장(Stealth) 모드:</span> 99%의 채널에 적합한 기본 모드입니다. 휴먼 딜레이와 적절한 스텔스 기능이 균형있게 적용되어 알고리즘에 자연스러운 채널로 인식되도록 돕습니다.</>
+                                    )}
+                                </div>
 
                                 {/* [SAIF-2026] DNA Profile Visualization */}
                                 <div className="space-y-1 mb-2">
                                     <div className="flex items-center gap-1.5">
                                         <Badge variant="outline" className="text-[8px] h-3.5 bg-indigo-50 text-indigo-600 border-indigo-100">
-                                            가상 기기 격리 모드 (Device Isolation)
+                                            네트워크 및 기기 격리 적용 (Device Isolation)
                                         </Badge>
                                     </div>
-                                    <p className="text-[8px] text-slate-600">
-                                        * 각 채널은 물리적으로 분리된 별도의 기기 정체성을 가집니다.
-                                    </p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-1 mt-2">
                                     <div className="bg-white/50 border border-slate-200 rounded p-1.5 flex flex-col">
-                                        <span className="text-[8px] text-slate-600 uppercase font-bold">CPU DNA</span>
-                                        <span className="text-[10px] font-mono text-indigo-600 font-bold">8 Cores (Locked)</span>
+                                        <span className="text-[8px] text-slate-600 uppercase font-bold">BROWSER ENGINE</span>
+                                        <span className="text-[10px] font-mono text-indigo-600 font-bold">Patchright v1.4</span>
                                     </div>
                                     <div className="bg-white/50 border border-slate-200 rounded p-1.5 flex flex-col">
-                                        <span className="text-[8px] text-slate-600 uppercase font-bold">RAM DNA</span>
-                                        <span className="text-[10px] font-mono text-indigo-600 font-bold">16 GB (Fixed)</span>
+                                        <span className="text-[8px] text-slate-600 uppercase font-bold">NETWORK ISOLATION</span>
+                                        <span className="text-[10px] font-mono text-indigo-600 font-bold">
+                                            {channel.is_network_isolated ? 'LTE Tethering' : 'Proxy Routing'}
+                                        </span>
                                     </div>
                                     <div className="col-span-2 bg-white/50 border border-slate-200 rounded p-1.5 flex flex-col">
-                                        <span className="text-[8px] text-slate-600 uppercase font-bold">GPU RENDERER DNA</span>
-                                        <span className="text-[9px] font-mono text-slate-600 truncate">NVIDIA GeForce RTX 3060 (SAIF-Masked)</span>
+                                        <span className="text-[8px] text-slate-600 uppercase font-bold">CULTIVATION STRATEGY</span>
+                                        <span className="text-[9px] font-mono text-slate-600 truncate flex items-center justify-between">
+                                            {channel.cultivation_strategy ? (
+                                                <>
+                                                    <span>{channel.cultivation_strategy}</span>
+                                                    <Badge variant={channel.cultivation_active ? "default" : "secondary"} className="text-[8px] h-3">
+                                                        {channel.cultivation_active ? "진행 중" : "일시 정지"}
+                                                    </Badge>
+                                                </>
+                                            ) : (
+                                                <span className="text-muted-foreground">수동 모드 (미지정)</span>
+                                            )}
+                                        </span>
                                     </div>
                                 </div>
                             </div>

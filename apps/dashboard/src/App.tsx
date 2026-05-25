@@ -156,6 +156,7 @@ function MainAppContent() {
                     <Route path="/captain/dashboard" element={<CaptainQuarters />} />
                     <Route path="/captain/:profileId/dashboard" element={<CaptainQuarters />} />
                     <Route path="/captain/:profileId/channels" element={<CaptainQuarters />} />
+                    <Route path="/captain/:profileId/settings" element={<CaptainQuarters />} />
                     <Route path="/captain/:profileId" element={<CaptainQuarters />} />
                     <Route path="/captain/channels" element={<CaptainQuarters />} />
                     <Route path="/captain" element={<CaptainQuarters />} />

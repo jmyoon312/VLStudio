@@ -134,16 +134,12 @@ class AIMetadataService:
                 sys.path.append(backend_root)
                 
             from subtitle_core import SubtitleEngine
-            from app.dependency_manager import DependencyManager
             
-            # Use FFmpeg path from settings or auto-detect via DependencyManager
-            # DependencyManager returns the full executable path, which SubtitleEngine supports
+            # Initialize Engine (SubtitleEngine takes no constructor arguments)
+            engine = SubtitleEngine()
+            
+            # Use ffmpeg path from settings if available
             ffmpeg_path = self.settings.ffmpeg_path
-            if not ffmpeg_path or not os.path.exists(ffmpeg_path):
-                ffmpeg_path = DependencyManager.get_ffmpeg_path()
-            
-            # Initialize Engine
-            engine = SubtitleEngine(ffmpeg_path=ffmpeg_path)
             
             # Run Transcription (using 'base' model by default for speed/accuracy balance)
             srt_content, error = engine.extract_subtitle(
@@ -191,12 +187,11 @@ class AIMetadataService:
                 subtitle_text = self.extract_subtitles(video_path)
             
             if not subtitle_text:
-                logger.warning("No subtitle text available for metadata generation")
-                return {
-                    "title": "",
-                    "description": "",
-                    "hashtags": []
-                }
+                logger.warning("No subtitle text available for metadata generation. Using filename as hint.")
+                # Use the video filename as a minimal context hint for the AI
+                filename = os.path.basename(video_path)
+                filename_no_ext = os.path.splitext(filename)[0]
+                subtitle_text = f"[영상 파일명: {filename_no_ext}] (자막 추출 실패 - 파일명 기반으로 메타데이터를 생성합니다)"
             
             # Truncate subtitle text if too long (max 8000 chars for context)
             if len(subtitle_text) > 8000:

@@ -46,9 +46,10 @@ def type_b_gen_node(state: VideoProductionState) -> VideoProductionState:
     llm = brain_router.get_active_llm()
     
     # Generate Script
+    dna = state.get("channel_dna", {})
     messages = [
         SystemMessage(content="You are an expert YouTube script writer."),
-        HumanMessage(content=f"Write a short script using this DNA: {state['channel_dna']}")
+        HumanMessage(content=f"Write a short script using this DNA: {dna}")
     ]
     response = llm.invoke(messages)
     state["script_content"] = response.content

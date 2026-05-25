@@ -1,5 +1,5 @@
 import os
-from playwright.sync_api import sync_playwright
+from patchright.sync_api import sync_playwright
 
 class DouyinChannelScraper:
     def __init__(self, settings=None):

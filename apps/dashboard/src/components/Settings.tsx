@@ -579,6 +579,31 @@ const Settings = () => {
                                         </div>
                                     </div>
 
+                                    {/* Auto Delete Interval */}
+                                    <div className="space-y-2 pt-4 border-t border-dashed">
+                                        <Label>영상 파일 자동 삭제 주기 (용량 확보)</Label>
+                                        <div className="flex gap-2 items-center">
+                                            <Select
+                                                value={formData.auto_delete_mp4_days?.toString() || "7"}
+                                                onValueChange={(val) => setFormData({ ...formData, auto_delete_mp4_days: parseInt(val) })}
+                                            >
+                                                <SelectTrigger className="w-[200px] bg-white">
+                                                    <SelectValue placeholder="자동 삭제 주기 선택" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="7">7일 후 삭제</SelectItem>
+                                                    <SelectItem value="15">15일 후 삭제</SelectItem>
+                                                    <SelectItem value="30">1개월 후 삭제</SelectItem>
+                                                    <SelectItem value="60">2개월 후 삭제</SelectItem>
+                                                    <SelectItem value="0">삭제 안 함</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            * 설정한 기간이 지나면 MP4 영상 파일만 자동 삭제되며, 메타데이터 기록은 유지됩니다.
+                                        </p>
+                                    </div>
+
                                     {/* Cleanup Old Videos Section */}
                                     <div className="space-y-2 pt-4 border-t border-dashed">
                                         <Label>오래된 영상 정리 (Clean up old videos)</Label>

@@ -6,7 +6,7 @@
  * webContents.executeJavaScript() in the main process.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   generateImageDOM as generateImageDOMImpl,
   submitGenerationDOM as submitGenerationDOMImpl,
@@ -84,6 +84,16 @@ export function useFlowAPI() {
 
     return null
   }, [accessToken, tokenExpiry])
+
+  // [Phase 3] 1시간 뒤 토큰 만료를 방지하기 위한 45분 주기 자동 갱신 (Token Refresh)
+  useEffect(() => {
+    if (!accessToken) return
+    const intervalId = setInterval(() => {
+      console.log('[FlowAPI] Background auto-refreshing access token to prevent expiry...')
+      getAccessToken(true)
+    }, 45 * 60 * 1000) // 45분마다 강제 갱신
+    return () => clearInterval(intervalId)
+  }, [accessToken, getAccessToken])
 
   /**
    * 이미지 생성 (DOM 자동화 + CDP 네트워크 캡처)

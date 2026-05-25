@@ -45,6 +45,21 @@ class UploadOrchestrator:
             
             self._publish_progress(queue_item_id, 0, "업로드 시작", task_instance)
             
+            # Anti-Association Shield Configs
+            platform_configs = item.platform_configs or {}
+            yt_config = platform_configs.get('youtube', {})
+            shield_cfg = yt_config.get('anti_association', {})
+            shield_enabled = shield_cfg.get('enabled', False)
+            
+            # 3.4 Jitter Jumps
+            if shield_enabled and shield_cfg.get('jitter_jumps', False):
+                import random
+                import time
+                jitter_secs = random.randint(30, 900)
+                self._publish_progress(queue_item_id, 2, f"🛡️ Jitter Jumps: {jitter_secs}초 지연 대기 중...", task_instance)
+                logger.info(f"Jitter jumps enabled. Sleeping for {jitter_secs}s")
+                time.sleep(jitter_secs)
+            
             # 3.5 Apply Mutation (Sovereign Shield) [NEW]
             try:
                 from app.services.video.mutation_engine import mutation_engine
@@ -53,34 +68,45 @@ class UploadOrchestrator:
                 original_video_path = item.video_file_path
                 if original_video_path and os.path.exists(original_video_path):
                     mutated_video_path = original_video_path.replace(".mp4", "_v65_shield.mp4")
+                    channel_id = yt_config.get('channel_id', 'unknown_channel')
                     
-                    self._publish_progress(queue_item_id, 5, "🛡️ 알고리즘 교란 엔진 적용 중...", task_instance)
-                    success = mutation_engine.apply_mutation(original_video_path, mutated_video_path, intensity=0.5)
-                    if success:
-                        item.video_file_path = mutated_video_path # Point to mutated version for upload
-                        
-                        # [SAIF-2026] Update underlying Video metadata for UI visibility
-                        if item.video:
-                            meta = dict(item.video.metadata_json) if item.video.metadata_json else {}
-                            meta["saif_mutated"] = True
-                            meta["mutated_at"] = datetime.now().isoformat()
-                            item.video.metadata_json = meta
-                            
-                        db.commit()
-                        logger.info(f"🛡️ Sovereign Shield applied and flagged for item {queue_item_id}")
-                    else:
-                        logger.warning(f"Mutation failed for item {queue_item_id}, proceeding with original.")
+                    intensity_str = shield_cfg.get('mutation_intensity', '0.5') if shield_enabled else '0.5'
+                    intensity = float(intensity_str)
+                    
+                    if shield_enabled and intensity > 0.0:
+                        self._publish_progress(queue_item_id, 5, f"🛡️ 알고리즘 교란 엔진 (강도 {intensity}) 적용 중...", task_instance)
+                        success = mutation_engine.apply_mutation(original_video_path, mutated_video_path, channel_id=channel_id, intensity=intensity)
+                        if success:
+                            item.video_file_path = mutated_video_path
+                            if item.video:
+                                meta = dict(item.video.metadata_json) if item.video.metadata_json else {}
+                                meta["saif_mutated"] = True
+                                meta["mutated_at"] = datetime.now().isoformat()
+                                item.video.metadata_json = meta
+                            db.commit()
+                            logger.info(f"🛡️ Sovereign Shield applied and flagged for item {queue_item_id}")
+                        else:
+                            logger.warning(f"Mutation failed for item {queue_item_id}, proceeding with original.")
+                    elif shield_enabled and shield_cfg.get('metadata_scrub', False):
+                        self._publish_progress(queue_item_id, 5, "🛡️ 메타데이터 파괴 중...", task_instance)
+                        import subprocess
+                        subprocess.run([
+                            mutation_engine.ffmpeg, "-y", "-i", original_video_path, 
+                            "-map_metadata", "-1", "-c", "copy", mutated_video_path
+                        ], check=False, capture_output=True)
+                        if os.path.exists(mutated_video_path):
+                            item.video_file_path = mutated_video_path
+                            db.commit()
             except Exception as mutation_err:
                 logger.error(f"Mutation process error: {mutation_err}")
 
             # 3.7 [NEW] Dynamic SEO Optimization (Stage 9)
-            # Generate viral Title/Tags if missing or enhance existing
             try:
-                from app.config.feature_flags import get_llm_client
-                llm = get_llm_client()
-                if not item.title or "Sovereign" in item.title: # Enhance default titles
-                    self._publish_progress(queue_item_id, 8, "✍️ 단계 9: 동적 SEO 최적화 중...", task_instance)
-                    seo_prompt = f"Optimize this niche '{item.category}' for a viral video. Title, Description, and 5 hashtags. JSON format."
+                if shield_enabled and shield_cfg.get('dynamic_seo', False):
+                    from app.config.feature_flags import get_llm_client
+                    llm = get_llm_client()
+                    self._publish_progress(queue_item_id, 8, "✍️ 단계 9: AI 동적 SEO 최적화 중...", task_instance)
+                    seo_prompt = f"Optimize this niche '{item.category}' for a viral video. Title, Description, and 5 hashtags. JSON format. Base Title: {item.title}"
                     seo_data = llm.generate_structured_response(seo_prompt)
                     if seo_data:
                         item.title = seo_data.get("title", item.title)
@@ -88,8 +114,22 @@ class UploadOrchestrator:
                         item.hashtags = seo_data.get("hashtags", item.hashtags)
                         db.commit()
                         logger.info(f"✨ SEO Optimized for item {queue_item_id}")
+                elif not item.title or "Sovereign" in item.title:
+                    from app.config.feature_flags import get_llm_client
+                    llm = get_llm_client()
+                    self._publish_progress(queue_item_id, 8, "✍️ 단계 9: 기본 제목 최적화 중...", task_instance)
+                    seo_prompt = f"Optimize this niche '{item.category}' for a viral video. Title, Description, and 5 hashtags. JSON format."
+                    seo_data = llm.generate_structured_response(seo_prompt)
+                    if seo_data:
+                        item.title = seo_data.get("title", item.title)
+                        item.description = seo_data.get("description", item.description)
+                        item.hashtags = seo_data.get("hashtags", item.hashtags)
+                        db.commit()
             except Exception as seo_err:
                 logger.error(f"SEO process error: {seo_err}")
+
+            if shield_enabled and shield_cfg.get('smart_routing', False):
+                force_ip_rotation = True
 
             # 4. 플랫폼별 업로드 실행
             results = {}

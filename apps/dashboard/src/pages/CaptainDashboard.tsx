@@ -150,8 +150,8 @@ const CaptainDashboard: React.FC<{ profileId?: string | null }> = ({ profileId }
         return (
             <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>오류</AlertTitle>
-                <AlertDescription>대시보드 데이터를 불러올 수 없습니다.</AlertDescription>
+                <AlertTitle>알림</AlertTitle>
+                <AlertDescription>대시보드 데이터가 아직 수집되지 않았습니다. 잠시 후 '새로고침'을 눌러주세요.</AlertDescription>
             </Alert>
         );
     }
@@ -246,10 +246,10 @@ const CaptainDashboard: React.FC<{ profileId?: string | null }> = ({ profileId }
                 />
                 <MetricCard
                     title="평균 참여율"
-                    value={avgEngagementRate > 0 ? `${avgEngagementRate.toFixed(2)}%` : "데이터 없음"}
-                    subtitle={avgEngagementRate >= 3.5 ? "우수" : avgEngagementRate >= 2 ? "양호" : avgEngagementRate > 0 ? "보통" : "MANAGER 권한 제한"}
+                    value={avgEngagementRate > 0 ? `${avgEngagementRate.toFixed(2)}%` : "데이터 수집 전"}
+                    subtitle={avgEngagementRate >= 3.5 ? "우수" : avgEngagementRate >= 2 ? "양호" : avgEngagementRate > 0 ? "보통" : "데이터 수집 후 산출"}
                     icon={<TrendingUp className="w-4 h-4" />}
-                    color={avgEngagementRate > 0 ? "green" : "purple"}
+                    color={avgEngagementRate > 0 ? "green" : "slate"}
                 />
             </div>
 

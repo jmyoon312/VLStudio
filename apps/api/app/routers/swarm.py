@@ -286,7 +286,7 @@ class LangGraphResumeRequest(BaseModel):
     modified_script: Optional[str] = None
 
 @router.post("/missions/resume")
-async def resume_langgraph_run(request: LangGraphResumeRequest):
+async def resume_langgraph_run(request: LangGraphResumeRequest, background_tasks: __import__('fastapi').BackgroundTasks):
     """
     Resumes a LangGraph workflow that was halted at a HITL gateway.
     """
@@ -301,13 +301,12 @@ async def resume_langgraph_run(request: LangGraphResumeRequest):
 
     app_graph.update_state(config, update_data)
     
-    # Resume the graph
-    result = app_graph.invoke(None, config)
+    # Resume the graph in the background so we don't block the UI
+    background_tasks.add_task(app_graph.invoke, None, config)
     
     return {
         "status": "RESUMED",
-        "message": "Workflow resumed.",
-        "result": result
+        "message": "Workflow resumed in the background."
     }
 
 # --- PHASE 5: SOVEREIGN CONTROL & TELEMETRY ---

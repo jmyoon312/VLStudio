@@ -26,11 +26,17 @@ class RuleEngine:
             적용할 설정 딕셔너리
         """
         # 활성 규칙을 우선순위 순으로 조회
-        rules = self.db.query(models.UploadRule).filter(
-            models.UploadRule.is_active == True
-        ).order_by(
-            models.UploadRule.priority.desc()
-        ).all()
+        # UploadRule 모델에 is_active/priority 컬럼이 없을 수 있어 안전하게 처리
+        try:
+            rules = self.db.query(models.UploadRule).filter(
+                models.UploadRule.is_active == True
+            ).order_by(
+                models.UploadRule.priority.desc()
+            ).all()
+        except Exception:
+            # is_active or priority column doesn't exist in this schema version — skip rules
+            logger.warning("UploadRule schema mismatch (missing is_active/priority). Skipping rule evaluation.")
+            return {}
         
         applied_actions = {}
         

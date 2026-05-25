@@ -132,3 +132,31 @@ Rewrite the script:
         
         return response
 
+    def extract_shopping_keyword(self, title: str, description: str) -> str:
+        """
+        Extracts a single shopping keyword for Coupang/YouTube Shopping from title and description.
+        """
+        model = self.settings.script_analysis_model or "groq/llama-3.3-70b-versatile"
+        
+        system_instruction = """
+        You are an e-commerce keyword extraction bot. 
+        Your task is to read a video's title and description and output EXACTLY ONE physical product keyword that can be searched and sold on Coupang or YouTube Shopping.
+        - The keyword must be a generic noun (e.g., "캠핑 텐트", "스마트폰 거치대", "게이밍 마우스").
+        - Do NOT include brand names if it's too specific, keep it searchable.
+        - Output ONLY the KOREAN keyword string. No explanations, no markdown, no quotes.
+        - If the video context is purely abstract, news, vlog, or not related to any physical product, output the exact string "NONE".
+        """
+        
+        user_prompt = f"Title: {title}\nDescription: {description}"
+        
+        response = self.llm_client.generate_content(
+            prompt=user_prompt,
+            model=model,
+            system_instruction=system_instruction,
+            full_response=False
+        )
+        
+        clean_keyword = response.strip().replace('"', '').replace("'", "")
+        return clean_keyword
+
+

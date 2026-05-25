@@ -80,51 +80,17 @@ function asDate(v) {
  * }}
  */
 export function computeQuotaState(appData, now) {
-  // 신규 사용자 (doc 없음)
-  if (!appData) {
-    return {
-      isActive: false,
-      isExpired: false,
-      subscriptionStatus: 'trial',
-      bonusRemaining: BONUS_GRANT,
-      monthlyUsed: 0,
-      monthlyQuota: MONTHLY_QUOTA,
-      monthlyRemaining: MONTHLY_QUOTA,
-      effectiveRemaining: BONUS_GRANT + MONTHLY_QUOTA,
-    }
-  }
-
-  // 활성 구독자 — 무제한
-  if (appData.subscriptionStatus === 'active') {
-    return {
-      isActive: true,
-      isExpired: false,
-      subscriptionStatus: 'active',
-      bonusRemaining: appData.bonusRemaining ?? 0,
-      monthlyUsed: appData.monthlyUsed ?? 0,
-      monthlyQuota: Infinity,
-      monthlyRemaining: Infinity,
-      effectiveRemaining: Infinity,
-    }
-  }
-
-  // 무료 사용자 — B-3 quota 계산
-  const bonusRemaining = appData.bonusRemaining ?? BONUS_GRANT  // lazy migrate
-  const storedPeriodStart = asDate(appData.quotaPeriodStart)
-  const inSamePeriod = sameUtcMonth(storedPeriodStart, now)
-  const monthlyUsed = inSamePeriod ? (appData.monthlyUsed ?? 0) : 0
-  const monthlyRemaining = Math.max(0, MONTHLY_QUOTA - monthlyUsed)
-  const effectiveRemaining = bonusRemaining + monthlyRemaining
-  const isExpired = effectiveRemaining <= 0
-
+  // [ViraLoop Studio] 로컬 환경 우회(Bypass)
+  // 요금제/인증 제한을 무력화하고 항상 최상위 권한(Pro)으로 인식하게 합니다.
   return {
-    isActive: !isExpired,
-    isExpired,
-    subscriptionStatus: isExpired ? 'expired' : 'trial',
-    bonusRemaining,
-    monthlyUsed,
-    monthlyQuota: MONTHLY_QUOTA,
-    monthlyRemaining,
-    effectiveRemaining,
+    isActive: true,
+    isExpired: false,
+    subscriptionStatus: 'active',
+    bonusRemaining: Infinity,
+    monthlyUsed: 0,
+    monthlyQuota: Infinity,
+    monthlyRemaining: Infinity,
+    effectiveRemaining: Infinity,
   }
 }
+

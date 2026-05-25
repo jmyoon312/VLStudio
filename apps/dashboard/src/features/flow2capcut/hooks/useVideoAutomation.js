@@ -346,6 +346,7 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
     // ═══════════════════════════════════════════
     const submissions = inFlight.map(it => ({ itemId: it.id, generationId: it.generationId }))
     let completedCount = 0
+    let throttleStrikes = 0 // [Phase 3] 429/reCAPTCHA 차단 횟수 추적
 
     for (let i = 0; i < freshGen.length; i++) {
       if (stopRequestedRef.current) break
@@ -360,6 +361,7 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
       })
 
       if (genResult.success && genResult.generationId) {
+        throttleStrikes = 0
         submissions.push({ itemId: item.id, generationId: genResult.generationId })
         // Persist generationId + 메타(seed/model) 를 즉시 state 에 박는다.
         // app-kill → reload → recovery 시 videoRecovery 가 item.model/seed 를 읽어
@@ -381,8 +383,47 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
         })
         console.log(`[VideoAutomation] ✅ Submitted ${i + 1}/${total}: ${genResult.generationId.substring(0, 16)}...`)
       } else {
+        const errStr = String(genResult.error || '')
+        
+        // [Phase 3] 크레딧 고갈 시 즉시 중단 (Quota Exhaustion)
+        if (errStr.includes('out_of_credits')) {
+          console.error('[VideoAutomation] Quota exhausted (out_of_credits), stopping batch immediately.')
+          toast.error('크레딧이 모두 소진되어 자동화를 즉시 중지합니다.')
+          onItemUpdate?.(item.id, 'error', { error: 'Out of credits' })
+          break
+        }
+        
+        // [Phase 3] 구글 차단 (429/reCAPTCHA/253) 감지 시 스마트 대기 (Backoff)
+        if (errStr.includes('429') || errStr.toLowerCase().includes('recaptcha') || errStr.includes('253')) {
+          const waitMinutes = throttleStrikes === 0 ? 5 : (throttleStrikes === 1 ? 10 : 30)
+          console.warn(`[VideoAutomation] Flow throttled (Strike ${throttleStrikes + 1}). Waiting ${waitMinutes} minutes before retry...`)
+          
+          if (Notification.permission === 'granted') {
+            new Notification('ViraLoop Studio', { body: `비디오 생성이 차단되었습니다. ${waitMinutes}분 후 자동으로 재시도합니다.` })
+          }
+          
+          let secondsLeft = waitMinutes * 60
+          while (secondsLeft > 0 && !stopRequestedRef.current) {
+            setStatusMessage(`⏳ 구글 차단 대기 중... (${Math.floor(secondsLeft/60)}분 ${secondsLeft%60}초 후 자동 재시도)`)
+            await sleep(1000)
+            secondsLeft--
+          }
+          
+          if (stopRequestedRef.current) break
+          
+          throttleStrikes++
+          if (throttleStrikes >= 3) {
+             console.error('[VideoAutomation] 3번 연속 차단되어 대기를 포기하고 자동화를 중지합니다.')
+             toast.error('구글 차단이 지속되어 안전을 위해 비디오 자동화를 중지했습니다.')
+             break
+          }
+          // 동일 아이템 재시도를 위해 인덱스 복구
+          i--
+          continue
+        }
+
         // 401 인증 에러 감지
-        if (genResult.error && (genResult.error.includes('401') || genResult.error.includes('auth'))) {
+        if (errStr.includes('401') || errStr.includes('auth')) {
           onAuthError?.()
         }
         onItemUpdate?.(item.id, 'error', { error: genResult.error })

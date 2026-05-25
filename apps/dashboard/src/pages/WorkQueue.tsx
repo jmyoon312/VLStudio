@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
@@ -13,7 +14,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import {
     Upload, FileVideo, Workflow, Image, CheckCircle, XCircle, Clock,
-    Play, Pause, Trash2, Edit, Eye, Youtube, Send, Settings, RotateCcw, AlertTriangle
+    Play, Pause, Trash2, Edit, Eye, Youtube, Send, Settings, RotateCcw, AlertTriangle,
+    Shield, Fingerprint, Activity, Clock4
 } from 'lucide-react';
 
 const WorkQueue = () => {
@@ -23,10 +25,15 @@ const WorkQueue = () => {
     const [activeTab, setActiveTab] = useState('queued');
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isBulkShieldOpen, setIsBulkShieldOpen] = useState(false);
     const [isPlayerOpen, setIsPlayerOpen] = useState(false);
     const [playingItem, setPlayingItem] = useState<any>(null);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [wsConnections, setWsConnections] = useState<Map<number, WebSocket>>(new Map());
+    
+    // [NEW] Filters and Pagination
+    const [dateFilter, setDateFilter] = useState('all');
+    const [limit, setLimit] = useState(20);
 
     // === 데이터 로딩 ===
     useEffect(() => {
@@ -37,7 +44,7 @@ const WorkQueue = () => {
             loadStats();
         }, 5000); // 5초마다 새로고침
         return () => clearInterval(interval);
-    }, [activeTab]);
+    }, [activeTab, dateFilter, limit]);
 
     // === WebSocket 연결 관리 ===
     useEffect(() => {
@@ -110,11 +117,12 @@ const WorkQueue = () => {
         try {
             const statusFilter = activeTab === 'queued' ? 'QUEUED' :
                 activeTab === 'uploading' ? 'UPLOADING' :
-                    activeTab === 'completed' ? 'COMPLETED' : null;
+                    activeTab === 'verifying' ? 'VERIFYING' :
+                        activeTab === 'completed' ? 'COMPLETED' :
+                            activeTab === 'failed_review' ? 'FAILED_REVIEW' : null;
 
-            const url = statusFilter
-                ? `/api/work-queue/items?status=${statusFilter}`
-                : '/api/work-queue/items';
+            let url = `/api/work-queue/items?limit=${limit}&date_filter=${dateFilter}`;
+            if (statusFilter) url += `&status=${statusFilter}`;
 
             const response = await fetchWithRetry(url);
             const data = await response.json();
@@ -140,8 +148,10 @@ const WorkQueue = () => {
         const variants: Record<string, any> = {
             'QUEUED': { variant: 'secondary', icon: Clock, text: '대기 중' },
             'UPLOADING': { variant: 'default', icon: Upload, text: '업로드 중' },
+            'VERIFYING': { variant: 'warning', icon: Clock4, text: '검증 중(대기)' },
             'COMPLETED': { variant: 'success', icon: CheckCircle, text: '완료' },
-            'FAILED': { variant: 'destructive', icon: XCircle, text: '실패' }
+            'FAILED': { variant: 'destructive', icon: XCircle, text: '실패' },
+            'FAILED_REVIEW': { variant: 'destructive', icon: Shield, text: '검증 실패' }
         };
         const config = variants[status] || variants['QUEUED'];
         const Icon = config.icon;
@@ -164,16 +174,15 @@ const WorkQueue = () => {
         return <Badge variant={config.variant}>{config.text}</Badge>;
     };
 
-    // === 승인/반려 (HITL Gateway) ===
+    // === 승인/반려 ===
     const handleApprove = async (itemId: number) => {
         try {
-            // [NEW] Call the LangGraph Resume API
-            await fetchWithRetry(`/api/swarm/missions/resume`, {
+            await fetchWithRetry('/api/work-queue/batch/approve', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project_id: String(itemId), action: 'APPROVE' })
+                body: JSON.stringify({ item_ids: [itemId], approved_by: 'user' })
             });
-            toast({ title: "승인 완료", description: "영상이 렌더링 노드로 진입했습니다." });
+            toast({ title: "승인 완료", description: "작업이 승인되어 대기열에 추가되었습니다." });
             loadQueueItems();
         } catch (error) {
             toast({ variant: "destructive", title: "오류", description: "승인 처리 실패" });
@@ -182,11 +191,10 @@ const WorkQueue = () => {
 
     const handleReject = async (itemId: number, reason: string) => {
         try {
-            // [NEW] Call the LangGraph Resume API with REJECT action
-            await fetchWithRetry(`/api/swarm/missions/resume`, {
+            await fetchWithRetry('/api/work-queue/batch/reject', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ project_id: String(itemId), action: 'REJECT', modified_script: reason })
+                body: JSON.stringify({ item_ids: [itemId], reason })
             });
             toast({ title: "반려 완료", description: "작업이 반려되었습니다." });
             loadQueueItems();
@@ -400,12 +408,22 @@ const WorkQueue = () => {
                 }}
                 initialData={editingItem}
             />
+            <BulkShieldDialog
+                isOpen={isBulkShieldOpen}
+                setIsOpen={setIsBulkShieldOpen}
+                onSuccess={() => {
+                    setSelectedItems([]);
+                    loadQueueItems();
+                }}
+                selectedItems={selectedItems}
+            />
 
             {/* 통계 카드 */}
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <StatCard title="전체" value={stats.total || 0} icon={FileVideo} />
                 <StatCard title="대기 중" value={stats.queued || 0} icon={Clock} color="blue" />
                 <StatCard title="업로드 중" value={stats.uploading || 0} icon={Upload} color="yellow" />
+                <StatCard title="검증 중" value={stats.verifying || 0} icon={Clock4} color="orange" />
                 <StatCard title="완료" value={stats.completed || 0} icon={CheckCircle} color="green" />
                 <StatCard title="실패" value={stats.failed || 0} icon={XCircle} color="red" />
             </div>
@@ -425,6 +443,14 @@ const WorkQueue = () => {
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
+                                <Button
+                                    size="sm"
+                                    onClick={() => setIsBulkShieldOpen(true)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white mr-2"
+                                >
+                                    <Shield className="w-4 h-4 mr-1" />
+                                    방어 체계 일괄 적용
+                                </Button>
                                 <Button
                                     size="sm"
                                     onClick={handleBatchApprove}
@@ -474,12 +500,32 @@ const WorkQueue = () => {
 
             {/* 탭 */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="bg-muted border border-border">
+                {/* 탭 및 필터 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <TabsList className="bg-muted border border-border flex-wrap h-auto">
                     <TabsTrigger value="queued">대기열 ({stats.queued || 0})</TabsTrigger>
                     <TabsTrigger value="uploading">진행 중 ({stats.uploading || 0})</TabsTrigger>
+                    <TabsTrigger value="verifying">검증 중 ({stats.verifying || 0})</TabsTrigger>
                     <TabsTrigger value="completed">완료됨 ({stats.completed || 0})</TabsTrigger>
+                    <TabsTrigger value="failed_review">검증실패 ({stats.failed_review || 0})</TabsTrigger>
                     <TabsTrigger value="all">전체</TabsTrigger>
                 </TabsList>
+                
+                <div className="flex items-center gap-2">
+                    <Label className="text-sm whitespace-nowrap text-muted-foreground">기간:</Label>
+                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                        <SelectTrigger className="w-[120px] h-9 bg-background">
+                            <SelectValue placeholder="전체" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="today">오늘</SelectItem>
+                            <SelectItem value="week">최근 7일</SelectItem>
+                            <SelectItem value="month">최근 30일</SelectItem>
+                            <SelectItem value="all">전체 기간</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
 
                 <TabsContent value={activeTab} className="mt-6">
                     {queueItems.length === 0 ? (
@@ -507,6 +553,17 @@ const WorkQueue = () => {
                                     toggleItemSelection={toggleItemSelection}
                                 />
                             ))}
+                            
+                            {/* [NEW] Load More Button */}
+                            {queueItems.length >= limit && (
+                                <Button 
+                                    variant="outline" 
+                                    className="w-full mt-4" 
+                                    onClick={() => setLimit(prev => prev + 20)}
+                                >
+                                    더 보기 (현재 {queueItems.length}개)
+                                </Button>
+                            )}
                         </div>
                     )}
                 </TabsContent>
@@ -547,7 +604,14 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <Card className="hover:shadow-md transition-shadow bg-card border-border">
+        <Card 
+            className="hover:shadow-md transition-shadow bg-card border-border select-none"
+            onMouseEnter={(e) => {
+                if (e.buttons === 1 && !selectedItems.includes(item.id)) {
+                    toggleItemSelection(item.id);
+                }
+            }}
+        >
             <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
@@ -573,6 +637,16 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
                                     미리보기
                                 </span>
                                 <span>생성: {new Date(item.created_at).toLocaleString('ko-KR')}</span>
+                                {item.upload_completed_at && (
+                                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                        <CheckCircle className="w-3 h-3" /> 비공개 업로드: {new Date(item.upload_completed_at).toLocaleString('ko-KR')}
+                                    </span>
+                                )}
+                                {item.published_at && (
+                                    <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                        <Send className="w-3 h-3" /> 최종 배포: {new Date(item.published_at).toLocaleString('ko-KR')}
+                                    </span>
+                                )}
                                 {item.target_platforms && (
                                     <span className="flex items-center gap-1">
                                         {item.target_platforms.map((platform: string) => (
@@ -580,6 +654,14 @@ const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, ge
                                                 {platform}
                                             </Badge>
                                         ))}
+                                    </span>
+                                )}
+                                {item.platform_configs?.youtube?.anti_association?.enabled && (
+                                    <span className="flex items-center gap-1 border-l pl-3 ml-1 border-border">
+                                        {item.platform_configs.youtube.anti_association.mutation_intensity !== '0.0' && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 py-0 h-5" title={`알고리즘 교란 (${item.platform_configs.youtube.anti_association.mutation_intensity})`}><Shield className="w-3 h-3 mr-1" />교란</Badge>}
+                                        {item.platform_configs.youtube.anti_association.dynamic_seo && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 py-0 h-5" title="AI 동적 SEO"><Activity className="w-3 h-3 mr-1" />SEO</Badge>}
+                                        {item.platform_configs.youtube.anti_association.jitter_jumps && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 py-0 h-5" title="업로드 지연 (Jitter)"><Clock4 className="w-3 h-3 mr-1" />지연</Badge>}
+                                        {item.platform_configs.youtube.anti_association.metadata_scrub && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 py-0 h-5" title="메타데이터 파괴"><Fingerprint className="w-3 h-3 mr-1" />Scrub</Badge>}
                                     </span>
                                 )}
                             </div>
@@ -681,6 +763,10 @@ const VideoPlayerDialog = ({ isOpen, setIsOpen, item }: any) => {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="max-w-4xl bg-black p-1 border-border">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>{item.title}</DialogTitle>
+                    <DialogDescription>{item.video_file_path}</DialogDescription>
+                </DialogHeader>
                 <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
                     <video
                         src={videoUrl}
@@ -705,6 +791,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
     const [channels, setChannels] = useState<any[]>([]);
     const [tiktokChannels, setTiktokChannels] = useState<any[]>([]);
     const [instagramChannels, setInstagramChannels] = useState<any[]>([]);
+    const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
 
     // Default State
     const defaultState = {
@@ -713,6 +800,8 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
         hashtags: '', // [NEW] Separate Hashtags
         tags: '',     // Hidden Tags
         video_file_path: '',
+        enable_shopping_tag: false,
+        shopping_tag_keyword: '',
         source_type: 'MANUAL',
         approval_required: false,
         upload_method: 'BROWSER_AUTO',
@@ -722,7 +811,16 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                 channel_id: '',
                 privacy: 'private',
                 category: '22',
-                made_for_kids: false
+                made_for_kids: false,
+                headless_mode: false,
+                anti_association: {
+                    enabled: true,
+                    metadata_scrub: true,
+                    dynamic_seo: true,
+                    jitter_jumps: true,
+                    smart_routing: true,
+                    mutation_intensity: '0.5'
+                }
             },
             tiktok: {
                 account_id: '',
@@ -756,7 +854,9 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     platform_configs: initialData.platform_configs || defaultState.platform_configs,
                     // [NEW] Schedule Restore
                     uploadScheduleMode: initialData.scheduled_upload_time ? 'scheduled' : 'immediate',
-                    scheduledTime: initialData.scheduled_upload_time ? new Date(initialData.scheduled_upload_time).toISOString().slice(0, 16) : ''
+                    scheduledTime: initialData.scheduled_upload_time 
+                        ? (initialData.scheduled_upload_time.includes('T') ? initialData.scheduled_upload_time : initialData.scheduled_upload_time.replace(' ', 'T')).slice(0, 16)
+                        : ''
                 });
             } else {
                 setFormData(defaultState);
@@ -841,8 +941,70 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
         }
     };
 
+    const extractShoppingKeyword = async () => {
+        if (!formData.title && !formData.description) {
+            toast({ variant: "destructive", title: "입력 오류", description: "제목이나 설명을 먼저 입력해주세요." });
+            return;
+        }
+
+        setIsGeneratingMetadata(true);
+        try {
+            const response = await fetchWithRetry('/api/work-queue/extract-shopping-keyword', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: formData.title || "",
+                    description: formData.description || ""
+                })
+            });
+            const data = await response.json();
+            
+            if (data.keyword) {
+                setFormData(prev => ({ ...prev, shopping_tag_keyword: data.keyword }));
+                toast({ title: "키워드 추출 성공", description: `"${data.keyword}" 키워드가 추출되었습니다.` });
+            } else {
+                setFormData(prev => ({ ...prev, shopping_tag_keyword: '' }));
+                toast({ title: "추출 실패", description: "관련된 쇼핑 키워드를 찾을 수 없습니다. (NONE 반환됨)" });
+            }
+        } catch (error) {
+            toast({ variant: "destructive", title: "오류", description: "AI 키워드 추출 중 오류가 발생했습니다." });
+        } finally {
+            setIsGeneratingMetadata(false);
+        }
+    };
+
     const handleSubmit = async (e: any) => {
         e.preventDefault();
+
+        if (isGeneratingMetadata) {
+            toast({ variant: "destructive", title: "작업 중", description: "AI 분석이 진행 중입니다. 잠시 후 다시 시도해주세요." });
+            return;
+        }
+
+        if (!formData.title.trim()) {
+            toast({ variant: "destructive", title: "입력 오류", description: "제목을 입력해주세요." });
+            return;
+        }
+        if (!formData.video_file_path.trim()) {
+            toast({ variant: "destructive", title: "입력 오류", description: "영상 파일 경로를 입력해주세요." });
+            return;
+        }
+        if (formData.target_platforms.includes('youtube') && !formData.platform_configs.youtube.channel_id) {
+            toast({ variant: "destructive", title: "입력 오류", description: "YouTube 채널을 선택해주세요." });
+            return;
+        }
+        if (formData.target_platforms.includes('tiktok') && !formData.platform_configs.tiktok.account_id) {
+            toast({ variant: "destructive", title: "입력 오류", description: "TikTok 계정을 선택해주세요." });
+            return;
+        }
+        if (formData.target_platforms.includes('instagram') && !formData.platform_configs.instagram.account_id) {
+            toast({ variant: "destructive", title: "입력 오류", description: "Instagram 계정을 선택해주세요." });
+            return;
+        }
+        if (formData.target_platforms.length === 0) {
+            toast({ variant: "destructive", title: "입력 오류", description: "최소 하나 이상의 대상 플랫폼을 선택해주세요." });
+            return;
+        }
 
         try {
             const payload = {
@@ -852,7 +1014,7 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                 scheduled_upload_time: formData.uploadScheduleMode === 'scheduled' ? formData.scheduledTime : null
             };
 
-            const url = initialData ? `/api/work-queue/items/${initialData.id}/` : '/api/work-queue/items/';
+            const url = initialData ? `/api/work-queue/items/${initialData.id}` : '/api/work-queue/items';
             const method = initialData ? 'PATCH' : 'POST';
 
             const response = await fetchWithRetry(url, {
@@ -907,6 +1069,71 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
         }
     };
 
+    const handleAiAutoFill = async () => {
+        try {
+            if (!formData.video_file_path || !formData.video_file_path.trim()) {
+                toast({ variant: "destructive", title: "입력 오류", description: "영상 파일 경로를 먼저 입력해주세요." });
+                return;
+            }
+            
+            setIsGeneratingMetadata(true);
+            toast({ title: "AI 분석 시작", description: "영상의 자막을 추출하고 메타데이터를 생성 중입니다. (약 30초~1분 소요)" });
+            
+            // Pick primary platform for context
+            const primaryPlatform = formData.target_platforms && formData.target_platforms.length > 0 
+                ? formData.target_platforms[0] 
+                : 'youtube';
+                
+            const response = await fetchWithRetry('/api/work-queue/generate-metadata', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_path: formData.video_file_path,
+                    platform: primaryPlatform
+                })
+            });
+            
+            const text = await response.text(); // Read text first to catch HTML errors
+            console.log("AI Backend Response:", text);
+            
+            if (response.ok) {
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success && data.metadata) {
+                        const meta = data.metadata;
+                        setFormData(prev => ({
+                            ...prev,
+                            title: meta.title || prev.title,
+                            description: meta.description || meta.caption || prev.description,
+                            hashtags: meta.hashtags ? meta.hashtags.join(' ') : prev.hashtags,
+                            tags: meta.tags ? meta.tags.join(', ') : prev.tags
+                        }));
+                        toast({ title: "분석 완료", description: "AI가 제목, 설명, 해시태그를 성공적으로 채웠습니다!" });
+                    } else {
+                        toast({ variant: "destructive", title: "분석 실패", description: "메타데이터를 생성하지 못했습니다." });
+                    }
+                } catch (e) {
+                    console.error("JSON parse error:", e);
+                    toast({ variant: "destructive", title: "응답 오류", description: "서버가 올바른 JSON 데이터를 반환하지 않았습니다." });
+                }
+            } else {
+                let errorMsg = "AI 분석 중 오류가 발생했습니다.";
+                try {
+                    const error = JSON.parse(text);
+                    errorMsg = error.detail || errorMsg;
+                } catch (e) {
+                    errorMsg = `서버 에러 (${response.status}): ${text.substring(0, 100)}...`;
+                }
+                toast({ variant: "destructive", title: "오류", description: errorMsg });
+            }
+        } catch (error: any) {
+            console.error("AI Auto Fill Exception:", error);
+            toast({ variant: "destructive", title: "통신 오류", description: error?.message || "서버와 연결할 수 없습니다." });
+        } finally {
+            setIsGeneratingMetadata(false);
+        }
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-card text-foreground border-border">
@@ -917,6 +1144,14 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    <Tabs defaultValue="basic" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 mb-4 bg-muted border border-border">
+                            <TabsTrigger value="basic">📝 기본 정보</TabsTrigger>
+                            <TabsTrigger value="upload">⚙️ 업로드 설정</TabsTrigger>
+                            <TabsTrigger value="platform">🛡️ 플랫폼 & 방어</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="basic" className="space-y-4 mt-0">
                     {/* 기본 정보 */}
                     <div className="space-y-4 p-4 bg-muted/50 rounded-lg border border-border">
                         <h3 className="font-semibold text-sm text-foreground">기본 정보</h3>
@@ -926,7 +1161,6 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                             <Input
                                 value={formData.title}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                required
                                 className="bg-background text-foreground border-border"
                             />
                         </div>
@@ -963,6 +1197,46 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                 />
                             </div>
                         </div>
+                        
+                        {/* Shopping Tag */}
+                        <div className="pt-4 mt-4 border-t border-border">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <Label className="text-foreground text-base">🛍️ 쇼핑 태그 자동 등록 (쿠팡 등)</Label>
+                                    <p className="text-xs text-muted-foreground mt-1">업로드 시 유튜브 스튜디오에 상품을 자동 태그합니다. (Shorts는 모바일 앱에서 스티커 위치 이동 가능)</p>
+                                </div>
+                                <Switch
+                                    checked={formData.enable_shopping_tag}
+                                    onCheckedChange={(c) => setFormData({ ...formData, enable_shopping_tag: c })}
+                                />
+                            </div>
+
+                            {formData.enable_shopping_tag && (
+                                <div className="space-y-2 bg-muted/30 p-4 rounded-lg">
+                                    <Label className="text-foreground">매칭할 상품 키워드</Label>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={formData.shopping_tag_keyword}
+                                            onChange={(e) => setFormData({ ...formData, shopping_tag_keyword: e.target.value })}
+                                            placeholder="예: 캠핑 의자, 스마트폰 거치대"
+                                            className="bg-background text-foreground border-border"
+                                        />
+                                        <Button 
+                                            type="button" 
+                                            variant="secondary" 
+                                            onClick={extractShoppingKeyword}
+                                            disabled={isGeneratingMetadata}
+                                            className="shrink-0"
+                                        >
+                                            {isGeneratingMetadata ? "분석 중..." : "✨ AI 키워드 자동 추출"}
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        * 빈칸으로 두면 AI가 자동으로 추출합니다. 
+                                    </p>
+                                </div>
+                            )}
+                        </div>
 
                         <div>
                             <Label className="text-foreground">영상 파일 경로 *</Label>
@@ -971,16 +1245,40 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                     value={formData.video_file_path}
                                     onChange={(e) => setFormData({ ...formData, video_file_path: e.target.value })}
                                     placeholder="F:\download\video.mp4"
-                                    required
                                     className="bg-background text-foreground border-border"
                                 />
                                 <Button
                                     type="button"
                                     variant="outline"
                                     onClick={async () => {
-                                        // Simple file picker simulation or logic
-                                        const path = prompt('Enter full file path:', 'F:\\download\\video.mp4');
-                                        if (path) setFormData({ ...formData, video_file_path: path });
+                                        try {
+                                            // 1. Electron Desktop 환경인 경우 네이티브 탐색기 호출
+                                            if ((window as any).electronAPI && (window as any).electronAPI.selectVideoFile) {
+                                                const result = await (window as any).electronAPI.selectVideoFile();
+                                                if (result.success && result.path) {
+                                                    setFormData({ ...formData, video_file_path: result.path });
+                                                }
+                                                return; // Electron에서 성공적으로 처리했으면 종료
+                                            }
+                                        } catch (e) {
+                                            console.error("Electron file picker failed:", e);
+                                        }
+
+                                        // 2. 브라우저 환경인 경우 Fallback
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'video/*';
+                                        input.onchange = (e: any) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const path = (file as any).path || file.name;
+                                                setFormData({ ...formData, video_file_path: path });
+                                                if (!(file as any).path) {
+                                                    toast({ variant: "destructive", title: "경로 주의", description: "브라우저 환경이므로 절대 경로(C:\\...)를 수동으로 입력해주세요." });
+                                                }
+                                            }
+                                        };
+                                        input.click();
                                     }}
                                     className="border-border text-foreground"
                                 >
@@ -992,13 +1290,26 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                         {/* AI button simplified */}
                         {formData.video_file_path && (
                             <div className="flex justify-end">
-                                <Button type="button" variant="outline" onClick={() => toast({ title: "AI Analysis", description: "Analyzing..." })} className="border-border text-foreground">
-                                    AI 자동 채우기
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={handleAiAutoFill} 
+                                    disabled={isGeneratingMetadata}
+                                    className="border-primary text-primary hover:bg-primary/10 transition-colors"
+                                >
+                                    {isGeneratingMetadata ? (
+                                        <span className="flex items-center gap-2">
+                                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                            분석 중...
+                                        </span>
+                                    ) : "✨ AI 자동 채우기"}
                                 </Button>
                             </div>
                         )}
                     </div>
+                    </TabsContent>
 
+                    <TabsContent value="upload" className="space-y-4 mt-0">
                     {/* 유입 경로 및 업로드 설정 */}
                     <div className="space-y-4 p-4 bg-muted/50 rounded-lg border border-border">
                         <h3 className="font-semibold text-sm text-foreground">업로드 설정</h3>
@@ -1065,7 +1376,16 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                         name="schedule"
                                         value="scheduled"
                                         checked={formData.uploadScheduleMode === 'scheduled'}
-                                        onChange={() => setFormData({ ...formData, uploadScheduleMode: 'scheduled' })}
+                                        onChange={() => {
+                                            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+                                            const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+                                            setFormData({ 
+                                                ...formData, 
+                                                uploadScheduleMode: 'scheduled',
+                                                // 사용자가 라디오 버튼을 클릭하는 시점에 항상 현재 시간으로 초기화 (과거 시간 잔존 방지)
+                                                scheduledTime: localISOTime
+                                            });
+                                        }}
                                         className="w-4 h-4 text-blue-600 border-border focus:ring-blue-500 bg-background"
                                     />
                                     <Label htmlFor="schedule-later" className="font-normal cursor-pointer text-foreground">📅 예약 업로드 (날짜 지정)</Label>
@@ -1074,22 +1394,41 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
 
                             {formData.uploadScheduleMode === 'scheduled' && (
                                 <div className="flex flex-col gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-md animate-in fade-in slide-in-from-top-1">
-                                    <Label className="text-xs text-blue-600 dark:text-blue-400 font-semibold">업로드 예정 일시</Label>
+                                    <div className="flex justify-between items-center">
+                                        <Label className="text-xs text-blue-600 dark:text-blue-400 font-semibold">업로드 예정 일시</Label>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                                            onClick={() => {
+                                                const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+                                                const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+                                                setFormData({ ...formData, scheduledTime: localISOTime });
+                                            }}
+                                        >
+                                            ⏰ 현재 시각으로 리셋
+                                        </Button>
+                                    </div>
                                     <Input
                                         type="datetime-local"
                                         value={formData.scheduledTime}
-                                        onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, scheduledTime: e.target.value });
+                                        }}
                                         className="bg-background text-foreground border-border"
-                                        min={new Date().toISOString().slice(0, 16)}
+                                        min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                                     />
                                     <p className="text-xs text-blue-600 dark:text-blue-400">
-                                        * 지정된 시간에 자동으로 업로드가 시작됩니다. (PC가 켜져 있어야 합니다)
+                                        * 유튜브 정책에 맞춰 15분 단위(정각, 15분, 30분, 45분)로 자동 예약됩니다.
                                     </p>
                                 </div>
                             )}
                         </div>
                     </div >
+                    </TabsContent>
 
+                    <TabsContent value="platform" className="space-y-4 mt-0">
                     {/* 플랫폼 선택 */}
                     <div className="space-y-4 p-4 bg-muted/50 rounded-lg border border-border" >
                         <h3 className="font-semibold text-sm text-foreground">대상 플랫폼</h3>
@@ -1202,7 +1541,162 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                     </Select>
                                 </div>
 
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="youtube_headless"
+                                        checked={formData.platform_configs.youtube.headless_mode ?? false}
+                                        onCheckedChange={(checked) => setFormData({
+                                            ...formData,
+                                            platform_configs: {
+                                                ...formData.platform_configs,
+                                                youtube: { ...formData.platform_configs.youtube, headless_mode: !!checked }
+                                            }
+                                        })}
+                                        className="border-border"
+                                        disabled={formData.upload_method !== 'BROWSER_AUTO'}
+                                    />
+                                    <Label htmlFor="youtube_headless" className="cursor-pointer text-foreground text-sm font-medium leading-none">
+                                        브라우저 숨기기 (Headless Mode)
+                                    </Label>
+                                </div>
 
+                            </div>
+                        )
+                    }
+
+                    {/* Sovereign Shield 패널 */}
+                    {
+                        formData.target_platforms.includes('youtube') && (
+                            <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                                <div className="flex items-center justify-between border-b border-primary/10 pb-3">
+                                    <div className="flex items-center gap-2">
+                                        <Shield className="w-5 h-5 text-primary" />
+                                        <h3 className="font-semibold text-sm text-primary">Sovereign Shield (연좌제 방어)</h3>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            id="shield_master"
+                                            checked={formData.platform_configs.youtube.anti_association?.enabled}
+                                            onCheckedChange={(checked) => {
+                                                const boolVal = !!checked;
+                                                setFormData({
+                                                    ...formData,
+                                                    platform_configs: {
+                                                        ...formData.platform_configs,
+                                                        youtube: {
+                                                            ...formData.platform_configs.youtube,
+                                                            anti_association: {
+                                                                ...formData.platform_configs.youtube.anti_association,
+                                                                enabled: boolVal,
+                                                                metadata_scrub: boolVal,
+                                                                dynamic_seo: boolVal,
+                                                                jitter_jumps: boolVal,
+                                                                smart_routing: boolVal
+                                                            }
+                                                        }
+                                                    }
+                                                });
+                                            }}
+                                            className="border-primary"
+                                        />
+                                        <Label htmlFor="shield_master" className="text-sm font-medium cursor-pointer text-primary">전체 제어</Label>
+                                    </div>
+                                </div>
+
+                                {formData.platform_configs.youtube.anti_association?.enabled && (
+                                    <div className="space-y-4 pt-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Checkbox
+                                                    id="shield_meta"
+                                                    checked={formData.platform_configs.youtube.anti_association?.metadata_scrub}
+                                                    onCheckedChange={(checked) => setFormData(prev => ({
+                                                        ...prev, platform_configs: { ...prev.platform_configs, youtube: { ...prev.platform_configs.youtube, anti_association: { ...prev.platform_configs.youtube.anti_association, metadata_scrub: !!checked } } }
+                                                    }))}
+                                                />
+                                                <Label htmlFor="shield_meta" className="cursor-pointer">메타데이터 완전 파괴 (EXIF/기기정보 삭제)</Label>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Checkbox
+                                                    id="shield_seo"
+                                                    checked={formData.platform_configs.youtube.anti_association?.dynamic_seo}
+                                                    onCheckedChange={(checked) => setFormData(prev => ({
+                                                        ...prev, platform_configs: { ...prev.platform_configs, youtube: { ...prev.platform_configs.youtube, anti_association: { ...prev.platform_configs.youtube.anti_association, dynamic_seo: !!checked } } }
+                                                    }))}
+                                                />
+                                                <Label htmlFor="shield_seo" className="cursor-pointer">AI 동적 SEO (텍스트 군집화 회피)</Label>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Checkbox
+                                                    id="shield_jitter"
+                                                    checked={formData.platform_configs.youtube.anti_association?.jitter_jumps}
+                                                    onCheckedChange={(checked) => setFormData(prev => ({
+                                                        ...prev, platform_configs: { ...prev.platform_configs, youtube: { ...prev.platform_configs.youtube, anti_association: { ...prev.platform_configs.youtube.anti_association, jitter_jumps: !!checked } } }
+                                                    }))}
+                                                />
+                                                <Label htmlFor="shield_jitter" className="cursor-pointer">업로드 지연 타이머 (Jitter ±15분)</Label>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Checkbox
+                                                    id="shield_routing"
+                                                    checked={formData.platform_configs.youtube.anti_association?.smart_routing}
+                                                    onCheckedChange={(checked) => setFormData(prev => ({
+                                                        ...prev, platform_configs: { ...prev.platform_configs, youtube: { ...prev.platform_configs.youtube, anti_association: { ...prev.platform_configs.youtube.anti_association, smart_routing: !!checked } } }
+                                                    }))}
+                                                />
+                                                <Label htmlFor="shield_routing" className="cursor-pointer">강제 IP 스와핑 (Smart Routing)</Label>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="pt-2 border-t border-primary/10">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Eye className="w-4 h-4 text-primary" />
+                                                    <Label htmlFor="shield_headless" className="cursor-pointer font-semibold text-primary">브라우저 숨기기 (백그라운드 실행)</Label>
+                                                </div>
+                                                <Switch
+                                                    id="shield_headless"
+                                                    checked={formData.platform_configs.youtube.headless_mode}
+                                                    onCheckedChange={(checked) => setFormData(prev => ({
+                                                        ...prev, platform_configs: { ...prev.platform_configs, youtube: { ...prev.platform_configs.youtube, headless_mode: !!checked } }
+                                                    }))}
+                                                    className="data-[state=checked]:bg-primary"
+                                                />
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mb-4">활성화 시 브라우저 창을 띄우지 않고 백그라운드에서 조용히 업로드를 진행합니다. (탐지 위험이 약간 상승할 수 있습니다.)</p>
+                                        
+                                            <Label className="text-foreground mb-2 block">알고리즘 교란 엔진 (Mutation Intensity)</Label>
+                                            <Select
+                                                value={formData.platform_configs.youtube.anti_association?.mutation_intensity || '0.5'}
+                                                onValueChange={(value) => setFormData(prev => ({
+                                                    ...prev, platform_configs: { ...prev.platform_configs, youtube: { ...prev.platform_configs.youtube, anti_association: { ...prev.platform_configs.youtube.anti_association, mutation_intensity: value } } }
+                                                }))}
+                                            >
+                                                <SelectTrigger className="bg-background">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="0.0">교란 끄기 (위험)</SelectItem>
+                                                    <SelectItem value="0.2">약함 (화질 최우선, 미세 변조)</SelectItem>
+                                                    <SelectItem value="0.5">보통 (안정성 밸런스, 권장)</SelectItem>
+                                                    <SelectItem value="0.8">강함 (방어력 최우선, 화질 저하)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-muted-foreground mt-2">
+                                                {formData.platform_configs.youtube.anti_association?.mutation_intensity === '0.0' && '비디오 해시가 원본과 동일하게 유지되어 중복 필터링에 걸릴 수 있습니다.'}
+                                                {formData.platform_configs.youtube.anti_association?.mutation_intensity === '0.2' && '인간의 눈에 보이지 않는 비가시적 노이즈만 주입합니다.'}
+                                                {formData.platform_configs.youtube.anti_association?.mutation_intensity === '0.5' && '미세한 입자 노이즈와 오디오 주파수 변경으로 방어력을 높입니다.'}
+                                                {formData.platform_configs.youtube.anti_association?.mutation_intensity === '0.8' && '강력한 노이즈와 왜곡 필터를 씌워 완벽히 다른 영상으로 인식시킵니다.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )
                     }
@@ -1359,6 +1853,8 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                             </div>
                         )
                     }
+                    </TabsContent>
+                    </Tabs>
 
                     <div className="flex justify-end gap-2 pt-4 border-t">
                         <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
@@ -1371,6 +1867,114 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                 </form >
             </DialogContent >
         </Dialog >
+    );
+};
+
+const BulkShieldDialog = ({ isOpen, setIsOpen, onSuccess, selectedItems }: any) => {
+    const { toast } = useToast();
+    const [shieldConfigs, setShieldConfigs] = useState({
+        anti_association: {
+            enabled: true,
+            metadata_scrub: true,
+            dynamic_seo: true,
+            jitter_jumps: true,
+            smart_routing: true,
+            mutation_intensity: '0.5'
+        },
+        headless_mode: false
+    });
+
+    const handleSubmit = async (e: any) => {
+        e.preventDefault();
+        try {
+            const res = await fetch('/api/work-queue/batch/shield', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    item_ids: selectedItems,
+                    shield_configs: shieldConfigs
+                })
+            });
+            if (res.ok) {
+                toast({ title: '성공', description: '선택한 항목들에 방어 체계가 일괄 적용되었습니다.' });
+                setIsOpen(false);
+                if (onSuccess) onSuccess();
+            } else {
+                toast({ variant: 'destructive', title: '오류', description: '일괄 적용에 실패했습니다.' });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: '에러', description: '서버와 통신할 수 없습니다.' });
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-xl bg-card text-foreground border-border">
+                <DialogHeader>
+                    <DialogTitle>🛡️ 방어 체계 일괄 적용</DialogTitle>
+                    <DialogDescription>선택한 {selectedItems.length}개의 항목에 설정을 적용합니다.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                        <div className="flex items-center justify-between border-b border-primary/10 pb-3">
+                            <div className="flex items-center gap-2">
+                                <Shield className="w-5 h-5 text-primary" />
+                                <h3 className="font-semibold text-sm text-primary">Sovereign Shield (연좌제 방어)</h3>
+                            </div>
+                            <Switch
+                                checked={shieldConfigs.anti_association.enabled}
+                                onCheckedChange={(c) => setShieldConfigs({ ...shieldConfigs, anti_association: { ...shieldConfigs.anti_association, enabled: !!c, metadata_scrub: !!c, dynamic_seo: !!c, jitter_jumps: !!c, smart_routing: !!c } })}
+                                className="data-[state=checked]:bg-primary"
+                            />
+                        </div>
+                        {shieldConfigs.anti_association.enabled && (
+                            <div className="space-y-4 pt-2">
+                                {[
+                                    { id: 'meta', key: 'metadata_scrub', label: '메타데이터 완전 파괴 (EXIF/기기정보 삭제)' },
+                                    { id: 'seo', key: 'dynamic_seo', label: 'AI 동적 SEO (텍스트 군집화 회피)' },
+                                    { id: 'jitter', key: 'jitter_jumps', label: '업로드 지연 타이머 (Jitter ±15분)' },
+                                    { id: 'routing', key: 'smart_routing', label: '강제 IP 스와핑 (Smart Routing)' },
+                                ].map((opt) => (
+                                    <div key={opt.id} className="flex items-center justify-between">
+                                        <Label htmlFor={`bshield_${opt.id}`} className="cursor-pointer">{opt.label}</Label>
+                                        <Checkbox
+                                            id={`bshield_${opt.id}`}
+                                            checked={(shieldConfigs.anti_association as any)[opt.key]}
+                                            onCheckedChange={(c) => setShieldConfigs({ ...shieldConfigs, anti_association: { ...shieldConfigs.anti_association, [opt.key]: !!c } })}
+                                        />
+                                    </div>
+                                ))}
+                                <div className="pt-2 border-t border-primary/10">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <Label htmlFor="bshield_headless" className="cursor-pointer font-semibold text-primary flex items-center gap-2">
+                                            <Eye className="w-4 h-4" /> 브라우저 숨기기 (백그라운드 실행)
+                                        </Label>
+                                        <Switch
+                                            id="bshield_headless"
+                                            checked={shieldConfigs.headless_mode}
+                                            onCheckedChange={(c) => setShieldConfigs({ ...shieldConfigs, headless_mode: !!c })}
+                                        />
+                                    </div>
+                                    <Label className="text-foreground mb-2 block mt-4">알고리즘 교란 엔진 (Mutation Intensity)</Label>
+                                    <Select value={shieldConfigs.anti_association.mutation_intensity} onValueChange={(v) => setShieldConfigs({ ...shieldConfigs, anti_association: { ...shieldConfigs.anti_association, mutation_intensity: v } })}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="0.0">끄기 (원본 유지)</SelectItem>
+                                            <SelectItem value="0.5">보통 (안정성 밸런스)</SelectItem>
+                                            <SelectItem value="0.8">강함 (최대 방어, 화질 저하)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>취소</Button>
+                        <Button type="submit">일괄 적용하기</Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 };
 

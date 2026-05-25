@@ -2,8 +2,8 @@ import asyncio
 import random
 import logging
 import os
-from playwright.async_api import async_playwright, BrowserContext, Page
-
+from typing import Optional
+from patchright.async_api import async_playwright, BrowserContext, Page
 logger = logging.getLogger(__name__)
 
 class SovereignBrowser:

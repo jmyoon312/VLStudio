@@ -69,6 +69,7 @@ export function useAutomation(flowAPI, scenesHook, addToHistory, onOpenSettings 
     errorCountRef.current = 0
     const pendingQueue = [] // { generationId, scene, submittedAt }
     let consecutiveErrors = 0
+    let throttleStrikes = 0 // [Phase 3] 429/reCAPTCHA 차단 횟수 추적
 
     const updateProgressMsg = (current) => {
       setProgress({ current, total, percent: Math.round((current / total) * 100), errorCount: errorCountRef.current, startedAt: batchStartedAtRef.current, endedAt: null })
@@ -154,8 +155,49 @@ export function useAutomation(flowAPI, scenesHook, addToHistory, onOpenSettings 
       if (submitResult.success && submitResult.generationId) {
         pendingQueue.push({ generationId: submitResult.generationId, scene, submittedAt: Date.now() })
         consecutiveErrors = 0
+        throttleStrikes = 0
         console.log('[Automation] Submitted scene', scene.id, '→', submitResult.generationId)
       } else {
+        const errStr = String(submitResult.error || '')
+        
+        // [Phase 3] 크레딧 고갈 시 즉시 중단 (Quota Exhaustion)
+        if (errStr.includes('out_of_credits')) {
+          console.error('[Automation] Quota exhausted (out_of_credits), stopping batch immediately.')
+          toast.error('크레딧이 모두 소진되어 자동화를 즉시 중지합니다.')
+          updateScene(scene.id, { status: 'error', error: 'Out of credits', errorKind: null })
+          break
+        }
+        
+        // [Phase 3] 구글 차단 (429/reCAPTCHA/253) 감지 시 스마트 대기 (Backoff)
+        if (errStr.includes('429') || errStr.toLowerCase().includes('recaptcha') || errStr.includes('253')) {
+          const waitMinutes = throttleStrikes === 0 ? 5 : (throttleStrikes === 1 ? 10 : 30)
+          console.warn(`[Automation] Flow throttled (Strike ${throttleStrikes + 1}). Waiting ${waitMinutes} minutes before retry...`)
+          
+          // 시스템 알림
+          if (Notification.permission === 'granted') {
+            new Notification('ViraLoop Studio', { body: `Flow API가 차단되었습니다. ${waitMinutes}분 후 자동으로 재시도합니다.` })
+          }
+          
+          let secondsLeft = waitMinutes * 60
+          while (secondsLeft > 0 && !stopRequestedRef.current) {
+            setStatusMessage(`⏳ 구글 차단 (reCAPTCHA) - ${Math.floor(secondsLeft/60)}분 ${secondsLeft%60}초 후 자동 재시도...`)
+            await new Promise(r => setTimeout(r, 1000))
+            secondsLeft--
+          }
+          
+          if (stopRequestedRef.current) break
+          
+          throttleStrikes++
+          if (throttleStrikes >= 3) {
+             console.error('[Automation] 3번 연속 차단되어 대기를 포기하고 자동화를 중지합니다.')
+             toast.error('구글 차단이 지속되어 안전을 위해 자동화를 중지했습니다.')
+             break
+          }
+          // 동일 씬 재시도를 위해 인덱스 복구
+          i--
+          continue
+        }
+        
         console.error('[Automation] Submit failed for scene', scene.id, ':', submitResult.error)
         updateScene(scene.id, { status: 'error', error: submitResult.error, errorKind: null })
         errorCountRef.current++

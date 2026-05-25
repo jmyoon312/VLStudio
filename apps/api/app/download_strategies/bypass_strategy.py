@@ -2,7 +2,7 @@ import os
 import time
 from datetime import datetime
 try:
-    from playwright.sync_api import sync_playwright
+    from patchright.sync_api import sync_playwright
 except ImportError:
     pass
 
@@ -187,7 +187,7 @@ class V2OBDownloader:
 
     def download(self, video_url, output_dir, headless=True):
         try:
-            from playwright.sync_api import sync_playwright, expect
+            from patchright.sync_api import sync_playwright, expect
         except ImportError:
             return {'status': 'failed', 'error': 'Playwright missing'}
 
