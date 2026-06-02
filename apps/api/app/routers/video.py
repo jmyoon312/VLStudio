@@ -20,6 +20,8 @@ class VideoGenerationRequest(BaseModel):
     prompt: str
     model: str = "kling-v1"
     aspect_ratio: str = "9:16"
+    is_continuous_motion: bool = False
+    scene_id: int | None = None
 
 class VideoTaskResponse(BaseModel):
     task_id: str
@@ -35,7 +37,13 @@ async def generate_video(
     engine: VideoGenClient = Depends(get_video_engine)
 ):
     try:
-        task_id = await engine.generate_video(request.prompt, request.model, request.aspect_ratio)
+        task_id = await engine.generate_video(
+            request.prompt, 
+            request.model, 
+            request.aspect_ratio,
+            is_continuous_motion=request.is_continuous_motion,
+            scene_id=request.scene_id
+        )
         return {"task_id": task_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

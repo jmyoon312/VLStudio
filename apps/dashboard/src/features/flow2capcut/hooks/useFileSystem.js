@@ -86,7 +86,7 @@ export const fileSystemAPI = {
     const path = localStorage.getItem('workFolderPath')
     const name = localStorage.getItem('workFolderName')
 
-    if (!path) {
+    if (!path || path === 'undefined') {
       return { success: false, error: 'not_set', hasPermission: false }
     }
 
@@ -110,7 +110,7 @@ export const fileSystemAPI = {
   async requestPermission() {
     const path = localStorage.getItem('workFolderPath')
 
-    if (!path) {
+    if (!path || path === 'undefined') {
       return { success: false, error: 'not_set' }
     }
 
@@ -125,11 +125,13 @@ export const fileSystemAPI = {
    */
   async ensurePermission() {
     const existing = localStorage.getItem('workFolderPath')
-    if (!existing) {
+    if (!existing || existing === 'undefined') {
+      localStorage.removeItem('workFolderPath')
+      localStorage.removeItem('workFolderName')
       // 1단계: main process config 파일에서 이전 설정 복원
       try {
         const saved = await window.electronAPI.getSavedWorkFolder()
-        if (saved?.success && saved.path) {
+        if (saved?.success && saved.path && saved.path !== 'undefined') {
           localStorage.setItem('workFolderPath', saved.path)
           localStorage.setItem('workFolderName', saved.name || '')
           console.log('[FileSystem] Restored work folder from config:', saved.path)
@@ -142,7 +144,7 @@ export const fileSystemAPI = {
       // 2단계: config도 없으면 기본 폴더 자동 설정
       try {
         const result = await window.electronAPI.getDefaultWorkFolder()
-        if (result?.success) {
+        if (result?.success && result.path && result.path !== 'undefined') {
           localStorage.setItem('workFolderPath', result.path)
           localStorage.setItem('workFolderName', result.name)
           // 기본 폴더도 config에 저장

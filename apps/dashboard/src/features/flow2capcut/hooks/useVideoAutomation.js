@@ -394,17 +394,47 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
         }
         
         // [Phase 3] 구글 차단 (429/reCAPTCHA/253) 감지 시 스마트 대기 (Backoff)
-        if (errStr.includes('429') || errStr.toLowerCase().includes('recaptcha') || errStr.includes('253')) {
-          const waitMinutes = throttleStrikes === 0 ? 5 : (throttleStrikes === 1 ? 10 : 30)
-          console.warn(`[VideoAutomation] Flow throttled (Strike ${throttleStrikes + 1}). Waiting ${waitMinutes} minutes before retry...`)
+        const isRateLimit = errStr.includes('429') || errStr.toLowerCase().includes('recaptcha') || errStr.includes('253')
+        // 403은 키워드 불문 전부 이상활동 차단으로 처리 (PERMISSION_DENIED, unusual, 기타 모두 포함)
+        const isUnusualActivity = /^403[:\s]/.test(errStr) || errStr.includes('PERMISSION_DENIED') || errStr.includes('비정상 활동')
+        if (isRateLimit || isUnusualActivity) {
+          const blockType = isUnusualActivity ? '⛔ 이상활동 감지 차단' : '🚫 요청한도 차단'
+          
+          if (isUnusualActivity && throttleStrikes === 0) {
+            // Strike 1: 즉시 해당 항목 스킵 → 다음 항목으로 (계속 차단이면 나중에 처리)
+            // 대기하지 않고 빠르게 다음 계정/프로젝트로 넘어가는 것이 더 효율적
+            console.warn(`[VideoAutomation] ${blockType} — Strike 1: 항목 스킵 후 다음으로 진행`)
+            toast.error(`${blockType}: 이 항목을 스킵하고 다음으로 진행합니다.`, { duration: 4000 })
+            onItemUpdate?.(item.id, 'error', { error: genResult.error })
+            videoErrorCount++
+            throttleStrikes++
+            // 30초만 대기 후 다음 항목 시도 (페이지 리로드 대기)
+            let waitSec = 30
+            while (waitSec > 0 && !stopRequestedRef.current) {
+              setStatusMessage(`⏳ ${blockType} — ${waitSec}초 후 다음 항목 시작 (페이지 리로드 대기)`)
+              await sleep(1000)
+              waitSec--
+            }
+            if (stopRequestedRef.current) break
+            continue
+          }
+          
+          // Strike 2+: 짧은 대기 후 동일 항목 재시도
+          const waitMinutes = isUnusualActivity
+            ? (throttleStrikes === 1 ? 5 : 15)  // 5분 → 15분
+            : (throttleStrikes === 0 ? 5 : throttleStrikes === 1 ? 10 : 30)
+          console.warn(`[VideoAutomation] ${blockType} (Strike ${throttleStrikes + 1}). Waiting ${waitMinutes} minutes before retry...`)
+          console.warn(`[VideoAutomation] Error was: ${errStr}`)
           
           if (Notification.permission === 'granted') {
-            new Notification('ViraLoop Studio', { body: `비디오 생성이 차단되었습니다. ${waitMinutes}분 후 자동으로 재시도합니다.` })
+            new Notification('ViraLoop Studio', { body: `${blockType}: ${waitMinutes}분 후 자동 재시도합니다.` })
           }
           
           let secondsLeft = waitMinutes * 60
           while (secondsLeft > 0 && !stopRequestedRef.current) {
-            setStatusMessage(`⏳ 구글 차단 대기 중... (${Math.floor(secondsLeft/60)}분 ${secondsLeft%60}초 후 자동 재시도)`)
+            const mins = Math.floor(secondsLeft / 60)
+            const secs = secondsLeft % 60
+            setStatusMessage(`⏳ ${blockType} — ${mins}분 ${secs}초 후 자동 재시도 (Strike ${throttleStrikes + 1})`)
             await sleep(1000)
             secondsLeft--
           }
@@ -421,6 +451,7 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
           i--
           continue
         }
+
 
         // 401 인증 에러 감지
         if (errStr.includes('401') || errStr.includes('auth')) {

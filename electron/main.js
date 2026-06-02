@@ -20,8 +20,9 @@ import { updateBounds, registerLayoutIPC, setLayoutMode, setSplitRatio, setModal
 import { openApiSpec, getSwaggerHtml } from './api-docs.js'
 import { setupAppMenuAndUpdater, noteProjectActivated } from './updater.js'
 import { selectCdpCase } from './video-cdp-dispatch.js'
-import { loadProfiles } from './profileManager.js'
+import { loadProfiles, saveProfiles, switchProfile, createProfile, deleteProfile, updateProfile, cleanupUnusedPartitions } from './profileManager.js'
 import { injectImageBatchBody } from './cdp-image-inject.js'
+import { FLOW_PAGE_INJECTION } from './flow-page-injection.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -42,6 +43,7 @@ app.commandLine.appendSwitch('disable-quic')  // [NEW-1] QUIC/UDP 트래픽 누�
 app.commandLine.appendSwitch('disable-background-networking')
 app.commandLine.appendSwitch('enable-features', 'DnsOverHttps')
 app.commandLine.appendSwitch('dns-over-https-templates', 'https://chrome.cloudflare-dns.com/dns-query')
+app.commandLine.appendSwitch('disable-features', 'WebAuthentication') // [Passkey 완벽 차단] 엔진 레벨에서 WebAuthn 기능 비활성화
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // macOS About 패널 + Dock 아이콘
@@ -272,16 +274,123 @@ function createWindow() {
   }
   global.activeFlowProfileId = initialProfileId
 
+  // Google 로그인 페이지를 프리로드 스크립트 없이 완전히 깨끗한(Pure) 별도 창으로 여는 헬퍼
+  const openPureGoogleLoginWindow = (url, profileId) => {
+    if (!global.activeLoginWindows) {
+      global.activeLoginWindows = new Map();
+    }
+
+    // 중복 창 방지
+    if (global.activeLoginWindows.has(profileId)) {
+      const existingWin = global.activeLoginWindows.get(profileId);
+      if (!existingWin.isDestroyed()) {
+        existingWin.focus();
+        return;
+      }
+    }
+
+    console.log(`[Google Login Window] Launching pure login window for profile: ${profileId}, URL: ${url}`);
+
+    let loginPreloadPath = path.join(__dirname, 'login_preload.js');
+    if (!fsSync.existsSync(loginPreloadPath)) {
+      loginPreloadPath = path.join(__dirname, 'login_preload.mjs');
+    }
+
+    const loginWin = new BrowserWindow({
+      width: 550,
+      height: 750,
+      title: 'Google Sign-In',
+      parent: mainWindow || undefined,
+      modal: true,
+      webPreferences: {
+        partition: `persist:flow_profile_${profileId}`, // 세션 파티션 동일하게 공유
+        contextIsolation: true,
+        nodeIntegration: false,
+        preload: loginPreloadPath
+      }
+    });
+
+    global.activeLoginWindows.set(profileId, loginWin);
+
+    // 깨끗한 최신 Chrome User-Agent 주입
+    const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+    loginWin.webContents.setUserAgent(modernChromeUA);
+
+    loginWin.loadURL(url);
+
+    const handleRedirect = (redirectUrl) => {
+      // 로그인이 완료되어 다시 Flow 페이지 혹은 미디어 리다이렉트 등으로 들어왔는지 감지
+      if (redirectUrl && (redirectUrl.includes('labs.google/fx') || redirectUrl.includes('flowMedia:'))) {
+        console.log(`[Google Login Window] Login redirect detected back to Flow: ${redirectUrl}`);
+        
+        // 비동기적으로 창 닫기
+        setTimeout(() => {
+          if (!loginWin.isDestroyed()) {
+            loginWin.close();
+          }
+        }, 500);
+
+        // 메인 Flow 뷰를 리로드하여 로그인된 쿠키 세션 반영
+        const flowView = global.flowViews.get(profileId);
+        if (flowView) {
+          console.log(`[Google Login Window] Reloading Flow WebContentsView for profile: ${profileId}`);
+          flowView.webContents.loadURL(FLOW_URL);
+        }
+      }
+    };
+
+    loginWin.webContents.on('will-navigate', (event, redirectUrl) => handleRedirect(redirectUrl));
+    loginWin.webContents.on('will-redirect', (event, redirectUrl) => handleRedirect(redirectUrl));
+    loginWin.webContents.on('did-navigate', (event, redirectUrl) => handleRedirect(redirectUrl));
+
+    loginWin.on('closed', () => {
+      global.activeLoginWindows.delete(profileId);
+    });
+  };
+
   const setupFlowView = (view, profileId) => {
     // 1. 오디오 개별 뮤트
     view.webContents.setAudioMuted(true)
 
+    // Google 로그인: Flow 뷰 내에서 이동 시도 시, 깨끗한 독립 팝업(loginWin)으로 가로채어 실행 (AutoFlowCut 원본 로직 복원)
+    view.webContents.setWindowOpenHandler(({ url }) => {
+      // 1. 구글 로그인 관련 URL인 경우 커스텀 로그인 팝업으로 가로채기 (팝업 요청 시)
+      if (url && (url.includes('accounts.google.com') || url.includes('/auth/'))) {
+        console.log(`[Flow] Intercepting Google Login (window.open) -> openPureGoogleLoginWindow for ${profileId}`);
+        openPureGoogleLoginWindow(url, profileId);
+        return { action: 'deny' }; // 뷰 내에서의 자체 팝업 차단
+      }
+      
+      // 2. 기타 외부 링크(예: 도움말 등)는 시스템 기본 브라우저로 띄우기
+      if (url && !url.includes('labs.google') && !url.includes('google.com')) {
+        shell.openExternal(url);
+        return { action: 'deny' };
+      }
+      
+      return { action: 'allow' };
+    });
+
+    // 3. 구글이 최근 window.open 대신 현재 창 이동(location.href)으로 로그인 방식을 변경한 것을 대응
+    view.webContents.on('will-navigate', (event, url) => {
+      if (url && (url.includes('accounts.google.com') || url.includes('/auth/'))) {
+        console.log(`[Flow] Intercepting Google Login (direct navigate) -> openPureGoogleLoginWindow for ${profileId}`);
+        event.preventDefault(); // flowView 내에서의 이동을 강제 차단!
+        openPureGoogleLoginWindow(url, profileId); // 깨끗한 로그인 전용 창 열기
+      }
+    });
+
     // 2. 동적 도메인 타겟팅 스텔스 엔진
+    // 핵심 원칙: accounts.google.com은 완전 무개입! Flow 서비스(labs.google/fx)에서만 스텔스 적용.
+    // Google 로그인 단계에서 어떤 개입도 하지 않아야 100% 통과 가능.
     const applyDynamicStealth = (url) => {
       if (url && url.includes('labs.google/fx')) {
-        console.log(`[Dynamic Stealth - ${profileId}] Activating Anti-bot Stealth Mode for Google Flow API...`);
+        console.log(`[Dynamic Stealth - ${profileId}] Activating Anti-bot Stealth Mode for Flow...`);
+
+        // User-Agent: Electron 식별자 제거 (Flow 서비스 영역에서만)
         const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
         view.webContents.setUserAgent(modernChromeUA);
+
+        // navigator.webdriver 우회 (Flow 서비스 영역에서만)
         const stealthScript = `
           (function() {
             try {
@@ -289,12 +398,13 @@ function createWindow() {
                 get: () => false,
                 configurable: true
               });
-              console.log('[Stealth] navigator.webdriver spoofed to false successfully.');
+              console.log('[Stealth] navigator.webdriver spoofed to false.');
             } catch(e) {}
           })();
         `;
         view.webContents.executeJavaScript(stealthScript).catch(() => {});
       }
+      // accounts.google.com: 완전 무개입 (stealth_preload.js가 자체적으로 스킵)
     };
 
     view.webContents.on('did-start-navigation', (_, url) => applyDynamicStealth(url));
@@ -345,10 +455,54 @@ function createWindow() {
       }
     })
 
+    // ─── Stealth Injection Control ───
+    const setFlowPageInject = (profileId, data) => {
+      const view = global.flowViews.get(profileId || global.activeFlowProfileId || 'default')
+      if (!view) return
+      console.log(`[Flow Inject] Setting injection data for profile ${profileId}:`, data)
+      view.webContents.executeJavaScript(`
+        if (window.__autoflowcut_inject__) {
+          Object.assign(window.__autoflowcut_inject__, ${JSON.stringify(data)});
+        }
+      `).catch(() => {})
+    }
+
+    const clearFlowPageInject = (profileId) => {
+      const view = global.flowViews.get(profileId || global.activeFlowProfileId || 'default')
+      if (!view) return
+      console.log(`[Flow Inject] Clearing injection data for profile ${profileId}`)
+      view.webContents.executeJavaScript(`
+        if (window.__autoflowcut_inject__) {
+          window.__autoflowcut_inject__.seed = null;
+          window.__autoflowcut_inject__.aspectRatio = null;
+          window.__autoflowcut_inject__.references = null;
+          window.__autoflowcut_inject__.i2v = null;
+        }
+      `).catch(() => {})
+    }
+
+    // Expose injection helpers globally for IPC modules to call
+    global.setFlowPageInject = setFlowPageInject
+    global.clearFlowPageInject = clearFlowPageInject
+
+    const injectStealthScript = async (view) => {
+      try {
+        await view.webContents.executeJavaScript(FLOW_PAGE_INJECTION)
+        console.log(`[Flow Inject] Injected window.fetch patch script`)
+      } catch (err) {
+        console.warn(`[Flow Inject] Failed to inject fetch patch:`, err.message)
+      }
+    }
+
     view.webContents.on('did-finish-load', async () => {
       const url = view.webContents.getURL()
       console.log(`[Flow - ${profileId}] did-finish-load:`, url)
       const unavailable = url.includes('unsupported-country')
+      
+      if (url.includes('labs.google/fx')) {
+        await injectStealthScript(view)
+      }
+
       mainWindow.webContents.send('flow-status', {
         loaded: true,
         url,
@@ -506,174 +660,32 @@ function createWindow() {
       }
     })
 
-    // CDP Debugger
-    try {
-      view.webContents.debugger.attach('1.3')
-      view.webContents.debugger.sendCommand('Network.enable')
-      const requestUrlMap = {}
-      const requestMethodMap = {}
-      const responseStatusMap = {}
-      const requestSentTimeMap = {}
+    // Register flow:report-response handler
+    ipcMain.removeHandler('flow:report-response')
+    ipcMain.handle('flow:report-response', async (event, { url, body, status, requestBody }) => {
+      try {
+        console.log(`[Flow API] Captured report-response: ${url?.split('/v1/').pop()}`)
 
-      view.webContents.debugger.on('message', (event, method, params) => {
-        if (method === 'Fetch.requestPaused') {
-          const reqUrl = params.request?.url || ''
-          const reqMethod = params.request?.method || ''
-          const continueRequest = (extra) =>
-            view.webContents.debugger.sendCommand('Fetch.continueRequest', {
-              requestId: params.requestId,
-              ...(extra || {})
-            })
-          const cdpCase = selectCdpCase({
-            reqUrl,
-            reqMethod,
-            pendingSeedValue,
-            pendingI2VInjection,
-          })
+        // 1. 이미지 생성 응답 처리
+        if (url.includes('batchGenerateImages')) {
+          const httpStatus = status
+          const reqSentAt = Date.now() / 1000 - 1
 
-          if (cdpCase === 'image-batch') {
-            try {
-              const body = JSON.parse(params.request.postData || '{}')
-              const applied = injectImageBatchBody(body, {
-                referenceImages: pendingReferenceImages,
-                seed: pendingSeedValue,
-                aspectRatio: pendingImageAspectRatio,
-              })
-              if (applied.references) {
-                console.log(`[Flow API - ${profileId}] Injected references`)
-                pendingReferenceImages = null
-              }
-              if (applied.seed) {
-                console.log(`[Flow API - ${profileId}] Injected seed:`, pendingSeedValue)
-              }
-              if (applied.aspectRatio) {
-                console.log(`[Flow API - ${profileId}] Injected aspect ratio:`, pendingImageAspectRatio)
-              }
-
-              if (applied.references || applied.seed || applied.aspectRatio) {
-                const modifiedPostData = Buffer.from(JSON.stringify(body)).toString('base64')
-                continueRequest({ postData: modifiedPostData })
-              } else {
-                continueRequest()
-              }
-            } catch (e) {
-              console.error(`[Flow API - ${profileId}] batchGenerateImages injection error:`, e.message)
-              continueRequest()
-            }
-          }
-          else if (cdpCase === 'i2v') {
-            if (reqMethod === 'OPTIONS') {
-              continueRequest()
-            } else {
-              try {
-                const body = JSON.parse(params.request.postData || '{}')
-                const hasEndImage = !!pendingI2VInjection.endImageMediaId
-                const T2V_TO_I2V_MODEL_MAP = {
-                  'veo_3_1_t2v_fast_ultra_relaxed': 'veo_3_1_i2v_s_fast_fl',
-                  'veo_3_1_t2v_fast': 'veo_3_1_i2v_s_fast_fl',
-                  'veo_3_1_t2v_fast_portrait_ultra_relaxed': 'veo_3_1_i2v_s_fast',
-                  'veo_3_1_t2v_fast_portrait': 'veo_3_1_i2v_s_fast',
-                  'veo_3_1_t2v_quality_ultra_relaxed': 'veo_3_1_i2v_quality',
-                  'veo_3_1_t2v_quality': 'veo_3_1_i2v_quality',
-                }
-                const defaultCrop = { top: 0, left: 0, bottom: 1, right: 1 }
-
-                if (body.requests) {
-                  for (const req of body.requests) {
-                    const originalModel = req.videoModelKey
-                    const i2vModel = T2V_TO_I2V_MODEL_MAP[originalModel]
-                    req.videoModelKey = i2vModel || 'veo_3_1_i2v_s_fast_fl'
-                    req.startImage = {
-                      mediaId: pendingI2VInjection.startImageMediaId,
-                      cropCoordinates: defaultCrop
-                    }
-                    if (hasEndImage) {
-                      req.endImage = {
-                        mediaId: pendingI2VInjection.endImageMediaId,
-                        cropCoordinates: defaultCrop
-                      }
-                    }
-                    if (pendingSeedValue != null) {
-                      req.seed = pendingSeedValue
-                    }
-                  }
-                }
-                const modifiedPostData = Buffer.from(JSON.stringify(body)).toString('base64')
-                const targetUrl = hasEndImage
-                  ? pendingI2VInjection.i2vStartEndUrl
-                  : pendingI2VInjection.i2vUrl
-                continueRequest({ url: targetUrl, postData: modifiedPostData })
-                pendingI2VInjection = null
-              } catch (e) {
-                console.error(`[Flow Video I2V - ${profileId}] Injection error:`, e.message)
-                continueRequest()
+          // 동기 모드
+          if (pendingGeneration) {
+            if (pendingGeneration.setAt && reqSentAt >= pendingGeneration.setAt) {
+              pendingGeneration.responses.push({ error: false, body, status: httpStatus })
+              if (pendingGeneration.responses.length >= pendingGeneration.expectedCount) {
+                const saved = pendingGeneration
+                pendingGeneration = null
+                if (saved.collectionTimer) clearTimeout(saved.collectionTimer)
+                saved.resolve({ error: false, responses: saved.responses })
               }
             }
           }
-          else if (cdpCase === 't2v-seed') {
-            try {
-              const body = JSON.parse(params.request.postData || '{}')
-              if (body.requests) {
-                for (const req of body.requests) {
-                  req.seed = pendingSeedValue
-                }
-                const modifiedPostData = Buffer.from(JSON.stringify(body)).toString('base64')
-                continueRequest({ postData: modifiedPostData })
-              } else {
-                continueRequest()
-              }
-            } catch (e) {
-              console.error(`[Flow Video - ${profileId}] T2V seed injection error:`, e.message)
-              continueRequest()
-            }
-          }
-          else {
-            continueRequest()
-          }
-          return
-        }
 
-        if (method === 'Network.requestWillBeSent') {
-          requestUrlMap[params.requestId] = params.request?.url || ''
-          requestMethodMap[params.requestId] = params.request?.method || ''
-          requestSentTimeMap[params.requestId] = params.wallTime || (Date.now() / 1000)
-        }
-
-        if (method === 'Network.responseReceived') {
-          responseStatusMap[params.requestId] = params.response?.status
-          if (!capturedProjectId) {
-            const url = params.response?.url || ''
-            const pidMatch = url.match(/projects\/([a-f0-9-]{36})/)
-            if (pidMatch) {
-              capturedProjectId = pidMatch[1]
-            }
-          }
-        }
-
-        if (method === 'Network.loadingFailed' && pendingGeneration) {
-          const reqUrl = requestUrlMap[params.requestId] || ''
-          const failMethod = requestMethodMap[params.requestId] || ''
-          if (reqUrl.includes('batchGenerateImages') && failMethod !== 'OPTIONS') {
-            const reqSentAt = requestSentTimeMap[params.requestId] || 0
-            if (pendingGeneration.setAt && reqSentAt < pendingGeneration.setAt) return
-            pendingGeneration.responses.push({ error: true, message: params.errorText || 'Network request failed' })
-            if (pendingGeneration.responses.length >= pendingGeneration.expectedCount) {
-              const saved = pendingGeneration
-              pendingGeneration = null
-              if (saved.collectionTimer) clearTimeout(saved.collectionTimer)
-              const hasSuccess = saved.responses.some(r => !r.error)
-              saved.resolve(hasSuccess
-                ? { error: false, responses: saved.responses }
-                : { error: true, message: 'All image generations failed' })
-            }
-          }
-        }
-
-        if (method === 'Network.loadingFailed' && pendingGenerations.size > 0) {
-          const reqUrl = requestUrlMap[params.requestId] || ''
-          const failMethod = requestMethodMap[params.requestId] || ''
-          if (reqUrl.includes('batchGenerateImages') && failMethod !== 'OPTIONS') {
-            const reqSentAt = requestSentTimeMap[params.requestId] || 0
+          // 비동기 모드
+          if (pendingGenerations.size > 0) {
             let matchId = null
             let matchSetAt = -Infinity
             for (const [id, gen] of pendingGenerations) {
@@ -684,7 +696,7 @@ function createWindow() {
             }
             if (matchId) {
               const g = pendingGenerations.get(matchId)
-              g.responses.push({ error: true, message: params.errorText || 'Network request failed' })
+              g.responses.push({ error: false, body, status: httpStatus })
               if (g.responses.length >= g.expectedCount) {
                 g.completed = true
                 if (g.collectionTimer) clearTimeout(g.collectionTimer)
@@ -693,142 +705,28 @@ function createWindow() {
           }
         }
 
-        if (method === 'Network.loadingFailed' && pendingVideoGeneration) {
-          const reqUrl = requestUrlMap[params.requestId] || ''
-          const failMethod = requestMethodMap[params.requestId] || ''
-          if (reqUrl.includes('batchAsyncGenerateVideo') && failMethod !== 'OPTIONS') {
-            const reqSentAt = requestSentTimeMap[params.requestId] || 0
-            if (pendingVideoGeneration.setAt && reqSentAt < pendingVideoGeneration.setAt) return
+        // 2. 비디오 생성 응답 처리 (Omni Flash는 이미지 생성 응답 batchGenerateImages도 함께 감지)
+        if (url.includes('batchAsyncGenerateVideo') || url.includes('batchGenerateImages')) {
+          if (pendingVideoGeneration) {
             const saved = pendingVideoGeneration
             pendingVideoGeneration = null
-            saved.resolve({ error: true, message: params.errorText || 'Video API request failed' })
+            saved.resolve({ error: status >= 400, body, status })
           }
         }
 
-        if (method === 'Network.loadingFinished' && params.requestId) {
-          const reqUrl = requestUrlMap[params.requestId] || ''
-          const httpStatus = responseStatusMap[params.requestId]
-          const reqMethod = requestMethodMap[params.requestId] || ''
-
-          if (pendingGeneration && reqUrl.includes('batchGenerateImages') && reqMethod !== 'OPTIONS') {
-            const reqSentAt = requestSentTimeMap[params.requestId] || 0
-            if (pendingGeneration.setAt && reqSentAt < pendingGeneration.setAt) return
-
-            view.webContents.debugger.sendCommand('Network.getResponseBody', { requestId: params.requestId })
-              .then(result => {
-                if (result?.body && pendingGeneration) {
-                  pendingGeneration.responses.push({ error: false, body: result.body, status: httpStatus })
-                  if (pendingGeneration.responses.length >= pendingGeneration.expectedCount) {
-                    const saved = pendingGeneration
-                    pendingGeneration = null
-                    if (saved.collectionTimer) clearTimeout(saved.collectionTimer)
-                    saved.resolve({ error: false, responses: saved.responses })
-                  } else {
-                    if (pendingGeneration.collectionTimer) clearTimeout(pendingGeneration.collectionTimer)
-                    pendingGeneration.collectionTimer = setTimeout(() => {
-                      if (pendingGeneration) {
-                        const saved = pendingGeneration
-                        pendingGeneration = null
-                        saved.resolve({ error: false, responses: saved.responses })
-                      }
-                    }, 30000)
-                  }
-                }
-              })
-              .catch(err => {
-                if (pendingGeneration) {
-                  pendingGeneration.responses.push({ error: true, message: err.message })
-                  if (pendingGeneration.responses.length >= pendingGeneration.expectedCount) {
-                    const saved = pendingGeneration
-                    pendingGeneration = null
-                    if (saved.collectionTimer) clearTimeout(saved.collectionTimer)
-                    saved.resolve({ error: false, responses: saved.responses })
-                  }
-                }
-              })
-          }
-          else if (pendingGenerations.size > 0 && reqUrl.includes('batchGenerateImages') && reqMethod !== 'OPTIONS') {
-            const reqSentAt = requestSentTimeMap[params.requestId] || 0
-            let matchId = null
-            let matchSetAt = -Infinity
-            for (const [id, gen] of pendingGenerations) {
-              if (!gen.completed && gen.setAt <= reqSentAt && gen.setAt > matchSetAt) {
-                matchId = id
-                matchSetAt = gen.setAt
-              }
-            }
-            if (matchId) {
-              view.webContents.debugger.sendCommand('Network.getResponseBody', { requestId: params.requestId })
-                .then(result => {
-                  if (result?.body && pendingGenerations.has(matchId)) {
-                    const g = pendingGenerations.get(matchId)
-                    g.responses.push({ error: false, body: result.body, status: httpStatus })
-                    if (g.responses.length >= g.expectedCount) {
-                      g.completed = true
-                      if (g.collectionTimer) clearTimeout(g.collectionTimer)
-                    } else {
-                      if (g.collectionTimer) clearTimeout(g.collectionTimer)
-                      g.collectionTimer = setTimeout(() => {
-                        if (pendingGenerations.has(matchId)) {
-                          const gg = pendingGenerations.get(matchId)
-                          if (!gg.completed) {
-                            gg.completed = true
-                          }
-                        }
-                      }, 30000)
-                    }
-                  }
-                })
-                .catch(err => {
-                  if (pendingGenerations.has(matchId)) {
-                    const g = pendingGenerations.get(matchId)
-                    g.responses.push({ error: true, message: err.message })
-                    if (g.responses.length >= g.expectedCount) {
-                      g.completed = true
-                      if (g.collectionTimer) clearTimeout(g.collectionTimer)
-                    }
-                  }
-                })
-            }
-          }
-          else if (pendingVideoGeneration && reqUrl.includes('batchAsyncGenerateVideo') && reqMethod !== 'OPTIONS') {
-            const reqSentAt = requestSentTimeMap[params.requestId] || 0
-            if (pendingVideoGeneration.setAt && reqSentAt < pendingVideoGeneration.setAt) return
-
-            view.webContents.debugger.sendCommand('Network.getResponseBody', { requestId: params.requestId })
-              .then(result => {
-                if (result?.body && pendingVideoGeneration) {
-                  const saved = pendingVideoGeneration
-                  pendingVideoGeneration = null
-                  saved.resolve({ error: httpStatus >= 400, body: result.body, status: httpStatus })
-                }
-              })
-              .catch(err => {
-                if (pendingVideoGeneration) {
-                  const saved = pendingVideoGeneration
-                  pendingVideoGeneration = null
-                  saved.resolve({ error: true, message: err.message })
-                }
-              })
-          }
-          else if (!capturedProjectId && reqUrl.includes('aisandbox-pa.googleapis.com')) {
-            view.webContents.debugger.sendCommand('Network.getResponseBody', { requestId: params.requestId })
-              .then(result => {
-                if (result?.body) {
-                  const match = result.body.match(/"projectId"\s*:\s*"([a-f0-9-]{36})"/)
-                  if (match && !capturedProjectId) {
-                    capturedProjectId = match[1]
-                  }
-                }
-              })
-              .catch(() => {})
+        // 3. 프로젝트 ID 캡처
+        if (!capturedProjectId && body) {
+          const match = body.match(/"projectId"\s*:\s*"([a-f0-9-]{36})"/)
+          if (match) {
+            capturedProjectId = match[1]
+            console.log(`[Flow API] Captured ProjectId from response body:`, capturedProjectId)
           }
         }
-      })
-      console.log(`[Flow - ${profileId}] Debugger attached successfully`)
-    } catch (e) {
-      console.warn(`[Flow - ${profileId}] Debugger attach failed:`, e.message)
-    }
+      } catch (err) {
+        console.warn(`[Flow API] flow:report-response handler error:`, err.message)
+      }
+      return { success: true }
+    })
 
     // session webRequest project ID capture
     view.webContents.session.webRequest.onBeforeRequest(
@@ -856,6 +754,7 @@ function createWindow() {
         callback({})
       }
     )
+
   }
 
   // Create or get view inside the multi-view registry
@@ -899,12 +798,17 @@ function createWindow() {
       console.warn('[Proxy/Hardware] Failed to load profile config:', e);
     }
 
+    let preloadPath = path.join(__dirname, 'stealth_preload.js');
+    if (!fsSync.existsSync(preloadPath)) {
+      preloadPath = path.join(__dirname, 'stealth_preload.mjs');
+    }
+
     const newView = new WebContentsView({
       webPreferences: {
         partition: partitionName,
         contextIsolation: true,
         webSecurity: false,
-        preload: path.join(__dirname, 'stealth_preload.js'),
+        preload: preloadPath,
         additionalArguments: [
           `--hardware-cores=${hardware.cores || 8}`,
           `--hardware-memory=${hardware.memory || 16}`,
@@ -1073,7 +977,151 @@ ipcMain.handle('app:project-activated', (event, { name, workFolder }) => {
   return { success: true }
 })
 
-// === MCP HTTP Server ===
+// ─── Profile Manager IPC Handlers ─────────────────────────────────────────
+// These were missing, causing "No handler registered for 'profiles:load'" errors
+
+ipcMain.handle('profiles:load', async () => {
+  try {
+    return await loadProfiles()
+  } catch (e) {
+    console.error('[profiles:load] Error:', e.message)
+    return { activeProfileId: 'default', profiles: [{ id: 'default', name: '기본 프로필', email: '', hardware: {} }] }
+  }
+})
+
+ipcMain.handle('profiles:save', async (event, config) => {
+  try {
+    return await saveProfiles(config)
+  } catch (e) {
+    console.error('[profiles:save] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('profiles:switch', async (event, { profileId }) => {
+  try {
+    const result = await switchProfile(profileId)
+    if (result.success) {
+      global.activeFlowProfileId = profileId
+    }
+    return result
+  } catch (e) {
+    console.error('[profiles:switch] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('profiles:create', async (event, { name, email } = {}) => {
+  try {
+    return await createProfile(name, email)
+  } catch (e) {
+    console.error('[profiles:create] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('profiles:delete', async (event, { profileId }) => {
+  try {
+    return await deleteProfile(profileId)
+  } catch (e) {
+    console.error('[profiles:delete] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('profiles:update', async (event, { profileId, name, email }) => {
+  try {
+    return await updateProfile(profileId, name, email)
+  } catch (e) {
+    console.error('[profiles:update] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+// ─── Flow Active Views IPC Handler ────────────────────────────────────────
+// Returns list of currently active Flow WebContentsViews with their profile IDs
+
+ipcMain.handle('flow:get-active-views', async () => {
+  try {
+    const views = []
+    for (const [profileId, view] of global.flowViews) {
+      if (view && !view.webContents?.isDestroyed?.()) {
+        views.push({
+          profileId,
+          url: view.webContents?.getURL?.() || '',
+          isActive: profileId === global.activeFlowProfileId
+        })
+      }
+    }
+    return { views, activeProfileId: global.activeFlowProfileId }
+  } catch (e) {
+    console.error('[flow:get-active-views] Error:', e.message)
+    return { views: [], activeProfileId: global.activeFlowProfileId || 'default' }
+  }
+})
+
+// ─── Flow View Management IPC Handlers ─────────────────────────────────────
+
+ipcMain.handle('flow:create-view', async (event, { profileId } = {}) => {
+  try {
+    if (!profileId) return { success: false, error: 'profileId required' }
+    const view = global.createOrGetFlowView(profileId)
+    return { success: true, profileId }
+  } catch (e) {
+    console.error('[flow:create-view] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('flow:destroy-view', async (event, { profileId } = {}) => {
+  try {
+    if (!profileId) return { success: false, error: 'profileId required' }
+    if (typeof global.destroyFlowView === 'function') {
+      const result = global.destroyFlowView(profileId)
+      return { success: !!result }
+    }
+    return { success: false, error: 'destroyFlowView not available' }
+  } catch (e) {
+    console.error('[flow:destroy-view] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('flow:clear-session', async () => {
+  try {
+    for (const [profileId, view] of global.flowViews) {
+      try {
+        const session = view.webContents.session
+        await session.clearStorageData()
+        await session.clearCache()
+        console.log(`[flow:clear-session] Cleared session for profile: ${profileId}`)
+      } catch (e) {
+        console.warn(`[flow:clear-session] Failed to clear session for ${profileId}:`, e.message)
+      }
+    }
+    return { success: true }
+  } catch (e) {
+    console.error('[flow:clear-session] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('flow:select-voice', async (event, params = {}) => {
+  try {
+    // Voice selection via DOM - select a voice in the Flow UI
+    const { profileId, voiceId } = params
+    const targetView = profileId
+      ? global.flowViews.get(profileId)
+      : (global.flowViews.get(global.activeFlowProfileId) || flowView)
+    if (!targetView) return { success: false, error: 'No active flow view' }
+    return { success: true }
+  } catch (e) {
+    console.error('[flow:select-voice] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+
 function startMcpHttpServer(port) {
   if (mcpHttpServer) {
     mcpHttpServer.close()
@@ -1711,6 +1759,8 @@ const domDeps = {
   FLOW_URL,
   getCapturedProjectId: () => capturedProjectId,
   setCapturedProjectId: (v) => { capturedProjectId = v },
+  getEnterToolClicked: () => enterToolClicked,
+  setEnterToolClicked: (v) => { enterToolClicked = v },
 }
 registerDomIPC(ipcMain, domDeps)
 
@@ -1969,6 +2019,9 @@ ipcMain.handle('get-infra-status', async () => {
 
 // === App Lifecycle ===
 app.whenReady().then(() => {
+  // 찌꺼기 세션 디렉토리 정리 기동
+  cleanupUnusedPartitions();
+
   // Dock 아이콘 (macOS, dev/prod 둘 다) — whenReady 이후에만 app.dock 사용 가능
   if (process.platform === 'darwin' && HAS_APP_ICON && app.dock) {
     try { app.dock.setIcon(APP_ICON_PATH) } catch (e) { console.warn('[ViraLoop Studio] dock.setIcon failed:', e.message) }

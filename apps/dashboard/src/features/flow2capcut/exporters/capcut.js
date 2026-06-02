@@ -68,14 +68,29 @@ export function generateSRT(project, lang = 'ko') {
       ? (video.duration || 5) * 1000
       : (scene.image_duration || 3) * 1000;
 
-    const startTime = formatSRTTime(currentTimeMs);
-    const endTime = formatSRTTime(currentTimeMs + durationMs);
+    // AI Semantic Subtitle Segmentation: Split by `//` or `\n`
+    // If none exist, we just output the full subtitle as one chunk
+    let chunks = subtitle.split(/\/\/|\n/).map(c => c.trim()).filter(c => c.length > 0);
+    if (chunks.length === 0) {
+      currentTimeMs += durationMs;
+      continue;
+    }
+    
+    const chunkDuration = durationMs / chunks.length;
+    let currentChunkStart = currentTimeMs;
 
-    srtContent += `${index}\n`;
-    srtContent += `${startTime} --> ${endTime}\n`;
-    srtContent += `${subtitle.trim()}\n\n`;
+    for (const chunk of chunks) {
+      const startTime = formatSRTTime(currentChunkStart);
+      const endTime = formatSRTTime(currentChunkStart + chunkDuration);
 
-    index++;
+      srtContent += `${index}\n`;
+      srtContent += `${startTime} --> ${endTime}\n`;
+      srtContent += `${chunk}\n\n`;
+
+      index++;
+      currentChunkStart += chunkDuration;
+    }
+    
     currentTimeMs += durationMs;
   }
 

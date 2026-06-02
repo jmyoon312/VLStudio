@@ -20,6 +20,19 @@ export function registerDomIPC(ipcMain, deps) {
     }
   })
 
+  // Force Flow to go home and forget current project ID
+  ipcMain.handle('flow:reset-project', async () => {
+    const flowView = getFlowView()
+    if (!flowView) return { success: false, error: 'Flow view not ready' }
+    try {
+      deps.setCapturedProjectId(null)
+      await flowView.webContents.loadURL(FLOW_URL)
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
+  })
+
   // Get current URL of Flow view
   ipcMain.handle('flow:dom-get-url', async () => {
     const flowView = getFlowView()
@@ -67,7 +80,17 @@ export function registerDomIPC(ipcMain, deps) {
       for (const b of document.querySelectorAll('button')) {
         const icon = b.querySelector('i');
         if (icon && (icon.textContent.trim() === 'add_2' || icon.textContent.trim() === 'add')) return b;
+        
+        // Text fallback (UI changes)
+        const txt = b.textContent.trim().toLowerCase();
+        if (txt.includes('new project') || txt.includes('create a character')) return b;
       }
+        // ultimate fallback: any leaf node with 'new project'
+        for (const el of document.querySelectorAll('*')) {
+          if (el.children.length === 0 && el.textContent && el.textContent.toLowerCase().includes('new project')) {
+            return el.closest('button') || el.closest('a') || el.closest('[role="button"]') || el.closest('md-filled-button') || el.closest('md-text-button') || el.closest('md-outlined-button') || el;
+          }
+        }
       return null;
     })()`
 
@@ -110,7 +133,9 @@ export function registerDomIPC(ipcMain, deps) {
         const promptText = ${JSON.stringify(prompt)};
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-        // Slate editor 찾기: data-slate-editor='true' 또는 contenteditable div
+        // Removed agent button auto-click logic to prevent unintended activation of Agent mode in the new Flow UI.
+
+        // Slate editor 찾기: data-slate-editor='true' 또는 contenteditable div (AutoFlow 원본과 동일)
         let editor = document.querySelector("[data-slate-editor='true']");
         if (!editor) editor = document.querySelector("div[role='textbox'][contenteditable='true']:not(#af-bot-panel *)");
         if (!editor) editor = document.querySelector('[contenteditable="true"]:not([aria-hidden])');

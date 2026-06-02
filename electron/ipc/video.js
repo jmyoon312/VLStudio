@@ -48,54 +48,166 @@ export function registerVideoIPC(ipcMain, deps) {
       || null
   }
 
+  // Google Flow Approve 버튼 감지 및 자동 클릭 헬퍼 함수
+  async function clickApproveButtonIfPresent(flowView, profileId) {
+    console.log('[Flow Video] [ApproveCheck] Checking for Approve button...');
+    const maxAttempts = 20; // 20 * 500ms = 10초 대기
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const btnCheck = await flowView.webContents.executeJavaScript(`
+        (function() {
+          const els = Array.from(document.querySelectorAll('button, [role="button"], div, span, p, a'));
+          for (const el of els) {
+            const text = el.textContent.trim().toLowerCase();
+            if (text.includes('approve') || text.includes('승인')) {
+              const rect = el.getBoundingClientRect();
+              if (rect.width > 0 && rect.height > 0) {
+                return { found: true, disabled: el.disabled || false };
+              }
+            }
+          }
+          return { found: false };
+        })()
+      `).catch(() => ({ found: false }));
+
+      if (btnCheck.found) {
+        if (btnCheck.disabled) {
+          console.log('[Flow Video] [ApproveCheck] Approve button found but disabled, waiting 500ms...');
+        } else {
+          console.log('[Flow Video] [ApproveCheck] Approve button found active. Clicking...');
+          const approveBtnSelector = `(function() {
+            const els = Array.from(document.querySelectorAll('button, [role="button"], div, span, p, a'));
+            for (const el of els) {
+              const text = el.textContent.trim().toLowerCase();
+              if (text.includes('approve') || text.includes('승인')) {
+                const rect = el.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) return el;
+              }
+            }
+            return null;
+          })()`;
+          const clickRes = await trustedClickOnFlowView(approveBtnSelector, profileId);
+          console.log('[Flow Video] [ApproveCheck] Trusted click on Approve button result:', clickRes);
+          return { success: clickRes?.success ?? false, clicked: true };
+        }
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+    console.log('[Flow Video] [ApproveCheck] Approve button not found or did not become active within timeout.');
+    return { success: true, clicked: false };
+  }
+
+  // Helper to ensure Flow is on a project page. If on landing page, click "+ New project" or equivalent.
+  async function ensureOnProjectPage(flowView) {
+    // 1. Auto dismiss cookies/consent banners if found
+    await flowView.webContents.executeJavaScript(`
+      (function() {
+        const dismissBtns = Array.from(document.querySelectorAll('button'));
+        const agreeBtn = dismissBtns.find(b => b.textContent.trim().toLowerCase() === 'agree' || b.textContent.trim().toLowerCase() === 'agree & proceed');
+        if (agreeBtn) {
+          agreeBtn.click();
+          console.log('[DOM] Auto-clicked Cookie Agree button');
+          return;
+        }
+        const noThanksBtn = dismissBtns.find(b => b.textContent.trim().toLowerCase() === 'no thanks');
+        if (noThanksBtn) {
+          noThanksBtn.click();
+          console.log('[DOM] Auto-clicked No thanks button');
+          return;
+        }
+        const dismissBtn = dismissBtns.find(b => b.textContent.trim().toLowerCase().includes('dismiss') || b.textContent.trim().toLowerCase() === 'close');
+        if (dismissBtn) {
+          dismissBtn.click();
+          console.log('[DOM] Auto-clicked Dismiss/Close button');
+        }
+      })()
+    `).catch(() => {});
+
+    const currentUrl = flowView.webContents.getURL()
+    console.log('[Flow Video] ensureOnProjectPage checking URL:', currentUrl)
+    
+    if (currentUrl.includes('/project/') || currentUrl.includes('/tools/flow/')) {
+      return { success: true }
+    }
+
+    // If we're not even on labs.google/fx, load it
+    if (!currentUrl.includes('labs.google/fx')) {
+      console.log('[Flow Video] Not on Flow. Loading URL:', FLOW_URL)
+      await flowView.webContents.loadURL(FLOW_URL)
+      await new Promise(r => setTimeout(r, 4000))
+    }
+
+    // Try to click New project button
+    console.log('[Flow Video] Attempting to click New project button...')
+    const clicked = await flowView.webContents.executeJavaScript(`
+      (function() {
+        for (const b of document.querySelectorAll('button')) {
+          const text = b.textContent.trim().toLowerCase();
+          if (text.includes('new project') || text.includes('새 프로젝트') || text.includes('새프로젝트') || text.includes('add_2')) {
+            b.click();
+            return 'button_clicked';
+          }
+        }
+        for (const b of document.querySelectorAll('button')) {
+          if (b.textContent.includes('+')) {
+            b.click();
+            return 'plus_button_clicked';
+          }
+        }
+        return null;
+      })()
+    `).catch(() => null)
+
+    if (clicked) {
+      console.log('[Flow Video] New project click result:', clicked)
+      // Wait up to 15 seconds for project URL redirection
+      for (let w = 0; w < 30; w++) {
+        await new Promise(r => setTimeout(r, 500))
+        const checkUrl = flowView.webContents.getURL()
+        if (checkUrl.includes('/project/') || checkUrl.includes('/tools/flow/')) {
+          console.log('[Flow Video] Successfully redirected to project:', checkUrl)
+          return { success: true }
+        }
+      }
+      return { success: false, error: 'Timed out waiting for project creation/redirection' }
+    }
+
+    return { success: false, error: 'Failed to find and click New project button' }
+  }
+
   // Text-to-Video generation (DOM 자동화 — 페이지가 reCAPTCHA 자체 처리)
   ipcMain.handle('flow:generate-video-t2v', async (event, {
-    token, prompt, projectId, model, aspectRatio, duration, videoBatchCount, seed
+    token, prompt, projectId, model, aspectRatio, duration, videoBatchCount, seed, profileId
   }) => {
     // Enforce global rate-limit throttling
     await acquireGlobalThrottle()
 
-    const flowView = getFlowView()
+    const flowView = getFlowView(profileId)
     const mainWindow = getMainWindow()
     if (!prompt) return { success: false, error: 'No prompt' }
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
-    // Seed: 숫자면 CDP Fetch 인터셉션이 batchAsyncGenerateVideoText 요청에 주입,
-    //       null/undefined면 Flow 자체 랜덤 seed 유지
-    const hasUserSeed = typeof seed === 'number' && Number.isFinite(seed)
-    setPendingSeedValue?.(hasUserSeed ? seed : null)
-
-    // CDP Fetch 도메인이 image용 패턴만 등록돼 있을 수 있으므로,
-    // 사용자 seed 지정 시 video text 패턴으로 등록 (없으면 inject 안 됨).
-    // I2V 핸들러와 동일한 패턴으로 finally에서 정리한다.
-    let cdpFetchEnabled = false
-    if (hasUserSeed) {
-      try {
-        await flowView.webContents.debugger.sendCommand('Fetch.enable', {
-          patterns: [
-            { urlPattern: '*batchGenerateImages*', requestStage: 'Request' },
-            { urlPattern: '*batchAsyncGenerateVideoText*', requestStage: 'Request' }
-          ]
-        })
-        cdpFetchEnabled = true
-        console.log('[Flow Video T2V] [Fetch] Enabled with video text pattern for seed inject')
-      } catch (e) {
-        console.warn('[Flow Video T2V] [Fetch] Fetch.enable failed:', e.message)
-      }
+    // Seed: page-level fetch patch injection
+    if (global.setFlowPageInject) {
+      global.setFlowPageInject(profileId, {
+        seed: typeof seed === 'number' && Number.isFinite(seed) ? seed : null,
+        aspectRatio: null,
+        references: null,
+        i2v: null
+      })
     }
 
-    console.log('[Flow Video T2V] Starting DOM-triggered video generation:', prompt?.substring(0, 50), hasUserSeed ? `(seed: ${seed})` : '(seed: random)')
+    console.log('[Flow Video T2V] Starting DOM-triggered video generation:', prompt?.substring(0, 50), seed != null ? `(seed: ${seed})` : '(seed: random)')
 
     try {
-      // 0. Flow 프로젝트 페이지 확인
-      const currentUrl = flowView.webContents.getURL()
-      if (!currentUrl.includes('/project/') && !currentUrl.includes('/tools/flow/')) {
-        return { success: false, error: 'Not on Flow project page. Please open a Flow project first.' }
+      // 0. Flow 프로젝트 페이지 확인 및 자동 진입
+      const pageCheck = await ensureOnProjectPage(flowView)
+      if (!pageCheck.success) {
+        return { success: false, error: pageCheck.error || 'Not on Flow project page. Please open a Flow project first.' }
       }
 
       // 1. 비디오 모드로 전환 (배치 카운트 적용)
       const effectiveBatchCount = Math.max(1, Math.min(4, videoBatchCount || 1))
-      const modeResult = await configureFlowMode('VIDEO', effectiveBatchCount)
+      const modeResult = await configureFlowMode('VIDEO', effectiveBatchCount, profileId)
       if (!modeResult.success) {
         return { success: false, error: modeResult.error || 'Failed to switch to video mode' }
       }
@@ -115,10 +227,29 @@ export function registerVideoIPC(ipcMain, deps) {
           const promptText = ${JSON.stringify(prompt)};
           const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-          // Slate editor 찾기
-          let editor = document.querySelector("[data-slate-editor='true']");
-          if (!editor) editor = document.querySelector("div[role='textbox'][contenteditable='true']:not(#af-bot-panel *)");
-          if (!editor) editor = document.querySelector('[contenteditable="true"]:not([aria-hidden])');
+          // Slate editor 찾기 (사이드바, 에이전트, 서브패널 배제)
+          let editor = document.querySelector(".composer-container [data-slate-editor='true'], .prompt-container [data-slate-editor='true'], [data-slate-editor='true']:not([class*='sidebar'] *):not([class*='agent'] *):not(#af-bot-panel *)");
+          
+          if (!editor) {
+            const candidates = Array.from(document.querySelectorAll("div[role='textbox'][contenteditable='true'], [contenteditable='true']:not([aria-hidden])"));
+            editor = candidates.find(el => {
+              let parent = el.parentElement;
+              while (parent) {
+                const id = (parent.id || '').toLowerCase();
+                const cls = (parent.className || '').toString().toLowerCase();
+                if (
+                  id.includes('sidebar') || id.includes('agent') || id.includes('instruction') || id.includes('drawer') || id.includes('panel') ||
+                  cls.includes('sidebar') || cls.includes('agent') || cls.includes('instruction') || cls.includes('drawer') || cls.includes('panel') ||
+                  cls.includes('chat-history') || cls.includes('history')
+                ) {
+                  return false;
+                }
+                parent = parent.parentElement;
+              }
+              const rect = el.getBoundingClientRect();
+              return rect.width > 100 && rect.height > 20;
+            });
+          }
 
           if (!editor) return { success: false, error: 'Editor not found' };
 
@@ -237,16 +368,44 @@ export function registerVideoIPC(ipcMain, deps) {
         return null;
       })()`
 
-      const clickResult = await trustedClickOnFlowView(generateBtnSelector)
-      console.log('[Flow Video T2V] Trusted click result:', clickResult)
+      // 4-a. 클릭 전 인간 행동 시뮬레이션 (reCAPTCHA 점수 향상)
+      try {
+        await flowView.webContents.executeJavaScript(`
+          (async () => {
+            try {
+              const moves = 3 + Math.floor(Math.random() * 3)
+              for (let i = 0; i < moves; i++) {
+                document.dispatchEvent(new MouseEvent('mousemove', {
+                  clientX: 200 + Math.random() * 800,
+                  clientY: 100 + Math.random() * 500,
+                  bubbles: true
+                }))
+                await new Promise(r => setTimeout(r, 120 + Math.random() * 180))
+              }
+              const scrollAmt = 30 + Math.random() * 60
+              window.scrollBy(0, scrollAmt)
+              await new Promise(r => setTimeout(r, 150 + Math.random() * 250))
+              window.scrollBy(0, -scrollAmt * 0.6)
+              await new Promise(r => setTimeout(r, 100 + Math.random() * 150))
+              const btn = (() => { for(const b of document.querySelectorAll('button')) { for(const i of b.querySelectorAll('i')) { if(i.textContent.trim()==='arrow_forward') return b } } return null })()
+              if (btn) {
+                const rect = btn.getBoundingClientRect()
+                btn.dispatchEvent(new MouseEvent('mousemove', {
+                  clientX: rect.left + rect.width * (0.3 + Math.random() * 0.4),
+                  clientY: rect.top  + rect.height * (0.3 + Math.random() * 0.4),
+                  bubbles: true
+                }))
+                btn.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+                await new Promise(r => setTimeout(r, 200 + Math.random() * 300))
+              }
+            } catch(e) {}
+          })()
+        `)
+        console.log('[Flow Video T2V] Human behavior simulation complete')
+      } catch (simErr) { /* non-fatal */ }
 
-      if (!clickResult?.success) {
-        clearTimeout(videoTimeout)
-        return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
-      }
-
-      // ★ 클릭 직후 pendingVideoGeneration 설정
-      const videoSetAt = Date.now() / 1000 - 2
+      // ★ 클릭 전 pendingVideoGeneration을 먼저 무장(Arm)하여 레이스 컨디션 방지!
+      const videoSetAt = Date.now() / 1000 - 5
       setPendingVideoGeneration({
         setAt: videoSetAt,
         resolve: (result) => {
@@ -254,14 +413,79 @@ export function registerVideoIPC(ipcMain, deps) {
           resolveVideo(result)
         }
       })
-      console.log('[Flow Video T2V] pendingVideoGeneration set, waiting for CDP capture...')
+      console.log('[Flow Video T2V] pendingVideoGeneration armed before click...')
+
+      const clickResult = await trustedClickOnFlowView(generateBtnSelector, profileId)
+      console.log('[Flow Video T2V] Trusted click result:', clickResult)
+
+      if (!clickResult?.success) {
+        setPendingVideoGeneration(null)
+        clearTimeout(videoTimeout)
+        return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
+      }
+
+      // ==== AUTO-APPROVE AUTOMATION ====
+      // Click Approve if it appears after the Generate click
+      const approveRes = await clickApproveButtonIfPresent(flowView, profileId).catch(err => {
+        console.error('[Flow Video T2V] Approve button automation failed:', err.message);
+        return { success: false };
+      });
+      if (approveRes && approveRes.clicked) {
+        // Reset the timeout timer to allow full 30s after the click
+        clearTimeout(videoTimeout);
+        videoTimeout = setTimeout(() => {
+          if (getPendingVideoGeneration()) {
+            setPendingVideoGeneration(null)
+            resolveVideo({ error: true, message: 'Video response timeout (30s)' })
+          }
+        }, 30000);
+        console.log('[Flow Video T2V] Reset videoTimeout after Approve button click');
+      }
 
       // 5. 비디오 API 응답 대기
       const netResult = await videoResponsePromise
 
       if (netResult.error) {
-        console.warn('[Flow Video T2V] Video API failed:', netResult.message || `HTTP ${netResult.status}`)
-        return { success: false, error: netResult.message || `HTTP ${netResult.status}: Video generation failed` }
+        const statusCode = netResult.status
+        const rawBody = netResult.body || ''
+        console.warn('[Flow Video T2V] Video API failed: HTTP', statusCode)
+        console.warn('[Flow Video T2V] Response body:', rawBody?.substring(0, 500))
+
+        // Google 에러 body 파싱해서 실제 원인 추출
+        let googleErrorMsg = null
+        try {
+          const errData = JSON.parse(rawBody)
+          googleErrorMsg = errData?.error?.message || errData?.error?.status || null
+        } catch {}
+
+        let errorStr
+        if (statusCode === 403) {
+          // 403 = PERMISSION_DENIED — unusual activity 또는 세션 만료
+          const isUnusualActivity = rawBody.includes('unusual') || rawBody.includes('PERMISSION_DENIED')
+            || rawBody.includes('safety') || rawBody.includes('policy')
+          if (isUnusualActivity) {
+            errorStr = '403: Google이 비정상 활동을 감지했습니다. Flow 페이지를 새로 고침하거나 잠시 후 다시 시도하세요.'
+          } else if (googleErrorMsg) {
+            errorStr = `403: ${googleErrorMsg}`
+          } else {
+            errorStr = '403: PERMISSION_DENIED — 계정 세션을 확인하세요.'
+          }
+
+          // 403 차단 감지 시 Flow 페이지 자동 새로고침 (이상활동 배너 해제 시도)
+          try {
+            console.warn('[Flow Video T2V] 403 차단 감지 → Flow 페이지 자동 새로고침')
+            flowView.webContents.reload()
+          } catch (reloadErr) {
+            console.warn('[Flow Video T2V] 페이지 새로고침 실패:', reloadErr.message)
+          }
+        } else if (statusCode === 429) {
+          errorStr = '429: 요청 한도 초과. 잠시 후 재시도합니다.'
+        } else {
+          errorStr = googleErrorMsg || netResult.message || `HTTP ${statusCode}: Video generation failed`
+        }
+
+        console.warn('[Flow Video T2V] Parsed error:', errorStr)
+        return { success: false, error: errorStr }
       }
 
       // 6. 응답에서 generation ID 추출
@@ -278,14 +502,8 @@ export function registerVideoIPC(ipcMain, deps) {
       console.error('[Flow Video T2V] Error:', e.message)
       return { success: false, error: e.message }
     } finally {
-      // CDP Fetch 인터셉션 + seed 정리 (I2V 핸들러와 동일 패턴, 항상 실행)
-      // pendingSeedValue를 비워야 다음 비-자동화 Flow 요청에 stale seed가 새지 않음.
-      setPendingSeedValue?.(null)
-      if (cdpFetchEnabled) {
-        try {
-          await flowView.webContents.debugger.sendCommand('Fetch.disable')
-          console.log('[Flow Video T2V] CDP Fetch interception disabled')
-        } catch {}
+      if (global.clearFlowPageInject) {
+        global.clearFlowPageInject(profileId)
       }
     }
   })
@@ -294,38 +512,46 @@ export function registerVideoIPC(ipcMain, deps) {
   // T2V와 동일한 DOM 흐름: 프롬프트 주입 → Generate 클릭 → CDP 응답 캡처
   // 차이점: CDP Fetch로 나가는 T2V 요청을 가로채서 startImage 주입 + URL을 I2V 엔드포인트로 변경
   ipcMain.handle('flow:generate-video-i2v', async (event, {
-    token, prompt, startImageMediaId, endImageMediaId, projectId, model, aspectRatio, duration, videoBatchCount, seed
+    token, prompt, startImageMediaId, endImageMediaId, projectId, model, aspectRatio, duration, videoBatchCount, seed, profileId
   }) => {
     // Enforce global rate-limit throttling
     await acquireGlobalThrottle()
 
-    const flowView = getFlowView()
+    const flowView = getFlowView(profileId)
     const mainWindow = getMainWindow()
     if (!startImageMediaId) return { success: false, error: 'No start image mediaId' }
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
-    // Seed: 숫자면 CDP Fetch 인터셉션이 batchAsyncGenerateVideoStartImage 등에 주입,
-    //       null/undefined면 Flow 자체 랜덤 seed 유지
-    const hasUserSeed = typeof seed === 'number' && Number.isFinite(seed)
-    setPendingSeedValue?.(hasUserSeed ? seed : null)
-
     const hasEndImage = !!endImageMediaId
     console.log('[Flow Video I2V] Starting DOM-triggered I2V generation, start:', startImageMediaId?.substring(0, 8),
       hasEndImage ? ', end: ' + endImageMediaId?.substring(0, 8) : '(start only)',
-      hasUserSeed ? `(seed: ${seed})` : '(seed: random)')
+      seed != null ? `(seed: ${seed})` : '(seed: random)')
 
-    let cdpFetchEnabled = false
+    // Seed/I2V page-level fetch patch injection
+    if (global.setFlowPageInject) {
+      global.setFlowPageInject(profileId, {
+        seed: typeof seed === 'number' && Number.isFinite(seed) ? seed : null,
+        aspectRatio: null,
+        references: null,
+        i2v: {
+          startImageMediaId,
+          endImageMediaId: hasEndImage ? endImageMediaId : null,
+          i2vUrl: VIDEO_I2V_URL,
+          i2vStartEndUrl: VIDEO_I2V_START_END_URL
+        }
+      })
+    }
 
     try {
-      // 0. Flow 프로젝트 페이지 확인
-      const currentUrl = flowView.webContents.getURL()
-      if (!currentUrl.includes('/project/') && !currentUrl.includes('/tools/flow/')) {
-        return { success: false, error: 'Not on Flow project page. Please open a Flow project first.' }
+      // 0. Flow 프로젝트 페이지 확인 및 자동 진입
+      const pageCheck = await ensureOnProjectPage(flowView)
+      if (!pageCheck.success) {
+        return { success: false, error: pageCheck.error || 'Not on Flow project page. Please open a Flow project first.' }
       }
 
       // 1. 비디오 모드로 전환 (배치 카운트 적용)
       const effectiveBatchCount = Math.max(1, Math.min(4, videoBatchCount || 1))
-      const modeResult = await configureFlowMode('VIDEO', effectiveBatchCount)
+      const modeResult = await configureFlowMode('VIDEO', effectiveBatchCount, profileId)
       if (!modeResult.success) {
         return { success: false, error: modeResult.error || 'Failed to switch to video mode' }
       }
@@ -345,10 +571,29 @@ export function registerVideoIPC(ipcMain, deps) {
           const promptText = ${JSON.stringify(prompt || '')};
           const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-          // Slate editor 찾기
-          let editor = document.querySelector("[data-slate-editor='true']");
-          if (!editor) editor = document.querySelector("div[role='textbox'][contenteditable='true']:not(#af-bot-panel *)");
-          if (!editor) editor = document.querySelector('[contenteditable="true"]:not([aria-hidden])');
+          // Slate editor 찾기 (사이드바, 에이전트, 서브패널 배제)
+          let editor = document.querySelector(".composer-container [data-slate-editor='true'], .prompt-container [data-slate-editor='true'], [data-slate-editor='true']:not([class*='sidebar'] *):not([class*='agent'] *):not(#af-bot-panel *)");
+          
+          if (!editor) {
+            const candidates = Array.from(document.querySelectorAll("div[role='textbox'][contenteditable='true'], [contenteditable='true']:not([aria-hidden])"));
+            editor = candidates.find(el => {
+              let parent = el.parentElement;
+              while (parent) {
+                const id = (parent.id || '').toLowerCase();
+                const cls = (parent.className || '').toString().toLowerCase();
+                if (
+                  id.includes('sidebar') || id.includes('agent') || id.includes('instruction') || id.includes('drawer') || id.includes('panel') ||
+                  cls.includes('sidebar') || cls.includes('agent') || cls.includes('instruction') || cls.includes('drawer') || cls.includes('panel') ||
+                  cls.includes('chat-history') || cls.includes('history')
+                ) {
+                  return false;
+                }
+                parent = parent.parentElement;
+              }
+              const rect = el.getBoundingClientRect();
+              return rect.width > 100 && rect.height > 20;
+            });
+          }
 
           if (!editor) return { success: false, error: 'Editor not found' };
 
@@ -439,26 +684,6 @@ export function registerVideoIPC(ipcMain, deps) {
       }
       console.log('[Flow Video I2V] Prompt injected successfully')
 
-      // 3. CDP Fetch 인터셉션 활성화 — 나가는 T2V 요청을 I2V로 변환
-      setPendingI2VInjection({
-        startImageMediaId,
-        endImageMediaId: hasEndImage ? endImageMediaId : null,
-        i2vUrl: VIDEO_I2V_URL,
-        i2vStartEndUrl: VIDEO_I2V_START_END_URL,
-      })
-      try {
-        await flowView.webContents.debugger.sendCommand('Fetch.enable', {
-          patterns: [{ urlPattern: '*batchAsyncGenerateVideo*', requestStage: 'Request' }]
-        })
-        cdpFetchEnabled = true
-        console.log('[Flow Video I2V] CDP Fetch interception enabled for',
-          hasEndImage ? 'start+end image injection' : 'start image injection')
-      } catch (e) {
-        console.warn('[Flow Video I2V] Fetch.enable failed:', e.message)
-        setPendingI2VInjection(null)
-        return { success: false, error: 'Failed to enable CDP Fetch interception: ' + e.message }
-      }
-
       // 4. CDP 비디오 응답 캡처 Promise 설정
       let resolveVideo = null
       let videoTimeout = null
@@ -487,16 +712,48 @@ export function registerVideoIPC(ipcMain, deps) {
         return null;
       })()`
 
-      const clickResult = await trustedClickOnFlowView(generateBtnSelector)
-      console.log('[Flow Video I2V] Trusted click result:', clickResult)
-
-      if (!clickResult?.success) {
-        clearTimeout(videoTimeout)
-        return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
+      // 5-a. 클릭 전 인간 행동 시뮬레이션 (reCAPTCHA 점수 향상)
+      // Generate 버튼 위로 마우스를 자연스럽게 이동시키고 스크롤을 살짝 움직여
+      // Google의 행동 기반 reCAPTCHA 점수를 높임
+      try {
+        await flowView.webContents.executeJavaScript(`
+          (async () => {
+            try {
+              // 랜덤 마우스 이동 (페이지 전체 범위)
+              const moves = 3 + Math.floor(Math.random() * 3)
+              for (let i = 0; i < moves; i++) {
+                const x = 200 + Math.random() * 800
+                const y = 100 + Math.random() * 500
+                document.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }))
+                await new Promise(r => setTimeout(r, 120 + Math.random() * 180))
+              }
+              // 미세 스크롤 (사람처럼 조금 내렸다 올림)
+              const scrollAmt = 30 + Math.random() * 60
+              window.scrollBy(0, scrollAmt)
+              await new Promise(r => setTimeout(r, 150 + Math.random() * 250))
+              window.scrollBy(0, -scrollAmt * 0.6)
+              await new Promise(r => setTimeout(r, 100 + Math.random() * 150))
+              // Generate 버튼 근처로 호버
+              const btn = document.querySelector('button [data-icon="arrow_forward"]')?.closest('button')
+                || (() => { for(const b of document.querySelectorAll('button')) { for(const i of b.querySelectorAll('i')) { if(i.textContent.trim()==='arrow_forward') return b } } return null })()
+              if (btn) {
+                const rect = btn.getBoundingClientRect()
+                const cx = rect.left + rect.width * (0.3 + Math.random() * 0.4)
+                const cy = rect.top  + rect.height * (0.3 + Math.random() * 0.4)
+                btn.dispatchEvent(new MouseEvent('mousemove', { clientX: cx, clientY: cy, bubbles: true }))
+                btn.dispatchEvent(new MouseEvent('mouseenter', { clientX: cx, clientY: cy, bubbles: true }))
+                await new Promise(r => setTimeout(r, 200 + Math.random() * 300))
+              }
+            } catch(e) {}
+          })()
+        `)
+        console.log('[Flow Video I2V] Human behavior simulation complete')
+      } catch (simErr) {
+        // non-fatal
       }
 
-      // ★ 클릭 직후 pendingVideoGeneration 설정
-      const videoSetAt = Date.now() / 1000 - 2
+      // ★ 클릭 전 pendingVideoGeneration을 먼저 무장(Arm)하여 레이스 컨디션 방지!
+      const videoSetAt = Date.now() / 1000 - 5
       setPendingVideoGeneration({
         setAt: videoSetAt,
         resolve: (result) => {
@@ -504,14 +761,66 @@ export function registerVideoIPC(ipcMain, deps) {
           resolveVideo(result)
         }
       })
-      console.log('[Flow Video I2V] pendingVideoGeneration set, waiting for CDP capture...')
+      console.log('[Flow Video I2V] pendingVideoGeneration armed before click...')
+
+      const clickResult = await trustedClickOnFlowView(generateBtnSelector, profileId)
+      console.log('[Flow Video I2V] Trusted click result:', clickResult)
+
+      if (!clickResult?.success) {
+        setPendingVideoGeneration(null)
+        clearTimeout(videoTimeout)
+        return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
+      }
+
+      // ==== AUTO-APPROVE AUTOMATION ====
+      // Click Approve if it appears after the Generate click
+      const approveRes = await clickApproveButtonIfPresent(flowView, profileId).catch(err => {
+        console.error('[Flow Video I2V] Approve button automation failed:', err.message);
+        return { success: false };
+      });
+      if (approveRes && approveRes.clicked) {
+        // Reset the timeout timer to allow full 30s after the click
+        clearTimeout(videoTimeout);
+        videoTimeout = setTimeout(() => {
+          if (getPendingVideoGeneration()) {
+            setPendingVideoGeneration(null)
+            resolveVideo({ error: true, message: 'Video response timeout (30s)' })
+          }
+        }, 30000);
+        console.log('[Flow Video I2V] Reset videoTimeout after Approve button click');
+      }
 
       // 6. 비디오 API 응답 대기
       const netResult = await videoResponsePromise
 
       if (netResult.error) {
-        console.warn('[Flow Video I2V] Video API failed:', netResult.message || `HTTP ${netResult.status}`)
-        return { success: false, error: netResult.message || `HTTP ${netResult.status}: Video generation failed` }
+        const statusCode = netResult.status
+        const rawBody = netResult.body || ''
+        console.warn('[Flow Video I2V] Video API failed: HTTP', statusCode)
+        console.warn('[Flow Video I2V] Response body:', rawBody?.substring(0, 500))
+        let googleErrorMsg = null
+        try { const errData = JSON.parse(rawBody); googleErrorMsg = errData?.error?.message || errData?.error?.status || null } catch {}
+        let errorStr
+        if (statusCode === 403) {
+          const isUnusualActivity = rawBody.includes('unusual') || rawBody.includes('PERMISSION_DENIED') || rawBody.includes('safety') || rawBody.includes('policy')
+          errorStr = isUnusualActivity
+            ? '403: Google이 비정상 활동을 감지했습니다. Flow 페이지를 새로 고침하거나 잠시 후 다시 시도하세요.'
+            : (googleErrorMsg ? `403: ${googleErrorMsg}` : '403: PERMISSION_DENIED — 계정 세션을 확인하세요.')
+
+          // 403 차단 감지 시 Flow 페이지 자동 새로고침 (이상활동 배너 해제 시도)
+          try {
+            console.warn('[Flow Video I2V] 403 차단 감지 → Flow 페이지 자동 새로고침')
+            flowView.webContents.reload()
+          } catch (reloadErr) {
+            console.warn('[Flow Video I2V] 페이지 새로고침 실패:', reloadErr.message)
+          }
+        } else if (statusCode === 429) {
+          errorStr = '429: 요청 한도 초과. 잠시 후 재시도합니다.'
+        } else {
+          errorStr = googleErrorMsg || netResult.message || `HTTP ${statusCode}: Video generation failed`
+        }
+        console.warn('[Flow Video I2V] Parsed error:', errorStr)
+        return { success: false, error: errorStr }
       }
 
       // 7. 응답에서 generation ID 추출
@@ -528,17 +837,8 @@ export function registerVideoIPC(ipcMain, deps) {
       console.error('[Flow Video I2V] Error:', e.message)
       return { success: false, error: e.message }
     } finally {
-      // pendingSeedValue는 핸들러 진입 시 unconditionally set되므로(line 302),
-      // 여기서도 unconditionally 정리 — Fetch.enable 성공 여부와 무관.
-      // 안 하면 다음 수동 Flow 요청에 stale seed가 새어나갈 수 있음.
-      setPendingSeedValue?.(null)
-      // CDP Fetch + I2V injection 정리 (Fetch.enable 성공한 경로만)
-      if (cdpFetchEnabled) {
-        setPendingI2VInjection(null)
-        try {
-          await flowView.webContents.debugger.sendCommand('Fetch.disable')
-          console.log('[Flow Video I2V] CDP Fetch interception disabled')
-        } catch {}
+      if (global.clearFlowPageInject) {
+        global.clearFlowPageInject(profileId)
       }
     }
   })

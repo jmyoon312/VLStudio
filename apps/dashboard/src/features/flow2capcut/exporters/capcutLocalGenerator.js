@@ -188,26 +188,27 @@ export async function generateCapcutProject(project, options = {}) {
   for (let index = 0; index < sortedScenes.length; index++) {
     const scene = sortedScenes[index];
     const duration = scene.image_duration || scene.duration || 3;
-    let imageSource = scene.media_path || scene.image_path || scene.imagePath || scene.image || scene.image_fallback; 
+    let mediaSource = scene.video_path || scene.video || scene.media_path || scene.image_path || scene.imagePath || scene.image || scene.image_fallback; 
+    const isVideo = !!(scene.video_path || scene.video || (mediaSource && mediaSource.match(/\.(mp4|mov|avi|webm)$/i)));
     
-    if (imageSource) {
+    if (mediaSource) {
       const materialId = generateId();
       const segmentId = generateId();
 
-      const isBase64 = imageSource.startsWith('data:');
-      let ext = 'jpg';
+      const isBase64 = mediaSource.startsWith('data:');
+      let ext = isVideo ? 'mp4' : 'jpg';
       if (isBase64) {
-        const match = imageSource.match(/^data:image\/(\w+);base64,/);
+        const match = mediaSource.match(/^data:image\/(\w+);base64,/);
         ext = match ? (match[1] === 'jpeg' ? 'jpg' : match[1]) : 'jpg';
-      } else {
-        ext = imageSource.match(/\.(png|jpg|jpeg|webp|gif)$/i)?.[1] || 'jpg';
+      } else if (!isVideo) {
+        ext = mediaSource.match(/\.(png|jpg|jpeg|webp|gif)$/i)?.[1] || 'jpg';
       }
       
       const targetName = `Resources/media_scene_${index + 1}.${ext}`;
       const absoluteTargetFilePath = `${targetPath}/${targetName}`.replace(/\\/g, '/');
 
       mediaFilesToCopy.push({
-        source: imageSource,
+        source: mediaSource,
         isBase64: isBase64,
         targetName: targetName
       });
@@ -224,9 +225,9 @@ export async function generateCapcutProject(project, options = {}) {
       } else if (scene.width && scene.height) {
         imgWidth = scene.width;
         imgHeight = scene.height;
-      } else if (imageSource) {
+      } else if (mediaSource && !isVideo) {
         try {
-          const resolvedSrc = resolveImageSrc({ imagePath: scene.media_path || scene.image_path || scene.imagePath, image: scene.image || scene.image_fallback }) || imageSource;
+          const resolvedSrc = resolveImageSrc({ imagePath: scene.media_path || scene.image_path || scene.imagePath, image: scene.image || scene.image_fallback }) || mediaSource;
           const loadedSize = await new Promise((resolve) => {
             const img = new Image();
             img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
@@ -241,13 +242,30 @@ export async function generateCapcutProject(project, options = {}) {
         } catch (e) {
           console.warn(`[CapCut Local Generator] Failed to load image size for scene ${index + 1}, using canvas fallback.`);
         }
+      } else if (mediaSource && isVideo) {
+        try {
+          const resolvedSrc = resolveImageSrc({ imagePath: scene.media_path || scene.image_path || scene.imagePath, image: scene.video || scene.video_path }) || mediaSource;
+          const loadedSize = await new Promise((resolve) => {
+            const vid = document.createElement('video');
+            vid.onloadedmetadata = () => resolve({ width: vid.videoWidth, height: vid.videoHeight });
+            vid.onerror = () => resolve(null);
+            vid.src = resolvedSrc;
+          });
+          if (loadedSize && loadedSize.width && loadedSize.height) {
+            imgWidth = loadedSize.width;
+            imgHeight = loadedSize.height;
+            console.log(`[CapCut Local Generator] Extracted video size for scene ${index + 1}: ${imgWidth}x${imgHeight}`);
+          }
+        } catch (e) {
+          console.warn(`[CapCut Local Generator] Failed to load video size for scene ${index + 1}, using canvas fallback.`);
+        }
       }
 
       // materials.videos (Golden Template Applied)
       materials.videos.push({
         id: materialId,
         path: absoluteTargetFilePath,
-        type: "photo", // Images should be "photo"
+        type: isVideo ? "video" : "photo",
         duration: toMicros(duration),
         width: imgWidth,
         height: imgHeight,
@@ -275,7 +293,7 @@ export async function generateCapcutProject(project, options = {}) {
         baseScale = 1.0 / minFitScale;
       }
 
-      const kenBurnsEnabled = options.kenBurns ?? true;
+      const kenBurnsEnabled = !isVideo && (options.kenBurns ?? true);
       const kenBurnsMode = options.kenBurnsMode || 'random';
       const kenBurnsCycle = options.kenBurnsCycle || 5;
       const kenBurnsScaleMin = parseFloat(options.kenBurnsScaleMin) || 1.0;
@@ -293,7 +311,7 @@ export async function generateCapcutProject(project, options = {}) {
         // 1. Ken Burns가 활성화된 경우, 캔버스 전체를 꽉 채우는 비율(Fill 기준: maxFitScale / minFitScale)을 최소 baseScale로 강제하여 종횡비 차이로 인한 레터박스/필러박스를 원천 제거합니다.
         const fillBaseScale = Math.max(baseScale, maxFitScale / minFitScale);
 
-        // 2. 사용자가 지적한 "너무 좌에서 우로 움직이다보니까 빈공백이 생기고 테두리에 까만색이 만들어져" 문제를 방어하기 위해 패닝 최대 범위를 3%(-0.03 ~ 0.03)로 제한하고, 패닝 버퍼(1.06배)를 확보합니다.
+        // 2. 사용자가 지적한 "너무 좌에서 우로 움직하다보니까 빈공백이 생기고 테두리에 까만색이 만들어져" 문제를 방어하기 위해 패닝 최대 범위를 3%(-0.03 ~ 0.03)로 제한하고, 패닝 버퍼(1.06배)를 확보합니다.
         const maxPan = 0.03; 
         const panBuffer = 1.0 + (2.0 * maxPan);
         let safeBaseScale = fillBaseScale * panBuffer;
@@ -504,45 +522,143 @@ export async function generateCapcutProject(project, options = {}) {
     const subtitleText = subtitleLang === 'ko' ? (scene.subtitle_ko || scene.subtitle) : (scene.subtitle_en || scene.subtitle);
 
     if (subtitleText && subtitleText.trim()) {
-      const textMaterialId = generateId();
-      const textSegmentId = generateId();
-      const cleanText = subtitleText.trim();
-
-      // 이 씬 시간 영역에 속하는 실제 성우 대사 파일 찾기 (자막 싱크 연동)
-      let matchedAudioDurationMs = null;
-      if (audioPackage && audioPackage.voices) {
-        const sceneStartMs = cumulativeTime * 1000;
-        for (const character of audioPackage.voices) {
-          for (const file of character.files) {
-            // 파일의 timecodeMs가 이 씬의 누적 시작 시각(sceneStartMs)과 일치하거나 미세 오차(500ms) 내에 있으면
-            if (Math.abs(file.timecodeMs - sceneStartMs) < 500) {
-              matchedAudioDurationMs = file.durationMs;
-              break;
+      // 1. Semantic Chunking based on AI or User markers (// or \n)
+      let chunks = subtitleText.split(/\/\/|\n/).map(c => c.trim()).filter(c => c.length > 0);
+      
+      const subConfig = options.subtitleConfig || {};
+      const splitLimit = parseInt(subConfig.splitLimit || 20, 10);
+      
+      // Auto-chunking for long text if no manual markers exist
+      if (chunks.length === 1 && chunks[0].length > splitLimit * 1.5) {
+          const newChunks = [];
+          const words = chunks[0].split(/\s+/);
+          let currentChunk = "";
+          for (const word of words) {
+            if ((currentChunk + word).length > splitLimit) {
+              if (currentChunk.trim()) newChunks.push(currentChunk.trim());
+              currentChunk = word + " ";
+            } else {
+              currentChunk += word + " ";
             }
           }
-          if (matchedAudioDurationMs) break;
-        }
+          if (currentChunk.trim()) newChunks.push(currentChunk.trim());
+          chunks = newChunks;
       }
+      
+      if (chunks.length > 0) {
+        
+        const subtitleDuration = duration;
+        const chunkDuration = subtitleDuration / chunks.length;
 
-      // 자막 세그먼트 간의 겹침(Overlap) 충돌과 트랙 갭(Gap)으로 인한 캡컷 DB 프리징을 방지하기 위해 씬 전체 길이로 100% 복구합니다.
-      const subtitleDuration = duration;
+        // Configuration setup
+        
+        const hexToRgbFloat = (hex) => {
+          if (!hex) return [1.0, 1.0, 1.0];
+          const clean = hex.replace('#', '');
+          if (clean.length === 6) {
+            return [
+              parseInt(clean.substr(0, 2), 16) / 255.0,
+              parseInt(clean.substr(2, 2), 16) / 255.0,
+              parseInt(clean.substr(4, 2), 16) / 255.0
+            ];
+          }
+          return [1.0, 1.0, 1.0];
+        };
 
-      // Apply dynamic subtitle font size (default to 6.0, as 15.0 is massive)
-      // 쇼츠(9:16) 모드에서는 가로 폭이 1080으로 좁으므로, 자막이 줄바꿈되어 화면을 가리지 않도록 폰트 크기를 약간 보정합니다.
-      const baseFontSize = parseFloat(options.subtitleFontSize) || 6.0;
-      const fontSize = isPortrait ? baseFontSize * 0.9 : baseFontSize;
+        const textColorHex = subConfig.textColor || "#FFFFFF";
+        const textColorRgb = hexToRgbFloat(textColorHex);
+        const isBold = subConfig.isBold !== undefined ? subConfig.isBold : true;
+        const isItalic = subConfig.isItalic !== undefined ? subConfig.isItalic : false;
+        
+        const hasShadow = subConfig.shadowSize && subConfig.shadowSize > 0;
+        const shadowColor = subConfig.shadowColor || "#000000";
+        const shadowDist = (subConfig.shadowSize || 0) * 0.8;
+        
+        const hasOutline = subConfig.outlineSize && subConfig.outlineSize > 0;
+        const outlineColor = subConfig.outlineColor || "#000000";
+        const outlineWidth = (subConfig.outlineSize || 0) * 0.02;
+        
+        const useBox = subConfig.useBox || false;
+        const boxColor = subConfig.boxColor || "#000000";
+        const boxAlpha = useBox ? (subConfig.boxOpacity || 50) / 100.0 : 0.0;
+        
+        let alignment = 1;
+        if (subConfig.textAlign === 'left') alignment = 0;
+        else if (subConfig.textAlign === 'right') alignment = 2;
+
+        const fontSize = parseFloat(subConfig.fontSize || 10);
+        const baseMarginY = parseFloat(subConfig.marginV || 50) / 1000.0;
+        let transformY = isPortrait ? -0.65 : -0.85;
+        const pos = subConfig.position || 'bottom';
+        if (pos === 'top') {
+          transformY = (isPortrait ? 0.65 : 0.85) - baseMarginY;
+        } else if (pos === 'middle') {
+          transformY = 0.0 + baseMarginY;
+        } else if (pos === 'bottom') {
+          transformY = (isPortrait ? -0.65 : -0.85) + baseMarginY;
+        } else if (pos === 'custom') {
+          transformY = 0.0 + baseMarginY;
+        }
+
+        // Font selection
+        let fontPath = "";
+        let fontName = subConfig.font || "맑은 고딕";
+        const isWin = typeof process !== 'undefined' ? process.platform === 'win32' : /Win/.test(navigator.userAgent);
+        if (isWin) {
+          fontPath = "C:/Windows/Fonts/malgun.ttf";
+        } else {
+          fontPath = "/System/Library/Fonts/AppleSDGothicNeo.ttc";
+          fontName = "Apple SD 산돌고딕 Neo";
+        }
+
+        // Loop over semantic chunks
+        for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
+          const rawChunk = chunks[cIdx];
+          const chunkStart = cumulativeTime + (cIdx * chunkDuration);
+          
+          let cleanText = rawChunk.replace(/<[^>]*>/g, '').trim();
+
+          // 2. Line Breaking within chunk
+          const splitLimit = parseInt(subConfig.splitLimit || 20, 10);
+          let splitText = "";
+          let currentLine = "";
+          const words = cleanText.split(/\s+/);
+          
+          for (const word of words) {
+            if ((currentLine + word).length > splitLimit) {
+              splitText += (splitText ? "\n" : "") + currentLine.trim();
+              currentLine = word + " ";
+            } else {
+              currentLine += word + " ";
+            }
+          }
+          if (currentLine.trim()) {
+            splitText += (splitText ? "\n" : "") + currentLine.trim();
+          }
+          cleanText = splitText || cleanText;
+
+          const textMaterialId = generateId();
+          const textSegmentId = generateId();
 
       // Detect OS to use premium, beautiful Korean fonts that are guaranteed to exist locally
       let fontPath = "";
-      let fontName = "SystemFont";
+      let fontName = subConfig.font || "맑은 고딕";
       
       const isWin = typeof process !== 'undefined' ? process.platform === 'win32' : /Win/.test(navigator.userAgent);
+      
+      const winFontPaths = {
+        "맑은 고딕": "C:/Windows/Fonts/malgun.ttf",
+        "Arial": "C:/Windows/Fonts/arial.ttf",
+        "Gmarket Sans": "C:/Windows/Fonts/GmarketSansTTFMedium.ttf",
+        "Noto Sans KR": "C:/Windows/Fonts/NotoSansKR-Regular.otf",
+        "배달의민족 도현": "C:/Windows/Fonts/BMDOHYEON_ttf.ttf"
+      };
+
       if (isWin) {
-        fontPath = "C:/Windows/Fonts/malgun.ttf"; // 맑은 고딕
-        fontName = "맑은 고딕";
+        fontPath = winFontPaths[fontName] || "C:/Windows/Fonts/malgun.ttf";
       } else {
-        fontPath = "/System/Library/Fonts/AppleSDGothicNeo.ttc"; // Apple SD 산돌고딕 Neo
-        fontName = "Apple SD 산돌고딕 Neo";
+        fontPath = "/System/Library/Fonts/AppleSDGothicNeo.ttc";
+        fontName = subConfig.font || "Apple SD 산돌고딕 Neo";
       }
 
       // materials.texts configuration
@@ -562,12 +678,13 @@ export async function generateCapcutProject(project, options = {}) {
                 content: {
                   render_type: "solid",
                   solid: {
-                    color: [1.0, 0.92, 0.23] // Highly legible bright yellow (#ffeb3b)
+                    color: textColorRgb
                   }
                 }
               },
               size: fontSize,
-              bold: true,
+              bold: isBold,
+              italic: isItalic,
               useLetterColor: true,
               range: [0, cleanText.length]
             }
@@ -611,11 +728,11 @@ export async function generateCapcutProject(project, options = {}) {
         text_typesetting_paths_file: "",
         text_typesetting_path_index: 0,
         line_spacing: 0.05, // Better line spacing
-        has_shadow: true,
-        shadow_color: "#000000",
-        shadow_alpha: 0.8999999761581421,
+        has_shadow: !!hasShadow,
+        shadow_color: shadowColor,
+        shadow_alpha: hasShadow ? 0.8999999761581421 : 0.0,
         shadow_smoothing: 0.45000001788139343,
-        shadow_distance: 5,
+        shadow_distance: shadowDist,
         shadow_point: {
           x: 0.6363961030678928,
           y: -0.6363961030678928
@@ -624,12 +741,12 @@ export async function generateCapcutProject(project, options = {}) {
         shadow_thickness_projection_enable: false,
         shadow_thickness_projection_angle: 0,
         shadow_thickness_projection_distance: 0,
-        border_alpha: 1.0,
-        border_color: "#000000",
-        border_width: 0.1, // Thicker black outline for maximized legibility
+        border_alpha: hasOutline ? 1.0 : 0.0,
+        border_color: outlineColor,
+        border_width: hasOutline ? outlineWidth : 0.0,
         border_mode: 0,
         style_name: "",
-        text_color: "#ffeb3b", // Matching bright yellow
+        text_color: textColorHex,
         text_alpha: 1.0,
         font_name: fontName,
         font_title: fontName,
@@ -640,7 +757,7 @@ export async function generateCapcutProject(project, options = {}) {
         initial_scale: 1.0,
         font_url: "",
         typesetting: 0,
-        alignment: 1, // Centered
+        alignment: alignment,
         line_feed: 1,
         use_effect_default_color: true,
         is_rich_text: false,
@@ -648,7 +765,7 @@ export async function generateCapcutProject(project, options = {}) {
         shape_clip_y: false,
         ktv_color: "",
         text_to_audio_ids: [],
-        bold_width: 0.00800000037997961,
+        bold_width: 0.008,
         italic_degree: 0,
         underline: false,
         underline_width: 0.05,
@@ -664,9 +781,9 @@ export async function generateCapcutProject(project, options = {}) {
         operation_type: 0,
         recognize_type: 0,
         fonts: [],
-        background_color: "#000000",
-        background_alpha: 0.45, // Semi-transparent black background
-        background_style: 1, // Rounded rectangle background bar enabled
+        background_color: boxColor,
+        background_alpha: boxAlpha,
+        background_style: useBox ? 1 : 0,
         background_round_radius: 0.15, // Smooth rounded corners
         background_width: 0.15, // Well-padded width
         background_height: 0.15, // Well-padded height
@@ -726,13 +843,13 @@ export async function generateCapcutProject(project, options = {}) {
       });
 
       // textTrack segment configuration
-      textTrack.segments.push({
-        id: textSegmentId,
-        source_timerange: null,
-        target_timerange: {
-          start: toMicros(cumulativeTime),
-          duration: toMicros(subtitleDuration)
-        },
+          textTrack.segments.push({
+            id: textSegmentId,
+            source_timerange: null,
+            target_timerange: {
+              start: toMicros(chunkStart),
+              duration: toMicros(chunkDuration)
+            },
         render_timerange: {
           start: 0,
           duration: 0
@@ -755,7 +872,7 @@ export async function generateCapcutProject(project, options = {}) {
           rotation: 0.0,
           transform: {
             x: 0.0,
-            y: isPortrait ? -0.65 : -0.75 // 쇼츠(9:16)에서는 하단 UI(채널명, 설명 등) 가림을 방지하기 위해 자막 위치를 약간 위(-0.65)로 배치
+            y: transformY
           },
           flip: {
             vertical: false,
@@ -769,7 +886,7 @@ export async function generateCapcutProject(project, options = {}) {
         },
         material_id: textMaterialId,
         extra_material_refs: [],
-        render_index: 14000 + index,
+        render_index: 14000 + index + cIdx,
         keyframe_refs: [],
         enable_lut: false,
         enable_adjust: false,
@@ -808,7 +925,9 @@ export async function generateCapcutProject(project, options = {}) {
         enable_mask_shadow: false,
         enable_color_adjust_pro: false
       });
-    }
+        } // end for loop over chunks
+      } // end if chunks > 0
+    } // end if subtitleText
 
     cumulativeTime += duration;
   }

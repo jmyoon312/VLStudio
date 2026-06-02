@@ -20,12 +20,17 @@ class ExportManager:
         try:
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                 for file_path in file_paths:
-                    if os.path.exists(file_path):
-                        # Add file to zip with its basename (flat structure)
-                        # Or preserve structure if needed, but flat is usually better for batch downloads
-                        zipf.write(file_path, arcname=os.path.basename(file_path))
+                    if isinstance(file_path, tuple):
+                        src_path, arc_name = file_path
+                        if os.path.exists(src_path):
+                            zipf.write(src_path, arcname=arc_name)
+                        else:
+                            logger.warning(f"File not found for zipping: {src_path}")
                     else:
-                        logger.warning(f"File not found for zipping: {file_path}")
+                        if os.path.exists(file_path):
+                            zipf.write(file_path, arcname=os.path.basename(file_path))
+                        else:
+                            logger.warning(f"File not found for zipping: {file_path}")
             
             logger.info(f"Created ZIP file: {zip_path}")
             return zip_path

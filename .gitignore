@@ -48,3 +48,8 @@ css_light_migrator.py
 theme_converter.py
 apps/dashboard/public/test_font.woff2
 .kanbots/
+
+apps/api/models*/
+apps/api/temp/
+apps/temp_storage/
+apps/api/CACHEDIR.TAG

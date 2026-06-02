@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   upscaleImage: (params) => ipcRenderer.invoke('flow:upscale-image', params),
   fetchGallery: (params) => ipcRenderer.invoke('flow:fetch-gallery', params),
   listFlowProjects: (params) => ipcRenderer.invoke('flow:list-projects', params),
+  resetFlowProject: () => ipcRenderer.invoke('flow:reset-project'),
+  selectVoice: (params) => ipcRenderer.invoke('flow:select-voice', params),
 
   // File System
   getDefaultWorkFolder: () => ipcRenderer.invoke('fs:get-default-work-folder'),
@@ -101,7 +103,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getNextProjectNumber: (params) => ipcRenderer.invoke('capcut:next-number', params),
   writeCapcutProject: (params) => ipcRenderer.invoke('capcut:write-project', params),
   writeSrtToWorkFolder: (params) => ipcRenderer.invoke('capcut:write-srt-to-workfolder', params),
-  openCapcut: () => ipcRenderer.invoke('capcut:open-app'),
+  openCapcut: (projectPath) => ipcRenderer.invoke('capcut:open-app', { projectPath }),
   saveSrtFile: (params) => ipcRenderer.invoke('capcut:save-srt-file', params),
   getSystemInfo: () => ipcRenderer.invoke('capcut:get-system-info'),
   getVolumePath: () => ipcRenderer.invoke('capcut:get-volume-path'),

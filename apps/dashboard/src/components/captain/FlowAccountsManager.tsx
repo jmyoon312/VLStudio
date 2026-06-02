@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Mail, Bot, Fingerprint, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, Mail, Bot, Fingerprint, ShieldCheck, Pencil } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 
 const FlowAccountsManager = () => {
@@ -19,6 +19,44 @@ const FlowAccountsManager = () => {
     const [newEmail, setNewEmail] = useState("");
 
     const [deleteId, setDeleteId] = useState<string | null>(null);
+
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editId, setEditId] = useState<string | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editEmail, setEditEmail] = useState("");
+
+    const handleOpenEdit = (profile: any) => {
+        setEditId(profile.id);
+        setEditName(profile.name);
+        setEditEmail(profile.email || "");
+        setIsEditOpen(true);
+    };
+
+    const handleUpdate = async () => {
+        if (!editId) return;
+        if (!editName.trim()) {
+            toast({ variant: "destructive", title: "입력 오류", description: "프로필 이름을 입력해주세요." });
+            return;
+        }
+
+        try {
+            const result = await (window as any).electronAPI?.updateProfile?.({
+                profileId: editId,
+                name: editName,
+                email: editEmail
+            });
+
+            if (result && result.success) {
+                toast({ title: "수정 완료", description: "Flow 계정 프로필이 수정되었습니다." });
+                setIsEditOpen(false);
+                loadProfiles();
+            } else {
+                toast({ variant: "destructive", title: "수정 실패", description: result?.error || "알 수 없는 오류가 발생했습니다." });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "수정 에러", description: err.message });
+        }
+    };
 
     const loadProfiles = async () => {
         setIsLoading(true);
@@ -141,13 +179,20 @@ const FlowAccountsManager = () => {
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            {p.id !== 'default' && (
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-red-600"
-                                                    onClick={() => setDeleteId(p.id)}
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-blue-600"
+                                                    onClick={() => handleOpenEdit(p)}
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Pencil className="w-4 h-4" />
                                                 </Button>
-                                            )}
+                                                {p.id !== 'default' && (
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-red-600"
+                                                        onClick={() => setDeleteId(p.id)}
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -187,6 +232,40 @@ const FlowAccountsManager = () => {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsCreateOpen(false)}>취소</Button>
                         <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">추가하기</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Dialog */}
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Flow 계정 프로필 수정</DialogTitle>
+                        <DialogDescription>
+                            Flow 프로필의 이름 및 연동 이메일을 수정합니다.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label>프로필 이름 (식별용)</Label>
+                            <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                placeholder="예: Flow 유료계정 1"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>계정 이메일</Label>
+                            <Input
+                                value={editEmail}
+                                onChange={(e) => setEditEmail(e.target.value)}
+                                placeholder="예: flow_paid@gmail.com"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditOpen(false)}>취소</Button>
+                        <Button onClick={handleUpdate} className="bg-blue-600 hover:bg-blue-700">저장하기</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

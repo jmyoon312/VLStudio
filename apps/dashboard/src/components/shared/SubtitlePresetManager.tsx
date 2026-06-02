@@ -109,12 +109,14 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
         toast.success("프리셋 삭제됨");
     };
 
+    const activePreset = presets.find(p => JSON.stringify(p.config) === JSON.stringify(currentConfig));
+
     return (
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 px-2">
+                <Button variant={activePreset ? "default" : "outline"} size="sm" className="h-7 text-xs gap-1.5 px-2">
                     <FolderOpen className="w-3.5 h-3.5" />
-                    프리셋
+                    {activePreset ? activePreset.name : "프리셋"}
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-72 p-0" align="end">

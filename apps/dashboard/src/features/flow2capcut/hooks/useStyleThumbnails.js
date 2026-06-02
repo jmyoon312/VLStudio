@@ -22,7 +22,7 @@ const BUNDLED_THUMB_EXTS = ['jpg', 'png', 'webp']
 async function fetchFirstAvailable(id) {
   for (const ext of BUNDLED_THUMB_EXTS) {
     try {
-      const res = await fetch(`./style-thumbnails/${id}.${ext}`)
+      const res = await fetch(`/style-thumbnails/${id}.${ext}`)
       if (!res.ok) continue
       const contentType = res.headers.get('content-type') || ''
       if (!contentType.startsWith('image/')) continue

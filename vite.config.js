@@ -77,10 +77,19 @@ export default defineConfig(({ mode }) => {
           }
         },
         preload: {
-          input: 'electron/preload.js',
+          input: [
+            'electron/preload.js',
+            'electron/stealth_preload.js',
+            'electron/login_preload.js'
+          ],
           vite: {
             build: {
-              outDir: 'dist-electron'
+              outDir: 'dist-electron',
+              rollupOptions: {
+                output: {
+                  inlineDynamicImports: false
+                }
+              }
             },
             esbuild: isProduction ? { drop: ['console', 'debugger'] } : {}
           }
@@ -115,7 +124,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: '0.0.0.0',
-      port: 5173,
+      port: 5183,
       proxy: {
         '/api/swarm/ws': backendProxy,
         '/api': backendProxy,

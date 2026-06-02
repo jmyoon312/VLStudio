@@ -698,6 +698,12 @@ class VideoGenClient:
             
         margin_v = int(config.get('marginV', 50))
         
+        
+        # In CapCut, FontSize is a percentage of canvas width (PlayResX).
+        # We scale it to match ASS pixels exactly.
+        base_size = float(config.get('fontSize', 15))
+        ass_font_size = base_size * (play_res_x / 100.0) * 0.8  # 0.8 is an empirical multiplier to visually match CapCut's rendering engine
+        
         # BorderStyle: 1=Outline+Shadow, 3=Opaque Box
         border_style = 3 if config.get('useBox', False) else 1
         
@@ -708,7 +714,7 @@ PlayResY: {play_res_y}
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{config.get('font', 'Arial')},{config.get('fontSize', 40)},{primary_color},&H00000000,{outline_color},{full_back_color},{'-1' if config.get('isBold') else '0'},{'-1' if config.get('isItalic') else '0'},0,0,100,100,0,0,{border_style},{config.get('outlineSize', 2)},{config.get('shadowSize', 2)},{alignment},20,20,{margin_v},1
+Style: Default,{config.get('font', 'Arial')},{int(ass_font_size)},{primary_color},&H00000000,{outline_color},{full_back_color},{'-1' if config.get('isBold') else '0'},{'-1' if config.get('isItalic') else '0'},0,0,100,100,0,0,{border_style},{config.get('outlineSize', 2)},{config.get('shadowSize', 2)},{alignment},20,20,{margin_v},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -881,7 +887,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             
         return filepath
 
-    def render_scene_video(self, scene_id: int, image_path: str, audio_path: str, duration: float = None, aspect_ratio: str = "9:16", motion_config: dict = None, subtitle_config: dict = None, script: str = "") -> str:
+    def render_scene_video(self, scene_id: int, image_path: str, audio_path: str, duration: float = None, aspect_ratio: str = "9:16", motion_config: dict = None, subtitle_config: dict = None, audio_config: dict = None, script: str = "") -> str:
         """
         Step 3: Render Video with Smart Crop-to-Fill (9:16 or 16:9) and Motion Effects
         """
@@ -905,6 +911,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if is_video:
             logger.info(f"Video input detected ({image_path}). Disabling motion effects.")
             motion_config = None
+
+        has_original_audio = False
+        if is_video and audio_config and audio_config.get('keepOriginalAudio', True):
+            try:
+                ffprobe_exe = dependency_manager.DependencyManager.get_ffprobe_path()
+                probe_cmd = [ffprobe_exe, '-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type', '-of', 'default=noprint_wrappers=1:nokey=1', image_path]
+                import subprocess
+                probe_res = subprocess.run(probe_cmd, capture_output=True, text=True, check=True)
+                if 'audio' in probe_res.stdout.strip():
+                    has_original_audio = True
+                    logger.info(f"Original audio detected. It will be mixed.")
+            except Exception as e:
+                logger.warning(f"Failed to probe audio: {e}")
 
         smart_resize_filter = self.build_ffmpeg_filter(aspect_ratio, real_duration, motion_config)
 
@@ -976,14 +995,28 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             else:
                 vf_string += f",{ass_filter}"
 
+        audio_args = []
+        if has_original_audio:
+            orig_vol = audio_config.get('originalVolume', 50) / 100.0
+            # [FIX] asetpts=N/SR/TB fixes broken timestamps from -stream_loop -1 which causes amix to speed up audio.
+            # async=1 helps maintain audio sync.
+            af_string = (
+                f"[0:a]asetpts=N/SR/TB,aresample=44100:async=1,aformat=sample_fmts=fltp:channel_layouts=stereo,volume={orig_vol}[a0];"
+                f"[1:a]aresample=44100:async=1,aformat=sample_fmts=fltp:channel_layouts=stereo,volume=1.0[a1];"
+                f"[a0][a1]amix=inputs=2:duration=longest:dropout_transition=2[a_out]"
+            )
+            audio_args = ['-filter_complex', af_string, '-map', '[a_out]']
+        else:
+            audio_args = ['-map', '1:a:0']
+
         # 5. Final Command
         cmd = [
             ffmpeg_exe, '-y',
             *input_args,
             '-i', audio_path,
             '-vf', vf_string,
-            '-map', '0:v:0' if "[v_base]" not in vf_string else "[v_base]" if not ass_path else "[v_base]" , 
-            '-map', '1:a:0',
+            '-map', '0:v:0' if "[v_base]" not in vf_string else "[v_base]" if not ass_path else "[v_base]", 
+            *audio_args,
             '-c:v', 'libx264', '-preset', 'fast',
             '-r', '60',
             '-c:a', 'aac', '-b:a', '192k',

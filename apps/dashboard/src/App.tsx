@@ -29,6 +29,7 @@ import RemotionPreviewPage from './pages/RemotionPreviewPage'; // [NEW] Remotion
 import AICoPilotStudio from './pages/AICoPilotStudio'; // [NEW] AI Copilot
 import Shell from './features/flow2capcut/Shell'; // [NEW] Flow2CapCut Integration (Loads Shell)
 import Flow2CapCutApp from './features/flow2capcut/Flow2CapCutApp';
+import AgentStudioApp from './features/agent-studio/AgentStudioApp';
 import { I18nProvider } from './features/flow2capcut/hooks/useI18n';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from './components/theme-provider';
@@ -142,6 +143,11 @@ function MainAppContent() {
                             </I18nProvider>
                         </RouteErrorBoundary>
                     } /> {/* Content when split is active */}
+                    <Route path="/agent-studio" element={
+                      <div className="flex-1 flex flex-col min-h-0 w-full h-full relative bg-gray-50 dark:bg-zinc-900">
+                        <AgentStudioApp />
+                      </div>
+                    } />
                     <Route path="/download" element={<DirectDownload />} />
 
                     {/* Fallback Missing Routes */}

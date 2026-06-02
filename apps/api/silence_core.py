@@ -80,9 +80,11 @@ class AudioProcessor:
                 file_size_mb = os.path.getsize(path) / (1024 * 1024)
                 if file_size_mb > LARGE_FILE_THRESHOLD_MB:
                     self.log(f"Large file ({file_size_mb:.0f}MB) detected. Switching to chunk processing.", "WARN")
-                    return self._process_large_file(audio, opts)
+                    processed = self._process_large_file(audio, opts)
+                    return self._apply_studio_effects(processed, opts)
             
-            return self._process_segment(audio, opts)
+            processed = self._process_segment(audio, opts)
+            return self._apply_studio_effects(processed, opts)
         except PermissionError:
             self.log("Permission denied. Check if the file is open or if the app needs Admin rights.", "ERR")
             return audio
@@ -90,10 +92,11 @@ class AudioProcessor:
             self.log(f"Error during processing: {e}", "ERR")
             return audio
 
-    def merge_files(self, file_paths: list, output_path: str):
+    def merge_files(self, file_paths: list, output_path: str, opts: dict = None):
         """
-        Merges multiple audio files into a single MP3 file.
+        Merges multiple audio files into a single MP3 file, optionally applying processing.
         """
+        opts = opts or {}
         try:
             combined = AudioSegment.empty()
             for fp in file_paths:
@@ -104,13 +107,85 @@ class AudioProcessor:
                 except Exception as e:
                     self.log(f"Failed to load {fp}: {e}", "WARN")
             
+            # Apply silence removal and noise reduction to the combined audio if requested
+            if opts.get("remove_silence") or opts.get("use_nr") or opts.get("normalize"):
+                self.log("Applying processing to merged audio...", "INFO")
+                combined = self._process_segment(combined, opts)
+                
+            # Apply studio effects
+            combined = self._apply_studio_effects(combined, opts)
+            
             # Export as MP3 (192k)
             combined.export(output_path, format="mp3", bitrate="192k")
-            self.log(f"Merged {len(file_paths)} files to {os.path.basename(output_path)}", "OK")
+            self.log(f"Merged and processed {len(file_paths)} files to {os.path.basename(output_path)}", "OK")
             return output_path
         except Exception as e:
             self.log(f"Merge failed: {e}", "ERR")
             raise
+
+    def _apply_studio_effects(self, audio: AudioSegment, opts: dict) -> AudioSegment:
+        import tempfile
+        import subprocess
+        import uuid
+        
+        filters = []
+        
+        # 1. Gate & Noise Reduction (Clean signal first)
+        if opts.get("studio_gate"):
+            # Smooth gate and gentle FFT denoiser to avoid artificial cutoffs
+            filters.append("afftdn=nf=-25,agate=threshold=-35dB:ratio=4:attack=10:release=150:makeup=0")
+            
+        # 2. EQ: Broadcast / Podcast Vocal EQ (Rich, Crisp, In-your-face)
+        if opts.get("studio_eq"):
+            # Natural warmth and clarity without piercing highs or muddy lows
+            filters.append("bass=g=4:f=100:w=0.5")
+            filters.append("equalizer=f=300:width_type=h:width=150:g=-3")
+            filters.append("equalizer=f=3000:width_type=h:width=2000:g=4")
+            filters.append("treble=g=4:f=10000:w=0.5")
+            
+        # 3. Dynamic Compression (Punchy & Level)
+        if opts.get("studio_compressor"):
+            # Musical compression: controls peaks naturally without over-amplifying everything
+            filters.append("acompressor=threshold=-18dB:ratio=3.5:attack=5:release=50:makeup=4:knee=3")
+            
+        # 4. Final Loudness Normalization (YouTube/Broadcast Standard)
+        if opts.get("studio_loudnorm"):
+            # LRA=9 makes it more tightly packed than the default 11
+            filters.append("loudnorm=I=-14:TP=-1.0:LRA=9")
+            
+        if not filters:
+            return audio
+            
+        filter_str = ",".join(filters)
+        self.log(f"Applying Studio Effects: {filter_str}", "INFO")
+        
+        try:
+            temp_dir = tempfile.gettempdir()
+            temp_in = os.path.join(temp_dir, f"temp_in_{uuid.uuid4().hex}.wav")
+            temp_out = os.path.join(temp_dir, f"temp_out_{uuid.uuid4().hex}.wav")
+            
+            audio.export(temp_in, format="wav")
+            
+            ffmpeg_cmd = [
+                self.ffmpeg_path or "ffmpeg",
+                "-y",
+                "-i", temp_in,
+                "-af", filter_str,
+                temp_out
+            ]
+            
+            subprocess.run(ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            enhanced = AudioSegment.from_file(temp_out)
+            
+            if os.path.exists(temp_in): os.remove(temp_in)
+            if os.path.exists(temp_out): os.remove(temp_out)
+            
+            self.log("Studio Effects applied successfully", "OK")
+            return enhanced
+        except Exception as e:
+            self.log(f"Studio Effects failed: {e}", "ERR")
+            return audio
 
     def _process_large_file(self, audio: AudioSegment, opts: dict):
         chunk_size_ms = 60 * 1000

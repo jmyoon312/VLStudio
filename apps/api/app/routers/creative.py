@@ -40,6 +40,7 @@ class SceneSegment(BaseModel):
     scene_id: int
     script: str
     visual_prompt: str
+    video_prompt: Optional[str] = None
     media_url: Optional[str] = None
     media_path: Optional[str] = None
     audio_url: Optional[str] = None
@@ -150,12 +151,10 @@ async def segment_script(
             request.provider, 
             request.model, 
             request.style_prompt,
-            request.provider, 
-            request.model, 
-            request.style_prompt,
             request.split_method,
             request.pacing_config
         )
+
         
         updated_segments = result_segments
         settings = crud.get_settings(db)
@@ -309,9 +308,11 @@ def batch_generate_images(
             # Use the intelligent URL utility which handles relative path generation
             # to prevent internal container hostnames (api:8000) from leaking to the browser.
             url = get_web_url(fastapi_req, local_path)
-            
+
             scene.media_url = url
+            scene.media_path = local_path   # batch-render 가 직접 경로 사용할 수 있도록
             updated_scenes.append(scene)
+
             
         except Exception as e:
             print(f"Failed to generate image for scene {scene.scene_id}: {e}")
@@ -323,6 +324,10 @@ class BatchRenderRequest(BaseModel):
     scenes: List[SceneSegment]
     voice_id: str = "af_heart" # Default Kokoro voice
     speed: float = 1.0
+    aspect_ratio: str = "9:16"
+    motion_config: Optional[dict] = None
+    subtitle_config: Optional[dict] = None
+    audio_config: Optional[dict] = None
 
 @router.post("/batch-render")
 def batch_render_videos(
@@ -348,52 +353,84 @@ def batch_render_videos(
     os.makedirs(temp_dir, exist_ok=True)
     dummy_audio_path = os.path.join(temp_dir, "dummy_audio.mp3")
     
-    # Create dummy audio if not exists (1 second silence)
+    # Create dummy audio if not exists (5초 무음) - subprocess 사용으로 경로 공백 문제 해결
     if not os.path.exists(dummy_audio_path):
-        # Use ffmpeg to generate 5 seconds of silence
-        os.system(f'ffmpeg -f lavfi -i anullsrc=r=44100:cl=stereo -t 5 -q:a 9 -acodec libmp3lame {dummy_audio_path}')
+        import subprocess
+        try:
+            from app import dependency_manager
+            ffmpeg_exe = dependency_manager.DependencyManager.get_ffmpeg_path()
+        except Exception:
+            ffmpeg_exe = "ffmpeg"
+        subprocess.run([
+            ffmpeg_exe, '-hide_banner', '-y',
+            '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
+            '-t', '5', '-q:a', '9', '-acodec', 'libmp3lame',
+            dummy_audio_path
+        ], capture_output=True)
+
 
     for scene in request.scenes:
         try:
-            # 1. Check Image
-            if not scene.media_url:
-                print(f"Skipping scene {scene.scene_id}: No image URL.")
+            # 1. Check Image - media_path 우선(직접 경로), 없으면 URL 파싱으로 폴백
+            image_path = ""
+
+            if scene.media_path and os.path.exists(scene.media_path):
+                image_path = scene.media_path
+            elif scene.media_url:
+                # URL에서 파일명 추출해 temp_dir 에서 찾기
+                filename = scene.media_url.split("/")[-1].split("?")[0]
+                candidate = os.path.join(temp_dir, filename)
+                if os.path.exists(candidate):
+                    image_path = candidate
+
+            if not image_path:
+                print(f"Skipping scene {scene.scene_id}: No valid image file found "
+                      f"(media_path={scene.media_path}, media_url={scene.media_url})")
                 updated_scenes.append(scene)
                 continue
-                
-            # Convert URL to local path if possible, or download
-            # Supports both api-container access and local-dev access (detects by path)
-            image_path = ""
-            if ("/files/" in scene.media_url or "/temp/" in scene.media_url):
-                filename = scene.media_url.split("/")[-1]
-                image_path = os.path.join(temp_dir, filename)
-            else:
-                # Download remote image
-                # TODO: Implement download logic
-                pass
-            
-            if not image_path or not os.path.exists(image_path):
-                 print(f"Skipping scene {scene.scene_id}: Image file not found at {image_path}")
-                 updated_scenes.append(scene)
-                 continue
 
-            # 2. Check Audio (Mocking for now if missing)
-            # In a real flow, we'd check scene.audio_url or similar
-            audio_path = dummy_audio_path 
-            duration = 5.0 # Match dummy audio
-            
+
+            # 2. Check Audio - use scene's actual audio_path if available
+            if scene.audio_path and os.path.exists(scene.audio_path):
+                audio_path = scene.audio_path
+                # Probe actual duration
+                try:
+                    import subprocess
+                    from app import dependency_manager
+                    ffmpeg_exe = dependency_manager.DependencyManager.get_ffmpeg_path()
+                    ffprobe_exe = os.path.join(os.path.dirname(ffmpeg_exe), "ffprobe.exe")
+                    if not os.path.exists(ffprobe_exe):
+                        ffprobe_exe = "ffprobe"
+                    cmd_dur = [ffprobe_exe, '-v', 'error', '-show_entries', 'format=duration',
+                               '-of', 'default=noprint_wrappers=1:nokey=1', audio_path]
+                    result = subprocess.run(cmd_dur, capture_output=True, text=True)
+                    duration = float(result.stdout.strip()) if result.stdout.strip() else 5.0
+                except Exception:
+                    duration = 5.0
+            else:
+                audio_path = dummy_audio_path
+                duration = 5.0
+
             # 3. Render Video
             output_path = video_client.render_scene_video(
                 scene_id=scene.scene_id,
                 image_path=image_path,
                 audio_path=audio_path,
-                duration=duration
+                duration=duration,
+                aspect_ratio=request.aspect_ratio,
+                motion_config=request.motion_config,
+                subtitle_config=request.subtitle_config,
+                audio_config=request.audio_config,
+                script=scene.script if hasattr(scene, 'script') else ""
             )
-            
-            # 4. Update Scene
+
+            # 4. Update Scene - video_path 필수 (merge-scenes 가 이걸 읽음)
             url = get_web_url(fastapi_req, output_path)
-            scene.media_url = url # Update to video URL
+            scene.media_url = url
+            scene.video_url = url
+            scene.video_path = output_path  # merge-scenes 에서 검증하는 필드
             updated_scenes.append(scene)
+
             
         except Exception as e:
             print(f"Failed to render video for scene {scene.scene_id}: {e}")
@@ -590,6 +627,7 @@ class RenderSceneRequest(BaseModel):
     speed: float = 1.0
     motion_config: Optional[dict] = None
     subtitle_config: Optional[dict] = None
+    audio_config: Optional[dict] = None
     script: Optional[str] = ""
     old_file_path: Optional[str] = None # For cleanup
 
@@ -680,6 +718,7 @@ async def render_scene(
             aspect_ratio=scene_request.aspect_ratio,
             motion_config=scene_request.motion_config,
             subtitle_config=scene_request.subtitle_config,
+            audio_config=scene_request.audio_config,
             script=scene_request.script
         )
         
@@ -697,9 +736,12 @@ async def render_scene(
         print(f"Render Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+from typing import List, Optional
+
 class BatchDownloadRequest(BaseModel):
     scenes: List[SceneSegment]
     target_type: str # "audio", "visual", "video"
+    full_video_path: Optional[str] = None
 
 @router.post("/batch-download")
 def batch_download(
@@ -718,36 +760,53 @@ def batch_download(
     temp_dir = app_settings.TEMP_DIR
     
     for scene in request.scenes:
-        path = ""
-        if request.target_type == "visual":
-            # Image or Video (Visual Source)
-            if scene.media_path and os.path.exists(scene.media_path):
-                path = scene.media_path
-            elif scene.media_url and ("/files/" in scene.media_url or "/temp/" in scene.media_url):
-                # Fallback for internal assets (any host)
-                filename = scene.media_url.split("/")[-1]
-                path = os.path.join(temp_dir, filename)
-                
-        elif request.target_type == "video":
-            # Rendered Video (Final)
-            if scene.video_path and os.path.exists(scene.video_path):
-                path = scene.video_path
-            elif scene.media_url and scene.media_url.endswith(".mp4"):
-                # Fallback (if media_url is used for video, regardless of host)
-                filename = scene.media_url.split("/")[-1]
-                path = os.path.join(temp_dir, filename)
-                
-        elif request.target_type == "audio":
-            # Audio
-            if scene.audio_path and os.path.exists(scene.audio_path):
-                path = scene.audio_path
-            elif scene.audio_url:
-                # Fallback for audio URL
-                filename = scene.audio_url.split("/")[-1]
-                path = os.path.join(temp_dir, filename)
+        scene_prefix = f"scene_{scene.scene_id:02d}"
+        
+        # 1. Script (SRT/Text fallback)
+        if scene.script:
+            txt_path = os.path.join(temp_dir, f"{scene_prefix}_script.txt")
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write(scene.script)
+            file_paths.append((txt_path, f"{scene_prefix}_script.txt"))
             
-        if path and os.path.exists(path):
-            file_paths.append(path)
+        # 2. Audio
+        if scene.audio_path and os.path.exists(scene.audio_path):
+            ext = os.path.splitext(scene.audio_path)[1]
+            file_paths.append((scene.audio_path, f"{scene_prefix}_audio{ext}"))
+        elif scene.audio_url:
+            filename = scene.audio_url.split("/")[-1]
+            path = os.path.join(temp_dir, filename)
+            if os.path.exists(path):
+                ext = os.path.splitext(path)[1]
+                file_paths.append((path, f"{scene_prefix}_audio{ext}"))
+                
+        # 3. Visual Source (Image/Video)
+        if request.target_type in ["visual", "video"]:
+            if scene.media_path and os.path.exists(scene.media_path):
+                ext = os.path.splitext(scene.media_path)[1]
+                file_paths.append((scene.media_path, f"{scene_prefix}_source{ext}"))
+            elif scene.media_url and ("/files/" in scene.media_url or "/temp/" in scene.media_url):
+                filename = scene.media_url.split("/")[-1]
+                path = os.path.join(temp_dir, filename)
+                if os.path.exists(path):
+                    ext = os.path.splitext(path)[1]
+                    file_paths.append((path, f"{scene_prefix}_source{ext}"))
+
+        # 4. Final Video
+        if request.target_type == "video":
+            if scene.video_path and os.path.exists(scene.video_path):
+                ext = os.path.splitext(scene.video_path)[1]
+                file_paths.append((scene.video_path, f"{scene_prefix}_final{ext}"))
+            elif scene.video_url and scene.video_url.endswith(".mp4"):
+                filename = scene.video_url.split("/")[-1]
+                path = os.path.join(temp_dir, filename)
+                if os.path.exists(path):
+                    file_paths.append((path, f"{scene_prefix}_final.mp4"))
+            
+        # 5. Full Merged Video
+        if request.target_type == "video" and request.full_video_path and os.path.exists(request.full_video_path):
+            ext = os.path.splitext(request.full_video_path)[1]
+            file_paths.append((request.full_video_path, f"full_merged_video{ext}"))
             
     if not file_paths:
         raise HTTPException(status_code=404, detail="No valid files found to download.")
@@ -795,6 +854,28 @@ def cleanup_files(request: CleanupRequest):
         "deleted_count": deleted_count,
         "errors": errors
     }
+
+def format_srt_time(seconds: float) -> str:
+    """Converts seconds to SRT time format: HH:MM:SS,mmm"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int(round((seconds - int(seconds)) * 1000))
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+def get_media_duration(file_path: str) -> float:
+    import subprocess
+    from ..dependency_manager import DependencyManager
+    ffprobe = DependencyManager.get_ffprobe_path()
+    if not ffprobe:
+        ffprobe = "ffprobe"
+    cmd = [ffprobe, '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', file_path]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return float(res.stdout.strip())
+    except Exception as e:
+        print(f"Error getting duration for {file_path}: {e}")
+        return 5.0 # fallback
 class MergeScenesRequest(BaseModel):
     scenes: List[SceneSegment]
 
@@ -824,12 +905,47 @@ def merge_scenes(
     try:
         merged_path = video_client.merge_videos(video_paths)
         
-        web_url = get_web_url(fastapi_req, merged_path)
+        # --- Generate SRT and ZIP ---
+        import zipfile
+        import datetime
+        
+        srt_content = []
+        current_time = 0.0
+        
+        valid_scenes = [s for s in request.scenes if s.video_path and os.path.exists(s.video_path)]
+        for i, scene in enumerate(valid_scenes):
+            duration = get_media_duration(scene.video_path)
+            start_str = format_srt_time(current_time)
+            current_time += duration
+            end_str = format_srt_time(current_time)
+            
+            srt_content.append(f"{i+1}")
+            srt_content.append(f"{start_str} --> {end_str}")
+            srt_content.append(scene.script)
+            srt_content.append("")
+            
+        srt_text = "\n".join(srt_content)
+        
+        # Save SRT to same directory as merged video
+        output_dir = os.path.dirname(merged_path)
+        base_name = os.path.splitext(os.path.basename(merged_path))[0]
+        srt_path = os.path.join(output_dir, f"{base_name}.srt")
+        zip_path = os.path.join(output_dir, f"{base_name}_bundle.zip")
+        
+        with open(srt_path, "w", encoding="utf-8") as f:
+            f.write(srt_text)
+            
+        # Create ZIP
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(merged_path, arcname=f"merged_video.mp4")
+            zipf.write(srt_path, arcname=f"subtitles.srt")
+            
+        web_url = get_web_url(fastapi_req, zip_path)
         
         return {
             "status": "success",
             "web_url": web_url,
-            "server_path": merged_path
+            "server_path": zip_path
         }
     except Exception as e:
         print(f"Merge Error: {e}")

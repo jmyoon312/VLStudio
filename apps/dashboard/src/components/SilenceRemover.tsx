@@ -39,6 +39,12 @@ export default function SilenceRemover() {
     const [normalize, setNormalize] = useState(true);
     const [useNr, setUseNr] = useState(false);
     const [nrAggr, setNrAggr] = useState('0.12');
+    
+    // Studio Enhancement State
+    const [studioCompressor, setStudioCompressor] = useState(false);
+    const [studioEq, setStudioEq] = useState(false);
+    const [studioGate, setStudioGate] = useState(false);
+    const [studioLoudnorm, setStudioLoudnorm] = useState(false);
     const [threshold, setThreshold] = useState(0);
     const [minSilence, setMinSilence] = useState(500);
     const [keepSilence, setKeepSilence] = useState(50);
@@ -95,6 +101,11 @@ export default function SilenceRemover() {
 
     // Preset State - Default to 'merge'
     const [activePreset, setActivePreset] = useState<string | null>('merge');
+
+    const markAsPendingOnChange = () => {
+        setActivePreset(null);
+        setFiles(prev => prev.map(f => (f.status === 'done' || f.status === 'error') ? { ...f, status: 'pending' } : f));
+    };
 
     const applyPreset = (type: 'speed' | 'gaming' | 'news' | 'vlog' | 'interview' | 'merge') => {
         setActivePreset(type);
@@ -212,6 +223,10 @@ export default function SilenceRemover() {
             min_silence_len: minSilence,
             keep_silence_ms: keepSilence,
             crossfade_ms: crossfade,
+            studio_compressor: studioCompressor,
+            studio_eq: studioEq,
+            studio_gate: studioGate,
+            studio_loudnorm: studioLoudnorm,
         };
         formData.append('options', JSON.stringify(options));
 
@@ -233,7 +248,7 @@ export default function SilenceRemover() {
 
             const data = await response.json();
             if (data.status === 'success' && data.web_url) {
-                const filename = data.web_url.split('/').pop() || `processed_${item.file.name}`;
+                const filename = data.server_path ? data.server_path.split(/[/\\]/).pop() : (data.web_url.split('/').pop() || `processed_${item.file.name}`);
                 await forceDownload(data.web_url, filename);
 
                 setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'done' } : f));
@@ -253,7 +268,7 @@ export default function SilenceRemover() {
         const pending = sortedFiles.filter(f => f.status === 'pending');
         
         if (pending.length === 0) {
-            addLog('처리할 대기 중인 파일이 없습니다.');
+            addLog('처리할 대기 중인 파일이 없습니다. 옵션을 변경하여 재처리할 수 있습니다.');
             return;
         }
 
@@ -268,9 +283,13 @@ export default function SilenceRemover() {
             });
             const options = {
                 threshold: 0,
-                remove_silence: false,
+                remove_silence: removeSilence,
                 normalize: normalize,
-                use_nr: false,
+                use_nr: useNr,
+                studio_compressor: studioCompressor,
+                studio_eq: studioEq,
+                studio_gate: studioGate,
+                studio_loudnorm: studioLoudnorm,
             };
             formData.append('options', JSON.stringify(options));
             try {
@@ -284,7 +303,7 @@ export default function SilenceRemover() {
                 }
                 const data = await response.json();
                 if (data.status === 'success' && data.web_url) {
-                    const filename = data.web_url.split('/').pop() || 'merged.mp3';
+                    const filename = data.server_path ? data.server_path.split(/[/\\]/).pop() : (data.web_url.split('/').pop() || 'merged.mp3');
                     await forceDownload(data.web_url, filename);
 
                     setFiles(prev => prev.map(f => pending.find(p => p.id === f.id) ? { ...f, status: 'done' } : f));
@@ -395,81 +414,93 @@ export default function SilenceRemover() {
                 </CardContent>
             </Card>
 
-            {/* Zone 3: Options (Compact) */}
-            <Card className="border-orange-200 dark:border-orange-900">
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        ⚙️ 옵션
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-12 gap-4 items-center">
-                    <div className="col-span-12 md:col-span-8 flex items-center gap-6">
-                        <div className="flex items-center space-x-2">
-                            <Switch id="remove-silence" checked={removeSilence} onCheckedChange={setRemoveSilence} />
-                            <label htmlFor="remove-silence" className="text-sm font-medium">무음 제거</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Zone 3: Options (Compact) */}
+                <Card className="border-orange-200 dark:border-orange-900 shadow-md">
+                    <CardHeader className="pb-3 bg-orange-50/50 dark:bg-orange-900/20 border-b border-orange-100 dark:border-orange-900/50">
+                        <CardTitle className="text-lg flex items-center gap-2 text-orange-700 dark:text-orange-400">
+                            ⚙️ 기본 처리 옵션
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 space-y-4">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border">
+                                <Switch id="remove-silence" checked={removeSilence} onCheckedChange={(val) => { setRemoveSilence(val); markAsPendingOnChange(); }} />
+                                <label htmlFor="remove-silence" className="text-sm font-bold">무음 제거</label>
+                            </div>
+                            <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border">
+                                <Switch id="use-nr" checked={useNr} onCheckedChange={(val) => { setUseNr(val); markAsPendingOnChange(); }} />
+                                <label htmlFor="use-nr" className="text-sm font-bold">노이즈 감소</label>
+                            </div>
+                            <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border">
+                                <Switch id="normalize" checked={normalize} onCheckedChange={(val) => { setNormalize(val); markAsPendingOnChange(); }} />
+                                <label htmlFor="normalize" className="text-sm font-bold">일반 정규화</label>
+                            </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <Switch id="normalize" checked={normalize} onCheckedChange={setNormalize} />
-                            <label htmlFor="normalize" className="text-sm font-medium">정규화</label>
+
+                        <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border">
+                            <div className="flex items-center gap-4">
+                                <label className="text-sm font-medium whitespace-nowrap w-24">무음 감지 <span className="text-orange-600">({threshold}dB)</span></label>
+                                <Slider value={[threshold]} min={-100} max={0} step={1} onValueChange={vals => { setThreshold(vals[0]); markAsPendingOnChange(); }} className="flex-1" />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <label className="text-sm font-medium whitespace-nowrap w-24">최소 무음 <span className="text-orange-600">({minSilence}ms)</span></label>
+                                <Slider value={[minSilence]} min={100} max={2000} step={50} onValueChange={vals => { setMinSilence(vals[0]); markAsPendingOnChange(); }} className="flex-1" />
+                            </div>
+                            <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                <label className="text-xs font-medium">유지(ms):</label>
+                                <Input type="number" value={keepSilence} onChange={e => { setKeepSilence(parseInt(e.target.value) || 0); markAsPendingOnChange(); }} className="w-16 h-7 text-xs" />
+                                <label className="text-xs font-medium ml-2">크로스페이드(ms):</label>
+                                <Input type="number" value={crossfade} onChange={e => { setCrossfade(parseInt(e.target.value) || 0); markAsPendingOnChange(); }} className="w-16 h-7 text-xs" />
+                                <label className="text-xs font-medium ml-2">NR 강도:</label>
+                                <Input type="number" step="0.01" min="0.05" max="0.4" value={nrAggr} onChange={e => { setNrAggr(e.target.value); markAsPendingOnChange(); }} className="w-16 h-7 text-xs" disabled={!useNr} />
+                            </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <Switch id="use-nr" checked={useNr} onCheckedChange={setUseNr} />
-                            <label htmlFor="use-nr" className="text-sm font-medium">노이즈 감소</label>
+                    </CardContent>
+                </Card>
+
+                {/* Zone 3.5: Studio Enhancements */}
+                <Card className="border-purple-200 dark:border-purple-900 shadow-md relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-2">
+                        <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider animate-pulse">Pro</span>
+                    </div>
+                    <CardHeader className="pb-3 bg-purple-50/50 dark:bg-purple-900/20 border-b border-purple-100 dark:border-purple-900/50">
+                        <CardTitle className="text-lg flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                            ✨ 스튜디오 음질 개선
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 space-y-3">
+                        <div className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", studioCompressor ? "bg-purple-50 border-purple-300 dark:bg-purple-900/30" : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100")}>
+                            <div>
+                                <div className="font-bold text-sm">🎙️ 팟캐스트 보이스 (다이내믹 컴프레서)</div>
+                                <div className="text-xs text-muted-foreground mt-0.5">작은 소리는 키우고 큰 소리는 억제하여 단단하고 힘있는 목소리</div>
+                            </div>
+                            <Switch checked={studioCompressor} onCheckedChange={(val) => { setStudioCompressor(val); markAsPendingOnChange(); }} />
                         </div>
-                    </div>
-                    <div className="col-span-12 md:col-span-4 flex items-center gap-2 justify-end">
-                        <label className="text-sm font-medium whitespace-nowrap">NR 강도:</label>
-                        <Input
-                            type="number"
-                            step="0.01"
-                            min="0.05"
-                            max="0.4"
-                            value={nrAggr}
-                            onChange={e => setNrAggr(e.target.value)}
-                            className="w-20 h-8"
-                            disabled={!useNr}
-                        />
-                    </div>
-                    <div className="col-span-12 md:col-span-6 flex items-center gap-4">
-                        <label className="text-sm font-medium whitespace-nowrap w-24">무음 감지 <span className="text-blue-600">({threshold}dB)</span></label>
-                        <Slider
-                            value={[threshold]}
-                            min={-100}
-                            max={0}
-                            step={1}
-                            onValueChange={vals => setThreshold(vals[0])}
-                            className="flex-1"
-                        />
-                    </div>
-                    <div className="col-span-12 md:col-span-6 flex items-center gap-4">
-                        <label className="text-sm font-medium whitespace-nowrap w-24">최소 무음 <span className="text-blue-600">({minSilence}ms)</span></label>
-                        <Slider
-                            value={[minSilence]}
-                            min={100}
-                            max={2000}
-                            step={50}
-                            onValueChange={vals => setMinSilence(vals[0])}
-                            className="flex-1"
-                        />
-                    </div>
-                    <div className="col-span-6 md:col-span-6 flex items-center gap-2 justify-end mt-2">
-                        <label className="text-sm font-medium whitespace-nowrap">유지(ms):</label>
-                        <Input
-                            type="number"
-                            value={keepSilence}
-                            onChange={e => setKeepSilence(parseInt(e.target.value) || 0)}
-                            className="w-20 h-8"
-                        />
-                        <label className="text-sm font-medium whitespace-nowrap ml-4">크로스페이드(ms):</label>
-                        <Input
-                            type="number"
-                            value={crossfade}
-                            onChange={e => setCrossfade(parseInt(e.target.value) || 0)}
-                            className="w-20 h-8"
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+                        <div className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", studioEq ? "bg-purple-50 border-purple-300 dark:bg-purple-900/30" : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100")}>
+                            <div>
+                                <div className="font-bold text-sm">🎚️ 또렷하고 풍성하게 (보컬 EQ 부스트)</div>
+                                <div className="text-xs text-muted-foreground mt-0.5">고음을 살려 선명하게, 저음을 더해 웅장하게 (라디오 질감)</div>
+                            </div>
+                            <Switch checked={studioEq} onCheckedChange={(val) => { setStudioEq(val); markAsPendingOnChange(); }} />
+                        </div>
+                        <div className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", studioGate ? "bg-purple-50 border-purple-300 dark:bg-purple-900/30" : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100")}>
+                            <div>
+                                <div className="font-bold text-sm">🔇 완벽한 적막 (스마트 노이즈 게이트)</div>
+                                <div className="text-xs text-muted-foreground mt-0.5">말을 하지 않는 구간의 백그라운드 노이즈를 완벽히 차단</div>
+                            </div>
+                            <Switch checked={studioGate} onCheckedChange={(val) => { setStudioGate(val); markAsPendingOnChange(); }} />
+                        </div>
+                        <div className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", studioLoudnorm ? "bg-purple-50 border-purple-300 dark:bg-purple-900/30" : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100")}>
+                            <div>
+                                <div className="font-bold text-sm">📺 유튜브 표준 음량 (EBU R128 정규화)</div>
+                                <div className="text-xs text-muted-foreground mt-0.5">유튜브/방송 표준인 -14 LUFS에 맞춰 듣기 편한 최적의 볼륨</div>
+                            </div>
+                            <Switch checked={studioLoudnorm} onCheckedChange={(val) => { setStudioLoudnorm(val); markAsPendingOnChange(); }} />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Zone 4: File List */}
             <Card className="border-green-500 dark:border-green-700 border-2">

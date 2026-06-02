@@ -57,7 +57,7 @@ from app.routers import (
     resource_manager_automation, scout, script_writer, scripts, 
     settings, stations, stream, studio, swarm, system, templates, 
     tiktok_channels, tools, upload_rules, video, videos, wisdom, 
-    work_queue, workflow, youtube_channels,
+    work_queue, workflow, youtube_channels, veo_prompt_agent,
     queue_management, processing_verification, dashboard_reports, 
     health_deployment, ml_ab_search, operations, network
 )
@@ -294,6 +294,7 @@ app.include_router(stream.router, prefix="/api/stream", tags=["media"])
 app.include_router(stations.router, prefix="/api/stations", tags=["media"])
 app.include_router(tools.router, prefix="/api/tools", tags=["ops"])
 app.include_router(ai_agent.router, prefix="/api/agent", tags=["intelligence"])
+app.include_router(veo_prompt_agent.router, prefix="/api/veo", tags=["intelligence"])
 app.include_router(mcp.router, prefix="/api/mcp", tags=["intelligence"])
 app.include_router(mcp_registry.router, prefix="/api/mcp", tags=["intelligence"])
 app.include_router(workflow.router, prefix="/api/workflows", tags=["intelligence"])

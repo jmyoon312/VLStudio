@@ -241,11 +241,23 @@ export const ExportModal = ({ isOpen, onClose, onExport, projectName, loading, e
               </div>
             </div>
             <div className="format-details">
-              <p>{t('exportModal.zipDesc')}</p>
-              <div className="format-output">
-                <span className="output-label">{t('exportModal.output')}</span>
-                <code>{projectName || 'untitled'}_capcut.zip</code>
-              </div>
+              {window.electronAPI?.writeCapcutProject ? (
+                <>
+                  <p>Electron 로컬 연동 모드: 캡컷 프로젝트 폴더로 다이렉트 전송 및 캡컷 자동 실행</p>
+                  <div className="format-output">
+                    <span className="output-label">{t('exportModal.output')}</span>
+                    <code>📂 로컬 캡컷 작업 폴더로 즉시 내보내기</code>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p>{t('exportModal.zipDesc')}</p>
+                  <div className="format-output">
+                    <span className="output-label">{t('exportModal.output')}</span>
+                    <code>{projectName || 'untitled'}_capcut.zip</code>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -318,6 +330,39 @@ export const ExportModal = ({ isOpen, onClose, onExport, projectName, loading, e
                   placeholder={pathPreset === 'custom' ? t('exportModal.customPathPlaceholder') : ''}
                   className="path-input-field"
                 />
+                {pathPreset === 'custom' && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const result = await window.electronAPI.selectWorkFolder()
+                        if (result && result.success && result.path) {
+                          setFullPath(result.path)
+                          setPathManuallyEdited(true)
+                        }
+                      } catch (e) {
+                        console.warn('[ExportModal] Failed to select custom folder:', e)
+                      }
+                    }}
+                    className="path-select-btn"
+                    style={{
+                      padding: '8px 12px',
+                      background: '#3B82F6',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '0.9em',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'background 0.2s',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    📂
+                  </button>
+                )}
                 <button
                   type="button"
                   data-tooltip-top={t('exportModal.copyPathTooltip')}

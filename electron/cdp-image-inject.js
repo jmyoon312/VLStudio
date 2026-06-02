@@ -24,12 +24,29 @@ export function injectImageBatchBody(body, { referenceImages = null, seed = null
   const requests = body && Array.isArray(body.requests) ? body.requests : null
   if (!requests) return applied
 
+  // Clean up any legacy or UI-provided referenceImages and convert to imageInputs
+  for (const req of requests) {
+    if (req.referenceImages && Array.isArray(req.referenceImages)) {
+      if (!req.imageInputs) req.imageInputs = []
+      for (const ref of req.referenceImages) {
+        const mediaId = typeof ref === 'string' ? ref : (ref.mediaId || ref.name)
+        if (mediaId && !req.imageInputs.some(input => input.name === mediaId)) {
+          req.imageInputs.push({ imageInputType: 'IMAGE_INPUT_TYPE_REFERENCE', name: mediaId })
+        }
+      }
+      delete req.referenceImages
+    }
+  }
+
   if (referenceImages && referenceImages.length > 0) {
     for (const req of requests) {
       if (!req.imageInputs) req.imageInputs = []
       for (const ref of referenceImages) {
-        req.imageInputs.push({ imageInputType: 'IMAGE_INPUT_TYPE_REFERENCE', name: ref.mediaId })
+        if (!req.imageInputs.some(input => input.name === ref.mediaId)) {
+          req.imageInputs.push({ imageInputType: 'IMAGE_INPUT_TYPE_REFERENCE', name: ref.mediaId })
+        }
       }
+      if (req.referenceImages) delete req.referenceImages
     }
     applied.references = true
   }

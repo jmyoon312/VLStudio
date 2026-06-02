@@ -150,21 +150,28 @@ class CreativeEngine:
             for i, seg in enumerate(segments):
                 try:
                     # Generate visual prompt for this specific segment
-                    v_prompt_resp = self.generate_visual_prompt(seg, style_prompt, target_provider, target_model)
-                    # Clean up: If response contains "Visual Prompt:", strip it
-                    vp = v_prompt_resp.replace("Visual Prompt:", "").strip()
+                    prompt_dict = self.generate_visual_prompt(seg, style_prompt, target_provider, target_model)
+                    if isinstance(prompt_dict, str):
+                        vp = prompt_dict.replace("Visual Prompt:", "").strip()
+                        vid_p = "Camera slowly pans, subtle movement"
+                    else:
+                        vp = prompt_dict.get("visual_prompt", "").replace("Visual Prompt:", "").strip()
+                        vid_p = prompt_dict.get("video_prompt", "").strip()
                     
+                    aspect_str = '9:16' if mode == 'shorts' else '16:9'
                     results.append({
                         "scene_id": i + 1,
                         "script": seg,
-                        "visual_prompt": f"{'9:16' if mode == 'shorts' else '16:9'}, {vp}"
+                        "visual_prompt": f"{aspect_str}, {vp}" if vp else f"{aspect_str}, Cinematic scene, {style_prompt}",
+                        "video_prompt": vid_p or "Camera slowly pans, subtle movement"
                     })
                 except Exception as e:
                     logger.error(f"Failed to gen prompt for segment {i}: {e}")
                     results.append({
                         "scene_id": i + 1,
                         "script": seg,
-                        "visual_prompt": f"{'9:16' if mode == 'shorts' else '16:9'}, Cinematic scene, {style_prompt}"
+                        "visual_prompt": f"{'9:16' if mode == 'shorts' else '16:9'}, Cinematic scene, {style_prompt}",
+                        "video_prompt": "Camera slowly pans, subtle movement"
                     })
             return results
 
@@ -209,15 +216,23 @@ class CreativeEngine:
         {pacing_instruction}
         Target Aspect Ratio: {aspect_ratio}
 
-        INSTRUCTIONS FOR VISUAL PROMPT:
-        1.  **Subject & Action FIRST:** Start with a vivid description of WHO is doing WHAT.
-        2.  **Context:** Translate the abstract script meaning into concrete visual imagery.
-        3.  **Structure:** `[Aspect Ratio], [Camera Angle], [Subject + Action], [Background/Environment], [Lighting]`
-        4.  **Style Injection:** Append the Global Style keywords at the VERY END.
+        INSTRUCTIONS FOR PROMPTS:
+        0. **Cultural & Era Context Extraction**:
+           - First, thoroughly analyze the script to deduce the exact geographic, cultural, and historical era (e.g., Joseon Dynasty Korea, Modern New York, Sci-Fi Future, North Korea).
+           - **CRITICAL ANTI-BIAS RULE**: The deduced cultural context MUST override any contradictory elements in the Global Style. For example, if the script implies "Joseon Dynasty" (e.g. '선비', '한복') but the Global Style is "Japanese anime", you MUST use the Ghibli/anime art style (brush strokes, colors) BUT the characters MUST wear Korean Hanbok and the architecture MUST be Korean. Do NOT generate Japanese clothes or settings if the script implies Korea.
+        1. **visual_prompt (Image Prompt)**: 
+           - Focus on WHO is doing WHAT, Context, Background, Lighting. 
+           - Structure: `[Aspect Ratio], [Camera Angle], [Cultural & Era Context], [Subject + Action], [Background/Environment], [Lighting]`
+           - Inject Global Style at the end.
+        2. **video_prompt (Motion Prompt)**:
+           - Focus STRICTLY on camera movement and subject motion based on the starting image.
+           - DO NOT include art styles (e.g. no "Korean animation style").
+           - Keep it concise (e.g. "Camera slowly zooms in, tiger opens its mouth and roars").
 
         EXAMPLE:
         Script: "전쟁이 시작되었습니다."
         Visual Prompt: "{aspect_ratio}, Low angle shot, thousands of medieval soldiers charging across a muddy field, swords raised, chaotic atmosphere, storm clouds above, {style_prompt if style_prompt else 'Cinematic, dramatic lighting'}"
+        Video Prompt: "Camera pans rapidly from left to right, soldiers charging forward, muddy splashes on the ground, intense chaotic movement."
 
         Script:
         {text}
@@ -227,7 +242,8 @@ class CreativeEngine:
             {{
                 "scene_id": 1,
                 "script": "...",
-                "visual_prompt": "{aspect_ratio}, ..."
+                "visual_prompt": "{aspect_ratio}, ...",
+                "video_prompt": "..."
             }}
         ]
         """
@@ -288,24 +304,37 @@ class CreativeEngine:
                         {
                             "scene_id": 1,
                             "script": text[:50] + "...",
-                            "visual_prompt": f"{aspect_ratio}, Cinematic, A futuristic city with neon lights, rain falling, {style_prompt}"
+                            "visual_prompt": f"{aspect_ratio}, Cinematic, A futuristic city with neon lights, rain falling, {style_prompt}",
+                            "video_prompt": "Camera slowly pans left, neon lights flickering."
                         },
                         {
                             "scene_id": 2,
                             "script": "Mock Scene 2 content.",
-                            "visual_prompt": f"{aspect_ratio}, Close up, A robot hand holding a flower, {style_prompt}"
+                            "visual_prompt": f"{aspect_ratio}, Close up, A robot hand holding a flower, {style_prompt}",
+                            "video_prompt": "Robot hand gently closes its fingers around the stem."
                         }
                     ]
             raise e
 
-    def generate_visual_prompt(self, script: str, style_context: str = "", provider: str = None, model: str = None) -> str:
+    def generate_visual_prompt(self, script: str, style_context: str = "", provider: str = None, model: str = None) -> dict:
         """
         Generates a visual prompt for a single scene using the specified provider/model.
         """
         target_provider = provider or getattr(self.llm_client.settings, "paperclip_provider", "google")
         target_model = model or getattr(self.llm_client.settings, "paperclip_model", self.llm_client.settings.default_model)
         
-        system_prompt = f"You are a Visual Director. Create a vivid image description for this script line. Style: '{style_context}'. Start with camera angle/subject."
+        system_prompt = f"""You are a Visual Director. Create a vivid image description and a motion description for this script line. Style: '{style_context}'. Start with camera angle/subject.
+        
+        CRITICAL RULES:
+        1. Analyze the script to deduce the cultural, geographical, and historical era (e.g., Joseon Dynasty Korea, Modern New York, North Korea).
+        2. ANTI-BIAS RULE: The cultural context from the script MUST override contradictory elements in the style. If the script is about Korea (e.g. '선비', '호랑이'), and the style is "Japanese Anime", you must apply the anime art style but the clothing/architecture MUST remain strictly Korean (e.g. Hanbok, Choga-jib).
+        
+        Output MUST be a valid JSON object:
+        {{
+            "visual_prompt": "[Aspect Ratio], [Camera Angle], [Cultural & Era Context], [Subject + Action], [Background/Environment], [Lighting], [Style]",
+            "video_prompt": "Motion prompt focusing STRICTLY on camera movement and subject motion."
+        }}
+        """
         
         # Construct model name based on provider
         full_model_name = target_model
@@ -315,15 +344,20 @@ class CreativeEngine:
             full_model_name = f"groq/{full_model_name}"
 
         try:
-            prompt = self.llm_client.generate_content(
+            response = self.llm_client.generate_content(
                 prompt=script, 
                 model_name=full_model_name,
-                system_instruction=system_prompt
+                system_instruction=system_prompt,
+                full_response=False
             )
-            return prompt
+            text_resp = response if isinstance(response, str) else response.get("content", "")
+            match = re.search(r'\{.*\}', text_resp, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            return {"visual_prompt": text_resp, "video_prompt": "Camera slowly pans, subtle movement"}
         except Exception as e:
             logger.error(f"Visual Prompt Generation Failed: {e}")
-            return f"Cinematic shot of {script}, high quality, 4k" # Safe Fallback
+            return {"visual_prompt": f"Cinematic shot of {script}, high quality", "video_prompt": "Camera slowly pans"}
 
 
     def _split_by_rule(self, text: str, config: dict) -> list:

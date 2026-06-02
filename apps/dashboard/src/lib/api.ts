@@ -5,8 +5,30 @@ export const SWARM_BASE_URL = '/swarm';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 10000,
+    timeout: 30000, // 30s for normal API calls
 });
+
+// Long-running operations (render, merge, TTS batch) need much longer timeout
+export const apiLong = axios.create({
+    baseURL: API_BASE_URL,
+    timeout: 300000, // 5 minutes
+});
+
+// Apply same retry interceptor to apiLong
+apiLong.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const config = error.config as any;
+        const isNetworkError = !error.response;
+        if (!isNetworkError) return Promise.reject(error);
+        config.__retryCount = config.__retryCount || 0;
+        if (config.__retryCount >= 2) return Promise.reject(error);
+        config.__retryCount++;
+        await new Promise((res) => setTimeout(res, 2000));
+        return apiLong(config);
+    }
+);
+
 
 // [Resilience] 백엔드 시작 지연(Race Condition) 대응 자동 재시도 인터셉터
 // ECONNREFUSED / 네트워크 오류 시 최대 3회, 지수 백오프로 재시도

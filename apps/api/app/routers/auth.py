@@ -252,7 +252,7 @@ def callback(request: Request, state: str = None, code: str = None, db: Session 
         # Redirect back to frontend
         # Assuming frontend is on same host port 5173 for dev
         # Production should use env var
-        frontend_url = "http://localhost:5173/distribution-manager" 
+        frontend_url = "http://localhost:5183/distribution-manager" 
         # Better: use a query param or default
         
         return RedirectResponse(f"{frontend_url}?status=success")

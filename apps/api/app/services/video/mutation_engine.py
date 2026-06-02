@@ -16,7 +16,7 @@ class MutationEngine:
     def __init__(self):
         self.ffmpeg = settings.FFMPEG_PATH
 
-    def apply_mutation(self, input_path: str, output_path: str, channel_id: str, intensity: float = 0.5):
+    def apply_mutation(self, input_path: str, output_path: str, channel_id: str = "default_channel", intensity: float = 0.5):
         """
         [SAIF Phase 4] 고도화된 바이너리 변조 및 정체성 동기화
         - channel_id 기반의 고정 시드 사용
@@ -33,7 +33,7 @@ class MutationEngine:
         gamma = 1.0 + (random.uniform(-0.01, 0.01) * intensity)
         
         visual_filters = [
-            f"noise=alls={noise_str}:allf=t:allseed={seed_int}", # DNA-locked temporal noise
+            f"noise=alls={noise_str}:allf=t", # DNA-locked temporal noise
             f"eq=gamma={gamma}:saturation={1.0 + (0.02 * intensity)}",
             "format=yuv420p"
         ]

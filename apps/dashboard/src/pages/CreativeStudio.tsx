@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import api, { apiLong } from '@/lib/api';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,14 +21,21 @@ import {
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
 import MotionSettingsDialog from '@/components/MotionSettingsDialog';
 import SubtitleSettingsDialog, { SubtitleConfig } from '@/components/SubtitleSettingsDialog';
+import AudioSettingsDialog, { AudioConfig } from '@/components/AudioSettingsDialog';
 import { v4 as uuidv4 } from 'uuid';
 import AIModelSelector from '@/components/shared/AIModelSelector';
+import { StyleGalleryModal } from '@/components/shared/StyleGalleryModal';
+import { ExportModal } from '../features/flow2capcut/components/ExportModal';
+import { generateCapcutProject } from '../features/flow2capcut/exporters/capcutLocalGenerator';
+import { generateSRT } from '../features/flow2capcut/exporters/capcut';
 
 interface SceneSegment {
     id: string; // Unique ID for frontend tracking
     scene_id: number; // Display number (1-based index)
     script: string;
     visual_prompt: string;
+    video_prompt?: string; // [NEW] Prompt strictly for video motion
+    is_continuous_motion?: boolean; // [NEW] Flag to use previous scene's last frame
     media_url?: string; // Source Image URL
     media_path?: string; // Absolute path on server (Image)
     task_id?: string;
@@ -326,7 +334,13 @@ const CreativeStudio = () => {
     });
     const [isSegmenting, setIsSegmenting] = useState(false);
     const [splitMethod, setSplitMethod] = useState("ai_smart");
-    const [segmentMode, setSegmentMode] = useState("shorts");
+    const [segmentMode, setSegmentMode] = useState(() => {
+        return localStorage.getItem('viral_loop_segment_mode') || 'shorts';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('viral_loop_segment_mode', segmentMode);
+    }, [segmentMode]);
 
     // Auto-save creative scene board to localStorage
     useEffect(() => {
@@ -337,54 +351,120 @@ const CreativeStudio = () => {
         }
     }, [scenes]);
 
+    // Auto-update aspect ratio in existing prompts when segmentMode changes
+    useEffect(() => {
+        setScenes(prev => prev.map(scene => {
+            if (!scene.visual_prompt) return scene;
+            const targetPrefix = segmentMode === 'shorts' ? '9:16' : '16:9';
+            const oldPrefix = segmentMode === 'shorts' ? '16:9' : '9:16';
+            
+            if (scene.visual_prompt.startsWith(oldPrefix)) {
+                return {
+                    ...scene,
+                    visual_prompt: scene.visual_prompt.replace(oldPrefix, targetPrefix)
+                };
+            }
+            return scene;
+        }));
+    }, [segmentMode]);
+
     // State: TTS Config
     const [isTTSDialogOpen, setIsTTSDialogOpen] = useState(false);
-    const [ttsConfig, setTTSConfig] = useState<any>({
-        engine: "google",
-        language: "ko",
-        voice_id: "google_female",
-        rate: 0,
-        pitch: 0,
-        speed: 1.0
+    const [ttsConfig, setTTSConfig] = useState<any>(() => {
+        const defaults = {
+            engine: "kokoro",
+            language: "ko",
+            voice_id: "af_heart",
+            speed: 1.0,
+            pitch: 0,
+            emotion: "normal"
+        };
     });
 
-    // State: Motion Config
+    useEffect(() => {
+        localStorage.setItem('viral_loop_tts_config', JSON.stringify(ttsConfig));
+    }, [ttsConfig]);
+
     const [isMotionDialogOpen, setIsMotionDialogOpen] = useState(false);
-    const [motionConfig, setMotionConfig] = useState<any>({
-        enable: true, // Default enabled
-        direction: 'random',
-        speed: 1.0,
-        shake: false
+    const [motionConfig, setMotionConfig] = useState<any>(() => {
+        const defaults = {
+            enable: true,
+            direction: 'random',
+            speed: 1.0,
+            shake: false
+        };
+        const saved = localStorage.getItem('viral_loop_motion_config');
+        if (saved) {
+            try { return { ...defaults, ...JSON.parse(saved) }; } catch (e) { console.error(e); }
+        }
+        return defaults;
     });
+
+    useEffect(() => {
+        localStorage.setItem('viral_loop_motion_config', JSON.stringify(motionConfig));
+    }, [motionConfig]);
 
     // State: Subtitle Config
     const [isSubtitleDialogOpen, setIsSubtitleDialogOpen] = useState(false);
-    const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({
-        enabled: true,
-        font: 'Arial',
-        fontSize: 40,
-        isBold: true,
-        isItalic: false,
-        textColor: '#ffffff',
-        outlineSize: 2,
-        outlineColor: '#000000',
-        shadowSize: 2,
-        shadowColor: '#000000',
-        useBox: false,
-        boxColor: '#000000',
-        boxOpacity: 50,
-        position: 'bottom',
-        marginV: 50,
-        customX: 0,
-        customY: 0,
-        animation: 'none',
-        splitLimit: 20,
-        maxLines: 2
+    const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>(() => {
+        const defaults = {
+            enabled: true,
+            font: 'Arial',
+            fontSize: 40,
+            isBold: true,
+            isItalic: false,
+            textColor: '#ffffff',
+            outlineSize: 2,
+            outlineColor: '#000000',
+            shadowSize: 2,
+            shadowColor: '#000000',
+            useBox: false,
+            boxColor: '#000000',
+            position: 'bottom',
+            marginV: 50,
+            customX: 0,
+            customY: 0,
+            animation: 'none',
+            splitLimit: 20,
+            maxLines: 2
+        };
+        const saved = localStorage.getItem('viral_loop_subtitle_config');
+        if (saved) {
+            try { return { ...defaults, ...JSON.parse(saved) }; } catch (e) { console.error(e); }
+        }
+        return defaults;
     });
+
+    useEffect(() => {
+        localStorage.setItem('viral_loop_subtitle_config', JSON.stringify(subtitleConfig));
+    }, [subtitleConfig]);
+
+    const [isAudioDialogOpen, setIsAudioDialogOpen] = useState(false);
+    const [audioConfig, setAudioConfig] = useState<AudioConfig>(() => {
+        const defaults = {
+            keepOriginalAudio: true,
+            originalVolume: 50,
+        };
+        const saved = localStorage.getItem('viral_loop_audio_config');
+        if (saved) {
+            try { return { ...defaults, ...JSON.parse(saved) }; } catch (e) { console.error(e); }
+        }
+        return defaults;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('viral_loop_audio_config', JSON.stringify(audioConfig));
+    }, [audioConfig]);
 
     // State: UI Toggles
     const [isStyleCollapsed, setIsStyleCollapsed] = useState(false);
     const [isScriptCollapsed, setIsScriptCollapsed] = useState(false);
+    const [isStyleGalleryOpen, setIsStyleGalleryOpen] = useState(false);
+    
+    // [NEW] CapCut Export States
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportLoading, setExportLoading] = useState(false);
+    const [exportPhase, setExportPhase] = useState<'launching' | 'processing'>('processing');
 
     // [NEW] Auto-Gen Options
     const [autoGenerateImages, setAutoGenerateImages] = useState(false);
@@ -499,12 +579,14 @@ const CreativeStudio = () => {
     });
 
     const generateVideoMutation = useMutation({
-        mutationFn: async (data: { id: string, sceneId: number, prompt: string, model: string }) => {
+        mutationFn: async (data: { id: string, sceneId: number, prompt: string, model: string, is_continuous_motion?: boolean }) => {
             const aspectRatio = segmentMode === 'shorts' ? "9:16" : "16:9";
             const res = await api.post('/video/generate', {
                 prompt: data.prompt,
                 model: data.model,
-                aspect_ratio: aspectRatio
+                aspect_ratio: aspectRatio,
+                is_continuous_motion: data.is_continuous_motion,
+                scene_id: data.sceneId // Send scene_id so backend can fetch previous scene if needed
             });
             return { id: data.id, sceneId: data.sceneId, taskId: res.data.task_id };
         },
@@ -634,9 +716,33 @@ const CreativeStudio = () => {
         });
     };
 
-    const handleGenerateVideo = (sceneId: number, id: string, prompt: string) => {
-        const finalPrompt = `${prompt}${negativePrompt ? " --no " + negativePrompt : ""}`;
-        generateVideoMutation.mutate({ id, sceneId, prompt: finalPrompt, model: "kling-v1" });
+    const handleGenerateVideo = (scene: SceneSegment) => {
+        // Validation: If continuous motion, check if previous scene has a video
+        if (scene.is_continuous_motion) {
+            const prevScene = scenes.find(s => s.scene_id === scene.scene_id - 1);
+            if (!prevScene || !prevScene.video_url) {
+                toast.error("이전 씬과 연결 모드입니다. 선행 씬의 영상 생성을 먼저 완료해 주세요.");
+                return;
+            }
+        }
+        
+        // Validation: If NOT continuous, ensure we have an image
+        if (!scene.is_continuous_motion && !scene.media_url) {
+            toast.error("영상을 생성하기 전에 반드시 이미지를 먼저 생성해야 합니다.");
+            return;
+        }
+
+        const promptBase = scene.video_prompt || scene.visual_prompt;
+        const finalPrompt = `${promptBase}${negativePrompt ? " --no " + negativePrompt : ""}`;
+        
+        // Pass continuous flag to mutation
+        generateVideoMutation.mutate({ 
+            id: scene.id, 
+            sceneId: scene.scene_id, 
+            prompt: finalPrompt, 
+            model: "kling-v1",
+            is_continuous_motion: scene.is_continuous_motion
+        });
     };
 
     const handleVideoUpload = (sceneId: number, id: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -659,10 +765,17 @@ const CreativeStudio = () => {
         onSuccess: (updatedScenes) => {
             setScenes(prev => prev.map(s => {
                 const updated = updatedScenes.find((u: any) => u.scene_id === s.scene_id);
-                return updated ? { ...s, media_url: updated.media_url, visualStatus: 'completed', viewMode: 'source' } : s;
+                return updated ? {
+                    ...s,
+                    media_url: updated.media_url,
+                    media_path: updated.media_path,   // 로컬 경로도 저장 → batch-render 에서 직접 사용
+                    visualStatus: 'completed',
+                    viewMode: 'source'
+                } : s;
             }));
             toast.success("전체 이미지 생성 완료!");
         },
+
         onError: (err) => {
             toast.error("배치 이미지 생성 실패: " + err);
         }
@@ -677,20 +790,29 @@ const CreativeStudio = () => {
 
     const batchRenderMutation = useMutation({
         mutationFn: async (scenes: SceneSegment[]) => {
-            const res = await api.post('/creative/batch-render', {
+            // 전체 씬 렌더링은 씬 수 × 씬당 시간 → 5분 타임아웃 인스턴스 사용
+            const currentAspectRatio = segmentMode === 'shorts' ? "9:16" : "16:9";
+            const res = await apiLong.post('/creative/batch-render', {
                 scenes: scenes,
                 voice_id: "af_heart",
                 speed: 1.0,
+                aspect_ratio: currentAspectRatio,
                 motion_config: motionConfig,
-                subtitle_config: subtitleConfig
+                subtitle_config: subtitleConfig,
+                audio_config: audioConfig
             });
             return res.data;
         },
         onSuccess: (updatedScenes) => {
             setScenes(prev => prev.map(s => {
                 const updated = updatedScenes.find((u: any) => u.scene_id === s.scene_id);
-                // FIX: Update video_url, NOT media_url
-                return updated ? { ...s, video_url: updated.media_url, video_path: updated.server_path, renderStatus: 'completed', viewMode: 'render' } : s;
+                return updated ? { 
+                    ...s, 
+                    video_url: updated.video_url, 
+                    video_path: updated.video_path, 
+                    renderStatus: 'completed', 
+                    viewMode: 'render' 
+                } : s;
             }));
             toast.success("전체 영상 렌더링 완료!");
         },
@@ -708,6 +830,17 @@ const CreativeStudio = () => {
 
     const handleRoughCut = () => {
         if (scenes.length === 0) return;
+
+        // 사전 검증: 이미지가 없는 씬 확인
+        const scenesWithoutImage = scenes.filter(s => !s.media_path && !s.media_url);
+        if (scenesWithoutImage.length > 0) {
+            toast.error(
+                `씬 ${scenesWithoutImage.map(s => `#${s.scene_id}`).join(', ')}에 이미지가 없습니다. ` +
+                `"전체 이미지 생성" 또는 각 씬의 "이미지 생성" 버튼을 먼저 눌러주세요.`
+            );
+            return;
+        }
+
         if (!confirm("✨ 원클릭 러프컷: 모든 씬을 렌더링하고 하나로 합칩니다. 진행하시겠습니까?")) return;
 
         setScenes(prev => prev.map(s => ({ ...s, renderStatus: 'generating' })));
@@ -727,13 +860,16 @@ const CreativeStudio = () => {
 
     // Merge Scenes
     const [isMerging, setIsMerging] = useState(false);
+    const [fullVideoPath, setFullVideoPath] = useState<string | null>(null);
     const mergeScenesMutation = useMutation({
         mutationFn: async (scenes: SceneSegment[]) => {
-            const res = await api.post('/creative/merge-scenes', { scenes });
+            // 영상 머지도 오래 걸리므로 5분 타임아웃 인스턴스 사용
+            const res = await apiLong.post('/creative/merge-scenes', { scenes });
             return res.data;
         },
         onSuccess: (data) => {
-            toast.success("씬 영상 통합 완료!", {
+            setFullVideoPath(data.server_path);
+            toast.success("씬 영상 통합 완료! (ZIP 다운로드)", {
                 action: {
                     label: "다운로드",
                     onClick: () => window.open(data.web_url, '_blank')
@@ -769,13 +905,15 @@ const CreativeStudio = () => {
     };
     const renderSceneMutation = useMutation({
         mutationFn: async (data: { id: string, sceneId: number, image_path: string, audio_path: string, aspect_ratio: string, script: string, old_file_path?: string }) => {
-            const res = await api.post('/creative/render-scene', {
+            // 영상 렌더링은 오래 걸리므로 5분 타임아웃 인스턴스 사용
+            const res = await apiLong.post('/creative/render-scene', {
                 scene_id: data.sceneId,
                 image_path: data.image_path,
                 audio_path: data.audio_path,
                 aspect_ratio: data.aspect_ratio,
                 motion_config: motionConfig,
                 subtitle_config: subtitleConfig,
+                audio_config: audioConfig,
                 script: data.script,
                 old_file_path: data.old_file_path
             });
@@ -866,20 +1004,26 @@ const CreativeStudio = () => {
 
     const batchTTSMutation = useMutation({
         mutationFn: async (scenes: SceneSegment[]) => {
+            // 배치 TTS는 씬 수만큼 순차 처리하므로 5분 타임아웃 사용
             const promises = scenes.map(s =>
-                api.post('/creative/scene-tts', {
+                apiLong.post('/creative/scene-tts', {
                     scene_id: s.scene_id,
                     script: s.script,
                     image_url: "",
                     tts_config: ttsConfig
-                }).then(res => ({ scene_id: s.scene_id, audio_url: res.data.audio_url }))
+                }).then(res => ({
+                    id: s.id,
+                    scene_id: s.scene_id,
+                    audio_url: res.data.web_url,    // 서버가 반환하는 필드명
+                    audio_path: res.data.server_path
+                }))
             );
             return Promise.all(promises);
         },
         onSuccess: (results) => {
             setScenes(prev => prev.map(s => {
                 const res = results.find(r => r.scene_id === s.scene_id);
-                return res ? { ...s, audio_url: res.audio_url, audioStatus: 'completed' } : s;
+                return res ? { ...s, audio_url: res.audio_url, audio_path: res.audio_path, audioStatus: 'completed' } : s;
             }));
             toast.success("전체 TTS 생성 완료!");
         },
@@ -976,7 +1120,8 @@ const CreativeStudio = () => {
             toast.info(`${type === 'visual' ? '이미지' : '영상'} ZIP 다운로드 시작...`);
             const response = await api.post('/creative/batch-download', {
                 scenes: scenes,
-                target_type: type
+                target_type: type,
+                full_video_path: type === 'video' ? fullVideoPath : undefined
             }, {
                 responseType: 'blob'
             });
@@ -993,6 +1138,187 @@ const CreativeStudio = () => {
         } catch (error) {
             console.error('Batch download failed:', error);
             toast.error('배치 다운로드 실패 (파일이 없거나 오류 발생)');
+        }
+    };
+
+    const getAudioDuration = (url: string): Promise<number> => {
+        return new Promise((resolve) => {
+            if (!url || url.startsWith('file://')) {
+                resolve(3000);
+                return;
+            }
+            const audio = new Audio(url);
+            let resolved = false;
+            const finish = (duration: number) => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve(duration);
+                }
+            };
+            audio.addEventListener('loadedmetadata', () => finish(audio.duration * 1000));
+            audio.addEventListener('error', () => finish(3000));
+            
+            // Timeout after 500ms to prevent UI freezing
+            setTimeout(() => finish(3000), 500);
+        });
+    };
+
+    const handleCapCutExport = async (settings: any) => {
+        let currentScenes = scenes;
+
+        // TTS 누락 씬 감지 및 자동 생성 프로세스
+        const missingTTSScenes = currentScenes.filter(seg => !seg.audio_url && !seg.audio_path && seg.script);
+        if (missingTTSScenes.length > 0) {
+            if (!confirm(`일부 씬(${missingTTSScenes.length}개)에 TTS 음성이 없습니다.\n음성이 없으면 해당 씬은 강제로 3초로 지정되며 소리가 나지 않습니다.\n\n내보내기 전에 누락된 씬의 TTS를 일괄 생성하시겠습니까?`)) {
+                return; // 취소를 누르면 내보내기 진행 자체를 중단
+            }
+            
+            setIsExportModalOpen(false); // 진행 상황을 볼 수 있게 모달을 닫음
+            toast.info("누락된 TTS를 자동 생성합니다. 완료되면 캡컷 내보내기가 즉시 이어집니다.", { duration: 5000 });
+            setScenes(prev => prev.map(s => missingTTSScenes.some(m => m.id === s.id) ? { ...s, audioStatus: 'generating' } : s));
+            
+            try {
+                const results = await batchTTSMutation.mutateAsync(missingTTSScenes);
+                
+                // Read-only React state를 직접 수정하지 않고 새로운 배열로 매핑하여 내보내기 로직에 사용
+                currentScenes = currentScenes.map(s => {
+                    const res = results.find((r: any) => r.scene_id === s.scene_id);
+                    return res ? { ...s, audio_url: res.audio_url, audio_path: res.audio_path, audioStatus: 'completed' } : s;
+                });
+                
+                // UI용 상태 업데이트
+                setScenes(currentScenes);
+                toast.success("TTS 자동 생성 완료! 이어서 캡컷 내보내기를 시작합니다.");
+            } catch (e: any) {
+                console.error("Batch TTS Error:", e);
+                toast.error("TTS 생성 중 오류가 발생하여 내보내기가 취소되었습니다.");
+                return;
+            }
+        }
+
+        setIsExportModalOpen(true); // 만약 모달이 닫혔었다면 다시 로딩창을 띄우기 위해 (혹은 그대로 유지)
+        setExportLoading(true);
+        setExportPhase('processing');
+        try {
+            const aspectRatio = segmentMode === 'shorts' ? "9:16" : "16:9";
+            
+            const mappedScenes = [];
+            const voiceFiles = [];
+            let cumulativeTime = 0;
+
+            for (let idx = 0; idx < currentScenes.length; idx++) {
+                const seg = currentScenes[idx];
+                
+                let audioDurationMs = 3000;
+                const audioSrc = seg.audio_url || (seg.audio_path ? `file://${seg.audio_path}` : null);
+                if (audioSrc) {
+                    audioDurationMs = await getAudioDuration(audioSrc);
+                }
+
+                const sceneDurationSec = audioDurationMs / 1000;
+
+                mappedScenes.push({
+                    id: `scene_${idx}`,
+                    duration: sceneDurationSec,
+                    image_duration: sceneDurationSec,
+                    media_path: seg.media_path,
+                    video_path: seg.video_path,
+                    subtitle_ko: seg.script,
+                    subtitle_en: seg.script,
+                    subtitle: seg.script,
+                    image_size: { width: aspectRatio === '9:16' ? 1080 : 1920, height: aspectRatio === '9:16' ? 1920 : 1080 }
+                });
+
+                if (seg.audio_path || audioSrc) {
+                    voiceFiles.push({
+                        filename: `narrator_scene_${idx}.mp3`,
+                        path: seg.audio_path || audioSrc,
+                        durationMs: audioDurationMs,
+                        timecodeMs: cumulativeTime
+                    });
+                }
+                
+                cumulativeTime += audioDurationMs;
+            }
+
+            // Map segments to CapCut project payload
+            const projectData = {
+                format: aspectRatio === '9:16' ? 'portrait' : 'landscape',
+                aspectRatio: aspectRatio,
+                scenes: mappedScenes
+            };
+
+            const audioPackage = {
+                voices: voiceFiles.length > 0 ? [
+                    {
+                        character: "NARRATOR",
+                        files: voiceFiles
+                    }
+                ] : []
+            };
+
+            // Call generator directly to bypass any cloud wrappers
+            const generatorOptions = {
+                targetPath: settings.capcutProjectNumber,
+                projectName: "CreativeStudio_Project",
+                subtitleOption: settings.subtitleOption,
+                subtitleConfig: subtitleConfig,
+                subtitleFontSize: subtitleConfig.fontSize,
+                audioPackage: audioPackage,
+                scaleMode: settings.scaleMode,
+                kenBurns: settings.kenBurns,
+                kenBurnsMode: settings.kenBurnsMode,
+                kenBurnsCycle: settings.kenBurnsCycle,
+                kenBurnsScaleMin: settings.kenBurnsScaleMin,
+                kenBurnsScaleMax: settings.kenBurnsScaleMax
+            };
+
+            const { draftContent, draftMetaInfo, timelineLayout, extraFiles, mediaFiles } = await generateCapcutProject(projectData, generatorOptions);
+
+            let srtContent = null;
+            let srtFilename = null;
+            if (settings.subtitleOption !== 'none') {
+                srtContent = generateSRT(projectData, settings.subtitleOption || 'ko');
+                srtFilename = `subtitles_${settings.subtitleOption || 'ko'}.srt`;
+            }
+
+            // Write files via Electron IPC directly
+            const writeResult = await window.electronAPI.writeCapcutProject({
+                targetPath: settings.capcutProjectNumber,
+                draftInfo: draftContent,
+                draftMetaInfo,
+                timelineLayout,
+                extraFiles,
+                mediaFiles,
+                srtContent,
+                srtFilename
+            });
+
+            if (!writeResult.success) {
+                throw new Error(writeResult.error || "Failed to write local CapCut project");
+            }
+
+            toast.success('CapCut 내보내기 완료!');
+            
+            if (window.electronAPI?.openCapcut) {
+                try {
+                    const openResult = await window.electronAPI.openCapcut(settings.capcutProjectNumber);
+                    if (openResult && openResult.success) {
+                        toast.info('CapCut 앱이 실행되었습니다.', 5000);
+                    } else {
+                        toast.warning('CapCut을 자동으로 실행하지 못했습니다. 수동으로 열어주세요.');
+                    }
+                } catch (e) {
+                    toast.warning('CapCut을 자동으로 실행하지 못했습니다. 수동으로 열어주세요.');
+                }
+            }
+
+            setIsExportModalOpen(false);
+        } catch (error: any) {
+            console.error('CapCut Export error:', error);
+            toast.error(`CapCut 내보내기 실패: ${error.message}`);
+        } finally {
+            setExportLoading(false);
         }
     };
 
@@ -1137,6 +1463,9 @@ const CreativeStudio = () => {
                                             <Trash2 className="w-4 h-4" />
                                         </Button>
                                     )}
+                                    <Button variant="outline" size="sm" className="h-9 whitespace-nowrap bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200" onClick={() => setIsStyleGalleryOpen(true)}>
+                                        🎨 갤러리에서 찾기
+                                    </Button>
                                 </div>
                             </div>
                             <div className="flex-[1.5] space-y-1.5">
@@ -1421,6 +1750,11 @@ const CreativeStudio = () => {
                             </DropdownMenuContent>
                         </DropdownMenu>
 
+                        {/* [NEW] CapCut Export Button */}
+                        <Button variant="outline" size="sm" className="h-8 text-xs bg-black text-white hover:bg-zinc-800 border-black" onClick={() => setIsExportModalOpen(true)}>
+                            ✂️ CapCut 내보내기
+                        </Button>
+
                         <div className="flex-1" />
 
                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsTTSDialogOpen(true)}>
@@ -1428,6 +1762,9 @@ const CreativeStudio = () => {
                         </Button>
                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsMotionDialogOpen(true)}>
                             🎥 모션 설정
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsAudioDialogOpen(true)}>
+                            🔊 오디오 설정
                         </Button>
                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsSubtitleDialogOpen(true)}>
                             📝 자막 설정
@@ -1501,28 +1838,53 @@ const CreativeStudio = () => {
                                         )}
                                     </div>
 
-                                    {/* Visual Prompt Section */}
-                                    <div className="space-y-1 flex-1 flex flex-col">
-                                        <div className="flex justify-between items-center">
-                                            <Label className="text-xs font-bold text-muted-foreground">비주얼 프롬프트 (VISUAL PROMPT)</Label>
-                                            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => handleGeneratePrompt(scene)}>
-                                                <Sparkles className="w-3 h-3 mr-1" /> AI 프롬프트 생성
-                                            </Button>
+                                    {/* Visual/Video Prompt Section */}
+                                    <div className="space-y-3 flex-1 flex flex-col">
+                                        <div className="space-y-1 flex-1 flex flex-col">
+                                            <div className="flex justify-between items-center">
+                                                <Label className="text-xs font-bold text-muted-foreground">이미지 프롬프트 (IMAGE PROMPT)</Label>
+                                                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => handleGeneratePrompt(scene)}>
+                                                    <Sparkles className="w-3 h-3 mr-1" /> AI 프롬프트 생성
+                                                </Button>
+                                            </div>
+                                            <Textarea
+                                                value={scene.visual_prompt}
+                                                onChange={(e) => updateScene(scene.id, { visual_prompt: e.target.value })}
+                                                className="flex-[0.5] min-h-[60px] text-[13px] font-mono leading-relaxed resize-y bg-muted/10"
+                                                placeholder="이미지 생성을 위한 구도, 배경, 피사체 묘사..."
+                                                disabled={scene.is_continuous_motion}
+                                            />
                                         </div>
-                                        <Textarea
-                                            value={scene.visual_prompt}
-                                            onChange={(e) => updateScene(scene.id, { visual_prompt: e.target.value })}
-                                            className="flex-1 min-h-[80px] text-[13px] font-mono leading-relaxed resize-y bg-muted/10"
-                                            placeholder="이미지/영상 생성을 위한 프롬프트..."
-                                        />
+                                        <div className="space-y-1 flex-1 flex flex-col">
+                                            <Label className="text-xs font-bold text-muted-foreground">영상 프롬프트 (VIDEO/MOTION PROMPT)</Label>
+                                            <Textarea
+                                                value={scene.video_prompt || ''}
+                                                onChange={(e) => updateScene(scene.id, { video_prompt: e.target.value })}
+                                                className="flex-[0.5] min-h-[50px] text-[13px] font-mono leading-relaxed resize-y bg-muted/10"
+                                                placeholder="카메라 워크 및 피사체 움직임 묘사..."
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Right Panel: Visual Source (Fixed Width) */}
                                 <div className="w-full md:w-[320px] bg-muted/5 p-3 flex flex-col gap-3 shrink-0">
                                     <div className="flex items-center justify-between">
-                                        <div className="text-xs font-bold text-muted-foreground flex items-center gap-2">
-                                            <ImageIcon className="w-3 h-3" /> 비주얼 소스
+                                        <div className="text-xs font-bold text-muted-foreground flex flex-col gap-1">
+                                            <div className="flex items-center gap-2">
+                                                <ImageIcon className="w-3 h-3" /> 비주얼 소스
+                                            </div>
+                                            {index > 0 && (
+                                                <Label className="flex items-center gap-1.5 mt-1 cursor-pointer hover:text-primary transition-colors">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={scene.is_continuous_motion || false} 
+                                                        onChange={(e) => updateScene(scene.id, { is_continuous_motion: e.target.checked })}
+                                                        className="rounded border-gray-400 text-primary focus:ring-primary w-3 h-3" 
+                                                    />
+                                                    <span className="text-[10.5px] whitespace-nowrap">이전 씬 마지막 프레임 연결</span>
+                                                </Label>
+                                            )}
                                         </div>
                                         {(scene.video_url && scene.media_url) && (
                                             <div className="flex bg-muted rounded-md p-0.5">
@@ -1573,10 +1935,10 @@ const CreativeStudio = () => {
 
                                     {/* Control Grid (2x2) */}
                                     <div className="grid grid-cols-2 gap-2 mt-auto">
-                                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt)} disabled={scene.visualStatus === 'generating'}>
+                                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt)} disabled={scene.visualStatus === 'generating' || scene.is_continuous_motion}>
                                             {scene.visualStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3 mr-1" />} 이미지 생성
                                         </Button>
-                                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleGenerateVideo(scene.scene_id, scene.id, scene.visual_prompt)} disabled={scene.visualStatus === 'generating'}>
+                                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleGenerateVideo(scene)} disabled={scene.visualStatus === 'generating'}>
                                             {scene.visualStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Film className="w-3 h-3 mr-1" />} 영상 생성
                                         </Button>
                                         
@@ -1670,6 +2032,16 @@ const CreativeStudio = () => {
                     }}
                 />
 
+                <AudioSettingsDialog
+                    open={isAudioDialogOpen}
+                    onOpenChange={setIsAudioDialogOpen}
+                    initialConfig={audioConfig}
+                    onSave={(newConfig) => {
+                        setAudioConfig(newConfig);
+                        toast.success("오디오 설정이 저장되었습니다.");
+                    }}
+                />
+
                 {/* Style Management Dialog */}
                 <Dialog open={isStyleDialogOpen} onOpenChange={setIsStyleDialogOpen}>
                     <DialogContent>
@@ -1720,6 +2092,30 @@ const CreativeStudio = () => {
                     </DialogContent>
                 </Dialog>
             </div>
+            
+            <StyleGalleryModal
+                open={isStyleGalleryOpen}
+                onOpenChange={setIsStyleGalleryOpen}
+                onSelectStyle={(style) => {
+                    // "웹툰/만화" 키워드가 들어가면 글자나 말풍선이 생성될 확률이 높으므로 방지 키워드 추가
+                    const antiTextModifier = ", textless, no text, no speech bubbles, no comic panels";
+                    setStylePrompt(style.prompt_en + antiTextModifier);
+                    setPresetName(style.name_ko);
+                    
+                    // 부정 프롬프트가 비어있다면 글자 방지 기본값 세팅
+                    setNegativePrompt(prev => prev || "text, words, fonts, speech bubbles, dialog, comic panels, watermark, signature, UI");
+                }}
+            />
+            <ExportModal
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                onExport={handleCapCutExport}
+                projectName="creative_studio"
+                loading={exportLoading}
+                exportPhase={exportPhase}
+                hasSubtitles={scenes.some(seg => seg.script && seg.script.trim().length > 0)}
+                onUpgradeClick={() => { /* Handled elsewhere if needed */ }}
+            />
         </div >
     );
 };

@@ -135,26 +135,22 @@ async function prepareCloudRequest(project, options = {}) {
     let imageSize = scene.upscaled_size || scene.image_size;
     const sceneDuration = scene.image_duration || 3;
 
-    let finalImagePath = imagePath;
-    let finalFallback = fallback;
+    // 이미지 (항상 존재)
+    const imagePath = scene.image_path || scene.media_path || scene.image;
+    const fallback = scene.image_fallback || scene.image;
 
-    if (!finalImagePath && !finalFallback) {
-      // 이미지가 없는 드래프트 씬인 경우, 타임라인 시간 점유 및 자막/오디오 결합을 위해
-      // 검은색 1920x1080 더미 이미지 fallback을 이식하여 타임라인 영역을 확보해 줍니다!
-      finalFallback = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABkAAAAOECAAAAABd5930AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfmBgcTCSk1VjLwAAAADUlEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/gz76AABiM9DqwAAAABJRU5ErkJggg==';
-      console.log(`[CapCut Cloud] Scene "${sceneId}" has no image. Injecting 1920x1080 dummy black placeholder for subtitle/audio timeline alignment.`);
-    }
+    if (!imagePath && !fallback) { cumulativeTime += sceneDuration * 1000; continue; }
 
-    const imageFilename = getFilename(finalImagePath || 'dummy.png', sceneId, 'image');
+    const imageFilename = getFilename(imagePath, sceneId, 'image');
 
      // image_size가 없으면 실제 이미지 파일에서 크기 추출
-    if (!imageSize && finalImagePath) {
+    if (!imageSize && imagePath) {
       try {
         imageSize = await new Promise((resolve) => {
           const img = new Image();
           img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
           img.onerror = () => resolve(null);
-          img.src = finalImagePath.startsWith('/') ? `file://${finalImagePath}` : finalImagePath;
+          img.src = imagePath.startsWith('/') ? `file://${imagePath}` : imagePath;
         });
         if (imageSize) {
           console.log(`[CapCut Cloud] Image size from file: ${imageSize.width}x${imageSize.height} (${sceneId})`);
@@ -162,8 +158,8 @@ async function prepareCloudRequest(project, options = {}) {
       } catch (e) { /* ignore */ }
     }
     // fallback: base64에서 추출
-    if (!imageSize && finalFallback) {
-      imageSize = await getImageSizeFromBase64(finalFallback);
+    if (!imageSize && fallback) {
+      imageSize = await getImageSizeFromBase64(fallback);
       if (imageSize) {
         console.log(`[CapCut Cloud] Extracted size from base64: ${imageSize.width}x${imageSize.height}`);
       }
@@ -186,8 +182,8 @@ async function prepareCloudRequest(project, options = {}) {
       sceneId,
       type: 'image',
       filename: imageFilename,
-      path: finalImagePath,
-      fallback: finalFallback
+      path: imagePath,
+      fallback
     });
 
     // 영상 오버레이 (있으면 배치: 영상이 짧으면 씬 뒤쪽, 영상이 길면 처음부터 씬 길이만큼 자름)

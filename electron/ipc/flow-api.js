@@ -7,8 +7,7 @@
 
 import path from 'node:path'
 import { net } from 'electron'
-import { loadProfiles, switchProfile, createProfile, deleteProfile, updateProfile } from '../profileManager.js'
-import { acquireGlobalThrottle } from '../throttleManager.js'
+import { formatGoogleApiError } from './googleApiError.js'
 
 /**
  * Register all Flow API IPC handlers.
@@ -28,159 +27,16 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     getPendingSeedValue, setPendingSeedValue,
     setPendingImageAspectRatio,
     getEnterToolClicked, setEnterToolClicked,
+    ensureDebuggerAttached,
+    setFlowPageInject, clearFlowPageInject,
     SESSION_URL, TOKEN_INFO_URL, FLOW_URL, MEDIA_REDIRECT_URL, UPLOAD_URL,
     API_HEADERS, GENERATE_URL, BASE_API_URL,
   } = deps
 
-  // 구글/Flow 로그인 세션의 쿠키, 로컬스토리지, 캐시, indexedDB를 100% 완전 파괴(Clean-up)하여 새 로그인을 가능하게 함
-  ipcMain.handle('flow:clear-session', async (event, { profileId } = {}) => {
-    console.log('[Flow API] clear-session called - Purging all Chromium cache and storage data for profile:', profileId || 'active');
-    const flowView = getFlowView(profileId)
-    if (!flowView) return { success: false, error: 'Flow view not ready' }
-    
-    try {
-      const ses = flowView.webContents.session
-      // 쿠키, 로컬스토리지, 캐시, 인덱스DB, 서비스워커 등 완벽 리셋
-      await ses.clearStorageData({
-        storages: ['cookies', 'localstorage', 'cache', 'indexdb', 'websql', 'serviceworkers', 'file-systems'],
-        quotas: ['temporary', 'persistent', 'syncable']
-      })
-      await ses.clearCache()
-      
-      // 하드웨어 고유 PC 정보 지문(CPU, RAM, GPU)을 완전히 새로운 프로필로 무작위 재추첨(Re-roll)하여
-      // 구글 측이 아예 다른 물리적 PC 기기에서 로그인하는 것으로 완전히 오인하도록 유도합니다!
-      if (typeof global.rerollHardwareProfile === 'function') {
-        global.rerollHardwareProfile()
-      }
-      
-      // Flow 페이지 강제 리프레시 로드
-      flowView.webContents.loadURL(FLOW_URL)
-      console.log('[Flow API] Session clean-up, hardware re-roll, and URL reload complete!');
-      return { success: true }
-    } catch (e) {
-      console.error('[Flow API] clear-session error:', e.message)
-      return { success: false, error: e.message }
-    }
-  })
-
-  // -------------------------------------------------------------
-  // Flow Multi-Profile IPC handlers
-  // -------------------------------------------------------------
-
-  // 프로필 설정 로드
-  ipcMain.handle('profiles:load', async () => {
-    try {
-      return await loadProfiles()
-    } catch (err) {
-      return { activeProfileId: 'default', profiles: [] }
-    }
-  })
-
-  // 프로필 전환 및 격리 웹뷰 실시간 동적 재생성 실행
-  ipcMain.handle('profiles:switch', async (event, { profileId }) => {
-    try {
-      console.log('[IPC Profiles] Switching to profile:', profileId)
-      const switchResult = await switchProfile(profileId)
-      if (!switchResult.success) return switchResult
-
-      // 메인 프로세스의 웹뷰 재생성 동적 엔진 구동
-      if (typeof global.recreateFlowViewWithProfile === 'function') {
-        await global.recreateFlowViewWithProfile(profileId)
-      }
-      return { success: true }
-    } catch (err) {
-      console.error('[IPC Profiles] Switch failed:', err.message)
-      return { success: false, error: err.message }
-    }
-  })
-
-  // 다중 뷰의 동적 추가 및 제거 메커니즘 지원
-  ipcMain.handle('flow:create-view', async (event, { profileId }) => {
-    try {
-      console.log('[IPC Views] Creating dynamic grid view for profile:', profileId)
-      if (typeof global.createOrGetFlowView === 'function') {
-        global.createOrGetFlowView(profileId)
-        return { success: true }
-      }
-      return { success: false, error: 'createOrGetFlowView not ready' }
-    } catch (err) {
-      console.error('[IPC Views] Create view failed:', err.message)
-      return { success: false, error: err.message }
-    }
-  })
-
-  ipcMain.handle('flow:destroy-view', async (event, { profileId }) => {
-    try {
-      console.log('[IPC Views] Destroying dynamic grid view for profile:', profileId)
-      if (typeof global.destroyFlowView === 'function') {
-        const success = global.destroyFlowView(profileId)
-        return { success }
-      }
-      return { success: false, error: 'destroyFlowView not ready' }
-    } catch (err) {
-      console.error('[IPC Views] Destroy view failed:', err.message)
-      return { success: false, error: err.message }
-    }
-  })
-
-  ipcMain.handle('flow:get-active-views', async () => {
-    try {
-      const activeIds = global.flowViews ? Array.from(global.flowViews.keys()) : []
-      return { success: true, activeIds }
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
-  })
-
-
-  // 새 격리 프로필 생성
-  ipcMain.handle('profiles:create', async (event, { name, email }) => {
-    try {
-      console.log('[IPC Profiles] Creating profile:', name)
-      const createResult = await createProfile(name, email)
-      if (!createResult.success) return createResult
-
-      // 새로 만들어진 격리 프로필로 즉시 전환
-      if (typeof global.recreateFlowViewWithProfile === 'function') {
-        await global.recreateFlowViewWithProfile(createResult.profile.id)
-      }
-      return createResult
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
-  })
-
-  // 기존 프로필 삭제
-  ipcMain.handle('profiles:delete', async (event, { profileId }) => {
-    try {
-      console.log('[IPC Profiles] Deleting profile:', profileId)
-      const deleteResult = await deleteProfile(profileId)
-      if (!deleteResult.success) return deleteResult
-
-      // 활성 프로필이 삭제되어 default로 강제 복귀한 경우 웹뷰도 복구
-      const activeConfig = await loadProfiles()
-      if (typeof global.recreateFlowViewWithProfile === 'function') {
-        await global.recreateFlowViewWithProfile(activeConfig.activeProfileId)
-      }
-      return deleteResult
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
-  })
-
-  // 프로필 정보 업데이트
-  ipcMain.handle('profiles:update', async (event, { profileId, name, email }) => {
-    try {
-      return await updateProfile(profileId, name, email)
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
-  })
-
   // Extract Flow access token from session
-  ipcMain.handle('flow:extract-token', async (event, { profileId } = {}) => {
-    console.log('[Flow API] extract-token called for profile:', profileId || 'active')
-    const flowView = getFlowView(profileId)
+  ipcMain.handle('flow:extract-token', async () => {
+    console.log('[Flow API] extract-token called')
+    const flowView = getFlowView()
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
     try {
@@ -217,8 +73,8 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   // Extract projectId from Flow page URL
   // (capturedProjectId는 파일 상단에서 선언)
 
-  ipcMain.handle('flow:extract-project-id', async (event, { profileId } = {}) => {
-    const flowView = getFlowView(profileId)
+  ipcMain.handle('flow:extract-project-id', async () => {
+    const flowView = getFlowView()
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
     // 이미 캡처된 projectId가 있으면 반환
@@ -264,41 +120,39 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // Get reCAPTCHA token from Flow page
-  ipcMain.handle('flow:get-recaptcha-token', async (event, { profileId } = {}) => {
-    const token = await getRecaptchaToken(profileId)
+  ipcMain.handle('flow:get-recaptcha-token', async () => {
+    const token = await getRecaptchaToken()
     return { success: !!token, token }
   })
 
   // Generate image via Flow API
   ipcMain.handle('flow:generate-image', async (event, {
     token, prompt, aspectRatio, seed, model, projectId, referenceImages, batchCount,
-    asyncMode, profileId  // true: 제출만 하고 즉시 반환 (비동기 배치용)
+    asyncMode  // true: 제출만 하고 즉시 반환 (비동기 배치용)
   }) => {
-    console.log('[Flow API] generate-image:', { prompt: prompt?.substring(0, 50), model, aspectRatio, seed: (seed ?? 'random'), profileId })
+    console.log('[Flow API] generate-image:', { prompt: prompt?.substring(0, 50), model, aspectRatio, seed: (seed ?? 'random') })
     if (!prompt) return { success: false, error: 'No prompt' }
-    
-    // Enforce global rate-limit throttling
-    await acquireGlobalThrottle()
-
-    const flowView = getFlowView(profileId)
+    const flowView = getFlowView()
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
-    // Seed: 숫자면 CDP Fetch 인터셉션에서 사용, null이면 Flow 자체 랜덤 seed 유지
-    setPendingSeedValue(typeof seed === 'number' && Number.isFinite(seed) ? seed : null)
+    // (CDP path not needed for monkey-patch mode — ensureDebuggerAttached is a no-op when CDP disabled)
+    try { await ensureDebuggerAttached() } catch (e) { console.warn('[Flow API] generate-image: debugger attach skipped:', e.message) }
 
-    // 화면비: '16:9'/'9:16' → IMAGE_ASPECT_RATIO_* enum 으로 CDP Fetch 인터셉션에서
-    // batchGenerateImages 요청 바디에 주입. 그 외(undefined 등)는 null → 요청 원본 유지.
-    // UI 탭 클릭과 달리 Flow UI 구조 변경에 영향받지 않는다.
-    setPendingImageAspectRatio?.(
+    // Seed / aspectRatio / references → set in page via monkey-patch inject
+    // (Also still set the old CDP vars as fallback for AUTOFLOWCUT_ENABLE_CDP=1 mode)
+    const _seedValue = typeof seed === 'number' && Number.isFinite(seed) ? seed : null
+    setPendingSeedValue(_seedValue)
+    const _aspectRatioEnum = (
       aspectRatio === '16:9' ? 'IMAGE_ASPECT_RATIO_LANDSCAPE'
         : aspectRatio === '9:16' ? 'IMAGE_ASPECT_RATIO_PORTRAIT'
           : null
     )
+    setPendingImageAspectRatio?.(_aspectRatioEnum)
 
     // === DOM 자동화 + 네트워크 응답 인터셉트 ===
     // 페이지가 자체적으로 reCAPTCHA를 처리하므로 가장 안정적인 방법
     // ⚠️ cdpFetchEnabled를 try 밖에 선언 (esbuild가 try 안의 let을 finally에서 못 찾는 버그 회피)
-    let cdpFetchEnabled = false
+    let cdpFetchEnabled = false  // only used when AUTOFLOWCUT_ENABLE_CDP=1
     try {
       console.log('[Flow API] [DOM+Net] Starting DOM-triggered generation')
 
@@ -427,31 +281,39 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         }
       }
 
-      // 0.8. 이미지 모드 + 배치 설정 (Settings에서 전달받은 값 사용, 기본 x2)
+      // 0.8. 이미지 모드 + 배치 + 화면비 설정 (Settings에서 전달받은 값 사용, 기본 x2)
+      // aspectRatio 는 설정 메뉴가 열려 있는 동안 함께 적용된다 — 메뉴를 닫은 뒤
+      // 별도로 동기화하면 Radix 가 content 를 unmount 해서 동작하지 않기 때문.
       const effectiveBatchCount = Math.max(1, Math.min(4, batchCount || 2))
-      const modeResult = await configureFlowMode('IMAGE', effectiveBatchCount, profileId)
+      const modeResult = await configureFlowMode('IMAGE', effectiveBatchCount, aspectRatio)
       if (modeResult.success) {
         console.log('[Flow API] Image mode configured:', modeResult.method, 'batch:', modeResult.batch)
       } else {
         console.warn('[Flow API] Image mode config failed (continuing anyway):', modeResult.error)
       }
 
-      // 0.9. CDP Fetch 인터셉션 설정 (레퍼런스 이미지 주입 + seed 테스트)
-      //   batchGenerateImages 요청을 가로채서 imageInputs / seed 수정
-      //   [SEED TEST] 항상 활성화 — main.js에서 body 로깅 + seed:12345 주입
+      // 0.9. Inject pending values into Flow page (monkey-patch path)
+      //   window.__autoflowcut_inject__ is read by the patched window.fetch on the page.
+      //   Also set legacy CDP vars in case AUTOFLOWCUT_ENABLE_CDP=1 is active.
       if (referenceImages && referenceImages.length > 0) {
         setPendingReferenceImages(referenceImages)
       }
+      // Monkey-patch: set inject state on page
+      await setFlowPageInject?.({
+        seed:        _seedValue,
+        aspectRatio: _aspectRatioEnum,
+        references:  referenceImages?.length > 0 ? referenceImages : null,
+        i2v:         null,
+      })
+      // CDP path (only active when AUTOFLOWCUT_ENABLE_CDP=1): keep for compatibility
       try {
         await flowView.webContents.debugger.sendCommand('Fetch.enable', {
           patterns: [{ urlPattern: '*batchGenerateImages*', requestStage: 'Request' }]
         })
         cdpFetchEnabled = true
-        console.log('[Flow API] [Fetch] Interception enabled (refs:',
-          (referenceImages?.length || 0), ', seedTestMode: true)')
+        console.log('[Flow API] [Fetch] CDP interception also enabled (ENABLE_CDP mode)')
       } catch (e) {
-        console.warn('[Flow API] [Fetch] Fetch.enable failed:', e.message)
-        setPendingReferenceImages(null)
+        // Expected when CDP is disabled (default) — not an error
       }
 
       // 1. 네트워크 응답 캡처 Promise 설정 (동기 모드만)
@@ -763,19 +625,8 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return null;
       })()`
 
-      const clickResult = await trustedClickOnFlowView(generateBtnSelector, profileId)
-      console.log('[Flow API] [DOM+Net] Trusted click result:', clickResult)
-
-      if (!clickResult?.success) {
-        clearTimeout(generationTimeout)
-        return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
-      }
-
-      // ★ Generate 버튼 클릭 성공 직후 즉시 pending 설정!
-      //   버튼 클릭이 batchGenerateImages 요청을 트리거하므로,
-      //   expectedImageCount 감지 전에 먼저 설정해야 CDP 핸들러가 응답을 캡처할 수 있다.
-      //   2초 버퍼: 클릭과 네트워크 요청 사이의 wallTime 차이를 보정
-      const generationSetAt = Date.now() / 1000 - 2  // 2초 전부터 유효 (stale 필터 보정)
+      // ★ 클릭 전 pending 지정을 미리 해두어 네트워크 레이스 컨디션을 방지!
+      const generationSetAt = Date.now() / 1000 - 5  // 5초 전부터 유효 (stale 필터 보정)
       let generationId = null  // 비동기 모드에서만 사용
 
       if (asyncMode) {
@@ -787,10 +638,15 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           responses: [],
           collectionTimer: null,
           completed: false,
-          token  // 나중에 이미지 fetch용
+          token,              // 나중에 이미지 fetch용
+          promptKey: prompt,
+          refMediaIds: Array.isArray(referenceImages)
+            ? referenceImages.map((r) => r?.mediaId).filter(Boolean).sort()
+            : [],
+          reqSeed: _seedValue,
+          reqAspectRatio: _aspectRatioEnum
         })
-        console.log('[Flow API] [Async] pendingGenerations set:', generationId,
-          '(setAt:', generationSetAt.toFixed(3), ')')
+        console.log('[Flow API] [Async] pendingGenerations set (armed):', generationId)
       } else {
         // === 동기 모드: 기존 pendingGeneration 설정 ===
         setPendingGeneration({
@@ -805,8 +661,17 @@ export function registerFlowAPIIPC(ipcMain, deps) {
             resolveGeneration(result)
           }
         })
-        console.log('[Flow API] [DOM+Net] pendingGeneration set IMMEDIATELY after click (setAt:',
-          generationSetAt.toFixed(3), ')')
+        console.log('[Flow API] [DOM+Net] pendingGeneration set (armed)')
+      }
+
+      const clickResult = await trustedClickOnFlowView(generateBtnSelector)
+      console.log('[Flow API] [DOM+Net] Trusted click result:', clickResult)
+
+      if (!clickResult?.success) {
+        if (asyncMode) pendingGenerations.delete(generationId)
+        else setPendingGeneration(null)
+        clearTimeout(generationTimeout)
+        return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
       }
 
       // 예상 이미지 개수 감지 (x1/x2/x3/x4 선택 버튼에서)
@@ -860,11 +725,12 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         console.log('[Flow API] [Async] expectedCount updated to', expectedImageCount,
           'for gen:', generationId)
 
-        // 비동기 모드: Fetch 인터셉션 정리 후 즉시 반환
+        // 비동기 모드: inject 정리 후 즉시 반환
         await new Promise(r => setTimeout(r, 2000))  // 요청이 나갈 시간 확보
+        setPendingReferenceImages(null)
+        setPendingImageAspectRatio?.(null)
+        await clearFlowPageInject?.()
         if (cdpFetchEnabled) {
-          setPendingReferenceImages(null)
-          setPendingImageAspectRatio?.(null)
           try { await flowView.webContents.debugger.sendCommand('Fetch.disable') } catch {}
           cdpFetchEnabled = false
         }
@@ -934,7 +800,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
 
         // 에러 체크
         if (data.error) {
-          allErrors.push(data.error.message || JSON.stringify(data.error))
+          // formatGoogleApiError 가 message + status 를 합쳐서 노출 — renderer 의 quota
+          // detector 가 "RESOURCE_EXHAUSTED" 같은 status-only quota 신호도 잡을 수 있게.
+          allErrors.push(formatGoogleApiError(data.error))
           continue
         }
 
@@ -951,7 +819,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           console.log('[Flow API] Got fifeUrls from response:', fifeResults.length)
           for (const { fifeUrl, mediaId } of fifeResults) {
             try {
-              const res = await sessionFetch(fifeUrl, {}, profileId)
+              const res = await sessionFetch(fifeUrl)
               if (!res.ok) throw new Error(`fifeUrl fetch HTTP ${res.status}`)
               const buffer = await res.arrayBuffer()
               const base64Raw = Buffer.from(buffer).toString('base64')
@@ -974,7 +842,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           console.log('[Flow API] Got mediaIds from response:', mediaIds)
           for (const id of mediaIds) {
             try {
-              const base64 = await fetchMediaAsBase64(token, id, profileId)
+              const base64 = await fetchMediaAsBase64(token, id)
               allImages.push({ base64, mediaId: id })
             } catch (fetchErr) {
               console.warn('[Flow API] mediaId fetch failed:', fetchErr.message)
@@ -1004,23 +872,24 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       setPendingGeneration(null)
       return { success: false, error: e.message }
     } finally {
-      // CDP Fetch 인터셉션 정리
+      // Monkey-patch inject 정리 (다음 유기적 Flow 요청에 stale 값이 새지 않도록)
+      setPendingReferenceImages(null)
+      setPendingImageAspectRatio?.(null)
+      await clearFlowPageInject?.()
+      // CDP Fetch 인터셉션 정리 (AUTOFLOWCUT_ENABLE_CDP=1 경로만)
       if (cdpFetchEnabled) {
-        setPendingReferenceImages(null)
-        setPendingImageAspectRatio?.(null)
         try {
           const flowView = getFlowView()
           await flowView.webContents.debugger.sendCommand('Fetch.disable')
-          console.log('[Flow API] [Fetch] Interception disabled')
-        } catch (e) {
-          // Fetch.disable 실패해도 무시 (디버거 분리 등)
-        }
+        } catch (_) {}
+        cdpFetchEnabled = false
       }
     }
   })
 
   // ─── 비동기 생성 결과 조회 (폴링용) ───
   ipcMain.handle('flow:check-generation', async (event, { generationId }) => {
+    try { await ensureDebuggerAttached() } catch (_) {}
     if (!generationId) return { success: false, error: 'No generationId' }
     const gen = pendingGenerations.get(generationId)
     if (!gen) return { success: false, error: 'Generation not found', notFound: true }
@@ -1034,6 +903,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
 
   // ─── 비동기 생성 결과 수집 + 파싱 (완료 후 호출) ───
   ipcMain.handle('flow:collect-generation', async (event, { generationId, token }) => {
+    try { await ensureDebuggerAttached() } catch (_) {}
     if (!generationId) return { success: false, error: 'No generationId' }
     const gen = pendingGenerations.get(generationId)
     if (!gen) return { success: false, error: 'Generation not found', notFound: true }
@@ -1057,7 +927,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     for (const resp of successResponses) {
       const data = parseFlowResponse(resp.body)
       if (!data) { allErrors.push('Failed to parse response'); continue }
-      if (data.error) { allErrors.push(data.error.message || JSON.stringify(data.error)); continue }
+      if (data.error) { allErrors.push(formatGoogleApiError(data.error)); continue }
 
       // base64 이미지 직접 추출
       const base64Images = extractBase64Images(data)
@@ -1068,7 +938,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       if (fifeResults.length > 0) {
         for (const { fifeUrl, mediaId } of fifeResults) {
           try {
-            const res = await sessionFetch(fifeUrl, {}, profileId)
+            const res = await sessionFetch(fifeUrl)
             if (!res.ok) throw new Error(`fifeUrl fetch HTTP ${res.status}`)
             const buffer = await res.arrayBuffer()
             const base64Raw = Buffer.from(buffer).toString('base64')
@@ -1086,7 +956,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       if (mediaIds.length > 0 && useToken) {
         for (const id of mediaIds) {
           try {
-            const base64 = await fetchMediaAsBase64(useToken, id, profileId)
+            const base64 = await fetchMediaAsBase64(useToken, id)
             allImages.push({ base64, mediaId: id })
           } catch (fetchErr) {
             allErrors.push(fetchErr.message)
@@ -1108,6 +978,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
 
   // ─── 비동기 생성 일괄 정리 (배치 종료 시) ───
   ipcMain.handle('flow:clear-generations', async () => {
+    try { await ensureDebuggerAttached() } catch (_) {}
     for (const [id, gen] of pendingGenerations) {
       if (gen.collectionTimer) clearTimeout(gen.collectionTimer)
     }
@@ -1118,12 +989,13 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // Fetch media by ID (mediaId → redirect → base64)
-  ipcMain.handle('flow:fetch-media', async (event, { token, mediaId, profileId }) => {
+  ipcMain.handle('flow:fetch-media', async (event, { token, mediaId }) => {
+    try { await ensureDebuggerAttached() } catch (_) {}
     if (!token) return { success: false, error: 'No token' }
     if (!mediaId) return { success: false, error: 'No mediaId' }
 
     try {
-      const base64 = await fetchMediaAsBase64(token, mediaId, profileId)
+      const base64 = await fetchMediaAsBase64(token, mediaId)
       return { success: true, base64 }
     } catch (e) {
       return { success: false, error: e.message }
@@ -1131,7 +1003,8 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // 비디오 URL 직접 다운로드 (status 응답에서 추출한 fifeUri/url)
-  ipcMain.handle('flow:download-video-url', async (event, { url, token, profileId }) => {
+  ipcMain.handle('flow:download-video-url', async (event, { url, token }) => {
+    try { await ensureDebuggerAttached() } catch (_) {}
     if (!url) return { success: false, error: 'No URL' }
 
     try {
@@ -1139,7 +1012,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       const headers = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
 
-      const res = await sessionFetch(url, { headers }, profileId)
+      const res = await sessionFetch(url, { headers })
       if (!res.ok) {
         return { success: false, error: `HTTP ${res.status}` }
       }
@@ -1159,41 +1032,35 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   // 1. CDP Page.setDownloadBehavior → temp 디렉토리로 자동 저장
   // 2. <video> 요소를 mediaId로 찾기 → hover → three-dot → download → 해상도 선택
   // 3. temp 파일 읽기 → base64 반환
-  ipcMain.handle('flow:dom-download-video', async (event, { mediaId, resolution = '720p', profileId }) => {
-    const flowView = getFlowView(profileId)
+  ipcMain.handle('flow:dom-download-video', async (event, { mediaId, resolution = '720p' }) => {
+    const flowView = getFlowView()
     if (!flowView) return { success: false, error: 'Flow view not ready' }
     if (!mediaId) return { success: false, error: 'No mediaId' }
+    // CDP 없이도 동작 — will-download 핸들러가 path 지정. ensureDebuggerAttached 호출 안 함.
 
     console.log('[Flow DOMDownload] Starting DOM download — mediaId:', mediaId?.substring(0, 30), 'resolution:', resolution)
+
+    // session.will-download 핸들러 (CDP setDownloadBehavior 대체) — 함수 스코프 변수로 cleanup
+    let willDownloadHandler = null
+    const dlSession = flowView.webContents.session
 
     try {
       const fs = await import('node:fs')
       const os = await import('node:os')
 
-      // Step 1: CDP로 다운로드 경로 설정 (save dialog 스킵)
+      // Step 1: 다운로드 path 가로채기 (Electron session.will-download — CDP 무관)
       const tempDir = path.join(os.tmpdir(), `flow-dl-${Date.now()}`)
       fs.mkdirSync(tempDir, { recursive: true })
       console.log('[Flow DOMDownload] Download dir:', tempDir)
 
-      try {
-        await flowView.webContents.debugger.sendCommand('Page.setDownloadBehavior', {
-          behavior: 'allow',
-          downloadPath: tempDir
-        })
-        console.log('[Flow DOMDownload] CDP Page.setDownloadBehavior set')
-      } catch (cdpErr) {
-        console.warn('[Flow DOMDownload] CDP setDownloadBehavior failed:', cdpErr.message, '— trying Browser domain')
-        try {
-          await flowView.webContents.debugger.sendCommand('Browser.setDownloadBehavior', {
-            behavior: 'allow',
-            downloadPath: tempDir,
-            eventsEnabled: true
-          })
-          console.log('[Flow DOMDownload] CDP Browser.setDownloadBehavior set')
-        } catch (cdpErr2) {
-          console.warn('[Flow DOMDownload] Browser.setDownloadBehavior also failed:', cdpErr2.message)
-        }
+      willDownloadHandler = (_event, item) => {
+        const filename = item.getFilename()
+        const savePath = path.join(tempDir, filename)
+        console.log('[Flow DOMDownload] will-download intercept:', filename, '→', savePath)
+        item.setSavePath(savePath)
       }
+      dlSession.on('will-download', willDownloadHandler)
+      console.log('[Flow DOMDownload] will-download handler installed (no CDP)')
 
       // Step 2: DOM 자동화 — AutoFlow downloadVideoAtResolution 패턴
       const domResult = await flowView.webContents.executeJavaScript(`
@@ -1201,6 +1068,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           const LOG = (msg) => console.log('[DOMDownload] ' + msg)
           const mediaId = ${JSON.stringify(mediaId)}
           const resolution = ${JSON.stringify(resolution)}
+          const randomSleep = (min, max) => new Promise(r => setTimeout(r, Math.floor(Math.random() * (max - min + 1)) + min))
 
           // --- Helper: pointerClick (Radix UI 호환) ---
           function pointerClick(el) {
@@ -1380,7 +1248,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
               hoverNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
               hoverNode = hoverNode.parentElement
             }
-            await new Promise(r => setTimeout(r, 500))
+            await randomSleep(1000, 2000)
 
             // 3. Tile 찾기 (more_vert 포함)
             const tile = findTileWithOverlay(targetVideo)
@@ -1397,7 +1265,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
             }
             LOG('Clicking three-dots button')
             pointerClick(threeDotsBtn)
-            await new Promise(r => setTimeout(r, 300))
+            await randomSleep(800, 1500)
 
             // 5. 메뉴 대기 (재시도 1회)
             let menu = await waitForMenu(2000)
@@ -1435,7 +1303,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
             downloadItem.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: dlX, clientY: dlY }))
             downloadItem.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: dlX, clientY: dlY }))
             downloadItem.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: dlX, clientY: dlY }))
-            await new Promise(r => setTimeout(r, 400))
+            await randomSleep(1000, 1800)
 
             // 8. 서브메뉴 대기 (jitter 포함)
             let submenu = null
@@ -1473,6 +1341,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
                 }
               }
               if (resOption) {
+                await randomSleep(800, 1500)
                 pointerClick(resOption)
                 LOG('Clicked resolution: ' + targetRes)
                 await closeMenus()
@@ -1485,9 +1354,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
             if (!submenu) {
               LOG('Submenu did not open, trying click + keyboard fallback')
               pointerClick(downloadItem)
-              await new Promise(r => setTimeout(r, 400))
+              await randomSleep(800, 1500)
               downloadItem.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
-              await new Promise(r => setTimeout(r, 400))
+              await randomSleep(800, 1500)
 
               for (const item of document.querySelectorAll("[role='menuitem']")) {
                 if ((item.textContent || '').trim().includes(targetRes)) {
@@ -1555,12 +1424,11 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         }
       }
 
-      // CDP 다운로드 설정 해제
-      try {
-        await flowView.webContents.debugger.sendCommand('Page.setDownloadBehavior', {
-          behavior: 'default'
-        })
-      } catch {}
+      // will-download 핸들러 해제 (CDP setDownloadBehavior reset 대체)
+      if (willDownloadHandler) {
+        dlSession.off('will-download', willDownloadHandler)
+        willDownloadHandler = null
+      }
 
       // "닫기" 버튼 클릭 — 업스케일링 완료 토스트 닫기
       try {
@@ -1616,11 +1484,12 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   })
 
   // Upload image to Flow
-  ipcMain.handle('flow:upload-reference', async (event, { token, base64, projectId, profileId }) => {
+  ipcMain.handle('flow:upload-reference', async (event, { token, base64, projectId }) => {
+    try { await ensureDebuggerAttached() } catch (_) {}
     if (!token) return { success: false, error: 'No token' }
 
     // projectId가 없으면 flowView URL에서 추출 시도
-    const flowView = getFlowView(profileId)
+    const flowView = getFlowView()
     let resolvedProjectId = projectId || ''
     if (!resolvedProjectId && flowView) {
       try {
@@ -1648,12 +1517,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
 
       const response = await sessionFetch(UPLOAD_URL, {
         method: 'POST',
-        headers: {
-          ...API_HEADERS,
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { ...API_HEADERS, 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(body)
-      }, profileId)
+      })
 
       if (!response.ok) {
         const errText = await response.text().catch(() => '')
@@ -1700,6 +1566,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   // 사용자의 Flow 프로젝트(=날짜별 세션) 목록을 가져온다.
   // 응답: result.data.json.result.projects[] → {projectId, projectInfo, creationTime}
   ipcMain.handle('flow:list-projects', async (event, { token, pageSize = 20 } = {}) => {
+    try { await ensureDebuggerAttached() } catch (_) {}
     try {
       const input = JSON.stringify({ json: { pageSize, toolName: 'PINHOLE' } })
       const url = `https://labs.google/fx/api/trpc/project.searchUserProjects?input=${encodeURIComponent(input)}`
@@ -1744,6 +1611,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
   // 이미지(image.userUploadedImage)와 생성 이미지(image.generatedImage)
   // 모두 반환한다. 비디오는 제외.
   ipcMain.handle('flow:fetch-gallery', async (event, { token, projectId }) => {
+    try { await ensureDebuggerAttached() } catch (_) {}
     try {
       if (!projectId) {
         projectId = getCapturedProjectId?.()
@@ -1912,35 +1780,32 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     const flowView = getFlowView()
     if (!flowView) return { success: false, error: 'Flow view not ready' }
     if (!mediaId) return { success: false, error: 'No mediaId' }
+    // CDP 없이도 동작 — will-download 핸들러가 path 지정.
 
     const normalizedRes = String(resolution || '2k').toLowerCase()
     const resText = normalizedRes === '4k' ? '4K' : '2K'
 
     console.log('[Flow Image Upscale] Starting DOM upscale — mediaId:', mediaId?.substring(0, 30), 'resolution:', resText)
 
+    let willDownloadHandler = null
+    const dlSession = flowView.webContents.session
+
     try {
       const fs = await import('node:fs')
       const os = await import('node:os')
 
-      // Step 1: CDP로 다운로드 경로 설정 (save dialog 스킵)
+      // Step 1: 다운로드 path 가로채기 (Electron session.will-download — CDP 무관)
       const tempDir = path.join(os.tmpdir(), `flow-img-up-${Date.now()}`)
       fs.mkdirSync(tempDir, { recursive: true })
       console.log('[Flow Image Upscale] Download dir:', tempDir)
 
-      try {
-        await flowView.webContents.debugger.sendCommand('Page.setDownloadBehavior', {
-          behavior: 'allow',
-          downloadPath: tempDir
-        })
-      } catch (cdpErr) {
-        try {
-          await flowView.webContents.debugger.sendCommand('Browser.setDownloadBehavior', {
-            behavior: 'allow',
-            downloadPath: tempDir,
-            eventsEnabled: true
-          })
-        } catch {}
+      willDownloadHandler = (_event, item) => {
+        const filename = item.getFilename()
+        const savePath = path.join(tempDir, filename)
+        console.log('[Flow Image Upscale] will-download intercept:', filename, '→', savePath)
+        item.setSavePath(savePath)
       }
+      dlSession.on('will-download', willDownloadHandler)
 
       // Step 2: DOM 자동화 — 이미지 hover → three-dots → download → 해상도 선택
       const domResult = await flowView.webContents.executeJavaScript(`
@@ -2225,10 +2090,11 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         } catch {}
       }
 
-      // CDP 다운로드 설정 해제
-      try {
-        await flowView.webContents.debugger.sendCommand('Page.setDownloadBehavior', { behavior: 'default' })
-      } catch {}
+      // will-download 핸들러 해제 (CDP setDownloadBehavior reset 대체)
+      if (willDownloadHandler) {
+        dlSession.off('will-download', willDownloadHandler)
+        willDownloadHandler = null
+      }
 
       // 업스케일 완료 토스트 닫기
       try {

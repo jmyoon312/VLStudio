@@ -179,7 +179,7 @@ async def process_silence(
             output_filename = f"merged_{uuid.uuid4().hex}.mp3"
             output_path = os.path.join(web_temp_dir, output_filename)
             
-            processor.merge_files(input_paths, output_path)
+            processor.merge_files(input_paths, output_path, opts)
             
             web_url = get_web_url(request, output_path)
             

@@ -906,9 +906,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 </div>
 
                 {/* Tab Container Panels (Keep-Alive) */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className={cn(
+                    "flex-1 flex flex-col custom-scrollbar min-h-0",
+                    location.pathname.startsWith('/agent-studio') ? "overflow-hidden" : "overflow-y-auto"
+                )}>
                     <div className={cn(
-                        location.pathname === '/' ? "p-0" : "container mx-auto p-6 max-w-[1600px]"
+                        "flex-1 flex flex-col h-full min-h-0",
+                        (location.pathname === '/' || location.pathname.startsWith('/agent-studio')) ? "p-0" : "container mx-auto p-6 max-w-[1600px]"
                     )}>
                         {openTabs.map((tab) => {
                             const isTabActive = location.pathname === tab.path;
@@ -916,7 +920,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                             return (
                                 <div
                                     key={tab.path}
-                                    className={cn(isTabActive ? "block" : "hidden")}
+                                    className={cn(isTabActive ? "flex-1 flex flex-col min-h-0" : "hidden")}
                                 >
                                     {cachedNode ? cachedNode : (
                                         <div className="flex flex-col items-center justify-center p-20 text-muted-foreground gap-3 mt-10">

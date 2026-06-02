@@ -171,6 +171,16 @@ export async function deleteProfile(profileId) {
   }
   
   await saveProfiles(config)
+
+  // 물리적 세션/쿠키 파티션 폴더를 디스크에서 삭제하여 개인정보 및 캐시를 완전히 소멸시킵니다.
+  const partitionDir = path.join(app.getPath('userData'), 'Partitions', `flow_profile_${profileId}`)
+  try {
+    await fs.rm(partitionDir, { recursive: true, force: true })
+    console.log(`[Profile Manager] Successfully deleted partition directory: ${partitionDir}`)
+  } catch (e) {
+    console.warn(`[Profile Manager] Failed to delete partition directory ${partitionDir}:`, e.message)
+  }
+
   return { success: true, config }
 }
 
@@ -189,4 +199,40 @@ export async function updateProfile(profileId, name, email) {
   
   await saveProfiles(config)
   return { success: true, profile: config.profiles[idx], config }
+}
+
+/**
+ * Clean up unused partition directories from disk (run at startup when unlocked)
+ */
+export async function cleanupUnusedPartitions() {
+  try {
+    const config = await loadProfiles()
+    const activeProfileIds = new Set(config.profiles.map(p => p.id))
+    const partitionsDir = path.join(app.getPath('userData'), 'Partitions')
+    
+    let entries;
+    try {
+      entries = await fs.readdir(partitionsDir, { withFileTypes: true })
+    } catch (e) {
+      // Partitions directory might not exist yet
+      return
+    }
+    
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name.startsWith('flow_profile_')) {
+        const profileId = entry.name.replace('flow_profile_', '')
+        if (!activeProfileIds.has(profileId)) {
+          const targetDir = path.join(partitionsDir, entry.name)
+          try {
+            await fs.rm(targetDir, { recursive: true, force: true })
+            console.log(`[Profile Manager] Cleaned up unused partition directory on startup: ${entry.name}`)
+          } catch (err) {
+            console.warn(`[Profile Manager] Failed to clean up ${entry.name} on startup:`, err.message)
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Profile Manager] Unused partitions cleanup error:', e.message)
+  }
 }

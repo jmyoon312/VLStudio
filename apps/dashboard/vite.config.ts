@@ -17,7 +17,7 @@ export default defineConfig({
     publicDir: '../../public',
     server: {
         host: '0.0.0.0', // Allow External Access
-        port: 5173,
+        port: 5183,
         proxy: {
             // 0. Swarm WebSocket (Priority)
             '/api/swarm/ws': {

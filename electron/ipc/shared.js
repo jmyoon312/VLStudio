@@ -7,6 +7,8 @@
  * These are used by flow-api.js, video.js, dom.js via deps injection from main.js.
  */
 
+import { aspectRatioTabSuffix } from '../flow-aspect-ratio-ui.js'
+
 /**
  * Create all shared helpers bound to the given getters.
  *
@@ -28,9 +30,9 @@ export function createSharedHelpers(ctx) {
    * b.click()은 isTrusted: false라 Flow 페이지가 무시함 → sendInputEvent 필수
    * sendInputEvent는 viewport가 0x0이면 좌표가 의미없으므로 일시적으로 보이게 해야 함
    */
-  async function trustedClickOnFlowView(jsSelector, profileId) {
+  async function trustedClickOnFlowView(jsSelector) {
     const mainWindow = getMainWindow()
-    const flowView = getFlowView(profileId)
+    const flowView = getFlowView()
     if (!mainWindow || !flowView) return { success: false, error: 'No flowView' }
 
     // 1. 현재 bounds 저장
@@ -137,8 +139,8 @@ export function createSharedHelpers(ctx) {
    * - CORS 제약 없음 (main process에서 실행)
    * - Electron 28+ 필요 (현재 34.1.1)
    */
-  async function sessionFetch(url, options = {}, profileId) {
-    const flowView = getFlowView(profileId)
+  async function sessionFetch(url, options = {}) {
+    const flowView = getFlowView()
     const ses = flowView?.webContents?.session
     if (ses?.fetch) {
       try {
@@ -156,8 +158,8 @@ export function createSharedHelpers(ctx) {
    * reCAPTCHA 토큰의 origin과 API 요청 origin을 일치시키기 위해 필수
    * (main process의 sessionFetch는 origin이 달라 reCAPTCHA 검증 실패)
    */
-  async function flowPageFetch(url, { method = 'POST', headers = {}, body, redirect } = {}, profileId) {
-    const flowView = getFlowView(profileId)
+  async function flowPageFetch(url, { method = 'POST', headers = {}, body, redirect } = {}) {
+    const flowView = getFlowView()
     if (!flowView) throw new Error('Flow view not ready')
 
     // AutoFlow과 동일: fetch.call(window, ...) 패턴
@@ -198,8 +200,8 @@ export function createSharedHelpers(ctx) {
    * Flow 페이지의 grecaptcha.enterprise를 사용하여 reCAPTCHA 토큰 획득
    * AutoFlow와 동일한 방식 (sidepanel.js:20097-20108)
    */
-  async function getRecaptchaToken(profileId) {
-    const flowView = getFlowView(profileId)
+  async function getRecaptchaToken() {
+    const flowView = getFlowView()
     if (!flowView) return ''
     try {
       const token = await flowView.webContents.executeJavaScript(`
@@ -321,8 +323,8 @@ export function createSharedHelpers(ctx) {
 
   // ─── fetchMediaAsBase64 ───────────────────────────────────────
   /** mediaId로 실제 미디어 URL 가져와서 base64로 변환 */
-  async function fetchMediaAsBase64(token, mediaId, profileId) {
-    const redirectUrl = `${MEDIA_REDIRECT_URL}?input=${encodeURIComponent(JSON.stringify({ json: { name: mediaId } }))}`
+  async function fetchMediaAsBase64(token, mediaId) {
+    const redirectUrl = `${MEDIA_REDIRECT_URL}?name=${encodeURIComponent(mediaId)}`
 
     // Step 1: media redirect URL 가져오기
     // flowPageFetch 우선 (페이지 쿠키 포함 → TRPC 인증 성공률 높음)
@@ -334,7 +336,7 @@ export function createSharedHelpers(ctx) {
       const pageResult = await flowPageFetch(redirectUrl, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
-      }, profileId)
+      })
       redirectOk = pageResult.ok
       redirectText = pageResult.text || ''
       if (!redirectOk) {
@@ -348,7 +350,7 @@ export function createSharedHelpers(ctx) {
     if (!redirectOk) {
       const redirectRes = await sessionFetch(redirectUrl, {
         headers: { 'Authorization': `Bearer ${token}` }
-      }, profileId)
+      })
       if (!redirectRes.ok) {
         throw new Error(`Media redirect HTTP ${redirectRes.status}`)
       }
@@ -363,7 +365,7 @@ export function createSharedHelpers(ctx) {
     }
 
     // Step 2: 실제 미디어 다운로드 → base64 (CDN은 쿠키 불필요)
-    const mediaRes = await sessionFetch(mediaUrl, {}, profileId)
+    const mediaRes = await sessionFetch(mediaUrl)
     if (!mediaRes.ok) {
       throw new Error(`Media fetch HTTP ${mediaRes.status}`)
     }
@@ -381,12 +383,18 @@ export function createSharedHelpers(ctx) {
    *   - MODE_VIDEO:       button[role='tab'][id*='-trigger-VIDEO']
    *   - SETTINGS_MENU:    [role='menu'][data-state='open']
    */
-  async function configureFlowMode(targetMode = 'VIDEO', batchCount = 1, profileId) {
-    const flowView = getFlowView(profileId)
+  async function configureFlowMode(targetMode = 'VIDEO', batchCount = 1, aspectRatio = null) {
+    const flowView = getFlowView()
     if (!flowView) return { success: false, error: 'No flowView' }
 
     // AutoFlow 동일 CSS selectors (텍스트 비교 없음 — 모든 로케일에서 동작)
     const modeKey = targetMode === 'IMAGE' ? 'IMAGE' : 'VIDEO'
+
+    // 화면비 탭 — 모드/배치 탭과 같은 설정 메뉴 안의 Radix Tab.
+    // 반드시 메뉴가 열려 있는 동안(Step 4.5) 클릭해야 한다: 메뉴를 닫으면
+    // Radix 가 content 를 unmount 하므로, 메뉴 밖에서의 별도 동기화는 동작하지 않는다.
+    // '-trigger-LANDSCAPE'(16:9) | '-trigger-PORTRAIT'(9:16) | null(미지정)
+    const aspectTabSuffix = aspectRatioTabSuffix(aspectRatio)
     const SEL = {
       SETTINGS_BTN: "button[aria-haspopup='menu']:has(div[data-type='button-overlay'])",
       MODE_TAB: `button[role='tab'][id*='-trigger-${modeKey}']:not([id*='FRAMES']):not([id*='REFERENCES'])`,
@@ -519,17 +527,46 @@ export function createSharedHelpers(ctx) {
               }
             }
 
+            // Step 4.5: 화면비(aspect ratio) 탭 — 메뉴가 아직 열려 있는 동안 클릭한다.
+            // 모드/배치와 같은 메뉴 안의 Radix Tabs. id 접미사로 구분하며,
+            // endsWith 는 정확 접미사 매칭이라 '-trigger-PORTRAIT'(9:16) 가
+            // '-trigger-PORTRAIT_3_4'(3:4) 를 잘못 잡지 않는다.
+            // best-effort — 못 찾거나 전환 실패해도 ok 에는 영향 없음 (실제 생성 화면비는
+            // CDP request injection 이 보장; 이 단계는 Flow 프리뷰 표시 교정용일 뿐).
+            let aspectMethod = 'skipped';
+            const aspectSuffix = ${aspectTabSuffix ? `'${aspectTabSuffix}'` : 'null'};
+            if (aspectSuffix) {
+              const findAr = () => Array.from(menu.querySelectorAll("button[role='tab']"))
+                .filter(isVisible).find(b => b.id.endsWith(aspectSuffix)) || null;
+              const arActive = (b) => !!b && (b.getAttribute('aria-selected') === 'true'
+                || b.getAttribute('data-state') === 'active');
+              let arBtn = findAr();
+              if (!arBtn) {
+                aspectMethod = 'tab_not_found';
+              } else if (arActive(arBtn)) {
+                aspectMethod = 'already_set';
+              } else {
+                aspectMethod = 'click_unconfirmed';
+                for (let a = 1; a <= 3; a++) {
+                  humanClick(arBtn);
+                  await sleep(200);
+                  arBtn = findAr() || arBtn;
+                  if (arActive(arBtn)) { aspectMethod = 'clicked'; break; }
+                }
+              }
+            }
+
             // Step 5: 메뉴 닫기
             if (document.querySelector("[role='menu']")) { escapeMenu(); await sleep(200); }
 
-            return { ok: true, method: modeMethod, batch: batchMethod, tabId: modeTab?.id };
+            return { ok: true, method: modeMethod, batch: batchMethod, aspect: aspectMethod, tabId: modeTab?.id };
           })()
         `)
 
         if (result?.ok) {
-          console.log(`[Flow Mode] Configured: mode=${targetMode}, batch=${batchLabel}`, result.method, result.batch, result.tabId || '')
+          console.log(`[Flow Mode] Configured: mode=${targetMode}, batch=${batchLabel}`, result.method, result.batch, `aspect=${result.aspect || 'n/a'}`, result.tabId || '')
           await new Promise(r => setTimeout(r, 500)) // UI 전환 안정화 대기
-          return { success: true, method: result.method, batch: result.batch }
+          return { success: true, method: result.method, batch: result.batch, aspect: result.aspect }
         }
 
         console.warn(`[Flow Mode] Attempt ${attempt + 1}/${maxAttempts} failed:`, result?.error)

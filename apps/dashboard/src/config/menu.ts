@@ -67,6 +67,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         items: [
             { name: '통합 창작 스튜디오', path: '/elite-studio', icon: Swords, highlight: true },
             { name: '편집기 연동 자동화', path: '/flow2capcut', icon: Clapperboard, highlight: true },
+            { name: '에이전트 스튜디오 (스토리보드)', path: '/agent-studio', icon: BrainCircuit, highlight: true },
             { name: '이미지 편집기', path: '/pixeling', icon: Edit, highlight: true },
             { name: '대본 생성 및 편집', path: '/script-writer', icon: Edit },
             { name: '미디어 일괄 생성', path: '/creative-studio', icon: Clapperboard },

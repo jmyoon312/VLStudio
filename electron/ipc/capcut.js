@@ -19,7 +19,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { exec } from 'child_process'
 import os from 'os'
-import { dialog } from 'electron'
+import { dialog, BrowserWindow } from 'electron'
 
 // ============================================================
 // Helper Functions
@@ -481,9 +481,10 @@ export function registerCapcutIPC(ipcMain) {
   // macOS: Uses `open -a` command
   // Windows: Searches typical install locations
   // ----------------------------------------------------------
-  ipcMain.handle('capcut:open-app', async () => {
+  ipcMain.handle('capcut:open-app', async (_event, params = {}) => {
     try {
       const platform = process.platform
+      const projectPath = params?.projectPath || ''
 
       if (platform === 'darwin') {
         // macOS: Try known CapCut app names
@@ -509,7 +510,11 @@ export function registerCapcutIPC(ipcMain) {
 
           for (const appPath of appPaths) {
             if (await pathExists(appPath)) {
-              await execPromise(`open "${appPath}"`)
+              if (projectPath) {
+                await execPromise(`open -a "${appPath}" "${projectPath}"`)
+              } else {
+                await execPromise(`open "${appPath}"`)
+              }
               launched = true
               break
             }
@@ -535,25 +540,36 @@ export function registerCapcutIPC(ipcMain) {
           path.join(programFilesX86, 'CapCut', 'CapCut.exe'),
         ]
 
-        // 1. Check typical static locations
-        for (const exePath of exePaths) {
-          if (await pathExists(exePath)) {
-            exec(`start "" "${exePath}"`)
-            return { success: true }
-          }
-        }
-
-        // 2. Perform deep dynamic scan inside LOCALAPPDATA/CapCut/Apps/ for versioned folders (e.g. Apps/3.8.0.x/CapCut.exe)
+        // 1. Perform deep dynamic scan inside LOCALAPPDATA/CapCut/Apps/ for versioned folders (e.g. Apps/3.8.0.x/CapCut.exe)
+        // We do this FIRST because the versioned executable correctly accepts the projectPath argument,
+        // whereas the static stub launcher often drops it.
         try {
           const appsDir = path.join(localAppData, 'CapCut', 'Apps')
           if (await pathExists(appsDir)) {
             const entries = await fs.readdir(appsDir, { withFileTypes: true })
+            // Sort entries in descending order to get the highest version first
+            entries.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }))
+            
             for (const entry of entries) {
               if (entry.isDirectory()) {
                 const nestedExe = path.join(appsDir, entry.name, 'CapCut.exe')
                 if (await pathExists(nestedExe)) {
                   console.log(`[CapCut IPC] Found CapCut inside version subfolder: ${entry.name}`);
-                  exec(`start "" "${nestedExe}"`)
+                  
+                  // Kill existing CapCut instances to ensure it processes the CLI argument and opens the project directly
+                  try {
+                    await execPromise('taskkill /IM CapCut.exe /F');
+                    // Wait a brief moment for processes to clear
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                  } catch (e) {
+                    // Ignore error if CapCut is not running
+                  }
+
+                  if (projectPath) {
+                    exec(`start "" "${nestedExe}" "${projectPath}"`)
+                  } else {
+                    exec(`start "" "${nestedExe}"`)
+                  }
                   return { success: true }
                 }
               }
@@ -561,6 +577,24 @@ export function registerCapcutIPC(ipcMain) {
           }
         } catch (scanError) {
           console.warn('[CapCut IPC] Dynamic version lookup search failed:', scanError.message)
+        }
+
+        // 2. Check typical static locations (fallback, might drop arguments if it is the stub launcher)
+        for (const exePath of exePaths) {
+          if (await pathExists(exePath)) {
+            // Kill existing instances here as well for fallback paths
+            try {
+              await execPromise('taskkill /IM CapCut.exe /F');
+              await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (e) {}
+
+            if (projectPath) {
+              exec(`start "" "${exePath}" "${projectPath}"`)
+            } else {
+              exec(`start "" "${exePath}"`)
+            }
+            return { success: true }
+          }
         }
 
         return { success: false, error: 'CapCut application not found on this PC' }
@@ -599,7 +633,8 @@ export function registerCapcutIPC(ipcMain) {
   // ----------------------------------------------------------
   ipcMain.handle('capcut:save-srt-file', async (_event, { filename, content }) => {
     try {
-      const result = await dialog.showSaveDialog({
+      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
+      const result = await dialog.showSaveDialog(parentWindow, {
         defaultPath: filename,
         filters: [
           { name: 'SRT Subtitle', extensions: ['srt'] },

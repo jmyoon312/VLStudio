@@ -220,6 +220,61 @@ export function useFlowAPI() {
     }
   }, [getAccessToken, projectId])
 
+
+  /**
+   * 갤러리 (프로젝트 미디어) 조회
+   * @returns {{ success, items: [{ mediaId, url }] }}
+   */
+  const fetchGallery = useCallback(async (specificProjectId, includeVideos = false) => {
+    const token = await getAccessToken()
+    if (!token) return { success: false, error: 'No access token', items: [] }
+
+    try {
+      return await window.electronAPI.fetchGallery({
+        token,
+        projectId: specificProjectId || projectId,
+        includeVideos
+      })
+    } catch (error) {
+      return { success: false, error: error.message, items: [] }
+    }
+  }, [getAccessToken, projectId])
+
+  /**
+   * 비디오 상태 폴링 (완료되거나 실패할 때까지)
+   */
+  const pollVideoStatus = useCallback(async (generationId, maxAttempts = 120, intervalMs = 5000) => {
+    for (let i = 0; i < maxAttempts; i++) {
+      const result = await checkVideoStatus([generationId])
+      if (result.success && result.statuses && result.statuses.length > 0) {
+        const s = result.statuses[0]
+        if (s.status === 'complete') {
+          if (s.videoUrl) {
+            return { success: true, videoUrl: s.videoUrl, mediaId: s.mediaId }
+          }
+          // URL is missing in status response, fallback to gallery fetch
+          const gallery = await fetchGallery(undefined, true);
+          if (gallery && gallery.success && gallery.items) {
+            const matched = gallery.items.find(item => 
+              (item.mediaId && item.mediaId.includes(s.mediaId)) || 
+              (item.mediaId && item.mediaId.includes(generationId)) || 
+              (item.url && item.url.includes(generationId))
+            );
+            if (matched && matched.url) {
+              return { success: true, videoUrl: matched.url, mediaId: matched.mediaId || s.mediaId };
+            }
+          }
+          // If not found in gallery yet, we might need to wait for it to appear
+        }
+        if (s.status === 'failed') {
+          return { success: false, error: s.error }
+        }
+      }
+      await new Promise(r => setTimeout(r, intervalMs))
+    }
+    return { success: false, error: 'Polling timeout' }
+  }, [checkVideoStatus, fetchGallery])
+
   /**
    * 비디오 업스케일 (1080p/4K) 제출
    * @param {string} mediaId - 원본 비디오의 mediaId
@@ -258,23 +313,7 @@ export function useFlowAPI() {
     }
   }, [getAccessToken, projectId])
 
-  /**
-   * 갤러리 (프로젝트 미디어) 조회
-   * @returns {{ success, items: [{ mediaId, url }] }}
-   */
-  const fetchGallery = useCallback(async (specificProjectId) => {
-    const token = await getAccessToken()
-    if (!token) return { success: false, error: 'No access token', items: [] }
 
-    try {
-      return await window.electronAPI.fetchGallery({
-        token,
-        projectId: specificProjectId || projectId
-      })
-    } catch (error) {
-      return { success: false, error: error.message, items: [] }
-    }
-  }, [getAccessToken, projectId])
 
   /**
    * 사용자의 Flow 프로젝트(=날짜 세션) 목록 조회
@@ -282,19 +321,31 @@ export function useFlowAPI() {
    */
   const listFlowProjects = useCallback(async (pageSize = 20) => {
     const token = await getAccessToken()
-    if (!token) return { success: false, error: 'No access token', items: [] }
+    if (!token) return { success: false, error: 'No access token' }
 
     try {
       return await window.electronAPI.listFlowProjects({ token, pageSize })
     } catch (error) {
-      return { success: false, error: error.message, items: [] }
+      return { success: false, error: error.message }
     }
   }, [getAccessToken])
 
-  /**
-   * 토큰 캐시 초기화 (401 에러 시 호출)
-   * 다음 getAccessToken 호출 시 Flow 웹뷰에서 새로 추출
-   */
+  const resetFlowProject = useCallback(async () => {
+    try {
+      return await window.electronAPI.resetFlowProject()
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }, [])
+
+  const selectVoice = useCallback(async (voiceName) => {
+    try {
+      return await window.electronAPI.selectVoice({ voiceName })
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }, [])
+
   const clearTokenCache = useCallback(() => {
     setAccessToken(null)
     setTokenExpiry(null)
@@ -317,11 +368,14 @@ export function useFlowAPI() {
     generateVideoT2V,
     generateVideoI2V,
     checkVideoStatus,
+    pollVideoStatus,
     upscaleVideo,
     upscaleImage,
     fetchGallery,
     listFlowProjects,
-    setStopRequested
+    resetFlowProject,
+    setStopRequested,
+    selectVoice
   }
 }
 

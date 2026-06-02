@@ -24,7 +24,7 @@ import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
 import { execFile, execSync } from 'child_process'
-import { app, dialog } from 'electron'
+import { app, dialog, BrowserWindow } from 'electron'
 import { parseSfxList } from '../../apps/dashboard/src/features/flow2capcut/utils/parseSfxList.js'
 
 // ============================================================
@@ -325,7 +325,19 @@ function getUnifiedMediaFolder() {
 }
 
 async function readWorkFolderConfig() {
-  // 이전 AutoFlowCut 경로를 더 이상 사용하지 않고 통합 경로를 강제 반환합니다.
+  try {
+    const configPath = getConfigPath()
+    if (fsSync.existsSync(configPath)) {
+      const data = await fs.readFile(configPath, 'utf-8')
+      const config = JSON.parse(data)
+      if (config && config.path) {
+        return { path: config.path, name: config.name || path.basename(config.path) }
+      }
+    }
+  } catch (e) {
+    console.warn('[FS] Failed to read work folder config:', e.message)
+  }
+
   const unifiedPath = getUnifiedMediaFolder()
   try { await fs.mkdir(unifiedPath, { recursive: true }) } catch {}
   return { path: unifiedPath, name: 'ViraLoop Studio Media' }
@@ -375,12 +387,10 @@ export function registerFilesystemIPC(ipcMain) {
     }
   })
 
-  // ----------------------------------------------------------
-  // 1. fs:select-work-folder
-  // ----------------------------------------------------------
   ipcMain.handle('fs:select-work-folder', async () => {
     try {
-      const result = await dialog.showOpenDialog({
+      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
+      const result = await dialog.showOpenDialog(parentWindow, {
         properties: ['openDirectory', 'createDirectory']
       })
 
@@ -402,7 +412,8 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   ipcMain.handle('fs:select-image-file', async () => {
     try {
-      const result = await dialog.showOpenDialog({
+      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
+      const result = await dialog.showOpenDialog(parentWindow, {
         properties: ['openFile'],
         filters: [
           { name: 'Images', extensions: ['jpg', 'png', 'gif', 'webp', 'jpeg'] }
@@ -432,7 +443,8 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   ipcMain.handle('fs:select-video-file', async () => {
     try {
-      const result = await dialog.showOpenDialog({
+      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
+      const result = await dialog.showOpenDialog(parentWindow, {
         properties: ['openFile'],
         filters: [
           { name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm'] }
@@ -1111,8 +1123,9 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   ipcMain.handle('fs:scan-audio-package', async () => {
     try {
+      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
       // 폴더 선택 다이얼로그
-      const result = await dialog.showOpenDialog({
+      const result = await dialog.showOpenDialog(parentWindow, {
         properties: ['openDirectory'],
         title: 'Select Audio Package Folder'
       })

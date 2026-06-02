@@ -23,6 +23,7 @@ export default function StylePicker({
   progress = { current: 0, total: 0 },
   onGenerateThumbnails,
   onStopGenerating,
+  onCustomStyleUpload,
   autoCardMeta,  // { label, icon, tooltip, summary } — 호출자가 createStyleResolver로 만든 값. 없으면 단순 "스타일 없음" fallback.
   t,
   isKo
@@ -143,6 +144,26 @@ export default function StylePicker({
             </div>
           )
         })()}
+
+        {onCustomStyleUpload && (
+          <label className="sp-card sp-custom-style" style={{ cursor: 'pointer' }}>
+            <div className="sp-thumb" style={{ border: '2px dashed #9ca3af', background: 'transparent' }}>
+              <span className="sp-icon">➕</span>
+            </div>
+            <div className="sp-name">{isKo ? '스타일 이미지 추가' : 'Add Style Image'}</div>
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  onCustomStyleUpload(e.target.files[0]);
+                }
+              }}
+            />
+          </label>
+        )}
 
         {filteredStyles.map(style => {
           const thumb = thumbnails[style.id]
