@@ -14,7 +14,7 @@ interface TTSSettingsDialogProps {
 const TTSSettingsDialog = ({ open, onOpenChange, initialConfig, onSave }: TTSSettingsDialogProps) => {
     // Transform initialConfig (flat or mixed) to TTSConfig
     const [config, setConfig] = useState<TTSConfig>({
-        engine: initialConfig?.engine || "google",
+        engine: initialConfig?.engine || "supertone-local",
         language: initialConfig?.language || "ko",
         voice_id: initialConfig?.voice_id || "",
         speed: initialConfig?.speed || 1.0,

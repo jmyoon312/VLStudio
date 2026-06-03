@@ -31,7 +31,7 @@ def get_settings(db: Session):
             
             default_model_size="base",
             default_language="ko",
-            whisper_model_path=os.path.join(os.path.expanduser("~"), ".cache", "faster_whisper"),
+            whisper_model_path=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models--Systran--faster-whisper-base")) if os.path.exists(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models--Systran--faster-whisper-base"))) else os.path.join(os.path.expanduser("~"), ".cache", "faster_whisper"),
             
             # Distributed AI Grid Defaults
             audio_node_url="https://miscultivated-nonvertically-londa.ngrok-free.dev",

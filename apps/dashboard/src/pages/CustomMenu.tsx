@@ -20,10 +20,21 @@ interface CustomLink {
     order_index: number;
 }
 
+let customMenuCache: {
+    selectedLink: CustomLink | null;
+} = {
+    selectedLink: null
+};
+
 export default function CustomMenu() {
     const [links, setLinks] = useState<CustomLink[]>([]);
-    const [selectedLink, setSelectedLink] = useState<CustomLink | null>(null);
+    const [selectedLink, setSelectedLinkState] = useState<CustomLink | null>(customMenuCache.selectedLink);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+    const setSelectedLink = (val: CustomLink | null) => {
+        customMenuCache.selectedLink = val;
+        setSelectedLinkState(val);
+    };
 
     // Dialog State
     const [editingLinks, setEditingLinks] = useState<CustomLink[]>([]);
@@ -41,7 +52,7 @@ export default function CustomMenu() {
                 const data = await res.json();
                 setLinks(data);
                 // Select first link if none selected and links exist
-                if (!selectedLink && data.length > 0) {
+                if (!customMenuCache.selectedLink && data.length > 0) {
                     setSelectedLink(data[0]);
                 }
             }

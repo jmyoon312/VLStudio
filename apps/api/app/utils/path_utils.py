@@ -7,11 +7,19 @@ def get_standardized_download_path(settings=None) -> str:
     """
     Returns the standardized absolute download root: {MEDIA_ROOT}/downloads
     """
+    from app.config import settings as app_config_settings
+
     if not settings:
-        from app.config import settings
-            
-    raw_root = settings.root_download_path if settings and settings.root_download_path else settings.MEDIA_ROOT
+        # settings 미전달 시 config에서 가져옴
+        raw_root = app_config_settings.MEDIA_ROOT
+    elif settings and settings.root_download_path:
+        raw_root = settings.root_download_path
+    else:
+        # DB Settings 객체에는 MEDIA_ROOT가 없으므로 app.config에서 가져옴
+        raw_root = app_config_settings.MEDIA_ROOT
+
     return os.path.join(os.path.abspath(raw_root), "downloads")
+
 
 def get_operations_path() -> str:
     """

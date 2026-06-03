@@ -53,7 +53,7 @@ from app.routers import (
     beats_editor, editor, extension, files, hermes, image_gen, infra, insights, 
     instagram_channels, keywords, logs, maintenance, mcp, mcp_registry, 
     media_lab, n8n_integration, notebooklm_accounts, oauth2_auth, 
-    profiles, quality, remover, render, reports, resource_manager, pixeling,
+    profiles, quality, remover, render, reports, resource_manager,
     resource_manager_automation, scout, script_writer, scripts, 
     settings, stations, stream, studio, swarm, system, templates, 
     tiktok_channels, tools, upload_rules, video, videos, wisdom, 
@@ -256,6 +256,9 @@ async def smart_media_server(path: str):
     raise HTTPException(status_code=404, detail="Asset not found")
 
 app.mount("/files", StaticFiles(directory=download_dir), name="files")
+temp_mount_dir = app_settings.TEMP_DIR
+os.makedirs(temp_mount_dir, exist_ok=True)
+app.mount("/temp", StaticFiles(directory=temp_mount_dir), name="temp")
 if os.path.exists("thumbnails"): app.mount("/thumbnails", StaticFiles(directory="thumbnails"), name="thumbnails")
 
 # --- Sovereign Hub: Router Distribution Map ---
@@ -321,7 +324,6 @@ app.include_router(files.router, prefix="/api/files", tags=["files"])
 app.include_router(extension.router, prefix="/api/extension", tags=["extension"])
 app.include_router(brand_channels.router, prefix="/api/brand-channels", tags=["brand-channels"])
 app.include_router(channel_refresh.router, prefix="/api/channels/refresh")
-app.include_router(pixeling.router, prefix="/api/pixeling", tags=["pixeling"])
 app.include_router(quality.router, prefix="/api/quality", tags=["quality-audit"])
 
 # 3. Special Integration Extensions
@@ -360,4 +362,4 @@ def rotate_ip(method: str):
 if __name__ == "__main__":
     import uvicorn
     # Pass app object directly for flawless PyInstaller packaging compatibility
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

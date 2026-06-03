@@ -117,10 +117,6 @@ def test_chat(
         raise HTTPException(status_code=500, detail=f"Chat test failed: {str(e)}")
 
 
-class ScoutAssetRequest(BaseModel):
-    scene_id: int
-    query: str
-    target_aspect_ratio: str = "9:16"
 
 @router.post("/analyze-style", response_model=StyleAnalysisResponse)
 async def analyze_style(
@@ -1080,34 +1076,3 @@ def generate_script(
              raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
         raise HTTPException(status_code=500, detail=f"Generation Failed: {str(e)}")
 
-@router.post("/scout-asset")
-async def scout_asset(
-    request: ScoutAssetRequest,
-    fastapi_req: Request,
-    engine: CreativeEngine = Depends(get_creative_engine)
-):
-    """
-    Triggers the intelligent scouting swarm for a specific scene prompt.
-    Returns the path of the best found asset.
-    """
-    from app.services.scout.coordinator import ScoutCoordinator
-    
-    coordinator = ScoutCoordinator()
-    try:
-        best_path = await coordinator.find_best_asset(request.query, request.scene_id)
-        if best_path:
-            web_url = get_web_url(fastapi_req, best_path)
-            
-            return {
-                "status": "success",
-                "scene_id": request.scene_id,
-                "path": best_path,
-                "url": web_url,
-                "method": "browser_scout"
-            }
-        else:
-            return {"status": "failed", "reason": "No suitable asset found on web"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Scouting failed: {str(e)}")
-    finally:
-        coordinator.close()

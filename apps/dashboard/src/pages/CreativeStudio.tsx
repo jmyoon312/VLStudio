@@ -54,10 +54,9 @@ interface SceneSegment {
     // View State
     viewMode?: 'source' | 'render'; // Controls which media is shown
 
-    // [NEW] Manual & Intelligent Scouting
+    // Manual Asset Override
     is_manual_asset?: boolean;
     frozen_effect?: string; // static, zoom, pan_left, pan_right
-    scout_status?: 'idle' | 'scouting' | 'found' | 'failed';
     asset_score?: number;
 }
 
@@ -650,41 +649,6 @@ const CreativeStudio = () => {
         }
     });
 
-    // [NEW] Intelligent Scout Mutation
-    const scoutAssetMutation = useMutation({
-        mutationFn: async (data: { id: string, sceneId: number, query: string }) => {
-            const res = await api.post('/creative/scout-asset', {
-                scene_id: data.sceneId,
-                query: data.query
-            });
-            return { id: data.id, sceneId: data.sceneId, ...res.data };
-        },
-        onSuccess: (data: any) => {
-            if (data.status === 'success') {
-                updateScene(data.id, { 
-                    visualStatus: 'completed', 
-                    media_url: data.url, 
-                    media_path: data.path, 
-                    viewMode: 'source',
-                    scout_status: 'found',
-                    is_manual_asset: true // [Zero-Cost] No AI Credits used
-                });
-                toast.success(`Scene #${data.scene_id} 브라우저 사냥 성공!`);
-            } else {
-                toast.warning(`브라우저 사냥 실패: ${data.reason}`);
-                updateScene(data.id, { scout_status: 'failed' });
-            }
-        },
-        onError: (err, variables) => {
-            updateScene(variables.id, { scout_status: 'failed' });
-            toast.error("브라우저 사냥 중 오류 발생");
-        }
-    });
-
-    const handleScoutAsset = (sceneId: number, id: string, query: string) => {
-        updateScene(id, { scout_status: 'scouting' });
-        scoutAssetMutation.mutate({ id, sceneId, query });
-    };
 
     const handleGenerateImage = (sceneId: number, id: string, prompt: string) => {
         const finalPrompt = `${prompt}${negativePrompt ? " --no " + negativePrompt : ""}`;
@@ -1799,11 +1763,7 @@ const CreativeStudio = () => {
                                                     <DollarSign className="w-3 h-3" /> 비용 절감됨
                                                 </Badge>
                                             )}
-                                            {scene.scout_status === 'found' && (
-                                                <Badge variant="default" className="bg-blue-600 text-[10px] h-5 gap-1">
-                                                    <Sparkles className="w-3 h-3" /> 브라우저 사냥
-                                                </Badge>
-                                            )}
+                                        
                                         </div>
                                         <div className="flex gap-1">
                                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveScene(index, -1)}><ChevronUp className="w-3 h-3" /></Button>
@@ -1961,13 +1921,6 @@ const CreativeStudio = () => {
                                             </Select>
                                         </div>
 
-                                        <Button 
-                                            variant="outline" size="sm" className="h-8 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border-blue-500/30" 
-                                            onClick={() => handleScoutAsset(scene.scene_id, scene.id, scene.visual_prompt)} 
-                                            disabled={scene.scout_status === 'scouting'}
-                                        >
-                                            {scene.scout_status === 'scouting' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />} 브라우저 사냥
-                                        </Button>
 
                                         <div className="relative">
                                             <Button variant="outline" size="sm" className={`w-full h-8 text-xs ${scene.is_manual_asset ? 'border-green-500 bg-green-500/10' : ''}`}>

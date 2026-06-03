@@ -118,13 +118,7 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
              clean_model = f"cerebras/{clean_model}"
 
         logger.info(f"🤖 [Loopie] Routing command request via LangChain brain_router: {target_provider}/{clean_model}")
-        
-        from app.agent.brain_router import brain_router
-        llm = brain_router._create_langchain_model(target_provider, clean_model, settings)
-        if not llm:
-            raise ValueError(f"Failed to initialize LangChain model for '{target_provider}/{clean_model}'")
-        
-        # Use Korean system prompt for general chat via Loopie
+               # Use Korean system prompt for general chat via Loopie
         current_path = req.context.get("currentPath", "")
         system_instruction = (
             "당신은 'ViraLoop Elite' 시스템의 핵심 전략 에이전트, '루피'입니다. "
@@ -164,8 +158,53 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
             HumanMessage(content=prompt)
         ]
         
-        response = llm.invoke(messages)
-        response_text = response.content
+        from app.agent.brain_router import brain_router
+        
+        # Collect API keys for rotation
+        keys = []
+        if target_provider == "groq":
+            if settings.groq_api_keys:
+                keys = [k for k in settings.groq_api_keys if k]
+            elif hasattr(settings, "groq_api_key") and settings.groq_api_key:
+                keys = [settings.groq_api_key]
+        elif target_provider in ["google", "gemini"]:
+            if settings.gemini_api_keys:
+                keys = [k for k in settings.gemini_api_keys if k]
+                
+        if not keys:
+            keys = [None] # fallback to env variables
+
+        llm = None
+        response_text = None
+        primary_err = None
+        
+        for i, api_key in enumerate(keys):
+            try:
+                llm = brain_router._create_langchain_model(target_provider, clean_model, settings, api_key=api_key)
+                if not llm:
+                    raise ValueError(f"Failed to initialize LangChain model for '{target_provider}/{clean_model}'")
+                
+                logger.info(f"🤖 [Loopie] Routing command request via LangChain brain_router: {target_provider}/{clean_model} (Key #{i})")
+                response = llm.invoke(messages)
+                response_text = response.content
+                primary_err = None # Clear error on success
+                break
+            except Exception as e:
+                primary_err = e
+                logger.warning(f"⏳ [Loopie] Key #{i} failed with error: {e}. Rotating keys...")
+                continue
+
+        if primary_err:
+            logger.warning(f"⚠️ Primary agent model ({target_provider}/{clean_model}) failed on all keys: {primary_err}. Falling back to Gemini...")
+            try:
+                fallback_llm = brain_router._create_langchain_model("google", "gemini-2.0-flash", settings)
+                if not fallback_llm:
+                    raise ValueError("Failed to initialize fallback Gemini model.")
+                response = fallback_llm.invoke(messages)
+                response_text = response.content
+            except Exception as fallback_err:
+                logger.error(f"❌ Fallback Gemini model also failed: {fallback_err}")
+                raise Exception(f"Primary error: {primary_err}. Fallback error: {fallback_err}")
         
         # Try to parse as JSON first; otherwise treat as plain chat reply
         if isinstance(response_text, str):

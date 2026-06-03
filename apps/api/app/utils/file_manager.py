@@ -18,8 +18,8 @@ def delete_video_files(file_path: str, thumbnail_path: str = None):
 
     # 1. Delete all files matching the video base name (video.*, video.en.srt, etc.)
     try:
-        if os.path.exists(path):
-            directory = os.path.dirname(path)
+        directory = os.path.dirname(path)
+        if os.path.exists(directory):
             # Base name without extension
             base_name = os.path.splitext(os.path.basename(path))[0]
             
@@ -50,7 +50,7 @@ def delete_video_files(file_path: str, thumbnail_path: str = None):
                 print(f"Warning: Could not cleanup directory {directory}: {folder_e}")
                 
         else:
-            print(f"Video file not found for deletion: {path}")
+            print(f"Directory not found for deletion: {directory}")
     except Exception as e:
         print(f"Error in delete_video_files logic: {e}")
 

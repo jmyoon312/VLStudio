@@ -7,7 +7,14 @@ import asyncio
 
 router = APIRouter(tags=["Logs"])
 
-LOG_FILE = "scan_debug.log"
+import logging
+
+# [FIX] Define LOG_FILE - must match where channel_monitor.py writes
+# channel_monitor.py: 3x dirname from .../app/services/ => apps/api/
+# logs.py:            2x dirname from .../app/routers/ => apps/api/app/  (WRONG, needs one more)
+# Correct: dirname x3 from this file => apps/api/
+API_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+LOG_FILE = os.path.join(API_DIR, "scan_debug.log")
 
 @router.get("/scheduler")
 async def get_scheduler_logs(lines: int = 100):
@@ -16,7 +23,12 @@ async def get_scheduler_logs(lines: int = 100):
     Returns them in reverse order (newest first).
     """
     if not os.path.exists(LOG_FILE):
-        return {"logs": []}
+        # Create empty file if not exists to avoid empty list issues
+        try:
+            with open(LOG_FILE, "w", encoding="utf-8") as f:
+                f.write("INFO: [System] Scan log initialized.\n")
+        except:
+            return {"logs": ["No logs generated yet."]}
         
     try:
         with open(LOG_FILE, "r", encoding="utf-8") as f:

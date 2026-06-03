@@ -33,9 +33,9 @@ const AIVoiceNodeInspector = ({ data, nodeId }: { data: any, nodeId: string }) =
 
     // Config Initialization
     const config: TTSConfig = data.ttsConfig || {
-        engine: 'google',
+        engine: 'supertone-local',
         language: 'ko',
-        voice_id: 'ko-KR-SunHiNeural',
+        voice_id: '',
         speed: 1.0,
         pitch: 0,
         use_silence_removal: false

@@ -18,7 +18,6 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import AIModelSelector from '@/components/shared/AIModelSelector';
 import { SystemSettingsTab } from './SystemSettingsTab';
-import DockerHubTab from './DockerHubTab';
 import LoopieTab from './LoopieTab';
 
 // Helper Component for Key Lists
@@ -519,9 +518,6 @@ const Settings = () => {
                         </TabsTrigger>
                         <TabsTrigger value="hermes" className="gap-2 px-4 h-9">
                             <BrainCircuit className="w-4 h-4 text-indigo-500" /> Loopie 지능
-                        </TabsTrigger>
-                        <TabsTrigger value="infra" className="gap-2 px-4 h-9">
-                            <Server className="w-4 h-4 text-blue-500" /> 인프라 허브
                         </TabsTrigger>
                         <TabsTrigger value="system" className="gap-2 px-4 h-9">
                             <SettingsIcon className="w-4 h-4" /> 시스템
@@ -1025,16 +1021,14 @@ const Settings = () => {
                         <LoopieTab />
                     </TabsContent>
 
-                    <TabsContent value="infra">
-                        <DockerHubTab />
-                    </TabsContent>
+
 
                     {/* --- TAB 3: VOICE (TTS) --- */}
                     <TabsContent value="voice">
                         <Card>
                             <CardHeader>
                                 <CardTitle>음성 합성 (TTS)</CardTitle>
-                                <CardDescription>ElevenLabs, Typecast, Supertone 등 TTS 서비스 키를 관리합니다.</CardDescription>
+                                <CardDescription>ElevenLabs, Typecast 등 TTS 서비스 키를 관리합니다.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1049,10 +1043,6 @@ const Settings = () => {
                                         keys={formData.typecast_api_keys || []}
                                         onChange={k => setFormData({ ...formData, typecast_api_keys: k })}
                                     />
-                                    <div className="space-y-2">
-                                        <Label>Supertone Project Key</Label>
-                                        <Input type="password" value={formData.supertone_project_key || ''} onChange={e => setFormData({ ...formData, supertone_project_key: e.target.value })} />
-                                    </div>
 
                                     {/* Supertonic Local Config */}
                                     <div className="space-y-4 pt-4 border-t border-dashed col-span-1 md:col-span-2">

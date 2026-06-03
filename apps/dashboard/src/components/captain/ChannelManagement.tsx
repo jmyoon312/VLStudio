@@ -47,7 +47,7 @@ const ChannelManagement: React.FC<ChannelManagementProps> = ({ profileId }) => {
             const response = await axios.get(`${API_BASE}/captain/${profileId}/channels?view=dashboard`);
             return response.data;
         },
-        staleTime: 24 * 60 * 60 * 1000,
+        staleTime: 1000 * 5, // 5 seconds cache to load fresh data immediately
     });
 
     const channels: Channel[] = dashboardData?.channels || [];

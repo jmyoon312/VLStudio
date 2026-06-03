@@ -4,11 +4,18 @@ import asyncio
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app import models
-import redis
 
-# Redis Client (Optimistic - won't crash orchestrator if down)
-redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+# Redis Client (Optional - graceful fallback if not installed/running)
+redis_client = None
+try:
+    import redis as _redis_lib
+    redis_client = _redis_lib.Redis(host='localhost', port=6379, db=0, decode_responses=True, socket_connect_timeout=1)
+except ImportError:
+    pass  # redis not installed - progress publishing disabled
+except Exception:
+    pass  # redis not running - progress publishing disabled
 logger = logging.getLogger(__name__)
+
 
 class UploadOrchestrator:
     """

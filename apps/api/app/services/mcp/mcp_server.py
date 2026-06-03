@@ -1912,7 +1912,6 @@ async def orchestrate_viral_loop(
     logger.info(f"🌀 [MCP:MASTER] orchestrate_viral_loop | Topic: {topic} | Channel: {channel_id}")
     
     from app.database import SessionLocal
-    from app.services.scout.coordinator import ScoutCoordinator
     from app.services.workflow_runner import WorkflowRunner
     from app.models import BrandChannel, WorkQueueItem
     from app.config import settings
@@ -1924,17 +1923,12 @@ async def orchestrate_viral_loop(
         if not channel:
              return {"success": False, "error": f"Channel {channel_id} not found."}
 
-        # 2. 실시간 트렌드 분석 (Stage 1: Discovery)
-        scout = ScoutCoordinator(settings=settings)
-        discovery_results = await scout.scout_niche(niche if niche else topic)
-        
-        # 3. 마스터 미션 생성 (Stage 10 Dispatch)
-        # 실제 비디오 파일이 생성되기 전이므로 placeholder 경로를 사용하거나 공정 예약 상태로 진입
+        # 2. 마스터 미션 생성 (Stage 10 Dispatch)
         mission = WorkQueueItem(
             title=f"[Sovereign] {topic} - {datetime.now().strftime('%Y%m%d')}",
             description=f"Autonomous production loop for topic: {topic}",
             source_type="SOVEREIGN_AI",
-            video_file_path=os.path.join(settings.MEDIA_ROOT, "pending", f"{topic}_mission.mp4"), # Final target path
+            video_file_path=os.path.join(settings.MEDIA_ROOT, "pending", f"{topic}_mission.mp4"),
             approval_required=True,
             status="QUEUED",
             created_at=datetime.now()
@@ -1942,17 +1936,12 @@ async def orchestrate_viral_loop(
         db.add(mission)
         db.commit()
         db.refresh(mission)
-
-        # 4. 생산 엔진 가동 (Background Execution)
-        # 이 단계에서 workflow_runner를 통해 Stage 2-7을 순차 실행하도록 스케줄링
-        # (실제 대규모 리소스가 필요하므로 BackgroundTasks 또는 Celery 사용 권장)
         
         return {
             "success": True,
             "mission_id": mission.id,
-            "stage": "Discovery Completed",
-            "findings": discovery_results[:3] if discovery_results else "No specific trends found; proceeding with generic strategy.",
-            "message": f"'{topic}' 주제에 대한 진짜 소버린 생산 루프가 시작되었습니다. 미션 ID: {mission.id}"
+            "stage": "Mission Queued",
+            "message": f"'{topic}' 주제에 대한 소버린 생산 루프가 시작되었습니다. 미션 ID: {mission.id}"
         }
     finally:
         db.close()

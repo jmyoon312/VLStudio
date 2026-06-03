@@ -128,6 +128,18 @@ class LLMClient:
         self.gemini_key_index = (self.gemini_key_index + 1) % len(self.gemini_keys)
         return genai.Client(api_key=key)
 
+    def generate(self, prompt: str, model_name: str = None, system_instruction: str = None) -> str:
+        """Compatibility wrapper for code calling llm.generate(...)"""
+        if not model_name:
+            model_name = getattr(self.settings, "openclaw_model", None) or "gemini-1.5-flash"
+        if not model_name:
+            model_name = "gemini-1.5-flash"
+        res = self.generate_content(prompt, model_name=model_name, system_instruction=system_instruction)
+        if isinstance(res, dict):
+            import json
+            return json.dumps(res)
+        return str(res)
+
     def generate_content(self, prompt: str, model_name: str, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
         """
         Unified generation method.

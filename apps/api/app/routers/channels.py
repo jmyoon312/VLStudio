@@ -184,5 +184,5 @@ def scan_channel_manually(channel_id: int, db: Session = Depends(database.get_db
     
     # Run scan synchronously for immediate feedback
     from app.services import channel_monitor
-    result = channel_monitor.scan_specific_channel(db, db_channel)
+    result = channel_monitor.scan_specific_channel(db, db_channel, is_manual=True)
     return result

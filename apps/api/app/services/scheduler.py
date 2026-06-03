@@ -42,7 +42,11 @@ def update_video_stats():
             # [JITTER] Randomized delay between requests (3-7 seconds)
             delay = random.uniform(3, 7)
             logger.info(f"⏳ Jitter delay: {delay:.1f}s before fetching {vid_data.title}")
-            time.sleep(delay)
+            try:
+                time.sleep(delay)
+            except Exception:
+                # Interrupted during sleep (e.g., process shutdown)
+                break
             
             video = db.query(models.Video).filter(models.Video.id == vid_data.id).first()
             if not video or not video.url: continue
@@ -90,6 +94,15 @@ def update_video_stats():
 
                 updated_count += 1
                 
+            except RuntimeError as e:
+                err_str = str(e)
+                # [FIX] Gracefully handle interpreter shutdown during background tasks
+                if "interpreter shutdown" in err_str or "cannot schedule" in err_str:
+                    logger.warning("⚠️ Stats update interrupted: interpreter shutting down. Exiting cleanly.")
+                    return
+                logger.error(f"Failed to update stats for {video.id}: {e}")
+                db.rollback()
+                continue
             except Exception as v_e:
                 logger.error(f"Failed to update stats for {video.id}: {v_e}")
                 db.rollback()
@@ -97,11 +110,19 @@ def update_video_stats():
 
         logger.info(f"Updated stats for {updated_count} videos (Batch Mode with Jitter)")
         
+    except RuntimeError as e:
+        err_str = str(e)
+        if "interpreter shutdown" in err_str or "cannot schedule" in err_str:
+            logger.warning("⚠️ Stats update aborted: interpreter shutting down.")
+            return
+        logger.error(f"Error in update_video_stats: {e}")
+        db.rollback()
     except Exception as e:
         logger.error(f"Error in update_video_stats: {e}")
         db.rollback()
     finally:
         db.close()
+
 
 def reset_daily_quotas(db: Session = None):
     # Stealth Protocol: Removed Global Quota Reset.

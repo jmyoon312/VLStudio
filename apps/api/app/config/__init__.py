@@ -24,13 +24,24 @@ def discover_ffmpeg() -> str:
     if not IS_WINDOWS: return "ffmpeg"
     import shutil
     import os
-    # 1. Check bundled ViraLoop FFmpeg
-    bundled_path = r"C:\ViraLoopMedia\bin\ffmpeg\bin\ffmpeg.exe"
-    if os.path.exists(bundled_path):
-        return bundled_path
-    # 2. Check system PATH
+    
+    # 1. Check User Local AppData media bin folder (Primary)
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if not local_app_data:
+        local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    local_ffmpeg_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg", "bin", "ffmpeg.exe")
+    if os.path.exists(local_ffmpeg_path):
+        return local_ffmpeg_path
+        
+    # 2. Check bundled / backup ViraLoop FFmpeg at C:\ViraLoopMedia\bin (Secondary)
+    backup_path = r"C:\ViraLoopMedia\bin\ffmpeg\bin\ffmpeg.exe"
+    if os.path.exists(backup_path):
+        return backup_path
+        
+    # 3. Check system PATH
     if shutil.which("ffmpeg"): return "ffmpeg"
-    # 3. Check Playwright's bundled FFmpeg
+    
+    # 4. Check Playwright's bundled FFmpeg
     pw_path: str = os.path.expanduser("~\\AppData\\Local\\ms-playwright")
     if os.path.exists(pw_path):
         for root, dirs, files in os.walk(pw_path):
@@ -67,7 +78,9 @@ class Settings(BaseSettings):
             if not local_app_data:
                 local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
             storage_dir = os.path.join(local_app_data, "ViraLoop Studio").replace("\\", "/")
-            return f"sqlite:///{os.path.join(os.getenv('VIRALOOP_STORAGE_DIR', storage_dir), 'viral_loop.db').replace('\\\\', '/')}"
+            raw_db_path = os.path.join(os.getenv('VIRALOOP_STORAGE_DIR', storage_dir), 'viral_loop.db')
+            normalized_db_path = raw_db_path.replace('\\\\', '/')
+            return f"sqlite:///{normalized_db_path}"
         return f"postgresql://viraloop:viraloop@{DEFAULT_DB_HOST}:5432/viraloop"
 
     @property

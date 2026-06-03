@@ -14,7 +14,18 @@ import time
 import asyncio
 from datetime import datetime, timedelta
 
+import logging
+logger = logging.getLogger("app.system")
+
+# Override print to capture and write logs to scan_debug.log
+def print(*args, **kwargs):
+    message = " ".join(str(arg) for arg in args)
+    logger.info(message)
+
 scheduler = BackgroundScheduler()
+
+# [FIX] Module-level shutdown flag so stop_scheduler() can signal all job wrappers
+_shutdown_requested = threading.Event()
 
 # --- Configurations ---
 SEARCH_CATEGORIES = [
@@ -30,11 +41,49 @@ def clean_json_string(text: str) -> str:
     """Helper to clean LLM output for JSON parsing."""
     import re
     text = text.strip()
+    
+    # 1. Strip markdown code block markers
     match = re.search(r"```(?:json)?(.*?)```", text, re.DOTALL)
-    if match: text = match.group(1).strip()
-    start = text.find('[')
-    end = text.rfind(']')
-    if start != -1 and end != -1: text = text[start : end + 1]
+    if match: 
+        text = match.group(1).strip()
+        
+    # 2. Try parsing directly
+    try:
+        json.loads(text)
+        return text
+    except ValueError:
+        pass
+        
+    # 3. Locate and validate JSON array or object spans
+    start_bracket = text.find('[')
+    end_bracket = text.rfind(']')
+    
+    start_brace = text.find('{')
+    end_brace = text.rfind('}')
+    
+    candidates = []
+    if start_bracket != -1 and end_bracket != -1 and start_bracket < end_bracket:
+        candidates.append((start_bracket, end_bracket))
+    if start_brace != -1 and end_brace != -1 and start_brace < end_brace:
+        candidates.append((start_brace, end_brace))
+        
+    # Sort candidates by span length descending
+    candidates.sort(key=lambda x: x[1] - x[0], reverse=True)
+    
+    for start, end in candidates:
+        sub_text = text[start : end + 1]
+        try:
+            json.loads(sub_text)
+            return sub_text
+        except ValueError:
+            pass
+            
+    # Fallback to widest bracket match
+    if start_bracket != -1 and end_bracket != -1 and start_bracket < end_bracket:
+        return text[start_bracket : end_bracket + 1]
+    if start_brace != -1 and end_brace != -1 and start_brace < end_brace:
+        return text[start_brace : end_brace + 1]
+        
     return text
 
 async def async_search_task(query: str, settings: Any = None):
@@ -81,14 +130,14 @@ def fetch_category_trends_micro_topic(category: str, db: Session):
         tasks = [async_search_task(q, settings) for q in queries]
         return await asyncio.gather(*tasks)
     
-    # Run async loop in sync context
+    # [FIX] Use asyncio.run() to create a FRESH event loop in this background thread.
+    # NEVER use asyncio.get_event_loop() + run_until_complete() from a background thread —
+    # it grabs uvicorn's main event loop and causes "This event loop is already running" crash.
     try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-    results = loop.run_until_complete(run_searches())
+        results = asyncio.run(run_searches())
+    except Exception as e:
+        print(f"⚠️ Parallel search failed for {target_topic}: {e}")
+        results = [{"results": []} for _ in queries]
     
     # 4. Context Assembly (Context Truncation)
     context_lines = []
@@ -123,8 +172,10 @@ def fetch_category_trends_micro_topic(category: str, db: Session):
     {context_str}
     
     ### Requirements:
-    1. **Format**: JSON Array of Objects.
-       {{ "ko": "...", "en": "...", ..., "viral_score": int }}
+    1. **Format**: Output ONLY a valid JSON Array of Objects as raw text. Do NOT wrap it in markdown code blocks like ```json ... ```, and do NOT include any introductory or concluding text, explanations, conversational filler, or headers (like **Viral Scored Trends**).
+       [
+         {{ "ko": "...", "en": "...", "ja": "...", "viral_score": int, "velocity": "...", "angle": "..." }}
+       ]
     2. **Deduplication**: Use canonical names (e.g., 'Galaxy S25' not 'Samsung Galaxy S25 rumors').
     3. **Language**: 'ko' is mandatory. Fill others if possible.
     """
@@ -581,64 +632,71 @@ def start_scheduler():
     def full_channel_scan_thread():
         full_channel_scan_logic()
 
-    # Run immediately on startup, then at configured interval
-    scheduler.add_job(full_channel_scan_thread, 'interval', minutes=interval, id='channel_scan', next_run_time=datetime.now())
-    scheduler.add_job(run_rapid_batch, 'interval', minutes=15, id='trend_batch')
-    
-    # [FIX] Schedule Video Stats Update (Legacy Data Refresh)
-    # Runs every 60 minutes to track view counts/viral score growth
+    # Run channel scan at configured interval (delayed 2 min at startup to let backend settle)
+    scheduler.add_job(full_channel_scan_thread, 'interval', minutes=interval, id='channel_scan',
+                      next_run_time=datetime.now() + timedelta(minutes=2))
+    scheduler.add_job(run_rapid_batch, 'interval', minutes=15, id='trend_batch',
+                      next_run_time=datetime.now() + timedelta(minutes=5))
+
+    # [FIX] Video Stats Update — single job, safe wrapper, delayed startup
     from .services.scheduler import update_video_stats
-    scheduler.add_job(update_video_stats, 'interval', minutes=interval, id='video_stats_update')
 
-    # [NEW] Watchdog Job (Every 30 mins)
-    scheduler.add_job(scheduler_watchdog, 'interval', minutes=30, id='watchdog')
-    
-    # [NEW] Warmup Progression Job (Every hour)
-    scheduler.add_job(check_warmup_progression, 'interval', hours=1, id='warmup_progression')
-    
-    # [NEW] Check Scheduled Publishes (Every 1 Minute)
-    scheduler.add_job(check_scheduled_publishes, 'interval', minutes=1, id='delayed_publish')
-
-    # [NEW] Check Scheduled Uploads (Every 1 Minute)
-    scheduler.add_job(check_scheduled_uploads, 'interval', minutes=1, id='scheduled_upload')
-
-    
-    # [FIX] Video Stats Update Job - Updates view counts and creates history points
-    # Uses same interval as channel scan (from settings)
-    from .services.scheduler import update_video_stats
-    
-    # Run immediately on startup, then at configured interval
     def stats_update_wrapper():
+        if _shutdown_requested.is_set():
+            return
         try:
             update_video_stats()
+        except RuntimeError as e:
+            if "interpreter shutdown" in str(e) or "cannot schedule" in str(e):
+                pass  # Silently ignore – process is shutting down
+            else:
+                raise
         except Exception as e:
             print(f"❌ Stats update failed: {e}")
-    
-    scheduler.add_job(stats_update_wrapper, 'interval', minutes=interval, id='update_video_stats', next_run_time=datetime.now())
-    
-    # [NEW] Daily Report Job (9:00 AM)
+
+    # Delay first run by 3 min to avoid startup overload
+    scheduler.add_job(stats_update_wrapper, 'interval', minutes=interval, id='video_stats_update',
+                      next_run_time=datetime.now() + timedelta(minutes=3))
+
+    # Watchdog (Every 30 mins) — delay 10 min so it doesn't run at bare startup
+    scheduler.add_job(scheduler_watchdog, 'interval', minutes=30, id='watchdog',
+                      next_run_time=datetime.now() + timedelta(minutes=10))
+
+    # Warmup Progression (Every hour) — delay 15 min
+    scheduler.add_job(check_warmup_progression, 'interval', hours=1, id='warmup_progression',
+                      next_run_time=datetime.now() + timedelta(minutes=15))
+
+    # Check Scheduled Publishes (Every 1 Minute) — delay 1 min to let DB settle
+    scheduler.add_job(check_scheduled_publishes, 'interval', minutes=1, id='delayed_publish',
+                      next_run_time=datetime.now() + timedelta(minutes=1))
+
+    # Check Scheduled Uploads (Every 1 Minute) — delay 1 min
+    scheduler.add_job(check_scheduled_uploads, 'interval', minutes=1, id='scheduled_upload',
+                      next_run_time=datetime.now() + timedelta(minutes=1))
+
+    # Daily Report Job (9:00 AM)
     from app.services import report_generator
     def daily_report_wrapper():
+        if _shutdown_requested.is_set():
+            return
         db = SessionLocal()
         try:
             report_generator.generate_daily_report(db)
         finally:
             db.close()
-            
+
     scheduler.add_job(daily_report_wrapper, 'cron', hour=9, minute=0, id='daily_report')
-    
+
     scheduler.start()
-    
-    # [FIX] Startup Check for Report (If missed today)
-    # Optional: Check if report exists for today, if not, generate (but strictly user asked for 9-10 AM)
-    # Let's stick to cron.
-    
+
     t = threading.Thread(target=initial_scan_thread, daemon=True)
     t.start()
 
+
 def stop_scheduler():
     """Stops the scheduler gracefully."""
+    # [FIX] Signal all job wrappers to abort BEFORE shutting down APScheduler
+    _shutdown_requested.set()
     if scheduler.running:
         print("🛑 Stopping Background Scheduler...")
         scheduler.shutdown(wait=False)
-

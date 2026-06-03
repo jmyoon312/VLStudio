@@ -20,15 +20,26 @@ interface TTSVoice {
     styles?: string[];
 }
 
+const getSavedDraftValue = (key: string, defaultValue: any) => {
+    try {
+        const saved = localStorage.getItem("vl_tts_draft");
+        if (saved) {
+            const data = JSON.parse(saved);
+            if (data[key] !== undefined) return data[key];
+        }
+    } catch {}
+    return defaultValue;
+};
+
 const MultiTTS = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
     // --- Step 1: TTS Generation ---
-    const [text, setText] = useState("");
-    const [engine, setEngine] = useState("google");
-    const [language, setLanguage] = useState("ko");
-    const [voiceId, setVoiceId] = useState("");
+    const [text, setText] = useState(() => getSavedDraftValue("text", ""));
+    const [engine, setEngine] = useState(() => getSavedDraftValue("engine", "supertone-local"));
+    const [language, setLanguage] = useState(() => getSavedDraftValue("language", "ko"));
+    const [voiceId, setVoiceId] = useState(() => getSavedDraftValue("voiceId", ""));
 
     // Auto-fill Imported Script
     useEffect(() => {
@@ -41,55 +52,71 @@ const MultiTTS = () => {
     }, [location.state]);
 
     // Sliders: Speed (0.5 ~ 2.0), Pitch (-50 ~ 50)
-    // Sliders: Speed (0.5 ~ 2.0), Pitch (-50 ~ 50)
-    const [speed, setSpeed] = useState(1.0);
-    const [pitch, setPitch] = useState(0);
+    const [speed, setSpeed] = useState(() => getSavedDraftValue("speed", 1.0));
+    const [pitch, setPitch] = useState(() => getSavedDraftValue("pitch", 0));
 
-    const [emotion, setEmotion] = useState("normal");
-    const [gender, setGender] = useState<"all" | "male" | "female">("all");
-    const [ageGroup, setAgeGroup] = useState<"all" | "youth" | "adult" | "senior">("all");
+    const [emotion, setEmotion] = useState(() => getSavedDraftValue("emotion", "normal"));
+    const [gender, setGender] = useState<"all" | "male" | "female">(() => getSavedDraftValue("gender", "all"));
+    const [ageGroup, setAgeGroup] = useState<"all" | "youth" | "adult" | "senior">(() => getSavedDraftValue("ageGroup", "all"));
 
     // ElevenLabs Settings
-    const [stability, setStability] = useState(0.5);
-    const [similarity, setSimilarity] = useState(0.75);
-    const [styleExaggeration, setStyleExaggeration] = useState(0.0);
+    const [stability, setStability] = useState(() => getSavedDraftValue("stability", 0.5));
+    const [similarity, setSimilarity] = useState(() => getSavedDraftValue("similarity", 0.75));
+    const [styleExaggeration, setStyleExaggeration] = useState(() => getSavedDraftValue("styleExaggeration", 0.0));
 
     // Supertonic Local Settings
-    const [noiseScale, setNoiseScale] = useState(0.0);
-    const [mixVoiceId, setMixVoiceId] = useState<string>("");
-    const [mixRatio, setMixRatio] = useState(0.0);
-    const [showProMode, setShowProMode] = useState(false);
+    const [noiseScale, setNoiseScale] = useState(() => getSavedDraftValue("noiseScale", 0.0));
+    const [mixVoiceId, setMixVoiceId] = useState<string>(() => getSavedDraftValue("mixVoiceId", ""));
+    const [mixRatio, setMixRatio] = useState(() => getSavedDraftValue("mixRatio", 0.0));
+    const [showProMode, setShowProMode] = useState(() => getSavedDraftValue("showProMode", false));
 
     // Qwen3 Settings [NEW]
-    const [qwenAge, setQwenAge] = useState("default");
-    const [qwenDialect, setQwenDialect] = useState("standard");
-    const [qwenSpeed, setQwenSpeed] = useState("normal");
-    const [qwenSeed, setQwenSeed] = useState(-1);
-    const [maintainTone, setMaintainTone] = useState(false);
-    const [lastQwenSeed, setLastQwenSeed] = useState(-1);
-    // [NEW] Voice Design / Instruction
-    const [qwenInstruction, setQwenInstruction] = useState("");
+    const [qwenAge, setQwenAge] = useState(() => getSavedDraftValue("qwenAge", "default"));
+    const [qwenDialect, setQwenDialect] = useState(() => getSavedDraftValue("qwenDialect", "standard"));
+    const [qwenSpeed, setQwenSpeed] = useState(() => getSavedDraftValue("qwenSpeed", "normal"));
+    const [qwenSeed, setQwenSeed] = useState(() => getSavedDraftValue("qwenSeed", -1));
+    const [maintainTone, setMaintainTone] = useState(() => getSavedDraftValue("maintainTone", false));
+    const [lastQwenSeed, setLastQwenSeed] = useState(() => getSavedDraftValue("lastQwenSeed", -1));
+    const [qwenInstruction, setQwenInstruction] = useState(() => getSavedDraftValue("qwenInstruction", ""));
 
     const [isGenerating, setIsGenerating] = useState(false);
 
     const [step1Result, setStep1Result] = useState<{
         web_url: string;
         server_path: string;
-    } | null>(null);
+    } | null>(() => getSavedDraftValue("step1Result", null));
 
     // --- Step 2: Silence Removal ---
-    const [silenceThreshold, setSilenceThreshold] = useState(-40);
-    const [minSilenceLen, setMinSilenceLen] = useState(300);
-    const [keepSilenceLen, setKeepSilenceLen] = useState(50);
+    const [silenceThreshold, setSilenceThreshold] = useState(() => getSavedDraftValue("silenceThreshold", -40));
+    const [minSilenceLen, setMinSilenceLen] = useState(() => getSavedDraftValue("minSilenceLen", 300));
+    const [keepSilenceLen, setKeepSilenceLen] = useState(() => getSavedDraftValue("keepSilenceLen", 50));
     const [isProcessingSilence, setIsProcessingSilence] = useState(false);
 
     const [step2Result, setStep2Result] = useState<{
         web_url: string;
         server_path: string;
-    } | null>(null);
+    } | null>(() => getSavedDraftValue("step2Result", null));
 
     // --- Step 3: SRT Extraction ---
-    const [srtSource, setSrtSource] = useState<"original" | "cleaned">("original");
+    const [srtSource, setSrtSource] = useState<"original" | "cleaned">(() => getSavedDraftValue("srtSource", "original"));
+
+    // Save draft state to localStorage on changes
+    useEffect(() => {
+        const draft = {
+            text, engine, language, voiceId, speed, pitch, emotion, gender, ageGroup,
+            stability, similarity, styleExaggeration, noiseScale, mixVoiceId, mixRatio,
+            showProMode, qwenAge, qwenDialect, qwenSpeed, qwenSeed, maintainTone,
+            lastQwenSeed, qwenInstruction, silenceThreshold, minSilenceLen, keepSilenceLen,
+            srtSource, step1Result, step2Result
+        };
+        localStorage.setItem("vl_tts_draft", JSON.stringify(draft));
+    }, [
+        text, engine, language, voiceId, speed, pitch, emotion, gender, ageGroup,
+        stability, similarity, styleExaggeration, noiseScale, mixVoiceId, mixRatio,
+        showProMode, qwenAge, qwenDialect, qwenSpeed, qwenSeed, maintainTone,
+        lastQwenSeed, qwenInstruction, silenceThreshold, minSilenceLen, keepSilenceLen,
+        srtSource, step1Result, step2Result
+    ]);
     const [isExtracting, setIsExtracting] = useState(false);
 
     // Fetch Voices
@@ -262,9 +289,6 @@ const MultiTTS = () => {
                 formData.append("xi_stability", stability.toString());
                 formData.append("xi_similarity_boost", similarity.toString());
                 formData.append("xi_style", styleExaggeration.toString());
-            }
-            if (engine === 'supertone') {
-                formData.append("emotion", emotion);
             }
             if (engine === 'supertone-local') {
                 formData.append("emotion", emotion);
@@ -572,7 +596,6 @@ const MultiTTS = () => {
                                     <option value="google" className="bg-card text-foreground">Google TTS (무료/기본)</option>
                                     <option value="kokoro" className="bg-card text-foreground">Kokoro (로컬/고품질)</option>
                                     <option value="elevenlabs" className="bg-card text-foreground">ElevenLabs (유료)</option>
-                                    <option value="supertone" className="bg-card text-foreground">Supertone (유료)</option>
                                     <option value="supertone-local" className="bg-card text-foreground">Supertonic (Local)</option>
                                     <option value="typecast" className="bg-card text-foreground">Typecast (유료)</option>
                                     <option value="qwen" className="bg-card text-foreground">Qwen 2.5 (Remote)</option>
@@ -585,17 +608,55 @@ const MultiTTS = () => {
                                     value={language}
                                     onChange={(e) => setLanguage(e.target.value)}
                                 >
-                                    <option value="auto">자동 감지 (Auto)</option>
-                                    <option value="ko">한국어</option>
-                                    <option value="en">영어</option>
-                                    <option value="ja">일본어</option>
-                                    <option value="zh">중국어</option>
-                                    <option value="es">스페인어</option>
-                                    <option value="fr">프랑스어</option>
-                                    <option value="de">독일어</option>
-                                    <option value="ru">러시아어</option>
-                                    <option value="pt">포르투갈어</option>
-                                    <option value="it">이탈리아어</option>
+                                    {engine === 'supertone-local' ? (
+                                        <>
+                                            <option value="ko">🇰🇷 한국어 (Korean)</option>
+                                            <option value="en">🇺🇸 영어 (English)</option>
+                                            <option value="ja">🇯🇵 일본어 (Japanese)</option>
+                                            <option value="ar">🇸🇦 아랍어 (Arabic)</option>
+                                            <option value="bg">🇧🇬 불가리아어 (Bulgarian)</option>
+                                            <option value="cs">🇨🇿 체코어 (Czech)</option>
+                                            <option value="da">🇩🇰 덴마크어 (Danish)</option>
+                                            <option value="de">🇩🇪 독일어 (German)</option>
+                                            <option value="el">🇬🇷 그리스어 (Greek)</option>
+                                            <option value="es">🇪🇸 스페인어 (Spanish)</option>
+                                            <option value="et">🇪🇪 에스토니아어 (Estonian)</option>
+                                            <option value="fi">🇫🇮 핀란드어 (Finnish)</option>
+                                            <option value="fr">🇫🇷 프랑스어 (French)</option>
+                                            <option value="hi">🇮🇳 힌디어 (Hindi)</option>
+                                            <option value="hr">🇭🇷 크로아티아어 (Croatian)</option>
+                                            <option value="hu">🇭🇺 헝가리어 (Hungarian)</option>
+                                            <option value="id">🇮🇩 인도네시아어 (Indonesian)</option>
+                                            <option value="it">🇮🇹 이탈리아어 (Italian)</option>
+                                            <option value="lt">🇱🇹 리투아니아어 (Lithuanian)</option>
+                                            <option value="lv">🇱🇻 라트비아어 (Latvian)</option>
+                                            <option value="nl">🇳🇱 네덜란드어 (Dutch)</option>
+                                            <option value="pl">🇵🇱 폴란드어 (Polish)</option>
+                                            <option value="pt">🇵🇹 포르투갈어 (Portuguese)</option>
+                                            <option value="ro">🇷🇴 루마니아어 (Romanian)</option>
+                                            <option value="ru">🇷🇺 러시아어 (Russian)</option>
+                                            <option value="sk">🇸🇰 슬로바키아어 (Slovak)</option>
+                                            <option value="sl">🇸🇮 슬로베니아어 (Slovenian)</option>
+                                            <option value="sv">🇸🇪 스웨덴어 (Swedish)</option>
+                                            <option value="tr">🇹🇷 터키어 (Turkish)</option>
+                                            <option value="uk">🇺🇦 우크라이나어 (Ukrainian)</option>
+                                            <option value="vi">🇻🇳 베트남어 (Vietnamese)</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="auto">자동 감지 (Auto)</option>
+                                            <option value="ko">한국어</option>
+                                            <option value="en">영어</option>
+                                            <option value="ja">일본어</option>
+                                            <option value="zh">중국어</option>
+                                            <option value="es">스페인어</option>
+                                            <option value="fr">프랑스어</option>
+                                            <option value="de">독일어</option>
+                                            <option value="ru">러시아어</option>
+                                            <option value="pt">포르투갈어</option>
+                                            <option value="it">이탈리아어</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
                         </div>
@@ -949,37 +1010,6 @@ const MultiTTS = () => {
                                                     </div>
                                                 </div>
                                             )}
-                                        </div>
-                                    ) : (engine === 'supertone') ? (
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between items-center">
-                                                <Label className="text-sm font-semibold text-foreground">스타일 (Emotion)</Label>
-                                                <span className="text-sm font-mono text-primary font-medium">
-                                                    {emotion || "Default"}
-                                                </span>
-                                            </div>
-                                            {/* Dynamic Style Buttons */}
-                                            <div className="flex flex-wrap gap-2">
-                                                <Button
-                                                    variant={emotion === "normal" || !emotion ? "default" : "outline"}
-                                                    size="sm"
-                                                    onClick={() => setEmotion("normal")}
-                                                    className="h-7 text-xs"
-                                                >
-                                                    기본 (Normal)
-                                                </Button>
-                                                {voices?.find(v => v.id === voiceId)?.styles?.map((style) => (
-                                                    <Button
-                                                        key={style}
-                                                        variant={emotion === style ? "default" : "outline"}
-                                                        size="sm"
-                                                        onClick={() => setEmotion(style)}
-                                                        className="h-7 text-xs"
-                                                    >
-                                                        {style}
-                                                    </Button>
-                                                ))}
-                                            </div>
                                         </div>
                                     ) : engine === 'elevenlabs' ? (
 

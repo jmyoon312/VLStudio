@@ -643,7 +643,7 @@ const ScriptLab = () => {
                                         onMouseEnter={() => handleRowMouseEnter(row)}
                                     >
                                         {row.getVisibleCells().map(cell => (
-                                            <TableCell key={cell.id} className="py-2 px-2 truncate block sm:table-cell" style={{ width: cell.column.getSize() }}>
+                                            <TableCell key={cell.id} className="py-2 px-2 truncate" style={{ width: cell.column.getSize() }}>
                                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                             </TableCell>
                                         ))}
@@ -731,7 +731,7 @@ const ScriptLab = () => {
 
                             <div className="flex-1 flex overflow-hidden">
                                 {/* Left: Script Content */}
-                                <div className="flex-1 p-6 overflow-hidden flex flex-col bg-muted/30">
+                                <div className="flex-1 p-6 overflow-hidden flex flex-col bg-card">
                                     <ScrollArea className="flex-1 h-full pr-4">
                                         {isScriptLoading ? (
                                             <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
@@ -739,7 +739,7 @@ const ScriptLab = () => {
                                                 <p className="text-sm">대본을 불러오는 중...</p>
                                             </div>
                                         ) : subtitleContent && subtitleContent.content ? (
-                                            <pre className="whitespace-pre-wrap text-base font-sans leading-loose text-foreground">
+                                            <pre className="whitespace-pre-wrap text-base font-sans leading-loose text-foreground font-medium dark:text-zinc-100">
                                                 {subtitleContent.content.replace(/>>/g, '').replace(/&gt;&gt;/g, '')}
                                             </pre>
                                         ) : (

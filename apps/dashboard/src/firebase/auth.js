@@ -29,6 +29,14 @@ export async function signInWithGoogle() {
     // Browser Fallback logic
     if (!window.electronAPI || !window.electronAPI.googleSignIn) {
       console.log('[Auth] Running in standard web browser. Triggering Google signInWithPopup fallback...');
+      
+      const hostname = window.location.hostname;
+      const isIpAddress = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
+      
+      if (isIpAddress && hostname !== '127.0.0.1' && hostname !== 'localhost') {
+        throw new Error('보안 정책(Firebase)으로 인해 로컬 IP(192.168.x.x)에서는 구글 로그인이 차단됩니다. 같은 PC라면 localhost:5183 으로 접속하시고, 다른 기기라면 ngrok 등을 사용해 HTTPS 도메인을 할당받아야 합니다.');
+      }
+
       const provider = new GoogleAuthProvider()
       const userCredential = await signInWithPopup(auth, provider)
       console.log('[Auth] Google popup sign-in successful:', userCredential.user.email)

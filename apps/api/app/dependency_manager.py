@@ -85,11 +85,30 @@ class DependencyManager:
         Returns the path to the FFmpeg executable.
         Priority:
         1. FFMPEG_BINARY environment variable
-        2. Local 'bin' directory
-        3. Virtual environment 'Scripts' folder (ensured in PATH)
-        4. WinGet Gyan.FFmpeg package bin folder (ensured in PATH)
-        5. System PATH
+        2. User Profile Local AppData media bin folder (Primary Bundled)
+        3. C:\ViraLoopMedia\bin backup path (Secondary Bundled)
+        4. Virtual environment 'Scripts' folder (ensured in PATH)
+        5. WinGet Gyan.FFmpeg package bin folder (ensured in PATH)
+        6. System PATH
         """
+        # 1. Check environment variable
+        env_ffmpeg = os.environ.get("FFMPEG_BINARY")
+        if env_ffmpeg and os.path.exists(env_ffmpeg):
+            return env_ffmpeg
+
+        # 2. Check User Local AppData media bin folder (Primary)
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if not local_app_data:
+            local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+        local_ffmpeg = os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg", "bin", "ffmpeg.exe")
+        if os.path.exists(local_ffmpeg):
+            return local_ffmpeg
+
+        # 3. Check backup path at C:\ViraLoopMedia\bin
+        backup_ffmpeg = r"C:\ViraLoopMedia\bin\ffmpeg\bin\ffmpeg.exe"
+        if os.path.exists(backup_ffmpeg):
+            return backup_ffmpeg
+
         # Ensure venv/Scripts is in PATH
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         root_dir = os.path.dirname(os.path.dirname(base_dir))
@@ -98,14 +117,12 @@ class DependencyManager:
             os.environ["PATH"] = venv_scripts + os.pathsep + os.environ["PATH"]
 
         # Ensure WinGet Gyan.FFmpeg is in PATH if present
-        local_app_data = os.environ.get("LOCALAPPDATA", "")
         if local_app_data:
             winget_packages = os.path.join(local_app_data, "Microsoft", "WinGet", "Packages")
             if os.path.exists(winget_packages):
                 try:
                     for item in os.listdir(winget_packages):
                         if "Gyan.FFmpeg" in item:
-                            # Search for bin directory inside the Gyan.FFmpeg extraction
                             for sub in os.listdir(os.path.join(winget_packages, item)):
                                 if sub.startswith("ffmpeg-"):
                                     ffmpeg_bin = os.path.join(winget_packages, item, sub, "bin")
@@ -114,26 +131,12 @@ class DependencyManager:
                 except Exception:
                     pass
 
-        # 1. Check environment variable
-        env_ffmpeg = os.environ.get("FFMPEG_BINARY")
-        if env_ffmpeg and os.path.exists(env_ffmpeg):
-            return env_ffmpeg
-
-        # 2. Check local bin directory (relative to this file)
-        local_bin_dir = os.path.join(base_dir, "bin")
-        local_ffmpeg = os.path.join(local_bin_dir, "ffmpeg.exe" if platform.system() == "Windows" else "ffmpeg")
-        
-        if os.path.exists(local_ffmpeg):
-            if local_bin_dir not in os.environ["PATH"]:
-                os.environ["PATH"] = local_bin_dir + os.pathsep + os.environ["PATH"]
-            return local_ffmpeg
-
-        # 3. Check system PATH
+        # 4. Check system PATH (includes WinGet added above)
         system_ffmpeg = shutil.which("ffmpeg")
         if system_ffmpeg:
             return system_ffmpeg
 
-        # 4. Fallback
+        # 5. Fallback
         return "ffmpeg"
 
     @staticmethod

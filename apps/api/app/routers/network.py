@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["network"])
 
 @router.get("/status")
-async def get_network_status():
+def get_network_status():
     """
     [SAIF-P1] 실시간 네트워크 격리 및 LTE 상태 조회
     """
@@ -18,14 +18,14 @@ async def get_network_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/rotate-ip")
-async def rotate_network_ip(serial: str = None):
+def rotate_network_ip(serial: str = None, method: str = "soft"):
     """
-    [SAIF-P1] 강제 IP 로테이션 트리거 (비행기 모드 토글)
+    [SAIF-P1] 강제 IP 로테이션 트리거 (비행기 모드 토글 또는 모바일 데이터 토글)
     """
     try:
-        success = adb_service.rotate_ip(serial=serial)
+        success = adb_service.rotate_ip(serial=serial, method=method)
         if success:
-            return {"status": "success", "message": "IP rotation sequence triggered"}
+            return {"status": "success", "message": f"IP rotation ({method}) sequence triggered"}
         else:
             raise HTTPException(status_code=500, detail="IP rotation failed on device")
     except Exception as e:

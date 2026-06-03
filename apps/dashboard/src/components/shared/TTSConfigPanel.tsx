@@ -199,8 +199,8 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                                 <span className="text-slate-600 text-[10px]">(무료/기본)</span>
                             </SelectItem>
                             <SelectItem value="kokoro" className="text-xs">Kokoro (로컬)</SelectItem>
+                            <SelectItem value="supertone-local" className="text-xs">Supertonic (로컬)</SelectItem>
                             <SelectItem value="elevenlabs" className="text-xs">ElevenLabs (유료)</SelectItem>
-                            <SelectItem value="supertone" className="text-xs">Supertone (유료)</SelectItem>
                             <SelectItem value="typecast" className="text-xs">Typecast (유료)</SelectItem>
                         </SelectContent>
                     </Select>
@@ -211,12 +211,50 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                         <SelectTrigger className="h-7 text-xs bg-white border-slate-200">
                             <SelectValue placeholder="Language" />
                         </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="ko" className="text-xs">🇰🇷 한국어</SelectItem>
-                            <SelectItem value="en" className="text-xs">🇺🇸 영어</SelectItem>
-                            <SelectItem value="ja" className="text-xs">🇯🇵 일본어</SelectItem>
-                            <SelectItem value="zh" className="text-xs">🇨🇳 중국어</SelectItem>
-                            <SelectItem value="es" className="text-xs">🇪🇸 스페인어</SelectItem>
+                        <SelectContent className="max-h-[300px]">
+                            {config.engine === 'supertone-local' ? (
+                                <>
+                                    <SelectItem value="ko" className="text-xs">🇰🇷 한국어 (Korean)</SelectItem>
+                                    <SelectItem value="en" className="text-xs">🇺🇸 영어 (English)</SelectItem>
+                                    <SelectItem value="ja" className="text-xs">🇯🇵 일본어 (Japanese)</SelectItem>
+                                    <SelectItem value="ar" className="text-xs">🇸🇦 아랍어 (Arabic)</SelectItem>
+                                    <SelectItem value="bg" className="text-xs">🇧🇬 불가리아어 (Bulgarian)</SelectItem>
+                                    <SelectItem value="cs" className="text-xs">🇨🇿 체코어 (Czech)</SelectItem>
+                                    <SelectItem value="da" className="text-xs">🇩🇰 덴마크어 (Danish)</SelectItem>
+                                    <SelectItem value="de" className="text-xs">🇩🇪 독일어 (German)</SelectItem>
+                                    <SelectItem value="el" className="text-xs">🇬🇷 그리스어 (Greek)</SelectItem>
+                                    <SelectItem value="es" className="text-xs">🇪🇸 스페인어 (Spanish)</SelectItem>
+                                    <SelectItem value="et" className="text-xs">🇪🇪 에스토니아어 (Estonian)</SelectItem>
+                                    <SelectItem value="fi" className="text-xs">🇫🇮 핀란드어 (Finnish)</SelectItem>
+                                    <SelectItem value="fr" className="text-xs">🇫🇷 프랑스어 (French)</SelectItem>
+                                    <SelectItem value="hi" className="text-xs">🇮🇳 힌디어 (Hindi)</SelectItem>
+                                    <SelectItem value="hr" className="text-xs">🇭🇷 크로아티아어 (Croatian)</SelectItem>
+                                    <SelectItem value="hu" className="text-xs">🇭🇺 헝가리어 (Hungarian)</SelectItem>
+                                    <SelectItem value="id" className="text-xs">🇮🇩 인도네시아어 (Indonesian)</SelectItem>
+                                    <SelectItem value="it" className="text-xs">🇮🇹 이탈리아어 (Italian)</SelectItem>
+                                    <SelectItem value="lt" className="text-xs">🇱🇹 리투아니아어 (Lithuanian)</SelectItem>
+                                    <SelectItem value="lv" className="text-xs">🇱🇻 라트비아어 (Latvian)</SelectItem>
+                                    <SelectItem value="nl" className="text-xs">🇳🇱 네덜란드어 (Dutch)</SelectItem>
+                                    <SelectItem value="pl" className="text-xs">🇵🇱 폴란드어 (Polish)</SelectItem>
+                                    <SelectItem value="pt" className="text-xs">🇵🇹 포르투갈어 (Portuguese)</SelectItem>
+                                    <SelectItem value="ro" className="text-xs">🇷🇴 루마니아어 (Romanian)</SelectItem>
+                                    <SelectItem value="ru" className="text-xs">🇷🇺 러시아어 (Russian)</SelectItem>
+                                    <SelectItem value="sk" className="text-xs">🇸🇰 슬로바키아어 (Slovak)</SelectItem>
+                                    <SelectItem value="sl" className="text-xs">🇸🇮 슬로베니아어 (Slovenian)</SelectItem>
+                                    <SelectItem value="sv" className="text-xs">🇸🇪 스웨덴어 (Swedish)</SelectItem>
+                                    <SelectItem value="tr" className="text-xs">🇹🇷 터키어 (Turkish)</SelectItem>
+                                    <SelectItem value="uk" className="text-xs">🇺🇦 우크라이나어 (Ukrainian)</SelectItem>
+                                    <SelectItem value="vi" className="text-xs">🇻🇳 베트남어 (Vietnamese)</SelectItem>
+                                </>
+                            ) : (
+                                <>
+                                    <SelectItem value="ko" className="text-xs">🇰🇷 한국어</SelectItem>
+                                    <SelectItem value="en" className="text-xs">🇺🇸 영어</SelectItem>
+                                    <SelectItem value="ja" className="text-xs">🇯🇵 일본어</SelectItem>
+                                    <SelectItem value="zh" className="text-xs">🇨🇳 중국어</SelectItem>
+                                    <SelectItem value="es" className="text-xs">🇪🇸 스페인어</SelectItem>
+                                </>
+                            )}
                         </SelectContent>
                     </Select>
                 </div>
@@ -302,7 +340,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
             {/* Sliders (Engine Specific) */}
             <div className="bg-slate-50 rounded border border-slate-100 p-2 space-y-3">
                 {/* Standard Pitch/Speed for Google/Edge/Others */}
-                {(!['elevenlabs', 'supertone', 'typecast'].includes(config.engine)) && (
+                {(!['elevenlabs', 'typecast', 'supertone-local'].includes(config.engine)) && (
                     <>
                         <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
@@ -333,6 +371,98 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                     </>
                 )}
 
+                {/* Supertonic Local Config Section */}
+                {config.engine === 'supertone-local' && (
+                    <div className="space-y-3">
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                                <Label className="text-[10px] text-slate-500">Speed (속도)</Label>
+                                <span className="text-[10px] font-mono text-slate-600">x{speed.toFixed(1)}</span>
+                            </div>
+                            <Slider
+                                value={[speed]} min={0.5} max={2.0} step={0.1}
+                                onValueChange={(v) => setSpeed(v[0])}
+                                onValueCommit={(v) => handleSliderCommit('speed', v[0])}
+                                className="py-1"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold text-slate-600">🎭 감정 & 스타일 (Emotion Engine)</Label>
+                            <div className="grid grid-cols-4 gap-1">
+                                {[
+                                    { id: 'normal', label: '기본 😐' },
+                                    { id: 'happy', label: '기쁨 😄' },
+                                    { id: 'sad', label: '슬픔 😢' },
+                                    { id: 'angry', label: '분노 😡' }
+                                ].map(e => (
+                                    <Button
+                                        key={e.id}
+                                        variant={config.emotion === e.id ? "default" : "outline"}
+                                        size="sm"
+                                        className={cn("h-6 text-[10px] px-0", config.emotion === e.id && "bg-sky-600 hover:bg-sky-700")}
+                                        onClick={() => {
+                                            handleChange('emotion', e.id);
+                                            handleChange('noise_scale', 0.0);
+                                        }}
+                                    >
+                                        {e.label}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                                <Label className="text-[10px] text-slate-500">감정 강도 (Noise Scale)</Label>
+                                <span className="text-[10px] font-mono text-slate-600">{(config.noise_scale ?? 0.0).toFixed(1)}</span>
+                            </div>
+                            <Slider
+                                value={[config.noise_scale ?? 0.0]} min={0.0} max={2.0} step={0.1}
+                                onValueChange={(v) => handleChange('noise_scale', v[0])}
+                                className="py-1"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5 pt-1.5 border-t border-slate-200">
+                            <Label className="text-[10px] font-bold text-slate-600">🎙️ 목소리 믹스 (Voice Mixing)</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                    <Label className="text-[9px] text-slate-500">대상 목소리</Label>
+                                    <Select 
+                                        value={config.mix_voice_id || "none"} 
+                                        onValueChange={(v) => handleChange('mix_voice_id', v === "none" ? "" : v)}
+                                    >
+                                        <SelectTrigger className="h-6 text-[10px] bg-white border-slate-200">
+                                            <SelectValue placeholder="믹스 안함" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-[150px]">
+                                            <SelectItem value="none" className="text-[10px]">믹스 안함</SelectItem>
+                                            {voices?.filter(v => v.id !== config.voice_id).map((v) => (
+                                                <SelectItem key={v.id} value={v.id} className="text-[10px]">
+                                                    {getFriendlyVoiceName(v)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex justify-between items-center text-[9px] text-slate-500">
+                                        <span>믹스 비율</span>
+                                        <span>{Math.round((config.mix_ratio ?? 0.0) * 100)}%</span>
+                                    </div>
+                                    <Slider
+                                        value={[config.mix_ratio ?? 0.0]} min={0.0} max={1.0} step={0.05}
+                                        onValueChange={(v) => handleChange('mix_ratio', v[0])}
+                                        disabled={!config.mix_voice_id}
+                                        className="py-1"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ... (Keep other engine sliders same but compact) ... */}
                 {config.engine === 'typecast' ? (
                     <div className="space-y-2">
@@ -347,31 +477,6 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                                     onClick={() => handleChange('emotion', e)}
                                 >
                                     {e.slice(0, 3)}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                ) : config.engine === 'supertone' ? (
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-bold text-slate-600">Supertone Style</Label>
-                        <div className="flex flex-wrap gap-1">
-                            <Button
-                                variant={config.emotion === "normal" ? "default" : "outline"}
-                                size="sm"
-                                className={cn("h-6 text-[10px]", config.emotion === "normal" && "bg-purple-600 hover:bg-purple-700")}
-                                onClick={() => handleChange('emotion', "normal")}
-                            >
-                                Normal
-                            </Button>
-                            {voices?.find(v => v.id === config.voice_id)?.styles?.map(style => (
-                                <Button
-                                    key={style}
-                                    variant={config.emotion === style ? "default" : "outline"}
-                                    size="sm"
-                                    className={cn("h-6 text-[10px] capitalize", config.emotion === style && "bg-purple-600 hover:bg-purple-700")}
-                                    onClick={() => handleChange('emotion', style)}
-                                >
-                                    {style}
                                 </Button>
                             ))}
                         </div>

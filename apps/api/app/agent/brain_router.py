@@ -95,7 +95,7 @@ class PluggableBrainRouter:
 
         return self._create_langchain_model(provider, model_name, settings)
 
-    def _create_langchain_model(self, provider: str, model_name: str, settings) -> Optional[BaseChatModel]:
+    def _create_langchain_model(self, provider: str, model_name: str, settings, api_key: str = None) -> Optional[BaseChatModel]:
         from langchain_openai import ChatOpenAI
         from langchain_anthropic import ChatAnthropic
 
@@ -105,9 +105,9 @@ class PluggableBrainRouter:
         try:
             if provider == "google" or provider == "gemini":
                 from langchain_google_genai import ChatGoogleGenerativeAI
-                api_key = None
-                if settings and settings.gemini_api_keys:
-                    api_key = settings.gemini_api_keys[0]
+                if not api_key:
+                    if settings and settings.gemini_api_keys:
+                        api_key = settings.gemini_api_keys[0]
                 if not api_key:
                     api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
                 
@@ -119,12 +119,12 @@ class PluggableBrainRouter:
                 )
 
             elif provider == "groq":
-                api_key = None
-                if settings:
-                    if settings.groq_api_keys:
-                        api_key = settings.groq_api_keys[0]
-                    elif hasattr(settings, "groq_api_key") and settings.groq_api_key:
-                        api_key = settings.groq_api_key
+                if not api_key:
+                    if settings:
+                        if settings.groq_api_keys:
+                            api_key = settings.groq_api_keys[0]
+                        elif hasattr(settings, "groq_api_key") and settings.groq_api_key:
+                            api_key = settings.groq_api_key
                 if not api_key:
                     api_key = os.getenv("GROQ_API_KEY")
                 

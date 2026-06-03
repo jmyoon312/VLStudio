@@ -66,6 +66,9 @@ if (typeof window !== 'undefined' && typeof (window as any).electronAPI === 'und
       return () => {};
     },
     
+    // Additional Layout/View Mocks
+    getActiveViews: async () => ({ views: [] }),
+    
     // Controls
     setLayout: async () => {},
     updateSplit: async () => {},

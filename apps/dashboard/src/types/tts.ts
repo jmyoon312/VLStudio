@@ -16,6 +16,11 @@ export interface TTSConfig {
     silence_threshold?: number;
     min_silence_len?: number;
     keep_silence_len?: number;
+
+    // Supertonic Local
+    noise_scale?: number;
+    mix_voice_id?: string;
+    mix_ratio?: number;
 }
 
 export interface TTSVoice {

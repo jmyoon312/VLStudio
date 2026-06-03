@@ -95,6 +95,7 @@ class ChannelCreate(ChannelBase):
 
 class ChannelUpdate(BaseModel):
     name: Optional[str] = None
+    url: Optional[str] = None
     status: Optional[str] = None
     auto_download: Optional[bool] = None
     default_script_only: Optional[bool] = None # [NEW]

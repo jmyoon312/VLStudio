@@ -134,7 +134,12 @@ class ADBService:
         cached = self._cached_public_ips.get(target)
         last_check = getattr(self, f"_last_check_{target}", 0)
         
-        if not force and cached and "." in cached and (time.time() - last_check < 15):
+        # [Bug Fix] "갱신 중..." 같은 상태 메시지가 마침표(.)를 포함하여 유효한 IP 캐시로 오인되는 것 방지
+        is_valid_ip = False
+        if cached:
+            is_valid_ip = bool(re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', cached))
+            
+        if not force and is_valid_ip and (time.time() - last_check < 15):
             return cached
             
         providers = ["https://api.ipify.org", "https://ifconfig.me/ip"]
@@ -148,7 +153,7 @@ class ADBService:
                 return res
         
         # [FALLBACK] 통신 실패 시 절대 시스템 IP(Wi-Fi)로 덮어쓰지 않음 -> UI Flickering(깜빡임) 방지
-        return cached if cached else "오프라인 (연결 안됨)"
+        return cached if is_valid_ip else "오프라인 (연결 안됨)"
 
     def get_system_public_ip(self) -> str:
         """윈도우 호스트의 공인 IP 확인 (Wi-Fi/유선 인터페이스에 바인딩하여 LTE 우회 방지)"""
@@ -266,6 +271,11 @@ class ADBService:
 
             setattr(self, f"_last_check_{target}", 0)  # 캐시 무효화
             new_ip = self.get_current_ip(serial, force=True)
+            
+            # [Bug Fix] 로테이션 완료 후 새 IP 조회가 실패하거나 정상 포맷이 아닌 경우, 캐시의 "갱신 중..."을 확실하게 지워 무한 갱신 루프를 차단함
+            if not new_ip or not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', new_ip):
+                self._cached_public_ips.pop(target, None)
+                
             logger.info(f"✅ [{target}] IP 갱신 완료: {new_ip}")
             return True
         except Exception as e:

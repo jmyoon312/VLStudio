@@ -583,7 +583,7 @@ const CaptainChannelList = ({ profileId, parentScan, onOpenLogs }: { profileId: 
         queryKey: ['captain-channels', profileId],
         queryFn: async () => (await axios.get(`${API_BASE}/resources/captain/${profileId}/channels?view=list`)).data,
         enabled: !!profileId,
-        staleTime: 24 * 60 * 60 * 1000,  // 24 hours cache
+        staleTime: 1000 * 5,  // 5 seconds cache to load fresh data immediately
     });
 
     const displayChannels = Array.isArray(channels) ? channels : [];

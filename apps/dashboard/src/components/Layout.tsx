@@ -48,329 +48,7 @@ import Footer from './Footer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCachedAvatar } from '../features/flow2capcut/hooks/useCachedAvatar';
 import { createPortalSession } from '@/firebase/functions';
-
-// ── 분할 레이아웃 빠른 접근 버튼 ──────────────────────────────────────
-// flow2capcut 헤더에서 GlobalLoopieChat 옆에 표시됨
-// ─────────────────────────────────────────────────────────────────────
-const SPLIT_MODES = [
-    { value: 'split-left', label: 'Flow 좌측', icon: '⬅⬜' },
-    { value: 'split-right', label: 'Flow 우측', icon: '⬜➡' },
-    { value: 'split-top', label: 'Flow 상단', icon: '⬆' },
-    { value: 'split-bottom', label: 'Flow 하단', icon: '⬇' },
-];
-
-function SplitLayoutControl() {
-    const [open, setOpen] = React.useState(false);
-    const [mode, setMode] = React.useState(() => {
-        try { return JSON.parse(localStorage.getItem('layoutSettings') || '{}').mode || 'split-left'; } catch { return 'split-left'; }
-    });
-    const [ratio, setRatio] = React.useState(() => {
-        try { return Math.round((JSON.parse(localStorage.getItem('layoutSettings') || '{}').ratio || 0.5) * 100); } catch { return 50; }
-    });
-    const ref = React.useRef<HTMLDivElement>(null);
-
-    React.useEffect(() => {
-        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, []);
-
-    const apply = (m: string, r: number) => {
-        localStorage.setItem('layoutSettings', JSON.stringify({ mode: m, ratio: r / 100 }));
-        (window as any).electronAPI?.setLayout?.({ mode: m, ratio: r / 100 });
-    };
-
-    const cur = SPLIT_MODES.find(m => m.value === mode) || SPLIT_MODES[0];
-
-    return (
-        <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
-            <button
-                title="화면 레이아웃 설정"
-                onClick={() => setOpen(v => !v)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--muted)', color: 'var(--muted-foreground)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
-            >
-                <span style={{ fontSize: '14px' }}>{cur.icon}</span>
-                <span>{ratio}%</span>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-            </button>
-            {open && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, width: '220px', padding: '12px', background: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.12)', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>📐 화면 배치</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                        {SPLIT_MODES.map(m => (
-                            <button key={m.value} onClick={() => { setMode(m.value); apply(m.value, ratio); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '8px 6px', border: `1px solid ${mode === m.value ? 'var(--primary)' : 'var(--border)'}`, borderRadius: '8px', background: mode === m.value ? 'rgba(59,130,246,0.08)' : 'transparent', color: mode === m.value ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer', fontSize: '11px', fontWeight: mode === m.value ? 700 : 500, transition: 'all 0.15s' }}>
-                                <span style={{ fontSize: '16px' }}>{m.icon}</span>
-                                <span>{m.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--foreground)', marginBottom: '6px' }}>Flow 창 크기: {ratio}%</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '10px', color: 'var(--muted-foreground)' }}>20%</span>
-                            <input type="range" min="20" max="80" step="5" value={ratio} onChange={e => { const v = parseInt(e.target.value); setRatio(v); apply(mode, v); }} style={{ flex: 1, accentColor: 'var(--primary)' }} />
-                            <span style={{ fontSize: '10px', color: 'var(--muted-foreground)' }}>80%</span>
-                        </div>
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--muted-foreground)', textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>💡 경계선 더블클릭 → 50:50 리셋</div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function ActiveViewsControl(props: { activeViews: string[], activeProfileId: string, syncViewsAndProfiles: () => void }) {
-    const { activeViews, activeProfileId, syncViewsAndProfiles } = props;
-    const [open, setOpen] = React.useState(false);
-    const ref = React.useRef<HTMLDivElement>(null);
-    const location = useLocation();
-    const [profilesList, setProfilesList] = React.useState<any[]>([]);
-
-    React.useEffect(() => {
-        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, []);
-
-    React.useEffect(() => {
-        if (open) {
-            (async () => {
-                try {
-                    const config = await (window as any).electronAPI?.loadProfiles?.();
-                    if (config && config.profiles) {
-                        setProfilesList(config.profiles);
-                    }
-                } catch (e) {}
-            })();
-        }
-    }, [open]);
-
-    const hasActiveViews = activeViews.length > 0;
-
-    // Location-based help tip
-    const locationTip = React.useMemo(() => {
-        if (location.pathname === '/') return "💡 포털 홈 작업 중 - Flow 메인 (1번 창) 선택 권장";
-        if (location.pathname.includes('creation') || location.pathname.includes('video')) return "💡 콘텐츠 제작 작업 중 - Flow 메인 (1번 창) 선택 권장";
-        if (location.pathname.includes('channels') || location.pathname.includes('distribution')) return "💡 채널 자동배포 작업 중 - 4번 유튜브 전용창(LTE) 선택 권장";
-        return "💡 직관적인 그리드 맵을 눌러 제어할 창을 신속하게 전환하세요.";
-    }, [location.pathname]);
-
-    return (
-        <div ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
-            <button
-                title="구동 중인 다중창 및 구글 계정 관리"
-                onClick={() => setOpen(v => !v)}
-                style={{ 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '6px', 
-                    padding: '6px 12px', 
-                    border: `1px solid ${hasActiveViews ? 'var(--primary)' : 'var(--border)'}`, 
-                    borderRadius: '8px', 
-                    background: hasActiveViews ? 'rgba(59,130,246,0.05)' : 'var(--muted)', 
-                    color: hasActiveViews ? 'var(--primary)' : 'var(--muted-foreground)', 
-                    fontSize: '11px', 
-                    fontWeight: 700, 
-                    cursor: 'pointer', 
-                    transition: 'all 0.15s' 
-                }}
-                className={hasActiveViews ? "animate-pulse" : ""}
-            >
-                <span>🖥️</span>
-                <span>{hasActiveViews ? `구동 중: ${activeViews.length}` : '다중창 관리'}</span>
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" /></svg>
-            </button>
-            {open && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, width: '330px', padding: '14px', background: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: '0 12px 32px rgba(0,0,0,0.15)', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    
-                    {/* Header Title */}
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--border)', paddingBottom: '8px', display: 'flex', justifyBetween: 'space-between', alignItems: 'center' }}>
-                        <span>🖥️ 다중창 통합 관제 센터</span>
-                        <span style={{ fontSize: '9px', background: 'rgba(59,130,246,0.1)', color: 'var(--primary)', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>MAX 4 GRIDS</span>
-                    </div>
-
-                    {/* DYNAMIC SCREEN LAYOUT MINI-MAP (그리드 배치 시각화도) */}
-                    <div>
-                        <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--muted-foreground)', marginBottom: '6px' }}>📐 다중창 화면 배치도 (클릭 시 포커스)</div>
-                        <div style={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: '1fr 1fr',
-                            gap: '4px',
-                            border: '1px solid var(--border)',
-                            borderRadius: '8px',
-                            padding: '4px',
-                            background: 'var(--muted)'
-                        }}>
-                            {[1, 2, 3, 4].map((slotIdx) => {
-                                // For visual purposes, map activeViews to slots.
-                                // In reality, we just map activeViews to available slots sequentially for now.
-                                const viewId = activeViews[slotIdx - 1];
-                                const isActive = !!viewId;
-                                const isFocused = activeProfileId === viewId;
-                                const isUploadSlot = slotIdx === 4;
-                                
-                                return (
-                                    <button
-                                        key={slotIdx}
-                                        disabled={!isActive}
-                                        onClick={async () => {
-                                            if (isActive) {
-                                                await (window as any).electronAPI?.switchProfile?.({ profileId: viewId });
-                                                syncViewsAndProfiles();
-                                            }
-                                        }}
-                                        style={{
-                                            padding: '8px 4px',
-                                            border: `1.5px solid ${isFocused ? (isUploadSlot ? '#f43f5e' : 'var(--primary)') : (isActive ? 'var(--muted-foreground)' : 'var(--border)')}`,
-                                            borderRadius: '6px',
-                                            background: isFocused ? (isUploadSlot ? 'rgba(244,63,94,0.1)' : 'rgba(59,130,246,0.1)') : (isActive ? 'var(--card)' : 'transparent'),
-                                            color: isFocused ? (isUploadSlot ? '#f43f5e' : 'var(--primary)') : (isActive ? 'var(--foreground)' : 'var(--muted-foreground)'),
-                                            fontSize: '9px',
-                                            fontWeight: isActive ? 800 : 600,
-                                            textAlign: 'center',
-                                            cursor: isActive ? 'pointer' : 'default',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            transition: 'all 0.15s'
-                                        }}
-                                    >
-                                        [{slotIdx}] {isActive ? (isUploadSlot ? '📺 유튜브(LTE)' : '🤖 Flow/웹') : '대기 중'}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>                        {/* SECTION 1: STRICT 4-SLOT ROLE ALLOCATION */}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--foreground)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ color: '#22c55e' }}>●</span> 창 역할 할당 현황 (수동 실행 전용)
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {[1, 2, 3, 4].map((slotIdx) => {
-                                const viewId = activeViews[slotIdx - 1];
-                                const isActive = !!viewId;
-                                const isFocused = activeProfileId === viewId;
-                                const isUploadSlot = slotIdx === 4;
-                                
-                                let slotName = "대기 중";
-                                let slotDesc = "";
-                                if (slotIdx === 1) { slotName = "Flow AI 메인 뷰어"; slotDesc = "🟢 Wi-Fi 전용 (메뉴 수동 할당)"; }
-                                else if (slotIdx === 2) { slotName = "커스텀 웹 1"; slotDesc = "🟢 Wi-Fi 전용"; }
-                                else if (slotIdx === 3) { slotName = "커스텀 웹 2"; slotDesc = "🟢 Wi-Fi 전용"; }
-                                else if (slotIdx === 4) { slotName = "유튜브 업로드 전용창"; slotDesc = "🔴 LTE 프록시 강제 터널링"; }
- 
-                                if (isActive) {
-                                    const prof = profilesList.find(p => p.id === viewId);
-                                    const emailText = viewId === 'default' || viewId === 'initial' ? '공용 세션' : (prof?.email || viewId);
-                                    slotName += ` (${emailText})`;
-                                }
- 
-                                return (
-                                    <div key={slotIdx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: isActive ? (isFocused ? (isUploadSlot ? 'rgba(244,63,94,0.05)' : 'rgba(59,130,246,0.05)') : 'var(--muted)') : 'var(--background)', border: `1px solid ${isActive ? (isFocused ? (isUploadSlot ? '#fda4af' : '#bae6fd') : 'var(--border)') : 'var(--border)'}`, borderRadius: '6px' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, marginRight: '8px', opacity: isActive ? 1 : 0.5 }}>
-                                            <span style={{ fontSize: '10px', fontWeight: 800, color: isActive ? (isFocused ? (isUploadSlot ? '#f43f5e' : 'var(--primary)') : 'var(--foreground)') : 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                [{slotIdx}번 창] {slotName}
-                                            </span>
-                                            <span style={{ fontSize: '8px', color: isUploadSlot ? '#e11d48' : '#22c55e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
-                                                {slotDesc}
-                                            </span>
-                                        </div>
-                                        {isActive && (
-                                            <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                                                <button
-                                                    onClick={async () => {
-                                                        await (window as any).electronAPI?.switchProfile?.({ profileId: viewId });
-                                                        syncViewsAndProfiles();
-                                                    }}
-                                                    style={{ padding: '4px 8px', fontSize: '9px', fontWeight: 700, border: 'none', borderRadius: '4px', background: isFocused ? (isUploadSlot ? '#e11d48' : 'var(--primary)') : 'var(--muted)', color: isFocused ? '#fff' : 'var(--foreground)', cursor: 'pointer' }}
-                                                >
-                                                    {isFocused ? '포커스됨' : '선택'}
-                                                </button>
-                                                <button
-                                                    onClick={async () => {
-                                                        const confirm = window.confirm(`해당 다중창 세션을 종료하시겠습니까?`);
-                                                        if (confirm) {
-                                                            await (window as any).electronAPI?.destroyFlowView?.({ profileId: viewId });
-                                                            syncViewsAndProfiles();
-                                                        }
-                                                    }}
-                                                    style={{ padding: '4px 6px', fontSize: '9px', fontWeight: 700, border: 'none', borderRadius: '4px', background: '#ef4444', color: '#fff', cursor: 'pointer' }}
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-                                        )}
-                                        {!isActive && (
-                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                                <select 
-                                                    id={`select-launch-${slotIdx}`}
-                                                    style={{ fontSize: '9px', padding: '2px', borderRadius: '4px', border: '1px solid var(--border)', width: '90px', background: 'var(--card)', color: 'var(--foreground)' }}
-                                                >
-                                                    <option value="">계정 선택...</option>
-                                                    {slotIdx <= 3 && <option value="default">공용 세션 (기본)</option>}
-                                                    {profilesList
-                                                        .filter(p => slotIdx === 4 ? p.type === 'BRAND_CHANNEL' : p.type !== 'BRAND_CHANNEL')
-                                                        .map(p => <option key={p.id} value={p.id}>{p.email || p.name || p.id}</option>)}
-                                                </select>
-                                                <button
-                                                    onClick={async () => {
-                                                        const sel = document.getElementById(`select-launch-${slotIdx}`) as HTMLSelectElement;
-                                                        if (!sel || !sel.value) {
-                                                            alert("기동할 계정을 먼저 선택해주세요.");
-                                                            return;
-                                                        }
-                                                        if (activeViews.length >= 4) {
-                                                            alert("다중창은 최대 4개까지만 동시 구동할 수 있습니다.");
-                                                            return;
-                                                        }
-                                                        await (window as any).electronAPI?.createFlowView?.({ profileId: sel.value });
-                                                        await (window as any).electronAPI?.switchProfile?.({ profileId: sel.value });
-                                                        syncViewsAndProfiles();
-                                                    }}
-                                                    style={{ padding: '3px 8px', fontSize: '9px', fontWeight: 700, border: 'none', borderRadius: '4px', background: isUploadSlot ? '#e11d48' : '#4f46e5', color: '#fff', cursor: 'pointer', transition: 'all 0.15s' }}
-                                                >
-                                                    기동
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
- 
-                    {/* CONTEXT-AWARE HELP TIP */}
-                    <div style={{ fontSize: '9px', fontWeight: 600, color: 'var(--primary)', background: 'rgba(59,130,246,0.05)', border: '1px solid var(--border)', borderRadius: '8px', padding: '6px 10px', lineHeight: '1.4' }}>
-                        {locationTip}
-                    </div>
- 
-                    {/* FOOTER ACTIONS */}
-                    {activeViews.length >= 2 && (
-                        <button
-                            onClick={async () => {
-                                const confirm = window.confirm("현재 선택된 활성 창 1개를 제외한 나머지 모든 창들을 종료하시겠습니까?");
-                                if (confirm) {
-                                    for (const viewId of activeViews) {
-                                        if (viewId !== activeProfileId) {
-                                            await (window as any).electronAPI?.destroyFlowView?.({ profileId: viewId });
-                                        }
-                                    }
-                                    syncViewsAndProfiles();
-                                    setOpen(false);
-                                }
-                            }}
-                            style={{ width: '100%', padding: '6px', fontSize: '10px', fontWeight: 700, border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px', background: 'rgba(239,68,68,0.05)', color: '#ef4444', cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s', marginTop: '2px' }}
-                        >
-                            ✕ 선택 창 제외 모두 닫기
-                        </button>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-
+import MultiWindowController from './MultiWindowController';
 
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
@@ -398,7 +76,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             
             // LTE가 새로 감지되었고 최적화가 필요할 때 팝업 자동 활성화 (Spam 방지를 위해 transition 감지)
             if (needsOptimize) {
-                if (!lastLteStateRef.current) {
+                const sessionDismissed = sessionStorage.getItem('net_optimize_dismissed') === 'true';
+                if (!lastLteStateRef.current && !sessionDismissed) {
                     setShowNetOptimizeModal(true);
                 }
             }
@@ -419,6 +98,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         setIsOptimizing(true);
         try {
             const res = await api.post('/resources/network/fix-permissions');
+            sessionStorage.setItem('net_optimize_dismissed', 'true');
             toast.success("네트워크 격리 최적화 요청", {
                 description: res.data.message || "UAC 관리자 승인 팝업이 활성화되었습니다."
             });
@@ -439,8 +119,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             const apiObj = (window as any).electronAPI;
             if (apiObj) {
                 const viewsRes = await apiObj.getActiveViews();
-                if (viewsRes?.success) {
-                    setActiveViews(viewsRes.activeIds);
+                if (viewsRes && Array.isArray(viewsRes.views)) {
+                    setActiveViews(viewsRes.views.map((v: any) => v.profileId));
                 }
                 const config = await apiObj.loadProfiles();
                 if (config?.activeProfileId) {
@@ -461,6 +141,36 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     const { user, subscription, logout } = useAuth();
     const [accountOpen, setAccountOpen] = React.useState(false);
     const [portalLoading, setPortalLoading] = React.useState(false);
+
+    // Layout states for shifting DOM when Flow views are active
+    const [layoutMode, setLayoutMode] = React.useState(() => {
+        try { return JSON.parse(localStorage.getItem('layoutSettings') || '{}').mode || 'split-left'; } catch { return 'split-left'; }
+    });
+    const [splitRatio, setSplitRatio] = React.useState(() => {
+        try { return (JSON.parse(localStorage.getItem('layoutSettings') || '{}').ratio || 0.5); } catch { return 0.5; }
+    });
+
+    React.useEffect(() => {
+        const handleLayoutChange = (e: any, config: any) => {
+            if (config?.mode) setLayoutMode(config.mode);
+            if (config?.splitRatio) setSplitRatio(config.splitRatio);
+        };
+        const cleanup = (window as any).electronAPI?.onLayoutChanged?.(handleLayoutChange);
+        
+        // Polling as a fallback to sync layout state
+        const layoutInterval = setInterval(() => {
+            try {
+                const settings = JSON.parse(localStorage.getItem('layoutSettings') || '{}');
+                if (settings.mode && settings.mode !== layoutMode) setLayoutMode(settings.mode);
+                if (settings.ratio && settings.ratio !== splitRatio) setSplitRatio(settings.ratio);
+            } catch (e) {}
+        }, 1000);
+
+        return () => {
+            if (cleanup) cleanup();
+            clearInterval(layoutInterval);
+        };
+    }, [layoutMode, splitRatio]);
 
     const resizeGoogleAvatarUrl = (url: string | null | undefined, size: number) => {
         if (!url || typeof url !== 'string') return url || '';
@@ -507,6 +217,29 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
     const menuGroups = React.useMemo(() => getMenuGroups(captainId), [captainId]);
     const [activeMode, setActiveMode] = React.useState('CREATION');
+
+    const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({});
+
+    React.useEffect(() => {
+        if (menuGroups.length > 0) {
+            setExpandedGroups(prev => {
+                const next = { ...prev };
+                menuGroups.forEach(g => {
+                    if (next[g.title] === undefined) {
+                        next[g.title] = g.defaultExpanded !== false;
+                    }
+                });
+                return next;
+            });
+        }
+    }, [menuGroups]);
+
+    const toggleGroup = (title: string) => {
+        setExpandedGroups(prev => ({
+            ...prev,
+            [title]: !prev[title]
+        }));
+    };
 
     // === Multi-Tab Session Persistence ===
     interface TabMetadata {
@@ -626,8 +359,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
     const filteredGroups = React.useMemo(() => {
         return menuGroups.filter(group => {
-            if (activeMode === 'DISCOVERY') return group.title === "📊 트렌드 분석 및 소싱" || group.items.some(it => it.path === '/keyword-explorer');
-            if (activeMode === 'CREATION') return group.title === "🎬 인공지능 창작 스튜디오" || group.title === "📡 가상 라이브 센터" || group.title === "⚙️ AI 코어 & 오토메이션" || group.title === "⚙️ 에이전트 및 시스템 관제";
+            if (activeMode === 'DISCOVERY') return group.title === "📊 트렌드 분석 및 소싱" || group.items.some(it => it.path === '/keyword-explorer') || group.title === "⚙️ AI 코어 & 오토메이션";
+            if (activeMode === 'CREATION') return group.title === "🎬 인공지능 창작 스튜디오" || group.title === "📡 가상 라이브 센터" || group.title === "🧪 크리에이티브 실험실 (Beta)";
             if (activeMode === 'OPERATION') return group.title === "⚙️ AI 코어 & 오토메이션" || group.title === "⚙️ 에이전트 및 시스템 관제" || group.title === "📈 채널 성장 및 분석";
             if (activeMode === 'EDUCATION') return group.title === "🛠️ 시스템 환경 및 보안 설정";
             return true;
@@ -645,7 +378,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     }, [activeMode]);
 
     return (
-        <div className="relative flex h-screen bg-background text-foreground font-sans antialiased overflow-hidden">
+        <div className="relative flex h-screen bg-background text-foreground font-sans antialiased overflow-hidden transition-all duration-300">
             {/* Sidebar */}
             <aside className="absolute inset-y-0 left-0 z-[80] w-[var(--sidebar-width)] border-r border-sidebar-border bg-sidebar flex flex-col shadow-sm">
                 <div className="flex h-14 items-center px-6 border-b border-sidebar-border shrink-0 sidebar-logo-container justify-start">
@@ -697,41 +430,70 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 </div>
 
                 <nav className="p-4 flex-1 overflow-y-auto dashboard-scroll-area">
-                    {filteredGroups.map((group, i) => (
-                        <div key={i} className="mb-5 last:mb-0">
-                            <h3 className="px-4 mb-1.5 text-[11px] font-bold text-foreground/60 uppercase tracking-wider hide-on-slim">
-                                {group.title}
-                            </h3>
-                            <div className="space-y-0.5">
-                                {group.items.map((item) => {
-                                    const Icon = item.icon;
-                                    const isActive = item.path.startsWith('/captain')
-                                        ? location.pathname.startsWith('/captain') && item.path.includes('channels') === location.pathname.includes('channels')
-                                        : location.pathname === item.path;
-                                    return (
-                                        <Link
-                                            key={item.path}
-                                            to={item.path}
-                                            className={cn(
-                                                "flex items-center gap-3 px-4 py-1.5 rounded-lg text-[13.5px] font-bold tracking-tight transition-all duration-200 group border border-transparent hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm",
-                                                isActive
-                                                    ? "bg-card text-primary shadow-sm border border-border font-extrabold"
-                                                    : "text-foreground/80 hover:text-foreground hover:bg-card/30"
-                                            )}
-                                        >
-                                            <Icon className={cn("w-4 h-4 transition-colors shrink-0", isActive ? "text-primary" : "text-foreground/60 group-hover:text-foreground")} strokeWidth={isActive ? 2.5 : 2} />
-                                            <span className="flex-1 text-left hide-on-slim truncate">{item.name}</span>
-                                            {item.badge !== undefined && item.badge > 0 && (
-                                                <span className="ml-auto bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full hide-on-slim">
-                                                    {item.badge}
-                                                </span>
-                                            )}
-                                        </Link>
-                                    );
-                                })}
+                    {/* Always visible Dashboard Home */}
+                    <div className="mb-4">
+                        <Link
+                            to="/"
+                            className={cn(
+                                "flex items-center gap-3 px-4 py-1.5 rounded-lg text-[13.5px] font-bold tracking-tight transition-all duration-200 group border border-transparent hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm",
+                                location.pathname === '/'
+                                    ? "bg-card text-primary shadow-sm border border-border font-extrabold"
+                                    : "text-foreground/80 hover:text-foreground hover:bg-card/30"
+                            )}
+                        >
+                            <LayoutDashboard className={cn("w-4 h-4 transition-colors shrink-0", location.pathname === '/' ? "text-primary" : "text-foreground/60 group-hover:text-foreground")} strokeWidth={location.pathname === '/' ? 2.5 : 2} />
+                            <span className="flex-1 text-left hide-on-slim truncate">대시보드 홈</span>
+                        </Link>
+                    </div>
+
+                    {filteredGroups.map((group, i) => {
+                        const isExpanded = expandedGroups[group.title] !== false;
+                        return (
+                            <div key={i} className="mb-4 last:mb-0 border-b border-border/5 pb-4 last:border-0 last:pb-0">
+                                <button
+                                    onClick={() => toggleGroup(group.title)}
+                                    className="flex items-center justify-between w-full px-4 mb-2.5 text-[11px] font-bold text-foreground/60 uppercase tracking-wider hide-on-slim hover:text-foreground transition-colors text-left"
+                                >
+                                    <span>{group.title}</span>
+                                    {isExpanded ? (
+                                        <ChevronDown className="w-3 h-3 opacity-60 shrink-0" />
+                                    ) : (
+                                        <ChevronUp className="w-3 h-3 opacity-60 shrink-0" />
+                                    )}
+                                </button>
+                                {isExpanded && (
+                                    <div className="space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                        {group.items.map((item) => {
+                                            const Icon = item.icon;
+                                            const isActive = item.path.startsWith('/captain')
+                                                ? location.pathname.startsWith('/captain') && item.path.includes('channels') === location.pathname.includes('channels')
+                                                : location.pathname === item.path;
+                                            return (
+                                                <Link
+                                                    key={item.path}
+                                                    to={item.path}
+                                                    className={cn(
+                                                        "flex items-center gap-3 px-4 py-1.5 rounded-lg text-[13.5px] font-bold tracking-tight transition-all duration-200 group border border-transparent hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm",
+                                                        isActive
+                                                            ? "bg-card text-primary shadow-sm border border-border font-extrabold"
+                                                            : "text-foreground/80 hover:text-foreground hover:bg-card/30"
+                                                    )}
+                                                >
+                                                    <Icon className={cn("w-4 h-4 transition-colors shrink-0", isActive ? "text-primary" : "text-foreground/60 group-hover:text-foreground")} strokeWidth={isActive ? 2.5 : 2} />
+                                                    <span className="flex-1 text-left hide-on-slim truncate">{item.name}</span>
+                                                    {item.badge !== undefined && item.badge > 0 && (
+                                                        <span className="ml-auto bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded-full hide-on-slim">
+                                                            {item.badge}
+                                                        </span>
+                                                    )}
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </nav>
 
                 <div className="p-4 border-t border-sidebar-border shrink-0">
@@ -839,7 +601,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             </aside>
 
             {/* Main Content Area */}
-            <main className="flex-1 h-full overflow-hidden relative bg-background pl-72 flex flex-col">
+            <main className="flex-1 h-full overflow-hidden relative bg-background flex flex-col transition-all duration-300 pl-[var(--sidebar-width)]">
                 <header className="sticky top-0 z-[70] w-full px-8 h-14 flex items-center justify-between bg-card border-b border-border shrink-0">
                     <div className="flex items-center gap-2.5">
                         <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-tighter">{modeName}</span>
@@ -856,8 +618,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         </h1>
                     </div>
                     <div className="flex items-center gap-4">
-                        <ActiveViewsControl activeViews={activeViews} activeProfileId={activeProfileId} syncViewsAndProfiles={syncViewsAndProfiles} />
-                        <SplitLayoutControl />
+                        <MultiWindowController activeViews={activeViews} activeProfileId={activeProfileId} syncViewsAndProfiles={syncViewsAndProfiles} />
                         <GlobalLoopieChat />
                     </div>
                 </header>
@@ -1000,7 +761,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         {/* Action Buttons */}
                         <div className="mt-6 flex justify-end gap-3">
                             <button
-                                onClick={() => setShowNetOptimizeModal(false)}
+                                onClick={() => {
+                                    sessionStorage.setItem('net_optimize_dismissed', 'true');
+                                    setShowNetOptimizeModal(false);
+                                }}
                                 className="px-4 py-2 text-xs font-semibold rounded-lg hover:bg-muted text-muted-foreground transition-colors border border-transparent hover:border-border"
                             >
                                 나중에 하기

@@ -48,12 +48,33 @@ class MutationEngine:
         vf = ",".join(visual_filters)
         af = ",".join(sonic_filters)
 
+        # 3. 메타데이터 위장 (Metadata Spoofing) - 단순 삭제를 넘어 촬영 장비 프로파일 주입
+        spoof_profiles = [
+            {"make": "Apple", "model": "iPhone 15 Pro", "software": "iOS 17.5.1", "handler": "Core Media Video"},
+            {"make": "Samsung", "model": "SM-S928N (Galaxy S24 Ultra)", "software": "Android 14 (OneUI 6.1)", "handler": "Samsung Camera Video Handler"},
+            {"make": "Sony", "model": "ILCE-7M4 (A7 IV)", "software": "Sony Cam Firmware Ver 3.00", "handler": "Sony Video Handler"},
+            {"make": "Google", "model": "Pixel 8 Pro", "software": "Android 14 (AP1A)", "handler": "Google Camera Video Handler"}
+        ]
+        # Seed-based deterministic profile selection
+        profile = spoof_profiles[seed_int % len(spoof_profiles)]
+        
+        # 가상의 생성 시간 생성 (현재 시점에서 과거 1~12시간 전 랜덤)
+        import datetime
+        mock_hours_ago = 1 + (seed_int % 11)
+        mock_time = (datetime.datetime.utcnow() - datetime.timedelta(hours=mock_hours_ago))
+        creation_time_str = mock_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+
         cmd = [
             self.ffmpeg, "-y",
             "-i", input_path,
             "-vf", vf,
             "-af", af,
-            "-map_metadata", "-1", # 모든 메타데이터 삭제
+            "-map_metadata", "-1",                     # 모든 기존 메타데이터 완전 소거 (선제 조치)
+            "-metadata", f"make={profile['make']}",     # 제조사 위장
+            "-metadata", f"model={profile['model']}",   # 카메라 모델명 위장
+            "-metadata", f"software={profile['software']}", # 소프트웨어 버전 위장
+            "-metadata", f"handler_name={profile['handler']}", # 미디어 렌더러 이름 위장
+            "-metadata", f"creation_time={creation_time_str}", # 생성 시간 조작
             "-fflags", "+bitexact",
             "-flags:v", "+bitexact",
             "-flags:a", "+bitexact",

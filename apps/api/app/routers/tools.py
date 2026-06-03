@@ -461,69 +461,33 @@ async def get_voices(engine: str, language: str = None, db: Session = Depends(da
         except:
             return []
 
-    elif engine == "supertone":
-        if not settings.supertone_project_key:
-             return [{"id": "91992bbd4758bdcf9c9b01", "name": "Supertone Default (Key Missing)"}]
-        
-        # Remove language param to fetch ALL voices, then client-side filter
-        # lang_param = "ko" if not language or language == "ko" else language
-        url = f"https://supertoneapi.com/v1/voices/search?page_size=100"
-        headers = {
-            "accept": "application/json",
-            "x-sup-api-key": settings.supertone_project_key
-        }
-        try:
-            response = requests.get(url, headers=headers)
-            if response.status_code == 200:
-                data = response.json()
-                
-                # Suerptone uses 'items' list
-                voices_list = data.get("items", [])
-                
-                # Contextual Filtering:
-                # Supertone voices are multilingual (list of supported langs).
-                # We filter to show only voices that support the requested language.
-                if language and language not in ["auto", ""]:
-                    voices_list = [v for v in voices_list if language in v.get("language", [])]
-
-                if isinstance(voices_list, list) and len(voices_list) > 0:
-                     clean_voices = []
-                     for v in voices_list:
-                         raw_age = v.get("age") or "adult"
-                         # Heuristic for Supertone Age
-                         age_group = "adult"
-                         if "child" in str(raw_age).lower() or "teen" in str(raw_age).lower(): age_group = "youth"
-                         elif "old" in str(raw_age).lower() or "senior" in str(raw_age).lower(): age_group = "senior"
-                         
-                         clean_voices.append({
-                             "id": v["voice_id"], 
-                             "name": v['name'],
-                             "gender": v.get('gender', 'unknown'),
-                             "age_group": age_group,
-                             "styles": v.get('styles', []) 
-                         })
-                         
-                     return dedup(clean_voices)
-                return [{"id": "91992bbd4758bdcf9c9b01", "name": "Supertone Default"}]
-        except Exception:
-            return [{"id": "91992bbd4758bdcf9c9b01", "name": "Supertone Default"}]
-
     elif engine == "supertone-local":
         # Dynamic Style Loading
-        model_path = settings.supertone_model_path
-        if not model_path: return []
+        model_path = settings.supertone_model_path if settings.supertone_model_path else "backend/models/supertonic"
         
-        # Handle Path Resolution (Same logic as service.py to be safe)
-        if not os.path.isabs(model_path):
-            # Check if we are in backend dir
-            if os.getcwd().endswith("backend") and model_path.startswith("backend"):
-                 model_path = os.path.abspath(os.path.join("..", model_path))
-            else:
-                 model_path = os.path.abspath(model_path)
+        # Handle Path Resolution (Robust logic matching service.py)
+        abs_path = os.path.abspath(model_path)
+        if "backend" + os.sep + "backend" in abs_path:
+            fixed_path = abs_path.replace("backend" + os.sep + "backend", "backend")
+            if os.path.exists(fixed_path):
+                 abs_path = fixed_path
+        if not os.path.exists(abs_path):
+             parent_relative = os.path.abspath(os.path.join("..", model_path))
+             if os.path.exists(parent_relative):
+                  abs_path = parent_relative
+             else:
+                  apps_api_relative = os.path.abspath(os.path.join("apps", "api", model_path))
+                  if os.path.exists(apps_api_relative):
+                       abs_path = apps_api_relative
+        model_path = abs_path
             
-        styles_dir = os.path.join(model_path, "styles")
+        styles_dir = os.path.join(model_path, "voice_styles")
+        if not os.path.exists(styles_dir):
+             styles_dir = os.path.join(model_path, "styles")
         
         if not os.path.exists(styles_dir):
+             # Let's print for debugging
+             print(f"[Supertonic GET VOICES] Path not found: {styles_dir}")
              return [{"id": "default", "name": "Default (Styles Missing)"}]
              
         voices = []

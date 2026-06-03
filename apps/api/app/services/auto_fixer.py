@@ -292,7 +292,7 @@ class AutonomousRepairBroker:
 
         try:
             self.log("🤖 Consulting the Sovereign Brain for a fix...")
-            fixed_code = await self.llm.generate(prompt)
+            fixed_code = self.llm.generate(prompt)
             
             # Clean possible markdown wrap
             fixed_code = fixed_code.strip()

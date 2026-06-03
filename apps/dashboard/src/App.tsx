@@ -14,10 +14,9 @@ import MultiTTS from './pages/MultiTTS';
 import CreativeStudio from './pages/CreativeStudio';
 import CutEditor from './pages/CutEditor';
 import RemoverEditor from './pages/RemoverEditor';
-import { PixelingTab } from './components/PixelingTab';
 
 import RemasterLab from './pages/RemasterLab';
-import Insights from './pages/Insights';
+import SovereignShieldLab from './pages/SovereignShieldLab';
 import { LiveStudio } from './pages/Studio/LiveStudio';
 import VirtualStudio from './pages/VirtualStudio';
 
@@ -47,12 +46,8 @@ import AccountManager from './pages/AccountManager';  // [RENAMED] from Distribu
 import ResourceGuidePage from './pages/ResourceGuidePage';
 import CaptainDashboard from './pages/CaptainDashboard';  // [NEW] Phase 3
 import CaptainQuarters from './pages/CaptainQuarters';  // [NEW] Phase 4.1
-import GuideCenter from './pages/GuideCenter';  // [NEW] Guide Center
-import Incubator from './pages/Incubator';  // [NEW] Incubator
-import SwarmHub from './pages/SwarmHub';
-import SmartScouter from './pages/swarm/SmartScouter';
-import StrategyLab from './pages/swarm/StrategyLab';
-import CommanderConsole from './pages/swarm/CommanderConsole';
+import Incubator from './pages/Incubator';
+import GuideCenter from './pages/GuideCenter';
 import Home from './pages/Home';
 import EliteCommandStudio from './pages/EliteCommandStudio'; // [Elite] Command Studio
 
@@ -131,8 +126,6 @@ function MainAppContent() {
             <Layout>
                 <Routes>
                     <Route path="/" element={<Home />} />
-                    <Route path="/swarm/:stage" element={<SwarmHub />} />
-                    <Route path="/swarm-hub" element={<Navigate to="/swarm/synthesis" replace />} />
                     <Route path="/ai-copilot" element={<AICoPilotStudio />} /> {/* [NEW] AI Copilot Studio */}
                     <Route path="/flow2capcut" element={
                         <RouteErrorBoundary>
@@ -151,7 +144,7 @@ function MainAppContent() {
                     <Route path="/download" element={<DirectDownload />} />
 
                     {/* Fallback Missing Routes */}
-                    <Route path="/stealth" element={<AccountManager />} />
+                    <Route path="/stealth" element={<Navigate to="/account-manager" replace />} />
                     <Route path="/scissors" element={<Navigate to="/cut-editor" replace />} />
 
                     <Route path="/channels" element={<ChannelManager />} />
@@ -190,7 +183,7 @@ function MainAppContent() {
                     <Route path="/gallery" element={<Gallery />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/script-writer" element={<ScriptWriter />} />
-                    <Route path="/pixeling" element={<PixelingTab />} />
+
                     <Route path="/subtitle-tool" element={<SubtitleConverter />} />
                     <Route path="/multi-tts" element={<MultiTTS />} />
                     <Route path="/silence-remover" element={<SilenceRemover />} />
@@ -198,7 +191,7 @@ function MainAppContent() {
                     <Route path="/cut-editor" element={<CutEditor />} />
                     <Route path="/remover" element={<RemoverEditor />} />
                     <Route path="/remaster-lab" element={<RemasterLab />} />
-                    <Route path="/insights" element={<Insights />} />
+                    <Route path="/sovereign-shield" element={<SovereignShieldLab />} />
                     <Route path="/live-studio" element={<LiveStudio />} />
                     <Route path="/virtual-studio" element={<VirtualStudio />} />
                     <Route path="/custom-menu" element={<CustomMenu />} />

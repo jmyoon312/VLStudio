@@ -19,17 +19,16 @@ import { useTheme } from './theme-provider';
 
 // 페이지 컴포넌트 — lazy 로딩으로 번들 분할
 const Home               = lazy(() => import('../pages/Home'));
-const SwarmHub           = lazy(() => import('../pages/SwarmHub'));
 const WorkQueue          = lazy(() => import('../pages/WorkQueue'));
 const WorkflowDashboard  = lazy(() => import('../pages/WorkflowDashboard'));
 const OperationsDashboard = lazy(() => import('../pages/OperationsDashboard'));
 const EliteCommandStudio = lazy(() => import('../pages/EliteCommandStudio'));
-const PixelingTab        = lazy(() => import('./PixelingTab').then(m => ({ default: m.PixelingTab })));
 const ScriptWriter       = lazy(() => import('./ScriptWriter'));
 const CreativeStudio     = lazy(() => import('../pages/CreativeStudio'));
 const MultiTTS           = lazy(() => import('../pages/MultiTTS'));
 const SubtitleConverter  = lazy(() => import('./SubtitleConverter'));
 const RemasterLab        = lazy(() => import('../pages/RemasterLab'));
+const SovereignShieldLab = lazy(() => import('../pages/SovereignShieldLab'));
 const CutEditor          = lazy(() => import('../pages/CutEditor'));
 const SilenceRemover     = lazy(() => import('./SilenceRemover'));
 const RemoverEditor      = lazy(() => import('../pages/RemoverEditor'));
@@ -44,7 +43,6 @@ const GuideCenter        = lazy(() => import('../pages/GuideCenter'));
 const Incubator          = lazy(() => import('../pages/Incubator'));
 const CaptainQuarters    = lazy(() => import('../pages/CaptainQuarters'));
 const ResourceGuidePage  = lazy(() => import('../pages/ResourceGuidePage'));
-const Insights           = lazy(() => import('../pages/Insights'));
 const VirtualStudio      = lazy(() => import('../pages/VirtualStudio'));
 const Gallery            = lazy(() => import('./Gallery'));
 const SettingsPage       = lazy(() => import('./Settings'));
@@ -58,7 +56,6 @@ const MENU_GROUPS = [
         title: '생산 코어',
         items: [
             { name: '대시보드 홈',        path: '/',                    icon: LayoutDashboard },
-            { name: '에이전트 관제 센터', path: '/swarm/synthesis',     icon: Zap },
             { name: '미션 컨트롤',        path: '/work-queue',          icon: Rocket },
             { name: '워크플로우 빌더',    path: '/workflows',           icon: Share2 },
             { name: '자동 업로드 배포',   path: '/distribution-network',icon: UploadCloud },
@@ -68,12 +65,12 @@ const MENU_GROUPS = [
         title: '전문가 툴킷',
         items: [
             { name: 'Elite Command Studio', path: '/elite-studio',    icon: Swords },
-            { name: 'Pixeling 픽셀링 허브', path: '/pixeling',        icon: Edit },
             { name: '시나리오 에디터',      path: '/script-writer',   icon: FileText },
             { name: '비주얼 스튜디오',      path: '/creative-studio', icon: Clapperboard },
             { name: '오디오 마스터',        path: '/multi-tts',       icon: Mic },
             { name: '자막 변환기',          path: '/subtitle-tool',   icon: Languages },
             { name: '리마스터 랩',          path: '/remaster-lab',    icon: Wand2 },
+            { name: '연좌제 방어 변조',     path: '/sovereign-shield', icon: Shield },
             { name: '컷/무음 편집',         path: '/cut-editor',      icon: Scissors },
             { name: 'AI 리무버',            path: '/remover',         icon: Eraser },
             { name: '즐겨찾기 스트림',      path: '/custom-menu',     icon: Globe },
@@ -196,19 +193,17 @@ function EmbeddedRoutes() {
             <Suspense fallback={<PageLoader />}>
                 <Routes>
                     <Route path="/"                    element={<Home />} />
-                    <Route path="/swarm-hub"           element={<SwarmHub />} />
-                    <Route path="/swarm/:stage"        element={<SwarmHub />} />
                     <Route path="/work-queue"          element={<WorkQueue />} />
                     <Route path="/workflows"           element={<WorkflowDashboard />} />
                     <Route path="/distribution-network" element={<OperationsDashboard />} />
                     <Route path="/elite-studio"        element={<EliteCommandStudio />} />
                     <Route path="/elite-studio/:id"    element={<EliteCommandStudio />} />
-                    <Route path="/pixeling"            element={<PixelingTab />} />
                     <Route path="/script-writer"       element={<ScriptWriter />} />
                     <Route path="/creative-studio"     element={<CreativeStudio />} />
                     <Route path="/multi-tts"           element={<MultiTTS />} />
                     <Route path="/subtitle-tool"       element={<SubtitleConverter />} />
                     <Route path="/remaster-lab"        element={<RemasterLab />} />
+                    <Route path="/sovereign-shield"    element={<SovereignShieldLab />} />
                     <Route path="/cut-editor"          element={<CutEditor />} />
                     <Route path="/silence-remover"     element={<SilenceRemover />} />
                     <Route path="/remover"             element={<RemoverEditor />} />
@@ -225,7 +220,6 @@ function EmbeddedRoutes() {
                     <Route path="/captain"             element={<CaptainQuarters />} />
                     <Route path="/captain/:id"         element={<CaptainQuarters />} />
                     <Route path="/resource-guide"      element={<ResourceGuidePage />} />
-                    <Route path="/insights"            element={<Insights />} />
                     <Route path="/virtual-studio"      element={<VirtualStudio />} />
                     <Route path="/gallery"             element={<Gallery />} />
                     <Route path="/settings"            element={<SettingsPage />} />

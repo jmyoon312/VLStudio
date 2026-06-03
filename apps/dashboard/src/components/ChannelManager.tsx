@@ -12,6 +12,7 @@ const ChannelManager = () => {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [showCategoryInput, setShowCategoryInput] = useState(false);
     const [isScriptOnly, setIsScriptOnly] = useState(false); // [NEW]
+    const [editingChannelId, setEditingChannelId] = useState<number | null>(null);
 
     // [NEW] Restore missing queries
     const { data: channels, isLoading } = useQuery({
@@ -299,14 +300,43 @@ const ChannelManager = () => {
                                         </div>
                                     </td>
                                     <td className="p-4 align-middle text-muted-foreground truncate max-w-[150px]">
-                                        <a
-                                            href={channel.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="hover:underline hover:text-primary transition-colors"
-                                        >
-                                            {channel.url}
-                                        </a>
+                                        {editingChannelId === channel.id ? (
+                                            <input
+                                                type="text"
+                                                defaultValue={channel.url}
+                                                onBlur={(e) => {
+                                                    const updatedUrl = e.target.value.trim();
+                                                    if (updatedUrl && updatedUrl !== channel.url) {
+                                                        updateMutation.mutate({ id: channel.id, data: { url: updatedUrl } });
+                                                    }
+                                                    setEditingChannelId(null);
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        const updatedUrl = (e.target as HTMLInputElement).value.trim();
+                                                        if (updatedUrl && updatedUrl !== channel.url) {
+                                                            updateMutation.mutate({ id: channel.id, data: { url: updatedUrl } });
+                                                        }
+                                                        setEditingChannelId(null);
+                                                    } else if (e.key === 'Escape') {
+                                                        setEditingChannelId(null);
+                                                    }
+                                                }}
+                                                autoFocus
+                                                className="w-full px-2 py-1 text-sm border rounded bg-background"
+                                            />
+                                        ) : (
+                                            <a
+                                                href={channel.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="hover:underline hover:text-primary transition-colors"
+                                                title="더블클릭하여 수정 가능"
+                                                onDoubleClick={() => setEditingChannelId(channel.id)}
+                                            >
+                                                {channel.url}
+                                            </a>
+                                        )}
                                     </td>
                                     <td className="p-4 align-middle">
                                         <span className={cn(
@@ -347,6 +377,13 @@ const ChannelManager = () => {
                                     </td>
                                     <td className="p-4 align-middle text-right">
                                         <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                                            <button
+                                                onClick={() => setEditingChannelId(channel.id)}
+                                                title="URL 수정"
+                                                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 w-9 shrink-0"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                            </button>
                                             <button
                                                 onClick={() => scanMutation.mutate(channel.id)}
                                                 disabled={scanMutation.isPending}

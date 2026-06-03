@@ -45,7 +45,7 @@ function ShellContent({ children }) {
 
   // Multi-View & Profile States
   const [profileConfig, setProfileConfig] = useState({ activeProfileId: 'default', profiles: [] })
-  const [activeViews, setActiveViews] = useState(['default'])
+  const [activeViews, setActiveViews] = useState([])
 
   // 로컬 프로필 및 활성 뷰 실시간 로딩/동기화
   const loadProfilesAndViews = useCallback(async () => {
@@ -53,8 +53,8 @@ function ShellContent({ children }) {
       const config = await window.electronAPI?.loadProfiles?.()
       if (config) setProfileConfig(config)
       const viewsRes = await window.electronAPI?.getActiveViews?.()
-      if (viewsRes?.success) {
-        setActiveViews(viewsRes.activeIds)
+      if (viewsRes && Array.isArray(viewsRes.views)) {
+        setActiveViews(viewsRes.views.map(v => v.profileId))
       }
 
       // Failsafe: if any modals/dialogs are actually visible in the DOM, ensure the flow views are hidden; otherwise make them visible.
@@ -352,7 +352,7 @@ function ShellContent({ children }) {
     )
   }
 
-  if (layoutMode === 'none' || layoutMode === 'tab' || !layoutMode.startsWith('split-')) {
+  if (activeViews.length === 0 || layoutMode === 'none' || layoutMode === 'tab' || !layoutMode.startsWith('split-')) {
     return <div style={{ width: '100%', height: '100vh', overflow: 'hidden' }}>{children}</div>
   }
 

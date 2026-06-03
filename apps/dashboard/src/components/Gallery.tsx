@@ -523,25 +523,36 @@ const Gallery = () => {
                             )}>
                                 {/* Thumbnail Section */}
                                 <div className="relative aspect-video bg-muted overflow-hidden">
-                                    {thumbUrl ? (
+                                    {/* Thumbnail / Fallback Area */}
+                                    {thumbUrl && (
                                         <img
                                             src={thumbUrl}
                                             alt={video.title}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0 z-10"
+                                            onError={(e) => { 
+                                                const img = e.currentTarget;
+                                                if (img.src.includes('maxresdefault.jpg')) {
+                                                    img.src = img.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                                                } else if (img.src.includes('hqdefault.jpg')) {
+                                                    img.src = img.src.replace('hqdefault.jpg', 'mqdefault.jpg');
+                                                } else {
+                                                    img.style.display = 'none'; 
+                                                }
+                                            }}
                                         />
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-muted-foreground/30">
-                                            {videoUrl && (
-                                                <video
-                                                    src={videoUrl + "#t=0.1"}
-                                                    className="w-full h-full object-cover pointer-events-none"
-                                                    muted
-                                                />
-                                            )}
-                                            {!videoUrl && <Play className="w-12 h-12" />}
-                                        </div>
                                     )}
+                                    <div className="flex items-center justify-center w-full h-full text-muted-foreground/30 bg-muted absolute inset-0 z-0">
+                                        <Play className="w-12 h-12 absolute" />
+                                        {videoUrl && (
+                                            <video
+                                                src={videoUrl + "#t=0.1"}
+                                                className="w-full h-full object-cover pointer-events-none relative z-10"
+                                                muted
+                                                preload="metadata"
+                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                            />
+                                        )}
+                                    </div>
 
                                     {/* Select Checkbox */}
                                     <div className="absolute top-2 right-2 z-30 checkbox-area transition-opacity opacity-0 group-hover:opacity-100 data-[selected=true]:opacity-100" data-selected={isSelected}>
@@ -604,7 +615,7 @@ const Gallery = () => {
                                             {/* [FIX] Channel Profile Image */}
                                             <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border relative">
                                                 <img
-                                                    src={resolveFileUrl(video.channel_id && channelMap[video.channel_id] ? channelMap[video.channel_id].thumbnail_path : null)}
+                                                    src={getMediaUrl(video.channel_id && channelMap[video.channel_id] ? channelMap[video.channel_id].thumbnail_path : null, settings?.root_download_path)}
                                                     alt="Ch"
                                                     className="w-full h-full object-cover"
                                                     onError={(e) => {

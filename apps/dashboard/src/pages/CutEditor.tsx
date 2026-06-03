@@ -182,7 +182,7 @@ const CutEditor = () => {
                     quality: config.video?.quality || 'high'
                 };
 
-                const response = await axios.post('/editor/render', payload);
+                const response = await axios.post('/api/editor/render', payload);
                 if (response.data.status === 'success') {
                     toast.dismiss();
                     toast.success("Render Complete!");

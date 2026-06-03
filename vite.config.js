@@ -26,38 +26,24 @@ export default defineConfig(({ mode }) => {
     ws: true,
     ...options,
     configure: (proxy) => {
-      const originalOn = proxy.on;
-      const wrapListener = (listener) => {
-        return (err, req, res, ...args) => {
-          if (err && err.code === 'ECONNREFUSED') {
-            if (res) {
-              if (typeof res.writeHead === 'function') {
-                res.writeHead(503, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ status: 'starting', message: 'Backend is launching...' }));
-              } else if (typeof res.destroy === 'function') {
-                res.destroy();
-              }
-            }
-            return;
+      proxy.on('error', (err, req, res) => {
+        if (err.code === 'ECONNREFUSED') {
+          console.warn(`[Proxy] Backend unavailable (ECONNREFUSED) for ${req.url} → ${target}`)
+          if (res && !res.headersSent && typeof res.writeHead === 'function') {
+            try {
+              res.writeHead(503, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ status: 'starting', message: 'Backend is launching...' }))
+            } catch (e) {}
           }
-          if (typeof listener === 'function') {
-            listener(err, req, res, ...args);
-          }
-        };
-      };
-
-      proxy.on = function (event, listener) {
-        if (event === 'error') {
-          return originalOn.call(this, event, wrapListener(listener));
+          return
         }
-        return originalOn.apply(this, arguments);
-      };
-
-      proxy.addListener = proxy.on;
+        console.warn(`[Proxy] Error for ${req.url}:`, err.message)
+      })
     }
-  });
+  })
 
-  const backendProxy = createProxy('http://127.0.0.1:8000');
+  const backendProxy = createProxy('http://127.0.0.1:8000')
+
 
   return {
     base: './',
@@ -125,6 +111,8 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 5183,
+      allowedHosts: true,
+      cors: true,
       proxy: {
         '/api/swarm/ws': backendProxy,
         '/api': backendProxy,

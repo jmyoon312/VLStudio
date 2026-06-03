@@ -894,10 +894,6 @@ function createWindow() {
   
   // Safe destruction of flow view
   global.destroyFlowView = function(profileId) {
-    if (global.flowViews.size <= 1) {
-      console.warn("[Profile Switch] 거부: 최소 1개의 기본 창은 항상 유지되어야 합니다.");
-      return false;
-    }
     if (!global.flowViews.has(profileId)) return false;
 
     const view = global.flowViews.get(profileId);
@@ -924,14 +920,18 @@ function createWindow() {
     return true;
   };
 
-  // Create initial view
-  flowView = global.createOrGetFlowView(initialProfileId)
+  // Create initial view (DELAYED LAUNCH - Dashboard 100% Fullscreen on startup)
+  // flowView = global.createOrGetFlowView(initialProfileId)
 
   // Handle window resize — update view bounds
-  mainWindow.on('resize', () => updateBounds(mainWindow, flowView))
+  mainWindow.on('resize', () => {
+    // Dynamically fetch the current active view or pass null
+    const currentView = global.flowViews.get(global.activeFlowProfileId) || flowView
+    updateBounds(mainWindow, currentView)
+  })
 
   // Split 레이아웃 적용
-  updateBounds(mainWindow, flowView)
+  // updateBounds(mainWindow, flowView)
 
   // Reset modal visibility state on navigation/reload
   mainWindow.webContents.on('did-start-navigation', () => {
@@ -1837,6 +1837,35 @@ function autoSetupSkills() {
 
 // === ViraLoop Infrastructure Orchestration ===
 let infraProcess = null
+let appIsQuitting = false
+let healthMonitorInterval = null
+let _isRestartingBackend = false  // [FIX] Guard against concurrent restarts
+
+function startBackendHealthMonitor() {
+  if (healthMonitorInterval) return
+  console.log('[Orchestration] 🩺 Starting background health monitor for FastAPI backend (every 10s)...')
+  healthMonitorInterval = setInterval(() => {
+    if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
+    const req = http.get('http://127.0.0.1:8000/api/health', { timeout: 2000 }, (res) => {
+      res.resume()
+      if (res.statusCode >= 500) {
+        console.warn('[Orchestration] ⚠️ Backend health check returned status', res.statusCode, '. Re-spawning...')
+        _doStartBackend()
+      }
+    })
+    req.on('error', () => {
+      if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
+      console.warn('[Orchestration] ⚠️ Backend offline detected by monitor. Re-spawning...')
+      _doStartBackend()
+    })
+    req.on('timeout', () => {
+      req.destroy()
+      if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
+      console.warn('[Orchestration] ⚠️ Backend health check timeout. Re-spawning...')
+      _doStartBackend()
+    })
+  }, 10000)
+}
 
 function killProcessOnPort(port) {
   try {
@@ -1848,11 +1877,11 @@ function killProcessOnPort(port) {
           const parts = line.trim().split(/\s+/)
           const pid = parts[parts.length - 1]
           if (pid && pid !== '0') {
-            console.log(`[Orchestration] Found zombie process ${pid} listening on port ${port}. Terminating...`)
+            console.log(`[Orchestration] Found zombie process ${pid} listening on port ${port}. Terminating process tree...`)
             try {
-              execSyncRaw(`taskkill /F /PID ${pid}`)
+              execSyncRaw(`taskkill /F /T /PID ${pid} 2>NUL`)
             } catch (err) {
-              console.warn(`[Orchestration] Failed to kill process ${pid}:`, err.message)
+              console.warn(`[Orchestration] Failed to kill process tree for ${pid}:`, err.message)
             }
           }
         }
@@ -1868,13 +1897,56 @@ function killProcessOnPort(port) {
 }
 
 function startViraLoopInfrastructure() {
+  // 먼저 백엔드가 이미 정상 실행 중인지 확인 (재시작 시 503 방지)
+  try {
+    const healthReq = http.get('http://127.0.0.1:8000/api/health', { timeout: 2000 }, (res) => {
+      if (res.statusCode < 500) {
+        console.log('[Orchestration] ✅ Backend already running and healthy on port 8000. Skipping restart.')
+        res.resume()
+        startBackendHealthMonitor() // Start monitoring existing running instance
+        return // 이미 정상이므로 재시작 안 함
+      }
+      res.resume()
+      _doStartBackend()
+    })
+    healthReq.on('error', () => _doStartBackend()) // 연결 안 되면 새로 시작
+    healthReq.on('timeout', () => { healthReq.destroy(); _doStartBackend() })
+    return // async로 처리됨
+  } catch (e) {
+    _doStartBackend()
+  }
+}
+
+function _doStartBackend() {
+  if (appIsQuitting) return
+  if (_isRestartingBackend) {
+    console.log('[Orchestration] ⏸️ Backend restart already in progress. Skipping duplicate call.')
+    return
+  }
+  _isRestartingBackend = true
+
+  // 1. Terminate existing direct process tree to avoid orphaned zombie processes
+  if (infraProcess) {
+    console.log(`[Orchestration] Terminating existing backend process tree (PID: ${infraProcess.pid})...`)
+    try {
+      if (process.platform === 'win32') {
+        execSyncRaw(`taskkill /F /T /PID ${infraProcess.pid} 2>NUL`)
+      } else {
+        infraProcess.kill('SIGKILL')
+      }
+    } catch (err) {
+      console.warn(`[Orchestration] Failed to kill existing backend:`, err.message)
+    }
+    infraProcess = null
+  }
+
   killProcessOnPort(8000)
-  // Give the OS 1 second to release the socket
+  // Give the OS 3 seconds to release the socket
   try {
     if (process.platform === 'win32') {
-      execSyncRaw('ping 127.0.0.1 -n 2 >nul')
+      execSyncRaw('ping 127.0.0.1 -n 4 >nul')
     } else {
-      execSyncRaw('sleep 0.5')
+      execSyncRaw('sleep 3')
     }
   } catch {}
 
@@ -1937,11 +2009,35 @@ function startViraLoopInfrastructure() {
     windowsHide: true
   })
 
+  // [FIX] Release restart guard once the process is confirmed running
+  infraProcess.once('spawn', () => {
+    setTimeout(() => { _isRestartingBackend = false }, 5000)  // 5s grace period
+  })
+  // Fallback: release guard after 10s even if spawn event doesn't fire
+  setTimeout(() => { _isRestartingBackend = false }, 10000)
+
   infraProcess.stdout?.on('data', (data) => console.log(`[FastAPI] ${data}`))
   infraProcess.stderr?.on('data', (data) => console.warn(`[FastAPI ERR] ${data}`))
   
   infraProcess.on('close', (code) => {
     console.log(`[Orchestration] FastAPI backend process exited with code ${code}`)
+    infraProcess = null
+    _isRestartingBackend = false  // [FIX] Reset guard so next restart can proceed
+    if (healthMonitorInterval) {
+      clearInterval(healthMonitorInterval)
+      healthMonitorInterval = null
+    }
+    if (!appIsQuitting) {
+      console.log('[Orchestration] Backend process died unexpectedly. Restarting in 3 seconds...')
+      setTimeout(() => {
+        if (!appIsQuitting) {
+          _doStartBackend()
+          waitForBackendReady(30000, 500).then(() => {
+            startBackendHealthMonitor()
+          })
+        }
+      }, 3000)  // Increased from 2s to 3s for port release
+    }
   })
 }
 
@@ -1985,6 +2081,11 @@ function waitForBackendReady(maxWaitMs = 30000, intervalMs = 500) {
 // 앱 종료 직전 자식 프로세스 완벽 청소 프로토콜 가동
 app.on('before-quit', () => {
   console.log('[Orchestration] App closing — executing 철벽 방어형 클린업 프로토콜...')
+  appIsQuitting = true
+  if (healthMonitorInterval) {
+    clearInterval(healthMonitorInterval)
+    healthMonitorInterval = null
+  }
   
   // 1순위: 직접 Spawn한 자식 프로세스 우선 Kill
   if (infraProcess) {

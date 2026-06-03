@@ -375,21 +375,22 @@ export function DailyReportList() {
 
             <SystemHealthDashboard />
 
-            <Card className="border-border/50 shadow-sm">
+            <Card className="border-border/50 shadow-sm overflow-hidden">
                 <CardContent className="p-0">
                     <Table>
-                        <TableHeader>
+                        <TableHeader className="bg-slate-50/75">
                             <TableRow>
+                                <TableHead className="w-[50px] text-center">선택</TableHead>
                                 <TableHead className="w-[180px]">리포트 날짜</TableHead>
                                 <TableHead className="w-[100px]">상태</TableHead>
                                 <TableHead>주요 요약 (Executive Summary)</TableHead>
-                                <TableHead className="text-right">보기</TableHead>
+                                <TableHead className="text-right w-[100px]">보기</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-32 text-center">
+                                    <TableCell colSpan={5} className="h-32 text-center">
                                         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                                             <Loader2 className="h-8 w-8 animate-spin" />
                                             <span className="text-xs">데이터 로딩 중...</span>
@@ -399,34 +400,47 @@ export function DailyReportList() {
                             ) : reports?.map((report) => (
                                 <TableRow
                                     key={report.id}
-                                    className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-primary/10 dark:bg-primary/20 hover:bg-primary/20' : 'hover:bg-accent'}`}
+                                    className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-blue-50/70 hover:bg-blue-100/50' : 'hover:bg-slate-50/50'}`}
                                     onClick={() => handleViewReport(report)}
                                     data-id={report.id}
                                 >
-                                    <TableCell>
-                                        <div className={`w-4 h-4 rounded border ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                                            {selectedIds.has(report.id) && <CheckCircle2 className="w-4 h-4 text-white p-0.5" />}
+                                    <TableCell className="text-center no-drag" onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedIds(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(report.id)) {
+                                                next.delete(report.id);
+                                            } else {
+                                                next.add(report.id);
+                                            }
+                                            return next;
+                                        });
+                                    }}>
+                                        <div className="flex items-center justify-center">
+                                            <div className={`w-4 h-4 rounded border transition-all ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-slate-300 bg-white'}`}>
+                                                {selectedIds.has(report.id) && <CheckCircle2 className="w-4 h-4 text-white p-0.5" />}
+                                            </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="font-medium">
+                                    <TableCell className="font-semibold text-slate-700">
                                         {format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}
                                     </TableCell>
                                     <TableCell>
                                         {!report.is_read ? (
-                                            <Badge className="bg-blue-500 hover:bg-blue-600 animate-pulse">신규 (New)</Badge>
+                                            <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-sm animate-pulse">신규 (New)</Badge>
                                         ) : (
-                                            <Badge variant="secondary" className="text-muted-foreground">읽음 (Archived)</Badge>
+                                            <Badge variant="secondary" className="text-slate-500 bg-slate-100 font-medium">읽음 (Archived)</Badge>
                                         )}
                                     </TableCell>
-                                    <TableCell className="max-w-[500px] truncate text-muted-foreground text-sm">
-                                        {report.summary_markdown.replace(/[#*]/g, '').slice(0, 120)}...
+                                    <TableCell className="max-w-[500px] truncate text-slate-600 text-sm font-medium">
+                                        {report.summary_markdown.replace(/[#*`\-]/g, '').trim().slice(0, 120)}...
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                        <Button size="icon" variant="ghost" onClick={(e) => {
+                                    <TableCell className="text-right no-drag">
+                                        <Button size="icon" variant="ghost" className="hover:bg-blue-50" onClick={(e) => {
                                             e.stopPropagation();
                                             handleViewReport(report);
                                         }}>
-                                            <Eye className="h-4 w-4 text-primary" />
+                                            <Eye className="h-4 w-4 text-blue-600" />
                                         </Button>
                                     </TableCell>
                                 </TableRow>
@@ -438,10 +452,10 @@ export function DailyReportList() {
 
             {/* Rich Report Dialog */}
             <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
-                <DialogContent className="max-w-5xl h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-background/95 backdrop-blur-lg">
+                <DialogContent className="max-w-5xl h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-white border border-slate-200 text-slate-900 shadow-2xl">
                     {selectedReport && (
                         <>
-                            <DialogHeader className="p-6 border-b border-border bg-muted/20 shrink-0">
+                            <DialogHeader className="p-6 border-b border-slate-100 bg-slate-50/50 shrink-0">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -506,14 +520,14 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
 
                             {/* Auto-Fix Logs Section */}
                             {(selectedReport!.auto_fix_log && selectedReport!.auto_fix_log.length > 0) && (
-                                <div className="mx-6 mt-6 p-4 bg-muted rounded-lg border border-border">
+                                <div className="mx-6 mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
                                     <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
                                         <Activity className="h-4 w-4 text-primary" />
                                         자율 조치 로그 (Self-Healing Process)
                                     </h4>
                                     <div className="space-y-1 font-mono text-xs max-h-40 overflow-y-auto custom-scrollbar">
                                         {selectedReport!.auto_fix_log.map((log: any, idx: number) => (
-                                            <div key={idx} className={`flex gap-2 ${log.level === 'error' ? 'text-destructive' : log.level === 'success' ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                                            <div key={idx} className={`flex gap-2 ${log.level === 'error' ? 'text-destructive' : log.level === 'success' ? 'text-green-600' : 'text-muted-foreground'}`}>
                                                 <span className="text-muted-foreground opacity-50">[{format(new Date(log.timestamp), 'HH:mm:ss')}]</span>
                                                 <span>{log.message}</span>
                                             </div>
@@ -525,24 +539,24 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                             <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
                                 {/* 1. Key Metrics Cards */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <Card className="bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30">
+                                    <Card className="bg-blue-50 border border-blue-100 text-blue-900">
                                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                                            <div className="mb-2 p-2 bg-blue-100 dark:bg-blue-800 rounded-full">
-                                                <Video className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+                                            <div className="mb-2 p-2 bg-blue-100 rounded-full">
+                                                <Video className="h-5 w-5 text-blue-600" />
                                             </div>
-                                            <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+                                            <div className="text-2xl font-bold text-blue-700">
                                                 {selectedReport!.raw_stats_json.videos_collected}
                                             </div>
                                             <div className="text-xs text-muted-foreground font-medium">수집 영상</div>
                                         </CardContent>
                                     </Card>
 
-                                    <Card className="bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900/30">
+                                    <Card className="bg-purple-50 border border-purple-100 text-purple-900">
                                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                                            <div className="mb-2 p-2 bg-purple-100 dark:bg-purple-800 rounded-full">
-                                                <Scroll className="h-5 w-5 text-purple-600 dark:text-purple-300" />
+                                            <div className="mb-2 p-2 bg-purple-100 rounded-full">
+                                                <Scroll className="h-5 w-5 text-purple-600" />
                                             </div>
-                                            <div className="text-2xl font-bold text-purple-700 dark:text-purple-400">
+                                            <div className="text-2xl font-bold text-purple-700">
                                                 {selectedReport!.raw_stats_json.scripts_collected}
                                             </div>
                                             <div className="text-xs text-muted-foreground font-medium">수집 스크립트</div>
@@ -550,22 +564,22 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                     </Card>
 
                                     <Card className={selectedReport!.raw_stats_json.failed_downloads > 0
-                                        ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
-                                        : "bg-green-50/50 dark:bg-green-900/10 border-green-100 dark:border-green-900/30"
+                                        ? "bg-red-50 border border-red-100 text-red-900"
+                                        : "bg-green-50 border border-green-100 text-green-900"
                                     }>
                                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                                             <div className={selectedReport!.raw_stats_json.failed_downloads > 0
-                                                ? "mb-2 p-2 bg-red-100 dark:bg-red-800 rounded-full"
-                                                : "mb-2 p-2 bg-green-100 dark:bg-green-800 rounded-full"
+                                                ? "mb-2 p-2 bg-red-100 rounded-full"
+                                                : "mb-2 p-2 bg-green-100 rounded-full"
                                             }>
                                                 {selectedReport!.raw_stats_json.failed_downloads > 0
-                                                    ? <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-300 animate-pulse" />
-                                                    : <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-300" />
+                                                    ? <AlertTriangle className="h-5 w-5 text-red-600 animate-pulse" />
+                                                    : <CheckCircle2 className="h-5 w-5 text-green-600" />
                                                 }
                                             </div>
                                             <div className={selectedReport!.raw_stats_json.failed_downloads > 0
-                                                ? "text-2xl font-bold text-red-700 dark:text-red-400"
-                                                : "text-2xl font-bold text-green-700 dark:text-green-400"
+                                                ? "text-2xl font-bold text-red-700"
+                                                : "text-2xl font-bold text-green-700"
                                             }>
                                                 {selectedReport!.raw_stats_json.failed_downloads}
                                             </div>
@@ -573,15 +587,15 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                         </CardContent>
                                     </Card>
 
-                                    <Card className="bg-muted/50 border-border">
+                                    <Card className="bg-slate-50 border border-slate-200 text-slate-900">
                                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                                            <div className="mb-2 p-2 bg-muted rounded-full">
-                                                <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                                            <div className="mb-2 p-2 bg-slate-100 rounded-full">
+                                                <TrendingUp className="h-5 w-5 text-slate-600" />
                                             </div>
-                                            <div className="text-2xl font-bold text-foreground">
+                                            <div className="text-2xl font-bold text-slate-800">
                                                 {selectedReport!.raw_stats_json.trends_cached}
                                             </div>
-                                            <div className="text-xs text-muted-foreground font-medium">트렌드 갱신</div>
+                                            <div className="text-xs text-slate-600 font-medium">트렌드 갱신</div>
                                         </CardContent>
                                     </Card>
                                 </div>
@@ -589,25 +603,25 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                 {/* [NEW] System Infrastructure Card */}
                                 {selectedReport!.raw_stats_json.system_health && (
                                     <div className="grid grid-cols-3 gap-4">
-                                        <Card className="bg-muted/30 border-border">
+                                        <Card className="bg-slate-50 border border-slate-200 text-slate-900">
                                             <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                                <div className="text-sm font-semibold text-foreground">💾 저장소 ({selectedReport!.raw_stats_json.system_health.storage.free_gb}GB Free)</div>
-                                                <div className="w-full bg-muted rounded-full h-2 mt-2">
+                                                <div className="text-sm font-semibold text-slate-800">💾 저장소 ({selectedReport!.raw_stats_json.system_health.storage.free_gb}GB Free)</div>
+                                                <div className="w-full bg-slate-200 rounded-full h-2 mt-2">
                                                     <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${selectedReport!.raw_stats_json.system_health.storage.percent}%` }} />
                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-1">{selectedReport!.raw_stats_json.system_health.storage.percent}% 사용 중</div>
+                                                <div className="text-xs text-slate-600 mt-1">{selectedReport!.raw_stats_json.system_health.storage.percent}% 사용 중</div>
                                             </CardContent>
                                         </Card>
-                                        <Card className="bg-muted/30 border-border">
+                                        <Card className="bg-slate-50 border border-slate-200 text-slate-900">
                                             <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                                <div className="text-sm font-semibold text-foreground">🗄️ DB 크기</div>
-                                                <div className="text-lg font-bold text-foreground mt-1">{selectedReport!.raw_stats_json.system_health.db_size_mb} MB</div>
+                                                <div className="text-sm font-semibold text-slate-800">🗄️ DB 크기</div>
+                                                <div className="text-lg font-bold text-slate-800 mt-1">{selectedReport!.raw_stats_json.system_health.db_size_mb} MB</div>
                                             </CardContent>
                                         </Card>
-                                        <Card className="bg-muted/30 border-border">
+                                        <Card className="bg-slate-50 border border-slate-200 text-slate-900">
                                             <CardContent className="p-3 flex flex-col items-center justify-center text-center">
-                                                <div className="text-sm font-semibold text-foreground">🧟 좀비 태스크</div>
-                                                <div className={`text-lg font-bold mt-1 ${selectedReport!.raw_stats_json.system_health.zombie_tasks > 0 ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
+                                                <div className="text-sm font-semibold text-slate-800">🧟 좀비 태스크</div>
+                                                <div className={`text-lg font-bold mt-1 ${selectedReport!.raw_stats_json.system_health.zombie_tasks > 0 ? 'text-destructive' : 'text-green-600'}`}>
                                                     {selectedReport!.raw_stats_json.system_health.zombie_tasks}개
                                                 </div>
                                             </CardContent>
@@ -618,9 +632,9 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                 {/* [NEW] Operational Intelligence Card */}
                                 {selectedReport!.raw_stats_json.operational_metrics && (
                                     <div className="grid grid-cols-2 gap-4">
-                                        <Card className="bg-muted/30 border-border">
+                                        <Card className="bg-slate-50 border border-slate-200 text-slate-900">
                                             <CardHeader className="pb-2">
-                                                <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
+                                                <CardTitle className="text-sm font-medium flex items-center gap-2 text-slate-800">
                                                     <RefreshCw className="h-4 w-4" /> 웹 검색 엔진 상태
                                                 </CardTitle>
                                             </CardHeader>
@@ -633,11 +647,11 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                                                 {selectedReport!.raw_stats_json.operational_metrics.search.searxng.success} OK / {selectedReport!.raw_stats_json.operational_metrics.search.searxng.fail} Fail
                                                             </span>
                                                         </div>
-                                                        <div className="w-full bg-muted rounded-full h-1.5">
+                                                        <div className="w-full bg-slate-200 rounded-full h-1.5">
                                                             <div
                                                                 className={`h-1.5 rounded-full ${selectedReport!.raw_stats_json.operational_metrics.search.searxng.fail > 0 ? 'bg-orange-500' : 'bg-green-500'}`}
                                                                 style={{ width: `${(selectedReport!.raw_stats_json.operational_metrics.search.searxng.success / (selectedReport!.raw_stats_json.operational_metrics.search.searxng.success + selectedReport!.raw_stats_json.operational_metrics.search.searxng.fail + 0.1)) * 100}%` }}
-                                                            />
+                                                             />
                                                         </div>
                                                     </div>
                                                     <div>
@@ -645,30 +659,30 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
                                                             <span>Tavily (Fallback)</span>
                                                             <span className="font-mono">{selectedReport!.raw_stats_json.operational_metrics.search.tavily.success} Used</span>
                                                         </div>
-                                                        <div className="w-full bg-muted rounded-full h-1.5">
-                                                            <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: '100%' }} />
+                                                        <div className="w-full bg-slate-200 rounded-full h-1.5">
+                                                            <div className="bg-blue-50 h-1.5 rounded-full" style={{ width: '100%' }} />
                                                         </div>
                                                     </div>
                                                 </div>
                                             </CardContent>
                                         </Card>
 
-                                        <Card className="bg-muted/30 border-border">
+                                        <Card className="bg-slate-50 border border-slate-200 text-slate-900">
                                             <CardHeader className="pb-2">
-                                                <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
+                                                <CardTitle className="text-sm font-medium flex items-center gap-2 text-slate-800">
                                                     <Activity className="h-4 w-4" /> AI 엔진/LLM 상태
                                                 </CardTitle>
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="grid grid-cols-2 gap-4 text-center">
                                                     <div>
-                                                        <div className="text-2xl font-bold text-foreground">
+                                                        <div className="text-2xl font-bold text-slate-800">
                                                             {selectedReport!.raw_stats_json.operational_metrics.llm.requests}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">총 요청 수</div>
                                                     </div>
                                                     <div>
-                                                        <div className={`text-2xl font-bold ${selectedReport!.raw_stats_json.operational_metrics.llm.rate_limits > 0 ? 'text-destructive' : 'text-foreground'}`}>
+                                                        <div className={`text-2xl font-bold ${selectedReport!.raw_stats_json.operational_metrics.llm.rate_limits > 0 ? 'text-destructive' : 'text-slate-800'}`}>
                                                             {selectedReport!.raw_stats_json.operational_metrics.llm.rate_limits}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">Rate Limits</div>
@@ -737,11 +751,11 @@ ${JSON.stringify(selectedReport!.auto_fix_log || [], null, 2)}
 
                                 {/* 3. AI Analysis Report */}
                                 <div className="space-y-4">
-                                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                                    <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
                                         <FileText className="h-5 w-5 text-primary" />
-                                        <h3 className="font-semibold text-lg">AI 상세 분석 브리핑</h3>
+                                        <h3 className="font-semibold text-lg text-slate-800">AI 상세 분석 브리핑</h3>
                                     </div>
-                                    <div className="prose prose-slate dark:prose-invert max-w-none bg-muted/30 p-8 rounded-xl border border-border/50 shadow-inner">
+                                    <div className="prose prose-slate max-w-none bg-slate-50 p-8 rounded-xl border border-slate-200 shadow-inner text-slate-800">
                                         <ReactMarkdown
                                             remarkPlugins={[remarkGfm]}
                                             components={markdownComponents}

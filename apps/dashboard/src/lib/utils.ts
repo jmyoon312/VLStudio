@@ -107,7 +107,6 @@ export function formatClipName(name: string, path?: string, source?: string, max
  */
 export function getMediaUrl(path: string | null, rootDownloadPath?: string): string {
     if (!path) return '';
-    if (path.length > 255) return ''; // Prevent long path errors
     // Safety check for error strings often found in DB fields during debugging
     if (path.includes('ERR_') || path.includes('Not Found') || path.includes('Error')) return '';
 

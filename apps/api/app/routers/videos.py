@@ -567,6 +567,7 @@ def save_video_to_db(db: Session, result: dict, metadata: dict, channel_id: Opti
         video.thumbnail_path = result.get('thumbnail_path')
         video.metadata_json = metadata
         video.is_script_only = is_script_only
+        video.status = "completed"
         # Update current stats too if they changed (re-download case)
         video.view_count = view_count
         video.duration = duration

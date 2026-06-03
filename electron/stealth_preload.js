@@ -1,4 +1,4 @@
-import { webFrame, contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
 /**
  * Electron Preload Script for Stealth WebContentsView

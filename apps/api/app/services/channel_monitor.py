@@ -12,22 +12,28 @@ import logging
 import sys
 
 # [DEBUG] Configure File Logging
-logger = logging.getLogger(__name__)
-# Avoid crashing if log file is locked
+logger = logging.getLogger("app.system")
+# [FIX] hasHandlers() returns True even for parent (root) handlers inherited from uvicorn,
+# so we check specifically if *this* logger already has a FileHandler attached.
+# This ensures the file handler is always registered on first load.
 try:
-    if not logger.hasHandlers():
-        # [FIX] Use absolute path for log file in media directory to avoid root permission issues
-        # and make it easier for user to find.
-        log_path = "/app/media/scan_debug.log"
+    _has_file_handler = any(isinstance(h, logging.FileHandler) for h in logger.handlers)
+    if not _has_file_handler:
+        # Keep log path in apps/api/ root to match logs.py router
+        api_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        log_path = os.path.join(api_dir, "scan_debug.log")
         f_handler = logging.FileHandler(log_path, encoding='utf-8')
         f_handler.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         f_handler.setFormatter(formatter)
         logger.addHandler(f_handler)
+        logger.propagate = False  # Prevent double-logging to uvicorn console
 except Exception as e:
     print(f"WARNING: Could not setup channel_monitor logging: {e}")
 
 logger.setLevel(logging.DEBUG)
+
+from app.config import settings as app_settings
 
 def sanitize_folder_name(name):
     return re.sub(r'[\\/*?:"<>|]', "", name).replace(" ", "_")
@@ -35,13 +41,13 @@ def sanitize_folder_name(name):
 def get_channel_download_path(settings, channel):
     """Constructs the correct path: Root / downloads / Category / Channel"""
     # [FIX] Force absolute path and avoid relative leaks
-    raw_root = settings.root_download_path or settings.MEDIA_ROOT
+    raw_root = settings.root_download_path or app_settings.MEDIA_ROOT
     
     # Safety: Ensure the path is absolute for the current OS
     is_absolute = os.path.isabs(raw_root)
     if not is_absolute:
-        logger.warning(f"⚠️ Suspicious relative path: '{raw_root}'. Forcing absolute root: '{settings.MEDIA_ROOT}'.")
-        raw_root = settings.MEDIA_ROOT
+        logger.warning(f"⚠️ Suspicious relative path: '{raw_root}'. Forcing absolute root: '{app_settings.MEDIA_ROOT}'.")
+        raw_root = app_settings.MEDIA_ROOT
         
     from ..utils.path_utils import get_standardized_download_path
     downloads_path = get_standardized_download_path(settings)
@@ -57,12 +63,13 @@ def get_channel_download_path(settings, channel):
     logger.info(f"📍 Resolved Download Path: {resolved_path}")
     return resolved_path
 
-def scan_specific_channel(db: Session, channel: models.Channel, headless: bool = True):
+def scan_specific_channel(db: Session, channel: models.Channel, headless: bool = True, is_manual: bool = False):
     """
     Scans a single channel for new videos.
     """
     cat_name = channel.category.name if channel.category else "Uncategorized"
-    logger.info(f"🕵️‍♂️ Scanning [{cat_name}] {channel.name} ({channel.platform})...")
+    log_prefix = f"[{cat_name}][{channel.name}]"
+    logger.info(f"🕵️‍♂️ Scanning {log_prefix} ({channel.platform})...")
     
     settings = crud.get_settings(db)
     download_path = get_channel_download_path(settings, channel)
@@ -72,10 +79,11 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
     candidates = [] # List of (url, metadata_date)
 
     try:
-        # [FIX] 24-Hour Window Constraint
+        # [FIX] 24-Hour Window Constraint (Relaxed for manual scans)
         # User requested: "Scan only 24h window... not all videos"
-        # We calculate the date threshold (Yesterday)
-        yesterday = datetime.now() - timedelta(days=1)
+        # For manual scans, expand window to 7 days.
+        scan_days = 7 if is_manual else 1
+        yesterday = datetime.now() - timedelta(days=scan_days)
         yesterday_str = yesterday.strftime('%Y%m%d')
         
         # 1. Fetch Candidates (URLs)
@@ -91,7 +99,7 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
             entries = []
             is_rss_success = False
             
-            if 'youtube' in channel.url.lower() or channel.platform == 'YoutubeTab':
+            if ('youtube' in channel.url.lower() or channel.platform == 'YoutubeTab') and not ('/videos' in channel.url.lower() or '/shorts' in channel.url.lower()):
                 try:
                     # 1. Ensure platform_id exists
                     if not channel.platform_id:
@@ -188,18 +196,28 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
             date_info = item.get('date') if item.get('date') else "N/A"
             
             # A. Check DB Duplication (AND Update Metadata)
+            is_existing_failed = False
             if vid_id:
                 existing = db.query(models.Video).filter(models.Video.video_id == vid_id).first()
                 if existing:
                     # [OPTIMIZATION] Reset miss counter since we found a known video (Anchor)
                     consecutive_old_misses = 0
                     
-                    # [FIX] Check if we need to re-process this video because of mode change
-                    # e.g. previously scanned as normal video, but now we are in script_only mode (or vice versa)
+                    # Check if video file actually exists and status is completed
+                    from app.utils.path_utils import get_absolute_path
+                    file_exists = False
+                    if existing.file_path:
+                        try:
+                            abs_file = get_absolute_path(existing.file_path)
+                            if os.path.exists(abs_file):
+                                file_exists = True
+                        except:
+                            pass
                     current_script_only = channel.default_script_only if hasattr(channel, 'default_script_only') else False
                     mode_mismatch = existing.is_script_only != current_script_only
-                    
-                    if not mode_mismatch:
+                    is_completed = (existing.status == "completed" and file_exists)
+
+                    if not mode_mismatch and is_completed:
                         # [FIX] Update Metadata for existing videos
                         new_views = item.get('view_count')
                         if new_views is not None:
@@ -275,64 +293,68 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
                         continue # Skip re-download, only metadata updated
                     else:
                         logger.info(f"🔄 [RE-PROCESS] {log_prefix} Mode change detected ({existing.is_script_only} -> {current_script_only}) for [{title}]")
+                        is_existing_failed = True
             
             # B. Date Filter (YouTube only)
-            if not item.get('date'):
-                logger.debug(f"? [Checking Date] {log_prefix} missing metadata...")
-                try:
-                    # [FIX] Add timeout to prevent hanging on slow metadata extraction
-                    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
-                    
-                    def fetch_info():
-                        return downloader.get_video_info(url)
-                    
-                    with ThreadPoolExecutor(max_workers=1) as executor:
-                        future = executor.submit(fetch_info)
-                        try:
-                            info = future.result(timeout=30)  # [FIX] Increased from 5s to 30s to prevent skipping videos on slow networks
-                            if info and info.get('upload_date'):
-                                item['date'] = info.get('upload_date')
-                                item['title'] = info.get('title', item.get('title'))
-                                title = item['title']
-                                date_info = item['date']
-                                logger.debug(f"✓ [Got Date] {log_prefix} {date_info}")
-                        except FutureTimeoutError:
-                            logger.warning(f"⏱️ [TIMEOUT] {log_prefix} Metadata fetch timeout (30s)")
-                        except Exception as e:
-                            err_msg = str(e)
-                            if '429' in err_msg or 'rate limit' in err_msg.lower():
-                                logger.error(f"🚨 [RATE LIMIT] {log_prefix} YouTube blocked us. Stopping scan immediately.")
-                                return {"status": "failed", "error": "YouTube Rate Limit (429)"}
-                            logger.warning(f"❌ [ERROR] {log_prefix} Metadata fetch failed: {e}")
-                except Exception as e:
-                    err_msg = str(e)
-                    if '429' in err_msg or 'rate limit' in err_msg.lower():
-                         return {"status": "failed", "error": "YouTube Rate Limit (429)"}
-                    logger.warning(f"Failed to fetch metadata for {vid_id}: {e}")
+            if not is_existing_failed:
+                if not item.get('date'):
+                    logger.debug(f"? [Checking Date] {log_prefix} missing metadata...")
+                    try:
+                        # [FIX] Add timeout to prevent hanging on slow metadata extraction
+                        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+                        
+                        def fetch_info():
+                            return downloader.get_video_info(url)
+                        
+                        with ThreadPoolExecutor(max_workers=1) as executor:
+                            future = executor.submit(fetch_info)
+                            try:
+                                info = future.result(timeout=30)  # [FIX] Increased from 5s to 30s to prevent skipping videos on slow networks
+                                if info and info.get('upload_date'):
+                                    item['date'] = info.get('upload_date')
+                                    item['title'] = info.get('title', item.get('title'))
+                                    title = item['title']
+                                    date_info = item['date']
+                                    logger.debug(f"✓ [Got Date] {log_prefix} {date_info}")
+                            except FutureTimeoutError:
+                                logger.warning(f"⏱️ [TIMEOUT] {log_prefix} Metadata fetch timeout (30s)")
+                            except Exception as e:
+                                err_msg = str(e)
+                                if '429' in err_msg or 'rate limit' in err_msg.lower():
+                                    logger.error(f"🚨 [RATE LIMIT] {log_prefix} YouTube blocked us. Stopping scan immediately.")
+                                    return {"status": "failed", "error": "YouTube Rate Limit (429)"}
+                                logger.warning(f"❌ [ERROR] {log_prefix} Metadata fetch failed: {e}")
+                    except Exception as e:
+                        err_msg = str(e)
+                        if '429' in err_msg or 'rate limit' in err_msg.lower():
+                             return {"status": "failed", "error": "YouTube Rate Limit (429)"}
+                        logger.warning(f"Failed to fetch metadata for {vid_id}: {e}")
 
-            if item.get('date'):
-                try:
-                    v_date = datetime.strptime(item['date'], '%Y%m%d')
-                    # [FIX] Relaxed check to 2 days to safely encompass "Yesterday" (which might be > 24h from now)
-                    # Prevents rejecting recent videos due to midnight date boundaries.
-                    if datetime.now() - v_date > timedelta(days=2): 
-                        # [OPTIMIZATION] Strict Stop (Relaxed for manual scans)
-                        # We only stop if we've seen several old videos in a row to avoid issues with mixed sorting
-                        consecutive_old_misses += 1
-                        if consecutive_old_misses >= 3:
-                            logger.info(f"🛑 [STOP] {log_prefix} Found 3 consecutive old videos > 48h. Stopping scan.")
-                            break
+                if item.get('date'):
+                    try:
+                        v_date = datetime.strptime(item['date'], '%Y%m%d')
+                        # [FIX] Relaxed check to 2 days to safely encompass "Yesterday" (which might be > 24h from now)
+                        # Prevents rejecting recent videos due to midnight date boundaries.
+                        # [FIX] Relaxed check to 2 days (7 days for manual scans)
+                        limit_days = 7 if is_manual else 2
+                        if datetime.now() - v_date > timedelta(days=limit_days): 
+                            # [OPTIMIZATION] Strict Stop (Relaxed for manual scans)
+                            # We only stop if we've seen several old videos in a row to avoid issues with mixed sorting
+                            consecutive_old_misses += 1
+                            if consecutive_old_misses >= 3:
+                                logger.info(f"🛑 [STOP] {log_prefix} Found 3 consecutive old videos > {limit_days} days. Stopping scan.")
+                                break
+                            else:
+                                logger.debug(f"⏳ [AGED] {log_prefix} Skipping old video [{title}] ({consecutive_old_misses}/3)")
+                                continue
                         else:
-                            logger.debug(f"⏳ [AGED] {log_prefix} Skipping old video [{title}] ({consecutive_old_misses}/3)")
-                            continue
-                    else:
-                        consecutive_old_misses = 0
-                    
-                except Exception as e:
-                     logger.warning(f"Date parsing error: {e}")
-            else:
-                logger.warning(f"⏭️ [SKIP] {log_prefix} (No Date): [{title}]")
-                continue
+                            consecutive_old_misses = 0
+                        
+                    except Exception as e:
+                         logger.warning(f"Date parsing error: {e}")
+                else:
+                    logger.warning(f"⏭️ [SKIP] {log_prefix} (No Date): [{title}]")
+                    continue
 
             logger.info(f"✨ [NEW FOUND] {log_prefix} ⬇️ Downloading: [{title}] | {url}")
             

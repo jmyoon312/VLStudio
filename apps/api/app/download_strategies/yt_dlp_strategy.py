@@ -61,7 +61,8 @@ class YTDLPDownloader:
             'cookiefile': cookies_path if cookies_path and os.path.exists(cookies_path) else None,
             'http_headers': {
                 'Referer': 'https://www.google.com/',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
             },
             'nocheckcertificate': True,
             'ignoreerrors': True,
@@ -82,8 +83,8 @@ class YTDLPDownloader:
             # Use mobile client for Instagram to bypass some blocks
             opts['extractor_args']['instagram'] = {'client': 'android'}
         elif 'youtube.com' in url or 'youtu.be' in url:
-            # YouTube smart defaults
-            pass
+            # YouTube smart defaults - force language to Korean
+            opts['extractor_args']['youtube'] = ['lang=ko']
             
         # [FIX] Enable Node.js for n-challenge solving if available
         import shutil
@@ -390,12 +391,12 @@ class YTDLPDownloader:
         # 2. Main Download
         # [DEFAULT HD] Always use HD quality (up to 1080p) for all downloads
         if not script_only:
-            video_format = 'bestvideo[height<=1080]+bestaudio/best'
+            video_format = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
             if force_hd:
                 video_format = 'bestvideo[height>=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height>=720]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
                 print("🎬 [MANUAL HD] Using aggressive HD format selector")
             else:
-                print("📹 [DEFAULT] Using HD format (1080p max)")
+                print("📹 [DEFAULT] Using HD format (1080p max, mp4 preferred)")
         else:
             video_format = None
             print("🚀 Script-Only Mode: Skipping video format selection.")
@@ -472,12 +473,24 @@ class YTDLPDownloader:
             found_files = glob.glob(search_pattern)
             print(f"DEBUG: Found Files: {found_files}")
             
-            # Filter for video files (exclude .json, .part, .ytdl, etc)
-            video_files = [f for f in found_files if not f.endswith(('.json', '.part', '.ytdl', '.vtt', '.srt', '.sbv'))]
+            # Filter for video files (exclude .json, .part, .ytdl, etc, and also intermediate format-specific files like .f251.webm)
+            video_files = [
+                f for f in found_files 
+                if not f.endswith(('.json', '.part', '.ytdl', '.vtt', '.srt', '.sbv')) 
+                and not re.search(r'\.f\d+\.[^.]+$', f)
+            ]
             print(f"DEBUG: Video Files after filter: {video_files}")
             
             if video_files:
-                # Take the largest file if duplicates (unlikely with ID match) or just the first
+                # Prioritize .mp4 over .webm to ensure best playback/preview compatibility in Chromium
+                def video_sort_key(p):
+                    ext = os.path.splitext(p)[1].lower()
+                    if ext == '.mp4':
+                        return 0
+                    if ext == '.webm':
+                        return 1
+                    return 2
+                video_files.sort(key=video_sort_key)
                 final_video_path = video_files[0]
             else:
                 # [FIX] Script-Only Mode Handling
