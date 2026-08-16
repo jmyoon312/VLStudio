@@ -66,12 +66,23 @@ venv_build/
 *.sqlite3
 apps/api/app/legacy_ddalkkak/data/
 apps/api/app/legacy_ddalkkak/db/
-db_url.txt
-resolve_*.py
+# Non-essential / workflow / test bundles
+infra/workflows/
+.agent/
+skills/
+docs/
+tests/
+story/
+src/
+test_*.js
+test_*.mjs
+test_*.ts
 test_*.py
 fix_*.py
+resolve_*.py
 run_*.bat
 curation.json
+db_url.txt
 *.part
 *.mp4
 *.mkv
