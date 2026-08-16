@@ -215,7 +215,7 @@ const DdalkkakUI: React.FC = () => {
       </div>
       <div className="flex-1 w-full bg-white relative">
         <iframe
-          src="/api/ddalkkak/"
+          src={typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api/ddalkkak/' : '/api/ddalkkak/'}
           className="w-full h-full border-none absolute inset-0"
           title="Ddalkkak Studio"
           sandbox="allow-scripts allow-same-origin allow-downloads allow-forms allow-popups allow-modals"
