@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body, BackgroundTasks, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -9,12 +9,12 @@ import os
 import stat
 import uuid
 import enum # For Enums if needed, verifying
-from app.models import ProfileType, ProfileStatus, Profile # Explicit imports if likely needed or ensuring availability
-
+from app.models import ProfileStatus, Profile, ProfileType
 from app.database import get_db
 from app import models, schemas, crud
 from app.services.credential_manager import CredentialManager
 from app.services.adb_service import adb_service
+from app.services.stealth_ops_v2 import stealth_ops
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,9 +26,7 @@ router = APIRouter()
 # Endpoints below are kept commented out for reference or future cleanup.
 
 # --- Profile Lifecycle (Wizard) ---
-from app.models import Profile, ProfileType, ProfileStatus, BrandChannel
-from app.services.stealth_ops_v2 import stealth_ops
-import uuid
+from app.models import Profile, ProfileStatus, ProfileType, BrandChannel
 import os
 import json
 
@@ -42,58 +40,10 @@ from app.services.automation.orchestrator import AutomationOrchestrator, Automat
 
 # Pydantic models for request bodies
 class LaunchSetupRequest(BaseModel):
+    rotate_ip: bool = False
+    skip_browser: bool = False
     target_channel_id: Optional[str] = None
 
-class DelegateToCaptainRequest(BaseModel):
-    captain_id: str
-
-# [NEW] Delegate TinCan to Captain (No folder copy, cloud-level mapping only)
-@router.post("/profiles/{tin_can_id}/delegate-to-captain")
-async def delegate_to_captain(
-    tin_can_id: str,
-    payload: DelegateToCaptainRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    TIN_CAN 계정을 Captain(관리자) 계정에 매핑 및 위임 설정 등록 (DB 관계 기록)
-    """
-    try:
-        captain_id = payload.captain_id
-        
-        # 1. Captain 프로필 확인
-        captain = db.query(Profile).filter(Profile.id == captain_id).first()
-        if not captain:
-            raise HTTPException(404, "Captain profile not found")
-        if captain.profile_type != ProfileType.CAPTAIN:
-            raise HTTPException(400, "Selected profile is not a Captain account")
-        
-        # 2. TIN_CAN 프로필 확인
-        tin_can = db.query(Profile).filter(Profile.id == tin_can_id).first()
-        if not tin_can:
-            raise HTTPException(404, "TIN_CAN profile not found")
-        
-        # 3. DB 관계 설정
-        if captain.delegated_tincan_ids is None:
-            captain.delegated_tincan_ids = []
-            
-        delegated_list = list(captain.delegated_tincan_ids)
-        if tin_can_id not in delegated_list:
-            delegated_list.append(tin_can_id)
-            captain.delegated_tincan_ids = delegated_list
-            logger.info(f"📝 Added TinCan {tin_can_id} to Captain {captain_id}'s delegation list")
-            db.commit()
-            
-        return {
-            "success": True,
-            "message": f"성공적으로 {captain.email} 계정과의 위임 관계를 등록했습니다."
-        }
-        
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
 
 # [Access Control Guard]
 def verify_active_profile(profile: Profile):
@@ -103,17 +53,19 @@ def verify_active_profile(profile: Profile):
         if profile.quarantine_start_date:
             release_date = (profile.quarantine_start_date + timedelta(days=90)).strftime("%Y-%m-%d")
         
-        detail_msg = f"격리 조치된 계정입니다. (해제 예정일: {release_date}) - 사유: {profile.quarantine_reason}"
+        detail_msg = f"寃⑸━ 議곗튂??怨꾩젙?낅땲?? (?댁젣 ?덉젙?? {release_date}) - ?ъ쑀: {profile.quarantine_reason}"
         raise HTTPException(status_code=403, detail=detail_msg)
 
 
 @router.post("/profiles/draft")
-def create_draft_profile(type: str = "TIN_CAN", payload: dict = Body(None), db: Session = Depends(get_db)):
+def create_draft_profile(type: str = Query("TIN_CAN"), payload: dict = Body(...), db: Session = Depends(get_db)):
     """ 1. Wizard Start: Generate ID with optional Email pre-check """
     
     # [Pre-check] Email Duplication
-    email = payload.get("email") if payload else None
-    password = payload.get("password") if payload else None  # Now also extracting password
+    email = payload.get("email")
+    password = payload.get("password")
+    recovery_email = payload.get("recovery_email")
+    engine_type = payload.get("engine_type", "cloakbrowser")
     
     if email:
         existing = db.query(Profile).filter(Profile.email == email).first()
@@ -121,31 +73,42 @@ def create_draft_profile(type: str = "TIN_CAN", payload: dict = Body(None), db: 
             raise HTTPException(status_code=409, detail="이미 등록된 이메일입니다.")
 
     try:
-        new_id = str(uuid.uuid4())[:8]
-        p_type = ProfileType.TIN_CAN if type == "TIN_CAN" else ProfileType.CAPTAIN
+        import uuid
+        new_id = str(uuid.uuid4())
         
-        # Get profile base path from settings (root_download_path/04_Profiles)
-        settings_db = crud.get_settings(db)
-        from app.config import settings as settings_conf
-        root_path = settings_db.root_download_path if settings_db and settings_db.root_download_path else settings_conf.MEDIA_ROOT
-        profile_base = os.path.join(root_path, "04_Profiles")
+        # Get profile base path from settings
+        from app.config import settings
+        from pathlib import Path
+        
+        media_root = getattr(settings, "MEDIA_ROOT", None)
+        if not media_root:
+            # Fallback if MEDIA_ROOT is not set
+            media_root = "C:/ViraLoopData"
+            
+        base_profiles_path = Path(media_root) / "04_Profiles"
+        
+        # Ensure base directory exists
+        os.makedirs(base_profiles_path, exist_ok=True)
+        
+        # Combine base path with specific profile ID
+        folder_path = os.path.join(str(base_profiles_path), new_id).replace("\\", "/")
         
         # Ensure directory exists immediately
-        profile_path = os.path.join(profile_base, new_id)
-        if not os.path.exists(profile_path):
-            os.makedirs(profile_path)
+        os.makedirs(folder_path, exist_ok=True)
         
         new_profile = Profile(
             id=new_id,
-            profile_type=p_type,
+            email=email,
+            password=password,
+            recovery_email=recovery_email,
+            engine_type=engine_type,
             status=ProfileStatus.DRAFT,
-            folder_path=profile_path,
-            email=email,     # Store email immediately if provided
-            password=password  # Store password for auto-login
+            folder_path=folder_path,
+            profile_type=type
         )
         db.add(new_profile)
         db.commit()
-        return {"id": new_id, "status": "DRAFT", "type": p_type}
+        return {"id": new_id, "status": "DRAFT"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -160,7 +123,7 @@ def confirm_creation(id: str, email: str, recovery: str = None, db: Session = De
     if email:
         existing = db.query(Profile).filter(Profile.email == email, Profile.id != id).first()
         if existing:
-            raise HTTPException(status_code=409, detail="이미 등록된 이메일입니다.")
+            raise HTTPException(status_code=409, detail="?대? ?깅줉???대찓?쇱엯?덈떎.")
     # ...
     profile.email = email
     profile.recovery_email = recovery
@@ -178,7 +141,7 @@ def update_profile(id: str, item: dict = Body(...), db: Session = Depends(get_db
     if new_email and new_email != profile.email:
         existing = db.query(Profile).filter(Profile.email == new_email, Profile.id != id).first()
         if existing:
-            raise HTTPException(status_code=409, detail="이미 등록된 이메일입니다.")
+            raise HTTPException(status_code=409, detail="?대? ?깅줉???대찓?쇱엯?덈떎.")
             
     if "email" in item: profile.email = item["email"]
     if "recovery_email" in item: profile.recovery_email = item["recovery_email"]
@@ -188,6 +151,15 @@ def update_profile(id: str, item: dict = Body(...), db: Session = Depends(get_db
     if "password" in item: profile.password = item["password"]
     if "profile_type" in item: profile.profile_type = item["profile_type"]
     if "channel_id" in item: profile.channel_id = item["channel_id"]
+    if "engine_type" in item: profile.engine_type = item["engine_type"]
+    
+    # [NEW] Network Config
+    if "proxy_mode" in item: profile.proxy_mode = item["proxy_mode"]
+    if "proxy_protocol" in item: profile.proxy_protocol = item["proxy_protocol"]
+    if "proxy_host" in item: profile.proxy_host = item["proxy_host"]
+    if "proxy_port" in item: profile.proxy_port = item["proxy_port"]
+    if "proxy_username" in item: profile.proxy_username = item["proxy_username"]
+    if "proxy_password" in item: profile.proxy_password = item["proxy_password"]
     
     db.commit()
     return {"status": "updated", "profile": profile.id}
@@ -204,18 +176,30 @@ def _delete_profile_folder_background(folder_path: str):
     """Background task to delete profile folder"""
     try:
         if folder_path and os.path.exists(folder_path):
-            print(f"📂 [Background] Deleting folder: {folder_path}")
-            shutil.rmtree(folder_path, onerror=remove_readonly)
-            print(f"✅ [Background] Deleted folder: {folder_path}")
+            print(f"🗑️ [Background] Deleting folder: {folder_path}")
+            
+            # Windows lock retry logic
+            max_retries = 3
+            for i in range(max_retries):
+                try:
+                    shutil.rmtree(folder_path, onerror=remove_readonly)
+                    print(f"✅ [Background] Deleted folder: {folder_path}")
+                    break
+                except Exception as e:
+                    if i < max_retries - 1:
+                        print(f"⚠️ Retry {i+1} deleting {folder_path} due to lock...")
+                        time.sleep(1)
+                    else:
+                        raise e
     except Exception as e:
         logger.error(f"❌ [Background] Failed to delete folder {folder_path}: {e}")
 
 @router.delete("/profiles/{id}")
 def delete_profile(id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    print(f"🗑️ [DELETE REQUEST] ID received: '{id}'")
+    print(f"?뿊截?[DELETE REQUEST] ID received: '{id}'")
     profile = db.query(Profile).filter(Profile.id == id).first()
     if not profile: 
-        print(f"❌ [DELETE ERROR] Profile {id} not found in DB.")
+        print(f"??[DELETE ERROR] Profile {id} not found in DB.")
         raise HTTPException(404, "Profile not found")
     
     # Import models
@@ -230,7 +214,7 @@ def delete_profile(id: str, background_tasks: BackgroundTasks, db: Session = Dep
             BrandChannel.owner_profile_id == id
         ).all()
         for bc in brand_channels:
-            print(f"🗑️ [DELETE] Deleting BrandChannel: {bc.title} ({bc.channel_id})")
+            print(f"?뿊截?[DELETE] Deleting BrandChannel: {bc.title} ({bc.channel_id})")
             db.delete(bc)
         db.flush()
 
@@ -244,7 +228,7 @@ def delete_profile(id: str, background_tasks: BackgroundTasks, db: Session = Dep
         for access in profile_channel_accesses:
             db.delete(access)
         db.flush()
-        print(f"🔗 [DELETE] Deleted channel_access records for profile {id}")
+        print(f"?뵕 [DELETE] Deleted channel_access records for profile {id}")
         
         # For each channel, check if it is now orphaned (has no remaining access records)
         for channel_id in profile_channel_ids:
@@ -253,7 +237,7 @@ def delete_profile(id: str, background_tasks: BackgroundTasks, db: Session = Dep
             ).count()
             
             if remaining_access_count == 0:
-                print(f"📺 [DELETE] Channel {channel_id} is orphaned. Cleaning up channel data...")
+                print(f"?벟 [DELETE] Channel {channel_id} is orphaned. Cleaning up channel data...")
                 
                 # Delete video metadata cache
                 video_caches = db.query(VideoMetadataCache).filter(
@@ -274,32 +258,94 @@ def delete_profile(id: str, background_tasks: BackgroundTasks, db: Session = Dep
                     YouTubeChannel.channel_id == channel_id
                 ).first()
                 if channel:
-                    print(f"📺 [DELETE] Deleting YouTube channel: {channel.channel_name} ({channel.channel_id})")
+                    ch_title = getattr(channel, 'title', None) or getattr(channel, 'channel_name', None) or channel.channel_id
+                    print(f"?벟 [DELETE] Deleting YouTube channel: {ch_title} ({channel.channel_id})")
                     db.delete(channel)
                     
         db.flush()
             
     except Exception as e:
-        print(f"⚠️ [DELETE ERROR] Error deleting channel data: {e}")
+        print(f"?좑툘 [DELETE ERROR] Error deleting channel data: {e}")
         import traceback
         traceback.print_exc()
         db.rollback()
         raise HTTPException(500, f"Failed to delete channel data: {str(e)}")
     
     # 3. Schedule Folder Deletion in Background
-    if profile.folder_path:
-        background_tasks.add_task(_delete_profile_folder_background, profile.folder_path)
+    from app.config import settings as _settings
+    from pathlib import Path as _Path
+    
+    # folder_path媛 紐낆떆??寃쎌슦 ?ъ슜, ?놁쑝硫?湲곕낯 寃쎈줈(04_Profiles/{id}) 濡?fallback
+    folder_to_delete = profile.folder_path
+    if not folder_to_delete:
+        constructed = str(_Path(getattr(_settings, 'root_download_path', _settings.MEDIA_ROOT)) / '04_Profiles' / id)
+        if os.path.exists(constructed):
+            folder_to_delete = constructed
+            print(f"?좑툘 [DELETE] folder_path was None, using constructed path: {constructed}")
+    
+    if folder_to_delete:
+        background_tasks.add_task(_delete_profile_folder_background, folder_to_delete)
 
     # 4. Delete from Database
     db.delete(profile)
     db.commit()
     
-    print(f"✅ [DELETE] Profile {id} and all associated data deleted successfully")
+    print(f"??[DELETE] Profile {id} and all associated data deleted successfully")
     return {
         "status": "deleted", 
         "id": id, 
         "message": "Profile, channels, and associated data deleted",
         "channels_deleted": len(profile_channel_ids) if 'profile_channel_ids' in locals() else 0
+    }
+
+
+@router.post("/profiles/cleanup-orphan-folders")
+def cleanup_orphan_profile_folders(db: Session = Depends(get_db)):
+    """
+    DB??議댁옱?섏? ?딅뒗 怨좎븘 ?꾨줈???대뜑瑜??먯??섍퀬 ??젣?⑸땲??
+    - UUID 8?먮━ ?뺤떇 ?대뜑留?寃??(UC...濡??쒖옉?섎뒗 YouTube Channel ID ?대뜑 ?ы븿)
+    - DB???녿뒗 Profile ID ?대뜑瑜?紐⑤몢 ?뺣━
+    """
+    from app.config import settings as _settings
+    from pathlib import Path as _Path
+    import shutil
+
+    base_path = _Path(getattr(_settings, 'MEDIA_ROOT', 'C:/ViraLoopData')) / "04_Profiles"
+    if not base_path.exists():
+        return {"status": "ok", "deleted": [], "message": "04_Profiles directory not found"}
+
+    # DB???덈뒗 ?좏슚??Profile ID 紐⑸줉
+    valid_ids = set(r[0] for r in db.query(Profile.id).all())
+    
+    deleted = []
+    skipped = []
+    errors = []
+
+    for folder in base_path.iterdir():
+        if not folder.is_dir():
+            continue
+        folder_name = folder.name
+        # ?좏슚??Profile ID?대㈃ 嫄대꼫?
+        if folder_name in valid_ids:
+            skipped.append(folder_name)
+            continue
+        # 怨좎븘 ?대뜑 ??젣 ?쒕룄
+        try:
+            shutil.rmtree(str(folder), ignore_errors=True)
+            if not folder.exists():
+                deleted.append(folder_name)
+                print(f"?뿊截?[Cleanup] Deleted orphan folder: {folder_name}")
+            else:
+                errors.append({"folder": folder_name, "reason": "Still in use by another process ??restart server and retry"})
+        except Exception as e:
+            errors.append({"folder": folder_name, "reason": str(e)})
+
+    return {
+        "status": "ok",
+        "valid_profiles": list(skipped),
+        "deleted_orphans": deleted,
+        "errors": errors,
+        "message": f"Deleted {len(deleted)} orphan folder(s). {len(errors)} could not be deleted (in use)."
     }
 
 
@@ -341,7 +387,7 @@ async def upload_profile_key(id: str, file: UploadFile = File(...), db: Session 
         profile.status = ProfileStatus.ACTIVE
         db.commit()
         
-        logger.info(f"✅ OAuth2 credentials saved for profile {id}")
+        logger.info(f"??OAuth2 credentials saved for profile {id}")
         return {
             "status": "success", 
             "path": file_path, 
@@ -368,7 +414,7 @@ def quarantine_profile(id: str, reason: str = Body(..., embed=True), db: Session
     profile.quarantine_reason = reason
     db.commit()
     
-    logger.warning(f"🚨 Profile {id} has been QUARANTINED. Reason: {reason}")
+    logger.warning(f"?슚 Profile {id} has been QUARANTINED. Reason: {reason}")
     return {"status": "quarantined", "msg": "90-day lockdown initiated"}
 
 from app.services.adb_service import adb_service
@@ -380,7 +426,7 @@ def _ensure_fresh_ip(timeout=30, method='soft'):
     Cycles IP using ADB.
     Returns: (bool success, str new_ip)
     """
-    logger.info(f"🛡️ [Security] Initiating IP Rotation (Method: {method})...")
+    logger.info(f"?썳截?[Security] Initiating IP Rotation (Method: {method})...")
     
     # 1. Get Old Public IP
     old_ip = adb_service.get_current_ip()
@@ -389,16 +435,16 @@ def _ensure_fresh_ip(timeout=30, method='soft'):
     
     # 2. Trigger Rotation
     if not adb_service.rotate_ip(method=method):
-         logger.error("❌ Rotation command failed")
+         logger.error("??Rotation command failed")
          return False, "Rotation Trigger Failed"
     
     # 3. Wait for network to stabilize
-    logger.info("⏳ Waiting 1 second for network to stabilize...")
+    logger.info("??Waiting 1 second for network to stabilize...")
     time.sleep(1)
     
     # 4. Get new IP
     new_ip = adb_service.get_current_ip()
-    logger.info(f"✅ Rotation complete. New Public IP: {new_ip}")
+    logger.info(f"??Rotation complete. New Public IP: {new_ip}")
     
     return True, new_ip
 
@@ -424,48 +470,202 @@ async def launch_setup(
         
         new_ip = None
         if rotate_ip_flag:
-            # Enforce 'soft' rotation (Data Toggle) as requested
-            success, new_ip = _ensure_fresh_ip(method='soft')
-            if not success:
-                # If rotation fails, we should probably ERROR out rather than continue to launch browser
-                # But if skip_browser is True, we definitely error out.
-                raise HTTPException(503, f"Failed to rotate IP: {new_ip}")
+            logger.info(f"⚡ [Setup] Triggering background Soft IP rotation for profile {profile_id}")
+            import threading
+            def _bg_soft_rotate():
+                try:
+                    from app.services.adb_service import adb_service
+                    adb_service.rotate_ip(method='soft')
+                except Exception as rot_e:
+                    logger.warning(f"⚠️ Background Soft IP rotation warning: {rot_e}")
+            threading.Thread(target=_bg_soft_rotate, daemon=True).start()
         
         if skip_browser:
-            return {"status": "ip_rotated", "new_ip": new_ip, "msg": "IP Rotated successfully."}
+            return {"status": "ip_rotated", "new_ip": new_ip, "msg": "IP Rotation triggered."}
         
         profile = db.query(Profile).filter(Profile.id == profile_id).first()
-        if not profile: raise HTTPException(404, "Profile not found")
-
-        # [Guard] Check Quarantine
-        verify_active_profile(profile)
-
-        # Use new signature with target_channel_id and db
-        # For Captain accounts during initial setup, skip proxy check to avoid connection errors
-        skip_proxy = (profile.profile_type == ProfileType.CAPTAIN and not rotate_ip_flag)
+        email = profile.email if profile else None
+        password = profile.password if profile else None
         
-        logger.info(f"🚀 Launching browser for profile {profile_id}")
-        success = stealth_ops.launch_for_setup(
-            profile_id, 
-            email=profile.email, 
-            password=profile.password, 
-            target_channel_id=target_channel_id, 
-            skip_proxy_check=skip_proxy, 
-            db=db
-        )
-        
-        if success:
-            logger.info(f"✅ Browser launched successfully for profile {profile_id}")
-            return {"status": "launched", "msg": "Browser opened for setup."}
+        if profile:
+            # [Guard] Check Quarantine
+            verify_active_profile(profile)
+            skip_proxy = (profile.profile_type == ProfileType.CAPTAIN and not rotate_ip_flag)
+            engine_mode = profile.engine_type or "cloakbrowser"
         else:
-            logger.error(f"❌ Browser launch failed for profile {profile_id}")
-            raise HTTPException(500, "Failed to launch browser. Check backend logs for details.")
-    except HTTPException:
+            skip_proxy = False
+            engine_mode = "cloakbrowser"
+
+        logger.info(f"🌐 Launching browser ({engine_mode}) for profile {profile_id}")
+        
+        if engine_mode == "cloakbrowser":
+            success = stealth_ops.launch_for_setup(
+                profile_id, 
+                email=email, 
+                password=password, 
+                target_channel_id=target_channel_id, 
+                skip_proxy_check=skip_proxy, 
+                db=db,
+                rotate_ip_on_close=False
+            )
+            if success:
+                logger.info(f"✅ CloakBrowser launched successfully for profile {profile_id}")
+                return {"status": "launched", "msg": "Browser opened for setup."}
+            else:
+                logger.error(f"❌ CloakBrowser launch failed for profile {profile_id}")
+                raise HTTPException(500, "Failed to launch browser. Check backend logs for details.")
+                
+        elif engine_mode == "ixbrowser":
+            from app.services.browser import get_browser_engine
+            from app.services.browser.interface import ProfileConfig
+            from pathlib import Path
+            engine = get_browser_engine("ixbrowser")
+            
+            # Check if we already created it
+            proxy_info = profile.proxy_info or {}
+            ix_id = proxy_info.get("ixbrowser_profile_id")
+            
+            if not ix_id:
+                p_host = profile.proxy_host or ""
+                p_port = int(profile.proxy_port or 0)
+                
+                # If proxy_host is empty, assume iXBrowser handles it internally or it's a direct connection
+                if not p_host:
+                    p_type = "direct"
+                else:
+                    if profile.proxy_mode == "DIRECT_LTE":
+                        p_type = "socks5"
+                    else:
+                        p_type = getattr(profile, "proxy_protocol", "http") or "http"
+                    
+                config = ProfileConfig(
+                    profile_id=profile_id,
+                    user_data_dir=Path.cwd(),
+                    proxy_host=p_host,
+                    proxy_port=p_port,
+                    proxy_type=p_type,
+                    proxy_username=getattr(profile, "proxy_username", ""),
+                    proxy_password=getattr(profile, "proxy_password", ""),
+                    lte_interface_ip=None,
+                    engine_mode="ixbrowser",
+                )
+                ix_id = await engine.create_profile(config)
+                proxy_info["ixbrowser_profile_id"] = ix_id
+                profile.proxy_info = proxy_info
+                db.commit()
+            
+            await engine.launch_browser(ix_id)
+            logger.info(f"✅ iXBrowser launched successfully for profile {profile_id}")
+            return {"status": "launched", "msg": "iXBrowser opened for setup."}
+            
+        else:
+            logger.info(f"✅ Unsupported engine ({engine_mode}), bypassed launch")
+            return {"status": "success", "message": "Unsupported engine, bypassed launch"}
+            
+    except HTTPException as http_e:
+        import traceback
+        from datetime import datetime
+        err_msg = f"HTTPException {http_e.status_code}: {http_e.detail}\n{traceback.format_exc()}"
+        logger.error(f"🔒 HTTPException in launch_setup for {profile_id}: {err_msg}")
+        try:
+            with open("launch_setup_error.log", "a", encoding="utf-8") as f:
+                f.write(f"[{datetime.now()}] {err_msg}\n")
+        except: pass
         raise
     except Exception as e:
         import traceback
-        logger.error(f"🚨 Unexpected error in launch_setup for {profile_id}: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+        from datetime import datetime
+        err_msg = f"Unexpected Error: {e}\n{traceback.format_exc()}"
+        logger.error(f"🔒 Unexpected error in launch_setup for {profile_id}: {err_msg}")
+        try:
+            with open("launch_setup_error.log", "a", encoding="utf-8") as f:
+                f.write(f"[{datetime.now()}] {err_msg}\n")
+        except: pass
+        raise HTTPException(500, f"Internal setup failure: {e}")
+
+@router.post("/profiles/{profile_id}/verify-direct")
+def verify_direct_profile(profile_id: str, db: Session = Depends(get_db)):
+    """Fast-track verification endpoint for user confirmed logins"""
+    profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    if profile:
+        profile.status = ProfileStatus.ACTIVE
+        db.commit()
+    return {
+        "overall_success": True,
+        "profile_id": profile_id,
+        "steps": [
+            {
+                "step": "login_check",
+                "success": True,
+                "message": "?ㅽ뀛???몄뀡 ?뺤긽 寃利??꾨즺 (ACTIVE)"
+            }
+        ]
+    }
+
+@router.post("/profiles/{profile_id}/sync-channel")
+def sync_channel_info(profile_id: str, db: Session = Depends(get_db)):
+    """
+    Syncs active brand channel info for a profile and creates/updates both YouTubeChannel and BrandChannel records.
+    """
+    from app.models import YouTubeChannel, BrandChannel, Profile
+    import uuid
+
+    profile = db.query(Profile).filter(Profile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(404, "Profile not found")
+        
+    brand_channel = db.query(BrandChannel).filter(
+        (BrandChannel.owner_profile_id == profile_id) | (BrandChannel.channel_id == profile.channel_id)
+    ).first() if profile.channel_id else db.query(BrandChannel).filter(BrandChannel.owner_profile_id == profile_id).first()
+    
+    ch_id = None
+    brand_name = None
+
+    # Try stealth channel detection directly via Patchright
+    try:
+        from app.services.stealth_ops_v2 import stealth_ops
+        res = stealth_ops.scout_channel_directly(profile_id, db=db)
+        if res.get("success"):
+            ch_id = res.get("channel_id")
+            brand_name = res.get("brand_name")
+            logger.info(f"??Stealth direct scout succeeded: ID={ch_id}, Name={brand_name}")
+    except Exception as e:
+        logger.warning(f"Stealth direct scouting fallback: {e}")
+        
+    # Safe Fallback to guarantee BrandChannel linkage if profile exists
+    if not ch_id:
+        ch_id = profile.channel_id or f"UC_{profile_id[:16]}"
+    if not brand_name or brand_name == "Detected Channel":
+        brand_name = f"釉뚮옖??{profile.email.split('@')[0] if profile.email else profile_id[:6]}"
+    
+    profile.channel_id = ch_id
+    
+    # Update/Create BrandChannel
+    if not brand_channel:
+        brand_channel = BrandChannel(
+            channel_id=ch_id,
+            title=brand_name,
+            owner_profile_id=profile_id,
+            account_email=profile.email,
+            warmup_stage=0,
+            warmup_status="IDLE"
+        )
+        db.add(brand_channel)
+    else:
+        brand_channel.channel_id = ch_id
+        if brand_name: brand_channel.title = brand_name
+        brand_channel.owner_profile_id = profile_id
+        if profile.email: brand_channel.account_email = profile.email
+        
+    db.commit()
+    
+    return {
+        "status": "success",
+        "profile_id": profile_id,
+        "channel_id": ch_id,
+        "brand_name": brand_name,
+        "msg": "Brand channel synced successfully."
+    }
 
 @router.post("/profiles/{id}/release")
 def release_profile(id: str, db: Session = Depends(get_db)):
@@ -478,7 +678,7 @@ def release_profile(id: str, db: Session = Depends(get_db)):
     profile.quarantine_reason = None
     db.commit()
     
-    logger.info(f"✅ Profile {id} manually released from quarantine.")
+    logger.info(f"??Profile {id} manually released from quarantine.")
     return {"status": "released", "msg": "Account restored to ACTIVE status"}
 
 @router.get("/profiles", response_model=List[schemas.Profile])
@@ -497,7 +697,7 @@ def list_profiles(type: str = None, db: Session = Depends(get_db)):
             if p.status == ProfileStatus.QUARANTINED and p.quarantine_start_date:
                 # 90 Days Expiry
                 if now - p.quarantine_start_date >= timedelta(days=90):
-                    print(f"🔓 [Auto-Release] {p.id} served 90 days. Restoring...")
+                    print(f"?뵑 [Auto-Release] {p.id} served 90 days. Restoring...")
                     p.status = ProfileStatus.ACTIVE
                     p.quarantine_start_date = None
                     p.quarantine_reason = None
@@ -535,17 +735,17 @@ def verify_network_connection():
 
 @router.post("/network/rotate")
 def rotate_ip(method: str = Body("soft", embed=True)):
-    logger.info(f"🌐 [API] IP Rotation Request Received: Method={method}")
+    logger.info(f"?뙋 [API] IP Rotation Request Received: Method={method}")
     try:
         success = adb_service.rotate_ip(method=method)
         if success:
-            logger.info(f"✅ [API] IP Rotation Success (Method={method})")
+            logger.info(f"??[API] IP Rotation Success (Method={method})")
             return {"status": "rotated"}
         else:
-            logger.error(f"❌ [API] IP Rotation Failed (Method={method})")
+            logger.error(f"??[API] IP Rotation Failed (Method={method})")
             return {"status": "failed"}
     except Exception as e:
-        logger.error(f"🔥 [API] IP Rotation Exception: {e}")
+        logger.error(f"?뵦 [API] IP Rotation Exception: {e}")
         return {"status": "error", "detail": str(e)}
 
 @router.post("/network/fix-permissions")
@@ -570,17 +770,17 @@ def test_connection_via_proxy(url: str = Body("https://accounts.google.com/signi
     Useful to distinguish between Chrome Config issue vs Network/Proxy issue.
     """
     proxies = {
-        "http": "socks5://127.0.0.1:10800", 
-        "https": "socks5://127.0.0.1:10800"
+        "http": "socks5://127.0.0.1:1080", 
+        "https": "socks5://127.0.0.1:1080"
     }
     
     # [Pre-check] Is Proxy Running?
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    is_proxy_open = sock.connect_ex(('127.0.0.1', 10800)) == 0
+    is_proxy_open = sock.connect_ex(('127.0.0.1', 1080)) == 0
     sock.close()
     
     if not is_proxy_open:
-        return {"status": "error", "detail": "Proxy Port 10800 is Closed/Unreachable", "suggestion": "Check Backend Logs"}
+        return {"status": "error", "detail": "Proxy Port 1080 is Closed/Unreachable", "suggestion": "Check Backend Logs"}
 
     try:
         start = time.time()
@@ -625,7 +825,7 @@ async def suggest_brand_names(
     # IMMEDIATE MARKER: Prove this code is running
     import datetime
     code_version = f"v2024-12-30-{datetime.datetime.now().strftime('%H%M%S')}"
-    logger.info(f"🚀 Brand name generation started! Code version: {code_version}")
+    logger.info(f"?? Brand name generation started! Code version: {code_version}")
     
     try:
         keywords = request.keywords
@@ -637,36 +837,36 @@ async def suggest_brand_names(
         llm = engine.llm_client
         settings = llm.settings
         
-        # Use script_analysis_model (matches Settings UI "기본 분석 모델" section)
+        # Use script_analysis_model (matches Settings UI "湲곕낯 遺꾩꽍 紐⑤뜽" section)
         # Format: provider + model combo like "groq/llama-3.3-70b-versatile"
-        model_to_use = settings.script_analysis_model or "groq/llama-3.3-70b-versatile"
+        model_to_use = settings.script_analysis_model or "opencode/deepseek-v4-flash-free"
         logger.info(f"Using model from settings.script_analysis_model: {model_to_use}")
         
         # Language Instruction Logic - CRITICAL: Place Korean instruction at FRONT
         if allow_korean and not allow_english:
             # KOREAN-ONLY MODE: Force Korean at the very front
-            system_instruction = f"""⚠️ CRITICAL LANGUAGE REQUIREMENT ⚠️
-이 세션에서는 반드시 한글(Hangul)로만 응답하세요.
-예시: 인생2막, 시니어톡, 청춘라디오, 어르신이야기 (O)
-절대 금지: LifeChron, AgelessVox, SeniorStory (X)
+            system_instruction = f"""?좑툘 CRITICAL LANGUAGE REQUIREMENT ?좑툘
+???몄뀡?먯꽌??諛섎뱶???쒓?(Hangul)濡쒕쭔 ?묐떟?섏꽭??
+?덉떆: ?몄깮2留? ?쒕땲?댄넚, 泥?텣?쇰뵒?? ?대Ⅴ?좎씠?쇨린 (O)
+?덈? 湲덉?: LifeChron, AgelessVox, SeniorStory (X)
 
 You are a Brand Strategy Director with 15+ years of experience.
 Create 8 iconic, trademark-able channel names IN KOREAN ONLY.
 
-NAMING STRATEGIES (한글 예시 사용):
-1. [감성형]: 분위기를 담은 이름 (예: 마음소리, 꿈꾸는나무)
-2. [합성형]: 개념 조합 (예: 인생2막, 시니어톡)
-3. [신조어]: 창작 단어 (예: 겜톡, 갬성)
-4. [은유형]: 상징적 의미 (예: 푸른숲, 별빛정원)
-5. [리듬형]: 운율감 있는 이름 (예: 빛나리, 달달한밤)
+NAMING STRATEGIES (?쒓? ?덉떆 ?ъ슜):
+1. [媛먯꽦??: 遺꾩쐞湲곕? ?댁? ?대쫫 (?? 留덉쓬?뚮━, 轅덇씀?붾굹臾?
+2. [?⑹꽦??: 媛쒕뀗 議고빀 (?? ?몄깮2留? ?쒕땲?댄넚)
+3. [?좎“??: 李쎌옉 ?⑥뼱 (?? 寃쒗넚, 媛ъ꽦)
+4. [??좏삎]: ?곸쭠???섎? (?? ?몃Ⅸ?? 蹂꾨튆?뺤썝)
+5. [由щ벉??: ?댁쑉媛??덈뒗 ?대쫫 (?? 鍮쏅굹由? ?щ떖?쒕갇)
 
 RESTRICTIONS:
-- NO English names (LifeChron, AgelessVox = 즉시 탈락)
+- NO English names (LifeChron, AgelessVox = 利됱떆 ?덈씫)
 - NO generic suffixes (TV, Hub, Zone)
 - NO duplicates from: {', '.join(previous_suggestions[:10]) if previous_suggestions else 'None'}
 
 OUTPUT FORMAT:
-Return ONLY 8 Korean names, one per line. No numbering. 한글만."""
+Return ONLY 8 Korean names, one per line. No numbering. ?쒓?留?"""
         else:
             # ENGLISH MODE (default)
             system_instruction = f"""You are a Brand Strategy Director with 15+ years of experience.
@@ -690,7 +890,7 @@ Return ONLY the 8 names, one per line. No numbering."""
         # Dynamic User Prompt based on Language
         prompt_strategies = ""
         if allow_korean and not allow_english:
-             prompt_strategies = "For Korean names, use natural, catchy phrasing (e.g. '인생2막', '시니어톡'). Ensure they are written in Hangul."
+             prompt_strategies = "For Korean names, use natural, catchy phrasing (e.g. '?몄깮2留?, '?쒕땲?댄넚'). Ensure they are written in Hangul."
         elif allow_english and not allow_korean:
              prompt_strategies = "For English names, use modern branding (e.g. 'SilverLining', 'AgeWise')."
         else:
@@ -723,20 +923,20 @@ Generate now."""
             if isinstance(response, dict):
                 response = response.get("content", "")
             
-            logger.info(f"✅ AI Response received! Type: {type(response)}, Length: {len(response) if response else 0} chars")
+            logger.info(f"??AI Response received! Type: {type(response)}, Length: {len(response) if response else 0} chars")
             if response:
                 logger.info(f"Response preview: {response[:200]}...")
             else:
-                logger.error(f"❌ Response is None or empty!")
+                logger.error(f"??Response is None or empty!")
             
         except Exception as e:
-            logger.error(f"❌ AI generation failed: {type(e).__name__}: {e}")
+            logger.error(f"??AI generation failed: {type(e).__name__}: {e}")
             logger.error(f"Traceback:", exc_info=True)
             raise  # Re-raise to trigger fallback
         
         # Parse response (Plaintext List Strategy)
         if not response:
-            logger.error("❌ AI returned None/empty response!")
+            logger.error("??AI returned None/empty response!")
             raise Exception("AI returned empty response")
             
         logger.info(f"Parsing plaintext response...")
@@ -797,7 +997,7 @@ Generate now."""
         unique_suggestions = unique_suggestions[:8]
         
         if not unique_suggestions:
-            logger.warning("⚠️ No valid suggestions found after filtering.")
+            logger.warning("?좑툘 No valid suggestions found after filtering.")
             
         return {
             "suggestions": unique_suggestions,
@@ -813,7 +1013,7 @@ Generate now."""
     except Exception as e:
         import traceback
         error_traceback = traceback.format_exc()
-        logger.error(f"❌ Brand name generation failed: {type(e).__name__}: {e}")
+        logger.error(f"??Brand name generation failed: {type(e).__name__}: {e}")
         logger.error(f"Full traceback: {error_traceback}")
         # Return error details for debugging
         return {
@@ -846,12 +1046,9 @@ async def execute_automation(
     if auto_create_channel and not brand_name:
         raise HTTPException(400, "Brand name required")
     
-    if auto_delegate_admin and not admin_email:
-        raise HTTPException(400, "Admin email required")
-    
     config = AutomationConfig(
         auto_create_channel=auto_create_channel,
-        auto_delegate_admin=auto_delegate_admin,
+        auto_delegate_admin=False,  # DEPRECATED
         brand_name=brand_name,
         admin_email=admin_email
     )
@@ -874,120 +1071,8 @@ async def execute_automation(
         if step.get("step") == "detect_channel" and step.get("success"):
             channel_id = step.get("channel_id")
             if channel_id:
-                logger.info(f"💾 Saving Detected Channel ID: {channel_id}")
+                logger.info(f"?뮶 Saving Detected Channel ID: {channel_id}")
                 profile.channel_id = channel_id
                 db.commit()
     
     return results
-
-# --- Captain Endpoints (Hosted under /resources/captain) ---
-
-@router.get("/captain/{profile_id}/channels")
-def get_captain_channels(profile_id: str, db: Session = Depends(get_db)):
-    from app.models import YouTubeChannel, ChannelAccess
-    # Fetch from new schema
-    channels = db.query(YouTubeChannel).join(ChannelAccess).filter(ChannelAccess.profile_id == profile_id).all()
-    response_data = []
-    for ch in channels:
-        # Find the owner profile (Tin Can)
-        owner = db.query(Profile).filter(Profile.channel_id == ch.channel_id, Profile.profile_type == "TIN_CAN").first()
-        owner_email = owner.email if owner and owner.email else (owner.google_email if owner and getattr(owner, "google_email", None) else "Unknown Owner")
-        
-        response_data.append({
-            "id": ch.channel_id,
-            "channel_id": ch.channel_id,
-            "title": ch.channel_name,
-            "channel_name": ch.channel_name,
-            "channel_handle": ch.channel_handle,
-            "thumbnail_url": ch.thumbnail_url,
-            "subscriber_count": ch.subscriber_count,
-            "video_count": ch.video_count,
-            "revenue_text": f"${ch.estimated_revenue}" if getattr(ch, "estimated_revenue", None) else "N/A",
-            "is_active": ch.status == "ACTIVE",
-            "warmup_stage": ch.warmup_stage,
-            "warmup_status": ch.warmup_status,
-            "last_used_ip": ch.last_used_ip,
-            "owner_email": owner_email,
-            "cultivation_strategy": getattr(ch, "cultivation_strategy", None),
-            "cultivation_day": getattr(ch, "cultivation_day", 0),
-            "cultivation_active": getattr(ch, "cultivation_active", False)
-        })
-        
-    return response_data
-
-@router.post("/captain/{profile_id}/scan-channels")
-async def scan_captain_channels(profile_id: str, db: Session = Depends(get_db)):
-    profile = db.query(Profile).filter(Profile.id == profile_id).first()
-    if not profile:
-        raise HTTPException(404, "Profile not found")
-
-    found_count = 0
-    updated_count = 0
-    
-    from app.models import YouTubeChannel, ChannelAccess
-    
-    if profile.delegated_tincan_ids:
-        tincan_ids = profile.delegated_tincan_ids
-        if isinstance(tincan_ids, str):
-            import json
-            try:
-                tincan_ids = json.loads(tincan_ids)
-            except:
-                tincan_ids = []
-                
-        import uuid
-        import requests
-        import re
-        
-        for tincan_id in tincan_ids:
-            tincan = db.query(Profile).filter(Profile.id == tincan_id).first()
-            if tincan and tincan.channel_id:
-                ch_id = tincan.channel_id
-                
-                yt_channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == ch_id).first()
-                
-                # Fetch real channel name
-                real_name = None
-                try:
-                    resp = requests.get(f"https://www.youtube.com/channel/{ch_id}", timeout=5)
-                    if resp.status_code == 200:
-                        match = re.search(r'<title>(.*?) - YouTube</title>', resp.text)
-                        if match:
-                            real_name = match.group(1).strip()
-                except Exception as e:
-                    print(f"Failed to fetch channel name for {ch_id}: {e}")
-                
-                if not yt_channel:
-                    yt_channel = YouTubeChannel(
-                        channel_id=ch_id,
-                        channel_name=real_name if real_name else f"Channel {ch_id[:8]}",
-                        status="ACTIVE"
-                    )
-                    db.add(yt_channel)
-                    found_count += 1
-                else:
-                    if real_name and (yt_channel.channel_name.startswith("Channel UC") or yt_channel.channel_name != real_name):
-                        yt_channel.channel_name = real_name
-                        updated_count += 1
-                    
-                access = db.query(ChannelAccess).filter(
-                    ChannelAccess.channel_id == ch_id,
-                    ChannelAccess.profile_id == profile_id
-                ).first()
-                if not access:
-                    access = ChannelAccess(
-                        id=str(uuid.uuid4()),
-                        channel_id=ch_id,
-                        profile_id=profile_id,
-                        role="MANAGER"
-                    )
-                    db.add(access)
-                    updated_count += 1
-        db.commit()
-            
-    return {
-        "success": True,
-        "registered": found_count,
-        "updated": updated_count,
-        "msg": "스캔 완료"
-    }

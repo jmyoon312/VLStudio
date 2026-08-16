@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
@@ -50,28 +50,32 @@ else:
     if DATABASE_URL and DATABASE_URL.startswith("sqlite"):
         SQLALCHEMY_DATABASE_URL = DATABASE_URL
     else:
-        # Standard system User Application Data folder to bypass Windows UAC permission limits
-        if os.name == "nt":
-            local_app_data = os.environ.get("LOCALAPPDATA")
-            if local_app_data:
-                db_dir = os.path.join(local_app_data, "ViraLoop Studio")
-            else:
-                app_data = os.environ.get("APPDATA")
-                if app_data:
-                    db_dir = os.path.join(app_data, "ViraLoop Studio").replace("Roaming", "Local")
-                else:
-                    db_dir = os.path.join(os.path.expanduser("~"), "AppData", "Local", "ViraLoop Studio")
+        # Check if we are running from source code vs packaged electron app
+        if os.path.exists(os.path.join(settings.MEDIA_ROOT, "apps", "api")):
+            # Running from source, use local DB in project folder to avoid conflict with installed app
+            db_dir = os.path.join(settings.MEDIA_ROOT, "data")
         else:
-            db_dir = os.path.join(os.path.expanduser("~"), ".config", "viraloopstudio")
-            
+            # Standard system User Application Data folder to bypass Windows UAC permission limits
+            if os.name == "nt":
+                local_app_data = os.environ.get("LOCALAPPDATA")
+                if local_app_data:
+                    db_dir = os.path.join(local_app_data, "ViraLoop Studio")
+                else:
+                    app_data = os.environ.get("APPDATA")
+                    if app_data:
+                        db_dir = os.path.join(app_data, "ViraLoop Studio").replace("Roaming", "Local")
+                    else:
+                        db_dir = os.path.join(os.path.expanduser("~"), "AppData", "Local", "ViraLoop Studio")
+            else:
+                db_dir = os.path.join(os.path.expanduser("~"), ".config", "viraloopstudio")
+            db_dir = db_dir
         try:
             os.makedirs(db_dir, exist_ok=True)
         except Exception:
-            # Fallback to temp directory if all else fails
             import tempfile
-            db_dir = tempfile.gettempdir()
-            
-        DB_PATH = os.path.join(db_dir, "viral_loop.db").replace("\\", "/")
+            db_dir = os.path.join(tempfile.gettempdir(), "ViraLoop Studio")
+            os.makedirs(db_dir, exist_ok=True)
+        DB_PATH = os.path.join(db_dir, "vl_database_dev.db" if os.path.exists(os.path.join(settings.MEDIA_ROOT, "apps", "api")) else "vl_database.db").replace("\\", "/")
         SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
     
     engine = create_engine(
@@ -79,6 +83,10 @@ else:
         echo=False,
         connect_args={"check_same_thread": False, "timeout": 35}
     )
+
+    with open(r"C:\ViraLoopMedia\VLStudio\db_url.txt", "a") as f:
+        f.write(f"PID {os.getpid()} engine URL: {SQLALCHEMY_DATABASE_URL}\n")
+
 
     # Enable WAL Mode for SQLite concurrency (Development/Desktop only)
     from sqlalchemy import event
@@ -170,4 +178,41 @@ def create_checkpoint_table():
         
     except Exception as e:
         logger.error(f"Failed to create checkpoint table: {e}")
+        return False
+
+
+def migrate_source_external_id():
+    """work_queue_items에 source_external_id 컬럼이 없으면 추가 (SQLite/PostgreSQL 대응)"""
+    try:
+        db = SessionLocal()
+        conn = db.connection()
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        
+        # 1. work_queue_items.source_external_id
+        columns = [c["name"] for c in inspector.get_columns("work_queue_items")]
+        if "source_external_id" not in columns:
+            dialect = engine.dialect.name
+            if dialect == "sqlite":
+                conn.execute(text("ALTER TABLE work_queue_items ADD COLUMN source_external_id VARCHAR"))
+            else:
+                conn.execute(text("ALTER TABLE work_queue_items ADD COLUMN source_external_id VARCHAR"))
+            db.commit()
+            print("[Migration] Added source_external_id column to work_queue_items")
+
+        # 2. profiles.name
+        profile_cols = [c["name"] for c in inspector.get_columns("profiles")]
+        if "name" not in profile_cols:
+            dialect = engine.dialect.name
+            if dialect == "sqlite":
+                conn.execute(text("ALTER TABLE profiles ADD COLUMN name VARCHAR"))
+            else:
+                conn.execute(text("ALTER TABLE profiles ADD COLUMN name VARCHAR"))
+            db.commit()
+            print("[Migration] Added name column to profiles")
+
+        db.close()
+        return True
+    except Exception as e:
+        print(f"[Migration] source_external_id column migration skipped: {e}")
         return False

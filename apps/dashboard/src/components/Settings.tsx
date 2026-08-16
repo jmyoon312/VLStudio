@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import api, { Settings as SettingsType } from '../lib/api';
-import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal } from 'lucide-react';
+import api, { apiLong, Settings as SettingsType } from '../lib/api';
+import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -68,6 +68,82 @@ const KeyListInput = ({
     );
 };
 
+const CloakBrowserUpdater = () => {
+    const queryClient = useQueryClient();
+    const { data, isLoading } = useQuery({
+        queryKey: ['cloakbrowser_version'],
+        queryFn: async () => {
+            const res = await api.get('/system/cloakbrowser/version');
+            return res.data;
+        }
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.post('/system/cloakbrowser/update');
+            return res.data;
+        },
+        onSuccess: (data) => {
+            if (data.success) {
+                toast.success(data.message || "업데이트 성공");
+                queryClient.invalidateQueries({ queryKey: ['cloakbrowser_version'] });
+            } else {
+                toast.error(data.message || "업데이트 실패");
+                console.error(data.logs);
+            }
+        },
+        onError: (err: any) => {
+            toast.error("오류 발생: " + err.message);
+        }
+    });
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+                <div className="space-y-1">
+                    <div className="font-medium flex items-center gap-2">
+                        현재 설치된 버전
+                        {isLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        ) : (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                v{data?.version || 'Unknown'}
+                            </Badge>
+                        )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        CloakBrowser는 유튜브/틱톡 업로드 시 봇 탐지를 우회하는 핵심 엔진입니다.
+                    </p>
+                </div>
+                <Button 
+                    onClick={() => updateMutation.mutate()} 
+                    disabled={updateMutation.isPending}
+                    variant={updateMutation.isPending ? "outline" : "default"}
+                    className="min-w-[120px]"
+                >
+                    {updateMutation.isPending ? (
+                        <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            업데이트 중...
+                        </>
+                    ) : (
+                        <>
+                            <RefreshCcw className="w-4 h-4 mr-2" />
+                            최신버전 패치
+                        </>
+                    )}
+                </Button>
+            </div>
+            
+            {updateMutation.data && !updateMutation.data.success && updateMutation.data.logs && (
+                <div className="mt-4 p-3 bg-red-50 text-red-800 text-xs rounded border border-red-200 whitespace-pre-wrap font-mono h-32 overflow-y-auto">
+                    {updateMutation.data.logs}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const Settings = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
@@ -88,6 +164,7 @@ const Settings = () => {
     const [isUpdatingPaperclip, setIsUpdatingPaperclip] = useState(false);
     const [isSyncingOpenClaude, setIsSyncingOpenClaude] = useState(false);
     const [isUpdatingOpenClaude, setIsUpdatingOpenClaude] = useState(false);
+    const [isUpdatingYtdlp, setIsUpdatingYtdlp] = useState(false);
     const [agentVersions, setAgentVersions] = useState<Record<string, any>>({});
 
     const fetchVersions = async () => {
@@ -120,8 +197,8 @@ const Settings = () => {
         try {
             const res = await api.post('/creative/test-chat', {
                 message: chatInput,
-                provider: formData.script_analysis_provider || 'groq',
-                model: formData.script_analysis_model || ''
+                provider: formData.script_analysis_provider || 'opencode',
+                model: formData.script_analysis_model || 'opencode/deepseek-v4-flash-free'
             });
 
             setChatResponse(res.data.content || JSON.stringify(res.data, null, 2));
@@ -322,7 +399,7 @@ const Settings = () => {
     }, [settings]);
 
     const updateMutation = useMutation({
-        mutationFn: (data: Partial<SettingsType>) => api.put('/settings/', data),
+        mutationFn: (data: Partial<SettingsType>) => api.put('/settings', data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['settings'] });
             toast.success('설정이 저장되었습니다.');
@@ -500,7 +577,7 @@ const Settings = () => {
 
             <div className="flex-1">
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="mb-4 bg-muted/50 p-1 h-12 w-full justify-start overflow-x-auto">
+                    <TabsList className="mb-4 bg-muted/50 p-1 h-auto flex-wrap w-full justify-start">
                         <TabsTrigger value="general" className="gap-2 px-4 h-9">
                             <SettingsIcon className="w-4 h-4" /> 일반
                         </TabsTrigger>
@@ -524,6 +601,9 @@ const Settings = () => {
                         </TabsTrigger>
                         <TabsTrigger value="aigrid" className="gap-2 px-4 h-9">
                             <Zap className="w-4 h-4 text-amber-500" /> AI Grid (분산 노드)
+                        </TabsTrigger>
+                        <TabsTrigger value="browser" className="gap-2 px-4 h-9">
+                            <Globe className="w-4 h-4 text-emerald-500" /> 안티디텍트 브라우저
                         </TabsTrigger>
                     </TabsList>
 
@@ -580,8 +660,8 @@ const Settings = () => {
                                         <Label>영상 파일 자동 삭제 주기 (용량 확보)</Label>
                                         <div className="flex gap-2 items-center">
                                             <Select
-                                                value={formData.auto_delete_mp4_days?.toString() || "7"}
-                                                onValueChange={(val) => setFormData({ ...formData, auto_delete_mp4_days: parseInt(val) })}
+                                                value={(formData as any).auto_delete_mp4_days?.toString() || "7"}
+                                                onValueChange={(val) => setFormData({ ...formData, auto_delete_mp4_days: parseInt(val) } as any)}
                                             >
                                                 <SelectTrigger className="w-[200px] bg-white">
                                                     <SelectValue placeholder="자동 삭제 주기 선택" />
@@ -598,6 +678,49 @@ const Settings = () => {
                                         <p className="text-[10px] text-muted-foreground">
                                             * 설정한 기간이 지나면 MP4 영상 파일만 자동 삭제되며, 메타데이터 기록은 유지됩니다.
                                         </p>
+                                    </div>
+
+                                    {/* [NEW] Outlier Pre-filtering Configuration */}
+                                    <div className="space-y-4 pt-4 border-t border-dashed">
+                                        <div className="space-y-0.5">
+                                            <Label className="font-bold flex items-center gap-2">
+                                                <TrendingUp className="w-4 h-4 text-purple-600" />
+                                                수집 기준 (Outlier Thresholds)
+                                            </Label>
+                                            <p className="text-xs text-muted-foreground">
+                                                자동 스캔 시 해당 기준을 넘지 못하는 평범한 영상은 DB에 수집되지 않습니다.
+                                            </p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 border rounded-lg">
+                                            <div className="space-y-2">
+                                                <Label>쇼츠 영상 EV 기준 (%)</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="number"
+                                                        value={formData.outlier_ev_threshold ?? 120}
+                                                        onChange={e => setFormData({ ...formData, outlier_ev_threshold: parseInt(e.target.value) || 0 })}
+                                                    />
+                                                    <span className="text-sm font-bold text-muted-foreground">%</span>
+                                                </div>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    최근 채널 평균 조회수 대비 목표. (예: 120% = 평균보다 1.2배 높을 때 수집)
+                                                </p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>일반 영상 Ratio 기준</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="number" step="0.1"
+                                                        value={formData.outlier_ratio_threshold ?? 1.5}
+                                                        onChange={e => setFormData({ ...formData, outlier_ratio_threshold: parseFloat(e.target.value) || 0 })}
+                                                    />
+                                                    <span className="text-sm font-bold text-muted-foreground">x</span>
+                                                </div>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    채널 구독자 수 대비 조회수 비율. (예: 1.5 = 구독자보다 1.5배 많을 때 수집)
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Cleanup Old Videos Section */}
@@ -717,6 +840,41 @@ const Settings = () => {
                                             <Input type="password" value={formData.openrouter_api_key || ''} onChange={e => setFormData({ ...formData, openrouter_api_key: e.target.value })} placeholder="or-..." />
                                         </div>
 
+                                        <div className="space-y-2 pt-4 border-t border-dashed">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <Zap className="w-4 h-4 text-purple-600" />
+                                                    <Label className="font-bold">OpenCode Zen API Keys</Label>
+                                                </div>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 gap-1"
+                                                    onClick={() => testConnection("opencode", { api_key: formData.opencode_api_keys?.[0] })}
+                                                    disabled={testResults["opencode"]?.loading}
+                                                >
+                                                    {testResults["opencode"]?.loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCcw className="w-3 h-3 mr-1" />}
+                                                    테스트
+                                                </Button>
+                                            </div>
+                                            <KeyListInput
+                                                label=""
+                                                keys={formData.opencode_api_keys || []}
+                                                onChange={k => setFormData({ ...formData, opencode_api_keys: k })}
+                                                placeholder="sk-..."
+                                            />
+                                            <p className="text-[10px] text-muted-foreground">
+                                                * OpenAI 호환 무료 모델 (DeepSeek V4 Flash, Nemotron 3, Qwen 3.6 등) 지원
+                                            </p>
+                                            {testResults["opencode"] && !testResults["opencode"].loading && (
+                                                <Alert className={cn("py-2", testResults["opencode"].success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200")}>
+                                                    <AlertDescription className={cn("text-[10px]", testResults["opencode"].success ? "text-green-700" : "text-red-700")}>
+                                                        {testResults["opencode"].message}
+                                                    </AlertDescription>
+                                                </Alert>
+                                            )}
+                                        </div>
+
                                         {/* [NEW] Ollama Settings */}
                                         <div className="pt-4 border-t border-dashed space-y-4">
                                             <div className="flex items-center justify-between">
@@ -791,6 +949,21 @@ const Settings = () => {
                                             onChange={k => setFormData({ ...formData, cerebras_api_keys: k })}
                                             placeholder="sk-..."
                                         />
+                                        <div className="pt-4 border-t border-dashed space-y-4">
+                                            <div className="flex items-center gap-2">
+                                                <RadioReceiver className="w-4 h-4 text-orange-600" />
+                                                <Label className="font-bold">YouTube1 (Custom OpenAI API)</Label>
+                                            </div>
+                                            <KeyListInput
+                                                label=""
+                                                keys={(formData as any).youtube1_api_keys || []}
+                                                onChange={k => setFormData({ ...formData, youtube1_api_keys: k } as any)}
+                                                placeholder="sk-..."
+                                            />
+                                            <p className="text-[10px] text-muted-foreground">
+                                                * http://localhost:20128/v1 (9router API) 모델: youtube1
+                                            </p>
+                                        </div>
                                     </CardContent>
                                 </Card>
 
@@ -867,6 +1040,33 @@ const Settings = () => {
                                         </CardContent>
                                     </Card>
 
+                                    <Card className="border-purple-200 bg-purple-50/30">
+                                        <CardHeader>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <Globe className="w-4 h-4 text-purple-600" /> Web Fetch (Jina Reader)
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            <div className="space-y-1">
+                                                <Label>Jina Reader Endpoint</Label>
+                                                <Input
+                                                    value={formData.jina_reader_endpoint || ''}
+                                                    onChange={e => setFormData({ ...formData, jina_reader_endpoint: e.target.value })}
+                                                    placeholder="http://localhost:20128/v1/web/fetch"
+                                                />
+                                            </div>
+                                            <KeyListInput
+                                                label="Jina API Keys"
+                                                keys={formData.jina_reader_api_keys || []}
+                                                onChange={k => setFormData({ ...formData, jina_reader_api_keys: k })}
+                                                placeholder="Bearer sk-..."
+                                            />
+                                            <p className="text-[10px] text-muted-foreground mt-2">
+                                                * 실시간 트렌드 및 블루오션 시그널 수집에 사용되는 고성능 웹 스크래퍼입니다.
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+
                                     <Card>
                                         <CardHeader>
                                             <CardTitle>기본 분석 모델</CardTitle>
@@ -876,9 +1076,9 @@ const Settings = () => {
                                         </CardHeader>
                                         <CardContent>
                                             <AIModelSelector
-                                                provider={formData.script_analysis_provider || 'groq'}
+                                                provider={formData.script_analysis_provider || 'opencode'}
                                                 onProviderChange={(val) => setFormData(prev => ({ ...prev, script_analysis_provider: val }))}
-                                                model={formData.script_analysis_model || ''}
+                                                model={formData.script_analysis_model || 'opencode/deepseek-v4-flash-free'}
                                                 onModelChange={(val) => setFormData(prev => ({ ...prev, script_analysis_model: val }))}
                                                 showPreset={false}
                                             />
@@ -983,10 +1183,10 @@ const Settings = () => {
                                                         </div>
                                                     </div>
                                                     <div className="flex gap-1.5">
-                                                        <Button 
-                                                            size="sm" 
-                                                            variant="outline" 
-                                                            className="h-8 gap-2 bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50" 
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="h-8 gap-2 bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50"
                                                             onClick={() => window.open(`http://${window.location.hostname}:9119`, '_blank')}
                                                         >
                                                             <ExternalLink className="w-3 h-3" /> n8n 대시보드
@@ -1000,10 +1200,10 @@ const Settings = () => {
                                             </CardHeader>
                                             <CardContent>
                                                 <AIModelSelector
-                                                    provider={formData.hermes_agent_provider || 'google'}
-                                                    onProviderChange={(val) => setFormData(prev => ({ ...prev, hermes_agent_provider: val }))}
-                                                    model={formData.hermes_agent_model || ''}
-                                                    onModelChange={(val) => setFormData(prev => ({ ...prev, hermes_agent_model: val }))}
+                                                    provider={(formData as any).hermes_agent_provider || 'google'}
+                                                    onProviderChange={(val) => setFormData(prev => ({ ...prev, hermes_agent_provider: val } as any))}
+                                                    model={(formData as any).hermes_agent_model || ''}
+                                                    onModelChange={(val) => setFormData(prev => ({ ...prev, hermes_agent_model: val } as any))}
                                                     showPreset={false}
                                                 />
                                             </CardContent>
@@ -1185,13 +1385,25 @@ const Settings = () => {
                                             <span className="text-muted-foreground mr-2">현재 버전:</span>
                                             <span className="font-mono">{ytdlpVersion?.version || maintenanceStatus?.version || 'Unknown'}</span>
                                         </div>
-                                        <Button variant="outline" size="sm" onClick={async () => {
+                                        <Button variant="outline" size="sm" disabled={isUpdatingYtdlp} onClick={async () => {
+                                            setIsUpdatingYtdlp(true);
                                             try {
-                                                const res = await api.post('/system/update-ytdlp');
-                                                toast.success(res.data.message);
+                                                const res = await apiLong.post('/system/update-ytdlp');
+                                                if (res.data.success) {
+                                                    toast.success(res.data.message);
+                                                } else {
+                                                    toast.error(res.data.message || 'Update Failed');
+                                                }
                                                 refetchVersion();
-                                            } catch (e) { toast.error("Update Failed"); }
-                                        }}>지금 업데이트</Button>
+                                            } catch (e: any) {
+                                                toast.error(e?.response?.data?.message || e?.message || 'Update Failed');
+                                            } finally {
+                                                setIsUpdatingYtdlp(false);
+                                            }
+                                        }}>
+                                            {isUpdatingYtdlp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {isUpdatingYtdlp ? '업데이트 중...' : '지금 업데이트'}
+                                        </Button>
                                     </div>
                                     <Button onClick={handleSave} disabled={isSaving}>설정 저장</Button>
                                 </CardContent>
@@ -1234,6 +1446,126 @@ const Settings = () => {
                     {/* --- TAB 6: SYSTEM --- */}
                     <TabsContent value="system">
                         <SystemSettingsTab />
+                    </TabsContent>
+
+                    {/* --- TAB 8: BROWSER (Anti-detect) --- */}
+                    <TabsContent value="browser">
+                        <div className="grid gap-6">
+                            <Card className="border-emerald-200">
+                                <CardHeader className="bg-emerald-50/50">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Globe className="w-5 h-5 text-emerald-600" />
+                                        자체 개발 브라우저 (CloakBrowser) 버전 패치
+                                    </CardTitle>
+                                    <CardDescription>
+                                        최신 우회 패치가 적용된 CloakBrowser 버전을 확인하고 자동 업데이트할 수 있습니다.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6 pt-6">
+                                    <CloakBrowserUpdater />
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-emerald-200">
+                                <CardHeader className="bg-emerald-50/50">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Globe className="w-5 h-5 text-emerald-600" />
+                                        서드파티 브라우저 (iXBrowser) 연동 설정
+                                    </CardTitle>
+                                    <CardDescription>
+                                        iXBrowser를 사용할 경우의 로컬 API 주소를 설정합니다.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6 pt-6">
+                                    <div className="space-y-4 max-w-md">
+                                        <div className="space-y-2">
+                                            <Label>iXBrowser API Base URL</Label>
+                                            <Input
+                                                value={formData.ixbrowser_api_url || 'http://127.0.0.1:4320'}
+                                                onChange={e => setFormData({ ...formData, ixbrowser_api_url: e.target.value })}
+                                                placeholder="http://127.0.0.1:4320"
+                                            />
+                                            <p className="text-[10px] text-muted-foreground">
+                                                * iXBrowser 클라이언트가 실행 중인 로컬 API 주소입니다.
+                                            </p>
+                                        </div>
+                                        <Button onClick={handleSave} disabled={isSaving}>
+                                            {isSaving && <Loader2 className="mr-2 animate-spin w-4 h-4" />}설정 저장
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-emerald-200">
+                                <CardHeader className="bg-emerald-50/50">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Globe className="w-5 h-5 text-emerald-600" />
+                                        네트워크 및 다중 프록시 라우팅 전략
+                                    </CardTitle>
+                                    <CardDescription>
+                                        통신사 테더링 차단 우회 및 IP 관리를 위한 프록시 연동 방식을 선택합니다.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-6 pt-6">
+                                    <div className="space-y-4 max-w-xl">
+                                        <div className="space-y-2">
+                                            <Label>프록시 모드 선택</Label>
+                                            <Select value={formData.proxy_mode || 'DIRECT_LTE'} onValueChange={v => setFormData({...formData, proxy_mode: v})}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="프록시 모드를 선택하세요" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="DIRECT_LTE">📱 스마트폰 USB 직접 연결 (LTE 바인딩 - 기본)</SelectItem>
+                                                    <SelectItem value="NETSHARE">🔗 안드로이드 프록시 우회 모드 (EveryProxy, NetShare 등)</SelectItem>
+                                                    <SelectItem value="ISP_PROXY">🌐 외부 ISP 프록시 (유료 IP)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        
+                                        {formData.proxy_mode === 'NETSHARE' && (
+                                            <div className="grid grid-cols-2 gap-4 border p-4 rounded-md bg-muted/20">
+                                                <div className="space-y-2">
+                                                    <Label>NetShare IP 주소</Label>
+                                                    <Input 
+                                                        value={formData.netshare_ip || '192.168.49.1'} 
+                                                        onChange={e => setFormData({...formData, netshare_ip: e.target.value})}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>NetShare 포트</Label>
+                                                    <Input 
+                                                        type="number"
+                                                        value={formData.netshare_port || 8282} 
+                                                        onChange={e => setFormData({...formData, netshare_port: parseInt(e.target.value) || 8282})}
+                                                    />
+                                                </div>
+                                                <p className="col-span-2 text-xs text-muted-foreground mt-2">
+                                                    * 핸드폰의 NetShare 앱을 켜고 하단에 표시되는 Address와 Port를 입력하세요. (보통 192.168.49.1 : 8282)
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {formData.proxy_mode === 'ISP_PROXY' && (
+                                            <div className="space-y-2 border p-4 rounded-md bg-muted/20">
+                                                <Label>ISP 프록시 주소 (SOCKS5 / HTTP)</Label>
+                                                <Input 
+                                                    value={formData.isp_proxy_url || ''} 
+                                                    onChange={e => setFormData({...formData, isp_proxy_url: e.target.value})}
+                                                    placeholder="socks5://username:password@12.34.56.78:1080"
+                                                />
+                                                <p className="text-xs text-muted-foreground mt-2">
+                                                    * 구매하신 유료 프록시 주소를 입력하세요. ID/PW 인증이 포함된 주소 형식을 지원합니다.
+                                                </p>
+                                            </div>
+                                        )}
+                                        
+                                        <Button onClick={handleSave} disabled={isSaving}>
+                                            {isSaving && <Loader2 className="mr-2 animate-spin w-4 h-4" />}라우팅 설정 저장
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
                     </TabsContent>
 
                     {/* --- TAB 7: AI GRID (Nodes) --- */}

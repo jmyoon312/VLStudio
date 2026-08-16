@@ -71,23 +71,26 @@ class AutomationOrchestrator:
         page = None
         
         try:
-            logger.info(f"🚀 Starting automation for profile {profile_id}")
+            logger.info(f"[FALLBACK] Starting automation for profile {profile_id}")
             
             # Create browser instance (Background mode)
             page = self.stealth.create_page(profile_id)
             
-            # Navigate to Google to check login status
-            page.goto('https://accounts.google.com')
+            # Navigate directly to YouTube Studio to verify real session status
+            page.goto('https://studio.youtube.com')
             self.stealth.human_delay(2, 3)
             
-            # Check if logged in
-            if "signin" in page.url.lower():
+            # Check if redirected to Google signin page
+            curr_url = page.url.lower()
+            is_logged_in = not ("accounts.google.com" in curr_url or "signin" in curr_url or "identifier" in curr_url)
+            
+            if not is_logged_in:
                 if config.skip_login:
                     logger.warning("🚫 Not logged in + Skip Login requested. Manual login required.")
                     results["steps"].append({
                         "step": "login_check",
                         "success": False,
-                        "error": "로그인이 되어있지 않습니다. 먼저 '설정 브라우저 열기'로 로그인해주세요.",
+                        "error": "스텔스 브라우저에서 유튜브 스튜디오 로그인을 먼저 진행해주세요.",
                         "requires_manual": True
                     })
                     results["overall_success"] = False
@@ -104,14 +107,14 @@ class AutomationOrchestrator:
                     login_result = self.stealth.login_google(page, profile.email, profile.password)
                     
                     if login_result["success"]:
-                        logger.info("✅ Auto-login successful!")
+                        logger.info("[OK] Auto-login successful!")
                         results["steps"].append({
                             "step": "login_check",
                             "success": True,
                             "message": "Auto-login successful (human-like)"
                         })
                     elif login_result.get("requires_2fa"):
-                        logger.warning("⚠️ 2FA/Verification required - manual intervention needed")
+                        logger.warning("[WARN] 2FA/Verification required - manual intervention needed")
                         results["steps"].append({
                             "step": "login_check",
                             "success": False,
@@ -121,7 +124,7 @@ class AutomationOrchestrator:
                         results["overall_success"] = False
                         return results
                     else:
-                        logger.error(f"❌ Auto-login failed: {login_result.get('error')}")
+                        logger.error(f"[FAIL] Auto-login failed: {login_result.get('error')}")
                         results["steps"].append({
                             "step": "login_check",
                             "success": False,
@@ -174,7 +177,7 @@ class AutomationOrchestrator:
                     if not channel_result["success"]:
                         results["overall_success"] = False
             else:
-                logger.info("🔍 Manual Mode: Detecting active channel...")
+                logger.info("[SEARCH] Manual Mode: Detecting active channel...")
                 detect_result = self.channel_creator.detect_active_channel(page)
                 
                 results["steps"].append({
@@ -206,11 +209,11 @@ class AutomationOrchestrator:
                     if not admin_result["success"]:
                         results["overall_success"] = False
             
-            logger.info(f"✅ Automation completed for profile {profile_id}")
+            logger.info(f"[OK] Automation completed for profile {profile_id}")
             return results
             
         except Exception as e:
-            logger.error(f"❌ Automation failed: {e}")
+            logger.error(f"[FAIL] Automation failed: {e}")
             import traceback
             logger.error(traceback.format_exc())
             results["overall_success"] = False

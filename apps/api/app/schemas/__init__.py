@@ -60,6 +60,8 @@ class CategoryBase(BaseModel):
 
 class CategoryCreate(BaseModel):
     name: str
+    parent_id: Optional[int] = None
+    level: Optional[int] = 0
 
 class Category(CategoryBase):
     id: int
@@ -72,6 +74,11 @@ class Category(CategoryBase):
 
     class Config:
         from_attributes = True
+
+class CategoryTreeNode(Category):
+    children: List['CategoryTreeNode'] = []
+
+CategoryTreeNode.update_forward_refs()
 
 # Channel schemas
 class ChannelBase(BaseModel):
@@ -181,7 +188,7 @@ class AssetQuery(BaseModel):
 
 # Settings schemas
 class SettingsBase(BaseModel):
-    root_download_path: str = "downloads"
+    root_download_path: str = "07_Downloads"
     cookies_path: Optional[str] = None
     global_auto_download: Optional[bool] = None
     enable_trend_scheduling: Optional[bool] = None # [NEW]
@@ -192,17 +199,30 @@ class SettingsBase(BaseModel):
     auto_hd_viral_threshold: Optional[float] = None
     auto_hd_velocity_threshold: Optional[float] = None
     
+    # [NEW] Outlier Pre-filtering Thresholds
+    outlier_ev_threshold: Optional[float] = 120.0
+    outlier_ratio_threshold: Optional[float] = 1.5
+    
     # [NEW] ADB & Browser
     adb_default_serial: Optional[str] = None
     adb_connection_method: Optional[str] = "usb"
     chrome_path: Optional[str] = "/usr/bin/google-chrome"
     headless_mode: Optional[bool] = True
+    ixbrowser_api_url: Optional[str] = "http://127.0.0.1:4320"
     
+    # [NEW] Multi-Proxy Routing Settings
+    proxy_mode: Optional[str] = "DIRECT_LTE"
+    netshare_ip: Optional[str] = "192.168.49.1"
+    netshare_port: Optional[int] = 8282
+    isp_proxy_url: Optional[str] = None
+
     ffmpeg_path: Optional[str] = None
     whisper_model_path: Optional[str] = None
     default_tts_engine: Optional[str] = None
     default_model_size: Optional[str] = "base"
     default_language: Optional[str] = "ko"
+    jina_reader_endpoint: Optional[str] = "http://localhost:20128/v1/web/fetch"
+    jina_reader_api_keys: Optional[List[str]] = []
     gemini_api_keys: Optional[List[str]] = []
     elevenlabs_api_keys: Optional[List[str]] = []
     typecast_api_keys: Optional[List[str]] = []
@@ -212,6 +232,8 @@ class SettingsBase(BaseModel):
     cerebras_api_keys: Optional[List[str]] = [] # [NEW]
     openrouter_api_keys: Optional[List[str]] = [] # [NEW]
     nvidia_api_keys: Optional[List[str]] = []     # [Added]
+    opencode_api_keys: Optional[List[str]] = []   # [OpenCode Zen]
+    youtube1_api_keys: Optional[List[str]] = []   # [YouTube1 Custom Provider]
     
     # [NEW] Phase 1: Media & Automation Keys
     pexels_api_keys: Optional[List[str]] = []
@@ -248,8 +270,8 @@ class SettingsBase(BaseModel):
     rate_limit_window: Optional[int] = 60
     circuit_breaker_threshold: Optional[int] = 5
     
-    script_analysis_provider: Optional[str] = "groq"
-    script_analysis_model: Optional[str] = "groq/llama-3.3-70b-versatile"
+    script_analysis_provider: Optional[str] = "opencode"
+    script_analysis_model: Optional[str] = "opencode/deepseek-v4-flash-free"
 
     # Distributed AI Grid
     audio_node_url: Optional[str] = "https://miscultivated-nonvertically-londa.ngrok-free.dev"
@@ -264,6 +286,7 @@ class SettingsBase(BaseModel):
     # [NEW] OpenClaw Integration
     openclaw_preferred_provider: Optional[str] = None
     openclaw_model: Optional[str] = None
+    default_llm_model: Optional[str] = "gemini-2.0-flash-exp"
 
     # [Phase 5: Sovereign Hermes Intelligence]
     hermes_agent_provider: Optional[str] = "google"
@@ -311,6 +334,7 @@ class SettingsUpdate(BaseModel):
     sambanova_api_keys: Optional[List[str]] = None
     cerebras_api_keys: Optional[List[str]] = None
     nvidia_api_keys: Optional[List[str]] = None   # [Added]
+    opencode_api_keys: Optional[List[str]] = None # [OpenCode Zen]
     
     # [NEW] Phase 1: Media & Automation Keys
     pexels_api_keys: Optional[List[str]] = None
@@ -351,6 +375,7 @@ class SettingsUpdate(BaseModel):
     # [NEW] OpenClaw Integration
     openclaw_preferred_provider: Optional[str] = None
     openclaw_model: Optional[str] = None
+    default_llm_model: Optional[str] = None
 
     hermes_agent_provider: Optional[str] = None
     hermes_agent_model: Optional[str] = None
@@ -425,8 +450,9 @@ class ScriptGenerationRequest(BaseModel):
     glossary: Optional[str] = None
     niche: Optional[str] = None
     wisdom: Optional[str] = None
-    provider: str = "groq"
-    model: str = "groq/llama-3.3-70b-versatile"
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    use_web_search: bool = False
 
 class ScriptRefinementRequest(BaseModel):
     video_id: Optional[int] = None
@@ -434,22 +460,41 @@ class ScriptRefinementRequest(BaseModel):
     instruction: str
     persona: Optional[str] = None
     style_id: Optional[int] = None
-    provider: str = "groq"
-    model: str = "groq/llama-3.3-70b-versatile"
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    tempo_percentage: Optional[int] = 100
+
+class SafetyReviewRequest(BaseModel):
+    current_text: str
+    provider: Optional[str] = None
+    model: Optional[str] = None
+
+class SafetyChange(BaseModel):
+    original: str
+    replacement: str
+    reason: str
+
+class SafetyReviewResponse(BaseModel):
+    revised_script: str
+    changes: List[SafetyChange]
+
+class ScriptRewriteRequest(BaseModel):
+    video_id: Optional[int] = None
+    original_script: str
+    instruction: str
+    provider: Optional[str] = None
+    model: Optional[str] = None
     tempo_percentage: Optional[int] = 100
 
 class ScriptGenerationResponse(BaseModel):
     script: str
     model_used: str
     warning: Optional[str] = None
-
-class ScriptRewriteRequest(BaseModel):
-    video_id: Optional[int] = None
-    original_script: str
-    instruction: str
-    provider: Optional[str] = "groq"
-    model: Optional[str] = "groq/llama-3.3-70b-versatile"
-    tempo_percentage: Optional[int] = 100
+    research_used: bool = False
+    research_summary: Optional[str] = None
+    research_sources: Optional[list] = None
+    trend_used: bool = False
+    trend_count: int = 0
 
 class ScriptSaveRequest(BaseModel):
     video_id: int
@@ -663,11 +708,96 @@ class ProfileBase(BaseModel):
     last_used_at: Optional[datetime] = None
     tags: Optional[List[str]] = []
     
+    # [NEW] Network Config
+    proxy_mode: Optional[str] = "DIRECT"
+    proxy_protocol: Optional[str] = "http"
+    proxy_host: Optional[str] = None
+    proxy_port: Optional[str] = None
+    proxy_username: Optional[str] = None
+    proxy_password: Optional[str] = None
+    
+    # [NEW] Engine config
+    engine_type: Optional[str] = "cloakbrowser"
+    
     class Config:
         from_attributes = True
 
 class Profile(ProfileBase):
     pass
+
+# Multi-Platform Account Schemas
+class TikTokChannelCreate(BaseModel):
+    id: str  # username/handle
+    nickname: Optional[str] = None
+    google_email: Optional[str] = None
+    platform_username: Optional[str] = None
+    cookies_json: Optional[str] = None
+    follower_count: Optional[int] = 0
+
+class TikTokChannelUpdate(BaseModel):
+    nickname: Optional[str] = None
+    status: Optional[str] = None
+    cookies_json: Optional[str] = None
+    platform_username: Optional[str] = None
+    follower_count: Optional[int] = None
+
+class TikTokChannel(BaseModel):
+    id: str
+    nickname: Optional[str] = None
+    profile_id: str
+    status: str
+    last_uploaded_at: Optional[datetime] = None
+    cookies_json: Optional[str] = None
+    cookies_updated_at: Optional[datetime] = None
+    google_email: Optional[str] = None
+    platform_username: Optional[str] = None
+    follower_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class InstagramChannelCreate(BaseModel):
+    id: str  # username
+    nickname: Optional[str] = None
+    google_email: Optional[str] = None
+    platform_username: Optional[str] = None
+    cookies_json: Optional[str] = None
+    follower_count: Optional[int] = 0
+
+class InstagramChannelUpdate(BaseModel):
+    nickname: Optional[str] = None
+    status: Optional[str] = None
+    cookies_json: Optional[str] = None
+    platform_username: Optional[str] = None
+    follower_count: Optional[int] = None
+
+class InstagramChannel(BaseModel):
+    id: str
+    nickname: Optional[str] = None
+    profile_id: str
+    status: str
+    last_uploaded_at: Optional[datetime] = None
+    cookies_json: Optional[str] = None
+    cookies_updated_at: Optional[datetime] = None
+    google_email: Optional[str] = None
+    platform_username: Optional[str] = None
+    follower_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Profile with Multi-Platform Accounts
+class ProfileDetail(Profile):
+    tiktok_channels: list[TikTokChannel] = []
+    instagram_channels: list[InstagramChannel] = []
+    brand_channels: list[BrandChannel] = []
+
+    class Config:
+        from_attributes = True
 
 # --- [Phase 5: Industrial Management Schemas] ---
 

@@ -53,6 +53,10 @@ def generate_script(
             style_instruction = style.system_instruction
             sample_text = style.sample_text
     
+    settings = crud.get_settings(db)
+    provider = request.provider or settings.script_analysis_provider
+    model = request.model or settings.script_analysis_model
+
     try:
         # Returns dict: {"content": ..., "model_used": ..., "warning": ...}
         result = engine.generate_script(
@@ -60,10 +64,11 @@ def generate_script(
             style_instruction=style_instruction,
             sample_text=sample_text,
             glossary=request.glossary,
-            provider=request.provider,
-            model=request.model,
+            provider=provider,
+            model=model,
             niche=request.niche,
-            wisdom=request.wisdom
+            wisdom=request.wisdom,
+            use_web_search=request.use_web_search
         )
         return result
     except Exception as e:
@@ -84,6 +89,10 @@ def refine_script(
             style_instruction = style.system_instruction
             sample_text = style.sample_text
 
+    settings = crud.get_settings(db)
+    provider = request.provider or settings.script_analysis_provider
+    model = request.model or settings.script_analysis_model
+
     try:
         # Returns dict: {"content": ..., "model_used": ..., "warning": ...}
         result = engine.refine_script(
@@ -92,8 +101,8 @@ def refine_script(
             persona=request.persona,
             style_instruction=style_instruction,
             sample_text=sample_text,
-            provider=request.provider,
-            model=request.model,
+            provider=provider,
+            model=model,
             tempo_percentage=request.tempo_percentage or 100
         )
 
@@ -116,5 +125,24 @@ def refine_script(
             print(f"Workspace Update Failed: {workspace_err}")
 
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/safety-review", response_model=schemas.SafetyReviewResponse)
+def safety_review_script(
+    request: schemas.SafetyReviewRequest,
+    db: Session = Depends(database.get_db),
+    engine: ScriptEngine = Depends(get_script_engine)
+):
+    settings = crud.get_settings(db)
+    provider = request.provider or settings.script_analysis_provider
+    model = request.model or settings.script_analysis_model
+
+    try:
+        return engine.safety_review_script(
+            current_text=request.current_text,
+            provider=provider,
+            model=model
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

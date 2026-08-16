@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import api, { ScriptStyle, ScriptGenerationRequest, ScriptRefinementRequest } from '@/lib/api';
+import api, { ScriptStyle, ScriptGenerationRequest, ScriptGenerationResponse, ScriptRefinementRequest, TrendItem, TrendKeyword, SafetyReviewRequest, SafetyReviewResponse } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Sparkles, Wand2, ShieldAlert, Copy, Check, Trash2, Edit, Plus, Mic } from 'lucide-react';
+import { Bot, Sparkles, Wand2, ShieldAlert, Copy, Check, Trash2, Edit, Plus, Mic, Globe, Search, TrendingUp, ChevronDown, ChevronRight, FileText, ExternalLink, Zap, Activity, BarChart3, Undo, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTextWithLineBreaks } from "@/lib/utils";
 import AIModelSelector from '@/components/shared/AIModelSelector';
@@ -23,6 +26,8 @@ const ScriptWriter = () => {
     const queryClient = useQueryClient();
     const [selectedStyleId, setSelectedStyleId] = useState<string>("");
     const [glossary, setGlossary] = useState<string>("");
+    const [niche, setNiche] = useState<string>("");
+    const [useWebSearch, setUseWebSearch] = useState<boolean>(true);
     const [scriptProvider, setScriptProvider] = useState<string>("groq");
     const [scriptModel, setScriptModel] = useState<string>("groq/llama-3.3-70b-versatile");
     const [inputText, setInputText] = useState<string>(() => {
@@ -38,6 +43,27 @@ const ScriptWriter = () => {
     const [styleFormName, setStyleFormName] = useState("");
     const [styleFormInstruction, setStyleFormInstruction] = useState("");
     const [styleFormSample, setStyleFormSample] = useState("");
+
+    const [lastResponse, setLastResponse] = useState<ScriptGenerationResponse | null>(null);
+    const [showResearch, setShowResearch] = useState(false);
+
+    // [NEW] Undo History & Safety Review State
+    const [undoHistory, setUndoHistory] = useState<string[]>([]);
+    const [isSafetyReviewModalOpen, setIsSafetyReviewModalOpen] = useState(false);
+    const [safetyReviewData, setSafetyReviewData] = useState<SafetyReviewResponse | null>(null);
+    const [safetyEditText, setSafetyEditText] = useState("");
+
+    const pushHistory = (text: string) => {
+        setUndoHistory(prev => [...prev, text]);
+    };
+
+    const handleUndo = () => {
+        if (undoHistory.length > 0) {
+            const prevText = undoHistory[undoHistory.length - 1];
+            setResultText(prevText);
+            setUndoHistory(prev => prev.slice(0, -1));
+        }
+    };
 
     // Auto-save texts to localStorage for session durability
     useEffect(() => {
@@ -62,28 +88,43 @@ const ScriptWriter = () => {
         queryFn: async () => (await api.get('/script/styles')).data
     });
 
-    // Mutations
+    // Fetch Trends (only when niche is provided)
+    const { data: trends } = useQuery<TrendItem[]>({
+        queryKey: ['trends', niche],
+        queryFn: async () => (await api.get('/trends', { params: { category: niche, limit: 5 } })).data,
+        enabled: !!niche,
+        staleTime: 1000 * 60 * 2
+    });
+    const [showTrends, setShowTrends] = useState(false);
+
     // Mutations
     const generateMutation = useMutation({
         mutationFn: async (data: ScriptGenerationRequest) => {
-            console.log("🚀 Sending generation request...", data);
-            const response = await api.post('/script/generate', data, { timeout: 180000 }); // 3 minutes timeout
-            console.log("✅ Response received:", response.status, response.data);
+            console.log(" Sending generation request...", data);
+            const response = await api.post('/script/generate', data, { timeout: 180000 });
+            console.log(" Response received:", response.status, response.data);
             return response.data;
         },
-        onSuccess: (data) => {
+        onSuccess: (data: ScriptGenerationResponse) => {
             setResultText(data.script);
+            setLastResponse(data);
+            if (data.research_used || data.trend_used) {
+                setShowResearch(true);
+            }
             if (data.warning) {
                 toast.warning("모델 자동 전환됨", {
                     description: data.warning,
                     duration: 5000
                 });
             } else {
-                toast.success(`대본 생성 완료! (${data.model_used})`);
+                let msg = `대본 생성 완료! (${data.model_used})`;
+                if (data.research_used) msg += " 웹검색 ON";
+                if (data.trend_used) msg += ` 트렌드+${data.trend_count}`;
+                toast.success(msg);
             }
         },
         onError: (error: any) => {
-            console.error("❌ Generation failed:", error);
+            console.error(" Generation failed:", error);
             let errorMessage = "대본 생성 실패";
             if (error.code === 'ECONNABORTED') {
                 errorMessage = "요청 시간이 초과되었습니다. (Timeout)";
@@ -98,12 +139,13 @@ const ScriptWriter = () => {
 
     const refineMutation = useMutation({
         mutationFn: async (data: ScriptRefinementRequest) => {
-            console.log("✨ Sending refinement request...", data);
-            const response = await api.post('/script/refine', data, { timeout: 180000 }); // 3 minutes timeout
-            console.log("✅ Response received:", response.status, response.data);
+            console.log(" Sending refinement request...", data);
+            const response = await api.post('/script/refine', data, { timeout: 180000 });
+            console.log(" Response received:", response.status, response.data);
             return response.data;
         },
-        onSuccess: (data) => {
+        onSuccess: (data: any) => {
+            pushHistory(resultText);
             setResultText(data.script);
             if (data.warning) {
                 toast.warning("모델 자동 전환됨", {
@@ -115,8 +157,38 @@ const ScriptWriter = () => {
             }
         },
         onError: (error: any) => {
-            console.error("❌ Refinement failed:", error);
+            console.error(" Refinement failed:", error);
             let errorMessage = "대본 수정 실패";
+            if (error.code === 'ECONNABORTED') {
+                errorMessage = "요청 시간이 초과되었습니다. (Timeout)";
+            } else if (error.response?.data?.detail) {
+                errorMessage = `오류: ${error.response.data.detail}`;
+            } else if (error.message) {
+                errorMessage = `오류: ${error.message}`;
+            }
+            toast.error(errorMessage, { duration: 5000 });
+        }
+    });
+
+    const safetyReviewMutation = useMutation({
+        mutationFn: async (data: any) => {
+            console.log(" Sending safety review request...", data);
+            const response = await api.post('/script/safety-review', data, { timeout: 180000 });
+            console.log(" Safety review received:", response.status, response.data);
+            return response.data;
+        },
+        onSuccess: (data: any) => {
+            if (data.changes && data.changes.length > 0) {
+                setSafetyReviewData(data);
+                setSafetyEditText(data.revised_script);
+                setIsSafetyReviewModalOpen(true);
+            } else {
+                toast.success("현재 텍스트에서 정책 위반 요소가 발견되지 않았습니다.");
+            }
+        },
+        onError: (error: any) => {
+            console.error(" Safety review failed:", error);
+            let errorMessage = "안전 검토 실패";
             if (error.code === 'ECONNABORTED') {
                 errorMessage = "요청 시간이 초과되었습니다. (Timeout)";
             } else if (error.response?.data?.detail) {
@@ -165,18 +237,16 @@ const ScriptWriter = () => {
             toast.error("원본 텍스트를 입력해주세요.");
             return;
         }
-        // if (!selectedStyleId) {
-        //    toast.error("작가 지침서를 선택해주세요.");
-        //    return;
-        // }
 
         setIsGenerating(true);
         generateMutation.mutate({
             input_text: inputText,
-            style_id: selectedStyleId && selectedStyleId !== "none" ? parseInt(selectedStyleId) : 0, // 0 or -1 to indicate no style
+            style_id: selectedStyleId && selectedStyleId !== "none" ? parseInt(selectedStyleId) : 0,
             glossary: glossary,
+            niche: niche || undefined,
             provider: scriptProvider,
-            model: scriptModel
+            model: scriptModel,
+            use_web_search: useWebSearch
         }, {
             onSettled: () => setIsGenerating(false)
         });
@@ -263,16 +333,176 @@ const ScriptWriter = () => {
                         onEditPreset={(style) => handleEditStyle(style)}
                     />
 
-                    <div className="mt-4 space-y-2">
-                        <Label>용어집 (Glossary) - 선택사항</Label>
-                        <Input
-                            placeholder="예: AI=인공지능, LLM=대규모언어모델"
-                            value={glossary}
-                            onChange={(e) => setGlossary(e.target.value)}
-                        />
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                            <Label>주제 분야 (Niche) - 선택사항</Label>
+                            <Input
+                                placeholder="예: Tech, Gaming, Health, Food"
+                                value={niche}
+                                onChange={(e) => setNiche(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>용어집 (Glossary) - 선택사항</Label>
+                            <Input
+                                placeholder="예: AI=인공지능, LLM=대규모언어모델"
+                                value={glossary}
+                                onChange={(e) => setGlossary(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2 flex items-end pb-1">
+                            <div className="flex items-center gap-3 w-full">
+                                <div className="flex items-center gap-2">
+                                    <Switch
+                                        id="web-search"
+                                        checked={useWebSearch}
+                                        onCheckedChange={setUseWebSearch}
+                                    />
+                                    <Label htmlFor="web-search" className="cursor-pointer flex items-center gap-1.5 text-sm font-medium">
+                                        <Globe className="w-3.5 h-3.5 text-blue-500" />
+                                        웹 검색 활용
+                                    </Label>
+                                </div>
+                                <Badge variant={useWebSearch ? "default" : "outline"} className="text-[10px] px-1.5 py-0">
+                                    {useWebSearch ? "ON" : "OFF"}
+                                </Badge>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Trend Insights Panel (collapsible, visible when niche is set) */}
+            {niche && trends && trends.length > 0 && (
+                <Card className="flex-shrink-0 border-amber-200 dark:border-amber-900">
+                    <button
+                        onClick={() => setShowTrends(!showTrends)}
+                        className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-amber-600" />
+                            <span className="text-sm font-medium text-amber-800 dark:text-amber-200">트렌드 인사이트</span>
+                            <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">
+                                {trends.length}개 카테고리
+                            </Badge>
+                        </div>
+                        {showTrends ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+
+                    {showTrends && (
+                        <CardContent className="px-4 pb-4 pt-2 border-t border-amber-100 dark:border-amber-900 space-y-3">
+                            {trends.map((trend) => (
+                                <div key={trend.id}>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{trend.keyword}</span>
+                                        <span className="text-[10px] text-slate-500">{trend.keyword_count}개 키워드</span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {trend.top_keywords.map((kw, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex items-center gap-2 p-1.5 rounded hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer transition-colors group"
+                                                onClick={() => {
+                                                    setNiche(trend.category);
+                                                    setInputText(prev => prev ? `${prev}\n\n# ${kw.ko} (${kw.en})` : `# ${kw.ko} (${kw.en})`);
+                                                    toast.success(`"${kw.ko}" 키워드 반영됨`);
+                                                }}
+                                            >
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-xs font-medium truncate">{kw.ko}</span>
+                                                        {kw.en && <span className="text-[10px] text-slate-400 truncate">({kw.en})</span>}
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`text-[9px] px-1 py-0 ml-auto flex-shrink-0 ${
+                                                                kw.velocity === 'Explosive' ? 'border-red-300 text-red-600 bg-red-50' :
+                                                                kw.velocity === 'Rising' ? 'border-amber-300 text-amber-600 bg-amber-50' :
+                                                                'border-slate-300 text-slate-500'
+                                                            }`}
+                                                        >
+                                                            <Zap className="w-2.5 h-2.5 mr-0.5" />
+                                                            {kw.velocity}
+                                                        </Badge>
+                                                    </div>
+                                                    <Progress value={kw.score} className="h-1 mt-1" />
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-500 w-8 text-right">{kw.score}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    )}
+                </Card>
+            )}
+
+            {/* Research Context Panel (collapsible) */}
+            {lastResponse && (lastResponse.research_used || lastResponse.trend_used) && (
+                <Card className="flex-shrink-0 border-emerald-200 dark:border-emerald-900">
+                    <button
+                        onClick={() => setShowResearch(!showResearch)}
+                        className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Search className="w-4 h-4 text-emerald-600" />
+                            <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">리서치 컨텍스트</span>
+                            <div className="flex gap-1.5">
+                                {lastResponse.research_used && (
+                                    <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                                        웹검색 {lastResponse.research_sources?.length || 0}건
+                                    </Badge>
+                                )}
+                                {lastResponse.trend_used && (
+                                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                        트렌드 {lastResponse.trend_count}건
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
+                        {showResearch ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
+
+                    {showResearch && (
+                        <CardContent className="px-4 pb-4 pt-2 border-t border-emerald-100 dark:border-emerald-900">
+                            {lastResponse.research_used && lastResponse.research_sources && lastResponse.research_sources.length > 0 && (
+                                <div className="mb-3">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <Globe className="w-3.5 h-3.5 text-blue-500" />
+                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">웹 검색 결과</span>
+                                    </div>
+                                    <ul className="space-y-1">
+                                        {lastResponse.research_sources.map((src, i) => (
+                                            <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                                <FileText className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                                <span>{src}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {lastResponse.trend_used && lastResponse.trend_count > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
+                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">트렌드 데이터</span>
+                                        <span className="text-[10px] text-slate-500">({lastResponse.trend_count}개 키워드 분석)</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {lastResponse.research_summary && (
+                                <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded text-xs text-slate-500 dark:text-slate-400 italic leading-relaxed border border-slate-200 dark:border-slate-700">
+                                    {lastResponse.research_summary}
+                                </div>
+                            )}
+                        </CardContent>
+                    )}
+                </Card>
+            )}
 
             {/* Zone 2: Workspace */}
             <div className="flex-1 flex gap-4 min-h-[700px]">
@@ -344,15 +574,26 @@ const ScriptWriter = () => {
                             onChange={(e) => setResultText(e.target.value)}
                         />
 
-                        <div className="p-2 border-t bg-muted/20 flex gap-2 overflow-x-auto">
-                            <Button variant="outline" size="sm" onClick={() => handleRefine("기존 스타일을 유지하면서 전체 내용을 더 짧고 간결하게 줄여줘.")} disabled={isGenerating || !resultText}>
+                        <div className="p-2 border-t bg-muted/20 flex gap-2 overflow-x-auto items-center">
+                            <Button variant="outline" size="sm" onClick={() => handleRefine("기존 대본의 맥락, 말투, 톤앤매너를 100% 완벽하게 유지하면서, 전체 분량을 20~30% 정도 줄여서 더 빠르고 간결하게 만들어줘. 불필요한 번역투, 한자어, 중국어투가 절대 들어가지 않도록 극도로 주의해. 오직 자연스러운 한국어로만 작성해.")} disabled={isGenerating || !resultText}>
                                 <Wand2 className="w-3 h-3 mr-1" /> 더 짧게
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleRefine("기존 스타일을 유지하면서 내용을 더 재미있고 활기차게 만들어줘.")} disabled={isGenerating || !resultText}>
+                            <Button variant="outline" size="sm" onClick={() => handleRefine("기존 대본의 핵심 주제와 흐름을 유지하면서, 훨씬 더 유머러스하고 텐션이 높은 숏폼 스타일로 다듬어줘. 억지스러운 번역투나 중국어투는 절대 배제하고, 한국 네티즌들이 쓰는 자연스러운 밈과 말투를 활용해.")} disabled={isGenerating || !resultText}>
                                 <Sparkles className="w-3 h-3 mr-1" /> 더 재미있게
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleRefine("기존 스타일을 유지하면서 모든 표현을 안전하고 부드러운 순화된 언어로 수정해줘.")} disabled={isGenerating || !resultText}>
+                            <Button variant="outline" size="sm" onClick={() => {
+                                setSafetyEditText(resultText);
+                                safetyReviewMutation.mutate({
+                                    current_text: resultText,
+                                    provider: scriptProvider,
+                                    model: scriptModel
+                                });
+                            }} disabled={safetyReviewMutation.isPending || !resultText}>
                                 <ShieldAlert className="w-3 h-3 mr-1" /> 안전 표현 수정
+                            </Button>
+                            <div className="flex-1" />
+                            <Button variant="ghost" size="sm" onClick={handleUndo} disabled={undoHistory.length === 0 || isGenerating} className="h-8 text-xs text-muted-foreground hover:text-foreground">
+                                <Undo className="w-3 h-3 mr-1" /> 되돌리기
                             </Button>
                         </div>
                     </CardContent>
@@ -410,6 +651,59 @@ const ScriptWriter = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog >
+
+            {/* Safety Review Modal */}
+            <Dialog open={isSafetyReviewModalOpen} onOpenChange={setIsSafetyReviewModalOpen}>
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>안전 표현 검토</DialogTitle>
+                        <DialogDescription>
+                            AI가 제안한 변경 사항을 확인하고 추가로 수정할 수 있습니다.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 flex flex-col md:flex-row gap-4 overflow-y-auto py-4 min-h-[400px]">
+                        {/* Left Side: Changes List */}
+                        <div className="w-full md:w-1/3 flex flex-col gap-2 overflow-y-auto pr-2 border-r">
+                            <h4 className="text-sm font-semibold sticky top-0 bg-background py-1">제안된 변경 내역</h4>
+                            {safetyReviewData?.changes && safetyReviewData.changes.length > 0 ? (
+                                safetyReviewData.changes.map((change, i) => (
+                                    <div key={i} className="p-3 bg-muted/30 rounded-md border text-sm">
+                                        <div className="flex items-center gap-2 mb-2 font-medium">
+                                            <span className="line-through text-destructive">{change.original}</span>
+                                            <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                                            <span className="text-green-600 dark:text-green-400">{change.replacement}</span>
+                                        </div>
+                                        <div className="text-xs text-muted-foreground flex items-start gap-1">
+                                            <span className="font-semibold shrink-0">이유:</span>
+                                            <span>{change.reason}</span>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-sm text-muted-foreground p-4 text-center">제안된 변경 사항이 없습니다. (현재 대본이 안전함)</div>
+                            )}
+                        </div>
+                        {/* Right Side: Editable Text */}
+                        <div className="w-full md:w-2/3 flex flex-col gap-2">
+                            <h4 className="text-sm font-semibold">수정된 대본 확인 및 추가 편집</h4>
+                            <Textarea
+                                className="flex-1 resize-none h-full"
+                                value={safetyEditText}
+                                onChange={(e) => setSafetyEditText(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsSafetyReviewModalOpen(false)}>취소</Button>
+                        <Button onClick={() => {
+                            setUndoHistory(prev => [...prev, resultText]);
+                            setResultText(safetyEditText);
+                            setIsSafetyReviewModalOpen(false);
+                        }}>수정 사항 적용</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div >
     );
 };

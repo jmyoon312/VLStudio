@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from 'lucide-react';
 
-const API_BASE = "/api";
+const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
 interface WarmupLogViewerProps {
     open: boolean;

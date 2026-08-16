@@ -187,7 +187,7 @@ export default function CustomMenu() {
                         src={selectedLink.url}
                         className="w-full h-full border-none"
                         title={selectedLink.title}
-                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+                        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground">

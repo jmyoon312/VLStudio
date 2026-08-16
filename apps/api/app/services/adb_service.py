@@ -18,17 +18,31 @@ class ADBService:
     def __init__(self):
         # [FIX] Prioritize root-level path to bypass Antivirus DLL profile heuristic blocks (STATUS_DLL_NOT_FOUND 0xC0000135)
         legacy_path = r"C:\ViraLoopMedia\bin\adb\adb.exe"
-        if os.path.exists(legacy_path):
+        from app.config import settings as settings_conf
+        
+        # [NEW] Check Auto-Downloaded Dependency Installer Path First
+        auto_downloaded_path = os.path.join(settings_conf.MEDIA_ROOT, "09_System", "bin", "adb", "platform-tools", "adb.exe").replace("\\", "/")
+        fallback_auto_downloaded_path = os.path.join(settings_conf.MEDIA_ROOT, "09_System", "bin", "adb", "adb.exe").replace("\\", "/")
+        
+        if os.path.exists(auto_downloaded_path):
+            self.adb_path = auto_downloaded_path
+        elif os.path.exists(fallback_auto_downloaded_path):
+            self.adb_path = fallback_auto_downloaded_path
+        elif os.path.exists(legacy_path):
             self.adb_path = legacy_path
         else:
-            from app.config import settings as settings_conf
-            self.adb_path = os.path.join(settings_conf.MEDIA_ROOT, "bin", "adb", "adb.exe").replace("\\", "/")
+            self.adb_path = fallback_auto_downloaded_path
         self.CMD_POWERSHELL = "powershell.exe"
         
         # 장치별 캐시
         self._cached_public_ips = {} # {serial: ip}
         self.default_serial = None
-        
+
+        # [Perf] 시스템 공인 IP 캐시 (30초 TTL) — get_system_public_ip() 블로킹 방지
+        self._system_ip_cache = ""
+        self._system_ip_last_check = 0.0
+        self._system_ip_refreshing = False  # 중복 백그라운드 요청 방지
+
         # [NEW] Settings Cache
         self.config_connection_method = "usb"
 
@@ -49,14 +63,14 @@ class ADBService:
                 self.default_serial = db_settings.adb_default_serial
             if db_settings.adb_connection_method:
                 self.config_connection_method = db_settings.adb_connection_method
-            logger.info(f"🔄 ADB Service config refreshed from DB (Serial: {self.default_serial})")
+            logger.info(f"[REFRESH] ADB Service config refreshed from DB (Serial: {self.default_serial})")
 
     def list_devices(self) -> List[str]:
         """연결된 모든 ADB 장치 시리얼 목록 반환"""
         try:
             # 윈도우에서 ADB 실행파일 존재 확인
             if not os.path.exists(self.adb_path):
-                logger.error(f"❌ ADB executable not found at: {self.adb_path}")
+                logger.error(f"[FAIL] ADB executable not found at: {self.adb_path}")
                 return []
 
             # [NEW] Try to connect via wireless if configured
@@ -72,31 +86,18 @@ class ADBService:
                     devices.append(serial)
             
             if devices:
-                # Proactively ensure tethering is active on all connected devices
-                for serial in devices:
-                    self.ensure_tethering_active(serial)
+                # [Fix] Every Proxy(1080 포트) 사용으로 USB 테더링 강제 불필요
+                # 구형 기기에서 USB 테더링 명령 시 커널 패닉(무한 재부팅) 발생 방지
+                pass
 
             return devices
         except Exception as e:
-            logger.error(f"❌ 장치 목록 조회 실패: {e}")
+            logger.error(f"[FAIL] 장치 목록 조회 실패: {e}")
             return []
 
     def ensure_tethering_active(self, serial: Optional[str] = None):
-        """[CRITICAL] 자동으로 USB 테더링 활성화 (조용히 작동)"""
-        try:
-            # 이미 IP가 잡혀있다면 아무 작업도 하지 않음
-            current_ip = self._cached_public_ips.get(serial or "default", "")
-            if current_ip and current_ip not in ["확인 실패", "갱신 중...", "Unknown", ""]:
-                return
-
-            # 최초 1회 또는 끊겼을 때만 시도
-            self.run_command(['shell', 'svc', 'tethering', 'set-tethering', 'usb', 'true'], serial)
-            self.run_command(['shell', 'settings', 'put', 'global', 'usb_tethering', '1'], serial)
-            self.run_command(['shell', 'service', 'call', 'tethering', '3', 'i32', '1'], serial)
-            self.run_command(['shell', 'service', 'call', 'connectivity', '34', 'i32', '1'], serial)
-            self._cached_public_ips[serial or "default"] = "갱신 중..."
-        except:
-            pass
+        """[Deprecated] Every Proxy 전환으로 인해 사용 안 함. 구형 기기 무한 재부팅 방지용"""
+        pass
 
     def run_command(self, cmd_list: List[str], serial: Optional[str] = None) -> str:
         """특정 시리얼 장치에 대해 ADB 명령 실행"""
@@ -117,13 +118,13 @@ class ADBService:
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             if result.stderr and "error" in result.stderr.lower():
-                logger.warning(f"⚠️ ADB Error ({target_serial}): {result.stderr.strip()}")
+                logger.warning(f"[WARN] ADB Error ({target_serial}): {result.stderr.strip()}")
             return result.stdout.strip()
         except subprocess.TimeoutExpired:
-            logger.error(f"❌ ADB 명령 타임아웃: {' '.join(full_cmd)}")
+            logger.error(f"[FAIL] ADB 명령 타임아웃: {' '.join(full_cmd)}")
             return ""
         except Exception as e:
-            logger.error(f"❌ ADB 명령 실패: {' '.join(full_cmd)} - {e}")
+            logger.error(f"[FAIL] ADB 명령 실패: {' '.join(full_cmd)} - {e}")
             return ""
 
     def get_current_ip(self, serial: Optional[str] = None, force: bool = False) -> str:
@@ -144,43 +145,54 @@ class ADBService:
             
         providers = ["https://api.ipify.org", "https://ifconfig.me/ip"]
         
+        # Every Proxy 포트 포워딩 보장 (SOCKS5: 1080)
+        self.run_command(['forward', 'tcp:1080', 'tcp:1080'], serial)
+        import requests
+        proxies = {"http": "socks5://127.0.0.1:1080", "https": "socks5://127.0.0.1:1080"}
+
         for url in providers:
-            # 타임아웃을 2초로 단축
-            res = self.run_command(['shell', 'curl', '-s', '--connect-timeout', '2', '--max-time', '3', url], serial)
-            if res and len(res) > 6 and "." in res:
-                self._cached_public_ips[target] = res
-                setattr(self, f"_last_check_{target}", time.time())
-                return res
+            try:
+                # 1차: PC에서 Every Proxy를 거쳐 조회 (curl 없는 구형 기기 지원)
+                resp = requests.get(url, proxies=proxies, timeout=3)
+                res = resp.text.strip()
+                if res and len(res) > 6 and "." in res:
+                    self._cached_public_ips[target] = res
+                    setattr(self, f"_last_check_{target}", time.time())
+                    return res
+            except Exception as e:
+                # 2차: Fallback으로 adb shell curl 시도
+                res = self.run_command(['shell', 'curl', '-s', '--connect-timeout', '2', '--max-time', '3', url], serial)
+                if res and len(res) > 6 and "." in res:
+                    self._cached_public_ips[target] = res
+                    setattr(self, f"_last_check_{target}", time.time())
+                    return res
         
         # [FALLBACK] 통신 실패 시 절대 시스템 IP(Wi-Fi)로 덮어쓰지 않음 -> UI Flickering(깜빡임) 방지
         return cached if is_valid_ip else "오프라인 (연결 안됨)"
 
-    def get_system_public_ip(self) -> str:
-        """윈도우 호스트의 공인 IP 확인 (Wi-Fi/유선 인터페이스에 바인딩하여 LTE 우회 방지)"""
+    def _fetch_system_ip_blocking(self) -> str:
+        """[Internal] 실제 시스템 공인 IP 조회 (블로킹). 캐시 갱신용 내부 메서드."""
         import socket
         import sys
         try:
             from .network_monitor import network_monitor
             status = network_monitor.get_status()
-            
-            # Wired IP 우선 확인, 없으면 Wifi IP 확인
+
             bind_ip = ""
             wired_ip = status.get("wired", {}).get("ip", "")
             wifi_ip = status.get("wifi", {}).get("ip", "")
-            
+
             if wired_ip and "169.254" not in wired_ip and wired_ip not in ["Not Detected", "Error", ""]:
                 bind_ip = wired_ip
             elif wifi_ip and "169.254" not in wifi_ip and wifi_ip not in ["Not Detected", "Error", ""]:
                 bind_ip = wifi_ip
-                
-            # IP가 감지된 경우에만 소켓 바인딩 시도
+
             if bind_ip:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(5.0)
+                s.settimeout(4.0)
                 s.bind((bind_ip, 0))
                 s.connect(("api.ipify.org", 80))
                 s.sendall(b"GET / HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: close\r\n\r\n")
-                
                 response = b""
                 while True:
                     chunk = s.recv(4096)
@@ -188,33 +200,64 @@ class ADBService:
                         break
                     response += chunk
                 s.close()
-                
                 parts = response.split(b"\r\n\r\n")
                 if len(parts) >= 2:
                     ip = parts[1].decode('utf-8').strip()
-                    if "." in ip:
+                    if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
                         return ip
-                raise ConnectionError("Internet query failed on bound interface")
         except Exception as e:
-            logger.debug(f"Failed to get system public IP via Wi-Fi/Wired binding: {e}")
-            if sys.platform == 'win32':
-                # Windows에서는 LTE 유출 방지를 위해 일반 fallback을 차단하고 오프라인 처리
-                return "오프라인 (인터넷 연결 없음)"
-            
-        # Windows가 아닌 플랫폼(Docker, Linux 등)에서만 일반 요청 허용
+            logger.debug(f"System public IP fetch failed: {e}")
+
         if sys.platform != 'win32':
             import urllib.request
             try:
-                with urllib.request.urlopen("https://api.ipify.org", timeout=5) as response:
-                    return response.read().decode('utf-8').strip()
-            except:
+                with urllib.request.urlopen("https://api.ipify.org", timeout=4) as resp:
+                    return resp.read().decode('utf-8').strip()
+            except Exception:
                 pass
-        return "오프라인 (미연결)"
+        return ""
+
+    def get_system_public_ip(self) -> str:
+        """윈도우 호스트 공인 IP (캐시 30초 TTL, 비블로킹).
+
+        - 캐시가 유효하면 즉시 반환 (0ms).
+        - 캐시 만료 시 백그라운드 스레드로 갱신 후 기존 캐시 반환.
+        - 최초 호출이거나 캐시가 없으면 블로킹 조회 1회 수행.
+        """
+        import threading
+        CACHE_TTL = 30  # 초
+        now = time.time()
+
+        # 캐시 유효: 즉시 반환
+        if self._system_ip_cache and (now - self._system_ip_last_check) < CACHE_TTL:
+            return self._system_ip_cache
+
+        # 캐시 있지만 만료 → 백그라운드 갱신, 기존 값 즉시 반환
+        if self._system_ip_cache and not self._system_ip_refreshing:
+            self._system_ip_refreshing = True
+            def _refresh():
+                try:
+                    ip = self._fetch_system_ip_blocking()
+                    if ip:
+                        self._system_ip_cache = ip
+                        self._system_ip_last_check = time.time()
+                finally:
+                    self._system_ip_refreshing = False
+            threading.Thread(target=_refresh, daemon=True).start()
+            return self._system_ip_cache
+
+        # 최초 호출: 1회 블로킹 (캐시 없음)
+        ip = self._fetch_system_ip_blocking()
+        if ip:
+            self._system_ip_cache = ip
+            self._system_ip_last_check = now
+            return ip
+        return ""
 
     def rotate_ip(self, serial: Optional[str] = None, method: str = 'hard') -> bool:
         """IP 로테이션 실행 (비행기 모드 토글) — [Bug 10] USB 테더링 재활성화 보장"""
         target = serial or "default"
-        logger.info(f"🔄 [{target}] IP 로테이션 시작 (방식: {method})")
+        logger.info(f"[REFRESH] [{target}] IP 로테이션 시작 (방식: {method})")
 
         try:
             self._cached_public_ips[target] = "갱신 중..."
@@ -248,25 +291,9 @@ class ADBService:
                         logger.info(f"[Bug 10] ADB device ready after {wait_i+1}s")
                         break
 
-                # [Bug 10] USB 테더링 재활성화 재시도 (3회, 2초 간격)
+                # [Fix] Every Proxy 사용으로 인해 더 이상 USB 테더링을 강제 활성화하지 않습니다.
+                # (구형 기기에서 USB 테더링 명령 시 커널 패닉 및 무한 재부팅 발생)
                 if device_ready:
-                    for attempt in range(3):
-                        # svc tethering (Android 11+)
-                        self.run_command(['shell', 'svc', 'tethering', 'set-tethering', 'usb', 'true'], serial)
-                        self.run_command(['shell', 'settings', 'put', 'global', 'usb_tethering', '1'], serial)
-                        # Fallback 1: service call tethering (Android 11/12/13/14 specific interface indexes)
-                        self.run_command(['shell', 'service', 'call', 'tethering', '3', 'i32', '1'], serial)
-                        # Fallback 2: connectivity manager call (Android 10 and below)
-                        self.run_command(['shell', 'service', 'call', 'connectivity', '34', 'i32', '1'], serial)
-                        
-                        time.sleep(2)
-                        # 테더링 활성화 확인
-                        check = self.run_command(['shell', 'getprop', 'init.svc.dhcpcd_rndis0'], serial)
-                        if 'running' in (check or '').lower():
-                            logger.info(f"[Bug 10] USB tethering confirmed active (attempt {attempt+1})")
-                            break
-                        logger.warning(f"[Bug 10] Tethering not yet active (attempt {attempt+1}), retrying...")
-                else:
                     logger.error("[Bug 10] ADB device did not come back online within 15s after airplane-off")
 
             setattr(self, f"_last_check_{target}", 0)  # 캐시 무효화
@@ -276,10 +303,10 @@ class ADBService:
             if not new_ip or not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', new_ip):
                 self._cached_public_ips.pop(target, None)
                 
-            logger.info(f"✅ [{target}] IP 갱신 완료: {new_ip}")
+            logger.info(f"[OK] [{target}] IP 갱신 완료: {new_ip}")
             return True
         except Exception as e:
-            logger.error(f"❌ [{target}] 로테이션 실패: {e}")
+            logger.error(f"[FAIL] [{target}] 로테이션 실패: {e}")
             return False
 
     def enable_wifi(self, serial: Optional[str] = None):

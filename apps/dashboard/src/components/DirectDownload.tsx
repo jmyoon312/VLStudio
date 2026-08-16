@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import api, { Category } from '../lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, CheckCircle2, AlertCircle, Loader2, ExternalLink, Plus, Play, Trash2 } from 'lucide-react';
@@ -17,6 +18,7 @@ interface QueueItem {
     filePath?: string;
     useBypass?: boolean; // Added field
     scriptOnly?: boolean; // [NEW]
+    profileId?: string | null; // [NEW]
 }
 
 // Official Platform Links
@@ -44,6 +46,7 @@ const SUPPORTED_PLATFORMS = [
 ];
 
 const DirectDownload = () => {
+    const location = useLocation();
     const [urlInput, setUrlInput] = useState('');
     const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
     const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -55,25 +58,72 @@ const DirectDownload = () => {
     const [useBypass, setUseBypass] = useState(false);
     const [showBrowser, setShowBrowser] = useState(false); // Debug toggle
     const [scriptOnly, setScriptOnly] = useState(false); // [NEW]
+    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null); // [NEW]
 
     // Single Download State
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [errorMsg, setErrorMsg] = useState('');
     const [result, setResult] = useState<any>(null);
 
+    // Accept batch items from location state (Cross-Menu Integration)
+    const [batchSource, setBatchSource] = useState<string | null>(null);
+    useEffect(() => {
+        if (location.state?.batchUrls) {
+            const urls = location.state.batchUrls as string[];
+            // Auto-enable bypass if any cross-platform link is detected
+            const needsBypass = urls.some(u => 
+                u.includes('douyin') || 
+                u.includes('tiktok') || 
+                u.includes('xiaohongshu') || 
+                u.includes('weibo') || 
+                u.includes('bilibili') ||
+                u.includes('kuaishou')
+            );
+            
+            const finalBypass = location.state.useBypass !== undefined ? location.state.useBypass : (useBypass || needsBypass);
+            
+            const newItems: QueueItem[] = urls.map(u => ({
+                id: Math.random().toString(36).substring(7),
+                url: u,
+                categoryId: selectedCategoryId,
+                status: 'pending',
+                useBypass: finalBypass,
+                scriptOnly: scriptOnly,
+                profileId: selectedProfileId
+            }));
+
+            setQueue(prev => [...prev, ...newItems]);
+            setUseBypass(finalBypass);
+            setAutoStart(true);
+
+            setBatchSource(`🔗 레이더에서 ${urls.length}개 영상이 대기열로 자동 전송됨`);
+            // Clear location state to prevent loop if re-rendered
+            window.history.replaceState({}, document.title);
+            // Auto-clear banner after 5s
+            setTimeout(() => setBatchSource(null), 5000);
+        }
+    }, [location.state, selectedCategoryId, useBypass, scriptOnly]);
+
     const { data: categories } = useQuery<Category[]>({
         queryKey: ['categories'],
         queryFn: async () => (await api.get('/categories/')).data
     });
 
+    // [NEW] Fetch Browser Profiles
+    const { data: browserProfiles } = useQuery<any[]>({
+        queryKey: ['browserProfiles'],
+        queryFn: async () => (await api.get('/browser-profiles')).data
+    });
+
     const downloadMutation = useMutation({
-        mutationFn: (data: { url: string, category_id: number | null, use_bypass: boolean, headless: boolean, script_only?: boolean }) =>
+        mutationFn: (data: { url: string, category_id: number | null, use_bypass: boolean, headless: boolean, script_only?: boolean, profile_id?: string | null }) =>
             api.post('/videos/download', {
                 url: data.url,
                 category_id: data.category_id,
                 use_bypass: data.use_bypass,
-                headless: data.headless, // Send headless flag
-                script_only: data.script_only // [NEW]
+                headless: data.headless,
+                script_only: data.script_only,
+                profile_id: data.profile_id
             }),
     });
 
@@ -126,7 +176,8 @@ const DirectDownload = () => {
                 categoryId: selectedCategoryId,
                 status: 'pending',
                 useBypass: useBypass,
-                scriptOnly: scriptOnly
+                scriptOnly: scriptOnly,
+                profileId: selectedProfileId
             }));
             setQueue(prev => [...prev, ...newItems]);
             setUrlInput('');
@@ -146,7 +197,8 @@ const DirectDownload = () => {
                 category_id: selectedCategoryId,
                 use_bypass: useBypass,
                 headless: !showBrowser, // If showBrowser is true, headless is false
-                script_only: scriptOnly
+                script_only: scriptOnly,
+                profile_id: selectedProfileId
             });
             setStatus('success');
             setResult(res.data);
@@ -183,7 +235,8 @@ const DirectDownload = () => {
                     category_id: item.categoryId,
                     use_bypass: item.useBypass ?? false,
                     headless: true, // Batch always headless for safety
-                    script_only: item.scriptOnly ?? false
+                    script_only: item.scriptOnly ?? false,
+                    profile_id: item.profileId
                 });
 
                 setQueue(prev => prev.map(i => i.id === item.id ? {
@@ -231,13 +284,18 @@ const DirectDownload = () => {
     };
 
     return (
-        <div className="space-y-4 max-w-4xl mx-auto">
+        <div className="space-y-8 max-w-4xl mx-auto py-10">
 
+            {batchSource && (
+                <div className="px-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-center gap-3 mb-4 animate-in fade-in slide-in-from-top-2">
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{batchSource}</span>
+                    <span className="text-[10px] text-muted-foreground">(우회 모드: {useBypass ? 'ON' : 'OFF'})</span>
+                </div>
+            )}
 
-            <Card>
-
-                <CardContent>
-                    <div className="flex flex-wrap gap-2 mb-4">
+            <Card className="shadow-sm">
+                <CardContent className="pt-6">
+                    <div className="flex flex-wrap gap-3 mb-8">
                         {SUPPORTED_PLATFORMS.map((platform) => (
                             <a
                                 key={platform.name}
@@ -245,7 +303,7 @@ const DirectDownload = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={cn(
-                                    "text-xs font-medium px-2.5 py-0.5 rounded border transition-all hover:opacity-80 active:scale-95",
+                                    "text-sm font-medium px-4 py-1.5 rounded-md border shadow-sm transition-all hover:opacity-80 hover:-translate-y-0.5 active:scale-95",
                                     platform.color
                                 )}
                             >
@@ -295,21 +353,40 @@ const DirectDownload = () => {
                                         disabled={isBatchProcessing || status === 'loading'}
                                     />
                                     <Label htmlFor="bypass-mode" className="text-sm font-medium cursor-pointer">
-                                        우회 모드 사용 (Bypass Mode) - Douyin/TikTok 등 다운로드 실패 시 사용
+                                        우회 모드 사용 (Bypass Mode) - Douyin/Music 등 다운로드 실패 시 사용
                                     </Label>
                                 </div>
 
                                 {useBypass && (
-                                    <div className="flex items-center space-x-2 ml-12 animate-in fade-in slide-in-from-top-1">
-                                        <Switch
-                                            id="show-browser"
-                                            checked={showBrowser}
-                                            onCheckedChange={setShowBrowser}
-                                            disabled={isBatchProcessing || status === 'loading'}
-                                        />
-                                        <Label htmlFor="show-browser" className="text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400">
-                                            브라우저 화면 보기 (디버깅용)
-                                        </Label>
+                                    <div className="flex flex-col gap-3 ml-12 animate-in fade-in slide-in-from-top-1">
+                                        <div className="flex items-center space-x-2">
+                                            <Switch
+                                                id="show-browser"
+                                                checked={showBrowser}
+                                                onCheckedChange={setShowBrowser}
+                                                disabled={isBatchProcessing || status === 'loading'}
+                                            />
+                                            <Label htmlFor="show-browser" className="text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400">
+                                                브라우저 화면 보기 (디버깅용)
+                                            </Label>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1 w-full max-w-sm">
+                                            <Label htmlFor="profile-select" className="text-sm font-medium min-w-[100px]">연결할 프로필:</Label>
+                                            <select
+                                                id="profile-select"
+                                                value={selectedProfileId || ''}
+                                                onChange={(e) => setSelectedProfileId(e.target.value || null)}
+                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                disabled={isBatchProcessing || status === 'loading'}
+                                            >
+                                                <option value="">(선택 안함 - 기본 브라우저 환경)</option>
+                                                {browserProfiles?.map((profile: any) => (
+                                                    <option key={profile.id} value={profile.id}>
+                                                        {profile.name} {profile.platform ? `(${profile.platform})` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                 )}
                             </div>

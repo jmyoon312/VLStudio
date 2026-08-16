@@ -18,6 +18,9 @@ def main():
 
     profile_dir = sys.argv[1]
     
+    # Ensure profile_dir exists before writing log
+    os.makedirs(profile_dir, exist_ok=True)
+    
     # Configure logging to file inside profile_dir
     log_file = os.path.join(profile_dir, "local_browser.log")
     logging.basicConfig(
@@ -28,6 +31,17 @@ def main():
             logging.StreamHandler(sys.stdout)
         ]
     )
+
+    # File handler for debugging crashes
+    try:
+        fh = logging.FileHandler(os.path.join(os.path.dirname(__file__), 'local_browser_crash.log'))
+        fh.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+    except:
+        pass
+
     url = sys.argv[2]
     proxy_port = sys.argv[3] if len(sys.argv) >= 4 else None
 
@@ -38,16 +52,94 @@ def main():
         "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
         "--disable-webrtc-multiple-routes",
         "--use-fake-ui-for-media-stream",
-        "--enable-features=DnsOverHttps",
-        "--dns-over-https-templates=https://chrome.cloudflare-dns.com/dns-query",
         "--hide-crash-restore-bubble",
     ]
 
     proxy = None
-    if proxy_port:
-        proxy = f"socks5://127.0.0.1:{proxy_port}"
+    proxy_ext_dir = None
+    if proxy_port and proxy_port not in ('0', 'None', ''):
+        # Support full proxy URL strings or port numbers
+        if proxy_port.startswith('http://') or proxy_port.startswith('https://') or proxy_port.startswith('socks5://') or proxy_port.startswith('socks4://'):
+            from urllib.parse import urlparse
+            parsed = urlparse(proxy_port)
+            if parsed.username and parsed.password:
+                # Playwright persistent context proxy auth is flaky for new tabs.
+                # Generate a background extension to handle proxy auth automatically.
+                proxy_ext_dir = os.path.join(profile_dir, "proxy_auth_ext")
+                os.makedirs(proxy_ext_dir, exist_ok=True)
+                
+                manifest_json = """
+                {
+                    "version": "1.0.0",
+                    "manifest_version": 2,
+                    "name": "Proxy Auth Extension",
+                    "permissions": [
+                        "proxy",
+                        "tabs",
+                        "unlimitedStorage",
+                        "storage",
+                        "<all_urls>",
+                        "webRequest",
+                        "webRequestBlocking"
+                    ],
+                    "background": {
+                        "scripts": ["background.js"]
+                    },
+                    "minimum_chrome_version":"22.0.0"
+                }
+                """
+                
+                scheme = parsed.scheme if parsed.scheme in ('http', 'https', 'socks4', 'socks5') else 'http'
+                
+                background_js = f"""
+                var config = {{
+                    mode: "fixed_servers",
+                    rules: {{
+                      singleProxy: {{
+                        scheme: "{scheme}",
+                        host: "{parsed.hostname}",
+                        port: parseInt({parsed.port})
+                      }},
+                      bypassList: ["localhost", "127.0.0.1"]
+                    }}
+                  }};
+                
+                chrome.proxy.settings.set({{value: config, scope: "regular"}}, function() {{}});
+                
+                function callbackFn(details) {{
+                    return {{
+                        authCredentials: {{
+                            username: "{parsed.username}",
+                            password: "{parsed.password}"
+                        }}
+                    }};
+                }}
+                
+                chrome.webRequest.onAuthRequired.addListener(
+                            callbackFn,
+                            {{urls: ["<all_urls>"]}},
+                            ['blocking']
+                );
+                """
+                
+                with open(os.path.join(proxy_ext_dir, "manifest.json"), "w") as f:
+                    f.write(manifest_json)
+                with open(os.path.join(proxy_ext_dir, "background.js"), "w") as f:
+                    f.write(background_js)
+                
+                browser_args.append(f"--disable-extensions-except={proxy_ext_dir}")
+                browser_args.append(f"--load-extension={proxy_ext_dir}")
+                
+                # Do NOT set proxy dict to avoid conflicts with the extension
+                proxy = None 
+            else:
+                proxy = {"server": proxy_port}
+        elif str(proxy_port) == '1080':
+            proxy = {"server": f"socks5://127.0.0.1:{proxy_port}"}
+        else:
+            proxy = {"server": f"socks5://127.0.0.1:{proxy_port}"}
 
-    logger.info(f"Launching CloakBrowser at '{profile_dir}' -> {url}")
+    logger.info(f"Launching CloakBrowser at '{profile_dir}' -> {url} (Proxy: {proxy}, Ext: {proxy_ext_dir})")
 
     ctx = launch_persistent_context(
         user_data_dir=profile_dir,
@@ -61,29 +153,56 @@ def main():
     else:
         page = ctx.new_page()
         
-    from cloakbrowser.human import patch_page
-    patch_page(page)
+    from cloakbrowser.human import patch_page, resolve_config, _CursorState
+    cfg = resolve_config()
+    cursor = _CursorState()
+    patch_page(page, cfg, cursor)
     
-    page.goto(url)
-
+    nav_success = True
+    try:
+        page.goto(url, timeout=30000)
+    except Exception as e:
+        nav_success = False
+        logger.error(f"Navigation failed: {e}")
+        try:
+            page.evaluate("""(errorMsg) => {
+                document.body.innerHTML = '<div style="padding: 20px; font-family: sans-serif; color: red;"><h1>네트워크 / 프록시 연결 오류</h1><p>EveryProxy 또는 프록시 연결을 확인해주세요.</p><p>' + errorMsg + '</p></div>';
+            }""", str(e))
+        except Exception as eval_e:
+            logger.error(f"Error displaying message: {eval_e}")
+            
     # Check if credentials were provided
     if len(sys.argv) >= 6:
         email = sys.argv[4]
         password = sys.argv[5]
         
-        logger.info(f"Credentials provided for {email}. Checking if login is required...")
+        logger.info(f"Credentials provided for {email}. Monitoring for Google Login page...")
         
-        try:
-            page.wait_for_load_state('networkidle', timeout=5000)
-        except Exception:
-            pass # Ignore networkidle timeout
-            
-        # If redirected to Google Sign-In
-        if "accounts.google.com" in page.url or "signin" in page.url.lower():
-            logger.info("Login page detected. Attempting to auto-login...")
+        import random
+        def human_type_into(locator, text):
             try:
-                # Wait for email field to appear and be stable
-                # Google might have hidden email fields. Find the visible one.
+                locator.click()
+                time.sleep(random.uniform(0.3, 0.6))
+                for char in text:
+                    page.keyboard.type(char, delay=random.randint(60, 140))
+                time.sleep(random.uniform(0.4, 0.8))
+            except Exception as ex:
+                logger.warning(f"Fallback typing for {text[:3]}...: {ex}")
+                locator.fill(text)
+
+        # Wait up to 12s for Google login page redirect
+        is_login_page = False
+        for _ in range(12):
+            curr_url = page.url.lower()
+            if "accounts.google.com" in curr_url or "signin" in curr_url:
+                is_login_page = True
+                break
+            time.sleep(1)
+
+        if is_login_page:
+            logger.info("🔐 Google Login page detected. Performing natural human-like auto-login...")
+            try:
+                # Wait for email input
                 email_selectors = ['input[type="email"]', 'input[name="identifier"]', '#identifierId']
                 email_locator = None
                 
@@ -94,66 +213,42 @@ def main():
                             if loc.is_visible():
                                 email_locator = loc
                                 break
-                        if email_locator:
-                            break
-                    if email_locator:
-                        break
+                        if email_locator: break
+                    if email_locator: break
                     time.sleep(1)
                 
                 if email_locator:
-                    # Small human-like delay before typing
-                    time.sleep(1)
-                    # Type email
-                    email_locator.fill(email)
-                    time.sleep(0.5)
-                    email_locator.press('Enter')
+                    logger.info(f"✍️ Typing email ({email}) naturally...")
+                    human_type_into(email_locator, email)
+                    page.keyboard.press('Enter')
                 else:
-                    logger.error("Email field never became visible.")
-                    page.screenshot(path=os.path.join(profile_dir, "debug_login_email_error.png"))
-                    return
+                    logger.error("Email field not visible for typing.")
                 
-                # Wait for the email transition to complete (Google animates this)
-                try:
-                    page.wait_for_load_state('networkidle', timeout=5000)
-                except Exception:
-                    pass
-                time.sleep(2) # Give it a moment to render the new DOM elements
-                
-                # Check if we are still on the email page (maybe captcha?)
-                page.screenshot(path=os.path.join(profile_dir, "debug_login_step1.png"))
-                
-                # Try finding the password input field robustly
+                # Wait for password input transition
+                time.sleep(2.5)
+                pwd_selectors = ['input[name="Passwd"]', 'input[name="password"]', 'input[type="password"]']
                 pwd_locator = None
                 
-                # Google usually uses name="Passwd"
-                for selector in ['input[name="Passwd"]', 'input[type="password"]']:
-                    try:
-                        # Wait for the selector to be visible
-                        loc = page.locator(selector).locator("visible=true").first
-                        if loc.is_visible(timeout=5000):
-                            pwd_locator = loc
-                            break
-                    except Exception:
-                        pass
+                for _ in range(15):
+                    for selector in pwd_selectors:
+                        locators = page.locator(selector).all()
+                        for loc in locators:
+                            if loc.is_visible():
+                                pwd_locator = loc
+                                break
+                        if pwd_locator: break
+                    if pwd_locator: break
+                    time.sleep(1)
                 
                 if pwd_locator:
-                    # Small human-like delay
-                    time.sleep(1)
-                    # Use click and type instead of fill to bypass actionability strictness
-                    pwd_locator.click()
-                    time.sleep(0.2)
-                    pwd_locator.fill(password)
-                    time.sleep(0.5)
-                    pwd_locator.press('Enter')
-                    logger.info("Login credentials submitted.")
-                    time.sleep(3)
-                    page.screenshot(path=os.path.join(profile_dir, "debug_login_step2.png"))
+                    logger.info("✍️ Typing password naturally...")
+                    human_type_into(pwd_locator, password)
+                    page.keyboard.press('Enter')
+                    logger.info("[OK] Login credentials naturally submitted.")
                 else:
-                    logger.error("Password field never became visible. Manual intervention may be required.")
-                    page.screenshot(path=os.path.join(profile_dir, "debug_login_error.png"))
-            except Exception as e:
-                logger.error(f"Failed to auto-login: {e}")
-                page.screenshot(path=os.path.join(profile_dir, "debug_login_exception.png"))
+                    logger.warning("Password field not visible yet. Please complete manually if needed.")
+            except Exception as login_e:
+                logger.error(f"Auto-login failed: {login_e}")
 
     logger.info("Browser launched. Keeping open for manual setup...")
     # 브라우저 창(탭)이 열려있는 동안 대기

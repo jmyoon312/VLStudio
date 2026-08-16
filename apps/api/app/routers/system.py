@@ -122,8 +122,8 @@ def open_folder(request: PathRequest, db: Session = Depends(database.get_db)):
                 rel_path = target_path[len(db_root):].lstrip('/')
                 win_path = os.path.join(host_media_root, rel_path).replace("/", "\\")
             else:
-                # If path is not under root, just add downloads as suggested by user
-                win_path = os.path.join(host_media_root, "downloads", os.path.basename(path)).replace("/", "\\")
+                # If path is not under root, just add 07_Downloads as suggested by user
+                win_path = os.path.join(host_media_root, "07_Downloads", os.path.basename(path)).replace("/", "\\")
             
             win_path = win_path.replace("\\\\", "\\")
                 
@@ -147,10 +147,10 @@ def open_folder(request: PathRequest, db: Session = Depends(database.get_db)):
                 if resp.status_code == 200:
                     return {"ok": True, "message": "Folder open request sent to Windows Agent"}
                 else:
-                    logger.error(f"❌ Agent returned error: {resp.status_code} - {resp.text}")
+                    logger.error(f"[FAIL] Agent returned error: {resp.status_code} - {resp.text}")
                     raise HTTPException(status_code=500, detail=f"Agent error: {resp.text}")
             except Exception as e:
-                logger.error(f"⚠️ Agent communication failed: {e}")
+                logger.error(f"[WARN] Agent communication failed: {e}")
                 raise HTTPException(status_code=500, detail=f"Windows Agent (8001) is unreachable or failed: {e}")
 
         # --- Local execution fallback (ONLY for non-docker native environments) ---
@@ -211,20 +211,29 @@ def reset_database():
 # yt-dlp Maintenance Endpoints
 # ============================================
 
-# ============================================
-# yt-dlp Maintenance Endpoints
-# ============================================
-
-import sys
 import importlib
 import yt_dlp
 
 def get_current_version_logic():
+    """Get yt-dlp version via importlib.reload (safe for both dev & packaged builds).
+    Subprocess fallback is only used in non-frozen dev mode as a secondary check."""
     try:
-        importlib.reload(yt_dlp) # Ensure we get the new version after update
+        importlib.reload(yt_dlp)
         return yt_dlp.version.__version__
-    except:
-        return "Unknown"
+    except Exception:
+        pass
+    # Fallback: subprocess (only safe in non-frozen dev mode)
+    if not getattr(sys, 'frozen', False):
+        try:
+            result = subprocess.run(
+                [sys.executable, '-m', 'yt_dlp', '--version'],
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except Exception:
+            pass
+    return "Unknown"
 
 @router.get("/ytdlp-version")
 async def get_ytdlp_version():
@@ -253,6 +262,63 @@ async def update_ytdlp():
                 "message": f"Update Failed: {result.get('error')}"
              }
 
+    except Exception as e:
+        return {"success": False, "message": f"Error: {str(e)}"}
+
+# ============================================
+# CloakBrowser Maintenance Endpoints
+# ============================================
+
+def get_cloakbrowser_version():
+    """Get current cloakbrowser version using importlib.metadata"""
+    try:
+        if sys.version_info >= (3, 8):
+            from importlib.metadata import version, PackageNotFoundError
+            try:
+                return version("cloakbrowser")
+            except PackageNotFoundError:
+                pass
+        
+        # Fallback to pip show
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'show', 'cloakbrowser'],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if line.startswith("Version:"):
+                    return line.split(":", 1)[1].strip()
+    except Exception as e:
+        print(f"Error checking cloakbrowser version: {e}")
+    return "Unknown or not installed"
+
+@router.get("/cloakbrowser/version")
+async def get_cloak_version():
+    """Get current cloakbrowser version"""
+    return {"version": get_cloakbrowser_version()}
+
+@router.post("/cloakbrowser/update")
+async def update_cloakbrowser():
+    """Update cloakbrowser to the latest version"""
+    try:
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', '--upgrade', 'cloakbrowser[patchright]'],
+            capture_output=True, text=True, timeout=120
+        )
+        if result.returncode == 0:
+            new_version = get_cloakbrowser_version()
+            return {
+                "success": True, 
+                "message": "CloakBrowser 업데이트가 성공적으로 완료되었습니다.", 
+                "version": new_version,
+                "logs": result.stdout
+            }
+        else:
+            return {
+                "success": False, 
+                "message": "업데이트 중 오류가 발생했습니다.",
+                "logs": result.stderr
+            }
     except Exception as e:
         return {"success": False, "message": f"Error: {str(e)}"}
 

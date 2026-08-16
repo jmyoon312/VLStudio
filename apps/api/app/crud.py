@@ -256,58 +256,6 @@ def get_recent_scripts(db: Session, limit: int = 10):
         .limit(limit)\
         .all()
 
-# --- Categories ---
-def get_categories(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.CategoryTree).offset(skip).limit(limit).all()
-
-
-def get_category_by_name(db: Session, name: str):
-    return db.query(models.CategoryTree).filter(models.CategoryTree.name == name).first()
-
-def create_category(db: Session, category: schemas.CategoryCreate):
-    folder_name = re.sub(r'[\\/*?:"<>|]', "", category.name).replace(" ", "_")
-    
-    # Retrieve settings and determine root download path
-    settings = get_settings(db)
-    from app.config import settings as settings_conf
-    root_path = (
-        settings.root_download_path.strip()
-        if settings and settings.root_download_path and settings.root_download_path.strip()
-        else settings_conf.MEDIA_ROOT
-    )
-    # Normalize to absolute path
-    root_path = os.path.abspath(root_path)
-
-    # Category folders go inside the 'downloads' subdirectory
-    # e.g. /app/media/downloads/국뽕/  →  C:\ViraLoopMedia\downloads\국뽕\
-    downloads_path = os.path.join(root_path, "downloads")
-    try:
-        os.makedirs(downloads_path, exist_ok=True)
-    except OSError as e:
-        print(f"Error ensuring downloads path exists: {e}")
-
-    full_path = os.path.join(downloads_path, folder_name)
-    try:
-        os.makedirs(full_path, exist_ok=True)
-    except OSError as e:
-        print(f"Error creating category folder '{full_path}': {e}")
-
-    # folder_name is a @property on CategoryTree - do NOT pass it to constructor
-    db_category = models.CategoryTree(name=category.name)
-    db.add(db_category)
-    db.commit()
-    db.refresh(db_category)
-    return db_category
-
-def delete_category(db: Session, category_id: int):
-    db_cat = db.query(models.CategoryTree).filter(models.CategoryTree.id == category_id).first()
-    if db_cat:
-        db.delete(db_cat)
-        db.commit()
-    return db_cat
-
-def get_category(db: Session, category_id: int):
-    return db.query(models.CategoryTree).filter(models.CategoryTree.id == category_id).first()
 
 # --- Custom Links ---
 def get_custom_links(db: Session):
@@ -449,3 +397,9 @@ def mark_report_read(db: Session, report_id: int):
 
 def get_daily_report(db: Session, report_id: int):
     return db.query(models.DailyReport).filter(models.DailyReport.id == report_id).first()
+
+
+# [NEW] Category methods
+def get_category(db, category_id: int):
+    from . import models
+    return db.query(models.Category).filter(models.Category.id == category_id).first()

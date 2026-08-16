@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import {
     Loader2, ImageIcon, Music, Film, Upload, Download, Clapperboard, Plus, Trash2,
     Sparkles, Copy, ChevronDown, ChevronUp, RefreshCw, Save, Wand2, RotateCcw, Play,
-    MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign
+    MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe
 } from "lucide-react";
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
 import MotionSettingsDialog from '@/components/MotionSettingsDialog';
@@ -203,6 +204,7 @@ const CreativeStudio = () => {
         return localStorage.getItem('viral_loop_creative_script_input') || "";
     });
     const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+    const [useWebSearchCreative, setUseWebSearchCreative] = useState<boolean>(true);
 
     // Auto-save script drafts to localStorage
     useEffect(() => {
@@ -272,7 +274,8 @@ const CreativeStudio = () => {
             const res = await api.post('/creative/generate-script', {
                 input_text: scriptInput,
                 style_id: selectedStyleId ? Number(selectedStyleId) : null,
-                model_name: scriptModel
+                model_name: scriptModel,
+                config: { use_web_search: useWebSearchCreative }
             });
             return res.data;
         },
@@ -1525,6 +1528,21 @@ const CreativeStudio = () => {
                                         onCreatePreset={handleCreateStyle}
                                         onEditPreset={handleEditStyle}
                                     />
+                                </div>
+
+                                <div className="flex items-center gap-2 pl-1">
+                                    <Switch
+                                        id="creative-web-search"
+                                        checked={useWebSearchCreative}
+                                        onCheckedChange={setUseWebSearchCreative}
+                                    />
+                                    <Label htmlFor="creative-web-search" className="cursor-pointer flex items-center gap-1.5 text-sm font-medium">
+                                        <Globe className="w-3.5 h-3.5 text-blue-500" />
+                                        웹 검색 활용
+                                    </Label>
+                                    <Badge variant={useWebSearchCreative ? "default" : "outline"} className="text-[10px] px-1.5 py-0 ml-1">
+                                        {useWebSearchCreative ? "ON" : "OFF"}
+                                    </Badge>
                                 </div>
 
                                 <div className="space-y-2">

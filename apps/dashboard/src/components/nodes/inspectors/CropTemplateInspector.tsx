@@ -21,10 +21,10 @@ const CropTemplateInspector: React.FC<CropTemplateInspectorProps> = ({ node, upd
 
     const templates = [
         { id: 'youtube-shorts', name: 'YouTube Shorts', ratio: '9:16', desc: '1080x1920' },
-        { id: 'tiktok', name: 'TikTok', ratio: '9:16', desc: '1080x1920' },
-        { id: 'instagram-reel', name: 'Instagram Reel', ratio: '9:16', desc: '1080x1920' },
+        { id: 'tiktok', name: 'Music', ratio: '9:16', desc: '1080x1920' },
+        { id: 'instagram-reel', name: 'Camera Reel', ratio: '9:16', desc: '1080x1920' },
         { id: 'youtube-video', name: 'YouTube Video', ratio: '16:9', desc: '1920x1080' },
-        { id: 'instagram-post', name: 'Instagram Post', ratio: '1:1', desc: '1080x1080' },
+        { id: 'instagram-post', name: 'Camera Post', ratio: '1:1', desc: '1080x1080' },
     ];
 
     const handleSave = () => {

@@ -8,7 +8,7 @@ import CaptainDashboard from './CaptainDashboard';
 import ChannelManagement from '@/components/captain/ChannelManagement';
 import CaptainSettings from '@/components/captain/CaptainSettings';
 
-const API_BASE = "/api";
+const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
 interface CaptainProfile {
     id: string;

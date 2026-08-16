@@ -7,8 +7,16 @@ import os
 import re
 import requests
 import shutil
+import logging
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["channels"])
+
+class ReferenceChannelRequest(BaseModel):
+    channelName: str
+    sourceVideo: str
 
 def sanitize_folder_name(name):
     return re.sub(r'[\\/*?:"<>|]', "", name).replace(" ", "_")
@@ -20,6 +28,12 @@ def read_channels(skip: int = 0, limit: int = 100, db: Session = Depends(databas
 
 @router.post("/", response_model=schemas.Channel)
 def create_channel(channel: schemas.ChannelCreate, db: Session = Depends(database.get_db)):
+    # Sanitize YouTube URLs to remove specific tabs (e.g., /shorts, /videos) and get the base channel URL
+    if 'youtube.com' in channel.url or 'youtu.be' in channel.url:
+        import re
+        channel.url = re.sub(r'/(shorts|videos|streams|live|playlists|community|featured).*?$', '', channel.url)
+        channel.url = channel.url.rstrip('/')
+
     db_channel = crud.get_channel_by_url(db, url=channel.url)
     if db_channel:
         raise HTTPException(status_code=400, detail="Channel already registered")
@@ -31,7 +45,8 @@ def create_channel(channel: schemas.ChannelCreate, db: Session = Depends(databas
         scraper = DouyinChannelScraper(settings=settings)
         info = scraper.get_channel_info(channel.url, headless=False)
     else:
-        info = downloader.downloader.get_channel_info(channel.url)
+        cookies_path = settings.cookies_path if settings and hasattr(settings, 'cookies_path') and settings.cookies_path and os.path.exists(settings.cookies_path) else None
+        info = downloader.downloader.get_channel_info(channel.url, cookies_path=cookies_path)
     if not info:
          raise HTTPException(status_code=400, detail="Invalid channel URL or unable to fetch info")
     
@@ -176,6 +191,33 @@ def update_channel(channel_id: int, channel_update: schemas.ChannelUpdate, db: S
         raise HTTPException(status_code=404, detail="Channel not found")
     return db_channel
 
+@router.post("/reference")
+def add_reference_channel(req: ReferenceChannelRequest, db: Session = Depends(database.get_db)):
+    """
+    Register a channel as a reference for competitive tracking.
+    Called from the KeywordExplorer radar UI.
+    """
+    logger.info(f"📌 Registering reference channel: {req.channelName} (from video {req.sourceVideo})")
+    try:
+        existing = db.query(models.Channel).filter(models.Channel.name == req.channelName).first()
+        if existing:
+            return {"status": "exists", "channelName": req.channelName, "channelId": existing.id}
+        
+        ref_channel = models.Channel(
+            name=req.channelName,
+            url=f"https://youtube.com/channel/{req.sourceVideo}",
+            platform="youtube",
+            folder_name=re.sub(r'[\\/*?:"<>|]', "", req.channelName).replace(" ", "_"),
+            status="active"
+        )
+        db.add(ref_channel)
+        db.commit()
+        db.refresh(ref_channel)
+        return {"status": "created", "channelName": req.channelName, "channelId": ref_channel.id}
+    except Exception as e:
+        logger.error(f"Failed to register reference channel: {e}")
+        return {"status": "error", "detail": str(e)}
+
 @router.post("/{channel_id}/scan")
 def scan_channel_manually(channel_id: int, db: Session = Depends(database.get_db)):
     db_channel = crud.get_channel(db, channel_id)
@@ -186,3 +228,62 @@ def scan_channel_manually(channel_id: int, db: Session = Depends(database.get_db
     from app.services import channel_monitor
     result = channel_monitor.scan_specific_channel(db, db_channel, is_manual=True)
     return result
+
+
+from pydantic import BaseModel
+from typing import List
+
+class BatchDeleteRequest(BaseModel):
+    channel_ids: List[int]
+
+@router.post("/batch-delete")
+def batch_delete_channels(req: BatchDeleteRequest, db: Session = Depends(database.get_db)):
+    try:
+        # Delete associated videos first
+        db.query(models.VideoHistory).filter(
+            models.VideoHistory.video_id.in_(
+                db.query(models.Video.id).filter(models.Video.channel_id.in_(req.channel_ids))
+            )
+        ).delete(synchronize_session=False)
+        
+        db.query(models.Video).filter(models.Video.channel_id.in_(req.channel_ids)).delete(synchronize_session=False)
+        
+        # Delete channels
+        deleted = db.query(models.Channel).filter(models.Channel.id.in_(req.channel_ids)).delete(synchronize_session=False)
+        db.commit()
+        return {"status": "success", "deleted_count": deleted}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ImportDiscoveryRequest(BaseModel):
+    discovery_channel_id: int
+
+@router.post("/import-discovery")
+def import_discovery_channel(req: ImportDiscoveryRequest, db: Session = Depends(database.get_db)):
+    # Find the discovery channel
+    disc_channel = db.query(models.DiscoveryChannel).filter(models.DiscoveryChannel.id == req.discovery_channel_id).first()
+    if not disc_channel:
+        raise HTTPException(status_code=404, detail="Discovery channel not found")
+        
+    # Check if already exists in reference channels
+    existing = db.query(models.Channel).filter(models.Channel.url == disc_channel.url).first()
+    if existing:
+        return {"status": "success", "channel_id": existing.id, "message": "Already imported"}
+        
+    # Create new channel
+    new_channel = models.Channel(
+        name=disc_channel.name,
+        url=disc_channel.url,
+        platform=disc_channel.platform,
+        platform_id=disc_channel.platform_id,
+        folder_name=disc_channel.folder_name,
+        category_id=disc_channel.category_id,
+        subscriber_count=disc_channel.subscriber_count,
+        thumbnail_path=disc_channel.thumbnail_path,
+        auto_download=True  # As it's being added to reference
+    )
+    db.add(new_channel)
+    db.commit()
+    db.refresh(new_channel)
+    return {"status": "success", "channel_id": new_channel.id}

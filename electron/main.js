@@ -1,10 +1,11 @@
-import { app, BrowserWindow, WebContentsView, ipcMain, shell, protocol, net, powerSaveBlocker } from 'electron'
+import electronPkg from 'electron';
+const { app, BrowserWindow, WebContentsView, ipcMain, shell, protocol, net, powerSaveBlocker } = electronPkg;
 import http from 'node:http'
 import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { execSync as execSyncRaw, spawn, exec } from 'node:child_process'
+import { execSync as execSyncRaw, spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 import { registerFilesystemIPC } from './ipc/filesystem.js'
@@ -22,7 +23,6 @@ import { setupAppMenuAndUpdater, noteProjectActivated } from './updater.js'
 import { selectCdpCase } from './video-cdp-dispatch.js'
 import { loadProfiles, saveProfiles, switchProfile, createProfile, deleteProfile, updateProfile, cleanupUnusedPartitions } from './profileManager.js'
 import { injectImageBatchBody } from './cdp-image-inject.js'
-import { FLOW_PAGE_INJECTION } from './flow-page-injection.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -31,6 +31,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // title in macOS menu bar (that comes from the Electron binary's Info.plist
 // in dev; the packaged build sets it correctly).
 app.setName('ViraLoop Studio')
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// [Fix] Prevent SQLite / Quota / GPU Cache lock crashes in Development
+// ═══════════════════════════════════════════════════════════════════════════════
+app.disableHardwareAcceleration()
+if (!app.isPackaged) {
+  const devDataDir = path.join(os.tmpdir(), 'viral-loop-dev-data-' + Date.now().toString())
+  app.setPath('userData', devDataDir)
+}
+// ═══════════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // [NEW-12 + Electron②] 전역 Chromium 스위치 — WebRTC IP 누출 차단 + QUIC 비활성화
@@ -198,80 +208,8 @@ function createWindow() {
   // createWindow 시점에서 바로 켜야 하므로 직접 호출
   powerSaveBlocker.start('prevent-display-sleep')
 
-  // ============================================
-  // 안티봇 차단 우회용 하드웨어 지문 위장 프로필 (Hardware Fingerprint Profiles)
-  // ============================================
-  const hardwareProfiles = [
-    {
-      cores: 4,
-      memory: 8,
-      vendor: 'Google Inc. (NVIDIA)',
-      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)'
-    },
-    {
-      cores: 8,
-      memory: 16,
-      vendor: 'Google Inc. (NVIDIA)',
-      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)'
-    },
-    {
-      cores: 12,
-      memory: 32,
-      vendor: 'Google Inc. (NVIDIA)',
-      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0, D3D11)'
-    },
-    {
-      cores: 16,
-      memory: 64,
-      vendor: 'Google Inc. (NVIDIA)',
-      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4090 Direct3D11 vs_5_0 ps_5_0, D3D11)'
-    },
-    {
-      cores: 6,
-      memory: 16,
-      vendor: 'Google Inc. (AMD)',
-      renderer: 'ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11 vs_5_0 ps_5_0, D3D11)'
-    },
-    {
-      cores: 8,
-      memory: 32,
-      vendor: 'Google Inc. (Intel)',
-      renderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
-    }
-  ]
-
-  // 초기 구동 시 무작위 대신 영구 저장된 프로필에서 하드웨어 스펙 동기 로딩
-  let activeProfilePartition = 'persist:flow_profile_default'
-  try {
-    // 동기식 프로필 바인딩 설정
-    const configPath = path.join(app.getPath('userData'), 'flow-profiles-config.json')
-    if (fsSync.existsSync(configPath)) {
-      const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'))
-      const activeProf = config.profiles.find(p => p.id === config.activeProfileId)
-      if (activeProf) {
-        activeProfilePartition = `persist:flow_profile_${activeProf.id}`
-        global.currentHardwareProfile = activeProf.hardware
-        console.log('[Anti-bot] Profile Bound Hardware Loaded:', activeProf.name, '->', activeProf.hardware.renderer)
-      }
-    }
-  } catch (err) {
-    console.warn('[Profile Startup] Failed to load persistent profile:', err.message)
-  }
-
-  if (!global.currentHardwareProfile) {
-    global.currentHardwareProfile = hardwareProfiles[Math.floor(Math.random() * hardwareProfiles.length)]
-  }
-
-  // 하드웨어 프로필 무작위 재추첨(Re-roll) 함수
-  global.rerollHardwareProfile = () => {
-    global.currentHardwareProfile = hardwareProfiles[Math.floor(Math.random() * hardwareProfiles.length)]
-    console.log('[Anti-bot] Hardware Profile Re-rolled & Changed to:', global.currentHardwareProfile.renderer)
-  }
 
   let initialProfileId = 'default'
-  if (activeProfilePartition && activeProfilePartition.startsWith('persist:flow_profile_')) {
-    initialProfileId = activeProfilePartition.replace('persist:flow_profile_', '')
-  }
   global.activeFlowProfileId = initialProfileId
 
   // Google 로그인 페이지를 프리로드 스크립트 없이 완전히 깨끗한(Pure) 별도 창으로 여는 헬퍼
@@ -291,10 +229,7 @@ function createWindow() {
 
     console.log(`[Google Login Window] Launching pure login window for profile: ${profileId}, URL: ${url}`);
 
-    let loginPreloadPath = path.join(__dirname, 'login_preload.js');
-    if (!fsSync.existsSync(loginPreloadPath)) {
-      loginPreloadPath = path.join(__dirname, 'login_preload.mjs');
-    }
+    // No legacy login preload injection needed
 
     const loginWin = new BrowserWindow({
       width: 550,
@@ -305,8 +240,7 @@ function createWindow() {
       webPreferences: {
         partition: `persist:flow_profile_${profileId}`, // 세션 파티션 동일하게 공유
         contextIsolation: true,
-        nodeIntegration: false,
-        preload: loginPreloadPath
+        nodeIntegration: false
       }
     });
 
@@ -379,39 +313,7 @@ function createWindow() {
       }
     });
 
-    // 2. 동적 도메인 타겟팅 스텔스 엔진
-    // 핵심 원칙: accounts.google.com은 완전 무개입! Flow 서비스(labs.google/fx)에서만 스텔스 적용.
-    // Google 로그인 단계에서 어떤 개입도 하지 않아야 100% 통과 가능.
-    const applyDynamicStealth = (url) => {
-      if (url && url.includes('labs.google/fx')) {
-        console.log(`[Dynamic Stealth - ${profileId}] Activating Anti-bot Stealth Mode for Flow...`);
 
-        // User-Agent: Electron 식별자 제거 (Flow 서비스 영역에서만)
-        const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-        view.webContents.setUserAgent(modernChromeUA);
-
-        // navigator.webdriver 우회 (Flow 서비스 영역에서만)
-        const stealthScript = `
-          (function() {
-            try {
-              Object.defineProperty(navigator, 'webdriver', {
-                get: () => false,
-                configurable: true
-              });
-              console.log('[Stealth] navigator.webdriver spoofed to false.');
-            } catch(e) {}
-          })();
-        `;
-        view.webContents.executeJavaScript(stealthScript).catch(() => {});
-      }
-      // accounts.google.com: 완전 무개입 (stealth_preload.js가 자체적으로 스킵)
-    };
-
-    view.webContents.on('did-start-navigation', (_, url) => applyDynamicStealth(url));
-    view.webContents.on('dom-ready', () => {
-      const url = view.webContents.getURL();
-      applyDynamicStealth(url);
-    });
 
     view.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
       console.error(`[Flow - ${profileId}] did-fail-load:`, errorCode, errorDescription, validatedURL)
@@ -455,44 +357,7 @@ function createWindow() {
       }
     })
 
-    // ─── Stealth Injection Control ───
-    const setFlowPageInject = (profileId, data) => {
-      const view = global.flowViews.get(profileId || global.activeFlowProfileId || 'default')
-      if (!view) return
-      console.log(`[Flow Inject] Setting injection data for profile ${profileId}:`, data)
-      view.webContents.executeJavaScript(`
-        if (window.__autoflowcut_inject__) {
-          Object.assign(window.__autoflowcut_inject__, ${JSON.stringify(data)});
-        }
-      `).catch(() => {})
-    }
 
-    const clearFlowPageInject = (profileId) => {
-      const view = global.flowViews.get(profileId || global.activeFlowProfileId || 'default')
-      if (!view) return
-      console.log(`[Flow Inject] Clearing injection data for profile ${profileId}`)
-      view.webContents.executeJavaScript(`
-        if (window.__autoflowcut_inject__) {
-          window.__autoflowcut_inject__.seed = null;
-          window.__autoflowcut_inject__.aspectRatio = null;
-          window.__autoflowcut_inject__.references = null;
-          window.__autoflowcut_inject__.i2v = null;
-        }
-      `).catch(() => {})
-    }
-
-    // Expose injection helpers globally for IPC modules to call
-    global.setFlowPageInject = setFlowPageInject
-    global.clearFlowPageInject = clearFlowPageInject
-
-    const injectStealthScript = async (view) => {
-      try {
-        await view.webContents.executeJavaScript(FLOW_PAGE_INJECTION)
-        console.log(`[Flow Inject] Injected window.fetch patch script`)
-      } catch (err) {
-        console.warn(`[Flow Inject] Failed to inject fetch patch:`, err.message)
-      }
-    }
 
     view.webContents.on('did-finish-load', async () => {
       const url = view.webContents.getURL()
@@ -500,7 +365,7 @@ function createWindow() {
       const unavailable = url.includes('unsupported-country')
       
       if (url.includes('labs.google/fx')) {
-        await injectStealthScript(view)
+        // Legacy stealth script injection removed
       }
 
       mainWindow.webContents.send('flow-status', {
@@ -767,13 +632,6 @@ function createWindow() {
 
     const partitionName = `persist:flow_profile_${profileId}`;
     
-    // Load hardware DNA settings for this profile
-    let hardware = {
-      cores: 8,
-      memory: 16,
-      vendor: 'Google Inc. (NVIDIA)',
-      renderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)'
-    };
     let proxyPort = null;
     let targetUrl = FLOW_URL;
     let isUploadSlot = false;
@@ -784,9 +642,6 @@ function createWindow() {
         const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'));
         const targetProf = config.profiles.find(p => p.id === profileId);
         if (targetProf) {
-          if (targetProf.hardware) {
-            hardware = targetProf.hardware;
-          }
           if (targetProf.type === 'BRAND_CHANNEL') {
             proxyPort = 10800; // Only use LTE proxy for Brand Channels
             targetUrl = 'https://studio.youtube.com/';
@@ -795,27 +650,14 @@ function createWindow() {
         }
       }
     } catch (e) {
-      console.warn('[Proxy/Hardware] Failed to load profile config:', e);
-    }
-
-    let preloadPath = path.join(__dirname, 'stealth_preload.js');
-    if (!fsSync.existsSync(preloadPath)) {
-      preloadPath = path.join(__dirname, 'stealth_preload.mjs');
+      console.warn('[Proxy] Failed to load profile config:', e);
     }
 
     const newView = new WebContentsView({
       webPreferences: {
         partition: partitionName,
         contextIsolation: true,
-        webSecurity: false,
-        preload: preloadPath,
-        additionalArguments: [
-          `--hardware-cores=${hardware.cores || 8}`,
-          `--hardware-memory=${hardware.memory || 16}`,
-          `--hardware-vendor=${hardware.vendor || 'Google Inc. (NVIDIA)'}`,
-          `--hardware-renderer=${hardware.renderer || 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Direct3D11 vs_5_0 ps_5_0, D3D11)'}`,
-          `--fp-seed=${hardware.fpSeed || 0}`
-        ]
+        webSecurity: false
       }
     });
 
@@ -861,9 +703,6 @@ function createWindow() {
       throw new Error(`Profile ${profileId} not found`)
     }
 
-    // 2. 고유 바인딩 하드웨어 지문 매핑
-    global.currentHardwareProfile = targetProf.hardware
-    console.log('[Profile Switch] Bound hardware associated:', targetProf.hardware.renderer)
 
     // 3. active profile set
     const oldProfileId = global.activeFlowProfileId;
@@ -934,22 +773,68 @@ function createWindow() {
   // updateBounds(mainWindow, flowView)
 
   // Reset modal visibility state on navigation/reload
-  mainWindow.webContents.on('did-start-navigation', () => {
+  mainWindow.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame) => {
+    if (!isMainFrame) return; // Prevent iframes from triggering main window reset
     console.log('[Navigation] Resetting modal visible state on reload/navigate')
     resetModalState(mainWindow, flowView)
   })
 
+  // Open target="_blank" links in external default browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
   // Open DevTools in development (detached so it doesn't cover WebContentsView)
-  // if (process.env.VITE_DEV_SERVER_URL) {
-  //   mainWindow.webContents.openDevTools({ mode: 'detach' })
-  // }
+  mainWindow.webContents.openDevTools({ mode: 'detach' })
+  mainWindow.webContents.on('console-message', (event, ...args) => {
+    let msg, src, ln;
+    if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null && 'message' in args[0]) {
+      // New Electron 30+ signature: (event, details)
+      msg = args[0].message;
+      src = args[0].sourceId;
+      ln = args[0].line;
+    } else {
+      // Old signature: (event, level, message, line, sourceId)
+      msg = args[1];
+      ln = args[2];
+      src = args[3];
+    }
+    console.log('[Renderer Console]', msg, '(' + src + ':' + ln + ')')
+  })
 
   // Load the React app (Vite dev server or built files)
   if (process.env.VITE_DEV_SERVER_URL) {
+    console.log('[Orchestration] Loading React app from dev server URL:', process.env.VITE_DEV_SERVER_URL)
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    // If running in development (not packaged), prioritize loading from Vite dev port 5183 if available
+    const candidatePaths = [
+      path.join(__dirname, '..', 'apps', 'dashboard', 'dist', 'index.html'),
+      path.join(__dirname, '..', 'dist', 'index.html'),
+      path.join(process.resourcesPath, 'apps', 'dashboard', 'dist', 'index.html'),
+      path.join(process.resourcesPath, 'dist', 'index.html')
+    ]
+    let indexPath = candidatePaths.find(p => fsSync.existsSync(p)) || candidatePaths[0]
+    console.log('[Orchestration] Loading React app from local file:', indexPath)
+    mainWindow.loadFile(indexPath)
   }
+
+  mainWindow.webContents.on('did-fail-load', (e, code, desc, url) => {
+    console.error('[MainWindow] did-fail-load:', code, desc, 'url:', url)
+  })
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[MainWindow] did-finish-load successfully for URL:', mainWindow.webContents.getURL())
+  })
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('[MainWindow] render-process-gone:', details)
+  })
+  mainWindow.on('unresponsive', () => {
+    console.warn('[MainWindow] Window became unresponsive')
+  })
+  mainWindow.on('close', (e) => {
+    console.log('[MainWindow] MainWindow close event triggered')
+  })
 
 }
 
@@ -1837,6 +1722,7 @@ function autoSetupSkills() {
 
 // === ViraLoop Infrastructure Orchestration ===
 let infraProcess = null
+let ddalkkakProcess = null
 let appIsQuitting = false
 let healthMonitorInterval = null
 let _isRestartingBackend = false  // [FIX] Guard against concurrent restarts
@@ -1897,23 +1783,61 @@ function killProcessOnPort(port) {
 }
 
 function startViraLoopInfrastructure() {
-  // 먼저 백엔드가 이미 정상 실행 중인지 확인 (재시작 시 503 방지)
-  try {
-    const healthReq = http.get('http://127.0.0.1:8000/api/health', { timeout: 2000 }, (res) => {
-      if (res.statusCode < 500) {
-        console.log('[Orchestration] ✅ Backend already running and healthy on port 8000. Skipping restart.')
-        res.resume()
-        startBackendHealthMonitor() // Start monitoring existing running instance
-        return // 이미 정상이므로 재시작 안 함
+  console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI)...')
+  _doStartBackend()
+}
+
+function _doStartDdalkkak() {
+  console.log('[Orchestration] _doStartDdalkkak called...')
+  if (appIsQuitting) return
+
+  if (ddalkkakProcess) {
+    console.log(`[Orchestration] Terminating existing Ddalkkak process tree (PID: ${ddalkkakProcess.pid})...`)
+    try {
+      if (process.platform === 'win32') {
+        // using global execSyncRaw
+        execSyncRaw(`taskkill /F /T /PID ${ddalkkakProcess.pid} 2>NUL`)
+      } else {
+        ddalkkakProcess.kill('SIGKILL')
       }
-      res.resume()
-      _doStartBackend()
+    } catch (err) {
+      console.warn(`[Orchestration] Failed to kill existing Ddalkkak:`, err.message)
+    }
+    ddalkkakProcess = null
+  }
+
+  killProcessOnPort(8100)
+
+  // Start Ddalkkak
+  const isPkg = app.isPackaged
+  let ddalkkakDir = isPkg
+    ? path.join(process.resourcesPath, 'Ddalkkak')
+    : (fsSync.existsSync(path.join(__dirname, '..', 'Ddalkkak')) ? path.join(__dirname, '..', 'Ddalkkak') : path.join(__dirname, '..', '..', 'Ddalkkak'))
+  const ddalkkakPython = path.join(ddalkkakDir, 'pyembed', 'python.exe')
+  
+  if (fsSync.existsSync(ddalkkakDir) && fsSync.existsSync(ddalkkakPython)) {
+    console.log('[Orchestration] Launching Ddalkkak automation backend on port 8100...')
+    const ddalkkakEnv = {
+      ...process.env,
+      PYTHONUTF8: '1',
+      PYTHONIOENCODING: 'utf-8',
+      SOLO_MODE: '1'
+    }
+    ddalkkakProcess = spawn(ddalkkakPython, ['-m', 'uvicorn', 'api.main:app', '--host', '0.0.0.0', '--port', '8100'], {
+      cwd: ddalkkakDir,
+      env: ddalkkakEnv,
+      detached: false,
+      stdio: 'pipe',
+      windowsHide: true
     })
-    healthReq.on('error', () => _doStartBackend()) // 연결 안 되면 새로 시작
-    healthReq.on('timeout', () => { healthReq.destroy(); _doStartBackend() })
-    return // async로 처리됨
-  } catch (e) {
-    _doStartBackend()
+    
+    ddalkkakProcess.stdout?.on('data', (data) => console.log(`[Ddalkkak] ${data}`))
+    ddalkkakProcess.stderr?.on('data', (data) => console.warn(`[Ddalkkak ERR] ${data}`))
+    
+    ddalkkakProcess.on('close', (code) => {
+      console.log(`[Orchestration] Ddalkkak backend exited with code ${code}`)
+      ddalkkakProcess = null
+    })
   }
 }
 
@@ -1952,7 +1876,9 @@ function _doStartBackend() {
 
   const isPackaged = app.isPackaged
   const resourcesPath = process.resourcesPath
-  const storageDir = app.getPath('userData')
+  // 1. Storage Dir (Electron이 dev 모드일때 userData를 tmpdir로 바꾸므로, DB는 실제 AppData를 유지하도록 고정)
+  const realAppData = path.join(app.getPath('appData'), 'ViraLoop Studio')
+  const storageDir = app.isPackaged ? app.getPath('userData') : realAppData
 
   let executablePath = ''
   let spawnArgs = []
@@ -1970,12 +1896,17 @@ function _doStartBackend() {
     }
   } else {
     console.log('[Orchestration] App is in development. Launching ViraLoop FastAPI Backend via local python venv...')
-    const pythonExecutable = path.join(__dirname, '..', 'venv', 'Scripts', 'python.exe')
     const apiDir = path.join(__dirname, '..', 'apps', 'api')
+    let pythonExecutable = path.join(apiDir, 'venv', 'Scripts', 'python.exe')
+    if (!fsSync.existsSync(pythonExecutable)) {
+      pythonExecutable = path.join(__dirname, '..', 'venv_build', 'Scripts', 'python.exe')
+    }
+    if (!fsSync.existsSync(pythonExecutable)) {
+      pythonExecutable = path.join(__dirname, '..', 'venv', 'Scripts', 'python.exe')
+    }
 
     if (!fsSync.existsSync(pythonExecutable)) {
       console.warn('[Orchestration] Python virtual environment not found at:', pythonExecutable)
-      console.warn('[Orchestration] 백엔드 가동을 위해서는 프로젝트 루트에 venv가 설정되어 있어야 합니다.')
       return
     }
 
@@ -2028,15 +1959,7 @@ function _doStartBackend() {
       healthMonitorInterval = null
     }
     if (!appIsQuitting) {
-      console.log('[Orchestration] Backend process died unexpectedly. Restarting in 3 seconds...')
-      setTimeout(() => {
-        if (!appIsQuitting) {
-          _doStartBackend()
-          waitForBackendReady(30000, 500).then(() => {
-            startBackendHealthMonitor()
-          })
-        }
-      }, 3000)  // Increased from 2s to 3s for port release
+      console.warn('[Orchestration] Backend process exited unexpectedly (code:', code, ').');
     }
   })
 }
@@ -2095,9 +2018,12 @@ app.on('before-quit', () => {
   
   // 2순위: 윈도우 작업 관리자 레벨 강제 종료 (좀비 프로세스 원천 소멸)
   // UAC 권한 요구 및 cmd 창이 뜨는 ViraLoop_Stop.bat 대신 직접 조용히 taskkill을 수행합니다.
-  exec('taskkill /F /T /IM python.exe /IM redis-server.exe /IM celerys.exe /IM uvicorn.exe /IM postgres.exe 2>NUL', () => {
+  try {
+    execSyncRaw('taskkill /F /T /IM api_server.exe /IM uvicorn.exe 2>NUL')
     console.log('[Orchestration] All local infrastructure processes cleaned successfully.')
-  })
+  } catch (err) {
+    console.log('[Orchestration] Cleaned infrastructure processes (some may not have been running).')
+  }
 })
 
 ipcMain.handle('get-infra-status', async () => {
@@ -2119,9 +2045,54 @@ ipcMain.handle('get-infra-status', async () => {
 })
 
 // === App Lifecycle ===
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // 찌꺼기 세션 디렉토리 정리 기동
   cleanupUnusedPartitions();
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // [YouTube Embed Fix] Electron srcdoc iframe → YouTube Referer/Origin 주입
+  // srcdoc iframe은 about:srcdoc origin으로 취급되어 YouTube가 차단함.
+  // defaultSession의 webRequest 레벨에서 YouTube 도메인 요청 헤더를 직접 조작.
+  // ═══════════════════════════════════════════════════════════════════════
+  try {
+    const { session: electronSess } = await import('electron')
+    const ytFilter = { urls: [
+      '*://*.youtube.com/*',
+      '*://*.youtube-nocookie.com/*',
+      '*://*.ytimg.com/*',
+      '*://youtube.com/*'
+    ]}
+    
+    electronSess.defaultSession.webRequest.onBeforeSendHeaders(ytFilter, (details, callback) => {
+      const headers = { ...details.requestHeaders }
+      const ref = headers['Referer'] || headers['referer'] || ''
+      const orig = headers['Origin'] || headers['origin'] || ''
+      
+      // If the request comes from our localhost frontend, it's fine.
+      // We only want to patch 'about:srcdoc' or missing origins
+      if (!ref || ref.startsWith('about:') || ref === 'null') {
+        headers['Referer'] = 'http://localhost:5183/'
+      }
+      if (!orig || orig === 'null' || orig.startsWith('about:')) {
+        headers['Origin'] = 'http://localhost:5183'
+      }
+      callback({ requestHeaders: headers })
+    })
+
+    electronSess.defaultSession.webRequest.onHeadersReceived(ytFilter, (details, callback) => {
+      const responseHeaders = { ...details.responseHeaders }
+      // Remove headers that prevent embedding
+      delete responseHeaders['X-Frame-Options']
+      delete responseHeaders['x-frame-options']
+      delete responseHeaders['Content-Security-Policy']
+      delete responseHeaders['content-security-policy']
+      callback({ cancel: false, responseHeaders })
+    })
+    
+    console.log('[YouTube Embed Fix] webRequest Referer/Origin & Headers injection registered.')
+  } catch (e) {
+    console.warn('[YouTube Embed Fix] Failed to register webRequest handler:', e.message)
+  }
 
   // Dock 아이콘 (macOS, dev/prod 둘 다) — whenReady 이후에만 app.dock 사용 가능
   if (process.platform === 'darwin' && HAS_APP_ICON && app.dock) {
@@ -2190,11 +2161,11 @@ app.whenReady().then(() => {
   // Native menu + auto-updater (skips dev mode and AppX builds)
   try { setupAppMenuAndUpdater(() => mainWindow) } catch (e) { console.warn('[ViraLoop Studio] Updater setup failed:', e.message) }
 
-  startViraLoopInfrastructure()
   // [Orchestration] 백엔드 준비 완료 후 창 생성 (Race Condition 원천 방지)
   waitForBackendReady(30000, 500).then(() => {
     createWindow()
   })
+  startViraLoopInfrastructure()
 })
 
 app.on('window-all-closed', () => {

@@ -33,7 +33,7 @@ class TTSEngine:
         if not keys: return None
         return random.choice(keys)
 
-    async def generate_audio(self, text: str, engine: str, language: str, voice_id: str = None, rate: int = 0, pitch: int = 0, emotion: str = "normal", voice_settings: dict = None, silence_enabled: bool = False, silence_params: dict = None, noise_scale: float = 0.0, mix_voice_id: str = None, mix_ratio: float = 0.0, base_url: str = None) -> dict:
+    async def generate_audio(self, text: str, engine: str, language: str, voice_id: str = None, rate: int = 0, pitch: int = 0, emotion: str = "normal", voice_settings: dict = None, silence_enabled: bool = False, silence_params: dict = None, noise_scale: float = 0.0, mix_voice_id: str = None, mix_ratio: float = 0.0, base_url: str = None, rvc_model: str = None) -> dict:
         filename = f"tts_{engine}_{language}_{int(time.time())}_{uuid.uuid4().hex[:4]}.mp3"
         output_path = os.path.join(self.temp_dir, filename)
         abs_path = os.path.abspath(output_path)
@@ -152,6 +152,9 @@ class TTSEngine:
                     manual_instruction=qwen_params.get("manual_instruction", "")
                 )
 
+            elif engine == "gemini":
+                await self._generate_gemini(text, voice_id, abs_path)
+
             else:
                 await self._generate_google(text, language, abs_path)
 
@@ -191,6 +194,12 @@ class TTSEngine:
                      eff_pitch = pitch if needs_ffmpeg_effects else 0
                 
                 self._apply_audio_effects(abs_path, eff_rate, eff_pitch, silence_enabled, silence_params)
+
+            # 2.5 RVC Processing
+            if rvc_model and os.path.exists(abs_path):
+                from app.services.tts.rvc_engine import RVCEngine
+                rvc = RVCEngine()
+                abs_path = await rvc.convert_audio(abs_path, rvc_model, pitch)
 
             # 3. Web URL
             from .utils import get_web_url
@@ -352,7 +361,7 @@ class TTSEngine:
                     res = requests.post(url, json=data, headers=headers, timeout=30)
                     
                     if res.status_code == 200:
-                        logger.info(f"✅ [ElevenLabs] Success with key {clean_key[:8]}...")
+                        logger.info(f"[OK] [ElevenLabs] Success with key {clean_key[:8]}...")
                         success_res = res
                         break
                     
@@ -365,7 +374,7 @@ class TTSEngine:
                     except: pass
                     
                     best_error = f"{res.status_code}: {err_msg}"
-                    logger.warning(f"⚠️ [ElevenLabs] {best_error}")
+                    logger.warning(f"[WARN] [ElevenLabs] {best_error}")
                     
                 except Exception as e:
                     best_error = str(e)
@@ -386,7 +395,7 @@ class TTSEngine:
         random.shuffle(keys)
         
         if not keys: 
-            logger.error("❌ [Typecast] API Keys are missing in settings.")
+            logger.error("[FAIL] [Typecast] API Keys are missing in settings.")
             raise ValueError("Typecast API Keys missing in Settings!")
 
         tempo = 1.0 + (rate / 100.0)
@@ -424,7 +433,7 @@ class TTSEngine:
                 if not clean_key: continue
                 
                 # Connection settings: try Direct then Proxy (prioritize stability)
-                internal_proxy = {'http': 'socks5://127.0.0.1:10800', 'https': 'socks5://127.0.0.1:10800'}
+                internal_proxy = {'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'}
                 connection_configs = [
                     {"proxies": None, "label": "Direct"},
                     {"proxies": internal_proxy, "label": "Proxy"}
@@ -455,7 +464,7 @@ class TTSEngine:
                                     res = requests.post(url, json=data, headers=headers, timeout=20, proxies=conn['proxies'])
                                     
                                     if res.status_code == 200:
-                                        logger.info(f"✅ [Typecast] Success! (Url: {url}, Auth: {strategy_label})")
+                                        logger.info(f"[OK] [Typecast] Success! (Url: {url}, Auth: {strategy_label})")
                                         endpoint_success = res
                                         break
                                     
@@ -466,11 +475,11 @@ class TTSEngine:
                                         err_detail = ejson.get("message") or ejson.get("error_code") or err_detail
                                     except: pass
                                     
-                                    logger.warning(f"⚠️ [Typecast] Attempt failed: {url} | {strategy_label} | Status: {res.status_code} | Error: {err_detail}")
+                                    logger.warning(f"[WARN] [Typecast] Attempt failed: {url} | {strategy_label} | Status: {res.status_code} | Error: {err_detail}")
                                     best_error = f"{res.status_code}: {err_detail}"
                                         
                                 except Exception as e:
-                                    logger.error(f"❌ [Typecast] Request Error: {e}")
+                                    logger.error(f"[FAIL] [Typecast] Request Error: {e}")
                                     if not best_error: best_error = str(e)
                             
                             if endpoint_success: break
@@ -501,7 +510,7 @@ class TTSEngine:
                     speak_url = result.get("speak_url")
                     
                     if speak_url:
-                        logger.info(f"⏳ [Typecast] Polling for completion...")
+                        logger.info(f"[WAIT] [Typecast] Polling for completion...")
                         for i in range(20): # Max 40s
                             time.sleep(2)
                             poll_res = requests.get(speak_url, headers={"x-api-key": clean_key}, timeout=15)
@@ -530,11 +539,11 @@ class TTSEngine:
                         
                 except Exception:
                     # 2. Binary Fallback (RIFF WAVE / MP3)
-                    logger.info("📦 [Typecast] Saving raw binary response...")
+                    logger.info("[BOX] [Typecast] Saving raw binary response...")
                     with open(path, "wb") as f: f.write(success_res.content)
                     
             except Exception as e:
-                 logger.error(f"❌ [Typecast] Response processing error: {e}")
+                 logger.error(f"[FAIL] [Typecast] Response processing error: {e}")
                  with open(path, "wb") as f: f.write(success_res.content)
                  
         await asyncio.to_thread(run_req)
@@ -604,6 +613,32 @@ class TTSEngine:
         except Exception as e:
             logger.error(f"Kokoro Error: {e}")
             raise e
+
+    async def _generate_gemini(self, text, voice_id, path):
+        def run_remote():
+            url = "http://localhost:20128/v1/audio/speech"
+            headers = {
+                "Content-Type": "application/json",
+                # The user's example has a specific key, we can hardcode it or use a default if it's a local router
+                "Authorization": "Bearer sk-e07acd31ef38b7d4-0p15at-b27d2bab"
+            }
+            # Fallback voice if empty
+            v_id = voice_id if voice_id else "Zephyr"
+            data = {
+                "model": f"gemini/gemini-3.1-flash-tts-preview/{v_id}",
+                "input": text
+            }
+            try:
+                res = requests.post(url, json=data, headers=headers, timeout=30)
+                if res.status_code != 200:
+                    raise RuntimeError(f"Gemini TTS Error {res.status_code}: {res.text}")
+                with open(path, "wb") as f:
+                    f.write(res.content)
+            except Exception as e:
+                logger.error(f"[FAIL] [Gemini TTS] Request Error: {e}")
+                raise e
+                
+        await asyncio.to_thread(run_remote)
 
     def _generate_supertone_local(self, text, voice_id, path, language="ko", speed=1.0, emotion="normal", noise_scale=1.0, mix_voice_id=None, mix_ratio=0.0):
         try:

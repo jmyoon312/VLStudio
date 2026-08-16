@@ -92,8 +92,8 @@ def generate_daily_report(db: Session) -> bool:
         
         # 3. Brand Channels Performance
         channels = db.query(models.YouTubeChannel).all()
-        active_channels_count = sum(1 for c in channels if c.status == "ACTIVE")
-        failing_channels_count = sum(1 for c in channels if c.status == "SUSPENDED" or c.auth_status == "FAILED")
+        active_channels_count = sum(1 for c in channels if c.status == models.ChannelStatus.ACTIVE or c.status == "ACTIVE")
+        failing_channels_count = sum(1 for c in channels if c.status == models.ChannelStatus.SUSPENDED or c.status == "SUSPENDED" or c.auth_status == "FAILED")
         
         channel_details = []
         for chan in channels:
@@ -112,8 +112,8 @@ def generate_daily_report(db: Session) -> bool:
                 "videos": chan.video_count or 0,
                 "sub_increase": sub_increase,
                 "view_increase": view_increase,
-                "status": chan.status,
-                "trust_score": getattr(chan, "stealth_trust_score", 100)
+                "status": chan.status.value if hasattr(chan.status, "value") else str(chan.status),
+                "trust_score": chan.stealth_trust_score or 100
             })
             
         # 4. Uploaded Video Performance (Last 7 Days)
@@ -127,7 +127,7 @@ def generate_daily_report(db: Session) -> bool:
             # Determine engagement rating
             like_ratio = 0.0
             if vid.view_count and vid.view_count > 0:
-                like_ratio = round((vid.like_count / vid.view_count) * 100, 2)
+                like_ratio = round(((vid.like_count or 0) / vid.view_count) * 100, 2)
             
             video_details.append({
                 "title": vid.title,
@@ -248,7 +248,7 @@ def generate_daily_report(db: Session) -> bool:
             summary_markdown = llm.generate(prompt)
         except Exception as e_llm:
             logger.error(f"Failed to generate report summary via Gemini: {e_llm}")
-            summary_markdown = f"""# 📊 ViraLoop 일일 종합 보고서 (시스템 및 채널 분석)
+            summary_markdown = f"""# [CHART] ViraLoop 일일 종합 보고서 (시스템 및 채널 분석)
 
 ## 종합 진단 및 한 줄 논평
 * **진단**: 금일 수집 파이프라인 및 브랜드 채널 분석이 정상 완료되었으며, 주요 성과 지표는 안정적입니다.
@@ -284,19 +284,18 @@ def generate_daily_report(db: Session) -> bool:
             "summary_markdown": summary_markdown,
             "raw_stats_json": raw_stats,
             "auto_fix_log": [],
-            "is_read": False,
-            "created_at": today
+            "is_read": False
         }
         
         db_report = models.DailyReport(**report_data)
         db.add(db_report)
         db.commit()
         db.refresh(db_report)
-        logger.info(f"✅ Saved daily report to database with ID: {db_report.id}")
+        logger.info(f"[OK] Saved daily report to database with ID: {db_report.id}")
         
         # 9. Trigger Auto-Fix immediately for instant repair and sync!
         try:
-            logger.info(f"🔧 Launching Auto-Fixer for new Report #{db_report.id}")
+            logger.info(f"[WRENCH] Launching Auto-Fixer for new Report #{db_report.id}")
             run_auto_fix(db, db_report.id, raw_stats)
         except Exception as e_fix:
             logger.error(f"Failed to auto-fix immediately: {e_fix}")

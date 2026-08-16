@@ -6,7 +6,7 @@ from typing import List, Optional
 import logging
 
 from ..database import get_db, SessionLocal
-from ..models import ScoutCandidate, CategoryTree
+from ..models import ScoutCandidate
 from app.services.intelligence.hierarchical_scout import HierarchicalScout
 from app.services.intelligence.strategic_center import StrategicCenter
 from app.services.intelligence.strategist import SovereignStrategist
@@ -37,7 +37,7 @@ router = APIRouter(tags=["scout"])
 @router.get("/categories")
 def get_categories(db: Session = Depends(get_db)):
     """Retrieves the full hierarchical category tree"""
-    return db.query(CategoryTree).all()
+    return db.query().all()
 
 @router.post("/mission")
 async def start_scout_mission(background_tasks: BackgroundTasks, request: Optional[ScoutMissionRequest] = None, db: Session = Depends(get_db)):
@@ -74,7 +74,7 @@ async def start_scout_mission(background_tasks: BackgroundTasks, request: Option
             "niche": niche
         }
     except Exception as e:
-        logger.error(f"🔥 [Scout] Mission failure: {e}")
+        logger.error(f"[FIRE] [Scout] Mission failure: {e}")
         return JSONResponse(status_code=500, content={"status": "ERROR", "message": str(e)})
 
 @router.get("/candidates")

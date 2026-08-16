@@ -1,7 +1,4 @@
-"""
-YouTube Channel Management API Endpoints
-Updated: 2026-01-23 - Added Captain Dashboard endpoints
-"""
+"""YouTube Channel Management API Endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -14,16 +11,53 @@ from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models import YouTubeChannel, ChannelAccess, ChannelAccessLog, Profile, ChannelRole
-from app.services.browser_session_manager import session_manager
+try:
+    from app.services.browser_session_manager import session_manager
+except Exception:
+    session_manager = None
 from app.services.stealth_ops_v2 import stealth_ops
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["YouTube Channels"])
+
+def channel_to_dict(ch) -> dict:
+    """BrandChannel 객체를 안전하게 딕셔너리로 변환 (없는 컬럼은 None/기본값 반환)"""
+    return {
+        "id": getattr(ch, 'id', None),
+        "channel_id": getattr(ch, 'channel_id', None),
+        "channel_name": getattr(ch, 'channel_name', None) or getattr(ch, 'title', None),
+        "title": getattr(ch, 'title', None),
+        "channel_handle": getattr(ch, 'channel_handle', None),
+        "thumbnail_url": getattr(ch, 'thumbnail_url', None),
+        "status": getattr(ch, 'status', None) or "ACTIVE",
+        "quarantine_reason": getattr(ch, 'quarantine_reason', None),
+        "last_used_ip": getattr(ch, 'last_used_ip', None),
+        "last_accessed_at": (getattr(ch, 'last_accessed_at', None) or getattr(ch, 'warmup_last_run', None)).isoformat() if (getattr(ch, 'last_accessed_at', None) or getattr(ch, 'warmup_last_run', None)) else None,
+        "subscriber_count": getattr(ch, 'subscriber_count', 0) or 0,
+        "video_count": getattr(ch, 'video_count', 0) or 0,
+        "view_count": getattr(ch, 'view_count', 0) or 0,
+        "revenue_text": getattr(ch, 'revenue_text', "N/A") or "N/A",
+        "warmup_status": getattr(ch, 'warmup_status', 'IDLE'),
+        "warmup_stage": getattr(ch, 'warmup_stage', 0) or 0,
+        "warmup_last_run": getattr(ch, 'warmup_last_run', None).isoformat() if getattr(ch, 'warmup_last_run', None) else None,
+        "engine_mode": getattr(ch, 'engine_mode', 'standard') or 'standard',
+        "stealth_trust_score": getattr(ch, 'stealth_trust_score', None) or getattr(ch, 'trust_score', 0) or 0,
+        "is_network_isolated": getattr(ch, 'is_network_isolated', False) or False,
+        "health_score": getattr(ch, 'stealth_trust_score', None) or getattr(ch, 'trust_score', 100) or 100,
+        "cultivation_strategy": getattr(ch, 'cultivation_strategy', None),
+        "cultivation_active": getattr(ch, 'cultivation_active', False) or False,
+        "growth_phase": getattr(ch, 'growth_phase', 'NEW'),
+        "owner_profile_id": getattr(ch, 'owner_profile_id', None),
+        "account_email": getattr(ch, 'account_email', None),
+        "is_active": getattr(ch, 'is_active', True),
+    }
+
 @router.get("/all")
 def get_all_youtube_channels(db: Session = Depends(get_db)):
-    """모든 유튜브 채널 목록 조회 (프론트엔드 연동 선택용)"""
-    return db.query(YouTubeChannel).all()
+    """모든 유튜브 브랜드 채널 목록 조회 (channel_to_dict 변환)"""
+    channels = db.query(YouTubeChannel).all()
+    return [channel_to_dict(ch) for ch in channels]
 
 @router.get("/captain/{profile_id}/channels")
 async def get_captain_channels(
@@ -55,7 +89,7 @@ async def get_captain_channels(
         
         # 모든 TinCan 프로필의 OWNER 채널 조회
         tincan_ids = [p.id for p in tincan_profiles]
-        channels = db.query(YouTubeChannel).join(ChannelAccess).filter(
+        channels = db.query(YouTubeChannel).join(ChannelAccess, ChannelAccess.channel_id == YouTubeChannel.channel_id).filter(
             ChannelAccess.profile_id.in_(tincan_ids),
             ChannelAccess.role == "OWNER"
         ).all()
@@ -65,41 +99,21 @@ async def get_captain_channels(
         if not profile:
             raise HTTPException(404, "Profile not found")
         
-        query = db.query(YouTubeChannel).join(ChannelAccess).filter(
+        query = db.query(YouTubeChannel).join(ChannelAccess, ChannelAccess.channel_id == YouTubeChannel.channel_id).filter(
             ChannelAccess.profile_id == profile_id
         )
         
         if role:
             query = query.filter(ChannelAccess.role == role)
         
-        channels = query.all()
-    
-    channel_list = [
-        {
-            "channel_id": ch.channel_id,
-            "channel_name": ch.channel_name,
-            "channel_handle": ch.channel_handle,
-            "thumbnail_url": ch.thumbnail_url,
-            "status": ch.status,
-            "quarantine_reason": ch.quarantine_reason,
-            "last_used_ip": ch.last_used_ip,
-            "last_accessed_at": ch.last_accessed_at.isoformat() if ch.last_accessed_at else None,
-            "subscriber_count": ch.subscriber_count,
-            "video_count": ch.video_count,
-            "warmup_status": ch.warmup_status,
-            "warmup_stage": ch.warmup_stage or 0,
-            "warmup_last_run": ch.warmup_last_run.isoformat() if ch.warmup_last_run else None,
-            # [SAIF] Security Fields
-            "engine_mode": ch.engine_mode or 'standard',
-            "stealth_trust_score": ch.stealth_trust_score or 0,
-            "is_network_isolated": ch.is_network_isolated or False,
-            "health_score": ch.stealth_trust_score if ch.stealth_trust_score is not None else 100,
-            # [Cultivation]
-            "cultivation_strategy": getattr(ch, 'cultivation_strategy', None),
-            "cultivation_active": getattr(ch, 'cultivation_active', False)
-        }
-        for ch in channels
-    ]
+        channels = query.distinct(YouTubeChannel.channel_id).all()
+
+    try:
+        channel_list = [channel_to_dict(ch) for ch in channels]
+    except Exception as e:
+        logger.error(f"channel_to_dict failed: {e}", exc_info=True)
+        raise HTTPException(500, f"Failed to serialize channels: {str(e)}")
+
     
     # Frontend expects {channels: [...]} format for dashboard view
     if view == "dashboard":
@@ -150,13 +164,14 @@ async def get_captain_dashboard(
     warnings = []
     for ch in channels:
         # Quarantine warning
-        if ch.status == "QUARANTINED":
+        ch_status = getattr(ch, 'status', 'ACTIVE')
+        if ch_status == "QUARANTINED":
             warnings.append({
                 "level": "critical",
                 "channel_id": ch.channel_id,
-                "channel_name": ch.channel_name,
+                "channel_name": ch.title,
                 "type": "quarantine",
-                "message": f"격리됨: {ch.quarantine_reason or '이유 없음'}"
+                "message": f"격리됨: {getattr(ch, 'quarantine_reason', None) or '이유 없음'}"
             })
         
         # Low subscriber warning
@@ -164,37 +179,23 @@ async def get_captain_dashboard(
             warnings.append({
                 "level": "warning",
                 "channel_id": ch.channel_id,
-                "channel_name": ch.channel_name,
+                "channel_name": ch.title,
                 "type": "low_subscribers",
                 "message": "구독자 수가 매우 적습니다"
             })
-        
-        # Stale data warning removed - last_synced_at field doesn't exist
     
     # 5. Build channel list with health scores
     channel_list = []
     for ch in channels:
         # Simple health score calculation
         health_score = 100
-        if ch.status == "QUARANTINED":
+        ch_status = getattr(ch, 'status', 'ACTIVE')
+        if ch_status == "QUARANTINED":
             health_score = 0
         elif (ch.subscriber_count or 0) < 100:
             health_score -= 30
         
-        
-        channel_list.append({
-            "channel_id": ch.channel_id,
-            "channel_name": ch.channel_name,
-            "subscriber_count": ch.subscriber_count or 0,
-            "view_count": ch.view_count or 0,
-            "video_count": ch.video_count or 0,
-            "health_score": max(0, health_score),
-            "needs_refresh": False,
-            # [SAIF] Security Fields
-            "engine_mode": ch.engine_mode or 'standard',
-            "stealth_trust_score": ch.stealth_trust_score or 0,
-            "is_network_isolated": ch.is_network_isolated or False
-        })
+        channel_list.append(channel_to_dict(ch) | {"health_score": max(0, health_score)})
     
     return {
         "total_stats": {
@@ -250,35 +251,27 @@ async def get_all_captains_dashboard(
         for ch in channels:
             # Health score
             health_score = 100
-            if ch.status == "QUARANTINED":
+            ch_status = getattr(ch, 'status', 'ACTIVE')
+            if ch_status == "QUARANTINED":
                 health_score = 0
             elif (ch.subscriber_count or 0) < 100:
                 health_score -= 30
             
-            all_channels.append({
-                "channel_id": ch.channel_id,
-                "channel_name": ch.channel_name,
-                "subscriber_count": ch.subscriber_count or 0,
-                "view_count": ch.view_count or 0,
-                "video_count": ch.video_count or 0,
+            all_channels.append(channel_to_dict(ch) | {
                 "health_score": max(0, health_score),
                 "needs_refresh": False,
                 "captain_id": captain.id,
                 "captain_email": captain.email,
-                # [SAIF] Security Fields
-                "engine_mode": ch.engine_mode or 'standard',
-                "stealth_trust_score": ch.stealth_trust_score or 0,
-                "is_network_isolated": ch.is_network_isolated or False
             })
             
             # Warnings
-            if ch.status == "QUARANTINED":
+            if ch_status == "QUARANTINED":
                 all_warnings.append({
                     "level": "critical",
                     "channel_id": ch.channel_id,
-                    "channel_name": ch.channel_name,
+                    "channel_name": ch.title,
                     "type": "quarantine",
-                    "message": f"격리됨: {ch.quarantine_reason or '이유 없음'}",
+                    "message": f"격리됨: {getattr(ch, 'quarantine_reason', None) or '이유 없음'}",
                     "captain_email": captain.email
                 })
     
@@ -311,10 +304,7 @@ async def get_captain_engagement_analytics(
     days: int = 30,
     db: Session = Depends(get_db)
 ):
-    """
-    Get engagement analytics for Captain's channels
-    Uses YouTube Data API v3 (accessible to managers)
-    """
+    """Get engagement analytics for a Captain's managed channels."""
     from app.services.youtube_analytics import YouTubeAnalyticsService
     
     # Get Captain profile
@@ -335,7 +325,7 @@ async def get_captain_engagement_analytics(
         return {"daily_data": [], "summary": {"avg_engagement_rate": 0, "total_likes": 0, "total_comments": 0, "total_views": 0}}
     
     # Get channels managed by this Captain
-    channels = db.query(YouTubeChannel).join(ChannelAccess).filter(
+    channels = db.query(YouTubeChannel).join(ChannelAccess, ChannelAccess.channel_id == YouTubeChannel.channel_id).filter(
         ChannelAccess.profile_id == profile_id,
         ChannelAccess.role == ChannelRole.MANAGER,
         YouTubeChannel.status != "QUARANTINED"
@@ -438,7 +428,7 @@ async def get_captain_top_videos(
         return {"videos": []}
     
     # Get channels
-    channels = db.query(YouTubeChannel).join(ChannelAccess).filter(
+    channels = db.query(YouTubeChannel).join(ChannelAccess, ChannelAccess.channel_id == YouTubeChannel.channel_id).filter(
         ChannelAccess.profile_id == profile_id,
         ChannelAccess.role == ChannelRole.MANAGER,
         YouTubeChannel.status != "QUARANTINED"
@@ -460,7 +450,7 @@ async def get_captain_top_videos(
                 views = video['views']
                 engagement = video['likes'] + video['comments']
                 video['engagement_rate'] = (engagement / views) if views > 0 else 0
-                video['channel_name'] = channel.channel_name
+                video['channel_name'] = getattr(channel, 'title', None) or channel.channel_id
                 video['channel_id'] = channel.channel_id
                 all_videos.append(video)
         except Exception as e:
@@ -480,7 +470,7 @@ async def get_captain_top_videos(
 @router.post("/channels/{channel_id}/launch")
 def launch_channel_isolated(
     channel_id: str,
-    rotate_ip: bool = True,
+    rotate_ip: bool = False, # Force disable
     db: Session = Depends(get_db)
 ):
     """
@@ -492,8 +482,8 @@ def launch_channel_isolated(
         raise HTTPException(404, "Channel not found")
     
     # 2. 격리 상태 확인
-    if channel.status == 'QUARANTINED':
-        raise HTTPException(403, f"Channel is quarantined: {channel.quarantine_reason}")
+    if getattr(channel, 'status', 'ACTIVE') == 'QUARANTINED':
+        raise HTTPException(403, f"Channel is quarantined: {getattr(channel, 'quarantine_reason', 'unknown')}")
     
     # 3. Captain 프로필 찾기
     access = db.query(ChannelAccess).filter(
@@ -506,11 +496,11 @@ def launch_channel_isolated(
     
     # 4. 브라우저 실행
     try:
-        logger.info(f"🚀 Launching isolated session for channel: {channel_id}")
+        logger.info(f"[FALLBACK] Launching isolated session for channel: {channel_id}")
         session_manager.launch_channel(
             channel_id=channel_id,
             db=db,
-            rotate_ip=rotate_ip
+            rotate_ip=False
         )
         
         # [NEW] 마법사 수동 셋업 창이 열렸다면 인증 대기 상태 해제
@@ -532,7 +522,7 @@ def launch_channel_isolated(
         
         return {"success": True, "message": "Channel launched"}
     except Exception as e:
-        logger.error(f"❌ Launch failed: {e}")
+        logger.error(f"[FAIL] Launch failed: {e}")
         raise HTTPException(500, f"Launch failed: {str(e)}")
 
 # ============================================
@@ -591,7 +581,7 @@ async def trigger_sentinel_audit(
     
     # 1. 런칭 시 Audit 수행을 위해 stealth_ops 호출
     # 실제 구현은 브라우저를 띄워서 감사 사이트 접속 후 점수 파싱
-    logger.info(f"🔍 [Sentinel] Manual audit triggered for channel: {channel_id}")
+    logger.info(f"[SEARCH] [Sentinel] Manual audit triggered for channel: {channel_id}")
     
     # [SAIF-2026] 실제 감사 로직 실행 및 점수 획득
     score = stealth_ops._perform_stealth_audit(channel_id)
@@ -623,22 +613,22 @@ def launch_channel_warmup(
         ).first()
         
         if not channel:
-            logger.error(f"❌ [Warmup] Channel not found: {channel_id}")
+            logger.error(f"[FAIL] [Warmup] Channel not found: {channel_id}")
             raise HTTPException(404, f"Channel not found: {channel_id}")
         
-        logger.info(f"✅ [Warmup] Found channel: {channel.channel_name} (DB ID: {channel.channel_id})")
+        logger.info(f"[OK] [Warmup] Found channel: {channel.title} (DB ID: {channel.channel_id})")
         
         # Update status to RUNNING before starting
         channel.warmup_status = "RUNNING"
         db.commit()
-        logger.info(f"📝 [Warmup] Status set to RUNNING for {channel_id}")
+        logger.info(f"[SCRIPT] [Warmup] Status set to RUNNING for {channel_id}")
         
         # Execute warmup synchronously (no background task)
-        logger.info(f"🎬 [Warmup] Starting warmup routine for {channel_id}, stage={stage}")
+        logger.info(f"[VIDEO] [Warmup] Starting warmup routine for {channel_id}, stage={stage}")
         result = session_manager.run_warmup_routine(channel_id, stage, visible)
         
         if result:
-            logger.info(f"✅ [Warmup] Warmup completed successfully for {channel_id}")
+            logger.info(f"[OK] [Warmup] Warmup completed successfully for {channel_id}")
             return {
                 "success": True,
                 "message": "Warmup routine completed successfully",
@@ -646,45 +636,55 @@ def launch_channel_warmup(
                 "stage": stage
             }
         else:
-            logger.error(f"❌ [Warmup] Warmup failed for {channel_id}")
-            raise HTTPException(500, "Warmup routine failed")
+            logger.error(f"[FAIL] [Warmup] Warmup failed for {channel_id}")
+            # Do not raise 500, let frontend handle success:false
+            return {
+                "success": False,
+                "message": "Warmup routine failed",
+                "channel_id": channel_id
+            }
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [Warmup] Unexpected error for {channel_id}: {e}")
-        raise HTTPException(500, f"Warmup failed: {str(e)}")
+        import traceback
+        tb = traceback.format_exc()
+        logger.error(f"[FAIL] [Warmup] Unexpected error for {channel_id}: {e}\n{tb}")
+        # Return graceful error so frontend toast can show the reason
+        return {
+            "success": False,
+            "message": f"Warmup failed: {str(e)}",
+            "channel_id": channel_id
+        }
 
 
 @router.post("/channels/{channel_id}/warmup/reset")
 async def reset_channel_warmup(channel_id: str, db: Session = Depends(get_db)):
     """개별 채널 웜업 초기화"""
     try:
-        # Use string channel_id
         channel = db.query(YouTubeChannel).filter(YouTubeChannel.channel_id == channel_id).first()
         if not channel:
             raise HTTPException(404, "Channel not found")
         
-        # Reset warmup fields
+        # 실제로 존재하는 컬럼만 초기화
         channel.warmup_stage = 0
         channel.warmup_status = "IDLE"
         channel.warmup_last_run = None
-        channel.warmup_started_at = None
-        channel.warmup_completed_at = None
-        channel.warmup_total_duration = 0
-        channel.warmup_error_count = 0
-        channel.warmup_last_error = None
         
         db.commit()
+        db.refresh(channel)
         
         return {
             "success": True,
             "message": "Warmup reset successfully",
-            "channel_id": channel.channel_id
+            "channel_id": channel.channel_id,
+            "warmup_stage": channel.warmup_stage,
+            "warmup_status": channel.warmup_status,
         }
     except HTTPException:
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(500, f"Reset failed: {str(e)}")
 
 
@@ -860,7 +860,14 @@ def bulk_start_warmup(
 ):
     """여러 채널 순차 웜업 시작 (IP 로테이션 보장)"""
     try:
-        query = db.query(YouTubeChannel)
+        tincan_ids = db.query(Profile.id).filter(
+            Profile.profile_type == "TIN_CAN",
+            Profile.status == "ACTIVE"
+        ).subquery()
+        
+        query = db.query(YouTubeChannel).filter(
+            YouTubeChannel.owner_profile_id.in_(tincan_ids)
+        )
         
         if filter == "pending":
             query = query.filter(YouTubeChannel.warmup_stage == 0)
@@ -886,7 +893,7 @@ def bulk_start_warmup(
             try:
                 next_stage = channel.warmup_stage + 1 if channel.warmup_stage > 0 else 1
                 
-                logger.info(f"🔄 [Bulk Warmup] Processing channel {idx}/{len(channels)}: {channel.channel_name} (Day {next_stage})")
+                logger.info(f"[REFRESH] [Bulk Warmup] Processing channel {idx}/{len(channels)}: {channel.title} (Day {next_stage})")
                 
                 # Reset status
                 channel.warmup_status = "IDLE"
@@ -901,10 +908,10 @@ def bulk_start_warmup(
                 
                 if result:
                     success_count += 1
-                    logger.info(f"✅ [Bulk Warmup] Channel {idx}/{len(channels)} completed successfully")
+                    logger.info(f"[OK] [Bulk Warmup] Channel {idx}/{len(channels)} completed successfully")
                 else:
                     failed_count += 1
-                    logger.warning(f"⚠️ [Bulk Warmup] Channel {idx}/{len(channels)} failed")
+                    logger.warning(f"[WARN] [Bulk Warmup] Channel {idx}/{len(channels)} failed")
                 
                 # 다음 채널 전에 짧은 대기 (IP 안정화)
                 if idx < len(channels):
@@ -913,7 +920,7 @@ def bulk_start_warmup(
                     
             except Exception as e:
                 failed_count += 1
-                logger.error(f"❌ [Bulk Warmup] Channel {idx}/{len(channels)} error: {e}")
+                logger.error(f"[FAIL] [Bulk Warmup] Channel {idx}/{len(channels)} error: {e}")
                 continue
         
         logger.info(f"🏁 [Bulk Warmup] Completed: {success_count} success, {failed_count} failed")
@@ -933,7 +940,13 @@ def bulk_start_warmup(
 async def bulk_pause_warmup(db: Session = Depends(get_db)):
     """실행 중인 모든 웜업 일시정지"""
     try:
+        tincan_ids = db.query(Profile.id).filter(
+            Profile.profile_type == "TIN_CAN",
+            Profile.status == "ACTIVE"
+        ).subquery()
+        
         channels = db.query(YouTubeChannel).filter(
+            YouTubeChannel.owner_profile_id.in_(tincan_ids),
             YouTubeChannel.warmup_status == "RUNNING"
         ).all()
         
@@ -954,7 +967,14 @@ async def bulk_pause_warmup(db: Session = Depends(get_db)):
 async def bulk_reset_warmup(db: Session = Depends(get_db)):
     """모든 채널 웜업 초기화"""
     try:
-        channels = db.query(YouTubeChannel).all()
+        tincan_ids = db.query(Profile.id).filter(
+            Profile.profile_type == "TIN_CAN",
+            Profile.status == "ACTIVE"
+        ).subquery()
+        
+        channels = db.query(YouTubeChannel).filter(
+            YouTubeChannel.owner_profile_id.in_(tincan_ids)
+        ).all()
         
         for channel in channels:
             channel.warmup_stage = 0
@@ -980,24 +1000,33 @@ async def bulk_reset_warmup(db: Session = Depends(get_db)):
 async def bulk_warmup_status(db: Session = Depends(get_db)):
     """전체 웜업 상태 요약"""
     try:
-        total = db.query(YouTubeChannel).count()
-        running = db.query(YouTubeChannel).filter(
+        tincan_ids = db.query(Profile.id).filter(
+            Profile.profile_type == "TIN_CAN",
+            Profile.status == "ACTIVE"
+        ).subquery()
+        
+        base_query = db.query(YouTubeChannel).filter(
+            YouTubeChannel.owner_profile_id.in_(tincan_ids)
+        )
+        
+        total = base_query.count()
+        running = base_query.filter(
             YouTubeChannel.warmup_status == "RUNNING"
         ).count()
-        completed = db.query(YouTubeChannel).filter(
+        completed = base_query.filter(
             YouTubeChannel.warmup_stage >= 3,
             YouTubeChannel.warmup_status == "COMPLETED"
         ).count()
-        failed = db.query(YouTubeChannel).filter(
+        failed = base_query.filter(
             YouTubeChannel.warmup_status == "FAILED"
         ).count()
-        paused = db.query(YouTubeChannel).filter(
+        paused = base_query.filter(
             YouTubeChannel.warmup_status == "PAUSED"
         ).count()
-        pending = db.query(YouTubeChannel).filter(
+        pending = base_query.filter(
             YouTubeChannel.warmup_stage == 0
         ).count()
-        in_progress = db.query(YouTubeChannel).filter(
+        in_progress = base_query.filter(
             YouTubeChannel.warmup_stage > 0,
             YouTubeChannel.warmup_stage < 3
         ).count()
@@ -1071,7 +1100,7 @@ async def quarantine_channel(
     
     db.commit()
     
-    logger.info(f"🚨 Channel quarantined: {channel_id} - {reason}")
+    logger.info(f"[ALERT] Channel quarantined: {channel_id} - {reason}")
     
     return {
         "success": True,
@@ -1100,7 +1129,7 @@ async def release_quarantine(
     
     db.commit()
     
-    logger.info(f"✅ Channel released from quarantine: {channel_id}")
+    logger.info(f"[OK] Channel released from quarantine: {channel_id}")
     
     return {"success": True, "channel_id": channel_id}
 
@@ -1186,7 +1215,7 @@ async def verify_channel_delegation(
                 updated_at=datetime.now()
             )
             db.add(channel)
-            logger.info(f"✅ Created YouTubeChannel: {channel_id}")
+            logger.info(f"[OK] Created YouTubeChannel: {channel_id}")
         else:
             # Update existing channel info
             channel.channel_name = channel_info['snippet']['title']
@@ -1196,7 +1225,7 @@ async def verify_channel_delegation(
             channel.view_count = channel_info['statistics'].get('viewCount', 0)
             channel.video_count = channel_info['statistics'].get('videoCount', 0)
             channel.updated_at = datetime.now()
-            logger.info(f"✅ Updated YouTubeChannel: {channel_id}")
+            logger.info(f"[OK] Updated YouTubeChannel: {channel_id}")
         
         # 5. ChannelAccess 등록
         # TIN_CAN: OWNER
@@ -1225,7 +1254,7 @@ async def verify_channel_delegation(
         
         db.commit()
         
-        logger.info(f"✅ Delegation verified and registered for channel: {channel_id}")
+        logger.info(f"[OK] Delegation verified and registered for channel: {channel_id}")
         
         return {
             "success": True,
@@ -1290,7 +1319,7 @@ async def update_cultivation_strategy(
             dna_data = generate_channel_dna(data.target_niche)
             channel.warmup_config = json.dumps(dna_data)
         except Exception as e:
-            logger.error(f"❌ Failed to generate DNA for {channel_id}: {e}")
+            logger.error(f"[FAIL] Failed to generate DNA for {channel_id}: {e}")
         
     db.commit()
     return {
@@ -1303,7 +1332,13 @@ async def update_cultivation_strategy(
 @router.post("/warmup/bulk/auto-schedule")
 async def trigger_auto_scheduler(db: Session = Depends(get_db)):
     """설정된 전략에 따라 모든 채널의 스케줄러를 실행 (일 단위 1회 호출 권장)"""
+    tincan_ids = db.query(Profile.id).filter(
+        Profile.profile_type == "TIN_CAN",
+        Profile.status == "ACTIVE"
+    ).subquery()
+    
     active_channels = db.query(YouTubeChannel).filter(
+        YouTubeChannel.owner_profile_id.in_(tincan_ids),
         YouTubeChannel.cultivation_active == True
     ).all()
     

@@ -55,7 +55,7 @@ def get_display_version(project_root: str, path: str, latest_info: dict) -> str:
     import shutil
     if shutil.which("git"):
         try:
-            subprocess.run(["git", "config", "--global", "--add", "safe.directory", "*"], cwd=project_root)
+            # subprocess.run(["git", "config", "--global", "--add", "safe.directory", "*"], cwd=project_root)
             res = subprocess.run(["git", "describe", "--tags", "--always", "--abbrev=0"], cwd=project_root, capture_output=True, text=True)
             tag = res.stdout.strip()
             
@@ -172,7 +172,7 @@ def update_hermes_agent(db: Session = Depends(database.get_db)):
             version_info=hermes_latest["name"]
         )
     except Exception as e:
-        logger.error(f"❌ [Hermes] Update system error: {str(e)}")
+        logger.error(f"[FAIL] [Hermes] Update system error: {str(e)}")
         return schemas.HermesUpdateResponse(
             status="error",
             message=str(e),

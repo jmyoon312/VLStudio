@@ -29,7 +29,7 @@ class HermesBrain:
             if agent_model:
                 self.agent_model = agent_model
             else:
-                provider = getattr(db_settings, "hermes_agent_provider", "groq")
+                provider = getattr(db_settings, "hermes_agent_provider", "nvidia")
                 model = getattr(db_settings, "hermes_agent_model", "llama-3.3-70b-versatile")
                 # Format for LLMClient (e.g., "groq/llama-3.1-8b-instant")
                 if provider != "auto" and "/" not in model:
@@ -67,7 +67,7 @@ class HermesBrain:
                 logger.info("ℹ️ [HermesBrain] No relevant semantic wisdom found.")
                 return None
         except Exception as e:
-            logger.error(f"❌ [HermesBrain] Wisdom retrieval failed: {e}")
+            logger.error(f"[FAIL] [HermesBrain] Wisdom retrieval failed: {e}")
             return None
 
     async def reflect_on_mission(self, session_id: str, niche: str, logs: List[Dict[str, Any]]) -> str:
@@ -130,7 +130,7 @@ class HermesBrain:
             # [Phase 4-2] Generate embedding for successful strategies
             embedding = None
             if success:
-                logger.info(f"✨ [HermesBrain] Minting Semantic Experience for {niche}")
+                logger.info(f"[MAGIC] [HermesBrain] Minting Semantic Experience for {niche}")
                 embedding = self.llm.embed_text(f"{niche} {strategy}")
 
             # 3. Save to production persistent memory (PostgreSQL)
@@ -147,10 +147,10 @@ class HermesBrain:
                 )
                 db.add(experience)
                 db.commit()
-                logger.info(f"💾 [HermesBrain] Semantic Wisdom stored in production DB for session {session_id}")
+                logger.info(f"[SAVE] [HermesBrain] Semantic Wisdom stored in production DB for session {session_id}")
             
             return strategy
             
         except Exception as e:
-            logger.error(f"❌ [HermesBrain] LLM Reflection failed: {e}")
+            logger.error(f"[FAIL] [HermesBrain] LLM Reflection failed: {e}")
             return f"Reflection failed: {str(e)}"

@@ -270,7 +270,7 @@ export const MCPSkillExplorer = () => {
                     <div className="space-y-4">
                         {[
                             { name: 'Video Generator', proposal: 'FPS 파라미터 24 -> 30 상향 및 히그스필드 모델 교체', confidence: 94 },
-                            { name: 'Trending Researcher', proposal: 'TikTok 뿐만 아니라 Reels 데이터셋 통합 가중치 부여', confidence: 88 }
+                            { name: 'Trending Researcher', proposal: 'Music 뿐만 아니라 Reels 데이터셋 통합 가중치 부여', confidence: 88 }
                         ].map((p, i) => (
                             <div key={i} className="p-6 bg-card rounded-3xl border border-border space-y-4 hover:border-primary/30 transition-all shadow-sm">
                                 <div className="flex items-center justify-between">

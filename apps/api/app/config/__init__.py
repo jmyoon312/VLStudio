@@ -29,7 +29,7 @@ def discover_ffmpeg() -> str:
     local_app_data = os.environ.get("LOCALAPPDATA")
     if not local_app_data:
         local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
-    local_ffmpeg_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg", "bin", "ffmpeg.exe")
+    local_ffmpeg_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "bin", "ffmpeg", "bin", "ffmpeg.exe")
     if os.path.exists(local_ffmpeg_path):
         return local_ffmpeg_path
         
@@ -58,14 +58,18 @@ class Settings(BaseSettings):
     # Media Storage Configuration (Unified)
     MEDIA_ROOT: str = os.getenv("VIRALOOP_MEDIA_ROOT", DEFAULT_MEDIA_ROOT)
     TEMP_DIR: str = os.path.join(MEDIA_ROOT, "02_Operations", "Temp")
-    DOWNLOADS_DIR: str = os.path.join(MEDIA_ROOT, "downloads")
     ASSETS_DIR: str = os.path.join(MEDIA_ROOT, "03_Assets")
     OPERATIONS_DIR: str = os.path.join(MEDIA_ROOT, "02_Operations")
     INBOX_DIR: str = os.path.join(MEDIA_ROOT, "01_Inbox")
     EXPORTS_DIR: str = os.path.join(MEDIA_ROOT, "05_Exports")
     
+    # New Structured Directories
+    DOWNLOADS_DIR: str = os.path.join(MEDIA_ROOT, "07_Downloads")
+    INTELLIGENCE_DIR: str = os.path.join(MEDIA_ROOT, "08_Intelligence")
+    SYSTEM_DIR: str = os.path.join(MEDIA_ROOT, "09_System")
+    
     # Legacy Path Support
-    root_download_path: str = os.path.join(MEDIA_ROOT, "downloads")
+    root_download_path: str = os.path.join(MEDIA_ROOT, "07_Downloads")
     
     # Path for Cookies
     COOKIES_PATH: Optional[str] = os.getenv("VIRALOOP_COOKIES_PATH", None)
@@ -102,14 +106,21 @@ class Settings(BaseSettings):
     kling_api_key: Optional[str] = None
     luma_api_key: Optional[str] = None
     
+    # TTS Keys
+    typecast_api_keys: list[str] = []
+    elevenlabs_keys: list[str] = []
+    supertone_project_key: Optional[str] = None
+    supertone_model_path: Optional[str] = None
+    
     # AI Models (Schema definition only, actual values driven by DB)
     whisper_model_path: Optional[str] = None
     agent_model: Optional[str] = None
     agent_research_limit: Optional[int] = None
+    default_llm_model: Optional[str] = "gemini-1.5-flash"
     
     # Hermes Intelligence
-    hermes_agent_provider: str = "groq"
-    hermes_agent_model: str = "llama-3.3-70b-versatile"
+    hermes_agent_provider: str = "opencode"
+    hermes_agent_model: str = "deepseek-v4-flash-free"
     hermes_wisdom_depth: int = 3
     hermes_reflection_verbosity: str = "balanced"
     hermes_auto_reflection: bool = True
@@ -155,7 +166,13 @@ settings = Settings()
 
 # Ensure critical directories exist
 def initialize_directories():
-    for path in [settings.MEDIA_ROOT, settings.TEMP_DIR, settings.DOWNLOADS_DIR, settings.ASSETS_DIR, settings.OPERATIONS_DIR, settings.INBOX_DIR, settings.EXPORTS_DIR]:
+    for path in [
+        settings.MEDIA_ROOT, settings.TEMP_DIR, settings.ASSETS_DIR, 
+        settings.OPERATIONS_DIR, settings.INBOX_DIR, settings.EXPORTS_DIR,
+        settings.DOWNLOADS_DIR, settings.INTELLIGENCE_DIR, settings.SYSTEM_DIR,
+        os.path.join(settings.MEDIA_ROOT, "04_Profiles"),
+        os.path.join(settings.MEDIA_ROOT, "06_Database")
+    ]:
         if not os.path.exists(path):
             try:
                 os.makedirs(path, exist_ok=True)

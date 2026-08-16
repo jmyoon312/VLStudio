@@ -191,7 +191,7 @@ const CanvasPlayer: React.FC<{ className?: string, canvasMode?: 'shorts' | 'wide
                         >
                             {/* Render Video/Image/Text */}
                             {clip.type === 'video' && <div style={innerStyle}><VideoLayer clip={clip} currentTime={currentTime} isPlaying={isPlaying} /></div>}
-                            {(clip.type === 'image' || clip.type === 'sticker') && <img src={clip.source} style={innerStyle} className="w-full h-full object-fill pointer-events-none" />}
+                            {(clip.type === 'image' || clip.type === 'sticker') && <img src={clip.source} style={innerStyle} className="w-full h-full object-contain pointer-events-none" />}
                             {(clip.type === 'text' || clip.type === 'caption') && (
                                 <div className="w-full h-full flex items-center justify-center pointer-events-none">
                                     {clip.content || clip.name}
@@ -242,17 +242,33 @@ const VideoLayer: React.FC<{ clip: any, currentTime: number, isPlaying: boolean,
         if (!videoRef.current) return;
         const timeInClip = currentTime - clip.start;
         const seekTime = clip.trimStart + (timeInClip * clip.speed);
-        if (Math.abs(videoRef.current.currentTime - seekTime) > 0.25) videoRef.current.currentTime = seekTime;
+        const diff = Math.abs(videoRef.current.currentTime - seekTime);
+        if (!isPlaying && diff > 0.1) {
+            videoRef.current.currentTime = seekTime;
+        } else if (isPlaying && diff > 0.5) {
+            videoRef.current.currentTime = seekTime;
+        }
         videoRef.current.playbackRate = clip.speed;
-    }, [currentTime, clip.start, clip.trimStart, clip.speed]);
-    return <video ref={videoRef} className="w-full h-full object-fill pointer-events-none select-none" muted={muted} />;
+    }, [currentTime, clip.start, clip.trimStart, clip.speed, isPlaying]);
+    return <video ref={videoRef} className="w-full h-full object-contain pointer-events-none select-none" muted={muted} />;
 };
 const AudioPlayer: React.FC<{ clip: any, currentTime: number, isPlaying: boolean, volume: number }> = ({ clip, currentTime, isPlaying, volume }) => {
     const audioRef = useRef<HTMLAudioElement>(null);
     useEffect(() => { if (audioRef.current) { audioRef.current.volume = volume; audioRef.current.playbackRate = clip.speed; } }, [volume, clip.speed]);
     useEffect(() => { if (audioRef.current) { isPlaying ? audioRef.current.play().catch(console.error) : audioRef.current.pause(); } }, [isPlaying]);
-    useEffect(() => { if (audioRef.current && Math.abs(audioRef.current.currentTime - (clip.trimStart + (currentTime - clip.start) * clip.speed)) > 0.25) audioRef.current.currentTime = clip.trimStart + (currentTime - clip.start) * clip.speed; }, [currentTime, clip]);
-    return <audio ref={audioRef} src={clip.source} />;
+    useEffect(() => { 
+        if (!audioRef.current) return;
+        const timeInClip = currentTime - clip.start;
+        const seekTime = clip.trimStart + (timeInClip * clip.speed);
+        const diff = Math.abs(audioRef.current.currentTime - seekTime);
+        if (!isPlaying && diff > 0.1) {
+            audioRef.current.currentTime = seekTime;
+        } else if (isPlaying && diff > 0.5) {
+            audioRef.current.currentTime = seekTime;
+        }
+    }, [currentTime, clip.start, clip.trimStart, clip.speed, isPlaying]);
+    const fetchSrc = clip.source.startsWith('http') || clip.source.startsWith('blob:') || clip.source.startsWith('/api/') ? clip.source : `/api/files/stream?path=${encodeURIComponent(clip.source)}`;
+    return <audio ref={audioRef} src={fetchSrc} />;
 };
 
 export default CanvasPlayer;

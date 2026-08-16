@@ -77,15 +77,31 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({
                     return;
                 }
 
-                let fetchSrc = src;
-                // Check if src is a local path (Windows or Unix) and not a URL
-                // Exclude static paths that are mounted on the backend
-                const isStaticPath = src.startsWith('/temp/') || src.startsWith('/media/') || src.startsWith('/downloads/');
-                if (src.startsWith('http') || src.startsWith('blob:')) {
-                    fetchSrc = src;
-                } else {
-                    // [FIX] Backend streams files via /io/stream, not /files/stream
-                    fetchSrc = `/api/io/stream?path=${encodeURIComponent(src)}`;
+                const resolveMediaUrl = (src: string) => {
+                    if (!src) return src;
+                    let url = src;
+                    try {
+                        const decoded = decodeURIComponent(src);
+                        if (decoded.includes('path=/temp/')) {
+                            const m = decoded.match(/path=(\/temp\/[^&]+)/);
+                            if (m) return m[1];
+                        }
+                        if (decoded.includes('path=/media/')) {
+                            const m = decoded.match(/path=(\/media\/[^&]+)/);
+                            if (m) return m[1];
+                        }
+                        if (url.includes('/api/io/stream')) {
+                            url = url.replace('/api/io/stream', '/api/files/stream');
+                        }
+                    } catch(e) {}
+                    return url;
+                };
+
+                let fetchSrc = resolveMediaUrl(src);
+                
+                // Fallback: wrap it in the stream endpoint (assuming src is absolute path)
+                if (!fetchSrc.startsWith('http') && !fetchSrc.startsWith('blob:') && !fetchSrc.startsWith('/temp/') && !fetchSrc.startsWith('/media/') && !fetchSrc.startsWith('/api/')) {
+                    fetchSrc = `/api/files/stream?path=${encodeURIComponent(fetchSrc)}`;
                 }
 
                 const response = await fetch(fetchSrc);

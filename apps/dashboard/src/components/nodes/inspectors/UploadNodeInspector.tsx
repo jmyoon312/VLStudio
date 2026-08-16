@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Youtube, Instagram } from 'lucide-react';
+import { ChevronDown, ChevronRight, PlaySquare, Camera } from 'lucide-react';
 import api from "@/lib/api";
 
 
@@ -167,7 +167,7 @@ export const UploadNodeInspector = ({ node, onUpdate }: UploadNodeInspectorProps
                         className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
                     >
                         <div className="flex items-center gap-2">
-                            <Youtube className="w-4 h-4 text-red-600" />
+                            <PlaySquare className="w-4 h-4 text-red-600" />
                             <span className="text-xs font-medium">YouTube</span>
                             {data.platforms?.youtube?.enabled && (
                                 <Badge className="bg-green-500 text-white text-[9px] px-1.5 py-0 h-4">ON</Badge>
@@ -217,7 +217,7 @@ export const UploadNodeInspector = ({ node, onUpdate }: UploadNodeInspectorProps
                     )}
                 </div>
 
-                {/* TikTok */}
+                {/* Music */}
                 <div className="border rounded-md overflow-hidden">
                     <button
                         onClick={() => toggleSection('tiktok')}
@@ -225,7 +225,7 @@ export const UploadNodeInspector = ({ node, onUpdate }: UploadNodeInspectorProps
                     >
                         <div className="flex items-center gap-2">
                             <div className="w-4 h-4 bg-black rounded-sm" />
-                            <span className="text-xs font-medium">TikTok</span>
+                            <span className="text-xs font-medium">Music</span>
                             {data.platforms?.tiktok?.enabled && (
                                 <Badge className="bg-green-500 text-white text-[9px] px-1.5 py-0 h-4">ON</Badge>
                             )}
@@ -303,15 +303,15 @@ export const UploadNodeInspector = ({ node, onUpdate }: UploadNodeInspectorProps
                     )}
                 </div>
 
-                {/* Instagram */}
+                {/* Camera */}
                 <div className="border rounded-md overflow-hidden">
                     <button
                         onClick={() => toggleSection('instagram')}
                         className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
                     >
                         <div className="flex items-center gap-2">
-                            <Instagram className="w-4 h-4 text-pink-600" />
-                            <span className="text-xs font-medium">Instagram</span>
+                            <Camera className="w-4 h-4 text-pink-600" />
+                            <span className="text-xs font-medium">Camera</span>
                             {data.platforms?.instagram?.enabled && (
                                 <Badge className="bg-green-500 text-white text-[9px] px-1.5 py-0 h-4">ON</Badge>
                             )}
@@ -345,7 +345,7 @@ export const UploadNodeInspector = ({ node, onUpdate }: UploadNodeInspectorProps
                                             instagram: { ...data.platforms?.instagram, caption: e.target.value }
                                         }
                                     })}
-                                    placeholder="Instagram 캡션..."
+                                    placeholder="Camera 캡션..."
                                     className="h-12 text-xs resize-none"
                                 />
                             </div>

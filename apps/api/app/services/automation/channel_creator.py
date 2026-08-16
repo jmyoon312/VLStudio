@@ -20,7 +20,7 @@ class ChannelCreator:
         Handles missing main channel (My Profile popup) automatically.
         """
         try:
-            logger.info(f"🎬 Starting channel creation: {brand_name}")
+            logger.info(f"[VIDEO] Starting channel creation: {brand_name}")
             
             # 1. Direct navigation to Channel Switcher
             switcher_url = 'https://www.youtube.com/channel_switcher'
@@ -33,7 +33,7 @@ class ChannelCreator:
             
             for ch in existing_channels:
                 if ch.inner_text().replace(" ", "").lower() == normalized_target:
-                    logger.info(f"✅ Channel '{brand_name}' already exists. Skipping creation.")
+                    logger.info(f"[OK] Channel '{brand_name}' already exists. Skipping creation.")
                     return {
                         "success": True, 
                         "channel_url": page.url,
@@ -45,7 +45,7 @@ class ChannelCreator:
             max_attempts = 2
             for attempt in range(max_attempts):
                 phase_name = "Personal Channel Check" if attempt == 0 else "Brand Channel Creation"
-                logger.info(f"🔄 Phase {attempt+1}: {phase_name}")
+                logger.info(f"[REFRESH] Phase {attempt+1}: {phase_name}")
                 
                 # A. Look for "Create a channel" button
                 create_btn = page.locator('text=채널 만들기').first
@@ -69,7 +69,7 @@ class ChannelCreator:
                     personal_dialog_candidate = page.locator('div:has-text("내 프로필")').last
 
                 if personal_dialog_candidate.is_visible():
-                    logger.info("⚠️ Detected 'My Profile' Dialog (Personal Channel missing). Creating it first...")
+                    logger.info("[WARN] Detected 'My Profile' Dialog (Personal Channel missing). Creating it first...")
                     
                     all_inputs = personal_dialog_candidate.locator('input').all()
                     valid_inputs = [inp for inp in all_inputs if inp.is_visible() and inp.get_attribute('type') not in ['checkbox', 'hidden', 'file']]
@@ -97,7 +97,7 @@ class ChannelCreator:
                             self.stealth.human_type(p_handle_input, safe_handle)
                             self.stealth.human_delay(1, 2)
                     else:
-                         logger.warning("⚠️ No text inputs found in 'My Profile' dialog! Trying fallback...")
+                         logger.warning("[WARN] No text inputs found in 'My Profile' dialog! Trying fallback...")
                          fallback_name = page.locator('input[placeholder="이름"]').first
                          if fallback_name.is_visible():
                              fallback_name.fill("")
@@ -113,7 +113,7 @@ class ChannelCreator:
                     if create_personal_btn.is_visible():
                         logger.info("Clicking confirm on Personal Channel dialog...")
                         self.stealth.safe_click(create_personal_btn)
-                        logger.info("⏳ Waiting for Personal Channel creation...")
+                        logger.info("[WAIT] Waiting for Personal Channel creation...")
                         self.stealth.human_delay(6, 8)
                         
                         logger.info("Returning to Switcher to proceed to Brand Channel...")
@@ -129,7 +129,7 @@ class ChannelCreator:
                     name_input = page.locator('ytd-channel-name-input-renderer input').first
 
                 if name_input.is_visible():
-                    logger.info("✅ Found Brand Channel Name Input")
+                    logger.info("[OK] Found Brand Channel Name Input")
                     name_input.fill("")
                     self.stealth.human_type(name_input, brand_name)
                     self.stealth.human_delay(0.5, 1)
@@ -158,7 +158,7 @@ class ChannelCreator:
                         # Verify Logic
                         current_url = page.url
                         if "youtube.com/channel/" in current_url or "youtube.com/@" in current_url:
-                            logger.info(f"✅ Channel created successfully: {current_url}")
+                            logger.info(f"[OK] Channel created successfully: {current_url}")
                             return {
                                 "success": True, 
                                 "channel_url": current_url,
@@ -181,86 +181,143 @@ class ChannelCreator:
             return {"success": False, "error": "Max attempts exceeded"}
                 
         except Exception as e:
-            logger.error(f"❌ Channel creation failed: {e}")
+            logger.error(f"[FAIL] Channel creation failed: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
     def detect_active_channel(self, page) -> dict:
         """
-        Detects the currently active channel ID and Name.
-        1. Tries scraping Advanced Settings (HTML dump).
-        2. Fallback: Navigates to 'Your Channel' and reads URL.
+        Detects the currently active channel ID and exact Brand Channel Name.
+        1. Primary: YouTube Studio (https://studio.youtube.com) URL & DOM inspection.
+        2. Fallback: Advanced Settings & Account page scraping.
         """
         try:
-            logger.info("🕵️ Detection Mode: Scouting for active channel...")
-            
-            if "account_advanced" not in page.url:
-                page.goto('https://www.youtube.com/account_advanced')
+            logger.info("🕵️ Detection Mode: Scouting for active brand channel...")
+            import re
+
+            detected_id = None
+            detected_name = None
+
+            # 1. Try YouTube Studio first
+            try:
+                if "studio.youtube.com" not in page.url:
+                    page.goto('https://studio.youtube.com', wait_until="domcontentloaded")
+                    self.stealth.human_delay(3, 4)
+
+                current_url = page.url
+                logger.info(f"📍 Studio Current URL: {current_url}")
+
+                # Studio URL channel ID extraction: studio.youtube.com/channel/UCxxxx...
+                if "/channel/" in current_url:
+                    detected_id = current_url.split("/channel/")[1].split("/")[0].split("?")[0]
+                
+                # Extract Brand Name from Studio DOM
+                try:
+                    # Method 1: Wait for navigation drawer or header to load
+                    page.wait_for_selector('#entity-name, ytcp-navigation-drawer, #entity-header', timeout=5000)
+                    self.stealth.human_delay(1, 2)
+                    
+                    selectors = [
+                        '#entity-name',
+                        'ytcp-navigation-drawer #name',
+                        'ytcp-navigation-drawer .channel-name',
+                        '#entity-header yt-formatted-string',
+                        'div[id="entity-name"]',
+                        '.ytcp-navigation-drawer #entity-name'
+                    ]
+                    
+                    for sel in selectors:
+                        try:
+                            elem = page.locator(sel).first
+                            if elem.is_visible():
+                                txt = elem.inner_text().strip()
+                                if txt and txt != "내 채널" and "Studio" not in txt:
+                                    detected_name = txt
+                                    logger.info(f"[TARGET] [Studio Selector Hit] Selector '{sel}' -> '{detected_name}'")
+                                    break
+                        except:
+                            continue
+                            
+                    # Method 2: If "내 채널" text exists in drawer, grab sibling text
+                    if not detected_name:
+                        try:
+                            drawer_text = page.locator('ytcp-navigation-drawer').inner_text()
+                            lines = [line.strip() for line in drawer_text.split('\n') if line.strip()]
+                            if "내 채널" in lines:
+                                idx = lines.index("내 채널")
+                                if idx + 1 < len(lines):
+                                    candidate = lines[idx + 1]
+                                    if candidate and not candidate.startswith("대시보드"):
+                                        detected_name = candidate
+                                        logger.info(f"[TARGET] [Studio Drawer Lines Hit] -> '{detected_name}'")
+                        except Exception as e:
+                            logger.warning(f"Drawer text parse warning: {e}")
+
+                    # Method 3: Studio Page Title (e.g. "YouTube Studio - 브랜드 채널명")
+                    if not detected_name:
+                        page_title = page.title()
+                        if "-" in page_title:
+                            parts = page_title.split("-")
+                            if len(parts) >= 2:
+                                candidate_name = parts[-1].strip()
+                                if candidate_name and "Studio" not in candidate_name and "유튜브" not in candidate_name:
+                                    detected_name = candidate_name
+                except Exception as e:
+                    logger.warning(f"Studio name extract warning: {e}")
+
+                # Extract Channel ID from Studio page source regex if not in URL
+                if not detected_id:
+                    html_content = page.content()
+                    candidates = set(re.findall(r'\bUC[\w-]{22}\b', html_content))
+                    if candidates:
+                        detected_id = list(candidates)[0]
+
+                if detected_id:
+                    final_name = detected_name or f"채널 ({detected_id[:8]})"
+                    logger.info(f"🎉 [Studio Success] ID: {detected_id}, Name: {final_name}")
+                    return {
+                        "success": True,
+                        "channel_id": detected_id,
+                        "channel_url": f"https://www.youtube.com/channel/{detected_id}",
+                        "brand_name": final_name,
+                        "message": f"Detected via Studio: {final_name}"
+                    }
+            except Exception as studio_err:
+                logger.warning(f"Studio direct scouting failed: {studio_err}")
+
+            # 2. Fallback to Account Advanced
+            try:
+                page.goto('https://www.youtube.com/account_advanced', wait_until="domcontentloaded")
                 self.stealth.human_delay(2, 3)
 
-            import re
-            
-            try:
                 html_content = page.content()
                 candidates = set(re.findall(r'\bUC[\w-]{22}\b', html_content))
-                logger.info(f"🔎 Regex Candidates: {candidates}")
-                
                 if candidates:
-                    channel_id = list(candidates)[0]
-                    logger.info(f"✅ Found ID via Regex: {channel_id}")
-                    
+                    detected_id = list(candidates)[0]
+
+                # Try pulling channel title from account page
+                try:
+                    title_elem = page.locator('#channel-title, .ytd-channel-name, #account-name').first
+                    if title_elem.is_visible():
+                        detected_name = title_elem.inner_text().strip()
+                except:
+                    pass
+
+                if detected_id:
+                    final_name = detected_name or f"채널 ({detected_id[:8]})"
                     return {
                         "success": True, 
-                        "channel_id": channel_id,
-                        "channel_url": f"https://www.youtube.com/channel/{channel_id}",
-                        "brand_name": "Detected Channel",
-                        "message": f"Verified: {channel_id}"
+                        "channel_id": detected_id,
+                        "channel_url": f"https://www.youtube.com/channel/{detected_id}",
+                        "brand_name": final_name,
+                        "message": f"Detected via Account Settings: {final_name}"
                     }
-            except Exception as e:
-                logger.warning(f"HTML Regex failed: {e}")
+            except Exception as acc_err:
+                logger.warning(f"Account settings scouting failed: {acc_err}")
 
-            logger.info("⚠️ Settings scrape failed. Trying 'Your Channel' navigation...")
-            
-            avatar_btn = page.locator('#avatar-btn').first
-            if avatar_btn.is_visible():
-                avatar_btn.click()
-                self.stealth.human_delay(1, 2)
-                
-                menu_items = page.locator('ytd-compact-link-renderer').all()
-                for item in menu_items:
-                    text = item.inner_text().lower()
-                    if "channel" in text or "채널" in text:
-                        item.click()
-                        self.stealth.human_delay(3, 5)
-                        
-                        current_url = page.url
-                        if "/channel/" in current_url:
-                            channel_id = current_url.split("/channel/")[1].split("/")[0].split("?")[0]
-                            return {
-                                "success": True, 
-                                "channel_id": channel_id,
-                                "channel_url": current_url,
-                                "brand_name": "Detected Channel",
-                                "message": f"Verified via Nav: {channel_id}"
-                            }
-                        elif "/@" in current_url:
-                            try:
-                                meta_id = page.locator('meta[itemprop="identifier"]').first.get_attribute('content')
-                                if meta_id and meta_id.startswith("UC"):
-                                    return {
-                                        "success": True, 
-                                        "channel_id": meta_id,
-                                        "channel_url": f"https://www.youtube.com/channel/{meta_id}",
-                                        "brand_name": "Detected Channel",
-                                        "message": f"Verified via Meta: {meta_id}"
-                                    }
-                            except:
-                                pass
-                        break
-            
-            return {"success": False, "error": "Could not detect Channel ID via settings or navigation."}
+            return {"success": False, "error": "Could not detect active channel ID or name."}
 
         except Exception as e:
-            logger.error(f"❌ Detection failed: {e}")
+            logger.error(f"[FAIL] Detection failed: {e}")
             return {"success": False, "error": str(e)}

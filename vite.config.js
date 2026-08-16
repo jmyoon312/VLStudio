@@ -47,6 +47,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: './',
+    publicDir: 'apps/dashboard/public',
     plugins: [
       react(),
       electron({
@@ -64,9 +65,7 @@ export default defineConfig(({ mode }) => {
         },
         preload: {
           input: [
-            'electron/preload.js',
-            'electron/stealth_preload.js',
-            'electron/login_preload.js'
+            'electron/preload.js'
           ],
           vite: {
             build: {

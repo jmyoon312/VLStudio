@@ -1,3 +1,15 @@
+import { API_BASE_URL } from '@/lib/api';
+
+export const getBackendHost = (): string => {
+    if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+        return 'http://127.0.0.1:8000';
+    }
+    if (API_BASE_URL && API_BASE_URL.startsWith('http')) {
+        return API_BASE_URL.replace(/\/api$/, '');
+    }
+    return '';
+};
+
 export const resolveFileUrl = (path?: string | null): string => {
     if (!path) return '';
 
@@ -9,22 +21,15 @@ export const resolveFileUrl = (path?: string | null): string => {
         return path;
     }
 
-    // Backend Streaming Endpoint
-    const BACKEND_HOST = '';
+    const BACKEND_HOST = getBackendHost();
 
-    // Check for temp files
-    if (path.includes('temp')) {
-        const tempName = path.split(/[/\\]/).pop();
-        return `${BACKEND_HOST}/temp/${tempName}`;
+    // Already a relative web path, prepend host
+    if (path.startsWith('/')) {
+        return `${BACKEND_HOST}${path}`;
     }
 
-    // Check for standard file access via streaming
-    // We reuse the logic: encode the full path for the stream endpoint
-    // Assuming backend has /stream?path=...
+    // Otherwise, it is a local absolute path (e.g. C:\Users\...)
     const encodedPath = encodeURIComponent(path);
-    return `${BACKEND_HOST}/files/stream?path=${encodedPath}`;
-
-    // Note: The Gallery implementation had complex logic involving `settings.root_download_path`.
-    // Since we don't have access to global settings store here easily without context,
-    // we rely on the robust `stream` endpoint which takes absolute paths.
+    return `${BACKEND_HOST}/api/files/stream?path=${encodedPath}`;
 };
+

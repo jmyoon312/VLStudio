@@ -1,14 +1,9 @@
 from sqlalchemy import Boolean, Column, Integer, String, DateTime, Text, JSON, ForeignKey, Float
 from sqlalchemy.orm import relationship
-from pgvector.sqlalchemy import Vector
 from .database import Base
 from datetime import datetime, timedelta
 import os
 import enum
-
-class ProfileType(str, enum.Enum):
-    TIN_CAN = "TIN_CAN"       # 깡통 계정
-    CAPTAIN = "CAPTAIN"       # 대장 계정
 
 class ProfileStatus(str, enum.Enum):
     DRAFT = "DRAFT"           # 생성 중
@@ -24,20 +19,25 @@ class ChannelStatus(str, enum.Enum):
     AUTH_DROPPED = "AUTH_DROPPED"
     CAPTCHA_BLOCKED = "CAPTCHA_BLOCKED"
 
-class ChannelRole(str, enum.Enum):
-    OWNER = "OWNER"      # TinCan (소유자)
-    MANAGER = "MANAGER"  # Captain (관리자)
-
 class StationStatus(str, enum.Enum):
     OFFLINE = "OFFLINE"
     STARTING = "STARTING"
     ONLINE = "ONLINE"
     ERROR = "ERROR"
 
+class ChannelRole(str, enum.Enum):
+    OWNER = "OWNER"
+    MANAGER = "MANAGER"
+
+class ProfileType(str, enum.Enum):
+    CAPTAIN = "CAPTAIN"
+    TIN_CAN = "TIN_CAN"
+
 class Profile(Base):
     __tablename__ = "profiles"
 
     id = Column(String, primary_key=True, index=True) # UUID
+    name = Column(String, nullable=True) # [NEW] Brand Folder Name
     email = Column(String, unique=True, index=True, nullable=True)
     password = Column(String, nullable=True)
     recovery_email = Column(String, nullable=True)
@@ -51,6 +51,7 @@ class Profile(Base):
     quarantine_reason = Column(String, nullable=True)
     
     folder_path = Column(String) # Chrome User Data Path
+    engine_type = Column(String, default="cloakbrowser")  # cloakbrowser | ixbrowser
     channel_id = Column(String, nullable=True) # [stealth] Managed Brand Channel ID
     created_at = Column(DateTime, default=datetime.now)
     last_used_at = Column(DateTime, nullable=True)
@@ -72,38 +73,13 @@ class Profile(Base):
     google_project_id = Column(String, nullable=True)      # e.g., "my-youtube-project-123"
     google_project_name = Column(String, nullable=True)    # e.g., "TinCan1 YouTube API"
     
-    # [NEW] Captain-TinCan Relationship Tracking
-    delegated_tincan_ids = Column(JSON, nullable=True)     # List of TinCan profile IDs managed by this Captain
-
-
-class TinCanAccount(Base):
-    __tablename__ = "tin_can_accounts"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    owner_identity = Column(String) # Family member name etc.
-    client_secret_json = Column(Text) # Storing full JSON content
-    recovery_email = Column(String, nullable=True)
-    status = Column(String, default="INCUBATING") # INCUBATING, ACTIVE, SUSPENDED
-    proxy_config = Column(String, nullable=True)
-    last_upload_ip = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
-
-    channels = relationship("BrandChannel", back_populates="tin_can_account")
-
-class CaptainAccount(Base):
-    __tablename__ = "captain_accounts"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True) # Manager email
-    risk_score = Column(Integer, default=0)
-    safety_score = Column(Float, default=100.0)    # [NEW] 0-100 security health score
-    risk_level = Column(Integer, default=0)       # [NEW] 0: Safe, 1: Warning, 2: Critical
-    browser_profile_name = Column(String)
-    created_at = Column(DateTime, default=datetime.now)
-
-    channels = relationship("BrandChannel", back_populates="captain_account")
-    
+    # [NEW] Multi-Proxy & Networking settings
+    proxy_mode = Column(String, default="DIRECT") # DIRECT_LTE, NETSHARE, ISP_PROXY
+    proxy_protocol = Column(String, default="http") # http, socks5
+    proxy_host = Column(String, nullable=True)    # 127.0.0.1 or ISP Proxy IP
+    proxy_port = Column(String, nullable=True)    # 1080 or ISP Proxy Port
+    proxy_username = Column(String, nullable=True)
+    proxy_password = Column(String, nullable=True)
 class WorkerAccount(Base):
     __tablename__ = "worker_accounts"
 
@@ -142,12 +118,8 @@ class BrandChannel(Base):
     last_synced_at = Column(DateTime, nullable=True)
     
     # New Architecture Links
-    tin_can_account_id = Column(Integer, ForeignKey("tin_can_accounts.id"), nullable=True)
-    captain_account_id = Column(Integer, ForeignKey("captain_accounts.id"), nullable=True)
     owner_profile_id = Column(String, ForeignKey("profiles.id"), nullable=True) # [New] Link to Profile (UUID)
     
-    tin_can_account = relationship("TinCanAccount", back_populates="channels")
-    captain_account = relationship("CaptainAccount", back_populates="channels")
     owner_profile = relationship("Profile", backref="brand_channels") # Use brand_channels to avoid conflict if any
 
     # [NEW] Phase 4: Pro-Grade Features
@@ -191,7 +163,7 @@ class MissionExperience(Base):
     
     # Metadata
     artifacts_json = Column(JSON, nullable=True)
-    embedding = Column(Vector(768))
+    embedding = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
 
     def __repr__(self):
@@ -207,7 +179,6 @@ class Channel(Base):
     platform_id = Column(String, index=True, nullable=True) # [NEW] External ID (e.g. UC...)
     folder_name = Column(String)
     status = Column(String, default="active")
-    category_id = Column(Integer, ForeignKey("category_tree.id"), nullable=True)
 
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
@@ -223,10 +194,12 @@ class Channel(Base):
     last_error = Column(Text, nullable=True)
     
     worker_id = Column(Integer, nullable=True) # [Legacy Support]
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True) # [NEW]
+    
+    category = relationship("Category") # [NEW]
     
     # If channel is deleted, delete all videos (Cascade)
     videos = relationship("Video", back_populates="channel", cascade="all, delete-orphan")
-    category = relationship("CategoryTree", backref="channels")
 
 class Video(Base):
     __tablename__ = "videos"
@@ -291,7 +264,7 @@ class WorkQueueItem(Base):
     hashtags = Column(JSON, nullable=True)  # [NEW] Visible Hashtags (for description)
     tags = Column(JSON, nullable=True)      # Hidden Tags (metadata)
     thumbnail_path = Column(String, nullable=True)
-    video_file_path = Column(String, nullable=False)
+    video_file_path = Column(String, nullable=True)  # [DRAFT support] nullable for temp/draft items
     duration = Column(Integer, nullable=True)
     
     # === 쇼핑 태그 (Shopping Tag) ===
@@ -299,9 +272,11 @@ class WorkQueueItem(Base):
     shopping_tag_keyword = Column(String, nullable=True)
     
     # === 유입 경로 추적 ===
-    source_type = Column(String, nullable=True)  # MANUAL, WORKFLOW, SCRIPT_REMIX, GALLERY_EXPORT
+    source_type = Column(String, nullable=True)  # MANUAL, WORKFLOW, SCRIPT_REMIX, GALLERY_EXPORT, SOVEREIGN_AI, BULK_IMPORT
     source_workflow_id = Column(Integer, nullable=True)
-    source_metadata = Column(JSON, nullable=True)
+    source_metadata = Column(JSON, nullable=True)  # store external_id, batch_id, original_file info
+    source_batch_id = Column(String, nullable=True)  # BULK_IMPORT batch identifier (UUID)
+    source_external_id = Column(String, nullable=True, index=True)  # 각 아이템별 외부 시스템 고유 식별값 (JSON/Excel 매핑용)
     
     # === 품질 검증 ===
     approval_status = Column(String, default="PENDING")
@@ -325,7 +300,7 @@ class WorkQueueItem(Base):
     upload_delay_minutes = Column(Integer, default=0)
     
     # === 상태 추적 ===
-    status = Column(String, default="QUEUED")
+    status = Column(String, default="DRAFT")  # DRAFT -> PENDING -> QUEUED -> UPLOADING -> VERIFYING -> COMPLETED | FAILED
     upload_started_at = Column(DateTime, nullable=True)
     upload_completed_at = Column(DateTime, nullable=True)
     published_at = Column(DateTime, nullable=True) # [NEW] Final publish or schedule time
@@ -379,6 +354,8 @@ class Settings(Base):
     cerebras_api_keys = Column(JSON, default=list)      # Cerebras
     openrouter_api_keys = Column(JSON, default=list)    # OpenRouter
     nvidia_api_keys = Column(JSON, default=list)        # NVIDIA (Added)
+    opencode_api_keys = Column(JSON, default=list)      # OpenCode Zen
+    youtube1_api_keys = Column(JSON, default=list)      # YouTube1 (Custom OpenAI-compatible)
     
     # [NEW] Media & Automation Keys
     pexels_api_keys = Column(JSON, default=list)       # Pexels
@@ -392,6 +369,11 @@ class Settings(Base):
     # Single Key (Project based)
     supertone_project_key = Column(String, nullable=True) 
     supertone_local_enabled = Column(Boolean, default=False) # [NEW]
+
+    # [NEW] Jina Reader Settings
+    jina_reader_endpoint = Column(String, default="http://localhost:20128/v1/web/fetch")
+    jina_reader_api_keys = Column(JSON, default=list)
+
     supertone_model_path = Column(String, default="")
     
     # URLs
@@ -403,9 +385,13 @@ class Settings(Base):
     # [NEW] Ollama Local Inference
     ollama_api_base_url = Column(String, default="http://127.0.0.1:11434/v1")
     
+    # [NEW] iXBrowser
+    ixbrowser_api_url = Column(String, default="http://127.0.0.1:4320")
+    
     # [NEW] OpenClaw Integration
     openclaw_preferred_provider = Column(String, default="auto")
     openclaw_model = Column(String, nullable=True)
+    default_llm_model = Column(String, default="gemini-2.0-flash-exp")
     
     # [NEW] Multi-Hub Granular Control
     paperclip_provider = Column(String, default="google")
@@ -423,6 +409,10 @@ class Settings(Base):
     # [NEW] Auto HD Download Thresholds
     auto_hd_viral_threshold = Column(Float, nullable=True)
     auto_hd_velocity_threshold = Column(Float, nullable=True)
+    
+    # [NEW] Outlier Pre-filtering Thresholds
+    outlier_ev_threshold = Column(Float, default=120.0) # For Shorts EV%
+    outlier_ratio_threshold = Column(Float, default=1.5) # For Longs Ratio (views/subs)
 
     default_tts_engine = Column(String, default="google")
     ytdlp_auto_update = Column(Boolean, default=True)
@@ -452,11 +442,11 @@ class Settings(Base):
     groq_api_key = Column(String, nullable=True)
     kie_api_key = Column(String, nullable=True)
     default_model = Column(String, nullable=True)
-    script_analysis_provider = Column(String, default="groq")
-    script_analysis_model = Column(String, default="groq/llama-3.3-70b-versatile")
+    script_analysis_provider = Column(String, default="opencode")
+    script_analysis_model = Column(String, default="opencode/deepseek-v4-flash-free")
 
     # [Phase 5: Sovereign Hermes Intelligence]
-    hermes_agent_provider = Column(String, default="groq")
+    hermes_agent_provider = Column(String, default="nvidia")
     hermes_agent_model = Column(String, nullable=True)
     hermes_wisdom_depth = Column(Integer, default=3)
     hermes_reflection_verbosity = Column(String, default="balanced")
@@ -469,39 +459,17 @@ class Settings(Base):
     model_cache_updated_at = Column(DateTime, nullable=True)
 
 
+    # [NEW] Multi-Proxy Routing Settings
+    proxy_mode = Column(String, default="DIRECT_LTE") # DIRECT_LTE, NETSHARE, ISP_PROXY
+    netshare_ip = Column(String, default="192.168.49.1")
+    netshare_port = Column(Integer, default=8282)
+    isp_proxy_url = Column(String, nullable=True) # e.g. socks5://user:pass@ip:port
+
     # Distributed AI Grid
     audio_node_url = Column(String, default="https://miscultivated-nonvertically-londa.ngrok-free.dev")
     audio_node_api_key = Column(String, nullable=True)
     visual_node_url = Column(String, default="https://unstalled-eustyle-chet.ngrok-free.dev")
     visual_node_api_key = Column(String, nullable=True)
-
-class CategoryTree(Base):
-    __tablename__ = "category_tree"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True) # Korean Name
-    name_en = Column(String, index=True, nullable=True) # English Name for Search
-    parent_id = Column(Integer, ForeignKey("category_tree.id"), nullable=True)
-    level = Column(Integer, default=0) # 0: Large, 1: Medium, 2: Small
-    is_fixed = Column(Boolean, default=False) # True for YouTube Defaults
-    ai_generated = Column(Boolean, default=False)
-    
-    # Metadata
-    created_at = Column(DateTime, default=datetime.now)
-    last_scanned_at = Column(DateTime, nullable=True)
-
-    @property
-    def folder_name(self):
-        """Compute folder_name from name - no DB column needed."""
-        import re
-        if self.name:
-            return re.sub(r'[\\/*?:"<>|]', '', self.name).replace(' ', '_')
-        return None
-    
-    # Relationships
-    parent = relationship("CategoryTree", remote_side=[id], backref="children")
-    candidates = relationship("ScoutCandidate", back_populates="category")
-    strategic_briefs = relationship("StrategicBrief", back_populates="category")
 
 class StrategicBrief(Base):
     """
@@ -524,7 +492,6 @@ class StrategicBrief(Base):
     status = Column(String, default="EVOLVING") # DRAFT, EVOLVING, FINALIZED, SUPERSEDED
     
     # Hierarchy
-    category_id = Column(Integer, ForeignKey("category_tree.id"), nullable=True)
     parent_brief_id = Column(Integer, ForeignKey("strategic_briefs.id"), nullable=True)
     
     # Metadata
@@ -534,7 +501,6 @@ class StrategicBrief(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    category = relationship("CategoryTree", back_populates="strategic_briefs")
     parent_brief = relationship("StrategicBrief", remote_side=[id], backref="derived_briefs")
 
 
@@ -560,13 +526,8 @@ class ScoutCandidate(Base):
     ai_reasoning = Column(Text, nullable=True)
     status = Column(String, default="PENDING")
 
-    # Hierarchy
-    category_id = Column(Integer, ForeignKey("category_tree.id"), nullable=True)
-
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-
-    category = relationship("CategoryTree", back_populates="candidates")
 
 class SovereignInterest(Base):
     """사용자가 직접 입력하여 관리하는 핵심 관심 분야 (경제, 역사, 정치 등)"""
@@ -639,92 +600,7 @@ class ConfigPreset(Base):
     config = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-class WorkflowTemplate(Base):
-    __tablename__ = "workflow_templates"
 
-    id = Column(Integer, primary_key=True, index=True)
-    category = Column(String, index=True) # Review, Story, News, Utility, Fun
-    title = Column(String)
-    description = Column(String)
-    icon = Column(String) # Lucide icon name
-    graph_json = Column(JSON) # The node/edge structure
-    created_at = Column(DateTime, default=datetime.now)
-
-class Workflow(Base):
-    __tablename__ = "workflows"
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, index=True)
-    description = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True)
-    graph_data = Column(JSON, default=dict, nullable=False)  # Fixed: Added default factory
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationship
-    schedule = relationship("WorkflowSchedule", back_populates="workflow", uselist=False, cascade="all, delete-orphan")
-
-
-class WorkflowSchedule(Base):
-    """워크플로우 스케줄 정보"""
-    __tablename__ = "workflow_schedules"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    workflow_id = Column(Integer, ForeignKey("workflows.id"), unique=True, nullable=False)
-    
-    # 스케줄 설정
-    cron_expression = Column(String, nullable=False)
-    timezone = Column(String, default="Asia/Seoul")
-    
-    # 상태 관리
-    is_active = Column(Boolean, default=True)
-    
-    # 실행 기록
-    last_run_at = Column(DateTime, nullable=True)
-    next_run_at = Column(DateTime, nullable=True)
-    run_count = Column(Integer, default=0)
-    
-    # 에러 추적
-    last_error = Column(Text, nullable=True)
-    error_count = Column(Integer, default=0)
-    
-    # 메타데이터
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-    created_by = Column(String, nullable=True)
-    
-    # Relationship
-    workflow = relationship("Workflow", back_populates="schedule")
-
-
-
-class NodeMemory(Base):
-    """
-    Stores conversation history for a specific node in a workflow.
-    Used for scoped memory in AI Agents.
-    """
-    __tablename__ = "node_memories"
-
-    id = Column(Integer, primary_key=True, index=True)
-    workflow_id = Column(Integer, ForeignKey("workflows.id"), nullable=True) # Optional link to workflow
-    node_id = Column(String, index=True)
-    
-    # Stores list of messages: [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-    memory_context = Column(JSON, default=list)
-    
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-
-# [NEW] Hybrid Smart Cache for Keyword Explorer
-class Trend(Base):
-    __tablename__ = "trends"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    keyword = Column(String, index=True) # Main keyword or Category Name
-    category = Column(String, index=True) # "Gaming", "Tech", "All"
-    related_keywords_json = Column(JSON) # Stores List[KeywordResponse]
-    search_volume = Column(Integer, default=0) # Estimated score
-    source = Column(String, default="SearXNG")
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 # [NEW] Daily Report System
 class DailyReport(Base):
@@ -822,7 +698,7 @@ class ChannelAccess(Base):
     created_at = Column(DateTime, default=datetime.now)
     
     # Relationships
-    youtube_channel = relationship("YouTubeChannel", back_populates="accesses")
+    youtube_channel = relationship(YouTubeChannel, back_populates="accesses")
     profile = relationship("Profile", backref="youtube_channel_access")
 
 
@@ -837,11 +713,12 @@ class ChannelAccessLog(Base):
     timestamp = Column(DateTime, default=datetime.now)
     ip_address = Column(String(50), nullable=True)
     user_agent = Column(String(500), nullable=True)
+    
+    youtube_channel = relationship(YouTubeChannel, back_populates="access_logs")
     success = Column(Boolean, default=True)
     error_message = Column(Text, nullable=True)
     
     # Relationships
-    youtube_channel = relationship("YouTubeChannel", back_populates="access_logs")
     profile = relationship("Profile", backref="youtube_access_logs")
 
 
@@ -884,7 +761,7 @@ class ChannelAnalytics(Base):
     last_updated = Column(DateTime, default=datetime.now)
     
     # Relationship
-    channel = relationship("YouTubeChannel", back_populates="analytics")
+    channel = relationship(YouTubeChannel, back_populates="analytics")
 
 
 # ============================================
@@ -916,7 +793,7 @@ class ChannelDailyStats(Base):
     created_at = Column(DateTime, default=datetime.now)
     
     # Relationship
-    channel = relationship("YouTubeChannel", backref="daily_stats")
+    channel = relationship(YouTubeChannel, backref="daily_stats")
 
 
 class VideoMetadataCache(Base):
@@ -1051,12 +928,34 @@ class BrowserProfile(Base):
     name = Column(String) # e.g. "Gaming Brand"
     user_data_dir = Column(String) # Path: userdata/profiles/{uuid}
     user_agent = Column(String, nullable=True)
+    tags = Column(JSON, default=list)
+    daily_gen_count = Column(Integer, default=0)
+    last_gen_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
+    
+    # [NEW] Folder-based Brand UI Integration
+    parent_brand_id = Column(String, ForeignKey("profiles.id"), nullable=True)
+    parent_brand = relationship("Profile", backref="social_profiles")
     
     # Relationships
     tiktok_channels = relationship("TikTokChannel", back_populates="browser_profile", cascade="all, delete-orphan")
     instagram_channels = relationship("InstagramChannel", back_populates="browser_profile", cascade="all, delete-orphan")
     notebooklm_accounts = relationship("NotebookLMAccount", back_populates="browser_profile", cascade="all, delete-orphan")
+    douyin_channels = relationship("DouyinChannel", back_populates="browser_profile", cascade="all, delete-orphan")
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    name_en = Column(String, nullable=True)
+    folder_name = Column(String, nullable=True)
+    parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    level = Column(Integer, default=0)
+    is_fixed = Column(Boolean, default=False)
+    ai_generated = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
 
 
 class TikTokChannel(Base):
@@ -1097,6 +996,26 @@ class InstagramChannel(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     browser_profile = relationship("BrowserProfile", back_populates="instagram_channels")
+
+
+class DouyinChannel(Base):
+    """Douyin Account linked to a Browser Profile"""
+    __tablename__ = "douyin_channels"
+
+    id = Column(String, primary_key=True) # Username (unique)
+    nickname = Column(String, nullable=True)
+    browser_profile_id = Column(String, ForeignKey("browser_profiles.id"))
+    
+    status = Column(String, default="ACTIVE")
+    last_uploaded_at = Column(DateTime, nullable=True)
+    
+    # Metadata
+    follower_count = Column(Integer, default=0)
+    
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    browser_profile = relationship("BrowserProfile", back_populates="douyin_channels")
 
 
 class NotebookLMAccount(Base):
@@ -1174,8 +1093,6 @@ class GlobalSwarmConfig(Base):
     
     last_automated_run = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-
-    category_id = Column(Integer, ForeignKey("category_tree.id"), nullable=True)
     
     # [NEW] Sovereign Scoring Metrics
     subscriber_growth_7d = Column(Float, default=0.0) # 7-day growth rate
@@ -1190,7 +1107,7 @@ class GlobalSwarmConfig(Base):
     created_at = Column(DateTime, default=datetime.now)
     
     # Relationships
-    category = relationship("CategoryTree")
+    # category = relationship("CategoryTree")
 
 class SwarmWisdom(Base):
     """시행착오를 통해 축적된 에이전트 지식 저장소 (Evolutionary Brain)"""
@@ -1256,3 +1173,189 @@ class SwarmUsageStats(Base):
     estimated_cost_usd = Column(Float, default=0.0)
     
     timestamp = Column(DateTime, default=datetime.now)
+
+
+# ──────────────────────────────────────────────
+# AI Research Intelligence Models
+# ──────────────────────────────────────────────
+
+class ResearchNiche(Base):
+    """
+    Niche clusters discovered from trending keywords.
+    Each niche represents a high-potential domain for research.
+    """
+    __tablename__ = "research_niches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(Text, default="")
+    category = Column(String, index=True, nullable=True)
+    source_trend_ids = Column(JSON, default=list)
+    avg_viral_score = Column(Float, default=0.0)
+    keyword_count = Column(Integer, default=0)
+    status = Column(String, default="active")  # active, deprecated
+    discovered_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    topics = relationship("ResearchTopic", back_populates="niche", cascade="all, delete-orphan")
+
+
+class ResearchTopic(Base):
+    """
+    Specific research questions/topics generated for a niche.
+    These are consumed by the research execution pipeline.
+    """
+    __tablename__ = "research_topics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    niche_id = Column(Integer, ForeignKey("research_niches.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String)
+    research_question = Column(Text)
+    priority = Column(Integer, default=50)  # 0-100
+    status = Column(String, default="pending")  # pending, in_progress, completed, dismissed
+    created_at = Column(DateTime, default=datetime.now)
+    scheduled_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    niche = relationship("ResearchNiche", back_populates="topics")
+    report = relationship("ResearchReport", back_populates="topic", uselist=False, cascade="all, delete-orphan")
+
+
+class ResearchReport(Base):
+    """
+    Completed research brief stored as knowledge.
+    [Research Brain] Now also stores the structured ProductionResearchBrief used
+    to drive shorts/longform script generation.
+    """
+    __tablename__ = "research_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    topic_id = Column(Integer, ForeignKey("research_topics.id", ondelete="CASCADE"), nullable=False)
+    summary = Column(Text)
+    key_findings = Column(Text, default="")
+    sources_json = Column(JSON, default=list)
+    model_used = Column(String, default="")
+    created_at = Column(DateTime, default=datetime.now)
+    # [Research Brain] Structured production brief + gate metadata
+    brief_json = Column(JSON, nullable=True)          # serialized ProductionResearchBrief
+    research_depth = Column(Integer, default=0)        # number of deep-research loops
+    production_readiness = Column(Float, default=0.0)  # 0-10 quality score
+    gate_status = Column(String, default="")          # pass | review | reject
+    topic = relationship("ResearchTopic", back_populates="report")
+
+
+class ReferenceVideo(Base):
+    """
+    A publicly-discovered reference video whose FORMAT (not footage) we analyze.
+    Stores channel info, link, and metadata + auto-transcript only — never a
+    redistributed copy of the source media.
+    """
+    __tablename__ = "reference_videos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(String, index=True)
+    platform = Column(String, default="youtube")  # youtube | reddit | tiktok | instagram
+    channel_name = Column(String, default="")
+    channel_url = Column(String, default="")
+    title = Column(String, default="")
+    view_count = Column(Integer, default=0)
+    like_count = Column(Integer, default=0)
+    comment_count = Column(Integer, default=0)
+    duration = Column(Integer, default=0)  # seconds
+    thumbnail_url = Column(String, default="")
+    transcript = Column(Text, default="")
+    lang = Column(String, default="")
+    niche = Column(String, default="", index=True)
+    viral_score = Column(Float, default=0.0)
+    format_card_json = Column(JSON, nullable=True)  # extracted FormatCard
+    status = Column(String, default="collected")    # collected | analyzed | used
+    collected_at = Column(DateTime, default=datetime.now)
+
+
+class SourceAsset(Base):
+    """
+    A LEGAL production asset (stock / public-domain) downloaded for reuse.
+    Tracks provider, license and attribution per asset.
+    """
+    __tablename__ = "source_assets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String, default="pexels")  # pexels | pixabay | archive | wikimedia
+    source_url = Column(String, default="")
+    preview_url = Column(String, default="")
+    local_path = Column(String, default="")
+    media_type = Column(String, default="video")  # video | image
+    license = Column(String, default="")
+    attribution = Column(String, default="")
+    query = Column(String, default="", index=True)
+    brief_id = Column(Integer, ForeignKey("research_reports.id", ondelete="SET NULL"), nullable=True)
+    duration = Column(Integer, default=0)
+    width = Column(Integer, default=0)
+    height = Column(Integer, default=0)
+    downloaded = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+YouTubeChannel = BrandChannel
+
+class DdalkkakDownloadJob(Base):
+    __tablename__ = "ddalkkak_downloads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(String, index=True)
+    status = Column(String, default='pending')  # pending, downloading, completed, failed
+    filename = Column(String, nullable=True)
+    file_path = Column(String, nullable=True)
+    size_bytes = Column(Integer, default=0)
+    error = Column(Text, nullable=True)
+    user_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    completed_at = Column(DateTime, nullable=True)
+
+class DdalkkakSubtitleJob(Base):
+    __tablename__ = "ddalkkak_subtitle_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    video_filename = Column(String, nullable=True)
+    video_path = Column(String, nullable=True)
+    style = Column(String, default='shorts')  # shorts, info, japanese
+    duration_sec = Column(Float, default=0.0)
+    original_urls = Column(Text, nullable=True)  # JSON list
+    status = Column(String, default='pending')
+    progress = Column(Integer, default=0)
+    progress_message = Column(String, nullable=True)
+    subtitle_paths = Column(Text, nullable=True)  # JSON
+    title_candidates = Column(Text, nullable=True)  # JSON list
+    gemini_results = Column(Text, nullable=True)  # JSON
+    user_id = Column(Integer, nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    completed_at = Column(DateTime, nullable=True)
+
+class DdalkkakDubbingJob(Base):
+    __tablename__ = "ddalkkak_dubbing_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=True)
+    script_text = Column(Text, nullable=True)
+    voice_type = Column(String, default='default')
+    status = Column(String, default='pending')
+    progress = Column(Integer, default=0)
+    progress_message = Column(String, nullable=True)
+    result_audio_path = Column(String, nullable=True)
+    result_video_path = Column(String, nullable=True)
+    user_id = Column(Integer, nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    completed_at = Column(DateTime, nullable=True)
+
+class DdalkkakClipEditJob(Base):
+    __tablename__ = "ddalkkak_clipedit_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_video_path = Column(String, nullable=True)
+    status = Column(String, default='pending')
+    progress = Column(Integer, default=0)
+    progress_message = Column(String, nullable=True)
+    result_clips = Column(Text, nullable=True) # JSON list of paths
+    user_id = Column(Integer, nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    completed_at = Column(DateTime, nullable=True)

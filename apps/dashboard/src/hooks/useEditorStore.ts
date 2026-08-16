@@ -803,7 +803,6 @@ export const useEditorStore = create<EditorState>()(
                     const sourceTrack = state.tracks[sourceTrackIndex];
                     const targetTrack = state.tracks[targetTrackIndex];
 
-                    // Verify track types match for cross-track move
                     if (sourceTrack.type !== targetTrack.type) return {};
 
                     const clipIndex = sourceTrack.clips.findIndex(c => c.id === clipId);
@@ -811,41 +810,50 @@ export const useEditorStore = create<EditorState>()(
 
                     const clip = sourceTrack.clips[clipIndex];
                     const duration = clip.duration;
-                    const start = Math.max(0, newStart);
+                    let finalStart = Math.max(0, newStart);
 
-                    // Check for collisions in target track
-                    const hasCollision = targetTrack.clips.some(c => {
-                        if (c.id === clipId) return false; // Skip self
-                        const cEnd = c.start + c.duration;
-                        const newEnd = start + duration;
-                        // Check overlap: (StartA < EndB) and (EndA > StartB)
-                        return (start < cEnd && newEnd > c.start);
+                    const overlappingClip = targetTrack.clips.find(c => {
+                        if (c.id === clipId) return false;
+                        return (finalStart < c.start + c.duration && finalStart + duration > c.start);
                     });
 
-                    if (hasCollision) {
-                        return {}; // Prevent move if collision
+                    if (overlappingClip) {
+                        const pushRight = overlappingClip.start + overlappingClip.duration;
+                        const pushLeft = Math.max(0, overlappingClip.start - duration);
+                        if (Math.abs(finalStart - pushLeft) < Math.abs(finalStart - pushRight)) {
+                            finalStart = pushLeft;
+                        } else {
+                            finalStart = pushRight;
+                        }
+                    } else {
+                        const SNAP_THRESHOLD = 0.5;
+                        let minDiff = SNAP_THRESHOLD;
+                        for (const c of targetTrack.clips) {
+                            if (c.id === clipId) continue;
+                            const cEnd = c.start + c.duration;
+                            if (Math.abs(finalStart - cEnd) < minDiff) { finalStart = cEnd; minDiff = Math.abs(finalStart - cEnd); }
+                            if (Math.abs(finalStart + duration - c.start) < minDiff) { finalStart = Math.max(0, c.start - duration); minDiff = Math.abs(finalStart + duration - c.start); }
+                        }
                     }
 
-                    const newTracks = [...state.tracks];
+                    const hasCollision = targetTrack.clips.some(c => {
+                        if (c.id === clipId) return false;
+                        return (finalStart < c.start + c.duration && finalStart + duration > c.start);
+                    });
+                    if (hasCollision) return {};
 
+                    const newTracks = [...state.tracks];
                     if (trackId === targetTrackId) {
-                        // Same track move
                         const newClips = [...sourceTrack.clips];
-                        newClips[clipIndex] = { ...clip, start };
+                        newClips[clipIndex] = { ...clip, start: finalStart };
                         newTracks[sourceTrackIndex] = { ...sourceTrack, clips: newClips };
                     } else {
-                        // Cross-track move
                         const newSourceClips = sourceTrack.clips.filter(c => c.id !== clipId);
-                        const newTargetClips = [...targetTrack.clips, { ...clip, trackId: targetTrackId, start }];
-
+                        const newTargetClips = [...targetTrack.clips, { ...clip, trackId: targetTrackId, start: finalStart }];
                         newTracks[sourceTrackIndex] = { ...sourceTrack, clips: newSourceClips };
                         newTracks[targetTrackIndex] = { ...targetTrack, clips: newTargetClips };
                     }
-
-                    // Recalculate duration
-                    const allClips = newTracks.flatMap(t => t.clips);
-                    const maxTime = Math.max(...allClips.map(c => c.start + c.duration), 0);
-
+                    const maxTime = Math.max(...newTracks.flatMap(t => t.clips).map(c => c.start + c.duration), 0);
                     return { tracks: newTracks, duration: Math.max(60, maxTime + 5) };
                 }),
 
@@ -856,42 +864,61 @@ export const useEditorStore = create<EditorState>()(
                     const clipIndex = track.clips.findIndex(c => c.id === clipId);
                     if (clipIndex === -1) return {};
 
-                    const start = Math.max(0, newStart);
-                    const duration = Math.max(0.1, newDuration);
+                    const originalClip = track.clips[clipIndex];
+                    let minAllowedStart = 0;
+                    let maxAllowedEnd = Infinity;
 
-                    // Check collision
-                    const hasCollision = track.clips.some(c => {
-                        if (c.id === clipId) return false;
+                    for (const c of track.clips) {
+                        if (c.id === clipId) continue;
                         const cEnd = c.start + c.duration;
-                        const newEnd = start + duration;
-                        return (start < cEnd && newEnd > c.start);
-                    });
+                        if (cEnd <= originalClip.start + 0.01) {
+                            minAllowedStart = Math.max(minAllowedStart, cEnd);
+                        }
+                        if (c.start >= originalClip.start + originalClip.duration - 0.01) {
+                            maxAllowedEnd = Math.min(maxAllowedEnd, c.start);
+                        }
+                    }
 
-                    if (hasCollision) return {};
+                    const finalStart = Math.max(minAllowedStart, newStart);
+                    const finalEnd = Math.min(maxAllowedEnd, finalStart + newDuration);
+                    const finalDuration = Math.max(0.1, finalEnd - finalStart);
 
-                    const updatedClip = {
-                        ...track.clips[clipIndex],
-                        start,
-                        duration,
-                        trimStart: Math.max(0, newTrimStart)
-                    };
-
+                    const updatedClip = { ...originalClip, start: finalStart, duration: finalDuration, trimStart: Math.max(0, newTrimStart) };
                     const newClips = [...track.clips];
                     newClips[clipIndex] = updatedClip;
-
                     const newTracks = [...state.tracks];
                     newTracks[trackIndex] = { ...track, clips: newClips };
 
-                    // Recalculate duration
-                    const allClips = newTracks.flatMap(t => t.clips);
-                    const maxTime = Math.max(...allClips.map(c => c.start + c.duration), 0);
-
+                    const maxTime = Math.max(...newTracks.flatMap(t => t.clips).map(c => c.start + c.duration), 0);
                     return { tracks: newTracks, duration: Math.max(60, maxTime + 5) };
                 }),
 
                 splitClip: (trackId: string, clipId: string, time: number) => set((state) => {
-                    // Implementation for splitClip
-                    return {};
+                    const trackIndex = state.tracks.findIndex(t => t.id === trackId);
+                    if (trackIndex === -1) return {};
+                    const track = state.tracks[trackIndex];
+                    const clipIndex = track.clips.findIndex(c => c.id === clipId);
+                    if (clipIndex === -1) return {};
+
+                    const clip = track.clips[clipIndex];
+                    if (time <= clip.start || time >= clip.start + clip.duration) return {};
+
+                    const newClip1 = { ...clip, duration: time - clip.start };
+                    const newClip2 = {
+                        ...clip,
+                        id: uuidv4(),
+                        start: time,
+                        duration: clip.start + clip.duration - time,
+                        trimStart: clip.trimStart + (time - clip.start) * clip.speed
+                    };
+
+                    const newClips = [...track.clips];
+                    newClips.splice(clipIndex, 1, newClip1, newClip2);
+
+                    const newTracks = [...state.tracks];
+                    newTracks[trackIndex] = { ...track, clips: newClips };
+
+                    return { tracks: newTracks, selectedClipId: newClip2.id };
                 }),
 
                 updateClip: (trackId: string, clipId: string, updates: Partial<Clip>) => set((state) => {

@@ -7,7 +7,7 @@ import { CheckCircle2, XCircle, Clock, Key, Database, Shield } from 'lucide-reac
 import { useToast } from "@/components/ui/use-toast";
 import axios from 'axios';
 
-const API_BASE = "/api";
+const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
 interface CaptainSettingsProps {
     profileId: string;
@@ -135,10 +135,6 @@ const CaptainSettings: React.FC<CaptainSettingsProps> = ({ profileId }) => {
                         <div>
                             <span className="text-slate-500">이메일</span>
                             <p className="text-slate-900">{profile.email || '미설정'}</p>
-                        </div>
-                        <div>
-                            <span className="text-slate-500">계정 유형</span>
-                            <Badge variant="outline">{profile.profile_type}</Badge>
                         </div>
                         <div>
                             <span className="text-slate-500">상태</span>

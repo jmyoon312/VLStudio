@@ -44,7 +44,7 @@ class PluggableBrainRouter:
         # Fallback to load any working cached brain if the active one fails
         for b_id, b_llm in self._brains_cache.items():
             if b_llm:
-                logger.warning(f"⚠️ Active brain {self.active_brain_id} failed. Falling back to cached brain {b_id}.")
+                logger.warning(f"[WARN] Active brain {self.active_brain_id} failed. Falling back to cached brain {b_id}.")
                 return b_llm
 
         raise ValueError(f"Failed to initialize brain '{self.active_brain_id}' and no cached fallbacks are available. Please configure API keys in Settings.")
@@ -83,7 +83,7 @@ class PluggableBrainRouter:
             provider = "openai"
             model_name = "gpt-4o"
         elif brain_id == "hermes":
-            provider = settings.hermes_agent_provider or "groq"
+            provider = settings.hermes_agent_provider or "nvidia"
             model_name = settings.hermes_agent_model or "hermes-v3"
         elif brain_id == "openhands":
             # For OpenHands, typically default to openclaude settings or sonnet
@@ -241,12 +241,12 @@ class PluggableBrainRouter:
                 )
 
             else:
-                logger.warning(f"⚠️ Unsupported LangChain provider: {provider}. Falling back to default OpenAI format.")
+                logger.warning(f"[WARN] Unsupported LangChain provider: {provider}. Falling back to default OpenAI format.")
                 # Fallback to direct ChatOpenAI
                 return ChatOpenAI(model=model_name, temperature=0.7)
 
         except Exception as e:
-            logger.error(f"❌ Failed to initialize LangChain model for provider '{provider}': {e}")
+            logger.error(f"[FAIL] Failed to initialize LangChain model for provider '{provider}': {e}")
             return None
 
 # Singleton instance

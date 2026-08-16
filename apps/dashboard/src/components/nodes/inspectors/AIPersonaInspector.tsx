@@ -34,8 +34,8 @@ const PERSONA_PRESETS = [
     },
     {
         id: "gen_z_explainer",
-        name: "Gen-Z Explainer (TikTok Style)",
-        prompt: "You are a energetic TikTok creator explaining a complex topic. Use slang (no cap, fr), quick cuts in writing style, and direct address to the audience ('Listen up!'). Keep it high energy and under 60 seconds reading time."
+        name: "Gen-Z Explainer (Music Style)",
+        prompt: "You are a energetic Music creator explaining a complex topic. Use slang (no cap, fr), quick cuts in writing style, and direct address to the audience ('Listen up!'). Keep it high energy and under 60 seconds reading time."
     }
 ];
 

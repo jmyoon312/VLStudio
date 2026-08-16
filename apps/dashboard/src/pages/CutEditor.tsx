@@ -31,6 +31,7 @@ import ExportModal, { ExportConfig } from '../components/ExportModal';
 import Draggable from 'react-draggable';
 import axios from 'axios';
 import html2canvas from 'html2canvas';
+import { useLocation } from 'react-router-dom';
 
 // Helper for downloading blobs without file-saver
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -60,6 +61,22 @@ const CutEditor = () => {
     const [activeSidebarTab, setActiveSidebarTab] = useState<string>('media');
     const timelineRef = useRef<HTMLDivElement>(null);
     const headerRef = useRef<HTMLDivElement>(null);
+    const location = useLocation();
+
+    // Intercept curation dashboard state
+    useEffect(() => {
+        if (location.state?.video) {
+            const video = location.state.video;
+            // Ensure we don't add it multiple times
+            const mainTrack = tracks.find(t => t.id === 'main-video');
+            if (mainTrack && mainTrack.clips.length === 0) {
+                toast.success(`로드됨: ${video.title}`);
+                // Dummy path for now, in real scenario we use video.video_path or downloaded URL
+                const sourcePath = video.video_path || video.url || "demo_video.mp4";
+                addClip('main-video', null, sourcePath, 'video', 0, 30);
+            }
+        }
+    }, [location.state]);
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => { if (headerRef.current) headerRef.current.scrollTop = e.currentTarget.scrollTop; };
     const handleHeaderWheel = (e: React.WheelEvent) => { if (timelineRef.current) timelineRef.current.scrollTop += e.deltaY; };
@@ -235,19 +252,19 @@ const CutEditor = () => {
         if (isPlaying) { lastTime = performance.now(); loop(); } else cancelAnimationFrame(raf!); return () => cancelAnimationFrame(raf);
     }, [isPlaying, duration]);
 
-    const sidebarItems = [{ id: 'media', label: 'Media', icon: FolderOpen }, { id: 'tts', label: 'TTS', icon: Mic }, { id: 'caption', label: 'Caption', icon: Subtitles }, { id: 'text', label: 'Text', icon: Type }, { id: 'audio', label: 'Audio', icon: Music }, { id: 'sticker', label: 'Sticker', icon: Sticker }, { id: 'effect', label: 'Effect', icon: Sparkles }, { id: 'stock', label: 'Stock', icon: ImageIcon }, { id: 'template', label: 'Template', icon: LayoutTemplate }];
+    const sidebarItems = [{ id: 'media', label: '미디어', icon: FolderOpen }, { id: 'tts', label: 'AI 음성', icon: Mic }, { id: 'caption', label: '자동 자막', icon: Subtitles }, { id: 'text', label: '텍스트', icon: Type }, { id: 'audio', label: '오디오', icon: Music }, { id: 'sticker', label: '스티커', icon: Sticker }, { id: 'effect', label: '효과', icon: Sparkles }, { id: 'stock', label: '스톡', icon: ImageIcon }, { id: 'template', label: '템플릿', icon: LayoutTemplate }];
 
     return (
         <div className="h-screen flex flex-col bg-background overflow-hidden text-foreground font-sans selection:bg-primary/20">
             <header className="h-12 border-b border-border bg-card flex items-center px-4 justify-between shadow-sm z-50 shrink-0">
                 <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold">SA</div>
+                    <span className="font-bold text-sm tracking-tight text-foreground">에이전트 컷 에디터</span>
                     <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
-                        <Button variant={canvasMode === 'shorts' ? 'default' : 'ghost'} size="sm" className={cn("h-7 px-3 text-xs", canvasMode === 'shorts' && "bg-primary text-primary-foreground")} onClick={() => { setCanvasMode('shorts'); setAspectRatio('9:16'); }}>Shorts</Button>
-                        <Button variant={canvasMode === 'wide' ? 'default' : 'ghost'} size="sm" className={cn("h-7 px-3 text-xs", canvasMode === 'wide' && "bg-primary text-primary-foreground")} onClick={() => { setCanvasMode('wide'); setAspectRatio('16:9'); }}>Wide</Button>
+                        <Button variant={canvasMode === 'shorts' ? 'default' : 'ghost'} size="sm" className={cn("h-7 px-3 text-xs", canvasMode === 'shorts' && "bg-primary text-primary-foreground")} onClick={() => { setCanvasMode('shorts'); setAspectRatio('9:16'); }}>쇼츠 (9:16)</Button>
+                        <Button variant={canvasMode === 'wide' ? 'default' : 'ghost'} size="sm" className={cn("h-7 px-3 text-xs", canvasMode === 'wide' && "bg-primary text-primary-foreground")} onClick={() => { setCanvasMode('wide'); setAspectRatio('16:9'); }}>와이드 (16:9)</Button>
                     </div>
                 </div>
-                <div className="flex items-center gap-2"><Button variant="outline" size="sm" className="h-8 border-border" onClick={() => setIsExportModalOpen(true)}>Export</Button><Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground">Save</Button></div>
+                <div className="flex items-center gap-2"><Button variant="outline" size="sm" className="h-8 border-border" onClick={() => setIsExportModalOpen(true)}>내보내기</Button><Button size="sm" className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground">저장</Button></div>
             </header>
 
             <div className="flex-1 flex overflow-hidden relative">
@@ -293,7 +310,7 @@ const CutEditor = () => {
                 </main>
 
                 <aside className="w-[380px] border-l border-border bg-card h-full overflow-y-auto z-20 shrink-0 shadow-lg">
-                    <div className="h-12 border-b border-border px-4 flex items-center font-semibold text-sm">Properties</div>
+                    <div className="h-12 border-b border-border px-4 flex items-center font-semibold text-sm">속성 (Properties)</div>
                     {selectedClipId ? <PropertyPanel /> : <div className="p-10 text-center text-muted-foreground text-sm">Select clip</div>}
                 </aside>
             </div >
@@ -306,12 +323,29 @@ const CutEditor = () => {
                 </div>
                 <div className="flex-1 flex overflow-hidden bg-muted/20">
                     <div ref={headerRef} className="w-[173px] shrink-0 bg-card border-r border-border flex flex-col" onWheel={handleHeaderWheel}><div className="h-8 border-b border-border bg-muted/30 shrink-0" /><div className="p-2 space-y-2">{tracks.map((t, i) => <div key={t.id} className="h-16 flex items-center px-2 text-xs bg-muted/40 border border-border rounded-lg"><div className="flex-1 min-w-0 flex gap-2 items-center">{t.type === 'video' ? <Video className="w-3.5 h-3.5 text-primary" /> : t.type === 'audio' ? <Volume2 className="w-3.5 h-3.5 text-emerald-500" /> : t.type === 'image' ? <ImageIcon className="w-3.5 h-3.5 text-orange-500" /> : <Type className="w-3.5 h-3.5 text-purple-500" />}<span className="truncate">{t.label}</span></div><div className="flex gap-1">{(t.type === 'video' || t.type === 'audio') && <button onClick={e => { e.stopPropagation(); toggleTrackMute(t.id) }} className="p-1 text-muted-foreground hover:text-foreground">{t.muted ? <VolumeX className="w-3 h-3 text-destructive" /> : <Volume2 className="w-3 h-3" />}</button>}<button onClick={e => { e.stopPropagation(); toggleTrackHide(t.id) }} className="p-1 text-muted-foreground hover:text-foreground">{t.hidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}</button><button onClick={e => { e.stopPropagation(); addTrack(t.type, i) }} className="p-1 text-muted-foreground hover:text-foreground"><Plus className="w-3 h-3" /></button>{!t.isDefault && <button onClick={e => { e.stopPropagation(); removeTrack(t.id) }} className="p-1 text-destructive hover:text-destructive/90"><Trash2 className="w-3 h-3" /></button>}</div></div>)}</div></div>
-                    <div ref={timelineRef} className="flex-1 overflow-auto relative" onScroll={handleScroll} onClick={handleTimelineClick} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const d = e.dataTransfer.getData('application/json'); if (d) addClip(null, null, JSON.parse(d).source, JSON.parse(d).type, Math.max(0, (e.clientX - timelineRef.current!.getBoundingClientRect().left + timelineRef.current!.scrollLeft) / scale)) }}>
+                    <div ref={timelineRef} className="flex-1 overflow-auto relative" onScroll={handleScroll} onClick={handleTimelineClick} onDragOver={e => e.preventDefault()} onDrop={e => { 
+                        e.preventDefault(); 
+                        const time = Math.max(0, (e.clientX - timelineRef.current!.getBoundingClientRect().left + timelineRef.current!.scrollLeft) / scale);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            Array.from(e.dataTransfer.files).forEach(file => {
+                                let t: any = 'video';
+                                if (file.type.startsWith('audio')) t = 'audio';
+                                if (file.type.startsWith('image')) t = 'image';
+                                addClip(null, file, null, t, time);
+                            });
+                            return;
+                        }
+                        const d = e.dataTransfer.getData('application/json'); 
+                        if (d) {
+                            const parsed = JSON.parse(d);
+                            addClip(null, null, parsed.source, parsed.type, time, undefined, undefined, undefined, parsed.source);
+                        }
+                    }}>
                         <div className="relative min-h-full" style={{ width: duration * scale + 500 }}>
                             <div className="h-8 border-b border-border bg-card sticky top-0 z-20 flex items-end">{Array.from({ length: Math.ceil(duration) + 5 }).map((_, i) => <div key={i} className="border-l border-border h-3 relative" style={{ width: scale }}><span className="absolute -top-4 left-1 text-[10px] text-muted-foreground">{i}s</span></div>)}</div>
                             <div className="absolute top-8 bottom-0 left-0 right-0 pointer-events-none">{Array.from({ length: Math.ceil(duration) + 5 }).map((_, i) => <div key={i} className="absolute top-0 bottom-0 border-l border-border/30" style={{ left: i * scale }} />)}</div>
                             <div className="absolute top-0 bottom-0 w-px bg-destructive z-50 pointer-events-none" style={{ transform: `translateX(${currentTime * scale}px)` }}><div className="absolute -top-1 -left-1.5 w-3 h-3 bg-destructive rotate-45" /><div className="absolute top-0 bottom-0 w-px bg-destructive/50" /></div>
-                            <div className="py-2 space-y-2 relative z-10">{tracks.map(t => <div key={t.id} data-track-id={t.id} className="h-16 relative bg-muted/10 rounded-lg border border-border">{t.clips.map(c => <ClipItem key={c.id} clip={c} track={t} scale={scale} selectedClipId={selectedClipId} onDrag={(tr: string, cl: string, d: any, tg: any) => moveClip(tr, cl, Math.max(0, d.x / scale), tg)} onSelect={setSelectedClipId} onResize={resizeClip} />)}</div>)}</div>
+                            <div className="py-2 space-y-2 relative z-10">{tracks.map(t => <div key={t.id} data-track-id={t.id} className="h-16 relative bg-muted/10 rounded-lg border border-border">{t.clips.map(c => <ClipItem key={c.id} clip={c} track={t} scale={scale} selectedClipId={selectedClipId} activeTool={activeTool} onDrag={(tr: string, cl: string, d: any, tg: any) => moveClip(tr, cl, Math.max(0, d.x / scale), tg)} onSelect={setSelectedClipId} onResize={resizeClip} onSplit={splitClip} />)}</div>)}</div>
                         </div>
                     </div>
                 </div>
@@ -322,10 +356,10 @@ const CutEditor = () => {
         </div >
     );
 };
-const ClipItem: React.FC<any> = ({ clip, track, scale, selectedClipId, onDrag, onSelect, onResize }) => {
+const ClipItem: React.FC<any> = ({ clip, track, scale, selectedClipId, activeTool, onDrag, onSelect, onResize, onSplit }) => {
     const nodeRef = useRef(null);
-    return <Draggable nodeRef={nodeRef} grid={[1, 1]} position={{ x: clip.start * scale, y: 0 }} onStop={(e, d) => { const m = e as MouseEvent; const tg = document.elementsFromPoint(m.clientX, m.clientY).find(el => el.hasAttribute('data-track-id'))?.getAttribute('data-track-id'); onDrag(track.id, clip.id, d, tg) }} disabled={track.locked}>
-        <div ref={nodeRef} className={cn("absolute top-1 bottom-1 rounded border cursor-pointer", selectedClipId === clip.id ? "ring-2 ring-primary z-20" : "z-10", clip.type === 'video' ? "bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300" : clip.type === 'audio' ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300" : "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300")} style={{ width: clip.duration * scale }} onClick={e => { e.stopPropagation(); onSelect(clip.id) }}>
+    return <Draggable nodeRef={nodeRef} grid={[1, 1]} position={{ x: clip.start * scale, y: 0 }} onStop={(e, d) => { const m = e as MouseEvent; const tg = document.elementsFromPoint(m.clientX, m.clientY).find(el => el.hasAttribute('data-track-id'))?.getAttribute('data-track-id'); onDrag(track.id, clip.id, d, tg) }} disabled={track.locked || activeTool === 'split'}>
+        <div ref={nodeRef} className={cn("absolute top-1 bottom-1 rounded border", activeTool === 'split' ? "cursor-crosshair" : "cursor-pointer", selectedClipId === clip.id ? "ring-2 ring-primary z-20" : "z-10", clip.type === 'video' ? "bg-blue-500/15 border-blue-500/30 text-blue-700 dark:text-blue-300" : clip.type === 'audio' ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300" : "bg-purple-500/15 border-purple-500/30 text-purple-700 dark:text-purple-300")} style={{ width: clip.duration * scale }} onClick={e => { e.stopPropagation(); if (activeTool === 'split') { const rect = e.currentTarget.getBoundingClientRect(); const clickX = e.clientX - rect.left; const splitTime = clip.start + (clickX / scale); onSplit(track.id, clip.id, splitTime); } else { onSelect(clip.id); } }}>
             <div className="px-2 py-1 text-xs truncate">{clip.name}</div>
             {selectedClipId === clip.id && <><div className="absolute left-0 top-0 bottom-0 w-3 cursor-w-resize z-30 flex items-center justify-center hover:bg-black/10" onMouseDown={e => {
                 e.preventDefault(); e.stopPropagation(); const startX = e.clientX; const initStart = clip.start; const initDur = clip.duration; const initTrim = clip.trimStart;

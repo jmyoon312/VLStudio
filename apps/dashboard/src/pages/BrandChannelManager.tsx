@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
     Sheet,
     SheetContent,
@@ -125,45 +126,70 @@ const BrandChannelManager = () => {
 
     return (
         <div className="p-6 space-y-8 max-w-7xl mx-auto bg-background text-foreground min-h-screen">
-            {/* Header */}
-            {/* Header Actions Only */}
-            <div className="flex justify-end items-center gap-3">
-                <Button variant="outline" onClick={() => handleOAuth('worker')} className="gap-2">
-                    <UserCheck className="w-4 h-4" /> Add Worker Account
-                </Button>
-                <Button onClick={() => handleOAuth('channel')} className="gap-2 bg-primary hover:bg-primary-hover text-primary-foreground">
-                    <ShieldCheck className="w-4 h-4" /> Connect Brand Channel
-                </Button>
-            </div>
-
-            {/* Workers Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {activeWorkers.map(({ worker, channels }) => (
-                    <WorkerCard
-                        key={worker.id}
-                        worker={worker}
-                        channels={channels}
-                        onUnlink={() => handleDeleteWorker(worker.id)}
-                        onReauth={() => handleOAuth('worker', worker.email)}
-                        onDeleteChannel={handleDeleteChannel}
-                        onUpdateChannel={async (id, data) => {
-                            await updateBrandChannel(id, data);
-                            queryClient.invalidateQueries({ queryKey: ['brand-channels'] });
-                        }}
-                    />
-                ))}
-            </div>
-
-            {activeWorkers.length === 0 && (
-                <div className="text-center py-20 bg-muted/30 rounded-xl border border-dashed border-border">
-                    <UserCheck className="w-12 h-12 text-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-foreground">No Workers Connected</h3>
-                    <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                        Connect a Google Workspace/Gmail account to start managing API quotas and uploading videos.
-                    </p>
-                    <Button onClick={() => handleOAuth('worker')}>Connect First Worker</Button>
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                    <ShieldCheck className="w-6 h-6 text-primary" /> Channel Manager
+                </h1>
+                <div className="flex justify-end items-center gap-3">
+                    <Button variant="outline" onClick={() => handleOAuth('worker')} className="gap-2">
+                        <UserCheck className="w-4 h-4" /> Add Worker Account
+                    </Button>
+                    <Button onClick={() => handleOAuth('channel')} className="gap-2 bg-primary hover:bg-primary-hover text-primary-foreground">
+                        <ShieldCheck className="w-4 h-4" /> Connect Brand Channel
+                    </Button>
                 </div>
-            )}
+            </div>
+
+            <Tabs defaultValue="workers" className="w-full">
+                <TabsList className="mb-6">
+                    <TabsTrigger value="workers">My Brand Channels</TabsTrigger>
+                    <TabsTrigger value="competitors">Competitor/Reference Channels</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="workers" className="space-y-8">
+                    {/* Workers Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {activeWorkers.map(({ worker, channels }) => (
+                            <WorkerCard
+                                key={worker.id}
+                                worker={worker}
+                                channels={channels}
+                                onUnlink={() => handleDeleteWorker(worker.id)}
+                                onReauth={() => handleOAuth('worker', worker.email)}
+                                onDeleteChannel={handleDeleteChannel}
+                                onUpdateChannel={async (id, data) => {
+                                    await updateBrandChannel(id, data);
+                                    queryClient.invalidateQueries({ queryKey: ['brand-channels'] });
+                                }}
+                            />
+                        ))}
+                    </div>
+
+                    {activeWorkers.length === 0 && (
+                        <div className="text-center py-20 bg-muted/30 rounded-xl border border-dashed border-border">
+                            <UserCheck className="w-12 h-12 text-foreground mx-auto mb-4" />
+                            <h3 className="text-lg font-medium text-foreground">No Workers Connected</h3>
+                            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                                Connect a Google Workspace/Gmail account to start managing API quotas and uploading videos.
+                            </p>
+                            <Button onClick={() => handleOAuth('worker')}>Connect First Worker</Button>
+                        </div>
+                    )}
+                </TabsContent>
+
+                <TabsContent value="competitors" className="space-y-6">
+                    <div className="bg-card border border-border rounded-xl p-8 text-center">
+                        <AlertTriangle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-medium">Reference Channels Tracker</h3>
+                        <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+                            Channels added from the Outlier Radar will appear here. The system monitors these channels for new viral shorts and trending formats.
+                        </p>
+                        <Button variant="outline" className="mt-6" onClick={() => window.location.href = '/dashboard'}>
+                            Go to Radar
+                        </Button>
+                    </div>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 };

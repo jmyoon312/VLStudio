@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Newspaper, Youtube, CheckCircle, Loader2 } from 'lucide-react';
+import { Newspaper, PlaySquare, CheckCircle, Loader2 } from 'lucide-react';
 import api from '../../../lib/api';
 
 interface DistributionInspectorProps {
@@ -81,7 +81,7 @@ const DistributionInspector: React.FC<DistributionInspectorProps> = ({ node, upd
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <Youtube className="w-4 h-4 text-red-500" />
+                                            <PlaySquare className="w-4 h-4 text-red-500" />
                                             <span className="text-sm font-medium">{channel.name}</span>
                                         </div>
                                         {selectedChannels.includes(channel.id) && (
@@ -93,7 +93,7 @@ const DistributionInspector: React.FC<DistributionInspectorProps> = ({ node, upd
 
                             {channels.length === 0 && (
                                 <div className="text-center py-8 text-slate-600">
-                                    <Youtube className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                    <PlaySquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
                                     <p className="text-sm">등록된 채널이 없습니다</p>
                                 </div>
                             )}

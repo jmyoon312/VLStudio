@@ -12,7 +12,8 @@ import {
     Zap, Rocket, Share2, UploadCloud, Swords, Edit, Mic,
     Languages, Wand2, Scissors, Eraser, Globe, Search,
     BarChart3, Shield, Users, Radio, Settings, GraduationCap,
-    Activity, FileText, Moon, Sun, LayoutDashboard, Clapperboard
+    Activity, FileText, Moon, Sun, LayoutDashboard, Clapperboard,
+    Music2, Tag
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useTheme } from './theme-provider';
@@ -45,8 +46,16 @@ const CaptainQuarters    = lazy(() => import('../pages/CaptainQuarters'));
 const ResourceGuidePage  = lazy(() => import('../pages/ResourceGuidePage'));
 const VirtualStudio      = lazy(() => import('../pages/VirtualStudio'));
 const Gallery            = lazy(() => import('./Gallery'));
+const Discovery          = lazy(() => import('./Discovery'));
+const DiscoveryChannelDetail = lazy(() => import('./DiscoveryChannelDetail'));
+const HotVideos          = lazy(() => import('./HotVideos'));
+const Rookies            = lazy(() => import('./Rookies'));
+const Watchlist          = lazy(() => import('./Watchlist'));
 const SettingsPage       = lazy(() => import('./Settings'));
 const DirectDownload     = lazy(() => import('./DirectDownload'));
+const ChannelExplorer    = lazy(() => import('../pages/ChannelExplorer'));
+const TrendingCategories = lazy(() => import('../pages/TrendingCategories'));
+const ShortsBgmExplorer  = lazy(() => import('../pages/ShortsBgmExplorer'));
 
 // ───────────────────────────────────────────────
 // 메뉴 구조 (Layout.tsx와 동일)
@@ -77,13 +86,16 @@ const MENU_GROUPS = [
         ],
     },
     {
-        title: '채널 & 성장',
+        title: '접속 & 성장',
         items: [
-            { name: '키워드 탐색기',  path: '/keyword-explorer', icon: Search },
-            { name: '리포트',         path: '/reports',          icon: BarChart3 },
-            { name: '계정 관리자',    path: '/account-manager',  icon: Shield },
-            { name: '채널 관리자',    path: '/channels',         icon: Users },
-            { name: '스테이션 관리자',path: '/station-manager',  icon: Radio },
+            { name: '키워드 탐색기',  path: '/keyword-explorer',     icon: Search },
+            { name: '채널 디스커버리', path: '/channel-explorer',    icon: Users },
+            { name: '트렌딩 카테고리', path: '/trending-categories', icon: Tag },
+            { name: '쇼츠 BGM 차트',     path: '/shorts-bgm',           icon: Music2 },
+            { name: '리포트',         path: '/reports',              icon: BarChart3 },
+            { name: '계정 관리자',    path: '/account-manager',      icon: Shield },
+            { name: '채널 관리자',    path: '/channels',             icon: Users },
+            { name: '스테이션 관리자',path: '/station-manager',      icon: Radio },
         ],
     },
     {
@@ -209,6 +221,9 @@ function EmbeddedRoutes() {
                     <Route path="/remover"             element={<RemoverEditor />} />
                     <Route path="/custom-menu"         element={<CustomMenu />} />
                     <Route path="/keyword-explorer"    element={<KeywordExplorer />} />
+                    <Route path="/channel-explorer"    element={<ChannelExplorer />} />
+                    <Route path="/trending-categories" element={<TrendingCategories />} />
+                    <Route path="/shorts-bgm"          element={<ShortsBgmExplorer />} />
                     <Route path="/reports"             element={<ReportsPage />} />
                     <Route path="/account-manager"     element={<AccountManager />} />
                     <Route path="/channels"            element={<AccountManager />} />
@@ -222,6 +237,11 @@ function EmbeddedRoutes() {
                     <Route path="/resource-guide"      element={<ResourceGuidePage />} />
                     <Route path="/virtual-studio"      element={<VirtualStudio />} />
                     <Route path="/gallery"             element={<Gallery />} />
+                    <Route path="/discovery"           element={<Discovery />} />
+                    <Route path="/discovery/:channelId" element={<DiscoveryChannelDetail />} />
+
+                    <Route path="/rookies"             element={<Rookies />} />
+                    <Route path="/watchlist"           element={<Watchlist />} />
                     <Route path="/settings"            element={<SettingsPage />} />
                     <Route path="/download"            element={<DirectDownload />} />
                     {/* 매칭 없으면 홈 */}

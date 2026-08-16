@@ -17,7 +17,7 @@ import {
     Zap,
     Layout,
     ArrowRight,
-    Youtube,
+    PlaySquare,
     CheckCircle2,
     Lock,
     Users
@@ -121,7 +121,7 @@ const ResourceGuidePage = () => {
                                         {/* YouTube Node */}
                                         <div className="flex flex-col items-center gap-2 text-center p-4 bg-card rounded-lg shadow-sm border border-border w-full md:w-auto">
                                             <Badge variant="outline" className="mb-2 border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400">Target</Badge>
-                                            <Youtube className="w-10 h-10 text-red-600 dark:text-red-400" />
+                                            <PlaySquare className="w-10 h-10 text-red-600 dark:text-red-400" />
                                             <div className="flex flex-col">
                                                 <span className="font-bold text-foreground">YouTube</span>
                                                 <span className="text-xs text-muted-foreground">Platform</span>

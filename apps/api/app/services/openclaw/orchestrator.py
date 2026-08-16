@@ -38,7 +38,7 @@ class OpenClawOrchestrator:
         with SessionLocal() as db:
             from ... import crud
             db_settings = crud.get_settings(db)
-            provider = db_settings.hermes_agent_provider or "groq"
+            provider = db_settings.hermes_agent_provider or "nvidia"
             model = db_settings.hermes_agent_model or "llama-3.3-70b-versatile"
             
             if "/" not in model and provider != "auto":
@@ -92,11 +92,11 @@ class OpenClawOrchestrator:
                     session.status = "QUEUED"
                     db.commit()
             
-            logger.info(f"✅ [Orchestrator] Mission successfully queued: {session_id}")
+            logger.info(f"[OK] [Orchestrator] Mission successfully queued: {session_id}")
             return session_id
             
         except Exception as e:
-            logger.error(f"❌ [Orchestrator] Failed to queue mission: {e}")
+            logger.error(f"[FAIL] [Orchestrator] Failed to queue mission: {e}")
             with SessionLocal() as db:
                 session = db.query(models.AgentSwarmSession).filter(models.AgentSwarmSession.id == session_id).first()
                 if session:

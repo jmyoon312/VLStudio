@@ -203,6 +203,7 @@ async def render_remotion(request: Request, body: Dict[str, Any]):
 
     # Build LLM callable that bridges to the configured Gemini/OpenAI model
     def _llm_proxy(system_prompt: str, user_msg: str) -> str:
+        import base64
         from app import crud
         from app.database import SessionLocal as _SL
         with _SL() as _db:
@@ -232,7 +233,7 @@ async def render_remotion(request: Request, body: Dict[str, Any]):
         final_path = await harness.run_async(scene_data=props, output_path=output_path)
         return {"status": "success", "file_path": final_path, "self_healed": True}
     except RuntimeError as e:
-        logger.error(f"❌ [Bridge] Terminal render failure after all retries: {e}")
+        logger.error(f"[FAIL] [Bridge] Terminal render failure after all retries: {e}")
         raise HTTPException(status_code=500, detail=f"Render failed after retries: {str(e)[:300]}")
 
 @router.post("/trim")
@@ -254,7 +255,7 @@ async def trim_video(request: TrimRequest):
         actual_path = potential_path
 
     if not os.path.exists(actual_path):
-        print(f"❌ [Bridge] File not found: {actual_path} (Original: {request.file_path})")
+        print(f"[FAIL] [Bridge] File not found: {actual_path} (Original: {request.file_path})")
         raise HTTPException(status_code=404, detail=f"File not found: {actual_path}")
     
     try:
@@ -287,7 +288,7 @@ async def trim_video(request: TrimRequest):
         
         return {"status": "success", "file_path": out_path, "duration": request.duration}
     except Exception as e:
-        print(f"❌ [Bridge] Trim error: {str(e)}")
+        print(f"[FAIL] [Bridge] Trim error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate-asset")
@@ -423,7 +424,7 @@ async def generate_asset(request: AssetGenerateRequest):
         result = await asset_factory.generate_colab_asset(request.type, request.prompt, request.config)
         return result
     except Exception as e:
-        logger.error(f"❌ [Bridge] Generation Failed: {e}")
+        logger.error(f"[FAIL] [Bridge] Generation Failed: {e}")
         raise HTTPException(status_code=500, detail=f"Bridge generation error: {str(e)}")
 
 @router.post("/n8n-trigger")
@@ -786,7 +787,7 @@ async def get_channel_dna(
                         db.commit()
                         db.refresh(channel)
                 else:
-                    logger.warning(f"⚠️ [DNA Bridge] No video files found for reference channel {ref_id}")
+                    logger.warning(f"[WARN] [DNA Bridge] No video files found for reference channel {ref_id}")
 
             except Exception as e:
                 logger.error(f"DNA Sync Failed: {e}")
@@ -934,6 +935,7 @@ async def bridge_generate_script(request: ScriptGenerateRequest, db: Session = D
             raise HTTPException(status_code=503, detail="MCP Server not initialized")
             
         from app.llm_manager import LLMClient
+        import base64
         from app import crud
         from app.schemas import Settings as SettingsSchema
         
@@ -980,4 +982,122 @@ async def bridge_render_shorts(request: RenderShortsRequest):
     except Exception as e:
         logger.error(f"Bridge Render Shorts Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi.responses import JSONResponse
+import uuid
+from datetime import datetime
+
+@router.post("/llm_proxy/v1/chat/completions")
+async def bridge_llm_proxy(request: Request, db: Session = Depends(get_db)):
+    import base64
+    """
+    OpenAI-compatible /chat/completions endpoint that routes requests through
+    VLStudio's configured LLM settings. This is used by external tools like Ddalkkak
+    to seamlessly use the user's preferred AI model.
+    """
+    try:
+        body = await request.json()
+        messages = body.get("messages", [])
+        
+        system_instruction = None
+        prompt_parts = []
+        images = []
+        
+        for msg in messages:
+            role = msg.get("role")
+            content = msg.get("content", "")
+            
+            if role == "system":
+                system_instruction = content if isinstance(content, str) else str(content)
+            elif role == "user":
+                if isinstance(content, str):
+                    prompt_parts.append(content)
+                elif isinstance(content, list):
+                    for part in content:
+                        if part.get("type") == "text":
+                            prompt_parts.append(part.get("text", ""))
+                        elif part.get("type") == "image_url":
+                            url = part.get("image_url", {}).get("url", "")
+                            if url.startswith("data:"):
+                                mime, b64 = url.split(";base64,", 1)
+                                mime = mime.replace("data:", "")
+                                images.append({"mime_type": mime, "data": base64.b64decode(b64)})
+        
+        prompt = " ".join(prompt_parts)
+        
+        is_json_mode = body.get("response_format", {}).get("type") == "json_object"
+        if is_json_mode:
+            json_instruction = "IMPORTANT: You MUST return ONLY valid JSON. Do not include markdown formatting or any other text. Output RAW JSON ONLY."
+            if system_instruction:
+                system_instruction += "\n\n" + json_instruction
+            else:
+                system_instruction = json_instruction
+
+        # 1. Get settings and init LLMClient
+        from app import crud
+        from app.schemas import Settings as SettingsSchema
+        
+        db_settings = crud.get_settings(db)
+        if not db_settings:
+            db_settings = crud.create_settings(db, SettingsSchema())
+        
+        requested_model = body.get("model", "")
+        auth_header = request.headers.get("Authorization", "")
+        bearer_token = auth_header.replace("Bearer ", "").strip() if "Bearer " in auth_header else None
+        
+        # Determine the model to use
+        if requested_model == "youtube1":
+            model_name = "youtube1/youtube1"
+            if bearer_token:
+                # Override DB settings so llm_manager uses the token from Ddalkkak
+                db_settings.youtube1_api_keys = [bearer_token]
+        else:
+            model_name = getattr(db_settings, "default_llm_model", None)
+            if not model_name:
+                model_name = "auto"
+            
+        llm = LLMClient(db_settings)
+        
+        # 2. Call generate_content
+        logger.info(f"🤖 [Bridge LLM Proxy] Forwarding request to model: {model_name}")
+        response_text = llm.generate_content(
+            prompt=prompt, 
+            model_name=model_name, 
+            system_instruction=system_instruction, 
+            full_response=False, 
+            images=images if images else None
+        )
+        
+        # if response is dictionary, stringify it
+        if isinstance(response_text, dict):
+            response_text = json.dumps(response_text, ensure_ascii=False)
+            
+        if isinstance(response_text, str) and response_text.startswith("ERROR:"):
+            logger.error(f"Bridge LLM generation failed: {response_text}")
+            return JSONResponse({"error": {"message": response_text, "type": "server_error"}}, status_code=500)
+            
+        # 3. Format as OpenAI Response
+        return JSONResponse({
+            "id": f"chatcmpl-bridge-{uuid.uuid4().hex[:8]}",
+            "object": "chat.completion",
+            "created": int(datetime.now().timestamp()),
+            "model": body.get("model", "default-model"),
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": response_text
+                },
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"LLM Proxy Error: {e}")
+        return JSONResponse({"error": {"message": str(e), "type": "server_error"}}, status_code=500)
 

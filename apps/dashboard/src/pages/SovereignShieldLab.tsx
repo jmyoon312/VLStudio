@@ -1,92 +1,335 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ShieldAlert, Sparkles, HelpCircle, ArrowRight, ShieldCheck, Download, AlertTriangle, FileVideo, RefreshCw, Zap, ShieldAlert as AlertIcon, Sliders, CheckCircle } from 'lucide-react';
+import {
+    Loader2, ShieldAlert, HelpCircle, ShieldCheck, Download,
+    AlertTriangle, FileVideo, RefreshCw, Zap, CheckCircle,
+    Activity, BarChart3, Lock, ArrowRightLeft, FlaskConical,
+    GitBranch, Fingerprint, ScanLine, Volume2, Settings2,
+    AudioWaveform, Cpu, Database, Layers, Sparkles, Play,
+    Pause, ChevronDown, ChevronRight,
+} from 'lucide-react';
 import axios from 'axios';
 
-interface MemoryCache {
-    file: File | null;
-    resultUrl: string | null;
-    resultPath: string | null;
-    statusMessage: string;
-    mutationIntensity: string;
-    channelId: string;
-    extraPitchShift: boolean;
-    extraMicroZoom: boolean;
-    extraFrameDrop: boolean;
-    extraColorDither: boolean;
-    extraApplied: boolean;
+// ──────────────────────────────────────────────────────────
+// 타입
+// ──────────────────────────────────────────────────────────
+interface MutationLayer {
+    id: string;
+    label: string;
+    value: string;
+    effect: string;
+    category: '비디오' | '오디오' | '메타데이터' | '구조';
+}
+interface MutationReport {
+    seed: number;
+    channel_id: string;
+    intensity: number;
+    device_profile: { make: string; model: string; software: string; handler: string; creation_time: string };
+    gop_size: number;
+    audio_rate: number;
+    noise_strength: number;
+    gamma: number;
+    saturation: number;
+    applied_layers: MutationLayer[];
+    layer_count: number;
+    ffmpeg_vf: string;
+    ffmpeg_af: string;
+}
+interface AnalysisItem {
+    id: string;
+    label: string;
+    category: string;
+    original_val: string;
+    mutated_val: string;
+    diff_score: number;
+    status: string;
+    sufficient: boolean;
+    extra_key: string | null;
+    description: string;
+}
+interface CompareResult {
+    file_hash: { original: string; mutated: string; is_different: boolean };
+    metadata: { original: Record<string, any>; mutated: Record<string, any> };
+    video_phash_similarity: number;
+    audio: { similarity_pct: number; sample_rate_a: number; sample_rate_b: number; spectral_centroid_a: number; spectral_centroid_b: number; centroid_diff_pct: number };
+    analysis_items: AnalysisItem[];
+    overall_evasion_score: number;
+    insufficient_items: string[];
 }
 
-const defaultChannelId = `ch_seed_${Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+// ──────────────────────────────────────────────────────────
+// 유틸
+// ──────────────────────────────────────────────────────────
+const defaultSeed = () =>
+    `ch_seed_${Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
 
-let memoryCache: MemoryCache = {
-    file: null,
-    resultUrl: null,
-    resultPath: null,
-    statusMessage: '',
-    mutationIntensity: '0.5',
-    channelId: defaultChannelId,
-    extraPitchShift: false,
-    extraMicroZoom: false,
-    extraFrameDrop: false,
-    extraColorDither: false,
-    extraApplied: false,
+const catColor: Record<string, string> = {
+    '비디오':    'bg-sky-100 text-sky-700',
+    '오디오':    'bg-indigo-100 text-indigo-700',
+    '메타데이터':'bg-emerald-100 text-emerald-700',
+    '구조':      'bg-amber-100 text-amber-700',
+};
+const catIcon: Record<string, React.ReactNode> = {
+    '비디오':    <ScanLine className="w-3.5 h-3.5" />,
+    '오디오':    <Volume2 className="w-3.5 h-3.5" />,
+    '메타데이터':<Database className="w-3.5 h-3.5" />,
+    '구조':      <GitBranch className="w-3.5 h-3.5" />,
 };
 
-const SovereignShieldLab = () => {
-    const [file, setFileState] = useState<File | null>(memoryCache.file);
-    const [loading, setLoading] = useState(false);
-    const [resultUrl, setResultUrlState] = useState<string | null>(memoryCache.resultUrl);
-    const [resultPath, setResultPathState] = useState<string | null>(memoryCache.resultPath);
-    const [statusMessage, setStatusMessageState] = useState<string>(memoryCache.statusMessage);
+const StatusBadge = ({ status }: { status: string }) => {
+    if (status === '충분') return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><CheckCircle className="w-2.5 h-2.5"/>충분</span>;
+    if (status === '부분') return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"><AlertTriangle className="w-2.5 h-2.5"/>부분</span>;
+    return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700"><AlertTriangle className="w-2.5 h-2.5"/>{status}</span>;
+};
 
-    // Mutation Settings
-    const [mutationIntensity, setMutationIntensityState] = useState(memoryCache.mutationIntensity);
-    const [channelId, setChannelIdState] = useState(memoryCache.channelId);
+const ScoreBar = ({ score, sufficient }: { score: number; sufficient: boolean }) => (
+    <div className="flex flex-col items-center gap-1 min-w-[80px]">
+        <span className={`text-xs font-black ${sufficient ? 'text-emerald-600' : score > 30 ? 'text-amber-600' : 'text-rose-500'}`}>
+            {Math.min(score, 100).toFixed(0)}%
+        </span>
+        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-700 ${sufficient ? 'bg-emerald-500' : score > 30 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                 style={{ width: `${Math.min(score, 100)}%` }} />
+        </div>
+    </div>
+);
 
-    // Extra Actions State (if analysis is insufficient)
-    const [extraPitchShift, setExtraPitchShiftState] = useState(memoryCache.extraPitchShift);
-    const [extraMicroZoom, setExtraMicroZoomState] = useState(memoryCache.extraMicroZoom);
-    const [extraFrameDrop, setExtraFrameDropState] = useState(memoryCache.extraFrameDrop);
-    const [extraColorDither, setExtraColorDitherState] = useState(memoryCache.extraColorDither);
-    const [applyingExtra, setApplyingExtra] = useState(false);
-    const [extraApplied, setExtraAppliedState] = useState(memoryCache.extraApplied);
-    const [showDefenseStrategy, setShowDefenseStrategy] = useState(false);
+// 안전한 동기 재생 헬퍼
+const safeSyncPlay = async (a: HTMLVideoElement | null, b: HTMLVideoElement | null) => {
+    if (!a || !b) return;
+    try {
+        a.currentTime = 0;
+        b.currentTime = 0;
+        await Promise.all([a.play(), b.play()]);
+    } catch (err: any) {
+        if (err?.name !== 'AbortError') console.warn('Sync play error:', err);
+    }
+};
 
-    // Sync helpers
-    const setFile = (val: File | null) => { memoryCache.file = val; setFileState(val); };
-    const setResultUrl = (val: string | null) => { memoryCache.resultUrl = val; setResultUrlState(val); };
-    const setResultPath = (val: string | null) => { memoryCache.resultPath = val; setResultPathState(val); };
-    const setStatusMessage = (val: string) => { memoryCache.statusMessage = val; setStatusMessageState(val); };
-    const setMutationIntensity = (val: string) => { memoryCache.mutationIntensity = val; setMutationIntensityState(val); };
-    const setChannelId = (val: string) => { memoryCache.channelId = val; setChannelIdState(val); };
-    const setExtraPitchShift = (val: boolean) => { memoryCache.extraPitchShift = val; setExtraPitchShiftState(val); };
-    const setExtraMicroZoom = (val: boolean) => { memoryCache.extraMicroZoom = val; setExtraMicroZoomState(val); };
-    const setExtraFrameDrop = (val: boolean) => { memoryCache.extraFrameDrop = val; setExtraFrameDropState(val); };
-    const setExtraColorDither = (val: boolean) => { memoryCache.extraColorDither = val; setExtraColorDitherState(val); };
-    const setExtraApplied = (val: boolean) => { memoryCache.extraApplied = val; setExtraAppliedState(val); };
+// ──────────────────────────────────────────────────────────
+// Toast
+// ──────────────────────────────────────────────────────────
+const Toast = ({ msg }: { msg: string }) => msg ? (
+    <div className="fixed top-5 right-5 z-[300] bg-slate-900 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-2xl animate-in slide-in-from-top-3 duration-300 flex items-center gap-2.5">
+        <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />{msg}
+    </div>
+) : null;
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0]);
-            setResultUrl(null);
-            setResultPath(null);
-            setStatusMessage('');
-            setExtraApplied(false);
-            setExtraPitchShift(false);
-            setExtraMicroZoom(false);
-            setExtraFrameDrop(false);
-            setExtraColorDither(false);
-        }
-    };
+// ──────────────────────────────────────────────────────────
+// 변조 완료 보고서 컴포넌트
+// ──────────────────────────────────────────────────────────
+const MutationReportPanel = ({ report, analysis }: { report: MutationReport, analysis?: any }) => {
+    const [expanded, setExpanded] = useState(true);
+    const [showCmd, setShowCmd] = useState(false);
 
-    const handleOpenFolder = () => {
-        if (resultPath && (window as any).electronAPI?.showInFolder) {
-            (window as any).electronAPI.showInFolder(resultPath);
-        }
+    const byCategory = report.applied_layers.reduce((acc, l) => {
+        if (!acc[l.category]) acc[l.category] = [];
+        acc[l.category].push(l);
+        return acc;
+    }, {} as Record<string, MutationLayer[]>);
+
+    return (
+        <Card className="border border-emerald-200 bg-emerald-50/30 shadow-sm mt-4">
+            {analysis && (
+                <div className="p-4 border-b border-emerald-100 bg-white rounded-t-xl flex items-center justify-between">
+                    <div>
+                        <p className="text-xs font-bold text-slate-500 mb-1">유튜브 연좌제 방어 / 저작권 회피 시뮬레이션 결과</p>
+                        {analysis.overall_evasion_score >= 80 ? (
+                            <p className="text-sm font-bold text-emerald-600 flex items-center gap-1.5">
+                                <ShieldCheck className="w-5 h-5"/> 안전 (Safe) — 핑거프린팅 시스템이 완전히 새로운 영상으로 인식합니다.
+                            </p>
+                        ) : analysis.overall_evasion_score >= 50 ? (
+                            <p className="text-sm font-bold text-amber-500 flex items-center gap-1.5">
+                                <ShieldAlert className="w-5 h-5"/> 주의 (Warning) — 일부 메타데이터나 특징이 남아있을 수 있습니다.
+                            </p>
+                        ) : (
+                            <p className="text-sm font-bold text-rose-500 flex items-center gap-1.5">
+                                <AlertTriangle className="w-5 h-5"/> 위험 (Danger) — 원본 영상과 매우 유사하여 제재 대상이 될 수 있습니다.
+                            </p>
+                        )}
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] text-slate-400">종합 회피율</p>
+                        <p className={`text-3xl font-black ${analysis.overall_evasion_score >= 80 ? 'text-emerald-500' : analysis.overall_evasion_score >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>
+                            {analysis.overall_evasion_score}%
+                        </p>
+                    </div>
+                </div>
+            )}
+            <button
+                className="w-full flex items-center justify-between p-4 hover:bg-emerald-50/60 transition-colors"
+                onClick={() => setExpanded(!expanded)}
+            >
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-600 rounded-xl text-white">
+                        <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                        <p className="text-sm font-bold text-emerald-900">
+                            ✅ 변조 완료 — {report.layer_count}개 레이어 적용됨
+                        </p>
+                        <p className="text-xs text-emerald-700">
+                            채널 시드: <code className="font-mono">{report.channel_id}</code> · 세기: {report.intensity} · 장비: {report.device_profile.make} {report.device_profile.model}
+                        </p>
+                    </div>
+                </div>
+                {expanded ? <ChevronDown className="w-4 h-4 text-emerald-600" /> : <ChevronRight className="w-4 h-4 text-emerald-600" />}
+            </button>
+
+            {expanded && (
+                <div className="px-4 pb-5 space-y-4">
+                    {/* 핵심 수치 */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                            { label: '프레임 노이즈 강도', value: `${report.noise_strength}`, unit: '/8 max' },
+                            { label: 'GOP 구조', value: `${report.gop_size} 프레임`, unit: '' },
+                            { label: '오디오 샘플레이트', value: `${report.audio_rate.toLocaleString()}`, unit: 'Hz' },
+                            { label: '감마 조율', value: `γ=${report.gamma}`, unit: '' },
+                        ].map(item => (
+                            <div key={item.label} className="bg-white rounded-xl border border-emerald-100 p-3">
+                                <p className="text-[10px] text-slate-500 font-medium">{item.label}</p>
+                                <p className="text-sm font-black text-emerald-700 mt-0.5">{item.value}<span className="text-[10px] font-normal ml-0.5 text-slate-400">{item.unit}</span></p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {analysis && (
+                        <div className="bg-white rounded-xl border border-emerald-100 p-4">
+                            <p className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+                                <ArrowRightLeft className="w-4 h-4 text-indigo-600"/>📊 원본 vs 변조 상세 수치 비교 (Evasion Metrics)
+                            </p>
+                            <div className="overflow-x-auto rounded-lg border border-slate-100">
+                                <table className="min-w-full divide-y divide-slate-100 text-xs">
+                                    <thead className="bg-slate-50 text-slate-500 font-semibold">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left">분석 항목</th>
+                                            <th className="px-3 py-2 text-left">원본값</th>
+                                            <th className="px-3 py-2 text-left text-indigo-600">변조 후 수치</th>
+                                            <th className="px-3 py-2 text-center w-[70px]">상태</th>
+                                            <th className="px-3 py-2 text-center w-[90px]">회피력</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {analysis.analysis_items.map((item: any) => (
+                                            <tr key={item.id} className="hover:bg-slate-50/50">
+                                                <td className="px-3 py-2">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={`p-1 rounded ${item.sufficient ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
+                                                            {catIcon[item.category] ?? <Activity className="w-3 h-3"/>}
+                                                        </span>
+                                                        <span className="font-bold text-slate-800">{item.label}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-2 text-slate-500 font-mono text-[10px] max-w-[120px] truncate">{item.original_val}</td>
+                                                <td className="px-3 py-2 text-indigo-700 font-bold text-[10px] max-w-[120px] truncate">{item.mutated_val}</td>
+                                                <td className="px-3 py-2 text-center"><StatusBadge status={item.status}/></td>
+                                                <td className="px-3 py-2"><ScoreBar score={item.diff_score} sufficient={item.sufficient}/></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 장비 프로파일 */}
+                    <div className="bg-white rounded-xl border border-emerald-100 p-3">
+                        <p className="text-[10px] font-bold text-slate-500 mb-2 flex items-center gap-1"><Cpu className="w-3 h-3" />위장된 하드웨어 프로파일</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                            {[
+                                ['제조사', report.device_profile.make],
+                                ['모델', report.device_profile.model],
+                                ['소프트웨어', report.device_profile.software],
+                                ['촬영 시각', report.device_profile.creation_time],
+                            ].map(([k, v]) => (
+                                <div key={k}>
+                                    <span className="text-slate-400 text-[10px]">{k}</span>
+                                    <p className="font-semibold text-slate-700 truncate">{v}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 카테고리별 적용 레이어 */}
+                    <div className="space-y-3">
+                        {Object.entries(byCategory).map(([cat, layers]) => (
+                            <div key={cat}>
+                                <div className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 ${catColor[cat] || 'bg-slate-100 text-slate-600'}`}>
+                                    {catIcon[cat]}{cat} ({layers.length}개)
+                                </div>
+                                <div className="space-y-1.5">
+                                    {layers.map(layer => (
+                                        <div key={layer.id} className="bg-white rounded-lg border border-slate-100 p-3 flex flex-col md:flex-row md:items-start gap-2">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-slate-800">{layer.label}</p>
+                                                <p className="text-[10px] font-mono text-indigo-600 mt-0.5">{layer.value}</p>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 md:max-w-[260px] flex-shrink-0">{layer.effect}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* FFmpeg 명령 보기 */}
+                    <div>
+                        <button onClick={() => setShowCmd(!showCmd)} className="text-[10px] font-bold text-slate-500 hover:text-slate-700 flex items-center gap-1">
+                            {showCmd ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                            FFmpeg 필터 명령 {showCmd ? '숨기기' : '보기'}
+                        </button>
+                        {showCmd && (
+                            <div className="mt-2 space-y-1.5">
+                                <div className="bg-slate-900 rounded-lg p-3">
+                                    <p className="text-[9px] text-slate-400 mb-1">-vf</p>
+                                    <code className="text-[9px] text-emerald-400 break-all font-mono">{report.ffmpeg_vf}</code>
+                                </div>
+                                <div className="bg-slate-900 rounded-lg p-3">
+                                    <p className="text-[9px] text-slate-400 mb-1">-af</p>
+                                    <code className="text-[9px] text-cyan-400 break-all font-mono">{report.ffmpeg_af}</code>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </Card>
+    );
+};
+
+// ──────────────────────────────────────────────────────────
+// TAB A: 단일 영상 변조
+// ──────────────────────────────────────────────────────────
+const MutationTab = () => {
+    const [file, setFile]             = useState<File | null>(null);
+    const [loading, setLoading]       = useState(false);
+    const [status, setStatus]         = useState('');
+    const [resultUrl, setResultUrl]   = useState<string | null>(null);
+    const [resultPath, setResultPath] = useState<string | null>(null);
+    const [report, setReport]         = useState<MutationReport | null>(null);
+    const [analysisResult, setAnalysisResult] = useState<any>(null);
+    const [intensity, setIntensity]   = useState('0.5');
+    const [channelId, setChannelId]   = useState(defaultSeed);
+    const [toast, setToast]           = useState('');
+    const [sync, setSync]             = useState(false);
+
+    const origRef   = useRef<HTMLVideoElement>(null);
+    const resultRef = useRef<HTMLVideoElement>(null);
+    const stageTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+    const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
+
+    const handleFileChange = (f: File) => {
+        setFile(f);
+        setResultUrl(null);
+        setResultPath(null);
+        setReport(null);
+        setAnalysisResult(null);
+        setStatus('');
+        setSync(false);
     };
 
     const handleMutate = async () => {
@@ -94,691 +337,531 @@ const SovereignShieldLab = () => {
         setLoading(true);
         setResultUrl(null);
         setResultPath(null);
-        setExtraApplied(false);
-        setStatusMessage('영상 파일 업로드 및 분석 중...');
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('intensity', mutationIntensity);
-        formData.append('channel_id', channelId);
+        setReport(null);
+        stageTimers.current.forEach(clearTimeout);
 
+        const stages: [number, string][] = [
+            [1200, '메타데이터 소거 및 장비 프로파일 위장 주입 중...'],
+            [3000, 'Temporal Sparse Noise 프레임 투영 중...'],
+            [5500, '오디오 샘플레이트 시프트 + 주파수 컷오프 중...'],
+            [8000, 'GOP 구조 랜덤화 및 비트스트림 재구성 중...'],
+        ];
+        stageTimers.current = stages.map(([d, m]) => setTimeout(() => setStatus(m), d));
+
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('intensity', intensity);
+        fd.append('channel_id', channelId);
         try {
-            setTimeout(() => setStatusMessage('메타데이터(EXIF) 완전 소거 중...'), 1500);
-            setTimeout(() => setStatusMessage('시간적 미세 픽셀 노이즈(Temporal Noise) 투영 중...'), 3500);
-            setTimeout(() => setStatusMessage('가청 오디오 주파수 비가시적 변조 및 주파수 시프트 중...'), 6000);
-            setTimeout(() => setStatusMessage('동일 비디오 해시(Perceptual Hash) 무작위화 완료 처리 중...'), 8500);
-
-            const res = await axios.post('/api/lab/mutate', formData);
+            const res = await axios.post('/api/lab/mutate', fd);
             setResultUrl(res.data.url);
             setResultPath(res.data.path);
-            setStatusMessage('변조 완료!');
-        } catch (error) {
-            console.error(error);
-            alert("영상 변조(Sovereign Shield) 처리에 실패했습니다.");
-            setStatusMessage('오류 발생');
+            setReport(res.data.mutation_report);
+            setAnalysisResult(res.data.analysis_result);
+            setStatus('✅ 변조 완료!');
+            showToast('변조 완료! 아래 상세 보고서를 확인하세요.');
+        } catch (e: any) {
+            setStatus('❌ 오류: ' + (e?.response?.data?.detail || e.message));
+            showToast('변조 처리에 실패했습니다.');
         } finally {
             setLoading(false);
+            stageTimers.current.forEach(clearTimeout);
         }
     };
 
-    const handleApplyExtraMeasures = () => {
-        setApplyingExtra(true);
-        setTimeout(() => {
-            setApplyingExtra(false);
-            setExtraApplied(true);
-        }, 2000);
+    const handleSyncToggle = async () => {
+        const ov = origRef.current, rv = resultRef.current;
+        if (!ov || !rv) return;
+        if (sync) {
+            ov.pause(); rv.pause();
+            setSync(false);
+        } else {
+            setSync(true);
+            await safeSyncPlay(ov, rv);
+        }
     };
 
-    // Calculate dynamic security scores based on intensity and extra evasion layers applied
-    const intensityVal = parseFloat(mutationIntensity);
-    const baseSafety = 85 + intensityVal * 10;
-    const baseMatchRisk = 12 - intensityVal * 8;
-    const baseLinkedRisk = 15 - intensityVal * 10;
-
-    // Extra layers weights
-    const extraSafetyBonus = (extraPitchShift ? 4 : 0) + (extraMicroZoom ? 3.5 : 0) + (extraFrameDrop ? 5 : 0) + (extraColorDither ? 2.5 : 0);
-    const extraRiskReduction = (extraPitchShift ? 2.5 : 0) + (extraMicroZoom ? 2 : 0) + (extraFrameDrop ? 3.5 : 0) + (extraColorDither ? 1.5 : 0);
-
-    const calculatedSafetyIndex = Math.min(99.9, baseSafety + (extraApplied ? extraSafetyBonus : 0));
-    const calculatedMatchRisk = Math.max(0.5, baseMatchRisk - (extraApplied ? extraRiskReduction : 0));
-    const calculatedLinkedRisk = Math.max(0.2, baseLinkedRisk - (extraApplied ? extraRiskReduction : 0));
-
-    // Dynamic security grade string
-    let securityGrade = "B";
-    if (calculatedSafetyIndex >= 98) securityGrade = "A++";
-    else if (calculatedSafetyIndex >= 95) securityGrade = "A+";
-    else if (calculatedSafetyIndex >= 90) securityGrade = "A";
-
     return (
-        <div className="container mx-auto p-6 space-y-8 max-w-6xl">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-                        <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-                            <ShieldAlert className="w-6 h-6" />
-                        </span>
-                        유튜브 연좌제 방어 변조 (Sovereign Shield)
-                    </h1>
-                    <p className="text-sm text-slate-500 font-medium mt-1">
-                        유튜브 채널 정지 연좌제 및 중복 영상 감지(Content ID / Perceptual Hash)를 방어하기 위한 미디어 지문 변조 실험실입니다.
-                    </p>
-                </div>
-                <div className="flex items-center gap-1.5 self-start md:self-auto bg-amber-50 border border-amber-100 text-amber-800 px-3 py-1.5 rounded-full text-xs font-semibold">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>정지/경고 대처 전용 프로토콜</span>
-                </div>
+        <div className="space-y-6">
+            <Toast msg={toast} />
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-4 flex items-center gap-4">
+                <div className="p-2.5 bg-indigo-600 rounded-xl text-white flex-shrink-0"><Zap className="w-5 h-5 fill-white" /></div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                    <strong className="text-indigo-900">채널 고유 키</strong>를 채널마다 다르게 설정하면 동일 영상이라도 채널별로 완전히 다른 지문 패턴이 투영됩니다. 변조 완료 후 레이어별 상세 보고서가 제공됩니다.
+                </p>
             </div>
 
-            {/* CHANNEL KEY EXPLANATION BANNER */}
-            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100/80 rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-4">
-                <div className="p-3 bg-indigo-600 rounded-xl text-white self-start md:self-auto">
-                    <Zap className="w-5 h-5 fill-white" />
-                </div>
-                <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-indigo-950">💡 채널 고유 키 (Channel Seed)란 무엇인가요?</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                        하나의 비디오 파일을 여러 유튜브 채널에 분산 업로드할 때, 동일한 FFmpeg 필터를 사용하면 각 채널의 지문이 여전히 겹치게 됩니다. 
-                        <strong> 채널 고유 키</strong>를 입력하면, 해당 텍스트 해시값을 PRNG 시드로 사용하여 <strong>각 채널마다 완전히 다른 미세 난수 픽셀 배치와 오디오 위상 시프트를 투영</strong>합니다. 
-                        이로써 채널 간 동일 영상 핑거프린트 중복 판정을 완벽히 제거합니다.
-                    </p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* CONFIGURATION & UPLOAD SECTION */}
-                <div className="lg:col-span-2 space-y-6">
-                    <Card className="border border-slate-200 shadow-sm overflow-hidden">
-                        <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                {/* 설정 패널 */}
+                <div className="lg:col-span-2">
+                    <Card className="border border-slate-200 shadow-sm">
+                        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4">
                             <CardTitle className="text-slate-800 text-base flex items-center gap-2">
-                                <FileVideo className="w-5 h-5 text-indigo-600" />
-                                1. 영상 파일 및 변조 옵션 설정
+                                <Settings2 className="w-5 h-5 text-indigo-600" />변조 설정
                             </CardTitle>
-                            <CardDescription>변조할 영상 파일과 알고리즘 매개변수를 지정해주세요.</CardDescription>
                         </CardHeader>
-                        <CardContent className="p-6 space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-700">대상 비디오 선택 *</label>
-                                <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-6 transition-all bg-slate-50/50 flex flex-col items-center justify-center text-center cursor-pointer relative">
-                                    <Input 
-                                        type="file" 
-                                        accept="video/*" 
-                                        onChange={handleFileChange} 
-                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                    />
+                        <CardContent className="p-5 space-y-4">
+                            <div className="relative border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-5 text-center cursor-pointer transition-all bg-slate-50/50 min-h-[90px] flex items-center justify-center">
+                                <Input type="file" accept="video/*" onChange={e => e.target.files?.[0] && handleFileChange(e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                                {file ? (
+                                    <div className="pointer-events-none">
+                                        <ShieldCheck className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
+                                        <p className="text-sm font-bold text-indigo-600 truncate max-w-[220px]">{file.name}</p>
+                                        <p className="text-xs text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                    </div>
+                                ) : (
+                                    <div><FileVideo className="w-7 h-7 text-slate-300 mx-auto mb-1.5" /><p className="text-sm text-slate-400">클릭하거나 영상 파일 드래그</p></div>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-semibold text-slate-700">변조 세기</label>
+                                <Select value={intensity} onValueChange={setIntensity}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="0.2">1단계: 약함 (화질/음질 최우선)</SelectItem>
+                                        <SelectItem value="0.5">2단계: 보통 (권장 밸런스)</SelectItem>
+                                        <SelectItem value="0.8">3단계: 강함 (방어력 극대화)</SelectItem>
+                                        <SelectItem value="1.2">4단계: 극한 (연좌제/저작권 원천 차단)</SelectItem>
+                                        <SelectItem value="2.0">5단계: 파괴적 (시청각 열화 감수)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-semibold text-slate-700">채널 키 Seed</label>
+                                    <button onClick={() => setChannelId(defaultSeed())} className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded flex items-center gap-1"><RefreshCw className="w-2.5 h-2.5"/>랜덤</button>
+                                </div>
+                                <Input value={channelId} onChange={e => setChannelId(e.target.value)} className="font-mono text-xs" />
+                            </div>
+
+                            <Button onClick={handleMutate} disabled={!file || loading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 text-sm">
+                                {loading ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/>{status || '처리 중...'}</> : <><ShieldAlert className="mr-2 h-5 w-5"/>Sovereign Shield 변조 실행</>}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* 영상 비교 */}
+                <div className="lg:col-span-3">
+                    <Card className="border border-slate-200 shadow-sm h-full">
+                        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-slate-800 text-base flex items-center gap-2"><ArrowRightLeft className="w-5 h-5 text-indigo-600"/>원본 vs 변조 결과</CardTitle>
+                                {resultUrl && file && (
+                                    <button onClick={handleSyncToggle} className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${sync ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                        {sync ? <Pause className="w-3 h-3"/> : <Play className="w-3 h-3"/>}
+                                        {sync ? '동기 정지' : '동기 재생'}
+                                    </button>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-4 space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400"/>원본</p>
                                     {file ? (
-                                        <div className="space-y-1">
-                                            <p className="text-sm font-bold text-indigo-600 flex items-center justify-center gap-1.5">
-                                                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                                                {file.name}
-                                            </p>
-                                            <p className="text-xs text-slate-400">{(file.size / (1024 * 1024)).toFixed(2)} MB • 업로드 준비 완료</p>
-                                        </div>
+                                        <video ref={origRef} src={URL.createObjectURL(file)} controls={!sync} className="w-full aspect-video rounded-lg border border-slate-200 bg-black object-contain" />
                                     ) : (
-                                        <div className="space-y-2 py-2">
-                                            <div className="mx-auto w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                                                <FileVideo className="w-5 h-5" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-sm font-semibold text-slate-600">이곳을 클릭하거나 영상 파일을 끌어다 놓으세요.</p>
-                                                <p className="text-xs text-slate-400">MP4, MOV 등 영상 파일 지원</p>
-                                            </div>
+                                        <div className="w-full aspect-video rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-xs text-slate-300">영상 선택 대기</div>
+                                    )}
+                                </div>
+                                <div className="space-y-1.5">
+                                    <p className="text-xs font-bold text-indigo-600 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"/>변조 결과</p>
+                                    {resultUrl ? (
+                                        <video ref={resultRef} src={resultUrl} controls={!sync} className="w-full aspect-video rounded-lg border border-indigo-200 bg-black object-contain" />
+                                    ) : (
+                                        <div className="w-full aspect-video rounded-lg border-2 border-dashed border-indigo-100 bg-indigo-50/30 flex items-center justify-center text-indigo-200 text-center p-3">
+                                            {loading ? <div className="flex flex-col items-center gap-2"><Loader2 className="w-5 h-5 animate-spin text-indigo-400"/><span className="text-[10px] text-indigo-400">{status}</span></div> : <span className="text-xs">변조 실행 후 표시</span>}
                                         </div>
                                     )}
                                 </div>
                             </div>
+                            {resultUrl && (
+                                <div className="flex gap-2 justify-center">
+                                    <a href={resultUrl} download className="inline-flex items-center px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-md">
+                                        <Download className="w-4 h-4 mr-2"/>변조 결과 다운로드
+                                    </a>
+                                    {(window as any).electronAPI?.showInFolder && resultPath && (
+                                        <Button onClick={() => (window as any).electronAPI.showInFolder(resultPath)} variant="outline" className="text-sm font-bold">📁 폴더</Button>
+                                    )}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
-                                        변조 세기 (Mutation Intensity)
-                                        <HelpCircle className="w-3.5 h-3.5 text-slate-400" title="세기 수준이 클수록 비디오와 오디오 지문이 급격하게 왜곡됩니다." />
-                                    </label>
-                                    <Select value={mutationIntensity} onValueChange={setMutationIntensity}>
-                                        <SelectTrigger className="w-full bg-background border-slate-200">
-                                            <SelectValue />
-                                        </SelectTrigger>
+            {/* 변조 완료 보고서 */}
+            {report && <MutationReportPanel report={report} analysis={analysisResult} />}
+        </div>
+    );
+};
+
+// ──────────────────────────────────────────────────────────
+// TAB B: 두 영상 비교 분석 + 추가 변조
+// ──────────────────────────────────────────────────────────
+const CompareTab = () => {
+    const [origFile,    setOrigFile]    = useState<File | null>(null);
+    const [mutatedFile, setMutatedFile] = useState<File | null>(null);
+    const [analyzing,   setAnalyzing]  = useState(false);
+    const [result,      setResult]     = useState<CompareResult | null>(null);
+    const [toast,       setToast]      = useState('');
+    const [checkedExtras, setCheckedExtras] = useState<Record<string, boolean>>({});
+    const [applyingExtra, setApplyingExtra] = useState(false);
+    const [extraReport, setExtraReport] = useState<{ url: string; path: string; report: MutationReport } | null>(null);
+    const [channelId, setChannelId] = useState(defaultSeed);
+    const [intensity, setIntensity] = useState('0.5');
+    const [sync, setSync] = useState(false);
+
+    const origRef    = useRef<HTMLVideoElement>(null);
+    const mutatedRef = useRef<HTMLVideoElement>(null);
+    const showToast  = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
+
+    const handleCompare = async () => {
+        if (!origFile || !mutatedFile) return;
+        setAnalyzing(true);
+        setResult(null);
+        setExtraReport(null);
+        const fd = new FormData();
+        fd.append('original', origFile);
+        fd.append('mutated',  mutatedFile);
+        try {
+            const res = await axios.post('/api/lab/compare', fd, { timeout: 120000 });
+            setResult(res.data);
+            const autoCheck: Record<string, boolean> = {};
+            (res.data.insufficient_items as string[]).forEach((id: string) => {
+                const item = res.data.analysis_items.find((i: AnalysisItem) => i.id === id);
+                if (item?.extra_key) autoCheck[item.extra_key] = true;
+            });
+            setCheckedExtras(autoCheck);
+            showToast(`분석 완료! 미흡 ${res.data.insufficient_items.length}개 항목이 자동 체크됐습니다.`);
+        } catch (e: any) {
+            showToast('분석 실패: ' + (e?.response?.data?.detail || e.message || '서버 오류'));
+        } finally {
+            setAnalyzing(false);
+        }
+    };
+
+    const handleApplyExtra = async () => {
+        if (!mutatedFile) return;
+        setApplyingExtra(true);
+        const fd = new FormData();
+        fd.append('file', mutatedFile);
+        fd.append('intensity', intensity);
+        fd.append('channel_id', channelId);
+        Object.entries(checkedExtras).forEach(([k, v]) => fd.append(k, String(v)));
+        try {
+            const res = await axios.post('/api/lab/mutate', fd);
+            setExtraReport({ url: res.data.url, path: res.data.path, report: res.data.mutation_report });
+            showToast('추가 변조 완료!');
+        } catch (e: any) {
+            showToast('추가 변조 실패: ' + (e?.response?.data?.detail || e.message));
+        } finally {
+            setApplyingExtra(false);
+        }
+    };
+
+    const handleSyncToggle = async () => {
+        if (sync) {
+            origRef.current?.pause();
+            mutatedRef.current?.pause();
+            setSync(false);
+        } else {
+            setSync(true);
+            await safeSyncPlay(origRef.current, mutatedRef.current);
+        }
+    };
+
+    const extraLabels: Record<string, { label: string; desc: string }> = {
+        extra_pitch_shift:     { label: '오디오 피치 강화',            desc: 'atempo 피치 독립 조율' },
+        extra_micro_zoom:      { label: '마이크로 캔버스 크롭',          desc: '0.5~1.2% 확대 → pHash 기준점 이동' },
+        extra_frame_drop:      { label: '의사 컷 프레임 드롭',           desc: '랜덤 N프레임마다 1프레임 제거' },
+        extra_color_dither:    { label: '색조 히스토그램 진동',           desc: '색조 ±3°, 밝기 미세 교란' },
+        extra_gop_shuffle:     { label: 'GOP 키프레임 극단 셔플',         desc: 'I-프레임 배치 30~240 랜덤화' },
+        extra_temporal_attack: { label: 'Temporal Consistency Attack', desc: 'PTS ±0.2% 시퀀스 교란 (2026)' },
+        extra_audio_phase:     { label: 'DWT 오디오 위상 교란',          desc: 'aphaser 주파수 도메인 위상 변조' },
+        extra_luma_dct:        { label: 'Luma DCT 계수 교란',           desc: 'gblur 기반 pHash 주파수 분쇄' },
+    };
+
+    const score = result?.overall_evasion_score ?? 0;
+    const insufficientCount = result?.insufficient_items.length ?? 0;
+
+    return (
+        <div className="space-y-6">
+            <Toast msg={toast} />
+
+            {/* STEP 1: 업로드 */}
+            <Card className="border border-slate-200 shadow-sm">
+                <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4">
+                    <CardTitle className="text-slate-800 text-base flex items-center gap-2">
+                        <ArrowRightLeft className="w-5 h-5 text-indigo-600"/>STEP 1 — 두 영상 업로드
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                        왼쪽에 <strong>원본 영상</strong>, 오른쪽에 <strong>이미 변조된 영상</strong>을 각각 업로드하세요.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-5 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* 원본 */}
+                        <div className="space-y-2">
+                            <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400"/>🎬 원본 영상 (Before)</p>
+                            <div className="relative border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-xl p-4 text-center cursor-pointer transition-all bg-slate-50 min-h-[80px] flex items-center justify-center">
+                                <Input type="file" accept="video/*" onChange={e => { if (e.target.files?.[0]) { setOrigFile(e.target.files[0]); setResult(null); }}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                                {origFile ? (
+                                    <div className="pointer-events-none"><ShieldCheck className="w-4 h-4 text-emerald-500 mx-auto mb-1"/><p className="text-xs font-bold text-slate-600 truncate max-w-[160px]">{origFile.name}</p><p className="text-[10px] text-slate-400">{(origFile.size/1024/1024).toFixed(1)} MB</p></div>
+                                ) : (
+                                    <div><FileVideo className="w-6 h-6 text-slate-300 mx-auto mb-1"/><p className="text-xs text-slate-400">클릭 또는 드래그</p></div>
+                                )}
+                            </div>
+                            {origFile && <video ref={origRef} src={URL.createObjectURL(origFile)} controls={!sync} className="w-full aspect-video rounded-xl border border-slate-200 bg-black object-contain"/>}
+                        </div>
+
+                        {/* 변조된 영상 */}
+                        <div className="space-y-2">
+                            <p className="text-xs font-bold text-indigo-600 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"/>🛡️ 변조된 영상 (After)</p>
+                            <div className="relative border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-xl p-4 text-center cursor-pointer transition-all bg-indigo-50/30 min-h-[80px] flex items-center justify-center">
+                                <Input type="file" accept="video/*" onChange={e => { if (e.target.files?.[0]) { setMutatedFile(e.target.files[0]); setResult(null); }}} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                                {mutatedFile ? (
+                                    <div className="pointer-events-none"><ShieldCheck className="w-4 h-4 text-indigo-500 mx-auto mb-1"/><p className="text-xs font-bold text-indigo-600 truncate max-w-[160px]">{mutatedFile.name}</p><p className="text-[10px] text-indigo-400">{(mutatedFile.size/1024/1024).toFixed(1)} MB</p></div>
+                                ) : (
+                                    <div><FileVideo className="w-6 h-6 text-indigo-200 mx-auto mb-1"/><p className="text-xs text-indigo-300">클릭 또는 드래그</p></div>
+                                )}
+                            </div>
+                            {mutatedFile && <video ref={mutatedRef} src={URL.createObjectURL(mutatedFile)} controls={!sync} className="w-full aspect-video rounded-xl border border-indigo-200 bg-black object-contain"/>}
+                        </div>
+                    </div>
+
+                    {origFile && mutatedFile && (
+                        <div className="flex items-center justify-center gap-3">
+                            <button onClick={handleSyncToggle} className={`text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all ${sync ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                {sync ? <Pause className="w-3.5 h-3.5"/> : <Play className="w-3.5 h-3.5"/>}
+                                {sync ? '동기 정지' : '두 영상 동기 재생'}
+                            </button>
+                        </div>
+                    )}
+
+                    <Button onClick={handleCompare} disabled={!origFile || !mutatedFile || analyzing} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 text-sm">
+                        {analyzing
+                            ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/>분석 중... (pHash · MFCC 오디오 · 메타데이터 비교)</>
+                            : <><Activity className="mr-2 h-5 w-5"/>두 영상 차이 비교 분석 시작</>}
+                    </Button>
+                    {analyzing && <p className="text-center text-xs text-slate-400">영상 크기에 따라 30초~2분이 소요될 수 있습니다.</p>}
+                </CardContent>
+            </Card>
+
+            {/* STEP 2: 분석 결과 */}
+            {result && (
+                <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <Card className={`border col-span-2 md:col-span-1 ${score >= 70 ? 'border-emerald-100 bg-emerald-50/40' : score >= 40 ? 'border-amber-100 bg-amber-50/40' : 'border-rose-100 bg-rose-50/40'}`}>
+                            <CardContent className="p-4">
+                                <p className="text-xs font-semibold text-slate-500 mb-1">종합 변조 효과</p>
+                                <div className="flex items-baseline gap-2">
+                                    <span className={`text-4xl font-black ${score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-rose-600'}`}>{score.toFixed(0)}%</span>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1">전체 항목 평균 차이도</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="border border-slate-200">
+                            <CardContent className="p-4">
+                                <p className="text-xs font-semibold text-slate-500 mb-1">pHash 유사도</p>
+                                <span className={`text-3xl font-black ${result.video_phash_similarity < 80 ? 'text-emerald-600' : 'text-rose-500'}`}>{result.video_phash_similarity}%</span>
+                                <p className="text-[10px] text-slate-400 mt-1">{result.video_phash_similarity < 80 ? '✅ 충분히 교란' : '⚠️ 추가 변조 필요'}</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="border border-slate-200">
+                            <CardContent className="p-4">
+                                <p className="text-xs font-semibold text-slate-500 mb-1">오디오 MFCC 유사도</p>
+                                <span className={`text-3xl font-black ${result.audio.similarity_pct < 85 ? 'text-emerald-600' : 'text-rose-500'}`}>{result.audio.similarity_pct}%</span>
+                                <p className="text-[10px] text-slate-400 mt-1">{result.audio.similarity_pct < 85 ? '✅ 오디오 교란됨' : '⚠️ 추가 오디오 변조 필요'}</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="border border-slate-200">
+                            <CardContent className="p-4">
+                                <p className="text-xs font-semibold text-slate-500 mb-1">미흡 항목</p>
+                                <span className={`text-3xl font-black ${insufficientCount === 0 ? 'text-emerald-600' : 'text-rose-500'}`}>{insufficientCount}개</span>
+                                <p className="text-[10px] text-slate-400 mt-1">{insufficientCount === 0 ? '✅ 모든 항목 충분' : '⚠️ 추가 변조 권장'}</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <Card className="border border-slate-200 shadow-sm">
+                        <CardHeader className="border-b border-slate-100 bg-slate-50/30 py-4">
+                            <CardTitle className="text-slate-900 text-base font-bold flex items-center gap-2">
+                                <BarChart3 className="w-5 h-5 text-indigo-600"/>STEP 2 — 항목별 변조 차이 분석 결과
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                <span className="text-rose-600 font-semibold">빨간 항목</span>은 변조가 미흡하여 추가 변조가 권장됩니다.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-slate-100 text-xs">
+                                    <thead className="bg-slate-50 text-slate-500 font-semibold">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left w-[200px]">분석 항목</th>
+                                            <th className="px-4 py-3 text-left">원본값</th>
+                                            <th className="px-4 py-3 text-left text-indigo-600">변조된 영상값</th>
+                                            <th className="px-4 py-3 text-center w-[70px]">상태</th>
+                                            <th className="px-4 py-3 text-center w-[100px]">차이도</th>
+                                            <th className="px-4 py-3 text-left text-slate-400">분석 설명</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {result.analysis_items.map(item => (
+                                            <tr key={item.id} className={`transition-colors ${!item.sufficient ? 'bg-rose-50/30 hover:bg-rose-50/60' : 'hover:bg-slate-50/50'}`}>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`p-1.5 rounded-lg ${item.sufficient ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
+                                                            {catIcon[item.category] ?? <Activity className="w-3.5 h-3.5"/>}
+                                                        </span>
+                                                        <div>
+                                                            <p className="font-semibold text-slate-800 leading-tight">{item.label}</p>
+                                                            <span className={`text-[9px] px-1.5 py-0.5 rounded ${catColor[item.category] || 'bg-slate-100 text-slate-500'} font-medium`}>{item.category}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-500 font-mono text-[10px] max-w-[140px]"><span className="block truncate">{item.original_val}</span></td>
+                                                <td className="px-4 py-3 text-indigo-700 font-bold text-[10px] max-w-[160px]"><span className="block truncate">{item.mutated_val}</span></td>
+                                                <td className="px-4 py-3 text-center"><StatusBadge status={item.status}/></td>
+                                                <td className="px-4 py-3"><ScoreBar score={item.diff_score} sufficient={item.sufficient}/></td>
+                                                <td className="px-4 py-3 text-slate-400 text-[10px] max-w-[200px]">
+                                                    {item.description}
+                                                    {!item.sufficient && item.extra_key && <span className="block mt-0.5 text-rose-500 font-semibold">→ 아래 추가 변조에서 선택 가능</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* STEP 3: 추가 변조 */}
+                    <Card className="border border-slate-200 shadow-sm">
+                        <CardHeader className="border-b border-slate-100 bg-slate-50/30 py-4">
+                            <CardTitle className="text-slate-900 text-base font-bold flex items-center gap-2">
+                                <FlaskConical className="w-5 h-5 text-indigo-600"/>STEP 3 — 미흡 항목 추가 변조 실행
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                분석 결과 미흡 항목의 추가 변조 방법이 자동 체크되었습니다. 조정 후 <strong>변조된 영상에 적층 변조</strong>를 실행하세요.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-5">
+                            {insufficientCount === 0 ? (
+                                <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                                    <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0"/>
+                                    <p className="text-sm font-semibold text-emerald-800">모든 변조 항목이 충분합니다! 추가 변조가 필요하지 않습니다.</p>
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"/>
+                                    <p className="text-xs text-amber-800"><strong>{insufficientCount}개 항목</strong>이 미흡하여 관련 추가 변조가 자동 체크되었습니다.</p>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                                {Object.entries(extraLabels).map(([key, { label, desc }]) => {
+                                    const isInsufficiency = result.analysis_items.some(i => i.extra_key === key && !i.sufficient);
+                                    return (
+                                        <label key={key} className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${checkedExtras[key] ? (isInsufficiency ? 'bg-rose-50/60 border-rose-300 shadow-sm' : 'bg-indigo-50/60 border-indigo-300 shadow-sm') : 'bg-slate-50/50 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
+                                            <input type="checkbox" checked={!!checkedExtras[key]} onChange={e => setCheckedExtras(p => ({ ...p, [key]: e.target.checked }))} className="mt-0.5 rounded text-indigo-600" />
+                                            <div className="space-y-0.5 flex-1">
+                                                <p className="text-xs font-bold text-slate-800 leading-tight">{label}</p>
+                                                <p className="text-[10px] text-slate-500">{desc}</p>
+                                                {isInsufficiency && <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">⚠️ 미흡 자동선택</span>}
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-700">변조 세기</label>
+                                    <Select value={intensity} onValueChange={setIntensity}>
+                                        <SelectTrigger className="text-xs"><SelectValue/></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="0.2">약함 (화질 극대화, 미세 메타 및 시프트)</SelectItem>
-                                            <SelectItem value="0.5">보통 (지문 교란 최적의 밸런스 - 권장)</SelectItem>
-                                            <SelectItem value="0.8">강함 (방어 극대화, 노이즈 필터 투영 및 가청 한계 주파수 커팅)</SelectItem>
+                                            <SelectItem value="0.2">1단계: 약함</SelectItem>
+                                            <SelectItem value="0.5">2단계: 보통 (권장)</SelectItem>
+                                            <SelectItem value="0.8">3단계: 강함</SelectItem>
+                                            <SelectItem value="1.2">4단계: 극한</SelectItem>
+                                            <SelectItem value="2.0">5단계: 파괴적</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
-                                            지정 채널 키 (Channel Key Seed)
-                                            <HelpCircle className="w-3.5 h-3.5 text-slate-400" title="채널 고유의 ID를 시드로 사용하여 매칭하는 채널에 맞춰 독립적인 노이즈 배열을 투영합니다." />
-                                        </label>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const randBytes = Array.from({ length: 8 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-                                                setChannelId(`ch_seed_${randBytes}`);
-                                            }}
-                                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded"
-                                        >
-                                            <RefreshCw className="w-2.5 h-2.5 animate-spin-slow" />
-                                            키 랜덤 생성
-                                        </button>
+                                        <label className="text-xs font-semibold text-slate-700">채널 키</label>
+                                        <button onClick={() => setChannelId(defaultSeed())} className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded font-bold">랜덤</button>
                                     </div>
-                                    <Input 
-                                        value={channelId} 
-                                        onChange={(e) => setChannelId(e.target.value)} 
-                                        placeholder="YouTube 채널 ID 또는 고유한 임의 텍스트"
-                                        className="bg-background border-slate-200 text-slate-900 font-mono text-xs"
-                                    />
+                                    <Input value={channelId} onChange={e => setChannelId(e.target.value)} className="font-mono text-xs"/>
                                 </div>
                             </div>
 
-                            <Button 
-                                onClick={handleMutate} 
-                                disabled={!file || loading} 
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all shadow-md py-6 text-base"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="mr-2.5 h-5 w-5 animate-spin" />
-                                        {statusMessage || 'Sovereign Shield 변조 처리 중...'}
-                                    </>
-                                ) : (
-                                    <>
-                                        <ShieldAlert className="mr-2.5 h-5 w-5" />
-                                        Sovereign Shield 변조 실행
-                                    </>
-                                )}
-                            </Button>
-                            
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setShowDefenseStrategy(true)}
-                                className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 font-bold transition-all shadow-sm flex items-center justify-center gap-2 mt-2 py-5"
-                            >
-                                <ShieldAlert className="w-4 h-4 text-indigo-600 animate-pulse" />
-                                계정 정지 예방 2중•3중 다층 방어 체계 보기
+                            <Button onClick={handleApplyExtra} disabled={applyingExtra || !mutatedFile || !Object.values(checkedExtras).some(Boolean)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-5">
+                                {applyingExtra ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>추가 변조 처리 중...</> : <><Lock className="mr-2 h-4 w-4"/>선택 항목 추가 변조 실행 (변조된 영상에 적용)</>}
                             </Button>
                         </CardContent>
                     </Card>
 
-                    {/* RESULT PREVIEW & COMPREHENSIVE ANALYSIS */}
-                    {resultUrl && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-500">
-                            {/* Video Output Card */}
-                            <Card className="border border-slate-200 shadow-sm overflow-hidden">
-                                <CardHeader className="bg-slate-50/75 border-b border-slate-200">
-                                    <CardTitle className="text-slate-800 text-base flex items-center gap-2">
-                                        <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                                        2. 변조 처리가 완료된 영상
-                                    </CardTitle>
-                                    <CardDescription>지문 변조 처리가 완료되었습니다. 플레이어로 검수 후 다운로드하십시오.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="p-6 space-y-4">
-                                    <video src={resultUrl} controls className="w-full max-h-[400px] rounded-lg border border-slate-200 bg-black shadow-inner object-contain" />
-                                    <div className="flex flex-wrap justify-center gap-3 pt-2">
-                                        <a 
-                                            href={resultUrl} 
-                                            download 
-                                            className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors shadow-md transition-all active:scale-[0.98]"
-                                        >
-                                            <Download className="w-4 h-4 mr-2" />
-                                            변조 결과 영상 다운로드
-                                        </a>
-
-                                        {(window as any).electronAPI?.showInFolder && resultPath && (
-                                            <Button 
-                                                onClick={handleOpenFolder}
-                                                className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-200 transition-colors shadow-sm"
-                                            >
-                                                📁 폴더 열기 (위치 탐색)
-                                            </Button>
-                                        )}
-                                    </div>
-
-                                    {resultPath && (
-                                        <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded-lg text-left">
-                                            <span className="text-xs font-bold text-slate-700 block mb-1">🖥️ 실제 로컬 저장 경로:</span>
-                                            <code className="text-[11px] text-slate-600 font-mono break-all block p-2 bg-slate-100/50 border border-slate-200/60 rounded">
-                                                {resultPath}
-                                            </code>
-                                            {!((window as any).electronAPI?.showInFolder) && (
-                                                <button
-                                                    onClick={() => {
-                                                        const folderPath = resultPath.substring(0, Math.max(resultPath.lastIndexOf('\\'), resultPath.lastIndexOf('/')));
-                                                        navigator.clipboard.writeText(folderPath || resultPath);
-                                                        alert("폴더 경로가 클립보드에 복사되었습니다. 파일 탐색기(Win + E) 주소창에 붙여넣어 이동할 수 있습니다.");
-                                                    }}
-                                                    className="mt-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                                                >
-                                                    📋 폴더 경로 복사하기
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            {/* Analysis Report & Risk Assessment */}
-                            <Card className="border border-slate-200 shadow-sm">
-                                <CardHeader className="border-b border-slate-100 bg-slate-50/30">
-                                    <CardTitle className="text-slate-900 text-base font-bold flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
-                                        🛡️ Sovereign Shield 지문 교란 분석 보고서
-                                    </CardTitle>
-                                    <CardDescription className="text-xs">
-                                        변조 시드 <strong>"{channelId}"</strong> 기반으로 수행된 시간적/주파수적 신호 가공 결과 분석 리포트입니다.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="p-6 space-y-6">
-                                    {/* Parameter Comparison Table */}
-                                    <div>
-                                        <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-1.5">
-                                            <span className="w-1.5 h-3 bg-indigo-600 rounded-sm"></span>
-                                            미디어 지문 속성 변조 비교
-                                        </h4>
-                                        <div className="overflow-x-auto rounded-lg border border-slate-100">
-                                            <table className="min-w-full divide-y divide-slate-100 text-xs text-left">
-                                                <thead className="bg-slate-50 text-slate-500 font-semibold">
-                                                    <tr>
-                                                        <th className="px-4 py-2.5">분석 속성</th>
-                                                        <th className="px-4 py-2.5">변조 전 (Before)</th>
-                                                        <th className="px-4 py-2.5 text-indigo-600">변조 후 (After)</th>
-                                                        <th className="px-4 py-2.5">교란 효과</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100 text-slate-700">
-                                                    <tr>
-                                                        <td className="px-4 py-3 font-semibold">비디오 파일 해시 (MD5)</td>
-                                                        <td className="px-4 py-3 text-slate-400 font-mono text-[10px]">d41d8cd98f00b204e9800998ecf8427e</td>
-                                                        <td className="px-4 py-3 text-indigo-600 font-mono font-bold text-[10px]">
-                                                            e99a7df{channelId.length}e3f012{mutationIntensity.replace('.', '')}c99ffc71b12b5b3c
-                                                        </td>
-                                                        <td className="px-4 py-3 text-slate-500">지문 고유 난수화 (완전 독립화)</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td className="px-4 py-3 font-semibold">EXIF & 컨테이너 메타데이터</td>
-                                                        <td className="px-4 py-3 text-slate-400">오리지널 장치/카메라/시간 정합성 정보 존재</td>
-                                                        <td className="px-4 py-3 text-emerald-600 font-bold">Wiped (0-Byte Zero Signature)</td>
-                                                        <td className="px-4 py-3 text-slate-500">카메라 장비 지문 제거</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td className="px-4 py-3 font-semibold">비디오 프레임 핑거프린트 (pHash)</td>
-                                                        <td className="px-4 py-3 text-slate-400">동일 유사 비디오 대조 해시 일치</td>
-                                                        <td className="px-4 py-3 text-indigo-600 font-bold">PRNG DNA-Locked Noise Layer</td>
-                                                        <td className="px-4 py-3 text-slate-500">시간적 픽셀 디더링 (유사도 붕괴)</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td className="px-4 py-3 font-semibold">오디오 주파수 핑거프린트</td>
-                                                        <td className="px-4 py-3 text-slate-400">오리지널 주파수 (44100 Hz 기준)</td>
-                                                        <td className="px-4 py-3 text-indigo-600 font-bold">
-                                                            {44100 - Math.round(parseFloat(mutationIntensity) * 100) - (extraApplied && extraPitchShift ? 150 : 0)} Hz Shifted (Avg -{((parseFloat(mutationIntensity) + (extraApplied && extraPitchShift ? 0.3 : 0)) * 0.22).toFixed(2)}%)
-                                                        </td>
-                                                        <td className="px-4 py-3 text-slate-500">샘플링 레이트 오프셋 교란</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-
-                                    {/* Security & Youtube Warning Gauges */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 bg-slate-50/40">
-                                            <span className="text-xs font-semibold text-slate-500">유튜브 중복 매칭률</span>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-2xl font-black text-rose-600 line-through text-xs">99.8%</span>
-                                                <span className="text-3xl font-black text-emerald-600">
-                                                    {calculatedMatchRisk.toFixed(1)}%
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] text-slate-400">Content ID 및 Perceptual Hash 일치 가능성</p>
-                                        </div>
-
-                                        <div className="border border-slate-200 rounded-xl p-4 flex flex-col justify-between space-y-2 bg-slate-50/40">
-                                            <span className="text-xs font-semibold text-slate-500">계정 연좌제 위험도 (교차 링크)</span>
-                                            <div className="flex items-baseline gap-2">
-                                                <span className="text-2xl font-black text-rose-600 line-through text-xs">85.0%</span>
-                                                <span className="text-3xl font-black text-emerald-600">
-                                                    {calculatedLinkedRisk.toFixed(1)}%
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] text-slate-400">장비 메타데이터 교차 연계 검출 가능성</p>
-                                        </div>
-
-                                        <div className="border border-indigo-100 bg-indigo-50/40 rounded-xl p-4 flex flex-col justify-between space-y-2">
-                                            <span className="text-xs font-bold text-indigo-700">종합 보안 안전 등급</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-4xl font-black text-indigo-600">
-                                                    {securityGrade}
-                                                </span>
-                                                <span className="text-xs font-bold text-indigo-800 bg-indigo-100/60 px-2 py-0.5 rounded-full">
-                                                    {calculatedSafetyIndex.toFixed(1)}% Safe
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] text-indigo-700/80">안심 업로드 수준 확보</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Detailed Dimension Bars */}
-                                    <div className="space-y-3.5 pt-2">
-                                        <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                                            <span className="w-1.5 h-3 bg-indigo-600 rounded-sm"></span>
-                                            분야별 변조 정확성 및 방어 기여지표
-                                        </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="font-semibold text-slate-600">비주얼 시간 디더링 우회 정밀도 (Visual Evasion)</span>
-                                                    <span className="font-bold text-indigo-600">
-                                                        {Math.min(99.9, 80 + intensityVal * 20 + (extraApplied && extraFrameDrop ? 10 : 0)).toFixed(0)}%
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                    <div 
-                                                        className="h-full bg-indigo-600 rounded-full transition-all duration-1000" 
-                                                        style={{ width: `${80 + intensityVal * 20 + (extraApplied && extraFrameDrop ? 10 : 0)}%` }}
-                                                    />
-                                                </div>
-                                                <p className="text-[10px] text-slate-400">채널 시드를 이용해 픽셀 레이아웃에 균등한 노이즈 레벨 분사</p>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="font-semibold text-slate-600">청각 주파수 시프트 탈동기화 (Aural Evasion)</span>
-                                                    <span className="font-bold text-indigo-600">
-                                                        {Math.min(99.9, 85 + intensityVal * 15 + (extraApplied && extraPitchShift ? 12 : 0)).toFixed(0)}%
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                    <div 
-                                                        className="h-full bg-indigo-600 rounded-full transition-all duration-1000" 
-                                                        style={{ width: `${85 + intensityVal * 15 + (extraApplied && extraPitchShift ? 12 : 0)}%` }}
-                                                    />
-                                                </div>
-                                                <p className="text-[10px] text-slate-400">샘플율 변조 및 비가청 저역/고역대 프리퀀시 절삭 가공</p>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="font-semibold text-slate-600">하드웨어 메타데이터 청결도 (Signature Cleansing)</span>
-                                                    <span className="font-bold text-emerald-600">100% Wiped</span>
-                                                </div>
-                                                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                    <div 
-                                                        className="h-full bg-emerald-500 rounded-full" 
-                                                        style={{ width: '100%' }}
-                                                    />
-                                                </div>
-                                                <p className="text-[10px] text-slate-400">기기 시그니처, 인코더 플래그, 타임코드 완전 공백화</p>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="font-semibold text-slate-600">육안 화질 원본 유지성 (Visual Quality Preservation - SSIM)</span>
-                                                    <span className="font-bold text-indigo-600">
-                                                        {(99.5 - intensityVal * 2 - (extraApplied && extraMicroZoom ? 1.0 : 0)).toFixed(1)}%
-                                                    </span>
-                                                </div>
-                                                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                    <div 
-                                                        className="h-full bg-indigo-500 rounded-full transition-all duration-1000" 
-                                                        style={{ width: `${99.5 - intensityVal * 2 - (extraApplied && extraMicroZoom ? 1.0 : 0)}%` }}
-                                                    />
-                                                </div>
-                                                <p className="text-[10px] text-slate-400">인간 시각 모델 기반 원본 프레임과의 미시적 오차율 통제</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* 4. EXTRA EVASION PROTOCOL (FOR INSUFFICIENT CASES) */}
-                                    <div className="mt-8 border-t border-slate-200 pt-6">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="space-y-0.5">
-                                                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                                                    <Sliders className="w-4 h-4 text-indigo-600" />
-                                                    ⚠️ 우회 안정성이 부족하다고 느껴지시나요? (추가 2차 변조 프로토콜)
-                                                </h4>
-                                                <p className="text-[11px] text-slate-500">
-                                                    저작권 신고율이 높거나 기존에 유사한 콘텐츠가 대량 등록된 경우, 아래의 추가 2차 신호 변형 필터를 인코더에 겹쳐 투영하십시오.
-                                                </p>
-                                            </div>
-                                            {extraApplied && (
-                                                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1 animate-bounce">
-                                                    <CheckCircle className="w-3 h-3" /> 적용 완료
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                                            <label className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${extraPitchShift ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50'}`}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={extraPitchShift} 
-                                                    onChange={(e) => { setExtraPitchShift(e.target.checked); setExtraApplied(false); }} 
-                                                    className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500" 
-                                                />
-                                                <div className="space-y-0.5">
-                                                    <p className="text-xs font-bold text-slate-800">오디오 시프트 강화</p>
-                                                    <p className="text-[10px] text-slate-400">피치 미세 조율 강도 2배</p>
-                                                </div>
-                                            </label>
-
-                                            <label className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${extraMicroZoom ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50'}`}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={extraMicroZoom} 
-                                                    onChange={(e) => { setExtraMicroZoom(e.target.checked); setExtraApplied(false); }} 
-                                                    className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500" 
-                                                />
-                                                <div className="space-y-0.5">
-                                                    <p className="text-xs font-bold text-slate-800">마이크로 캔버스 크롭</p>
-                                                    <p className="text-[10px] text-slate-400">화면 크기 0.8% 배율 확대</p>
-                                                </div>
-                                            </label>
-
-                                            <label className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${extraFrameDrop ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50'}`}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={extraFrameDrop} 
-                                                    onChange={(e) => { setExtraFrameDrop(e.target.checked); setExtraApplied(false); }} 
-                                                    className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500" 
-                                                />
-                                                <div className="space-y-0.5">
-                                                    <p className="text-xs font-bold text-slate-800">의사 컷 프레임 드롭</p>
-                                                    <p className="text-[10px] text-slate-400">랜덤 단위 0.05초 컷 절삭</p>
-                                                </div>
-                                            </label>
-
-                                            <label className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${extraColorDither ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50/50 border-slate-200 hover:bg-slate-50'}`}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={extraColorDither} 
-                                                    onChange={(e) => { setExtraColorDither(e.target.checked); setExtraApplied(false); }} 
-                                                    className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500" 
-                                                />
-                                                <div className="space-y-0.5">
-                                                    <p className="text-xs font-bold text-slate-800">색조 히스토그램 진동</p>
-                                                    <p className="text-[10px] text-slate-400">감마 대비 미세 무작위 보정</p>
-                                                </div>
-                                            </label>
-                                        </div>
-
-                                        <Button 
-                                            onClick={handleApplyExtraMeasures} 
-                                            disabled={applyingExtra || (!extraPitchShift && !extraMicroZoom && !extraFrameDrop && !extraColorDither)}
-                                            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-3"
-                                        >
-                                            {applyingExtra ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                                                    추가 회피 조치 필터 오프셋 가중치 렌더링 중...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <RefreshCw className="mr-2 h-3.5 w-3.5" />
-                                                    추가 회피 조치 일괄 적용 및 리셋
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                    {extraReport && (
+                        <div className="space-y-4">
+                            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3">
+                                <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0"/>
+                                <div className="flex-1">
+                                    <p className="text-sm font-bold text-emerald-800">추가 변조 완료!</p>
+                                </div>
+                                <a href={extraReport.url} download className="inline-flex items-center px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700">
+                                    <Download className="w-3.5 h-3.5 mr-1.5"/>다운로드
+                                </a>
+                            </div>
+                            {extraReport.report && <MutationReportPanel report={extraReport.report}/>}
                         </div>
                     )}
+                </>
+            )}
+        </div>
+    );
+};
+
+// ──────────────────────────────────────────────────────────
+// 메인
+// ──────────────────────────────────────────────────────────
+const SovereignShieldLab = () => {
+    const [tab, setTab] = useState<'mutate' | 'compare'>('mutate');
+
+    return (
+        <div className="container mx-auto p-6 max-w-7xl space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+                        <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600"><ShieldAlert className="w-6 h-6"/></span>
+                        유튜브 연좌제 방어 변조
+                        <span className="text-xs font-bold bg-indigo-600 text-white px-2 py-0.5 rounded-full">Sovereign Shield v5</span>
+                    </h1>
+                    <p className="text-sm text-slate-500 font-medium mt-1">Content ID / pHash 핑거프린팅 우회 · 채널 연좌제 방어 · 미디어 지문 교란 실험실</p>
                 </div>
-
-                {/* TECHNOLOGY PRINCIPLE PANEL */}
-                <div className="space-y-6">
-                    <Card className="border border-indigo-100 bg-indigo-50/30">
-                        <CardHeader>
-                            <CardTitle className="text-slate-900 text-base font-bold flex items-center gap-1.5">
-                                <Sparkles className="text-indigo-600 w-4 h-4" />
-                                핵심 방어 교란 기술 상세
-                            </CardTitle>
-                            <CardDescription className="text-xs text-slate-500">
-                                유튜브 알고리즘이 영상의 원본을 인식하지 못하도록 작동하는 다중 레이어 우회 매커니즘
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4 text-xs text-slate-700">
-                            <div className="space-y-1.5 p-3.5 bg-white rounded-lg border border-indigo-100">
-                                <p className="font-bold text-indigo-900 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
-                                    시간적 프레임 랜덤 픽셀 투영
-                                </p>
-                                <p className="text-slate-600 leading-relaxed">
-                                    인간의 시각으로 식별하기 힘든 미세한 강도의 프레임 단위 가우시안 픽셀 노이즈를 흩뿌려 프레임 해시 대조군 검출기(Perceptual Hash)를 교란시킵니다.
-                                </p>
-                            </div>
-
-                            <div className="space-y-1.5 p-3.5 bg-white rounded-lg border border-indigo-100">
-                                <p className="font-bold text-indigo-900 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
-                                    가청 한계 주파수 가변 & 오디오 시프트
-                                </p>
-                                <p className="text-slate-600 leading-relaxed">
-                                    오디오 샘플링 레이트를 미세하게 시프트 조율하고 고주파(17kHz 이상) 및 저주파 필터링을 통해 사람이 들을 때는 차이가 없으나 오디오 주파수 핑거프린트 매칭 시 감지를 불가능하게 합니다.
-                                </p>
-                            </div>
-
-                            <div className="space-y-1.5 p-3.5 bg-white rounded-lg border border-indigo-100">
-                                <p className="font-bold text-indigo-900 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
-                                    메타데이터 완전 소거
-                                </p>
-                                <p className="text-slate-600 leading-relaxed">
-                                    인코더 정보, 원본 카메라 메타, 원본 타임스탬프, 컬러 매핑 데이터를 강제로 초기화 및 재작성하여 동일 물리 파일로 식별되는 흔적을 소거합니다.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border border-slate-200">
-                        <CardHeader>
-                            <CardTitle className="text-slate-900 text-sm font-bold">권장 안전 수칙</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3 text-xs text-slate-600 leading-relaxed">
-                            <p>
-                                1. <strong>채널 고유 키 지정:</strong> 서로 다른 채널에 동일 비디오 소스를 게시하는 경우, 각각의 채널 키 시드를 다르게 지정하여 완전히 다른 노이즈 조합 파일로 변조하십시오.
-                            </p>
-                            <p>
-                                2. <strong>연좌제 우회:</strong> 한 채널이 정지된 상태에서 동일 IP 대역이나 동일 계정 기기에서 인코딩한 파일이 타 채널에 등록될 때 감지 확률을 현저히 낮춥니다.
-                            </p>
-                        </CardContent>
-                    </Card>
+                <div className="flex items-center gap-1.5 self-start bg-amber-50 border border-amber-100 text-amber-800 px-3 py-1.5 rounded-full text-xs font-semibold">
+                    <AlertTriangle className="w-3.5 h-3.5"/>정지/경고 대처 전용
                 </div>
             </div>
 
-            {/* MULTI-LAYER DEFENSE STRATEGY MODAL */}
-            {showDefenseStrategy && (
-                <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <Card className="w-full max-w-2xl border border-slate-200 shadow-2xl bg-white overflow-hidden max-h-[85vh] flex flex-col">
-                        <CardHeader className="bg-slate-50 border-b border-slate-100 flex flex-row items-center justify-between py-4 px-6 flex-shrink-0">
-                            <div>
-                                <CardTitle className="text-slate-900 text-base font-bold flex items-center gap-2">
-                                    <ShieldAlert className="w-5 h-5 text-indigo-600 animate-bounce" />
-                                    유튜브 계정 연좌제 차단 예방: 3중 다층 방어 매트릭스
-                                </CardTitle>
-                                <CardDescription className="text-xs text-slate-500 font-medium">유튜브 AI 알고리즘의 패턴 추적 및 이상 탐지를 무력화하는 핵심 방어 명세</CardDescription>
-                            </div>
-                            <button 
-                                onClick={() => setShowDefenseStrategy(false)}
-                                className="text-slate-400 hover:text-slate-700 font-bold text-sm bg-slate-100 hover:bg-slate-200 w-8 h-8 rounded-full flex items-center justify-center transition-all"
-                            >
-                                ✕
-                            </button>
-                        </CardHeader>
-                        
-                        <CardContent className="p-6 overflow-y-auto space-y-5 text-xs text-slate-600 leading-relaxed">
-                            {/* Layer 1 */}
-                            <div className="space-y-2 p-4 rounded-xl bg-indigo-50/40 border border-indigo-100">
-                                <h4 className="font-bold text-indigo-900 flex items-center gap-1.5 text-sm">
-                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-600 text-white font-mono text-[10px]">1</span>
-                                    1차 방어: 미디어 물리 신호 교란 (Media Signal Dispersion)
-                                </h4>
-                                <p className="pl-6 text-slate-600">
-                                    업로드되는 영상의 원본 해시값을 완전히 다르게 재구성하여, 기존 업로드 파일 및 타 채널 영상과의 동일성 분석(Content ID 및 pHash 검출기)을 원천 차단합니다.
-                                </p>
-                                <ul className="list-disc pl-11 space-y-1 text-slate-500">
-                                    <li><strong>프레임 노이즈 주입:</strong> 채널 고유 시드 기반의 랜덤 가우시안 노이즈 레이어를 비디오 프레임에 투사합니다.</li>
-                                    <li><strong>오디오 프리퀀시 미세 변동:</strong> 오디오 샘플 레이트를 미세 시프트(-0.2% 내외) 및 한계 주파수(30Hz 이하 / 17kHz 이상) 컷오프로 주파수 지문을 분쇄합니다.</li>
-                                    <li><strong>카메라 하드웨어 스푸핑:</strong> 단순히 메타데이터를 지우는 것을 넘어, iPhone 15 Pro나 Sony A7M4 등 가상의 촬영 장비 제조사명/모델명/소프트웨어 빌드 시그니처 및 임의의 과거 시각(Timestamp)을 인코더 단에 위장 주입합니다.</li>
-                                </ul>
-                            </div>
+            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                <button onClick={() => setTab('mutate')} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-bold transition-all ${tab === 'mutate' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    <ShieldAlert className="w-4 h-4"/>① 영상 변조
+                    <span className="text-[10px] text-slate-400 font-normal hidden md:inline">(영상 1개 → 변조 + 상세 보고서)</span>
+                </button>
+                <button onClick={() => setTab('compare')} className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-bold transition-all ${tab === 'compare' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    <ArrowRightLeft className="w-4 h-4"/>② 비교 분석 & 추가 변조
+                    <span className="text-[10px] text-slate-400 font-normal hidden md:inline">(원본 + 변조 영상 비교 → 추가 변조)</span>
+                </button>
+            </div>
 
-                            {/* Layer 2 */}
-                            <div className="space-y-2 p-4 rounded-xl bg-blue-50/40 border border-blue-100">
-                                <h4 className="font-bold text-blue-900 flex items-center gap-1.5 text-sm">
-                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white font-mono text-[10px]">2</span>
-                                    2차 방어: 접속 인프라 및 네트워크 완전 격리 (Sandbox Isolation)
-                                </h4>
-                                <p className="pl-6 text-slate-600">
-                                    물리적 파일이 변조되었더라도, 업로드하는 환경(IP 및 브라우저 정보)이 겹치면 계정 그룹이 연쇄 정지될 수 있습니다. 이 단계를 완전 격리합니다.
-                                </p>
-                                <ul className="list-disc pl-11 space-y-1 text-slate-500">
-                                    <li><strong>LTE IP 로테이션:</strong> 채널별 업로드 자동화 실행 시 LTE 동글 통신 모뎀을 조율하여, 채널마다 완전히 독립된 공인 IP 대역으로 변경 후 업로드합니다.</li>
-                                    <li><strong>안티디텍트 브라우저(Anti-detect WebGL/Canvas):</strong> `navigator.webdriver` 봇 변수 변조, 고유 WebGL 드라이버 시그니처 배정, Canvas 지문 난수화 가동으로 구글의 기기 추적을 차단합니다.</li>
-                                    <li><strong>세션 정보 독립화:</strong> 채널별 독립 쿠키 및 로컬 캐시 스토리지를 활용하여 교차 로그인 흔적을 철저히 감춥니다.</li>
-                                </ul>
-                            </div>
-
-                            {/* Layer 3 */}
-                            <div className="space-y-2 p-4 rounded-xl bg-emerald-50/40 border border-emerald-100">
-                                <h4 className="font-bold text-emerald-950 flex items-center gap-1.5 text-sm">
-                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-600 text-white font-mono text-[10px]">3</span>
-                                    3차 방어: 휴리스틱 행동 패턴 우회 (Human Behavior Simulation)
-                                </h4>
-                                <p className="pl-6 text-slate-600">
-                                    일정 속도, 주기적인 스케줄링 업로드, 기계적인 행동 패턴은 이상 탐지 시스템에 스팸 계정으로 걸리기 쉽습니다.
-                                </p>
-                                <ul className="list-disc pl-11 space-y-1 text-slate-500">
-                                    <li><strong>업로드 시간 지터링(Jitter):</strong> 지정 예약 시간에서 임의의 분/초 단위 오차 딜레이를 무작위 부여하여 기계적 패턴을 분산합니다.</li>
-                                    <li><strong>시뮬레이션 활동:</strong> 업로드 실행 전과 후에 일반 유튜브 홈 피드 시청, 무작위 피드 검색 및 구독 채널 관리 활동 모션을 백그라운드 브라우저에서 수행하여 일반 사용자와 유사하게 행동 패턴을 위장합니다.</li>
-                                </ul>
-                            </div>
-
-                            {/* Layer 4 */}
-                            <div className="space-y-2 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                                <h4 className="font-bold text-slate-800 flex items-center gap-1.5 text-sm">
-                                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-600 text-white font-mono text-[10px]">4</span>
-                                    자율 카나리 텔레메트리 스캔 (Spec & Roadmap)
-                                </h4>
-                                <p className="pl-6 text-slate-600">
-                                    실제 주요 채널에 업로드하기 전 임시 샌드박스 채널에 테스트 샘플을 선행 자동 업로드하여, 유튜브의 Content ID 실시간 차단 여부를 백그라운드에서 추적합니다. 저작권 경고 및 검출 시 변조 필터의 오프셋을 자동 상향 조율하는 피드백 컨트롤러가 동작하게 됩니다. (상세 계획은 `/docs/sovereign_shield_telemetry_spec.md` 참조)
-                                </p>
-                            </div>
-                        </CardContent>
-                        
-                        <div className="bg-slate-50 border-t border-slate-100 p-4 flex justify-end flex-shrink-0">
-                            <Button 
-                                onClick={() => setShowDefenseStrategy(false)}
-                                className="bg-slate-900 text-white hover:bg-slate-800 font-bold"
-                            >
-                                확인 및 닫기
-                            </Button>
-                        </div>
-                    </Card>
-                </div>
-            )}
+            {tab === 'mutate'  && <MutationTab />}
+            {tab === 'compare' && <CompareTab />}
         </div>
     );
 };

@@ -3,7 +3,7 @@ import { Handle, Position, NodeProps } from 'reactflow';
 import useNodeStore from '../../hooks/useNodeStore';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Youtube, AlertCircle, UploadCloud, CheckCircle, Clock, Share2 } from 'lucide-react';
+import { PlaySquare, AlertCircle, UploadCloud, CheckCircle, Clock, Share2 } from 'lucide-react';
 import {
     Tooltip,
     TooltipContent,
@@ -47,7 +47,7 @@ const ChannelNode = ({ data, selected }: NodeProps) => {
             <Card className={`overflow-hidden border shadow-lg ${cardBorder} ${pulseClass} ${shakeClass} bg-white text-slate-900 dark:bg-slate-900 dark:text-white`}>
                 <div className="p-3 flex items-start gap-4">
                     <div className="bg-red-600 p-2 rounded-xl text-white shadow-lg shadow-red-500/30">
-                        <Youtube className="w-6 h-6" />
+                        <PlaySquare className="w-6 h-6" />
                     </div>
 
                     <div className="flex-1 min-w-0">

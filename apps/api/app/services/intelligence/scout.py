@@ -4,9 +4,9 @@ import json
 import re
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from app.models import ScoutCandidate, Settings, Trend
+from app.models import ScoutCandidate, Settings
 from app.services.intelligence.analyst import Analyst
-from app.services.tool_manager import tool_manager
+from .youtube_discovery import search_youtube_channels
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +45,6 @@ class OracleScout:
              
         return model_name
 
-    async def run_oracle_mission(self, niche: str, db: Session, category: str = "All"):
-        """
-        Executes a full Oracle Scouting Mission:
-        1. Discover Strategic Keywords -> 2. Scout Competitors -> 3. AI Tier Ranking
-        """
-        logger.info(f"💎 [Oracle Scout] Launching mission for: {niche}")
-        
     async def run_oracle_mission(self, niche: str, db: Session):
         """Strategic Operation: End-to-end scouting mission with Theme Awareness"""
         STRATEGIC_THEMES = [
@@ -82,7 +75,7 @@ class OracleScout:
                     logger.warning(f"Strategic theme selection failed via {model_name}: {e}. Picking random.")
                     target_niche = random.choice(STRATEGIC_THEMES)
                 
-                logger.info(f"🚀 [Oracle Scout] Strategic Theme Selected: {target_niche}")
+                logger.info(f"[FALLBACK] [Oracle Scout] Strategic Theme Selected: {target_niche}")
 
             # 1. Discovery Phase (Standard + Strategic Keywords)
             keywords = await self._discover_viral_keywords(target_niche, "strategic")
@@ -107,7 +100,7 @@ class OracleScout:
             logger.info(f"🏆 [Scout] Ranking complete for {target_niche}. Got {len(ranked_candidates)} results.")
             
             # 4. Save to DB
-            logger.info("💾 [Scout] Step 4: Saving to Database...")
+            logger.info("[SAVE] [Scout] Step 4: Saving to Database...")
             for r in ranked_candidates:
                 # Use sub-transaction or check existence to avoid unique constraint issues
                 existing = db.query(ScoutCandidate).filter(ScoutCandidate.channel_url == r['url']).first()
@@ -127,17 +120,17 @@ class OracleScout:
                         total_sovereign_score=r['score'],
                         subscriber_growth_7d=r.get('growth_7d', 0.15), # Default mock if missing
                         ai_reasoning=r['reasoning'],
-                        category_id=getattr(db.query(Trend).filter(Trend.category == target_niche).first(), 'id', None),
+                        category_id=None,
                         status="PENDING"
                     )
                     db.add(candidate)
             
             db.commit()
-            logger.info(f"✅ [Oracle Scout] Mission complete. Saved {len(ranked_candidates)} candidates.")
+            logger.info(f"[OK] [Oracle Scout] Mission complete. Saved {len(ranked_candidates)} candidates.")
             return ranked_candidates
             
         except Exception as e:
-            logger.error(f"🚨 [Oracle Scout] CRITICAL MISSION FAILURE: {e}")
+            logger.error(f"[ALERT] [Oracle Scout] CRITICAL MISSION FAILURE: {e}")
             import traceback
             logger.error(traceback.format_exc())
             db.rollback()
@@ -204,24 +197,12 @@ class OracleScout:
             return [niche, f"{niche} shorts", f"{niche} trending", f"viral {niche}", f"how to {niche}"]
 
     async def _search_youtube_competitors(self, keyword: str, db: Session) -> List[Dict[str, Any]]:
-        """Web search for YouTube channels"""
-        query = f"site:youtube.com \"@{keyword}\" OR \"{keyword} channel\""
-        search_results = await asyncio.to_thread(tool_manager.search, query, db=db, settings=self.settings)
-        
-        candidates = []
-        for res in search_results.get("results", []):
-            # Prefer channel_url if provided (by yt-dlp direct search)
-            url = res.get("channel_url") or res.get("url", "")
-            
-            # Validation: Must be a valid YouTube channel path
-            is_valid = any(x in url for x in ["youtube.com/@", "youtube.com/channel/", "youtube.com/c/", "youtube.com/user/"])
-            
-            if is_valid:
-                candidates.append({
-                    "url": url,
-                    "name": res.get("channel") or res.get("title", "").replace(" - YouTube", ""),
-                    "snippet": res.get("content", "")
-                })
+        """Search YouTube for channels using yt-dlp directly"""
+        logger.info(f"[SEARCH] [Oracle Scout] Searching YouTube for channels related to: {keyword}")
+        candidates = await asyncio.to_thread(search_youtube_channels, keyword, 20)
+        if not candidates:
+            logger.warning(f"No channels found for '{keyword}', trying broader query")
+            candidates = await asyncio.to_thread(search_youtube_channels, f"{keyword} channel", 20)
         return candidates
 
     async def _rank_and_analyze_candidates(self, candidates: List[Dict[str, Any]], niche: str) -> List[Dict[str, Any]]:

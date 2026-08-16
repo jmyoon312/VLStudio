@@ -22,7 +22,7 @@ const BUNDLED_THUMB_EXTS = ['jpg', 'png', 'webp']
 async function fetchFirstAvailable(id) {
   for (const ext of BUNDLED_THUMB_EXTS) {
     try {
-      const res = await fetch(`/style-thumbnails/${id}.${ext}`)
+      const res = await fetch(`./style-thumbnails/${id}.${ext}`)
       if (!res.ok) continue
       const contentType = res.headers.get('content-type') || ''
       if (!contentType.startsWith('image/')) continue
@@ -40,6 +40,15 @@ async function loadBundledThumbnails(existingIds = []) {
   if (missingStyles.length === 0) return {}
 
   const bundled = {}
+  
+  // file:// 프로토콜 하에서는 보안 상의 이유로 fetch()가 차단되거나 오동작하므로, 직접 상대 경로로 매핑합니다.
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    missingStyles.forEach(style => {
+      bundled[style.id] = `./style-thumbnails/${style.id}.jpg`
+    })
+    return bundled
+  }
+
   await Promise.all(
     missingStyles.map(async (style) => {
       const blob = await fetchFirstAvailable(style.id)

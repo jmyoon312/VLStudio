@@ -1,7 +1,21 @@
 import axios from 'axios';
 
-export const API_BASE_URL = '/api';
-export const SWARM_BASE_URL = '/swarm';
+const getBaseURL = () => {
+    if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+        return 'http://127.0.0.1:8000/api';
+    }
+    return '/api';
+};
+
+const getSwarmBaseURL = () => {
+    if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+        return 'http://127.0.0.1:4000/swarm';
+    }
+    return '/swarm';
+};
+
+export const API_BASE_URL = getBaseURL();
+export const SWARM_BASE_URL = getSwarmBaseURL();
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -111,6 +125,8 @@ export interface Settings {
     scan_interval_minutes: number;
     auto_hd_viral_threshold?: number;
     auto_hd_velocity_threshold?: number;
+    outlier_ev_threshold?: number;
+    outlier_ratio_threshold?: number;
     ffmpeg_path: string | null;
     whisper_model_path: string | null;
     default_model_size: string;
@@ -122,6 +138,7 @@ export interface Settings {
     typecast_api_keys: string[];
     kokoro_tts_url: string;
     searxng_url: string;
+    ixbrowser_api_url?: string;
     web_search_engine: string;
     ollama_api_base_url?: string;
     gemini_api_keys: string[];
@@ -132,6 +149,9 @@ export interface Settings {
     tavily_api_keys: string[];
     sambanova_api_keys: string[];
     cerebras_api_keys: string[];
+    opencode_api_keys: string[];
+    jina_reader_endpoint: string;
+    jina_reader_api_keys: string[];
     pexels_api_keys: string[];
     pixabay_api_keys: string[];
     fal_api_keys: string[];
@@ -157,6 +177,10 @@ export interface Settings {
     audio_node_api_key?: string;
     visual_node_url?: string;
     visual_node_api_key?: string;
+    proxy_mode?: string;
+    netshare_ip?: string;
+    netshare_port?: number;
+    isp_proxy_url?: string;
     created_at: string;
 }
 
@@ -164,15 +188,66 @@ export interface ScriptGenerationRequest {
     input_text: string;
     style_id: number;
     glossary?: string;
+    niche?: string;
+    wisdom?: string;
     provider?: string;
     model?: string;
+    use_web_search?: boolean;
+}
+
+export interface ScriptGenerationResponse {
+    script: string;
+    model_used: string;
+    warning?: string;
+    research_used?: boolean;
+    research_summary?: string;
+    research_sources?: string[];
+    trend_used?: boolean;
+    trend_count?: number;
+}
+
+export interface TrendItem {
+    id: number;
+    keyword: string;
+    category: string;
+    micro_topic: string;
+    keyword_count: number;
+    top_keywords: TrendKeyword[];
+    updated_at: string;
+}
+
+export interface TrendKeyword {
+    ko: string;
+    en: string;
+    score: number;
+    velocity: string;
 }
 
 export interface ScriptRefinementRequest {
     current_text: string;
     instruction: string;
+    style_id?: number;
+    persona?: string;
     provider?: string;
     model?: string;
+    tempo_percentage?: number;
+}
+
+export interface SafetyReviewRequest {
+    current_text: string;
+    provider?: string;
+    model?: string;
+}
+
+export interface SafetyChange {
+    original: string;
+    replacement: string;
+    reason: string;
+}
+
+export interface SafetyReviewResponse {
+    revised_script: string;
+    changes: SafetyChange[];
 }
 
 export interface ScriptStyle {

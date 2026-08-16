@@ -11,6 +11,7 @@ const ChannelManager = () => {
     const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [showCategoryInput, setShowCategoryInput] = useState(false);
+    const [selectedChannels, setSelectedChannels] = useState<Set<number>>(new Set());
     const [isScriptOnly, setIsScriptOnly] = useState(false); // [NEW]
     const [editingChannelId, setEditingChannelId] = useState<number | null>(null);
 
@@ -113,6 +114,37 @@ const ChannelManager = () => {
             alert('요청 중 오류가 발생했습니다: ' + (error.response?.data?.detail || error.message));
         }
     });
+
+
+    const handleBatchDelete = async () => {
+        if (selectedChannels.size === 0) return;
+        if (!window.confirm(`선택한 ${selectedChannels.size}개의 채널과 관련된 모든 영상을 삭제하시겠습니까?`)) return;
+        
+        try {
+            await api.post('/channels/batch-delete', { channel_ids: Array.from(selectedChannels) });
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
+            setSelectedChannels(new Set());
+            // Need toast if possible, otherwise alert is fine. alert is used in this file mostly.
+            alert('선택한 채널이 일괄 삭제되었습니다.');
+        } catch (error) {
+            alert('채널 일괄 삭제 중 오류가 발생했습니다.');
+        }
+    };
+
+    const toggleChannel = (id: number) => {
+        const newSet = new Set(selectedChannels);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setSelectedChannels(newSet);
+    };
+
+    const toggleAllChannels = () => {
+        if (channels && selectedChannels.size === channels.length) {
+            setSelectedChannels(new Set());
+        } else if (channels) {
+            setSelectedChannels(new Set(channels.map(c => c.id)));
+        }
+    };
 
     const handleAddCategory = (e: React.FormEvent) => {
         e.preventDefault();
@@ -252,11 +284,30 @@ const ChannelManager = () => {
             </div>
 
             {/* Channel List */}
+            <div className="flex justify-end mb-2">
+                {selectedChannels.size > 0 && (
+                    <button
+                        onClick={handleBatchDelete}
+                        className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2"
+                    >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        선택 삭제 ({selectedChannels.size})
+                    </button>
+                )}
+            </div>
             <div className="rounded-md border border-border bg-card">
                 <div className="relative w-full overflow-auto">
                     <table className="w-full caption-bottom text-sm">
                         <thead className="[&_tr]:border-b">
                             <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-12">
+                                    <input 
+                                        type="checkbox" 
+                                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                                        checked={channels?.length > 0 && selectedChannels.size === channels?.length}
+                                        onChange={toggleAllChannels}
+                                    />
+                                </th>
                                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px] whitespace-nowrap">카테고리</th>
                                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">플랫폼</th>
                                 <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">이름</th>
@@ -269,9 +320,17 @@ const ChannelManager = () => {
                         </thead>
                         <tbody className="[&_tr:last-child]:border-0">
                             {isLoading ? (
-                                <tr><td colSpan={7} className="p-4 text-center">로딩 중...</td></tr>
+                                <tr><td colSpan={8} className="p-4 text-center">로딩 중...</td></tr>
                             ) : channels?.map((channel) => (
                                 <tr key={channel.id} className="border-b transition-colors hover:bg-muted/50">
+                                    <td className="p-4 align-middle">
+                                        <input 
+                                            type="checkbox"
+                                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                                            checked={selectedChannels.has(channel.id)}
+                                            onChange={() => toggleChannel(channel.id)}
+                                        />
+                                    </td>
                                     <td className="p-4 align-middle whitespace-nowrap">
                                         <span className={cn(
                                             "inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",

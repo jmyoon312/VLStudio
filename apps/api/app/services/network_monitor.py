@@ -42,7 +42,7 @@ class NetworkMonitor:
         self.WIFI_METRIC_TARGET = 10
         self.WIRED_METRIC_TARGET = 10
         self.WIFI_SECONDARY_METRIC_TARGET = 20
-        self.LTE_METRIC_TARGET = 9000
+        self.LTE_METRIC_TARGET = 50
         
         # State
         self.current_status = {
@@ -59,7 +59,7 @@ class NetworkMonitor:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self._thread.start()
-        logger.info("✅ NetworkMonitor Started")
+        logger.info("[OK] NetworkMonitor Started")
 
     def stop(self):
         self._stop_event.set()
@@ -88,7 +88,7 @@ class NetworkMonitor:
                 
                 if needs_heavy_check or (now - last_heavy_check) >= 60:
                     if needs_heavy_check:
-                        logger.info("🔄 Network adapter change detected! Instantly triggering routing enforcement.")
+                        logger.info("[REFRESH] Network adapter change detected! Instantly triggering routing enforcement.")
                     self._check_and_enforce()
                     last_heavy_check = now
             except Exception as e:
@@ -212,47 +212,64 @@ class NetworkMonitor:
                     if is_physical_wired:
                         wired_idx = idx
                         wired_name = adp.get('Name')
-                        logger.debug(f"✅ Identified Wired LAN (PCI): {wired_name} ({desc})")
+                        logger.debug(f"[OK] Identified Wired LAN (PCI): {wired_name} ({desc})")
                         continue
 
                     # 3. Identify LTE/Tethering (Priority: USB or Known Driver)
                     is_known_lte = False
                     if any(k in desc for k in ['samsung', 'apple', 'rndis', 'remote ndis', 'mobile', 'remote', 'ndis', 'tether']):
                         is_known_lte = True
-                    elif bus == 15: # USB 
+                    elif bus == 15: # USB
                         is_known_lte = True
                     elif '이더넷' in adp.get('Name') or 'ethernet' in name:
-                        # If it's a secondary Ethernet, it might be the phone
-                        generic_candidates.append((idx, adp.get('Name')))
-                        
+                        # [Fix] USB 포트 변경 시 Windows가 새 인터페이스 인스턴스 생성 가능.
+                        # wired_idx가 이미 확보된 상태에서 등장하는 추가 이더넷 → LTE 우선 후보.
+                        # wired_idx가 없으면 generic_candidates에 추가 (기존 동작 유지).
+                        if wired_idx is not None:
+                            is_known_lte = True
+                            logger.debug(f"🔌 Secondary Ethernet treated as LTE candidate: {adp.get('Name')} ({desc})")
+                        else:
+                            generic_candidates.append((idx, adp.get('Name')))
+
                     if is_known_lte:
                         lte_idx = idx
                         # [Bug 4] lte_name에 실제 OS Alias만 저장 (접미사 오염 금지)
                         lte_name = adp.get('Name')
-                        logger.debug(f"✅ Identified LTE via Driver/Bus: {lte_name} ({desc})")
+                        logger.debug(f"[OK] Identified LTE via Driver/Bus: {lte_name} ({desc})")
                         continue
 
                     # 4. Generic active adapters (Potential LTE if unidentified)
                     generic_candidates.append((idx, adp.get('Name')))
 
                 # Fallback: IP Signature Matching
+                # [Fix] IP 대역 확장: USB 테더링 기기의 다양한 서브넷 포함
+                LTE_IP_PREFIXES = [
+                    "192.168.42.",  # Android USB 테더링 기본
+                    "192.168.43.",  # Android USB 테더링 (일부 기기)
+                    "192.168.44.",  # Android USB 테더링 (일부 기기)
+                    "192.168.49.",  # Android Wi-Fi 핫스팟
+                    "192.168.100.", # 일부 제조사 전용
+                    "172.20.10.",   # iPhone USB 테더링
+                    "10.0.0.",      # 일부 안드로이드/제조사
+                    "10.10.0.",     # 일부 통신사 전용 대역
+                ]
                 if lte_idx is None and generic_candidates:
                     for cand in generic_candidates:
                         c_idx, c_name = cand
                         ip_res = self._get_ip_info(c_idx)
-                        # [Bug 5] 192.168.1. 제거 (공유기 대역과 충돌 방지)
-                        if ip_res and any(p in ip_res for p in ["192.168.42.", "172.20.10.", "192.168.43.", "192.168.49.", "192.168.100."]):
+                        if ip_res and any(p in ip_res for p in LTE_IP_PREFIXES):
                             lte_idx = c_idx
                             # [Bug 4] 실제 Alias만 저장, 디버그 정보는 로그로
                             lte_name = c_name
-                            logger.debug(f"🎯 IP-Match Identified LTE: {lte_name} (ip={ip_res})")
+                            logger.debug(f"[TARGET] IP-Match Identified LTE: {lte_name} (ip={ip_res})")
                             break
-                    
+
                 # Final fallback: If still nothing, pick the first active non-wifi/non-wired
                 if lte_idx is None and generic_candidates:
                     lte_idx, lte_name = generic_candidates[0]
                     # [Bug 4] Fallback에서도 실제 Alias만 저장 (접미사 붙이지 않음)
-                    logger.debug(f"[⚠️ Fallback] 실리주의: Active-Fallback LTE: {lte_name}")
+                    logger.debug(f"[[WARN] Fallback] 실리주의: Active-Fallback LTE: {lte_name}")
+
             
             except Exception as e:
                 logger.error(f"Adapter Parse Error: {e}")
@@ -398,7 +415,7 @@ class NetworkMonitor:
             logger.debug("Skipping routing enforcement because process is running with standard privileges.")
 
     def _enforce_rules(self, wifi_idx, wired_idx, lte_idx):
-        # Rule: System Main = 10 (Wired priority), Secondary System = 20, LTE = 9000
+        # Rule: System Main = 10 (Wired priority), Secondary System = 20, LTE = 50
         
         # 1. Wired LAN (Priority 1)
         if wired_idx:
@@ -409,7 +426,7 @@ class NetworkMonitor:
              
              # Enforce if wrong OR if we just want to be sure (since "0" or "256" persists)
              if cur != -1: # Always enforce if active
-                 logger.debug(f"🔧 Enforcing Wired Metric: 10 (via PS + netsh)")
+                 logger.debug(f"[WRENCH] Enforcing Wired Metric: 10 (via PS + netsh)")
                  # PowerShell Method
                  _, success, err = self._run_ps(f"Set-NetIPInterface -InterfaceIndex {wired_idx} -InterfaceMetric {target} -AutomaticMetric Disabled")
                  if not success and ("AccessDenied" in err or "액세스가 거부" in err):
@@ -429,7 +446,7 @@ class NetworkMonitor:
              name = self.current_status['wifi']['name']
              
              if cur != -1: 
-                  logger.debug(f"🔧 Enforcing Wi-Fi Metric: {target} (via PS + netsh) on {name}")
+                  logger.debug(f"[WRENCH] Enforcing Wi-Fi Metric: {target} (via PS + netsh) on {name}")
                   # PowerShell Method
                   _, success, err = self._run_ps(f"Set-NetIPInterface -InterfaceIndex {wifi_idx} -InterfaceMetric {target} -AutomaticMetric Disabled")
                   if not success and ("AccessDenied" in err or "액세스가 거부" in err):
@@ -450,9 +467,9 @@ class NetworkMonitor:
         
         # [Safety] If LTE is 0 or -1 (Unknown), don't touch it to avoid disconnect.
         if lte_idx and not is_isolated and cur_l != self.LTE_METRIC_TARGET and str(cur_l) != "0":
-             logger.debug(f"🔧 Fixing LTE Metric: {cur_l} -> {self.LTE_METRIC_TARGET}")
+             logger.debug(f"[WRENCH] Fixing LTE Metric: {cur_l} -> {self.LTE_METRIC_TARGET}")
              
-             # Force Metric 9000. DO NOT DELETE ROUTES.
+             # Force Metric 50. DO NOT DELETE ROUTES.
              cmds = [
                  f"Set-NetIPInterface -InterfaceIndex {lte_idx} -InterfaceMetric {self.LTE_METRIC_TARGET} -AutomaticMetric Disabled"
              ]
@@ -581,9 +598,13 @@ class NetworkMonitor:
         if wired and wired.get('index') and wired.get('name'):
             cmds.append(f"Disable-NetAdapterBinding -Name '{wired['name']}' -ComponentID ms_tcpip6 -ErrorAction SilentlyContinue")
 
-        # 3. LTE -> Priority 9000 (Last)
+        # 3. LTE -> Priority 50 (Last)
         if lte and lte.get('index'):
-            cmds.append(f"Set-NetIPInterface -InterfaceIndex {lte['index']} -InterfaceMetric {self.LTE_METRIC_TARGET} -AutomaticMetric Disabled")
+            if lte.get('name'):
+                cmds.append(f"Enable-NetAdapter -Name '{lte['name']}' -Confirm:$false -ErrorAction SilentlyContinue")
+                cmds.append(f"Disable-NetAdapterBinding -Name '{lte['name']}' -ComponentID ms_tcpip6 -ErrorAction SilentlyContinue")
+            cmds.append(f"Set-NetIPInterface -InterfaceIndex {lte['index']} -AddressFamily IPv4 -InterfaceMetric {self.LTE_METRIC_TARGET} -AutomaticMetric Disabled -ErrorAction SilentlyContinue")
+            cmds.append(f"Set-NetIPInterface -InterfaceIndex {lte['index']} -AddressFamily IPv6 -InterfaceMetric {self.LTE_METRIC_TARGET} -AutomaticMetric Disabled -ErrorAction SilentlyContinue")
              
         if not cmds:
             return False, "No active interfaces to configure"
@@ -594,7 +615,7 @@ class NetworkMonitor:
         
         # Base64 Encode for PowerShell safety
         encoded_cmd = base64.b64encode(raw_cmd.encode('utf-16le')).decode('utf-8')
-        launcher_cmd = f"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -EncodedCommand {encoded_cmd}'"
+        launcher_cmd = f"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -EncodedCommand {encoded_cmd}' -Wait"
         
         ps_path = os.getenv("POWERSHELL_PATH", r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe")
         try:

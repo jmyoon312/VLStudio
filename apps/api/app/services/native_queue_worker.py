@@ -5,6 +5,7 @@ import logging
 import time
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 print(f"!!! [DEBUG] Python: {sys.executable}")
@@ -13,7 +14,7 @@ print(f"!!! [DEBUG] CWD: {os.getcwd()}")
 from app.services.upload_orchestrator import upload_orchestrator
 from app.services.workflow_runner import workflow_runner_singleton
 from app.database import SessionLocal
-from app.services.verification_worker import verification_worker  # [NEW] Hook Verification Worker
+from app.services.verification_worker import verification_worker
 
 logger = logging.getLogger(__name__)
 
@@ -29,72 +30,106 @@ class NativeQueueWorker:
     def _initialize(self):
         self.task_queue = queue.Queue()
         self.running = True
-        self.last_channel_id = None
-        self.worker_thread = threading.Thread(target=self._process_queue, daemon=True, name="NativeUploadWorker")
-        self.worker_thread.start()
-        logger.info("✅ Native Queue Worker Started (ThreadSafe, Sequential, Smart Batching)")
+        self.profile_busy = {}
+        self.profile_lock = threading.Lock()
+        self.executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="UploadWorker")
+        self.scheduler_thread = threading.Thread(target=self._process_scheduler, daemon=True, name="NativeUploadScheduler")
+        self.scheduler_thread.start()
+        logger.info("[OK] Native Queue Worker Started (Concurrent Mode - one per isolated profile)")
 
     def add_task(self, item_id: int):
         logger.info(f"📥 [NativeQueue] Adding item {item_id} to queue")
         self.task_queue.put(item_id)
 
-    def _process_queue(self):
+    def _resolve_profile_id(self, item_id: int) -> str:
+        """WorkQueueItem이 어느 프로필(IP)에 속하는지 확인"""
         from app import models
+        db = SessionLocal()
+        try:
+            item = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id == item_id).first()
+            if not item:
+                return None
+            yt_config = (item.platform_configs or {}).get('youtube', {})
+            channel_id = yt_config.get('channel_id')
+            if not channel_id:
+                return None
+            channel = db.query(models.YouTubeChannel).filter(models.YouTubeChannel.channel_id == channel_id).first()
+            if channel and getattr(channel, 'owner_profile_id', None):
+                return channel.owner_profile_id
+            return channel_id
+        finally:
+            db.close()
+
+    def _process_scheduler(self):
+        """메인 스케줄러: 큐에서 항목을 꺼내 워커 쓰레드에 할당"""
         while self.running:
             try:
                 item_id = self.task_queue.get(timeout=1.0)
-                logger.info(f"🔄 [NativeQueue] Picking up item {item_id}...")
-                db = SessionLocal()
-                try:
-                    item = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id == item_id).first()
-                    should_rotate = True
-                    if item:
-                        yt_config = item.platform_configs.get('youtube', {})
-                        current_channel_id = yt_config.get('channel_id')
-                        if current_channel_id:
-                            if current_channel_id == self.last_channel_id:
-                                logger.info(f"🧬 Same Channel ({current_channel_id}) detected. Sticky IP active.")
-                                should_rotate = False
-                            else:
-                                logger.info(f"🔀 New Channel ({current_channel_id}). Forcing IP Rotation.")
-                                should_rotate = True
-                            self.last_channel_id = current_channel_id
-                        else:
-                            should_rotate = True
-                            self.last_channel_id = None
-                    
-                    if item and item.source_type == "SOVEREIGN_AI":
-                        logger.info(f"🚀 [NativeQueue] Detected SOVEREIGN_AI mission for {item_id}. Starting production engine...")
-                        try:
-                            import asyncio as aio
-                            production_result = aio.run(workflow_runner_singleton.execute_workflow_for_mission(db, item_id))
-                            logger.info(f"🎨 [NativeQueue] Production Success for {item_id}: {production_result.get('video_path')}")
-                        except Exception as prod_err:
-                            logger.error(f"❌ [NativeQueue] Production Failed for {item_id}: {prod_err}")
-                            item.status = "FAILED"
-                            item.failure_reason = f"Production Error: {str(prod_err)}"
-                            db.commit()
-                            db.close()
-                            self.task_queue.task_done()
-                            continue
-
-                    result = upload_orchestrator.process_item(db, item_id, task_instance=None, force_ip_rotation=should_rotate)
-                    logger.info(f"✅ [NativeQueue] Finished item {item_id}: {result}")
-                except Exception as e:
-                    logger.error(f"❌ [NativeQueue] Error processing {item_id}: {e}")
-                finally:
-                    db.close()
+                profile_id = self._resolve_profile_id(item_id)
+                
+                if profile_id and self._try_claim_profile(profile_id):
+                    self.executor.submit(self._process_item, item_id, profile_id)
+                else:
+                    logger.info(f"⏸ [NativeQueue] Item {item_id} (profile={profile_id}) - busy or unknown, re-queuing")
+                    self.task_queue.put(item_id)
                     self.task_queue.task_done()
+                    
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"❌ [NativeQueue] Worker Thread Crash: {e}")
+                logger.error(f"[FAIL] [NativeQueue] Scheduler Error: {e}")
                 time.sleep(1)
+
+    def _process_item(self, item_id: int, profile_id: str):
+        """개별 워커 쓰레드에서 실행 - 각 프로필이 독립적으 실행"""
+        from app import models
+        db = SessionLocal()
+        try:
+            item = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id == item_id).first()
+            
+            # 해당 프로필이 이전에 사용된 적 없으면 IP 로테褂
+            should_rotate = True
+            if hasattr(self, '_profile_first_use'):
+                if profile_id in self._profile_first_use:
+                    should_rotate = False
+            if not hasattr(self, '_profile_first_use'):
+                self._profile_first_use = set()
+            self._profile_first_use.add(profile_id)
+            
+            if item and item.source_type == "SOVEREIGN_AI":
+                logger.info(f"[FALLBACK] [NativeQueue] SOVEREIGN_AI mission for {item_id}")
+                try:
+                    import asyncio as aio
+                    production_result = aio.run(workflow_runner_singleton.execute_workflow_for_mission(db, item_id))
+                    logger.info(f"🎨 Production Success: {production_result.get('video_path')}")
+                except Exception as prod_err:
+                    logger.error(f"[FAIL] Production Failed: {prod_err}")
+                    item.status = "FAILED"
+                    item.failure_reason = f"Production Error: {str(prod_err)}"
+                    db.commit()
+                    return
+
+            result = upload_orchestrator.process_item(db, item_id, task_instance=None, force_ip_rotation=should_rotate)
+            logger.info(f"[OK] [NativeQueue] Finished item {item_id}: {result}")
+        except Exception as e:
+            logger.error(f"[FAIL] [NativeQueue] Error processing {item_id}: {e}")
+        finally:
+            db.close()
+            with self.profile_lock:
+                if profile_id:
+                    self.profile_busy.pop(profile_id, None)
+
+    def _try_claim_profile(self, profile_id: str) -> bool:
+        with self.profile_lock:
+            if profile_id in self.profile_busy:
+                return False
+            self.profile_busy[profile_id] = True
+            return True
 
 native_worker = NativeQueueWorker()
 
 if __name__ == "__main__":
-    print("!!! [DEBUG] ENTERING KEEP-ALIVE LOOP !!!")
+    print(">>> [DEBUG] ENTERING KEEP-ALIVE LOOP <<<")
     try:
         while True:
             time.sleep(1)

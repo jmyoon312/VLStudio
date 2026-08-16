@@ -11,6 +11,7 @@ import { Loader2, Play, Download, Scissors, FileText, Wand2, Zap, Gamepad2, Mic,
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { VoicePresetList, VoicePreset } from '../components/VoicePresetList';
+import { resolveFileUrl } from '@/utils/fileUrl';
 
 interface TTSVoice {
     id: string;
@@ -330,8 +331,10 @@ const MultiTTS = () => {
 
             if (res.data.status === "success") {
                 console.log("TTS Generation Success:", res.data);
+                const rawUrl = res.data.web_url;
+                const formattedUrl = resolveFileUrl(rawUrl);
                 setStep1Result({
-                    web_url: res.data.web_url,
+                    web_url: formattedUrl,
                     server_path: res.data.server_path
                 });
                 toast.success("오디오 생성 완료!");
@@ -371,8 +374,10 @@ const MultiTTS = () => {
             const res = await api.post("/tools/silence/process", formData);
 
             if (res.data.status === "success") {
+                const rawUrl = res.data.web_url;
+                const formattedUrl = resolveFileUrl(rawUrl);
                 setStep2Result({
-                    web_url: res.data.web_url,
+                    web_url: formattedUrl,
                     server_path: res.data.server_path
                 });
                 toast.success("무음 제거 완료! 다운로드가 시작됩니다.");
@@ -380,9 +385,9 @@ const MultiTTS = () => {
                 // Auto Download
                 try {
                     const link = document.createElement('a');
-                    link.href = res.data.web_url;
+                    link.href = formattedUrl;
                     // Extract filename from URL or use default
-                    const filename = res.data.web_url.split('/').pop()?.split('?')[0] || 'processed_audio.mp3';
+                    const filename = formattedUrl.split('/').pop()?.split('?')[0] || 'processed_audio.mp3';
                     link.download = filename;
                     document.body.appendChild(link);
                     link.click();
@@ -465,7 +470,8 @@ const MultiTTS = () => {
     const downloadFile = async (url: string, filename: string) => {
         try {
             toast.loading("다운로드 시작...");
-            const response = await fetch(url);
+            const safeUrl = resolveFileUrl(url);
+            const response = await fetch(safeUrl);
             const blob = await response.blob();
             const blobUrl = window.URL.createObjectURL(blob);
 

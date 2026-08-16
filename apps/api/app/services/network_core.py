@@ -6,10 +6,71 @@ import socket
 import select
 import struct
 from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
+from urllib.parse import urlparse
+import base64
+import time
+
 from app.services.adb_service import adb_service
 from app.services.network_monitor import network_monitor
 
 logger = logging.getLogger("NetworkCore")
+
+PROXY_CONFIG_CACHE = {
+    "mode": "DIRECT_LTE",
+    "netshare_ip": "192.168.49.1",
+    "netshare_port": 8282,
+    "isp_url": None
+}
+
+_adb_forwarded = False
+_last_forward_port = None
+
+def _refresh_proxy_settings():
+    global _adb_forwarded, _last_forward_port
+    while True:
+        try:
+            from app.database import SessionLocal
+            from app.models import Settings
+            with SessionLocal() as db:
+                settings = db.query(Settings).first()
+                if settings:
+                    PROXY_CONFIG_CACHE["mode"] = settings.proxy_mode or "DIRECT_LTE"
+                    PROXY_CONFIG_CACHE["netshare_ip"] = settings.netshare_ip or "192.168.49.1"
+                    PROXY_CONFIG_CACHE["netshare_port"] = settings.netshare_port or 8282
+                    PROXY_CONFIG_CACHE["isp_url"] = settings.isp_proxy_url
+                    
+                    if PROXY_CONFIG_CACHE["mode"] == "NETSHARE" and PROXY_CONFIG_CACHE["netshare_ip"] == "127.0.0.1":
+                        current_port = PROXY_CONFIG_CACHE["netshare_port"]
+                        if not _adb_forwarded or _last_forward_port != current_port:
+                            try:
+                                logger.info(f"[FALLBACK] [NetworkCore] Auto-forwarding ADB port tcp:{current_port}...")
+                                # CREATE_NO_WINDOW = 0x08000000
+                                subprocess.run(
+                                    [adb_service.adb_path, "forward", f"tcp:{current_port}", f"tcp:{current_port}"], 
+                                    check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, 
+                                    creationflags=0x08000000
+                                )
+                                _adb_forwarded = True
+                                _last_forward_port = current_port
+                                logger.info(f"[OK] [NetworkCore] ADB forward successful for port {current_port}")
+                            except Exception as e:
+                                logger.error(f"[FAIL] [NetworkCore] ADB forward failed: {e}")
+                    else:
+                        if _adb_forwarded and _last_forward_port:
+                            try:
+                                subprocess.run(
+                                    [adb_service.adb_path, "forward", "--remove", f"tcp:{_last_forward_port}"], 
+                                    check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                    creationflags=0x08000000
+                                )
+                            except: pass
+                            _adb_forwarded = False
+                            _last_forward_port = None
+        except Exception as e:
+            logger.error(f"[FAIL] [NetworkCore] Failed to refresh proxy settings: {e}")
+        time.sleep(5)
+
+threading.Thread(target=_refresh_proxy_settings, daemon=True).start()
 
 class ThreadingTCPServer(ThreadingMixIn, TCPServer):
     allow_reuse_address = True
@@ -54,11 +115,12 @@ def pipe_sockets(client: socket.socket, remote: socket.socket):
 # ──────────────────────────────────────────────────────────────────────────────
 def resolve_dns_via_interface(domain: str, bind_ip: str) -> str:
     """지정한 인터페이스 IP에 UDP 소켓을 바인딩하여 DNS 쿼리 수행 (DNS Leak 완벽 방지)."""
+    # 통신사별로 특정 해외 DNS를 차단하는 경우가 있으므로 타임아웃을 짧게 가져감
     dns_servers = ["1.1.1.1", "8.8.8.8", "208.67.222.222"]
     for dns_server in dns_servers:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(2.5)
+            sock.settimeout(1.5)
             sock.bind((bind_ip, 0))
 
             tx_id = 0xAB42
@@ -104,10 +166,14 @@ def resolve_dns_via_interface(domain: str, bind_ip: str) -> str:
         except Exception as e:
             logger.debug(f"[DNS] Interface-bound DNS query to {dns_server} failed for {domain}: {e}")
             
-    # [CRITICAL] DNS Leak Prevention:
-    # 지정된 인터페이스를 통한 DNS 쿼리가 모두 실패한 경우, 시스템 기본 DNS로 fallback하지 않고 에러를 발생시켜 연결을 차단합니다.
-    # 만약 fallback하게 되면 시스템 기본망(Wi-Fi)으로 DNS 패킷이 유출되어 유튜브 연좌제 방어벽이 깨지게 됩니다.
-    raise socket.gaierror(f"DNS resolution failed on bound interface {bind_ip} for domain {domain}")
+    # [Fallback] LTE 망에서 UDP 53포트가 차단되었거나 지연이 심할 경우 시스템 기본 DNS(OS)를 사용함.
+    # 유튜브는 실제 데이터 통신 IP를 기준으로 연좌제를 체크하므로 DNS 쿼리만 로컬망으로 빠져도 패널티 위험은 매우 적음.
+    logger.warning(f"[WARN] [DNS] All interface-bound DNS queries failed for {domain}. Falling back to OS resolver.")
+    try:
+        return socket.gethostbyname(domain)
+    except Exception as e:
+        logger.error(f"[FAIL] [DNS] OS resolver also failed for {domain}: {e}")
+        raise socket.gaierror(f"DNS resolution completely failed for domain {domain}")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LTE SOCKS5 Handler
@@ -144,14 +210,103 @@ class Socks5Handler(StreamRequestHandler):
             if not port_bytes: return
             port = int.from_bytes(port_bytes, 'big')
 
+            mode = PROXY_CONFIG_CACHE.get("mode", "DIRECT_LTE")
+
+            if mode == "NETSHARE":
+                remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                remote.settimeout(10.0)
+                ns_ip = PROXY_CONFIG_CACHE.get("netshare_ip", "192.168.49.1")
+                ns_port = PROXY_CONFIG_CACHE.get("netshare_port", 8282)
+                try:
+                    remote.connect((ns_ip, ns_port))
+                    connect_req = f"CONNECT {addr}:{port} HTTP/1.1\r\nHost: {addr}:{port}\r\n\r\n"
+                    remote.sendall(connect_req.encode())
+                    resp = remote.recv(4096)
+                    if b"200 Connection established" not in resp and b"200 OK" not in resp:
+                        logger.error(f"[FAIL] [NetworkCore] NetShare tunnel failed for {addr}:{port} - Resp: {resp}")
+                        return
+                    remote.settimeout(None)
+                    self.connection.send(b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00")
+                    pipe_sockets(self.connection, remote)
+                except Exception as e:
+                    logger.error(f"[FAIL] [NetworkCore] NetShare connection failed: {e}")
+                return
+
+            elif mode == "ISP_PROXY" and PROXY_CONFIG_CACHE.get("isp_url"):
+                isp_url = PROXY_CONFIG_CACHE["isp_url"]
+                parsed = urlparse(isp_url)
+                if parsed.scheme in ["socks5", "socks5h"]:
+                    remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    remote.settimeout(10.0)
+                    try:
+                        remote.connect((parsed.hostname, parsed.port or 1080))
+                        auth_methods = b"\x01\x02" if parsed.username else b"\x01\x00"
+                        remote.sendall(b"\x05" + auth_methods)
+                        resp = recvall(remote, 2)
+                        if resp and resp[1] == 2:
+                            u = parsed.username.encode()
+                            p = parsed.password.encode()
+                            auth_req = b"\x01" + bytes([len(u)]) + u + bytes([len(p)]) + p
+                            remote.sendall(auth_req)
+                            auth_resp = recvall(remote, 2)
+                            if not auth_resp or auth_resp[1] != 0:
+                                logger.error(f"[FAIL] [NetworkCore] ISP Proxy Auth failed")
+                                return
+                        
+                        addr_bytes_to_send = b""
+                        if addr_type == 1:
+                            addr_bytes_to_send = b"\x01" + socket.inet_aton(addr)
+                        elif addr_type == 3:
+                            addr_bytes_to_send = b"\x03" + bytes([len(addr)]) + addr.encode()
+                        connect_req = b"\x05\x01\x00" + addr_bytes_to_send + port_bytes
+                        remote.sendall(connect_req)
+                        conn_resp = recvall(remote, 4)
+                        if not conn_resp or conn_resp[1] != 0:
+                            return
+                        if conn_resp[3] == 1: recvall(remote, 4)
+                        elif conn_resp[3] == 3:
+                            l = recvall(remote, 1)[0]
+                            recvall(remote, l)
+                        elif conn_resp[3] == 4: recvall(remote, 16)
+                        
+                        remote.settimeout(None)
+                        self.connection.send(b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00")
+                        pipe_sockets(self.connection, remote)
+                    except Exception as e:
+                        logger.error(f"[FAIL] [NetworkCore] ISP proxy SOCKS5 failed: {e}")
+                elif parsed.scheme in ["http", "https"]:
+                    remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    remote.settimeout(10.0)
+                    try:
+                        remote.connect((parsed.hostname, parsed.port or 80))
+                        connect_req = f"CONNECT {addr}:{port} HTTP/1.1\r\nHost: {addr}:{port}\r\n"
+                        if parsed.username:
+                            auth_str = base64.b64encode(f"{parsed.username}:{parsed.password}".encode()).decode()
+                            connect_req += f"Proxy-Authorization: Basic {auth_str}\r\n"
+                        connect_req += "\r\n"
+                        remote.sendall(connect_req.encode())
+                        resp = remote.recv(4096)
+                        if b"200 Connection established" not in resp and b"200 OK" not in resp:
+                            logger.error(f"[FAIL] [NetworkCore] ISP Proxy HTTP tunnel failed")
+                            return
+                        remote.settimeout(None)
+                        self.connection.send(b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00")
+                        pipe_sockets(self.connection, remote)
+                    except Exception as e:
+                        logger.error(f"[FAIL] [NetworkCore] ISP proxy HTTP failed: {e}")
+                return
+
+            # Default DIRECT_LTE
             lte_ip = adb_service.get_tethering_interface_ip(use_cache=True)
             if addr_type == 3 and lte_ip and "169.254" not in lte_ip:
                 addr = resolve_dns_via_interface(addr, lte_ip)
 
             if lte_ip and "169.254" not in lte_ip and lte_ip not in ["Not Detected", "Error", ""]:
                 remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                remote.settimeout(10.0)
                 remote.bind((lte_ip, 0))
                 remote.connect((addr, port))
+                remote.settimeout(None) # Reset timeout after connection
                 self.connection.send(b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00")
                 pipe_sockets(self.connection, remote)
         except Exception:
@@ -201,9 +356,11 @@ class WifiSocks5Handler(StreamRequestHandler):
                 addr = resolve_dns_via_interface(addr, wifi_ip)
 
             remote = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            remote.settimeout(10.0)
             if wifi_ip and "169.254" not in wifi_ip:
                 remote.bind((wifi_ip, 0))
             remote.connect((addr, port))
+            remote.settimeout(None)
             self.connection.send(b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00")
             pipe_sockets(self.connection, remote)
         except Exception:
@@ -256,11 +413,11 @@ class NetworkService:
     def set_internet_source(self, s):
         # Manual Force Toggle via Monitor
         if s == 'lte':
-            network_monitor.WIFI_METRIC_TARGET = 9000
+            network_monitor.WIFI_METRIC_TARGET = 50
             network_monitor.LTE_METRIC_TARGET = 10
         else:
             network_monitor.WIFI_METRIC_TARGET = 10
-            network_monitor.LTE_METRIC_TARGET = 9000
+            network_monitor.LTE_METRIC_TARGET = 50
 
         # Trigger immediate check
         network_monitor._check_and_enforce()

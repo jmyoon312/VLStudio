@@ -17,6 +17,7 @@ import { FolderOpen, Trash2, Play, FileAudio } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { resolveFileUrl } from '@/utils/fileUrl';
 
 interface FileItem {
     id: string;
@@ -166,11 +167,9 @@ export default function SilenceRemover() {
     };
 
     // Helper to force download via Blob (Bypasses 404 navigation and forces save)
-    const forceDownload = async (url: string, filename: string) => {
+    const forceDownload = async (url: string, filename: string): Promise<boolean> => {
         try {
-            // [Hotfix] Client-side URL patch if backend hasn't reloaded
-            const safeUrl = url.replace('/files/stream', '/io/stream');
-
+            const safeUrl = resolveFileUrl(url);
             const res = await fetch(safeUrl);
             if (!res.ok) throw new Error(`Download failed: ${res.status}`);
             const blob = await res.blob();
@@ -186,9 +185,10 @@ export default function SilenceRemover() {
             return true;
         } catch (e: any) {
             console.error("Blob download failed:", e);
-            // Fallback to direct link if blob fails (might navigate 404)
+            // Fallback to direct link if blob fails
             const a = document.createElement('a');
-            a.href = url.replace('/files/stream', '/io/stream');
+            const fallbackUrl = resolveFileUrl(url);
+            a.href = fallbackUrl;
             a.download = filename;
             document.body.appendChild(a);
             a.click();

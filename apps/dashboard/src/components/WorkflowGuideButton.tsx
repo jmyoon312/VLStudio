@@ -281,9 +281,9 @@ const WorkflowGuideButton = () => {
                                         <DetailedNodeCard
                                             icon="📤"
                                             title="배포 매니저 (Distribution)"
-                                            description="YouTube, TikTok, Instagram에 동시 업로드합니다."
+                                            description="YouTube, Music, Camera에 동시 업로드합니다."
                                             settings={[
-                                                { label: "플랫폼", type: "checkbox", example: "☑️ YouTube / TikTok / Instagram" },
+                                                { label: "플랫폼", type: "checkbox", example: "☑️ YouTube / Music / Camera" },
                                                 { label: "제목", type: "text", example: "영상 제목" },
                                                 { label: "설명", type: "textarea", example: "영상 설명" },
                                                 { label: "태그", type: "tags", example: "tag1, tag2, tag3" },

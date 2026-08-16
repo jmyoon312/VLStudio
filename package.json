@@ -1,7 +1,7 @@
 {
   "name": "viraloop-studio",
-  "version": "0.9.10",
-  "buildNumber": 517,
+  "version": "0.9.12",
+  "buildNumber": 0,
   "description": "ViraLoop Studio - Sovereign AI Video Production Hub from Google Flow to CapCut projects",
   "main": "dist-electron/main.js",
   "type": "module",
@@ -16,19 +16,19 @@
     "preview": "vite preview",
     "make-ico": "node scripts/make-ico.cjs",
     "pack": "vite build && electron-builder --dir",
-    "dist": "npm run bump:build && vite build --mode production && electron-builder",
-    "dist:mac": "npm run bump:build && vite build --mode production && electron-builder --mac",
-    "dist:win": "npm run bump:build && vite build --mode production && electron-builder --win",
-    "dist:test": "vite build --mode development && electron-builder",
-    "dist:test:mac": "vite build --mode development && electron-builder --mac",
-    "dist:test:win": "vite build --mode development --win",
+    "dist": "npm run bump:build && npm run build:prod && electron-builder",
+    "dist:mac": "npm run bump:build && npm run build:prod && electron-builder --mac",
+    "dist:win": "npm run bump:build && npm run build:prod && electron-builder --win",
+    "dist:test": "npm run build && electron-builder",
+    "dist:test:mac": "npm run build && electron-builder --mac",
+    "dist:test:win": "npm run build --win",
     "mcp:install": "cd mcp-server && npm install --omit=dev",
     "bump:build": "node scripts/bump-build.cjs",
-    "dist:win:nsis": "npm run bump:build && npm run mcp:install && set VITE_BUILD_TARGET=nsis&& set VITE_FUNCTION_ENV=prod&& vite build --mode production && electron-builder --win nsis",
-    "dist:win:appx": "npm run bump:build && npm run mcp:install && set VITE_BUILD_TARGET=appx&& set VITE_FUNCTION_ENV=prod&& vite build --mode production && scripts\\buildappx.bat",
-    "dist:win:all": "npm run bump:build && npm run mcp:install && set VITE_FUNCTION_ENV=prod&& vite build --mode production && electron-builder --win",
-    "dist:linux": "npm run bump:build && npm run mcp:install && VITE_FUNCTION_ENV=prod vite build --mode production && electron-builder --linux",
-    "dist:mac:prod": "npm run bump:build && npm run mcp:install && VITE_FUNCTION_ENV=prod vite build --mode production && electron-builder --mac",
+    "dist:win:nsis": "npm run bump:build && npm run mcp:install && set VITE_BUILD_TARGET=nsis&& set VITE_FUNCTION_ENV=prod&& npm run build:prod && electron-builder --win nsis",
+    "dist:win:appx": "npm run bump:build && npm run mcp:install && set VITE_BUILD_TARGET=appx&& set VITE_FUNCTION_ENV=prod&& npm run build:prod && scripts\\buildappx.bat",
+    "dist:win:all": "npm run bump:build && npm run mcp:install && set VITE_FUNCTION_ENV=prod&& npm run build:prod && electron-builder --win",
+    "dist:linux": "npm run bump:build && npm run mcp:install && VITE_FUNCTION_ENV=prod npm run build:prod && electron-builder --linux",
+    "dist:mac:prod": "npm run bump:build && npm run mcp:install && VITE_FUNCTION_ENV=prod npm run build:prod && electron-builder --mac",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
@@ -55,12 +55,14 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@remotion/paths": "^4.0.475",
     "dotenv": "^17.3.1",
     "electron-updater": "^6.8.3",
     "firebase": "^12.9.0",
     "flag-icons": "^7.5.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.475"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
@@ -85,7 +87,7 @@
   "build": {
     "appId": "com.viraloopmedia.vlstudio",
     "productName": "ViraLoop Studio",
-    "forceCodeSigning": true,
+    "forceCodeSigning": false,
     "directories": {
       "output": "release"
     },
@@ -107,6 +109,10 @@
       {
         "from": "dist-backend/api_server.exe",
         "to": "api_server.exe"
+      },
+      {
+        "from": "apps/api/backend/models",
+        "to": "apps/api/backend/models"
       },
       {
         "from": "mcp-server",
@@ -151,16 +157,9 @@
     "win": {
       "icon": "assets/icon.ico",
       "artifactName": "${productName}-${version}-win-${arch}.${ext}",
-      "signtoolOptions": {
-        "certificateSha1": "778FF11A7D92ABBB2DF9998ABDFB6F1200E0C0DF",
-        "timeStampServer": "http://time.certum.pl",
-        "rfc3161TimeStampServer": "http://time.certum.pl",
-        "publisherName": "Open Source Developer Gook Whan Ahn"
-      },
       "target": [
         "nsis",
-        "zip",
-        "appx"
+        "zip"
       ]
     },
     "appx": {

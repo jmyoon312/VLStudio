@@ -108,7 +108,23 @@ class LLMClient:
                     clean_key = k.strip()
                     if clean_key: self.nvidia_keys.append(clean_key)
         self.nvidia_key_index = 0
-        # Loaded keys logging removed to avoid confusion.
+        # OpenCode Zen Setup
+        self.opencode_keys = []
+        if hasattr(settings, "opencode_api_keys") and settings.opencode_api_keys:
+            for k in settings.opencode_api_keys:
+                if k:
+                    clean_key = k.strip()
+                    if clean_key: self.opencode_keys.append(clean_key)
+        self.opencode_key_index = 0
+
+        # YouTube1 Setup (Custom OpenAI-compatible endpoint)
+        self.youtube1_keys = []
+        if hasattr(settings, "youtube1_api_keys") and settings.youtube1_api_keys:
+            for k in settings.youtube1_api_keys:
+                if k:
+                    clean_key = k.strip()
+                    if clean_key: self.youtube1_keys.append(clean_key)
+        self.youtube1_key_index = 0
     
     def _get_ollama_v1_url(self) -> str:
         """
@@ -131,7 +147,7 @@ class LLMClient:
     def generate(self, prompt: str, model_name: str = None, system_instruction: str = None) -> str:
         """Compatibility wrapper for code calling llm.generate(...)"""
         if not model_name:
-            model_name = getattr(self.settings, "openclaw_model", None) or "gemini-1.5-flash"
+            model_name = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "openclaw_model", None) or getattr(self.settings, "default_llm_model", "gemini-1.5-flash")
         if not model_name:
             model_name = "gemini-1.5-flash"
         res = self.generate_content(prompt, model_name=model_name, system_instruction=system_instruction)
@@ -142,7 +158,45 @@ class LLMClient:
 
     def generate_content(self, prompt: str, model_name: str, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
         """
-        Unified generation method.
+        Unified generation method with automatic fallback (OpenCode -> Groq -> Gemini) on Rate Limits.
+        """
+        try:
+            return self._generate_content_internal(prompt, model_name, system_instruction, full_response, images)
+        except Exception as e:
+            error_msg = str(e).lower()
+            # If it's a rate limit or exhaustion error, trigger fallback
+            if "429" in error_msg or "rate limit" in error_msg or "freeusagelimiterror" in error_msg or "exhausted" in error_msg or "quota" in error_msg or "402" in error_msg:
+                if model_name and (model_name.startswith("opencode/") or model_name.startswith("openrouter/")):
+                    logger.warning(f"[WARN] [Fallback] {model_name.split('/')[0].title()} limit reached. Falling back to Groq...")
+                    try:
+                        return self._generate_content_internal(prompt, "groq/llama-3.3-70b-versatile", system_instruction, full_response, images)
+                    except Exception as e2:
+                        logger.warning("[WARN] [Fallback] Groq limit reached. Falling back to Gemini...")
+                        try:
+                            return self._generate_content_internal(prompt, "gemini/gemini-1.5-flash", system_instruction, full_response, images)
+                        except Exception as e3:
+                            logger.error(f"[FAIL] [Fallback] All fallback models exhausted. Final error: {e3}")
+                            if full_response: return {"content": f"ERROR: {str(e3)}", "error": str(e3)}
+                            return f"ERROR: {str(e3)}"
+                            
+                elif model_name and model_name.startswith("groq/"):
+                    logger.warning("[WARN] [Fallback] Groq limit reached. Falling back to Gemini...")
+                    try:
+                        return self._generate_content_internal(prompt, "gemini/gemini-1.5-flash", system_instruction, full_response, images)
+                    except Exception as e3:
+                        logger.error(f"[FAIL] [Fallback] Gemini exhausted as well. Final error: {e3}")
+                        if full_response: return {"content": f"ERROR: {str(e3)}", "error": str(e3)}
+                        return f"ERROR: {str(e3)}"
+            
+            # For other errors or if fallback isn't applicable
+            logger.error(f"Generate content failed: {e}")
+            if full_response:
+                return {"content": f"ERROR: {error_msg}", "error": error_msg}
+            return f"ERROR: {error_msg}"
+
+    def _generate_content_internal(self, prompt: str, model_name: str, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
+        """
+        Original unified generation logic without fallback wrapper.
         [SOVEREIGN] Strictly honors the requested model_name without unrequested provider switching.
         """
         try:
@@ -151,6 +205,48 @@ class LLMClient:
                 provider = getattr(self.settings, "openclaw_preferred_provider", "auto")
                 if provider != "auto" and "/" not in model_name:
                     model_name = f"{provider}/{model_name}"
+
+            # OpenCode Zen Routing Logic
+            if model_name.startswith("opencode/"):
+                last_error = None
+                for _ in range(len(self.opencode_keys) + 1):
+                    current_key = self.opencode_keys[self.opencode_key_index] if self.opencode_keys else None
+                    if not current_key: break
+
+                    try:
+                        return self._generate_openai_compatible(
+                            prompt=prompt,
+                            model=model_name.replace("opencode/", ""),
+                            system_instruction=system_instruction,
+                            full_response=full_response,
+                            base_url="https://opencode.ai/zen/v1",
+                            api_key=current_key,
+                            provider_name="OpenCode",
+                            images=images,
+                            request_timeout=120.0
+                        )
+                    except Exception as e:
+                        last_error = e
+                        if self.opencode_keys:
+                            logger.warning(f"[WAIT] [OpenCode] Error on Key #{self.opencode_key_index}: {e}. Rotating...")
+                            self.opencode_key_index = (self.opencode_key_index + 1) % len(self.opencode_keys)
+                            import time
+                            error_msg = str(e).lower()
+                            if "429" in str(e) or "rate limit" in error_msg or "freeusagelimiterror" in error_msg:
+                                time.sleep(5)
+                            elif "timeout" in error_msg or "timed out" in error_msg:
+                                time.sleep(3)
+                            elif "401" in str(e) or "auth" in error_msg or "invalid" in error_msg:
+                                time.sleep(0.5)
+                            else:
+                                time.sleep(2)
+                            continue
+                        else:
+                            break
+                if last_error and ("timeout" in str(last_error).lower()):
+                    logger.warning("All OpenCode keys exhausted (timeouts). Trying fallback provider...")
+                    raise last_error
+                raise last_error or Exception("No OpenCode Zen API Keys available.")
 
             # OpenRouter Routing Logic
             if model_name.startswith("openrouter/"):
@@ -188,7 +284,7 @@ class LLMClient:
                         last_error = e
                         # Key Rotation for paid/specific models
                         if self.openrouter_keys:
-                            logger.warning(f"⏳ [OpenRouter] Error on Key #{self.openrouter_key_index}: {e}. Rotating...")
+                            logger.warning(f"[WAIT] [OpenRouter] Error on Key #{self.openrouter_key_index}: {e}. Rotating...")
                             self.openrouter_key_index = (self.openrouter_key_index + 1) % len(self.openrouter_keys)
                             import time
                             time.sleep(1)
@@ -217,7 +313,7 @@ class LLMClient:
                         )
                     except Exception as e:
                         last_error = e
-                        logger.warning(f"⏳ [SambaNova] Error on Key #{self.sambanova_key_index}: {e}. Rotating...")
+                        logger.warning(f"[WAIT] [SambaNova] Error on Key #{self.sambanova_key_index}: {e}. Rotating...")
                         self.sambanova_key_index = (self.sambanova_key_index + 1) % len(self.sambanova_keys)
                         import time
                         time.sleep(1)
@@ -244,7 +340,7 @@ class LLMClient:
                         )
                     except Exception as e:
                         last_error = e
-                        logger.warning(f"⏳ [Cerebras] Error on Key #{self.cerebras_key_index}: {e}. Rotating...")
+                        logger.warning(f"[WAIT] [Cerebras] Error on Key #{self.cerebras_key_index}: {e}. Rotating...")
                         self.cerebras_key_index = (self.cerebras_key_index + 1) % len(self.cerebras_keys)
                         import time
                         time.sleep(1)
@@ -286,7 +382,7 @@ class LLMClient:
                         )
                     except Exception as e:
                         last_error = e
-                        logger.warning(f"⏳ [Groq] Error on Key #{self.groq_key_index}: {e}. Rotating...")
+                        logger.warning(f"[WAIT] [Groq] Error on Key #{self.groq_key_index}: {e}. Rotating...")
                         self.groq_key_index = (self.groq_key_index + 1) % len(self.groq_keys)
                         import time
                         time.sleep(1)
@@ -313,12 +409,40 @@ class LLMClient:
                         )
                     except Exception as e:
                         last_error = e
-                        logger.warning(f"⏳ [NVIDIA] Error on Key #{self.nvidia_key_index}: {e}. Rotating...")
+                        logger.warning(f"[WAIT] [NVIDIA] Error on Key #{self.nvidia_key_index}: {e}. Rotating...")
                         self.nvidia_key_index = (self.nvidia_key_index + 1) % len(self.nvidia_keys)
                         import time
                         time.sleep(1)
                         continue
                 raise last_error or Exception("All NVIDIA keys exhausted.")
+
+            elif model_name.startswith("youtube1/"):
+                # YouTube1 Custom Provider (local API endpoint)
+                last_error = None
+                for _ in range(len(self.youtube1_keys) + 1):
+                    current_key = self.youtube1_keys[self.youtube1_key_index] if self.youtube1_keys else None
+                    if not current_key: break
+
+                    try:
+                        return self._generate_openai_compatible(
+                            prompt=prompt,
+                            model=model_name.replace("youtube1/", ""),
+                            system_instruction=system_instruction,
+                            full_response=full_response,
+                            base_url="http://localhost:20128/v1",
+                            api_key=current_key,
+                            provider_name="YouTube1",
+                            images=images,
+                            request_timeout=120.0
+                        )
+                    except Exception as e:
+                        last_error = e
+                        logger.warning(f"[WAIT] [YouTube1] Error on Key #{self.youtube1_key_index}: {e}. Rotating...")
+                        self.youtube1_key_index = (self.youtube1_key_index + 1) % len(self.youtube1_keys)
+                        import time
+                        time.sleep(1)
+                        continue
+                raise last_error or Exception("All YouTube1 keys exhausted.")
 
             elif model_name.startswith("google/") or model_name.startswith("gemini/"):
                 # Google/Gemini routing
@@ -356,7 +480,7 @@ class LLMClient:
                 real_model = model_name.replace("anthropic/", "")
                 
                 messages = [{"role": "user", "content": prompt}]
-                logger.info(f"🚀 [Anthropic] Sending to [{real_model}]...")
+                logger.info(f"[FALLBACK] [Anthropic] Sending to [{real_model}]...")
                 response = client.messages.create(
                     model=real_model,
                     max_tokens=4096,
@@ -373,17 +497,14 @@ class LLMClient:
                 return content
 
             # [SOVEREIGN] Resolve fallback to global settings default if no provider prefix found
-            fallback_model = getattr(self.settings, "default_model", "groq/llama-3.3-70b-versatile")
+            fallback_model = getattr(self.settings, "default_model", "opencode/deepseek-v4-flash-free")
             real_model = model_name
             
-            logger.warning(f"⚠️ [LLM] No provider prefix for '{model_name}'. Falling back to settings default: {fallback_model}")
-            return self.generate_content(prompt, fallback_model, system_instruction, full_response, images)
+            logger.warning(f"[WARN] [LLM] No provider prefix for '{model_name}'. Falling back to settings default: {fallback_model}")
+            return self._generate_content_internal(prompt, fallback_model, system_instruction, full_response, images)
         except Exception as e:
-            logger.error(f"Generate content failed: {e}")
-            error_msg = str(e)
-            if full_response:
-                return {"content": f"ERROR: {error_msg}", "error": error_msg}
-            return f"ERROR: {error_msg}"
+            # Let the outer wrapper handle the exception and fallbacks
+            raise e
 
     def _generate_gemini(self, prompt: str, model: str, system_instruction: str, full_response: bool, images: list = None):
         requested_model = model if model else self.settings.default_model
@@ -398,7 +519,7 @@ class LLMClient:
                 try:
                     start_ts = time.time()
                     client = self._get_gemini_client()
-                    if attempt == 0: logger.info(f"🚀 [Gemini] Sending to [{current_model}] (Images: {len(images) if images else 0})...")
+                    if attempt == 0: logger.info(f"[FALLBACK] [Gemini] Sending to [{current_model}] (Images: {len(images) if images else 0})...")
 
                     config = types.GenerateContentConfig(
                         temperature=0.7,
@@ -433,7 +554,7 @@ class LLMClient:
                         else:
                             return response.text
                     else:
-                        logger.warning(f"⚠️ [Gemini] Empty response from {current_model}. Attempting rotation...")
+                        logger.warning(f"[WARN] [Gemini] Empty response from {current_model}. Attempting rotation...")
                         continue
                     
                 except Exception as e:
@@ -441,21 +562,21 @@ class LLMClient:
                     last_error = e
                     
                     if "404" in error_msg or "not found" in error_msg.lower() or "400" in error_msg:
-                        logger.warning(f"⚠️ [Gemini] Model {current_model} unavailable. Switching...")
+                        logger.warning(f"[WARN] [Gemini] Model {current_model} unavailable. Switching...")
                         break 
                     
                     if "403" in error_msg or "permission" in error_msg.lower():
                         collector.record_event("llm", "auth_error", "error", {"provider": "gemini", "model": current_model, "error": error_msg})
-                        logger.error(f"❌ [Gemini] ACCESS FORBIDDEN (403). Please enable 'Generative Language API' in your Google Cloud Console for project 1024666224541.")
+                        logger.error(f"[FAIL] [Gemini] ACCESS FORBIDDEN (403). Please enable 'Generative Language API' in your Google Cloud Console for project 1024666224541.")
                         break
 
                     if "429" in error_msg or "quota" in error_msg.lower():
                         collector.record_event("llm", "rate_limit", "warning", {"provider": "gemini", "model": current_model, "error": error_msg})
-                        logger.warning(f"⏳ [Gemini] Quota limit. Rotating key... (Sleeping 5s)")
+                        logger.warning(f"[WAIT] [Gemini] Quota limit. Rotating key... (Sleeping 5s)")
                         time.sleep(5)
                         continue
                     
-                    logger.error(f"❌ [Gemini] Error with {current_model}: {error_msg}")
+                    logger.error(f"[FAIL] [Gemini] Error with {current_model}: {error_msg}")
                     break
         
         msg = f"Gemini failed after {len(self.gemini_keys)} attempts. Last error: {last_error}"
@@ -473,17 +594,18 @@ class LLMClient:
             )
             return response.embeddings[0].values
         except Exception as e:
-            logger.error(f"❌ Embedding failed: {e}")
+            logger.error(f"[FAIL] Embedding failed: {e}")
             return [0.0] * 768 
 
-    def _generate_openai_compatible(self, prompt: str, model: str, system_instruction: str, full_response: bool, base_url: str, api_key: str, provider_name: str, images: list = None, extra_headers: dict = None):
+    def _generate_openai_compatible(self, prompt: str, model: str, system_instruction: str, full_response: bool, base_url: str, api_key: str, provider_name: str, images: list = None, extra_headers: dict = None, request_timeout: float = 30.0):
         if not api_key:
             raise ValueError(f"{provider_name} API Key is missing. Please check Settings.")
 
         client = OpenAI(
             base_url=base_url, 
             api_key=api_key,
-            default_headers=extra_headers
+            default_headers=extra_headers,
+            max_retries=0
         )
         
         # Some models (Gemma, Llama-2, etc.) don't support the 'system' role or 'developer instructions'
@@ -531,7 +653,7 @@ class LLMClient:
             # Standard Text payload (Simple String)
             messages.append({"role": "user", "content": final_prompt})
 
-        logger.info(f"🚀 [{provider_name}] Sending to [{model}] (Images: {len(images) if images else 0})...")
+        logger.info(f"[FALLBACK] [{provider_name}] Sending to [{model}] (Images: {len(images) if images else 0})...")
         start_ts = time.time()
 
         try:
@@ -540,7 +662,7 @@ class LLMClient:
                 model=model,
                 messages=messages,
                 temperature=0.7,
-                timeout=30.0 
+                timeout=request_timeout
             )
             
             content = response.choices[0].message.content
@@ -556,24 +678,7 @@ class LLMClient:
             
         except Exception as e:
             error_msg = str(e).lower()
-            logger.error(f"❌ [{provider_name}] Error: {e}")
-            
-            # CRITICAL: Re-raise key-rotation-worthy errors to trigger rotation in outer loop
-            # This includes: rate limits (429), auth errors (401/403), organization issues (400)
-            should_rotate = any([
-                "429" in str(e),
-                "400" in str(e),
-                "401" in str(e),
-                "403" in str(e),
-                "rate limit" in error_msg,
-                "rate_limit" in error_msg,
-                "organization" in error_msg,
-                "restricted" in error_msg,
-                "quota" in error_msg,
-                "exceeded" in error_msg,
-                "unauthorized" in error_msg
-            ])
-            
+            logger.error(f"[FAIL] [{provider_name}] Error: {e}")
             raise e
 
     # --- Image Generation ---
@@ -609,7 +714,7 @@ class LLMClient:
              else:
                 # [Failover to Gemini if OpenAI is missing]
                 if self.gemini_keys:
-                    logger.info("⚠️ OpenAI Key missing. Auto-failover to Gemini Imagen 3.")
+                    logger.info("[WARN] OpenAI Key missing. Auto-failover to Gemini Imagen 3.")
                     return self._generate_image_gemini(prompt, "imagen-3.0-generate-001")
                 raise ValueError("OpenAI API Key is missing for Image Generation.")
 
@@ -630,7 +735,7 @@ class LLMClient:
             return image_url
             
         except Exception as e:
-            logger.error(f"❌ Image Generation Failed: {e}")
+            logger.error(f"[FAIL] Image Generation Failed: {e}")
             raise e
 
     def _generate_image_gemini(self, prompt: str, model: str) -> str:
@@ -691,7 +796,7 @@ class LLMClient:
                      with open(filepath, "wb") as f:
                          f.write(image_bytes)
                          
-                     logger.info(f"✅ [Gemini] Image Saved: {filepath}")
+                     logger.info(f"[OK] [Gemini] Image Saved: {filepath}")
                      return filepath
                  else:
                      raise ValueError("No images returned from Gemini.")
@@ -699,14 +804,14 @@ class LLMClient:
              except Exception as e:
                  error_msg = str(e).lower()
                  last_error = e
-                 logger.warning(f"⚠️ [Gemini] Image Gen Error (Key #{self.gemini_key_index}): {e}")
+                 logger.warning(f"[WARN] [Gemini] Image Gen Error (Key #{self.gemini_key_index}): {e}")
                  
                  if "429" in error_msg or "quota" in error_msg or "403" in error_msg:
-                     logger.warning(f"⏳ [Gemini] Key Quota Exceeded. Rotating to next key...")
+                     logger.warning(f"[WAIT] [Gemini] Key Quota Exceeded. Rotating to next key...")
                      continue
                  else:
                      if "safety" in error_msg or "blocked" in error_msg:
-                         logger.error(f"❌ [Gemini] Image Blocked by Safety Filters.")
+                         logger.error(f"[FAIL] [Gemini] Image Blocked by Safety Filters.")
                          raise e
                      continue
 
@@ -733,7 +838,7 @@ class LLMClient:
                 if settings.model_cache and settings.model_cache_updated_at:
                     age = datetime.now() - settings.model_cache_updated_at
                     if age < timedelta(hours=24):
-                        logger.info(f"⚡ Returning DB Cached Models (Age: {age})")
+                        logger.info(f"[TURBO] Returning DB Cached Models (Age: {age})")
                         return settings.model_cache
             except Exception as e:
                 logger.error(f"Failed to read model cache from DB: {e}")
@@ -743,7 +848,7 @@ class LLMClient:
             if age < 3600:
                 return _MODEL_CACHE["data"]
                 
-        logger.info("🔄 Fetching Fresh Models from Providers (Parallel)...")
+        logger.info("[REFRESH] Fetching Fresh Models from Providers (Parallel)...")
         data = await self._get_available_models_fresh_async()
         
         if db:
@@ -753,7 +858,7 @@ class LLMClient:
                     model_cache=data,
                     model_cache_updated_at=datetime.now()
                 ))
-                logger.info("✅ Model cache updated in DB.")
+                logger.info("[OK] Model cache updated in DB.")
             except Exception as e:
                 logger.error(f"Failed to save model cache to DB: {e}")
 
@@ -773,7 +878,9 @@ class LLMClient:
         tasks.append(self._fetch_ollama_models_async())
         tasks.append(self._fetch_nvidia_models_async())
         tasks.append(self._fetch_openai_models_async())
+        tasks.append(self._fetch_opencode_models_async())
         tasks.append(self._fetch_anthropic_models_async())
+        tasks.append(self._fetch_youtube1_models_async())
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
@@ -786,7 +893,9 @@ class LLMClient:
             "ollama": results[5] if not isinstance(results[5], Exception) else [],
             "nvidia": results[6] if not isinstance(results[6], Exception) else [],
             "openai": results[7] if not isinstance(results[7], Exception) else [],
-            "anthropic": results[8] if not isinstance(results[8], Exception) else []
+            "opencode": results[8] if not isinstance(results[8], Exception) else [],
+            "anthropic": results[9] if not isinstance(results[9], Exception) else [],
+            "youtube1": results[10] if not isinstance(results[10], Exception) else []
         }
         
         # 6. NVIDIA Models (Dynamic fetch is now in results)
@@ -795,9 +904,9 @@ class LLMClient:
         # Log empty providers for debugging
         for p, m in models.items():
             if not m:
-                logger.warning(f"⚠️ Provider [{p}] returned 0 models. Check API Keys.")
+                logger.warning(f"[WARN] Provider [{p}] returned 0 models. Check API Keys.")
             else:
-                logger.info(f"✅ Provider [{p}] loaded {len(m)} models.")
+                logger.info(f"[OK] Provider [{p}] loaded {len(m)} models.")
         
         for p in models:
             if models[p]:
@@ -847,7 +956,7 @@ class LLMClient:
                         if provider_name == "sambanova" and not any(x in lower_mid for x in ["llama", "qwen"]):
                              continue
                         
-                        clean_label = str(mid).replace("🚀", "").replace("⚡", "").replace("💎", "").replace("💲", "").strip()
+                        clean_label = str(mid).replace("[FALLBACK]", "").replace("[TURBO]", "").replace("💎", "").replace("💲", "").strip()
                         
                         # Remove provider prefixes (e.g., 'meta/')
                         if "/" in clean_label:
@@ -879,7 +988,7 @@ class LLMClient:
             {"value": "google/gemini-1.5-pro", "label": "Gemini 1.5 Pro"},
         ]
         if not self.gemini_keys: 
-            logger.warning("❌ No Gemini keys found in LLMClient. Returning fallback models.")
+            logger.warning("[FAIL] No Gemini keys found in LLMClient. Returning fallback models.")
             return fallback
         try:
             logger.info(f"📡 Fetching Google models using {len(self.gemini_keys)} keys...")
@@ -891,7 +1000,7 @@ class LLMClient:
                 if "gemini" not in mid: continue
                 if "vision" in mid: continue 
                 fetched.append({"value": mid, "label": mid})
-            logger.info(f"✅ Successfully fetched {len(fetched)} Google models.")
+            logger.info(f"[OK] Successfully fetched {len(fetched)} Google models.")
             if not fetched:
                 return fallback
             return fetched
@@ -960,6 +1069,29 @@ class LLMClient:
         ]
         return await self._fetch_openai_compatible_async(key, "https://integrate.api.nvidia.com/v1", "nvidia", fallback_models=fallback)
 
+    async def _fetch_opencode_models_async(self) -> list:
+        key = self.opencode_keys[0] if self.opencode_keys else None
+        fallback = [
+            {"value": "opencode/deepseek-v4-flash-free", "label": "DeepSeek V4 Flash (OpenCode Free)"},
+            {"value": "opencode/nemotron-3-super-free", "label": "Nemotron 3 Super (OpenCode Free)"},
+            {"value": "opencode/nemotron-3-ultra-free", "label": "Nemotron 3 Ultra (OpenCode Free)"},
+            {"value": "opencode/qwen3.6-plus-free", "label": "Qwen 3.6 Plus (OpenCode Free)"},
+            {"value": "opencode/minimax-m3-free", "label": "MiniMax M3 (OpenCode Free)"},
+            {"value": "opencode/mimo-v2.5-free", "label": "Mimo 2.5 (OpenCode Free)"},
+        ]
+        if not key:
+            return []
+        return await self._fetch_openai_compatible_async(key, "https://opencode.ai/zen/v1", "opencode", fallback_models=fallback)
+
+    async def _fetch_youtube1_models_async(self) -> list:
+        key = self.youtube1_keys[0] if self.youtube1_keys else None
+        fallback = [
+            {"value": "youtube1/youtube1", "label": "YouTube1 (Local API)"},
+        ]
+        if not key:
+            return []
+        return await self._fetch_openai_compatible_async(key, "http://localhost:20128/v1", "youtube1", fallback_models=fallback)
+
     async def _fetch_openai_models_async(self) -> list:
         key = getattr(self.settings, "openai_api_key", None) or os.getenv("OPENAI_API_KEY")
         fallback = [
@@ -1002,6 +1134,7 @@ class LLMClient:
                 "sambanova": "https://api.sambanova.ai/v1",
                 "cerebras": "https://api.cerebras.ai/v1",
                 "nvidia": "https://integrate.api.nvidia.com/v1",
+                "opencode": "https://opencode.ai/zen/v1",
                 "ollama": self._get_ollama_v1_url()
             }
             
@@ -1016,6 +1149,7 @@ class LLMClient:
                     "sambanova": self.sambanova_keys,
                     "cerebras": self.cerebras_keys,
                     "nvidia": self.nvidia_keys,
+                    "opencode": self.opencode_keys,
                     "ollama": ["ollama"]
                 }
                 keys = key_map.get(provider, [])

@@ -16,12 +16,12 @@ class SwarmConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logger.info("✅ Global Swarm WebSocket Client connected")
+        logger.info("[OK] Global Swarm WebSocket Client connected")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            logger.info("🔌 Global Swarm WebSocket Client disconnected")
+            logger.info("[END] Global Swarm WebSocket Client disconnected")
 
     async def broadcast(self, message: dict):
         """Sends a message to all connected clients."""

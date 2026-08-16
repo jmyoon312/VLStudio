@@ -17,7 +17,7 @@ import { GrowthMomentumChart } from '@/components/dashboard/GrowthMomentumChart'
 import { WatchQualityGauge } from '@/components/dashboard/WatchQualityGauge';
 import { VideoPerformanceTable } from '@/components/dashboard/VideoPerformanceTable';
 
-const API_BASE = "/api";
+const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
 interface DashboardData {
     total_stats: {

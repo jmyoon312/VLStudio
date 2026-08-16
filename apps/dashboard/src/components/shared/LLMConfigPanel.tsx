@@ -102,6 +102,7 @@ const LLMConfigPanel = ({ config, setConfig, compact = false }: LLMConfigPanelPr
                             <SelectItem value="openrouter">OpenRouter</SelectItem>
                             <SelectItem value="sambanova">SambaNova</SelectItem>
                             <SelectItem value="cerebras">Cerebras</SelectItem>
+                            <SelectItem value="opencode">OpenCode Zen</SelectItem>
                             <SelectItem value="ollama">Ollama</SelectItem>
                         </SelectContent>
                     </Select>

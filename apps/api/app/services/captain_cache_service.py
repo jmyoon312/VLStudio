@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 
 from app.models import (
-    YouTubeChannel, ChannelAccess, VideoMetadataCache, 
-    ChannelDailyStats, Profile, ChannelRole
+    BrandChannel as YouTubeChannel, VideoMetadataCache, 
+    ChannelDailyStats, Profile
 )
 
 logger = logging.getLogger(__name__)

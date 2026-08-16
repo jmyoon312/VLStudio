@@ -10,7 +10,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Switch } from "@/components/ui/switch";
 import {
     Eye, Settings, Activity, Plus, Trash2, Play, Pause,
-    TrendingUp, Filter, Bell, History, Youtube
+    TrendingUp, Filter, Bell, History, PlaySquare
 } from 'lucide-react';
 import {
     Dialog,
@@ -131,7 +131,7 @@ const ReferenceMonitorNode = ({ data, selected }: NodeProps) => {
                         <div className="mt-3 space-y-2">
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-slate-500 flex items-center gap-1">
-                                    <Youtube className="w-3 h-3" />
+                                    <PlaySquare className="w-3 h-3" />
                                     채널
                                 </span>
                                 <span className="font-medium text-emerald-700">
@@ -213,7 +213,7 @@ const ReferenceMonitorNode = ({ data, selected }: NodeProps) => {
                                                     channel.active ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'
                                                 )}
                                             >
-                                                <Youtube className={cn(
+                                                <PlaySquare className={cn(
                                                     "w-5 h-5 flex-shrink-0",
                                                     channel.active ? 'text-emerald-600' : 'text-slate-600'
                                                 )} />
@@ -252,7 +252,7 @@ const ReferenceMonitorNode = ({ data, selected }: NodeProps) => {
 
                                         {channels.length === 0 && (
                                             <div className="text-center py-12 text-slate-600">
-                                                <Youtube className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                                <PlaySquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
                                                 <p className="text-sm">모니터링할 채널을 추가하세요</p>
                                             </div>
                                         )}

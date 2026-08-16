@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 // Use the new API endpoints
-const API_BASE = '/api';
+const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
 export const OperationsDashboardEnhancement = () => {
   const [healthData, setHealthData] = useState<any>(null);

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import logging
 
 from app.database import get_db
-from app.models import YouTubeChannel, ChannelAccess, Profile, ChannelRole
+from app.models import BrandChannel as YouTubeChannel, Profile
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ async def get_captain_engagement_analytics(
         raise HTTPException(500, "Failed to initialize YouTube service")
     
     # Get channels managed by this Captain
-    channels = db.query(YouTubeChannel).join(ChannelAccess).filter(
+    channels = db.query(YouTubeChannel).join(ChannelAccess, ChannelAccess.channel_id == YouTubeChannel.channel_id).filter(
         ChannelAccess.profile_id == profile_id,
         ChannelAccess.role == ChannelRole.MANAGER,
         YouTubeChannel.status != "QUARANTINED"
@@ -139,7 +139,7 @@ async def get_captain_top_videos(
         raise HTTPException(500, "Failed to initialize YouTube service")
     
     # Get channels
-    channels = db.query(YouTubeChannel).join(ChannelAccess).filter(
+    channels = db.query(YouTubeChannel).join(ChannelAccess, ChannelAccess.channel_id == YouTubeChannel.channel_id).filter(
         ChannelAccess.profile_id == profile_id,
         ChannelAccess.role == ChannelRole.MANAGER,
         YouTubeChannel.status != "QUARANTINED"

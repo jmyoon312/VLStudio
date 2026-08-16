@@ -7,7 +7,7 @@ import { RefreshCw, ExternalLink, TrendingUp, Users, Eye, DollarSign } from 'luc
 import { useToast } from "@/components/ui/use-toast";
 import axios from 'axios';
 
-const API_BASE = "/api";
+const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
 interface ChannelManagementProps {
     profileId: string;

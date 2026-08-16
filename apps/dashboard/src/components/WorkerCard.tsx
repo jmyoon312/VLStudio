@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Trash, Youtube, CheckCircle, AlertTriangle, AlertOctagon } from 'lucide-react';
+import { RefreshCw, Trash, PlaySquare, CheckCircle, AlertTriangle, AlertOctagon } from 'lucide-react';
 import {
     Tooltip,
     TooltipContent,
@@ -125,7 +125,7 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, channels, onDelete, onS
                 <CardContent className="p-4 bg-white">
                     <div className="flex justify-between items-center mb-3">
                         <h4 className="text-xs font-bold text-slate-500 flex items-center gap-1">
-                            <Youtube className="w-3 h-3" /> 연결된 채널 ({channels.length})
+                            <PlaySquare className="w-3 h-3" /> 연결된 채널 ({channels.length})
                         </h4>
                     </div>
 

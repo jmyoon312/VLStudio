@@ -1,0 +1,247 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, TrendingUp, Users, DollarSign, RefreshCw, Play, SlidersHorizontal, ChevronRight, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+import api from '@/lib/api';
+import { SidebarFilter, FilterState } from '@/components/SidebarFilter';
+import { BypassVideoFrame } from '@/components/BypassVideoFrame';
+
+function formatSubs(n: number) {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return String(n);
+}
+
+function getRelativeTime(uploadDate: string): string {
+    if (!uploadDate || uploadDate.length < 8) return '';
+    try {
+        const y = parseInt(uploadDate.substring(0, 4));
+        const m = parseInt(uploadDate.substring(4, 6)) - 1;
+        const d = parseInt(uploadDate.substring(6, 8));
+        const date = new Date(y, m, d);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays < 1) return '오늘';
+        if (diffDays < 7) return `${diffDays}일 전`;
+        if (diffDays < 30) return `${Math.floor(diffDays / 7)}주 전`;
+        if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`;
+        return `${Math.floor(diffDays / 365)}년 전`;
+    } catch { return ''; }
+}
+
+function Sparkline({ color = '#6366f1' }: { color?: string }) {
+    const points = Array.from({ length: 7 }, (_, i) => Math.random() * 40 + 30);
+    const max = Math.max(...points);
+    const min = Math.min(...points);
+    const normalize = (v: number) => 40 - ((v - min) / (max - min + 1)) * 38;
+    const pathD = points.map((v, i) => `${i === 0 ? 'M' : 'L'} ${i * (80 / 6)} ${normalize(v)}`).join(' ');
+    return (
+        <svg width="80" height="40" viewBox="0 0 80 40" className="opacity-70">
+            <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
+const ChannelExplorer = () => {
+    const [keyword, setKeyword] = useState('');
+    const [channels, setChannels] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
+    const [showSidebar, setShowSidebar] = useState(true);
+    const [filters, setFilters] = useState<FilterState>({
+        videoType: 'all', sort: 'trending', country: '', viewCountRange: 'all',
+        channelSizeRange: 'all', durationRange: 'all', period: '7days',
+    });
+
+    const handleSearch = async (kw?: string) => {
+        const q = kw || keyword;
+        if (!q.trim()) { toast.error('키워드를 입력해주세요'); return; }
+        setIsLoading(true);
+        try {
+            const resp = await api.post('/keywords/channels/discovery', {
+                keyword: q,
+                period: filters.period,
+                min_subs: filters.channelSizeRange === 'large' ? 100000 : filters.channelSizeRange === 'medium' ? 10000 : 1000,
+            });
+            setChannels(resp.data || []);
+            if (resp.data?.length === 0) toast.info('해당 키워드의 채널을 찾지 못했습니다.');
+            else toast.success(`🎯 ${resp.data?.length}개 채널 발굴 완료!`);
+        } catch (err) {
+            toast.error('채널 탐색 실패');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="flex h-full min-h-screen bg-background">
+            <SidebarFilter filters={filters} onChange={setFilters} isOpen={showSidebar} />
+
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="w-full px-6 py-6 space-y-6">
+
+                    {/* Header */}
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setShowSidebar(s => !s)}
+                            className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-white/70 hover:text-white">
+                            <SlidersHorizontal className="w-4 h-4" />
+                        </button>
+                        <div>
+                            <h1 className="text-3xl font-black flex items-center gap-3">
+                                <Users className="w-8 h-8 text-violet-400" />
+                                채널 디스커버리
+                            </h1>
+                            <p className="text-muted-foreground mt-1">트렌딩 채널을 발굴하고 최신 숏폼을 한 눈에 확인하세요.</p>
+                        </div>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="flex gap-3">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <input
+                                type="text"
+                                value={keyword}
+                                onChange={e => setKeyword(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                                placeholder="키워드 입력 (예: 운동, 요리, 게임...)"
+                                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-violet-500/50 transition-colors"
+                            />
+                        </div>
+                        <button
+                            onClick={() => handleSearch()}
+                            disabled={isLoading}
+                            className="px-8 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl transition-all flex items-center gap-2 disabled:opacity-50"
+                        >
+                            {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+                            {isLoading ? '탐색 중...' : '채널 탐색'}
+                        </button>
+                    </div>
+
+                    {/* Empty State */}
+                    {!isLoading && channels.length === 0 && (
+                        <div className="py-24 flex flex-col items-center justify-center text-muted-foreground">
+                            <Users className="w-20 h-20 mb-4 opacity-10" />
+                            <p className="text-xl font-bold mb-2">채널을 탐색해보세요</p>
+                            <p className="text-sm">키워드를 입력하면 트렌딩 채널과 최신 숏폼을 바로 확인할 수 있습니다.</p>
+                        </div>
+                    )}
+
+                    {/* Loading */}
+                    {isLoading && (
+                        <div className="py-24 flex flex-col items-center gap-4 text-muted-foreground">
+                            <div className="w-16 h-16 rounded-full border-4 border-violet-500/20 border-t-violet-500 animate-spin" />
+                            <p className="font-bold animate-pulse">트렌딩 채널 탐색 중...</p>
+                        </div>
+                    )}
+
+                    {/* Channel List */}
+                    {!isLoading && channels.length > 0 && (
+                        <div className="space-y-4">
+                            {channels.map((ch, idx) => (
+                                <div key={ch.channel_id || idx}
+                                    className="bg-white/5 border border-white/10 rounded-2xl p-4 hover:border-violet-500/30 transition-all">
+                                    <div className="flex gap-4">
+                                        {/* Left: Channel Meta Box */}
+                                        <div className="w-56 flex-shrink-0 bg-white/5 rounded-xl p-4 flex flex-col gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-12 h-12 rounded-full bg-violet-600/30 flex items-center justify-center text-xl font-black text-violet-300 overflow-hidden flex-shrink-0">
+                                                    {ch.channel_name?.[0] || '?'}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <a href={ch.channel_url} target="_blank" rel="noopener noreferrer"
+                                                        className="font-bold text-sm text-white truncate block hover:text-violet-400 transition-colors">
+                                                        {ch.channel_name}
+                                                    </a>
+                                                    <p className="text-[11px] text-white/50">{ch.category}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-1.5 text-white/60">
+                                                        <Users className="w-3.5 h-3.5" />
+                                                        <span>구독자</span>
+                                                    </div>
+                                                    <span className="font-bold text-white">{formatSubs(ch.subscribers)}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-1.5 text-green-400/70">
+                                                        <TrendingUp className="w-3.5 h-3.5" />
+                                                        <span>7일 상승</span>
+                                                    </div>
+                                                    <span className="font-bold text-green-400">{ch.growth_7d}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-1.5 text-yellow-400/70">
+                                                        <DollarSign className="w-3.5 h-3.5" />
+                                                        <span>일일 예상</span>
+                                                    </div>
+                                                    <span className="font-bold text-yellow-400">${ch.estimated_daily_revenue?.toFixed(0)}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Sparkline */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-white/40">추이</span>
+                                                <Sparkline color="#8b5cf6" />
+                                            </div>
+
+                                            <a href={ch.channel_url} target="_blank" rel="noopener noreferrer"
+                                                className="w-full py-2 bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 text-violet-300 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                                                채널 보기 <ChevronRight className="w-3.5 h-3.5" />
+                                            </a>
+                                        </div>
+
+                                        {/* Right: Horizontal Shorts Scroll */}
+                                        <div className="flex-1 overflow-hidden">
+                                            {ch.recent_videos?.length > 0 ? (
+                                                <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                                                    {ch.recent_videos.map((v: any) => (
+                                                        <div key={v.id}
+                                                            className="flex-shrink-0 w-28 rounded-xl overflow-hidden bg-black/30 border border-white/5 hover:border-violet-500/30 transition-all group"
+                                                            onMouseEnter={() => setHoveredVideoId(v.id)}
+                                                            onMouseLeave={() => setHoveredVideoId(null)}
+                                                        >
+                                                            <div className="relative aspect-[9/16]">
+                                                                <BypassVideoFrame
+                                                                    videoId={v.id}
+                                                                    title={v.title}
+                                                                    thumbnail={v.thumbnail}
+                                                                    isActive={hoveredVideoId === v.id}
+                                                                />
+                                                                {getRelativeTime(v.upload_date) && (
+                                                                    <div className="absolute top-1.5 left-1.5 px-1 py-0.5 bg-blue-500/70 rounded text-[8px] font-bold text-white pointer-events-none z-10">
+                                                                        {getRelativeTime(v.upload_date)}
+                                                                    </div>
+                                                                )}
+                                                                {v.views > 0 && (
+                                                                    <div className="absolute bottom-1.5 left-1.5 right-1.5 px-1.5 py-0.5 bg-black/70 rounded text-[9px] font-bold text-white text-center pointer-events-none z-10">
+                                                                        {(v.views / 1000).toFixed(0)}K views
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="p-1.5">
+                                                                <p className="text-[9px] text-white/70 line-clamp-2 leading-snug">{v.title}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="h-full flex items-center justify-center text-white/30 text-sm">
+                                                    최근 쇼츠 없음
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ChannelExplorer;

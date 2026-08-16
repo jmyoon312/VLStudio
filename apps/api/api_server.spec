@@ -10,10 +10,31 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['onnxruntime.capi.onnxruntime_providers_cuda', 'onnxruntime.capi.onnxruntime_providers_tensorrt'],
     noarchive=False,
     optimize=0,
 )
+
+# Exclude heavy CUDA, cuDNN, TensorRT, and ONNX CUDA provider DLLs to keep size low
+# and link dynamically to system CUDA at runtime.
+a.binaries = [
+    x for x in a.binaries
+    if not any(
+        cuda_lib in x[0].lower() or cuda_lib in x[1].lower()
+        for cuda_lib in [
+            'onnxruntime_providers_cuda',
+            'onnxruntime_providers_tensorrt',
+            'cudnn',
+            'cublas',
+            'cufft',
+            'curand',
+            'cusolver',
+            'cusparse',
+            'cudart'
+        ]
+    )
+]
+
 pyz = PYZ(a.pure)
 
 exe = EXE(

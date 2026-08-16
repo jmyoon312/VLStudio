@@ -12,16 +12,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, getMediaUrl } from "@/lib/utils";
 import {
-    Loader2, Trash2, ExternalLink, Play, FileText,
+    Loader2, Trash2, Play, FileText,
     Flame, Zap, TrendingUp, RefreshCw, Filter, Settings2,
-    FolderOpen, Calendar, Copy, Check, Languages, CheckSquare, Square, AlertCircle, LineChart, Download
+    FolderOpen, Calendar, Copy, Check, Languages, CheckSquare, Square, AlertCircle, LineChart, Download,
+    ExternalLink, PlaySquare
 } from 'lucide-react';
 import { resolveFileUrl } from "@/utils/fileUrl";
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const VideoPlayer = ({ src, title }: { src: string, title: string }) => {
+const VideoPlayer = ({ src, title, isYouTube, youtubeUrl, onYouTubeOpen }: { src: string, title: string, isYouTube?: boolean, youtubeUrl?: string, onYouTubeOpen?: () => void }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [playbackRate, setPlaybackRate] = useState(1.0);
+    const [localError, setLocalError] = useState(false);
 
     const handleSpeedChange = (speed: number) => {
         if (videoRef.current) {
@@ -29,6 +31,43 @@ const VideoPlayer = ({ src, title }: { src: string, title: string }) => {
             setPlaybackRate(speed);
         }
     };
+
+    if (localError || isYouTube) {
+        return (
+            <div className="flex flex-col bg-black rounded-xl overflow-hidden">
+                <div className="relative w-full aspect-video bg-black flex items-center justify-center">
+                    {youtubeUrl ? (
+                        <iframe
+                            src={`https://www.youtube.com/embed/${new URL(youtubeUrl).searchParams.get('v') || youtubeUrl.split('/').pop()}`}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                        />
+                    ) : (
+                        <div className="text-center text-white/60 p-8">
+                            <Play className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                            <p className="text-sm">로컬 파일을 찾을 수 없습니다</p>
+                            {onYouTubeOpen && (
+                                <Button variant="secondary" size="sm" className="mt-4" onClick={onYouTubeOpen}>
+                                    YouTube에서 열기
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </div>
+                <div className="p-4 bg-white text-slate-800 border border-slate-200">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm truncate font-medium text-slate-800">{title}</h3>
+                        {youtubeUrl && (
+                            <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 hover:text-blue-800" onClick={onYouTubeOpen}>
+                                <ExternalLink className="w-3 h-3 mr-1" /> YouTube
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col bg-black rounded-xl overflow-hidden">
@@ -40,10 +79,18 @@ const VideoPlayer = ({ src, title }: { src: string, title: string }) => {
                     controls={true}
                     playsInline
                     autoPlay
+                    onError={() => setLocalError(true)}
                 />
             </div>
             <div className="p-4 bg-white text-slate-800 border border-slate-200 border-t border-slate-200">
-                <h3 className="mb-3 text-sm truncate font-medium text-slate-800">{title}</h3>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm truncate font-medium text-slate-800">{title}</h3>
+                    {youtubeUrl && (
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 hover:text-blue-800" onClick={onYouTubeOpen}>
+                            <ExternalLink className="w-3 h-3 mr-1" /> YouTube
+                        </Button>
+                    )}
+                </div>
                 <div className="flex justify-between items-center">
                     <span className="text-xs text-slate-600 font-mono">Playback Speed</span>
                     <div className="flex items-center gap-1 bg-white/10 p-1 rounded-lg">
@@ -237,8 +284,29 @@ const Gallery = () => {
 
 
     const handlePlayVideo = (video: Video) => {
-        setPlayingVideo(video);
-        markViewedMutation.mutate(video.id);
+        const meta = video.metadata_json as any;
+        const hasLocalFile = !!video.file_path;
+        const ytUrl = video.url || meta?.embed_url || (video.video_id ? `https://www.youtube.com/watch?v=${video.video_id}` : null);
+        if (!hasLocalFile && ytUrl) {
+            if (meta?.embed_url) {
+                setPlayingVideo(video);
+            } else {
+                window.open(ytUrl, '_blank');
+            }
+            markViewedMutation.mutate(video.id);
+            return;
+        }
+        if (hasLocalFile && ytUrl) {
+            setPlayingVideo(video);
+            markViewedMutation.mutate(video.id);
+            return;
+        }
+        if (ytUrl) {
+            window.open(ytUrl, '_blank');
+            markViewedMutation.mutate(video.id);
+            return;
+        }
+        toast.error("재생할 수 없는 영상입니다.");
     };
 
     const handleViewSubtitle = (video: Video) => {
@@ -573,6 +641,9 @@ const Gallery = () => {
                                         <Button size="icon" variant="secondary" className="rounded-full h-9 w-9 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 action-btn ring-1 ring-white/30" onClick={() => handlePlayVideo(video)} title="재생">
                                             <Play className="w-4 h-4 fill-current" />
                                         </Button>
+                                        <Button size="icon" variant="secondary" className="rounded-full h-9 w-9 bg-red-500/40 hover:bg-red-500/60 text-white backdrop-blur-sm border-0 action-btn ring-1 ring-red-400/30" onClick={(e) => { e.stopPropagation(); const yt = video.url || `https://www.youtube.com/watch?v=${video.video_id}`; if (yt) window.open(yt, '_blank'); }} title="YouTube에서 열기">
+                                            <PlaySquare className="w-4 h-4" />
+                                        </Button>
                                         <Button size="icon" variant="secondary" className="rounded-full h-9 w-9 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 action-btn ring-1 ring-white/30" onClick={() => handleViewSubtitle(video)} title="자막">
                                             <FileText className="w-4 h-4" />
                                         </Button>
@@ -634,7 +705,7 @@ const Gallery = () => {
                                             <span className="truncate font-medium text-foreground">
                                                 {video.channel_id && channelMap[video.channel_id]
                                                     ? channelMap[video.channel_id].name
-                                                    : (video.metadata_json?.uploader || "Unknown")}
+                                                    : ((video.metadata_json as any)?.uploader || (video.metadata_json as any)?.channel_name || "Unknown")}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0 text-[10px] text-muted-foreground">
@@ -667,16 +738,29 @@ const Gallery = () => {
 
             {/* Video Player Modal */}
             <Dialog open={!!playingVideo} onOpenChange={(open) => !open && setPlayingVideo(null)}>
-                <DialogContent className="w-full max-w-[380px] p-0 overflow-hidden bg-black border-none rounded-xl">
+                <DialogContent className={cn(
+                    "p-0 overflow-hidden bg-black border-none rounded-xl",
+                    (playingVideo?.metadata_json as any)?.embed_url || (playingVideo?.url || playingVideo?.video_id) ? "w-full max-w-[720px]" : "w-full max-w-[380px]"
+                )}>
                     <DialogHeader className="sr-only">
                         <DialogTitle>{playingVideo?.title}</DialogTitle>
                     </DialogHeader>
-                    {playingVideo && (
-                        <VideoPlayer
-                            src={getMediaUrl(playingVideo.file_path, settings?.root_download_path)}
-                            title={playingVideo.title}
-                        />
-                    )}
+                    {playingVideo && (() => {
+                        const meta = playingVideo.metadata_json as any;
+                        const embedUrl = meta?.embed_url;
+                        const ytUrl = playingVideo.url || `https://www.youtube.com/watch?v=${playingVideo.video_id}`;
+                        const localSrc = getMediaUrl(playingVideo.file_path, settings?.root_download_path);
+                        const handleYT = () => { if (ytUrl) { window.open(ytUrl, '_blank'); setPlayingVideo(null); } };
+                        return (
+                            <VideoPlayer
+                                src={embedUrl || localSrc}
+                                title={playingVideo.title}
+                                isYouTube={!!embedUrl}
+                                youtubeUrl={embedUrl ? undefined : ytUrl}
+                                onYouTubeOpen={handleYT}
+                            />
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
 
@@ -686,6 +770,7 @@ const Gallery = () => {
                 onOpenChange={(open) => !open && setSubtitleVideo(null)}
                 videoId={subtitleVideo?.id || null}
                 title={subtitleVideo?.title || ''}
+                description={(subtitleVideo as any)?.description}
             />
 
             {/* Stats Graph Modal */}

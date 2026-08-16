@@ -74,7 +74,7 @@ const WORKER_TASKS: Record<number, TaskDef[]> = {
             id: 'enable_api',
             title: 'YouTube Data API v3 활성화',
             description: 'API 라이브러리에서 "YouTube Data API v3"를 검색하고 [사용(Enable)] 버튼을 누르세요.',
-            icon: <PlayCircle className="w-5 h-5 text-red-500" />, // Using PlayCircle as Youtube substitute
+            icon: <PlayCircle className="w-5 h-5 text-red-500" />, // Using PlayCircle as PlaySquare substitute
         },
         {
             id: 'create_consent',

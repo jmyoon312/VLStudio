@@ -70,7 +70,7 @@ function ShellContent({ children }) {
         resetModalCount()
       }
     } catch (e) {
-      console.warn("Failed to load profiles/views in Shell:", e)
+      // Silent catch to avoid console spam
     }
   }, [])
 
@@ -79,9 +79,6 @@ function ShellContent({ children }) {
     window.electronAPI?.setModalVisible?.({ visible: false })
 
     loadProfilesAndViews()
-
-    // 3초 간격 폴링으로 메인 프로세스의 WebContentsViews Map과 React 상태를 100% 동기화
-    const syncTimer = setInterval(loadProfilesAndViews, 3000)
 
     let unsubFlowStatus
     let unsubLayoutChanged
@@ -101,7 +98,6 @@ function ShellContent({ children }) {
     }
 
     return () => {
-      clearInterval(syncTimer)
       if (unsubFlowStatus) unsubFlowStatus()
       if (unsubLayoutChanged) unsubLayoutChanged()
     }

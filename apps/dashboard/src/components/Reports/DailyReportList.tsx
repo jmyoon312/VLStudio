@@ -77,11 +77,11 @@ const markdownComponents = {
     ol: ({ node, ...props }: any) => <ol className="list-decimal pl-6 mb-4 space-y-1" {...props} />,
     li: ({ node, ...props }: any) => <li className="pl-1" {...props} />,
     blockquote: ({ node, ...props }: any) => (
-        <blockquote className="border-l-4 border-blue-500 pl-4 py-2 my-4 bg-blue-50 dark:bg-blue-900/20 italic rounded-r-lg text-foreground/90" {...props} />
+        <blockquote className="border-l-4 border-blue-500 pl-4 py-2 my-4 bg-blue-50/50 italic rounded-r-lg text-foreground/90" {...props} />
     ),
     code: ({ node, inline, ...props }: any) => (
         inline
-            ? <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-sm text-pink-600 dark:text-pink-400" {...props} />
+            ? <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-sm text-pink-600" {...props} />
             : <div className="bg-slate-950 text-slate-50 p-4 rounded-lg my-4 overflow-x-auto"><code className="font-mono text-sm" {...props} /></div>
     ),
     table: ({ node, ...props }: any) => (
@@ -478,7 +478,7 @@ export function DailyReportList() {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            className="gap-2 ml-2 border-orange-200 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                                            className="gap-2 ml-2 border-orange-200 hover:bg-orange-50 text-orange-600"
                                             onClick={() => fixMutation.mutate(selectedReport!.id)}
                                             disabled={fixMutation.isPending}
                                         >

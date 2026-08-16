@@ -182,7 +182,7 @@ export const AgentDNAInspector: React.FC<AgentDNAInspectorProps> = ({ nodeId, no
                                 <p className="text-[11px] font-mono leading-relaxed text-emerald-400 opacity-90">
                                     // 과거 고성능 세션 데이터 주입됨:<br/>
                                     // ID: #SYNTH_SESSION_982<br/>
-                                    // 성과: TikTok 1.2M 뷰 달성<br/><br/>
+                                    // 성과: Music 1.2M 뷰 달성<br/><br/>
                                     <span className="text-white font-bold">&gt; "장면 전환 주기는 1.2s~1.8s 사이를 유지할 것."</span><br/>
                                     <span className="text-white font-bold">&gt; "후크 오디오: 베이스가 강조된 시네마틱 스타일 권장"</span><br/>
                                     <span className="text-white font-bold">&gt; "색감 보정: #A855F7 테마 오버레이 주입"</span><br/><br/>

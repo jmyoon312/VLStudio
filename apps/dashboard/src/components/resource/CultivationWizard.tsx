@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { Leaf, Target, Users, ShieldAlert, Loader2, CalendarClock, Sparkles, Eye, Search, MessageSquare, Dices } from 'lucide-react';
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000/api' : '/api';
 
 const STRATEGIES = [
     {

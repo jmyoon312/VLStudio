@@ -4,17 +4,26 @@ import path from 'path';
 
 export default defineConfig({
     base: './',
+    cacheDir: './.vite-clean',
     plugins: [react()],
     resolve: {
         alias: {
             "@": path.resolve(__dirname, "./src"),
+            "remotion": path.resolve(__dirname, "../../node_modules/remotion"),
+            "@remotion/paths": path.resolve(__dirname, "../../node_modules/@remotion/paths")
         },
     },
     build: {
-        outDir: '../../dist',
+        outDir: 'dist',
         emptyOutDir: true
     },
-    publicDir: '../../public',
+    define: {
+        '__APP_VERSION__': JSON.stringify('0.9.10'),
+        '__BUILD_NUMBER__': JSON.stringify('538'),
+        '__BUILD_TARGET__': JSON.stringify('nsis'),
+        '__FUNCTION_SUFFIX__': JSON.stringify('_prod'),
+        'import.meta.env.VITE_DEV_BYPASS_AUTH': JSON.stringify('true'),
+    },
     server: {
         host: '0.0.0.0', // Allow External Access
         port: 5183,
@@ -34,6 +43,7 @@ export default defineConfig({
                 ws: true,
             },
             '/media': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/temp': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
             '/downloads': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
             '/static': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
             '/files': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },

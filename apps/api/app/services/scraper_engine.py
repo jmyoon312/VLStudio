@@ -19,7 +19,7 @@ class ScraperEngine:
         """
         try:
             logger.info(f"Scraping URL: {url} (Preset: {preset})")
-            response = requests.get(url, headers=self.headers, timeout=10, proxies={'http': 'socks5://127.0.0.1:10800', 'https': 'socks5://127.0.0.1:10800'})
+            response = requests.get(url, headers=self.headers, timeout=10, proxies={'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'})
             response.raise_for_status()
             
             if preset == "reddit" or "reddit.com" in url:
@@ -41,7 +41,7 @@ class ScraperEngine:
         if not url.endswith('.json'):
             try:
                 json_url = url.rstrip('/') + '.json'
-                resp = requests.get(json_url, headers=self.headers, timeout=10, proxies={'http': 'socks5://127.0.0.1:10800', 'https': 'socks5://127.0.0.1:10800'})
+                resp = requests.get(json_url, headers=self.headers, timeout=10, proxies={'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'})
                 if resp.status_code == 200:
                     return self._parse_reddit_json(resp.json())
             except Exception as e:
@@ -113,3 +113,63 @@ class ScraperEngine:
             "comments": [],
             "images": images
         }
+
+    def get_youtube_autocomplete(self, keyword: str, limit: int = 15) -> List[str]:
+        """
+        Fetch real-time YouTube search autocomplete suggestions.
+        """
+        url = f"http://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q={keyword}"
+        try:
+            logger.info(f"Fetching YouTube autocomplete for: {keyword}")
+            resp = requests.get(url, headers=self.headers, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if len(data) > 1 and isinstance(data[1], list):
+                    return data[1][:limit]
+            return []
+        except Exception as e:
+            logger.error(f"YouTube Autocomplete failed: {e}")
+            return []
+
+    def get_google_trends_velocity(self, keywords: List[str]) -> Dict[str, float]:
+        """
+        Fetch Google Trends data to calculate velocity (momentum) of keywords.
+        Returns a dictionary of {keyword: velocity_score}
+        """
+        try:
+            from pytrends.request import TrendReq
+            logger.info(f"Fetching Google Trends for {len(keywords)} keywords: {keywords[:5]}...")
+            
+            results = {}
+            # Initialize pytrends with a slightly longer timeout to prevent errors
+            pytrends = TrendReq(hl='ko-KR', tz=540, timeout=(10, 25))
+            
+            # Split into batches of 5 (pytrends max)
+            for i in range(0, len(keywords), 5):
+                batch = keywords[i:i+5]
+                pytrends.build_payload(batch, cat=0, timeframe='today 1-m', geo='KR') # Last 30 days in Korea
+                df = pytrends.interest_over_time()
+                
+                if df.empty:
+                    for kw in batch: results[kw] = 0.0
+                    continue
+                    
+                for kw in batch:
+                    if kw in df.columns:
+                        # Momentum: (Last 3 days average) / (First 10 days average)
+                        recent_avg = df[kw].tail(3).mean()
+                        old_avg = df[kw].head(10).mean()
+                        if old_avg == 0 and recent_avg > 0:
+                            velocity = 100.0 # Explosive
+                        elif old_avg == 0:
+                            velocity = 0.0
+                        else:
+                            velocity = (recent_avg / old_avg) * 100
+                        results[kw] = float(velocity)
+                    else:
+                        results[kw] = 0.0
+            return results
+        except Exception as e:
+            logger.error(f"Google Trends fetch failed: {e}")
+            return {kw: 0.0 for kw in keywords}
+

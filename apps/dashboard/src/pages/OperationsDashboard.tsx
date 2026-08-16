@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
     AlertCircle, RefreshCw, ExternalLink, CheckCircle, Clock,
-    UploadCloud, PlayCircle, Loader2, Youtube, Trash2,
+    UploadCloud, PlayCircle, Loader2, PlaySquare, Trash2,
     Star, MoreHorizontal, Edit3, ArrowUpCircle, Share2
 } from 'lucide-react';
 import { getMediaUrl } from "@/lib/utils";

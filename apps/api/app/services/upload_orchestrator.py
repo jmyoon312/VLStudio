@@ -120,7 +120,7 @@ class UploadOrchestrator:
                         item.description = seo_data.get("description", item.description)
                         item.hashtags = seo_data.get("hashtags", item.hashtags)
                         db.commit()
-                        logger.info(f"✨ SEO Optimized for item {queue_item_id}")
+                        logger.info(f"[MAGIC] SEO Optimized for item {queue_item_id}")
                 elif not item.title or "Sovereign" in item.title:
                     from app.config.feature_flags import get_llm_client
                     llm = get_llm_client()
@@ -232,11 +232,11 @@ class UploadOrchestrator:
                 browser_uploader.upload_video(db, item.id, force_ip_rotation=force_rotation)
                 
                 db.refresh(item)
-                if item.status == 'COMPLETED':
+                if item.status in ('COMPLETED', 'VERIFYING'):
                     return {
                         "status": "success", 
                         "url": item.uploaded_urls.get('youtube') if item.uploaded_urls else "",
-                        "message": "Browser Upload Success"
+                        "message": "Browser Upload Success" if item.status == 'COMPLETED' else "Video uploaded as PRIVATE, awaiting verification before publishing"
                     }
                 else:
                     return {"status": "error", "message": item.failure_reason or "Browser Upload Failed"}

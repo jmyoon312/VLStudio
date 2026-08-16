@@ -2,14 +2,37 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import axios from 'axios'
 import { ThemeProvider as MuiThemeProvider, CssBaseline } from '@mui/material'
 import { pixelingTheme } from './theme/pixeling'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
+// Intercept console.error to log to server (Electron only)
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  originalConsoleError(...args);
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    try {
+      fetch('http://localhost:37643/log-error', {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: args.map(a => String(a)).join(' ') })
+      }).catch(() => {});
+    } catch (e) {}
+  }
+};
+
+// Configure global Axios defaults for packaged Electron env (file:/// protocol)
+if (typeof window !== 'undefined') {
+  const isFileProtocol = window.location.protocol === 'file:';
+  axios.defaults.baseURL = isFileProtocol ? 'http://127.0.0.1:8000' : '';
+  console.log(`[Axios Setup] Global axios.defaults.baseURL forced to: ${axios.defaults.baseURL || 'relative'}`);
+}
 // Global Robust Polyfill for crypto.randomUUID (highly critical for HTTP and specific legacy Electron webviews)
 if (typeof window !== 'undefined') {
   if (typeof (window as any).crypto === 'undefined') {
-    (window as any).crypto = {} as any;
+    (window as any).crypto = {};
   }
   if (!(window.crypto as any).randomUUID) {
     (window.crypto as any).randomUUID = function () {
@@ -27,7 +50,15 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined' && typeof (window as any).electronAPI === 'undefined') {
   console.log('[Polyfill] window.electronAPI mock registered for non-Electron development environments.');
   (window as any).electronAPI = {
-    loadProfiles: async () => ({ activeProfileId: 'default', profiles: [{ id: 'default', name: 'Default Profile' }] }),
+    loadProfiles: async () => {
+      try {
+        const res = await fetch('/api/browser-profiles/');
+        const profiles = await res.json();
+        return { activeProfileId: profiles.length > 0 ? profiles[0].id : 'default', profiles };
+      } catch (e) {
+        return { activeProfileId: 'default', profiles: [] };
+      }
+    },
     getSavedWorkFolder: async () => ({ success: true, path: 'MockWorkFolder', name: 'MockWorkFolder' }),
     getDefaultWorkFolder: async () => ({ success: true, path: 'MockWorkFolder', name: 'MockWorkFolder' }),
     saveWorkFolder: async () => ({ success: true }),
@@ -42,9 +73,25 @@ if (typeof window !== 'undefined' && typeof (window as any).electronAPI === 'und
     readFileByPath: async () => ({ success: false, error: 'Mock environment' }),
     getHistory: async () => ({ success: true, histories: [] }),
     readHistoryMetadata: async () => ({ success: false }),
-    switchProfile: async () => ({ success: true }),
-    deleteProfile: async () => ({ success: true }),
-    createProfile: async () => ({ success: true }),
+    switchProfile: async ({ profileId }: any) => {
+      // Just a mock, backend handles context internally
+      return { success: true };
+    },
+    deleteProfile: async ({ profileId }: any) => {
+      try {
+        await fetch(`/api/browser-profiles/${profileId}`, { method: 'DELETE' });
+        return { success: true };
+      } catch (e) { return { success: false }; }
+    },
+    createProfile: async ({ name }: any) => {
+      try {
+        await fetch(`/api/browser-profiles/`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, user_agent: null })
+        });
+        return { success: true };
+      } catch (e) { return { success: false }; }
+    },
     extractToken: async () => ({ success: false, error: 'Mock environment' }),
     validateToken: async () => ({ expiry: Date.now() + 3600000 }),
     extractProjectId: async () => ({ success: false }),

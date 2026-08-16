@@ -27,26 +27,99 @@ const SubtitleConverter = () => {
 
     // State
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [originalScript, setOriginalScript] = useState(state?.originalScript || '');
-    const [srtContent, setSrtContent] = useState(state?.srtContent || '');
-    const [isAlignmentMode, setIsAlignmentMode] = useState(true);
-    const [isManualMarkerMode, setIsManualMarkerMode] = useState(false);
-    const [splitLimit, setSplitLimit] = useState(10);
+    const [originalScript, setOriginalScript] = useState(() => {
+        return state?.originalScript || localStorage.getItem('sub_conv_originalScript') || '';
+    });
+    const [srtContent, setSrtContent] = useState(() => {
+        return state?.srtContent || localStorage.getItem('sub_conv_srtContent') || '';
+    });
+    const [isAlignmentMode, setIsAlignmentMode] = useState(() => {
+        return localStorage.getItem('sub_conv_isAlignmentMode') !== 'false';
+    });
+    const [isManualMarkerMode, setIsManualMarkerMode] = useState(() => {
+        return localStorage.getItem('sub_conv_isManualMarkerMode') === 'true';
+    });
+    const [splitLimit, setSplitLimit] = useState(() => {
+        return Number(localStorage.getItem('sub_conv_splitLimit')) || 10;
+    });
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
     const [statusMessage, setStatusMessage] = useState('');
-    const [resultStep1, setResultStep1] = useState('');
-    const [resultStep2, setResultStep2] = useState('');
-    const [activeTab, setActiveTab] = useState('step2');
+    const [resultStep1, setResultStep1] = useState(() => {
+        return localStorage.getItem('sub_conv_resultStep1') || '';
+    });
+    const [resultStep2, setResultStep2] = useState(() => {
+        return localStorage.getItem('sub_conv_resultStep2') || '';
+    });
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem('sub_conv_activeTab') || 'step2';
+    });
     const [logs, setLogs] = useState<LogEntry[]>([]);
 
+    // Auto-Save changes to localStorage
+    useEffect(() => {
+        localStorage.setItem('sub_conv_originalScript', originalScript);
+    }, [originalScript]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_srtContent', srtContent);
+    }, [srtContent]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_resultStep1', resultStep1);
+    }, [resultStep1]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_resultStep2', resultStep2);
+    }, [resultStep2]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_isAlignmentMode', String(isAlignmentMode));
+    }, [isAlignmentMode]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_isManualMarkerMode', String(isManualMarkerMode));
+    }, [isManualMarkerMode]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_splitLimit', String(splitLimit));
+    }, [splitLimit]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_activeTab', activeTab);
+    }, [activeTab]);
+
     // Options
-    const [language, setLanguage] = useState('auto');
-    const [subtitleModel, setSubtitleModel] = useState('base');
+    const [language, setLanguage] = useState(() => {
+        return localStorage.getItem('sub_conv_language') || 'auto';
+    });
+    const [subtitleModel, setSubtitleModel] = useState(() => {
+        return localStorage.getItem('sub_conv_subtitleModel') || 'base';
+    });
 
     // AI Segmentation Options
-    const [segmentProvider, setSegmentProvider] = useState<string>("groq");
-    const [segmentModel, setSegmentModel] = useState<string>("groq/llama-3.3-70b-versatile");
+    const [segmentProvider, setSegmentProvider] = useState<string>(() => {
+        return localStorage.getItem('sub_conv_segmentProvider') || 'groq';
+    });
+    const [segmentModel, setSegmentModel] = useState<string>(() => {
+        return localStorage.getItem('sub_conv_segmentModel') || 'groq/llama-3.3-70b-versatile';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_language', language);
+    }, [language]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_subtitleModel', subtitleModel);
+    }, [subtitleModel]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_segmentProvider', segmentProvider);
+    }, [segmentProvider]);
+
+    useEffect(() => {
+        localStorage.setItem('sub_conv_segmentModel', segmentModel);
+    }, [segmentModel]);
 
 
 

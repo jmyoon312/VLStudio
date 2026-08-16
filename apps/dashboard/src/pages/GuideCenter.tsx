@@ -51,7 +51,7 @@ export default function GuideCenter() {
     const detailedGuides: Record<string, { image?: string; titleOverride?: string; overview: string; features: { icon: any; title: string; desc: string; }[]; steps: string[]; }> = {
         // --- 1. Analytics & Insights (분석 & 인사이트) ---
         dashboard: {
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             overview: "ViraLoop의 시작점이자 관제 센터입니다. 현재 시스템의 상태, 등록된 채널의 현황, 그리고 최근 발생한 중요 활동들을 한눈에 파악할 수 있습니다.",
             features: [
                 {
@@ -73,7 +73,7 @@ export default function GuideCenter() {
         },
         captain: {
             // Placeholder image if specific one missing, fallback to dashboard
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             overview: "특정 YouTube 채널의 성과를 깊이 있게 분석하는 '캡틴' 전용 대시보드입니다. 구독자 증가 추이, 조회수 폭발 지점, 시청자 반응 등을 정밀하게 분석합니다.",
             features: [
                 {
@@ -94,7 +94,7 @@ export default function GuideCenter() {
             ]
         },
         keyword: {
-            image: "/guide/script_lab.png", // Reusing script lab image for text heavy feature
+            image: "guide/script_lab.png", // Reusing script lab image for text heavy feature
             overview: "현재 유튜브에서 트렌딩하고 있는 키워드를 발굴하고, 해당 키워드의 경쟁 강도를 분석하여 '이길 수 있는' 주제를 찾아줍니다.",
             features: [
                 {
@@ -115,7 +115,7 @@ export default function GuideCenter() {
             ]
         },
         reports: {
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             overview: "매일 아침, 전날의 성과와 주요 이벤트를 정리하여 리포트로 제공합니다. 일일 브리핑을 통해 놓치기 쉬운 트렌드를 점검하세요.",
             features: [
                 {
@@ -138,7 +138,7 @@ export default function GuideCenter() {
 
         // --- 2. Content Sourcing (콘텐츠 소싱) ---
         channels_ref: { // Renamed from 'channels' to avoid conflict or clarify
-            image: "/guide/channels.png",
+            image: "guide/channels.png",
             titleOverride: "레퍼런스 채널 관리",
             overview: "벤치마킹할 유튜브 채널을 등록하고 관리하는 곳입니다. 여기에 등록된 채널들은 시스템이 24시간 감시하며 신규 영상을 수집합니다.",
             features: [
@@ -160,7 +160,7 @@ export default function GuideCenter() {
             ]
         },
         download: {
-            image: "/guide/gallery.png", // Reuse gallery or ideally distinct
+            image: "guide/gallery.png", // Reuse gallery or ideally distinct
             overview: "특정 영상 URL을 직접 입력하여 즉시 다운로드하고 분석 대기열에 추가합니다. 자동 수집 외에 수동으로 급하게 필요한 자료를 확보할 때 유용합니다.",
             features: [
                 {
@@ -176,7 +176,7 @@ export default function GuideCenter() {
             ]
         },
         gallery: {
-            image: "/guide/gallery.png",
+            image: "guide/gallery.png",
             overview: "수집된 모든 영상 자산이 모이는 보물창고입니다. Viral Score(조회수 급상승 지표)를 통해 어떤 영상이 현재 뜨고 있는지 한눈에 파악할 수 있습니다.",
             features: [
                 {
@@ -197,7 +197,7 @@ export default function GuideCenter() {
             ]
         },
         script_lab: {
-            image: "/guide/script_lab.png",
+            image: "guide/script_lab.png",
             overview: "영상은 필요 없고, '내용'만 핵심적으로 보고 싶을 때 사용하는 강력한 텍스트 분석 도구입니다. 수천 개의 영상 자막을 텍스트 데이터베이스로 구축합니다.",
             features: [
                 {
@@ -220,7 +220,7 @@ export default function GuideCenter() {
 
         // --- 3. Content Creation (콘텐츠 제작) ---
         studio: {
-            image: "/guide/dashboard.png", // Placeholder
+            image: "guide/dashboard.png", // Placeholder
             titleOverride: "스튜디오 (Creative Studio)",
             overview: "웹 브라우저에서 바로 작동하는 전문 영상 편집 도구입니다. 컷 편집, 자막 추가, 효과 삽입 등 프리미어 프로급의 기능을 웹에서 수행합니다.",
             features: [
@@ -242,7 +242,7 @@ export default function GuideCenter() {
             ]
         },
         cut_editor: {
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             overview: "오로지 '자르기'에만 집중한 초고속 편집 도구입니다. 긴 영상에서 필요한 부분만 빠르게 발췌하여 쇼츠(Shorts)로 만들 때 최적화되어 있습니다.",
             features: [
                 {
@@ -258,7 +258,7 @@ export default function GuideCenter() {
             ]
         },
         remover: {
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             overview: "영상 내의 불필요한 자막, 워터마크, 로고 등을 AI가 감쪽같이 지워주는 '매직 이레이저' 도구입니다.",
             features: [
                 {
@@ -274,7 +274,7 @@ export default function GuideCenter() {
             ]
         },
         live_studio: {
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             overview: "OBS 없이도 웹에서 바로 유튜브 라이브 스트리밍을 송출할 수 있는 방송국 모듈입니다.",
             features: [
                 {
@@ -290,7 +290,7 @@ export default function GuideCenter() {
             ]
         },
         virtual_studio: {
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             overview: "크로마키 없이도 가상 배경을 합성하고, 3D 아바타를 활용하여 방송할 수 있는 버추얼 프로덕션 도구입니다.",
             features: [
                 {
@@ -307,7 +307,7 @@ export default function GuideCenter() {
 
         // --- 4. AI Enhancement (AI 강화) ---
         insights: { // insights -> AI 콘텐츠 분석
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             titleOverride: "AI 콘텐츠 분석",
             overview: "영상의 시각적 요소, 음성 내용, 댓글 반응 등을 종합적으로 분석하여 '왜 이 영상이 떴는지' 이유를 도출해냅니다.",
             features: [
@@ -324,7 +324,7 @@ export default function GuideCenter() {
             ]
         },
         script_writer: { // script-writer -> 대본 번역/작성
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             titleOverride: "대본 번역 및 작성",
             overview: "해외 우수 영상의 스크립트를 한국 정서에 맞게 자연스럽게 번역하거나, 완전히 새로운 대본으로 재창작(Rewrite)합니다.",
             features: [
@@ -341,7 +341,7 @@ export default function GuideCenter() {
             ]
         },
         subtitle_tool: { // subtitle -> 자막 변환
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             titleOverride: "자막 변환 도구",
             overview: "음성을 인식하여 자막 파일(SRT, VTT)을 자동 생성하고, 다른 언어로 번역하여 다국어 자막을 만듭니다.",
             features: [
@@ -358,7 +358,7 @@ export default function GuideCenter() {
             ]
         },
         multi_tts: { // tts -> 멀티 TTS
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             titleOverride: "멀티 TTS (음성 합성)",
             overview: "텍스트 대본을 입력하면 실제 사람 같은 AI 성우 내레이션으로 변환해줍니다. 여러 성우의 목소리를 섞어 대화형 오디오를 만들 수도 있습니다.",
             features: [
@@ -375,7 +375,7 @@ export default function GuideCenter() {
             ]
         },
         silence_remover: { // silence -> 무음 제거
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             titleOverride: "무음 제거기",
             overview: "녹음 파일에서 말을 하지 않는 '침묵 구간'만 찾아내어 자동으로 잘라냅니다. 컷 편집 시간을 획기적으로 줄여줍니다.",
             features: [
@@ -392,7 +392,7 @@ export default function GuideCenter() {
             ]
         },
         remaster_lab: { // remaster -> 리마스터 랩
-            image: "/guide/dashboard.png",
+            image: "guide/dashboard.png",
             titleOverride: "리마스터 랩",
             overview: "저화질 영상을 4K로 업스케일링하거나, 노이즈를 제거하여 고품질 영상으로 복원합니다.",
             features: [
@@ -410,7 +410,7 @@ export default function GuideCenter() {
 
         // --- 5. Automation Studio (자동화 스튜디오) ---
         workflows: {
-            image: "/guide/workflows.png",
+            image: "guide/workflows.png",
             titleOverride: "워크플로우 빌더",
             overview: "반복되는 단순 작업을 자동화하는 공장입니다. '영상 다운로드 -> 자막 추출 -> 요약 -> 블로그 글 작성'과 같은 일련의 과정을 블록 쌓듯이 조립하여 자동화할 수 있습니다.",
             features: [
@@ -432,7 +432,7 @@ export default function GuideCenter() {
             ]
         },
         work_queue: {
-            image: "/guide/workflows.png", // Reuse workflow image or queue screenshot if available
+            image: "guide/workflows.png", // Reuse workflow image or queue screenshot if available
             overview: "백그라운드에서 돌아가는 자동화 작업들의 줄(Queue)을 관리합니다. 현재 어떤 작업이 진행 중인지, 실패한 작업은 무엇인지 확인합니다.",
             features: [
                 {
@@ -449,7 +449,7 @@ export default function GuideCenter() {
 
         // --- 6. Distribution (배포) ---
         distribution: {
-            image: "/guide/channels.png",
+            image: "guide/channels.png",
             titleOverride: "배포 관리",
             overview: "완성된 콘텐츠를 여러 YouTube 채널에 예약 업로드하고, 관리하는 배포 센터입니다.",
             features: [
@@ -468,7 +468,7 @@ export default function GuideCenter() {
 
         // --- 7. Account & Channel (계정 & 채널) ---
         account_manager: {
-            image: "/guide/channels.png",
+            image: "guide/channels.png",
             titleOverride: "계정 관리",
             overview: "구글 계정(Vault, Captain)을 안전하게 관리하고 로그인 세션을 유지하는 보안 센터입니다.",
             features: [
@@ -484,7 +484,7 @@ export default function GuideCenter() {
             ]
         },
         incubator: {
-            image: "/guide/channels.png",
+            image: "guide/channels.png",
             overview: "신규 채널이나 계정을 '숙성'시키는 인큐베이터입니다. 갑작스러운 활동으로 인한 밴(Ban)을 막기 위해 7단계 웜업 프로세스를 자동으로 수행합니다.",
             features: [
                 {
@@ -500,7 +500,7 @@ export default function GuideCenter() {
             ]
         },
         channel_manager: { // maps to channel-manager path
-            image: "/guide/channels.png",
+            image: "guide/channels.png",
             titleOverride: "채널 관리 (내 채널)",
             overview: "내가 운영 중인 모든 브랜드 채널의 성장을 한눈에 보고 관리하는 통합 경영실입니다.",
             features: [

@@ -83,7 +83,7 @@ class AIMetadataService:
                 # Parse SRT and extract text only
                 text = self._parse_srt(subtitle_content)
                 
-                logger.info(f"✅ Extracted {len(text)} characters of subtitle text")
+                logger.info(f"[OK] Extracted {len(text)} characters of subtitle text")
                 return text
                 
             finally:
@@ -154,7 +154,7 @@ class AIMetadataService:
                 return None
                 
             if srt_content:
-                logger.info(f"✅ Transcription successful! ({len(srt_content)} chars)")
+                logger.info(f"[OK] Transcription successful! ({len(srt_content)} chars)")
                 # Parse SRT to get plain text
                 return self._parse_srt(srt_content)
                 
@@ -198,7 +198,7 @@ class AIMetadataService:
                 subtitle_text = subtitle_text[:8000] + "..."
             
             # Get AI model from settings
-            model = self.settings.script_analysis_model or "groq/llama-3.3-70b-versatile"
+            model = self.settings.script_analysis_model or "opencode/deepseek-v4-flash-free"
             
             # Generate platform-specific metadata
             if platform.lower() == "youtube":

@@ -185,7 +185,7 @@ def import_asset_from_url(payload: AssetImportRequest, db: Session = Depends(dat
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        r = requests.get(payload.url, stream=True, headers=headers, timeout=10, proxies={'http': 'socks5://127.0.0.1:10800', 'https': 'socks5://127.0.0.1:10800'})
+        r = requests.get(payload.url, stream=True, headers=headers, timeout=10, proxies={'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'})
         r.raise_for_status()
         
         with open(abs_path, 'wb') as f:

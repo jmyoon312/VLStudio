@@ -12,9 +12,10 @@ interface SubtitleViewerProps {
     onOpenChange: (open: boolean) => void;
     videoId: number | null;
     title: string;
+    description?: string | null;
 }
 
-const SubtitleViewer = ({ open, onOpenChange, videoId, title }: SubtitleViewerProps) => {
+const SubtitleViewer = ({ open, onOpenChange, videoId, title, description }: SubtitleViewerProps) => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [isCopied, setIsCopied] = useState(false);
@@ -172,6 +173,36 @@ const SubtitleViewer = ({ open, onOpenChange, videoId, title }: SubtitleViewerPr
                                     </p>
                                 ))
                             }
+                        </div>
+                    ) : description ? (
+                        <div className="text-sm text-foreground/80 p-2 space-y-1">
+                            <p className="text-xs text-muted-foreground mb-2 font-medium">동영상 설명</p>
+                            {description
+                                .split(/\r?\n/)
+                                .map((line: string) => line.trim())
+                                .filter((line: string) => line.length > 0)
+                                .map((line: string, i: number) => (
+                                    <p key={i} className="leading-relaxed">
+                                        {line}
+                                    </p>
+                                ))
+                            }
+                            <div className="mt-4 pt-3 border-t border-border flex justify-center">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2 text-violet-600 border-violet-200 hover:bg-violet-50"
+                                    onClick={() => generateMutation.mutate()}
+                                    disabled={generateMutation.isPending}
+                                >
+                                    {generateMutation.isPending ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Sparkles className="h-4 w-4" />
+                                    )}
+                                    {generateMutation.isPending ? '자막 생성 중...' : 'AI로 자막 생성하기'}
+                                </Button>
+                            </div>
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">

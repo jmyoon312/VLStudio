@@ -17,18 +17,21 @@ class BrowserProfileCreate(BaseModel):
     name: str
     user_agent: Optional[str] = None
     tags: Optional[List[str]] = [] # [NEW]
+    parent_brand_id: Optional[str] = None # [NEW] Folder-based Brand UI Integration
 
 class BrowserProfileResponse(BaseModel):
     id: str
     name: str
     user_data_dir: str
     created_at: datetime
-    tags: List[str] = [] # [NEW]
+    tags: Optional[List[str]] = [] # [NEW]
+    parent_brand_id: Optional[str] = None # [NEW] Folder-based Brand UI Integration
     daily_gen_count: int = 0
     last_gen_at: Optional[datetime] = None
     tiktok_count: int = 0
     insta_count: int = 0
     notebooklm_count: int = 0
+    douyin_count: int = 0
     
     class Config:
         from_attributes = True
@@ -36,15 +39,29 @@ class BrowserProfileResponse(BaseModel):
 # === Endpoints ===
 
 @router.get("/", response_model=List[BrowserProfileResponse])
-def get_browser_profiles(db: Session = Depends(get_db)):
+@router.get("", response_model=List[BrowserProfileResponse])
+def get_browser_profiles(parent_brand_id: Optional[str] = None, db: Session = Depends(get_db)):
     """List all browser profiles"""
-    profiles = db.query(models.BrowserProfile).all()
+    query = db.query(models.BrowserProfile)
+    if parent_brand_id:
+        query = query.filter(models.BrowserProfile.parent_brand_id == parent_brand_id)
+    profiles = query.all()
     results = []
     for p in profiles:
-        resp = BrowserProfileResponse.from_orm(p)
-        resp.tiktok_count = len(p.tiktok_channels)
-        resp.insta_count = len(p.instagram_channels)
-        resp.notebooklm_count = len(p.notebooklm_accounts)
+        resp = BrowserProfileResponse(
+            id=p.id,
+            name=p.name,
+            user_data_dir=p.user_data_dir,
+            created_at=p.created_at or datetime.now(),
+            tags=p.tags or [],
+            parent_brand_id=p.parent_brand_id,
+            daily_gen_count=p.daily_gen_count or 0,
+            last_gen_at=getattr(p, 'last_gen_at', None),
+            tiktok_count=len(getattr(p, 'tiktok_channels', []) or []),
+            insta_count=len(getattr(p, 'instagram_channels', []) or []),
+            notebooklm_count=len(getattr(p, 'notebooklm_accounts', []) or []),
+            douyin_count=len(getattr(p, 'douyin_channels', []) or []),
+        )
         results.append(resp)
     return results
 
@@ -70,7 +87,8 @@ def create_browser_profile(
         id=profile_id,
         name=profile_in.name,
         user_data_dir=user_data_dir,
-        user_agent=profile_in.user_agent
+        user_agent=profile_in.user_agent,
+        parent_brand_id=profile_in.parent_brand_id
     )
     
     db.add(profile)

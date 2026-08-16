@@ -39,7 +39,7 @@ def enhance_veo_prompt(req: EnhancePromptRequest, db: Session = Depends(database
     settings = crud.get_settings(db)
     
     try:
-        target_provider = settings.hermes_agent_provider or "groq"
+        target_provider = settings.hermes_agent_provider or "nvidia"
         target_model = settings.hermes_agent_model or "llama-3.3-70b-versatile"
         
         if "/" in target_model:

@@ -1,7 +1,7 @@
 import logging
 from .llm_manager import LLMClient
 from .database import SessionLocal
-from . import crud
+from . import crud, models
 
 # Configure Logging
 logger = logging.getLogger(__name__)
@@ -19,20 +19,20 @@ class ScriptEngine:
         finally:
             db.close()
 
-    def generate_script(self, input_text: str, style_instruction: str, niche: str = None, sample_text: str = None, glossary: str = None, provider: str = None, model: str = None, wisdom: str = None):
+    def generate_script(self, input_text: str, style_instruction: str, niche: str = None, sample_text: str = None, glossary: str = None, provider: str = None, model: str = None, wisdom: str = None, use_web_search: bool = False):
         """
         Generates a YouTube script based on the input text and style.
         [SOVEREIGN V7] Upgraded with Elite Intelligence and DNA-First Logic.
+        [ENHANCED] Web search research + Trend data injection for real-time accuracy.
         """
         # [ELITE MODEL ESCALATION] 
         # Default to high-tier intelligence available in the user's environment.
         if not provider:
-            provider = "nvidia"
+            provider = "opencode"
         if not model:
-            # Nvidia DeepSeek-V3 (V4 Pro class) or Groq Llama-3.3 70b are available and powerful
-            model = "nvidia/deepseek-ai/deepseek-v3" 
+            model = "opencode/deepseek-v4-flash-free"
 
-        logger.info(f"📝 [Elite Gen] Niche={niche}, Input={input_text[:50]}..., Model={model}")
+        logger.info(f"[SCRIPT] [Elite Gen] Niche={niche}, Input={input_text[:50]}..., Model={model}")
         
         # 1. Specialized Persona Injection (Sovereign Specialist)
         specialist_persona = ""
@@ -81,6 +81,76 @@ class ScriptEngine:
         if sample_text:
             style_text += f"### [STYLE SAMPLE] REFERENCE TEXT:\n{sample_text}\n\n"
 
+        # 5. SEO Optimization via Real-time Trends
+        seo_text = ""
+        if niche:
+            try:
+                from app.services.scraper_engine import ScraperEngine
+                scraper = ScraperEngine()
+                suggestions = scraper.get_youtube_autocomplete(niche, limit=5)
+                if suggestions:
+                    seo_text = (
+                        "### [SEO OPTIMIZATION] REAL-TIME TRENDING KEYWORDS:\n"
+                        "다음은 현재 YouTube에서 가장 많이 검색되는 연관 키워드입니다. 대본 본문에 자연스럽게 녹여내어 알고리즘 노출을 극대화하세요:\n"
+                        f"{', '.join(suggestions)}\n\n"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to fetch SEO trends for {niche}: {e}")
+
+        # 6. [NEW] Web Search Research — real-time facts for accurate scripts
+        web_research_text = ""
+        research_used = False
+        research_summary = None
+        research_sources = None
+        if use_web_search:
+            try:
+                from app.services.tool_manager import tool_manager
+                db = SessionLocal()
+                settings = crud.get_settings(db)
+                db.close()
+                search_query = f"{input_text} {niche or ''} facts statistics 2026"
+                search_result = tool_manager.search(search_query, include_images=False, settings=settings, time_range='year')
+                results = search_result.get("results", [])
+                if results:
+                    research_used = True
+                    top5 = results[:5]
+                    research_sources = [r['title'] for r in top5]
+                    research_summary = " | ".join(f"{r['title']}: {r['content'][:100]}" for r in top5)
+                    web_research_text = "### [WEB RESEARCH] REAL-TIME FACTS & DATA:\n"
+                    web_research_text += "다음은 웹에서 수집한 최신 사실과 데이터입니다. 대본에 구체적인 숫자, 통계, 사례를 인용할 때 활용하고 출처를 표기하세요:\n"
+                    for idx, res in enumerate(top5):
+                        web_research_text += f"- {res['title']}: {res['content'][:300]}\n"
+                    web_research_text += "\n"
+            except Exception as e:
+                logger.warning(f"Web research failed for '{input_text}': {e}")
+
+        # 7. [NEW] Trend Data Injection — viral angles from Trend table
+        trend_text = ""
+        trend_used = False
+        trend_count = 0
+        if niche:
+            try:
+                db = SessionLocal()
+                trend = db.query(models.Trend).filter(models.Trend.category.ilike(f"%{niche}%")).order_by(models.Trend.updated_at.desc()).first()
+                db.close()
+                if trend and trend.related_keywords_json:
+                    keywords = trend.related_keywords_json
+                    if isinstance(keywords, list) and len(keywords) > 0:
+                        trend_used = True
+                        trend_count = len(keywords)
+                        trend_text = "### [TREND INTELLIGENCE] VIRAL KEYWORDS & ANGLES:\n"
+                        trend_text += "다음은 현재 이 니치에서 바이럴 중인 키워드와 각도입니다. 대본에 반영하면 조회수 상승에 도움이 됩니다:\n"
+                        for kw in keywords[:5]:
+                            ko = kw.get("ko", "")
+                            en = kw.get("en", "")
+                            score = kw.get("viral_score", 0)
+                            velocity = kw.get("velocity", "")
+                            angle = kw.get("angle", "")
+                            trend_text += f"- {ko} ({en}) [Score: {score}, Velocity: {velocity}]\n  Angle: {angle}\n"
+                        trend_text += "\n"
+            except Exception as e:
+                logger.warning(f"Trend data fetch failed for niche {niche}: {e}")
+
         system_prompt = (
             "You are an Elite Creative Broadcast Writer for high-retention viral YouTube Shorts.\n\n"
             "### [CONSTITUTION] THE DNA RULE:\n"
@@ -89,6 +159,9 @@ class ScriptEngine:
             f"{flavor_rule}"
             f"{wisdom_text}"
             f"{style_text}"
+            f"{seo_text}"
+            f"{web_research_text}"
+            f"{trend_text}"
             "### CORE SCRIPTWRITING RULES:\n"
             "1. **Direct Address**: Always speak directly to the viewer (e.g., '여러분', '지휘관님', '어르신들').\n"
             "2. **Information Density**: Extract specific facts or tips from the DNA/context. No vague summaries.\n"
@@ -102,31 +175,48 @@ class ScriptEngine:
 
         user_prompt = f"### INPUT TOPIC/MATERIAL:\n{input_text}"
         
-        try:
-            result = self.llm_client.generate_content(
-                prompt=user_prompt, 
-                model_name=model,
-                system_instruction=system_prompt,
-                full_response=True
-            )
-            
-            actual_model = result.get("model", model) if isinstance(result, dict) else model
-            content = result.get("content", result) if isinstance(result, dict) else result
-            
-            logger.info(f"✅ Script generated successfully using {actual_model}.")
-            
-            warning = None
-            if actual_model != model:
-                warning = f"System: Scaled up to {actual_model} for quality assurance."
+        fallback_providers = [
+            (provider, model),
+            ("opencode", "opencode/deepseek-v4-flash-free"),
+            ("groq", "groq/llama-3.3-70b-versatile"),
+        ]
+        
+        last_error = None
+        for fb_provider, fb_model in fallback_providers:
+            try:
+                result = self.llm_client.generate_content(
+                    prompt=user_prompt, 
+                    model_name=fb_model,
+                    system_instruction=system_prompt,
+                    full_response=True
+                )
+                
+                actual_model = result.get("model", fb_model) if isinstance(result, dict) else fb_model
+                content = result.get("content", result) if isinstance(result, dict) else result
+                
+                logger.info(f"[OK] Script generated successfully using {actual_model}.")
+                
+                warning = None
+                if actual_model != model:
+                    warning = f"System: Used {actual_model} instead of {model}."
 
-            return {
-                "script": content,
-                "model_used": actual_model,
-                "warning": warning
-            }
-        except Exception as e:
-            logger.error(f"❌ Elite script generation failed: {e}")
-            raise e
+                return {
+                    "script": content,
+                    "model_used": actual_model,
+                    "warning": warning,
+                    "research_used": research_used,
+                    "research_summary": research_summary,
+                    "research_sources": research_sources,
+                    "trend_used": trend_used,
+                    "trend_count": trend_count
+                }
+            except Exception as e:
+                last_error = e
+                logger.warning(f"[WARN] {fb_provider}/{fb_model} failed: {e}. Trying next fallback...")
+                continue
+        
+        logger.error(f"[FAIL] All providers failed. Last error: {last_error}")
+        raise last_error or Exception("All script generation providers failed.")
 
     def refine_script(self, current_text: str, instruction: str, persona: str = None, style_instruction: str = None, sample_text: str = None, provider: str = None, model: str = None, tempo_percentage: int = 100):
         """
@@ -134,11 +224,11 @@ class ScriptEngine:
         Returns a dictionary: {"script": str, "model_used": str, "warning": str|None}
         """
         if not provider:
-            provider = "groq"
+            provider = "opencode"
         if not model:
-            model = "groq/llama-3.3-70b-versatile"
+            model = "opencode/deepseek-v4-flash-free"
 
-        logger.info(f"✨ Script Refinement Request: Persona={persona}, Instruction='{instruction}', Tempo={tempo_percentage}%, Style={bool(style_instruction)}")
+        logger.info(f"[MAGIC] Script Refinement Request: Persona={persona}, Instruction='{instruction}', Tempo={tempo_percentage}%, Style={bool(style_instruction)}")
         
         persona_map = {
             "strategist": (
@@ -204,7 +294,7 @@ class ScriptEngine:
             actual_model = result.get("model", model) if isinstance(result, dict) else model
             content = result.get("content", result) if isinstance(result, dict) else result
             
-            logger.info("✅ Script refined successfully.")
+            logger.info("[OK] Script refined successfully.")
             
             warning = None
             # Check if models are different, ignoring provider prefixes like 'google/'
@@ -220,7 +310,60 @@ class ScriptEngine:
                 "warning": warning
             }
         except Exception as e:
-            logger.error(f"❌ Script refinement failed with {model}: {e}")
+            logger.error(f"[FAIL] Script refinement failed with {model}: {e}")
+            raise e
+
+    def safety_review_script(self, current_text: str, provider: str = None, model: str = None):
+        """
+        Performs a safety review on the script, suggesting changes and returning a JSON.
+        """
+        if not provider:
+            provider = "opencode"
+        if not model:
+            model = "opencode/deepseek-v4-flash-free"
+
+        system_prompt = (
+            "You are an expert Safety and Compliance Editor for YouTube content.\n"
+            "Your task is to review the provided script and replace any harsh, dangerous, explicit, or non-advertiser-friendly language with soft, family-friendly alternatives.\n\n"
+            "### CRITICAL RULES:\n"
+            "1. You MUST output ONLY valid JSON format.\n"
+            "2. Do not include markdown code blocks like ```json in the output.\n"
+            "3. Ensure the 'revised_script' contains the fully modified text.\n"
+            "4. For every change made, add an entry to the 'changes' array with 'original', 'replacement', and 'reason'.\n"
+            'Example output:\n'
+            '{\n'
+            '  "revised_script": "This is a very nice script.",\n'
+            '  "changes": [\n'
+            '    {"original": "bad word", "replacement": "nice", "reason": "Family friendly"}\n'
+            '  ]\n'
+            '}'
+        )
+
+        user_prompt = f"### CURRENT SCRIPT:\n{current_text}"
+
+        try:
+            import json
+            result = self.llm_client.generate_content(
+                prompt=user_prompt,
+                model_name=model,
+                system_instruction=system_prompt,
+                full_response=True
+            )
+            
+            content = result.get("content", result) if isinstance(result, dict) else result
+            
+            # Clean markdown JSON formatting if present
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+                
+            parsed_data = json.loads(content.strip())
+            return parsed_data
+        except Exception as e:
+            logger.error(f"[FAIL] Safety review failed: {e}")
             raise e
 
     def generate_multilingual_script(self, input_text: str, niche: str = None, provider: str = None, model: str = None):
@@ -301,7 +444,66 @@ class ScriptEngine:
                 "warning": warning
             }
         except Exception as e:
-            logger.error(f"❌ Multilingual generation failed with {model}: {e}")
+            logger.error(f"[FAIL] Multilingual generation failed with {model}: {e}")
+            raise e
+    def safety_review_script(self, current_text: str, provider: str = None, model: str = None) -> dict:
+        """
+        Analyzes the script for safety/policy violations (TikTok/Douyin standards) 
+        and suggests replacements.
+        """
+        if not provider: provider = "opencode"
+        if not model: model = "opencode/deepseek-v4-flash-free"
+
+        logger.info(f"🛡️ Safety Review Requested for {len(current_text)} chars")
+
+        system_prompt = (
+            "You are a Content Safety and Policy Expert for TikTok and YouTube Shorts.\n"
+            "Your task is to analyze the provided Korean script and identify any words or phrases that violate community guidelines (e.g., violence, gore, excessive swearing, sexual content, self-harm, hate speech).\n\n"
+            "### RULES:\n"
+            "1. ONLY identify problematic words/phrases. Do NOT rewrite the entire script from scratch unless necessary.\n"
+            "2. For each identified issue, provide a safe `replacement` and a brief `reason` in Korean.\n"
+            "3. Finally, provide the `revised_script` with all replacements applied.\n"
+            "4. Output MUST be raw JSON without markdown formatting.\n\n"
+            "### JSON SCHEMA:\n"
+            "{\n"
+            '  "revised_script": "The full script with safe words applied",\n'
+            '  "changes": [\n'
+            '    {\n'
+            '      "original": "problematic word/phrase",\n'
+            '      "replacement": "safe alternative",\n'
+            '      "reason": "Why it violates policy"\n'
+            '    }\n'
+            '  ]\n'
+            "}"
+        )
+
+        user_prompt = f"### SCRIPT TO REVIEW:\n{current_text}"
+        
+        try:
+            result = self.llm_client.generate_content(
+                prompt=user_prompt, 
+                model_name=model,
+                system_instruction=system_prompt,
+                full_response=True
+            )
+            
+            content = result.get("content", result) if isinstance(result, dict) else result
+            
+            # Parse JSON
+            if isinstance(content, str):
+                content = content.replace('```json', '').replace('```', '').strip()
+                import json
+                try:
+                    parsed = json.loads(content)
+                except json.JSONDecodeError:
+                    logger.error("Failed to parse Safety Review JSON.")
+                    parsed = {"revised_script": current_text, "changes": []}
+            else:
+                parsed = content
+
+            return parsed
+        except Exception as e:
+            logger.error(f"[FAIL] Safety review failed: {e}")
             raise e
 
     def segment_to_beats(self, script: str, provider: str = None, model: str = None):
@@ -311,9 +513,9 @@ class ScriptEngine:
         Identifies logical scene breaks, emotional pivots, and visual intents.
         """
         if not provider:
-            provider = "groq"
+            provider = "opencode"
         if not model:
-            model = "groq/llama-3.3-70b-versatile"
+            model = "opencode/deepseek-v4-flash-free"
 
         logger.info(f"🧬 [Elite Orchestration] Segmenting script into beats (Length: {len(script)})")
 
@@ -365,9 +567,9 @@ class ScriptEngine:
             else:
                 beats = content
 
-            logger.info(f"✅ Successfully segmented script into {len(beats)} beats.")
+            logger.info(f"[OK] Successfully segmented script into {len(beats)} beats.")
             return beats
         except Exception as e:
-            logger.error(f"❌ Script segmentation failed: {e}")
+            logger.error(f"[FAIL] Script segmentation failed: {e}")
             raise e
 

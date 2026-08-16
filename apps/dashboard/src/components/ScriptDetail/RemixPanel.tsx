@@ -41,7 +41,7 @@ export const RemixPanel: React.FC<RemixPanelProps> = ({ originalScript, analysis
         let prompt = "";
         switch (action) {
             case "shorten":
-                prompt = "Shorten this script for TikTok/Shorts (under 60s reading time). Keep the hook strong.";
+                prompt = "Shorten this script for Music/Shorts (under 60s reading time). Keep the hook strong.";
                 break;
             case "engaging":
                 prompt = "Make the tone more engaging and controversial to increase retention.";
@@ -63,7 +63,7 @@ export const RemixPanel: React.FC<RemixPanelProps> = ({ originalScript, analysis
             <div className="bg-card border rounded-lg p-4 space-y-4 shadow-sm">
                 <div className="flex items-center gap-2 overflow-x-auto pb-2">
                     <Button variant="outline" size="sm" onClick={() => handleQuickAction('shorten')} className="whitespace-nowrap">
-                        <Zap className="w-3 h-3 mr-1 text-yellow-500" /> Shorten (TikTok)
+                        <Zap className="w-3 h-3 mr-1 text-yellow-500" /> Shorten (Music)
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => handleQuickAction('engaging')} className="whitespace-nowrap">
                         <Zap className="w-3 h-3 mr-1 text-red-500" /> Max Engagement
@@ -72,7 +72,7 @@ export const RemixPanel: React.FC<RemixPanelProps> = ({ originalScript, analysis
                         <Zap className="w-3 h-3 mr-1 text-blue-500" /> Listicle Format
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => handleQuickAction('twitter')} className="whitespace-nowrap">
-                        <Zap className="w-3 h-3 mr-1 text-sky-500" /> Twitter Thread
+                        <Zap className="w-3 h-3 mr-1 text-sky-500" /> MessageCircle Thread
                     </Button>
                 </div>
 

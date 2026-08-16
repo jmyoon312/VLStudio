@@ -42,7 +42,7 @@ export const mockGraphData: { nodes: Node[]; edges: Edge[] } = {
             id: 'mock-webhook-1',
             type: 'webhookNode',
             position: { x: 1650, y: 250 },
-            data: { label: 'TikTok Auto-Post', url: 'https://api.tiktok.com/v2/post' }
+            data: { label: 'Music Auto-Post', url: 'https://api.tiktok.com/v2/post' }
         }
     ],
     edges: [

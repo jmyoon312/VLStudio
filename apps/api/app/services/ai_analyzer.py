@@ -16,8 +16,8 @@ class ContentAnalyzer:
         """
         Analyzes the script using the configured AI provider.
         """
-        provider = self.settings.script_analysis_provider or "groq"
-        model = self.settings.script_analysis_model or "groq/llama-3.3-70b-versatile"
+        provider = self.settings.script_analysis_provider or "opencode"
+        model = self.settings.script_analysis_model or "opencode/deepseek-v4-flash-free"
         
         # System Prompt: English logic, strictly enforced Korean JSON output
         system_instruction = """
@@ -95,8 +95,8 @@ Script:
         """
         Rewrites the script based on the provided instruction.
         """
-        target_provider = provider or self.settings.script_analysis_provider or "groq"
-        target_model = model or self.settings.script_analysis_model or "groq/llama-3.3-70b-versatile"
+        target_provider = provider or self.settings.script_analysis_provider or "opencode"
+        target_model = model or self.settings.script_analysis_model or "opencode/deepseek-v4-flash-free"
         
         system_instruction = """
 You are an expert viral script writer. Your goal is to rewrite the provided script according to the user's specific instructions.
@@ -136,7 +136,7 @@ Rewrite the script:
         """
         Extracts a single shopping keyword for Coupang/YouTube Shopping from title and description.
         """
-        model = self.settings.script_analysis_model or "groq/llama-3.3-70b-versatile"
+        model = self.settings.script_analysis_model or "opencode/deepseek-v4-flash-free"
         
         system_instruction = """
         You are an e-commerce keyword extraction bot. 

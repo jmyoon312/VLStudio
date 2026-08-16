@@ -272,8 +272,10 @@ const GlobalLoopieChat = () => {
 
         const connectWebSocket = () => {
             if (!isMounted) return;
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/api/swarm/ws`);
+            const isFileProtocol = window.location.protocol === 'file:';
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = isFileProtocol ? '127.0.0.1:8000' : window.location.host;
+            ws = new WebSocket(`${wsProtocol}//${wsHost}/api/swarm/ws`);
             
             ws.onopen = () => {
                 console.log("[Loopie] Swarm WebSocket connected");

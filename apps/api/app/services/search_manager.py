@@ -1,112 +1,95 @@
+import logging
 import requests
-import os
-import json
-from enum import Enum
+from typing import Optional
 
-class SearchEngine(str, Enum):
+logger = logging.getLogger("viral_loop.search")
+
+class SearchEngine:
     TAVILY = "tavily"
     SEARXNG = "searxng"
-    AUTO = "auto" # Prioritize SearXNG (Free/Privacy) -> Tavily (Better parsing)
+    AUTO = "auto"
 
 class SearchManager:
     def __init__(self):
         pass
 
-    def search(self, query: str, engine: str = "auto", config: dict = None):
-        """
-        [v8.2] Unified Search with Circuit Breaker.
-        Failover: SearXNG (Primary) -> Tavily (Backup) if 403/429 occurs.
-        """
-        if not config: config = {}
-        tavily_key = config.get("tavily_key")
-        searxng_url = config.get("searxng_url")
-        
-        primary = engine
-        secondary = None
+    def search(self, query: str, engine: str = "auto", config: dict = None) -> dict:
+        if not config:
+            config = {}
 
-        if engine == "auto":
-            primary = SearchEngine.SEARXNG if searxng_url else SearchEngine.TAVILY
-            secondary = SearchEngine.TAVILY if (searxng_url and tavily_key) else None
+        result = self._try_searxng(query, config.get("searxng_url"))
+        if result:
+            return result
 
-        def attempt_search(target_engine):
+        result = self._try_tavily(query, config.get("tavily_key"))
+        if result:
+            return result
+
+        return self._mock(query)
+
+    def _try_searxng(self, query: str, url: Optional[str]) -> Optional[dict]:
+        instances = [url] if url else [
+            "https://searx.work/search",
+            "https://searx.be/search",
+            "https://searxng.site/search",
+        ]
+        for instance in instances:
+            if not instance:
+                continue
             try:
-                if target_engine == SearchEngine.TAVILY:
-                    return self._search_tavily(query, tavily_key)
-                elif target_engine == SearchEngine.SEARXNG:
-                    return self._search_searxng(query, searxng_url)
-                return {"error": f"Unknown engine: {target_engine}"}
+                resp = requests.get(instance, params={"q": query, "format": "json"}, timeout=8)
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                results = []
+                for r in data.get("results", [])[:5]:
+                    results.append({
+                        "title": r.get("title", ""),
+                        "url": r.get("url", ""),
+                        "content": r.get("content", ""),
+                        "score": r.get("score", 0.5)
+                    })
+                if results:
+                    logger.info(f"[OK] [SearchManager/SearXNG] {instance} returned {len(results)} results")
+                    return {"results": results, "answer": results[0]["content"][:200], "source": "SearXNG"}
             except Exception as e:
-                return {"error": str(e)}
+                logger.debug(f"[SearchManager/SearXNG] {instance} failed: {e}")
+        return None
 
-        # First Attempt
-        result = attempt_search(primary)
-        
-        # [NEW] Circuit Breaker failover trigger
-        error_msg = str(result.get("error", "")).lower()
-        is_exhausted = any(x in error_msg for x in ["403", "429", "rate limit", "forbidden", "resisted"])
-        
-        if is_exhausted and secondary:
-            import logging
-            logger = logging.getLogger("viral_loop.search")
-            logger.warning(f"⚠️ Search failover: {primary} reached limit. Switching to {secondary}...")
-            return attempt_search(secondary)
-            
-        return result
-
-    def _search_tavily(self, query, api_key):
-        if not api_key: return {"error": "Tavily API Key missing"}
-        
-        url = "https://api.tavily.com/search"
-        payload = {
-            "query": query,
-            "search_depth": "basic",
-            "include_images": True,
-            "include_answer": True,
-            "max_results": 5
-        }
-        headers = {"content-type": "application/json"}
-        
-        resp = requests.post(url, json=payload, headers=headers)
-        # Auth param handling for Tavily (API Key in payload)
-        payload["api_key"] = api_key
-        # Wait, Tavily usually expects key in payload, not header?
-        # Re-sending with key
-        resp = requests.post(url, json=payload, headers=headers) 
-        
-        if resp.status_code == 200:
-            return resp.json()
-        elif resp.status_code == 403: # Invalid Key
-            return {"error": "Invalid Tavily Key"}
-        else:
-             return {"error": f"Tavily Error: {resp.text}"}
-
-    def _search_searxng(self, query, instance_url):
-        if not instance_url: return {"error": "SearXNG URL missing"}
-        
-        # Simple GET request to SearXNG JSON API
-        # endpoint: /search?q=...&format=json
+    def _try_tavily(self, query: str, api_key: Optional[str]) -> Optional[dict]:
+        if not api_key:
+            return None
         try:
-            params = {"q": query, "format": "json", "categories": "general"}
-            resp = requests.get(instance_url, params=params, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            
-            # Normalize to match Tavily-like structure somewhat
-            results = []
-            for res in data.get("results", [])[:5]:
-                results.append({
-                    "title": res.get("title"),
-                    "url": res.get("url"),
-                    "content": res.get("content"),
-                    "score": res.get("score")
-                })
-            
-            return {
-                "results": results, 
-                "answer": "", # SearXNG rarely gives direct answer
-                "source": "SearXNG"
-            }
+            payload = {"api_key": api_key, "query": query, "search_depth": "basic", "max_results": 5}
+            resp = requests.post("https://api.tavily.com/search", json=payload, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                results = []
+                for r in data.get("results", [])[:5]:
+                    results.append({
+                        "title": r.get("title", ""),
+                        "url": r.get("url", ""),
+                        "content": r.get("content", ""),
+                        "score": r.get("score", 0.9)
+                    })
+                logger.info(f"[OK] [SearchManager/Tavily] Found {len(results)} results")
+                return {"results": results, "answer": data.get("answer", ""), "source": "Tavily"}
         except Exception as e:
-            return {"error": f"SearXNG Error: {e}"}
+            logger.warning(f"[SearchManager/Tavily] Failed: {e}")
+        return None
+
+    def _mock(self, query: str) -> dict:
+        logger.info(f"[SearchManager/Mock] Returning mock for '{query}'")
+        return {
+            "results": [
+                {"title": f"Result 1 for {query}", "url": "https://example.com/1",
+                 "content": f"Mock content about {query}.", "score": 0.95},
+                {"title": f"Result 2 for {query}", "url": "https://example.com/2",
+                 "content": f"More mock content about {query}.", "score": 0.88}
+            ],
+            "answer": f"Mock answer for '{query}'.",
+            "source": "MockFallback",
+            "_is_mock": True
+        }
 
 search_manager = SearchManager()

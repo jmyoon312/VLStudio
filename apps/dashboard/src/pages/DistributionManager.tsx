@@ -111,8 +111,8 @@ const DistributionManager = () => {
             {/* Tabs */}
             <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit border border-border">
                 {[
-                    { id: 'vault', label: '소유자 보관소 (Tin Can)', icon: Shield },
-                    { id: 'captains', label: '관리자 관리 (Captain)', icon: User },
+                    { id: 'vault', label: '소유자 보관소', icon: Shield },
+                    { id: 'captains', label: '관리자 관리', icon: User },
                     { id: 'network', label: '네트워크 관제 (Matrix)', icon: Activity }
                 ].map(tab => (
                     <button

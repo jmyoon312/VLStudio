@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import ChannelManager from './components/ChannelManager'; // Use components/ChannelManager
@@ -12,15 +12,11 @@ import SilenceRemover from './components/SilenceRemover';
 import CustomMenu from './pages/CustomMenu';
 import MultiTTS from './pages/MultiTTS';
 import CreativeStudio from './pages/CreativeStudio';
-import CutEditor from './pages/CutEditor';
 import RemoverEditor from './pages/RemoverEditor';
-
-import RemasterLab from './pages/RemasterLab';
-import SovereignShieldLab from './pages/SovereignShieldLab';
 import { LiveStudio } from './pages/Studio/LiveStudio';
 import VirtualStudio from './pages/VirtualStudio';
 
-import KeywordExplorer from './pages/KeywordExplorer'; // [NEW]
+
 import { ReportsPage } from './pages/ReportsPage'; // [NEW]
 import StationManager from './pages/StationManager'; // [NEW]
 import StationDetail from './pages/StationDetail'; // [NEW]
@@ -37,12 +33,13 @@ import LoginPage from './pages/LoginPage';
 
 
 
+
 import ScriptLab from './pages/ScriptLab';
-import BrandChannelNodeEditor from './pages/BrandChannelNodeEditor';
 import OperationsDashboard from './pages/OperationsDashboard';
 import WorkQueue from './pages/WorkQueue';  // [NEW] Work Queue
-import WorkflowDashboard from './pages/WorkflowDashboard';
-import AccountManager from './pages/AccountManager';  // [RENAMED] from DistributionManager
+import DdalkkakUI from './pages/DdalkkakUI';
+import SceneCutter from './pages/SceneCutter';
+import SmartDouyinSearch from './components/SmartDouyinSearch';
 import ResourceGuidePage from './pages/ResourceGuidePage';
 import CaptainDashboard from './pages/CaptainDashboard';  // [NEW] Phase 3
 import CaptainQuarters from './pages/CaptainQuarters';  // [NEW] Phase 4.1
@@ -51,11 +48,13 @@ import GuideCenter from './pages/GuideCenter';
 import Home from './pages/Home';
 import EliteCommandStudio from './pages/EliteCommandStudio'; // [Elite] Command Studio
 
+import ResearchBrief from './pages/ResearchBrief';
+
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
         <div className="text-center">
             <h1 className="text-4xl font-bold text-slate-800 mb-4">{title}</h1>
-            <p className="text-slate-500">해당 기능은 서버 이전 및 최적화 작업 중입니다. 곧 제공될 예정입니다.</p>
+            <p className="text-slate-500">?당 기능? ?버 ?전 ?최적???업 중입?다. ??공???정?니??</p>
         </div>
     </div>
 );
@@ -75,7 +74,7 @@ class RouteErrorBoundary extends React.Component<{children: React.ReactNode}, {h
         if (this.state.hasError) {
             return (
                 <div style={{ padding: '24px', background: '#fee2e2', color: '#7f1d1d', height: '100%', overflow: 'auto', fontFamily: 'monospace' }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>⚠ APP CRASHED — 아래 에러를 개발자에게 전달하세요</h2>
+                    <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>APP CRASHED</h2>
                     <div style={{ background: '#fca5a5', borderRadius: '6px', padding: '12px', marginBottom: '12px' }}>
                         <strong style={{ fontSize: '15px', display: 'block', marginBottom: '4px' }}>{this.state.error?.name}: {this.state.error?.message}</strong>
                     </div>
@@ -111,7 +110,7 @@ function MainAppContent() {
                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-blue-600"></div>
                 </div>
                 <p className="mt-4 text-[10px] font-bold text-slate-600 tracking-wider uppercase animate-pulse">
-                    ViraLoop Studio 세션 초기화 중...
+                    ViraLoop Studio ?션 초기???..
                 </p>
             </div>
         );
@@ -126,6 +125,9 @@ function MainAppContent() {
             <Layout>
                 <Routes>
                     <Route path="/" element={<Home />} />
+                    <Route path="/douyin-search" element={<SmartDouyinSearch />} />
+                    <Route path="/ddalkkak" element={<DdalkkakUI />} />
+                    <Route path="/scene-cutter-pro" element={<SceneCutter />} />
                     <Route path="/ai-copilot" element={<AICoPilotStudio />} /> {/* [NEW] AI Copilot Studio */}
                     <Route path="/flow2capcut" element={
                         <RouteErrorBoundary>
@@ -148,6 +150,7 @@ function MainAppContent() {
                     <Route path="/scissors" element={<Navigate to="/cut-editor" replace />} />
 
                     <Route path="/channels" element={<ChannelManager />} />
+
                     {/* [FIX: Distribution Network = Upload Queue, not Workflows] */}
                     <Route path="/distribution-network" element={<OperationsDashboard />} />
 
@@ -159,16 +162,12 @@ function MainAppContent() {
                     <Route path="/captain/:profileId" element={<CaptainQuarters />} />
                     <Route path="/captain/channels" element={<CaptainQuarters />} />
                     <Route path="/captain" element={<CaptainQuarters />} />
-                    <Route path="/account-manager" element={<AccountManager />} />  {/* [RENAMED] from /distribution-manager */}
+                    <Route path="/account-manager" element={<Navigate to="/incubator" replace />} />  {/* [MERGED] to incubator */}
 
                     <Route path="/resource-guide" element={<ResourceGuidePage />} />
-                    <Route path="/workflows" element={<WorkflowDashboard />} />
-                    <Route path="/workflows/:workflowId" element={<BrandChannelNodeEditor />} />
-
                     <Route path="/work-queue" element={<WorkQueue />} /> {/* [NEW] Work Queue */}
 
-                    {/* [NEW] Keyword Explorer */}
-                    <Route path="/keyword-explorer" element={<KeywordExplorer />} />
+
                     <Route path="/reports" element={<ReportsPage />} /> {/* [NEW] */}
 
                     {/* [NEW] Professional Station Manager */}
@@ -184,14 +183,12 @@ function MainAppContent() {
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/script-writer" element={<ScriptWriter />} />
 
+
                     <Route path="/subtitle-tool" element={<SubtitleConverter />} />
                     <Route path="/multi-tts" element={<MultiTTS />} />
                     <Route path="/silence-remover" element={<SilenceRemover />} />
                     <Route path="/creative-studio" element={<CreativeStudio />} />
-                    <Route path="/cut-editor" element={<CutEditor />} />
                     <Route path="/remover" element={<RemoverEditor />} />
-                    <Route path="/remaster-lab" element={<RemasterLab />} />
-                    <Route path="/sovereign-shield" element={<SovereignShieldLab />} />
                     <Route path="/live-studio" element={<LiveStudio />} />
                     <Route path="/virtual-studio" element={<VirtualStudio />} />
                     <Route path="/custom-menu" element={<CustomMenu />} />
@@ -199,9 +196,10 @@ function MainAppContent() {
                     <Route path="/incubator" element={<Incubator />} />  {/* [NEW] Incubator */}
                     <Route path="/settings" element={<Settings />} />
 
-                    {/* [Elite] Command Studio — Beats Editor */}
+                    {/* [Elite] Command Studio ??Beats Editor */}
                     <Route path="/elite-studio" element={<EliteCommandStudio />} />
                     <Route path="/elite-studio/:videoId" element={<EliteCommandStudio />} />
+                    <Route path="/research-brief" element={<ResearchBrief />} />
                 </Routes>
             </Layout>
         </GlobalShellWrapper>

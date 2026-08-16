@@ -6,6 +6,7 @@ import pathlib
 import subprocess
 import sys
 from typing import Optional
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger("PatchrightStealth")
 
@@ -28,16 +29,50 @@ class PatchrightStealth:
         # For background automation, we might store the active context
         self.context = None
 
-    def create_page(self, profile_id: str, proxy_port: int = 10800, headless: bool = True):
+    def create_page(self, profile_id: str, proxy_port: int = None, headless: bool = True, db: Session = None):
         """
         자동화(백그라운드) 전용 브라우저 컨텍스트 생성.
-        UI 수동 설정 모드(launch_for_setup)와 달리 파이썬 프로세스 내에서 직접 제어합니다.
+        DB 프로필의 프록시 설정(LTE EveryProxy 또는 ISP 고정 IP)을 100% 강제 바인딩하여 RAW IP 유출을 차단합니다.
         """
         from cloakbrowser import launch_persistent_context
+        from app.models import Profile
         
-        profile_dir = get_profile_path(profile_id)
-        proxy = f"socks5://127.0.0.1:{proxy_port}" if proxy_port else None
+        # Resolve Profile proxy from DB
+        proxy_config = None
+        if not db:
+            from app import database
+            db_session = next(database.get_db())
+        else:
+            db_session = db
+            
+        profile = db_session.query(Profile).filter(Profile.id == profile_id).first()
         
+        # Use folder_path from DB if available, otherwise fallback
+        if profile and profile.folder_path:
+            profile_dir = profile.folder_path
+        else:
+            profile_dir = get_profile_path(profile_id)
+            
+        if profile:
+            if profile.proxy_mode == "ISP_PROXY" and profile.proxy_host:
+                port = profile.proxy_port or 1080
+                if profile.proxy_username and profile.proxy_password:
+                    proxy_config = {
+                        "server": f"socks5://{profile.proxy_host}:{port}",
+                        "username": profile.proxy_username,
+                        "password": profile.proxy_password
+                    }
+                else:
+                    proxy_config = {"server": f"socks5://{profile.proxy_host}:{port}"}
+                logger.info(f"🔒 [Stealth Shield] Binding ISP Proxy: {profile.proxy_host}:{port}")
+            elif profile.proxy_mode == "DIRECT_LTE":
+                # EveryProxy default 1080 (SOCKS5)
+                proxy_config = {"server": "socks5://127.0.0.1:1080"}
+                logger.info("🔒 [Stealth Shield] Binding LTE Mobile Proxy: socks5://127.0.0.1:1080")
+                
+        if not proxy_config and proxy_port:
+            proxy_config = {"server": f"http://127.0.0.1:{proxy_port}"}
+            
         browser_args = [
             "--disable-quic",
             "--disable-ipv6",
@@ -49,11 +84,11 @@ class PatchrightStealth:
             "--dns-over-https-templates=https://chrome.cloudflare-dns.com/dns-query",
         ]
         
-        logger.info(f"Launching Patchright context for profile {profile_id} (Headless: {headless})")
+        logger.info(f"Launching Patchright context for profile {profile_id} (Headless: {headless}, Proxy: {proxy_config})")
         self.context = launch_persistent_context(
             user_data_dir=profile_dir,
             headless=headless,
-            proxy=proxy,
+            proxy=proxy_config,
             args=browser_args,
         )
         
@@ -78,7 +113,7 @@ class PatchrightStealth:
                 logger.error(f"Failed to close context: {e}")
             self.context = None
 
-    def launch_for_setup(self, profile_id: str, email: str = None, password: str = None, target_channel_id: str = None, skip_proxy_check: bool = False, db=None, **kwargs):
+    def launch_for_setup(self, profile_id: str, email: str = None, password: str = None, target_channel_id: str = None, skip_proxy_check: bool = False, db=None, rotate_ip_on_close: bool = False, **kwargs):
         """
         수동 설정(마법사) 모드 전용.
         API 응답 사이클과 분리하기 위해 subprocess를 사용하여 독립적인 로컬 브라우저 창을 띄웁니다.
@@ -98,7 +133,20 @@ class PatchrightStealth:
             if not profile_dir:
                 profile_dir = get_profile_path(profile_id)
                 
-            proxy_port = kwargs.get("proxy_port", 10800)
+            if skip_proxy_check:
+                proxy_str = "0"
+            else:
+                proxy_str = "1080"
+                if profile:
+                    if profile.proxy_mode == "ISP_PROXY" and profile.proxy_host:
+                        p_port = profile.proxy_port or 1080
+                        protocol = getattr(profile, "proxy_protocol", "http") or "http"
+                        if profile.proxy_username and profile.proxy_password:
+                            proxy_str = f"{protocol}://{profile.proxy_username}:{profile.proxy_password}@{profile.proxy_host}:{p_port}"
+                        else:
+                            proxy_str = f"{protocol}://{profile.proxy_host}:{p_port}"
+                    elif profile.proxy_mode == "DIRECT_LTE":
+                        proxy_str = "1080"
             
             script_path = os.path.join(os.path.dirname(__file__), "local_browser.py")
             import sys
@@ -112,19 +160,31 @@ class PatchrightStealth:
             if target_channel_id:
                 url += f"channel/{target_channel_id}"
                 
-            cmd = [venv_python, script_path, profile_dir, url, str(proxy_port)]
+            cmd = [venv_python, script_path, profile_dir, url, proxy_str]
             if email and password:
                 cmd.extend([email, password])
                 
             logger.info(f"Executing native CloakBrowser via patchright... Command: {cmd}")
             # CREATE_NO_WINDOW = 0x08000000
-            subprocess.Popen(
+            process = subprocess.Popen(
                 cmd,
                 creationflags=0x08000000 if os.name == 'nt' else 0
             )
+            
+            if rotate_ip_on_close:
+                import threading
+                def _wait_and_rotate():
+                    logger.info(f"[WAIT] Waiting for CloakBrowser (Profile: {profile_id}) to close before rotating IP...")
+                    process.wait()
+                    logger.info(f"🚪 CloakBrowser closed for profile {profile_id}. Triggering background IP rotation!")
+                    from app.services.adb_service import adb_service
+                    adb_service.rotate_ip(method='soft')
+                
+                threading.Thread(target=_wait_and_rotate, daemon=True).start()
+                
             return True
         except Exception as e:
-            logger.error(f"❌ [SAIF-PRO] YouTube launch error: {e}")
+            logger.error(f"[FAIL] [SAIF-PRO] YouTube launch error: {e}")
             return False
 
     def human_delay(self, min_sec: float = 1.0, max_sec: float = 3.0):
@@ -184,7 +244,7 @@ class PatchrightStealth:
                 return {"success": True}
                 
             if "challenge" in current_url or "2fa" in current_url or "approve" in current_url:
-                logger.warning("⚠️ 2FA/Verification detected")
+                logger.warning("[WARN] 2FA/Verification detected")
                 return {
                     "success": False,
                     "requires_2fa": True,
@@ -201,11 +261,72 @@ class PatchrightStealth:
                 
             return {"success": True}
         except Exception as e:
-            logger.error(f"❌ Login sequence error: {e}")
+            logger.error(f"[FAIL] Login sequence error: {e}")
             return {
                 "success": False,
                 "error": f"로그인 중 예외 발생: {str(e)}"
             }
+
+    def scout_channel_directly(self, profile_id: str, db=None) -> dict:
+        """
+        Directly launches Patchright stealth browser headlessly to scout channel ID and Brand Channel Name.
+        """
+        from app.models import Profile
+        if not db:
+            from app import database
+            db = next(database.get_db())
+
+        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        if not profile or not profile.folder_path:
+            return {"success": False, "error": "Profile or folder_path missing"}
+
+        try:
+            from patchright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                proxy_config = None
+                if profile.proxy_mode == "ISP_PROXY" and profile.proxy_host:
+                    p_port = profile.proxy_port or 1080
+                    if profile.proxy_username and profile.proxy_password:
+                        proxy_config = {
+                            "server": f"http://{profile.proxy_host}:{p_port}",
+                            "username": profile.proxy_username,
+                            "password": profile.proxy_password
+                        }
+                    else:
+                        proxy_config = {"server": f"http://{profile.proxy_host}:{p_port}"}
+                elif profile.proxy_mode == "DIRECT_LTE":
+                    proxy_config = {"server": "socks5://127.0.0.1:1080"}
+
+                args = [
+                    "--disable-blink-features=AutomationControlled",
+                    "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox"
+                ]
+
+                logger.info(f"🕵️ Launching persistent stealth context for channel scouting: {profile.folder_path}")
+                context = p.chromium.launch_persistent_context(
+                    user_data_dir=profile.folder_path,
+                    headless=True,
+                    proxy=proxy_config,
+                    args=args,
+                    viewport={"width": 1280, "height": 800}
+                )
+
+                page = context.pages[0] if context.pages else context.new_page()
+                page.set_default_timeout(10000)
+                
+                from app.services.automation.channel_creator import ChannelCreator
+                creator = ChannelCreator(self, None)
+                res = creator.detect_active_channel(page)
+                try:
+                    context.close()
+                except:
+                    pass
+                return res
+        except Exception as e:
+            logger.error(f"[FAIL] Direct channel scouting failed: {e}")
+            return {"success": False, "error": str(e)}
 
 # Alias for backward compatibility during refactoring
 DrissionStealth = PatchrightStealth

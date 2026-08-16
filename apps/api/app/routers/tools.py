@@ -471,6 +471,25 @@ async def get_voices(engine: str, language: str = None, db: Session = Depends(da
             fixed_path = abs_path.replace("backend" + os.sep + "backend", "backend")
             if os.path.exists(fixed_path):
                  abs_path = fixed_path
+        
+        # PyInstaller packaged environment fallback support: check real workspace root if missing in bundle temp dir
+        if not os.path.exists(abs_path):
+             # Try workspace root using VIRALOOP_PROJECT_ROOT env if available
+             proj_root = os.getenv("VIRALOOP_PROJECT_ROOT")
+             if proj_root:
+                 # Check packaged installation folder resources first
+                 proj_resources_candidate = os.path.abspath(os.path.join(proj_root, "resources", "apps", "api", "backend", "models", "supertonic"))
+                 if os.path.exists(proj_resources_candidate):
+                     abs_path = proj_resources_candidate
+                 else:
+                     proj_candidate = os.path.abspath(os.path.join(proj_root, "apps", "api", "backend", "models", "supertonic"))
+                     if os.path.exists(proj_candidate):
+                         abs_path = proj_candidate
+                     else:
+                         proj_candidate2 = os.path.abspath(os.path.join(proj_root, "backend", "models", "supertonic"))
+                         if os.path.exists(proj_candidate2):
+                             abs_path = proj_candidate2
+        
         if not os.path.exists(abs_path):
              parent_relative = os.path.abspath(os.path.join("..", model_path))
              if os.path.exists(parent_relative):
@@ -539,7 +558,7 @@ async def get_voices(engine: str, language: str = None, db: Session = Depends(da
                 
                 # Proxy configurations: try internal proxy then direct
                 connection_configs = [
-                    {"proxies": {'http': 'socks5://127.0.0.1:10800', 'https': 'socks5://127.0.0.1:10800'}, "label": "Proxy"},
+                    {"proxies": {'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'}, "label": "Proxy"},
                     {"proxies": None, "label": "Direct"}
                 ]
                 
@@ -557,12 +576,12 @@ async def get_voices(engine: str, language: str = None, db: Session = Depends(da
                             response = await asyncio.to_thread(run_req)
                             
                             if response.status_code == 200:
-                                logger.info(f"✅ [Typecast] Success with key {clean_key[:8]}...")
+                                logger.info(f"[OK] [Typecast] Success with key {clean_key[:8]}...")
                                 return response.json(), 200
                             
                             last_status = response.status_code
                         except Exception as e:
-                            logger.debug(f"⚠️ [Typecast] Attempt failed: {e}")
+                            logger.debug(f"[WARN] [Typecast] Attempt failed: {e}")
             
             return None, last_status or 500
 
@@ -612,16 +631,26 @@ async def get_voices(engine: str, language: str = None, db: Session = Depends(da
             else:
                 # If we got here, all attempts failed. 
                 # Provide descriptive error placeholder based on status
-                error_msg = "❌ API Connection Failed"
+                error_msg = "[FAIL] API Connection Failed"
                 if status in [401, 403]:
-                    error_msg = "❌ Invalid API Key (Auth Failed)"
+                    error_msg = "[FAIL] Invalid API Key (Auth Failed)"
                 
                 return [{"id": "error", "name": error_msg, "lang": "ko"}]
 
         except Exception as e:
             logger.error(f"Typecast Final Error: {e}")
 
-        return [{"id": "error", "name": "❌ Unexpected Typecast Error", "lang": "ko"}]
+        return [{"id": "error", "name": "[FAIL] Unexpected Typecast Error", "lang": "ko"}]
+        
+    elif engine == "gemini":
+        gemini_voices = [
+            "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede", 
+            "Callirrhoe", "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba", 
+            "Despina", "Erinome", "Algenib", "Rasalgethi", "Laomedeia", "Achernar", 
+            "Alnilam", "Schedar", "Gacrux", "Pulcherrima", "Achird", "Zubenelgenubi", 
+            "Vindemiatrix", "Sadachbia", "Sadaltager", "Sulafat"
+        ]
+        return [{"id": v, "name": f"{v}", "lang": "ko"} for v in gemini_voices]
 
     elif engine == "kokoro":
         # Local Kokoro Voices
@@ -1106,11 +1135,11 @@ def get_supertonic_status(db: Session = Depends(database.get_db)):
     required_files = [
         "config.json", 
         "tokenizer.json", 
-        "duration_predictor.onnx", 
-        "text_encoder.onnx", 
-        "vector_estimator.onnx", 
-        "vocoder.onnx",
-        "styles/M1.json"
+        "onnx/duration_predictor.onnx", 
+        "onnx/text_encoder.onnx", 
+        "onnx/vector_estimator.onnx", 
+        "onnx/vocoder.onnx",
+        "voice_styles/M1.json"
     ]
     
     missing = []
@@ -1121,6 +1150,18 @@ def get_supertonic_status(db: Session = Depends(database.get_db)):
         target_dir = model_dir
     else:
         target_dir = os.path.join(base_dir, model_dir)
+
+    # PyInstaller packaged environment fallback support: check real workspace root if files missing in bundle temp dir
+    if not os.path.exists(target_dir) or not os.path.exists(os.path.join(target_dir, "config.json")):
+        proj_root = os.getenv("VIRALOOP_PROJECT_ROOT")
+        if proj_root:
+            proj_candidate = os.path.abspath(os.path.join(proj_root, "apps", "api", "backend", "models", "supertonic"))
+            if os.path.exists(os.path.join(proj_candidate, "config.json")):
+                target_dir = proj_candidate
+            else:
+                proj_candidate2 = os.path.abspath(os.path.join(proj_root, "backend", "models", "supertonic"))
+                if os.path.exists(os.path.join(proj_candidate2, "config.json")):
+                    target_dir = proj_candidate2
         
     for f in required_files:
         if not os.path.exists(os.path.join(target_dir, f)):

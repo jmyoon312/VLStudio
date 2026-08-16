@@ -32,10 +32,8 @@ class WorkQueueItemCreate(BaseModel):
     approval_required: bool = False
     upload_method: Optional[str] = "API"
     target_platforms: Optional[List[str]] = ["youtube"]
-    upload_method: Optional[str] = "API"
-    target_platforms: Optional[List[str]] = ["youtube"]
     platform_configs: Optional[dict] = None
-    scheduled_upload_time: Optional[datetime] = None  # [NEW] Scheduled Upload
+    scheduled_upload_time: Optional[datetime] = None
     enable_shopping_tag: bool = False
     shopping_tag_keyword: Optional[str] = None
 
@@ -45,15 +43,16 @@ class WorkQueueItemUpdate(BaseModel):
     description: Optional[str] = None
     hashtags: Optional[List[str]] = None
     tags: Optional[List[str]] = None
+    video_file_path: Optional[str] = None
+    source_external_id: Optional[str] = None
     approval_status: Optional[str] = None
     upload_method: Optional[str] = None
     target_platforms: Optional[List[str]] = None
     platform_configs: Optional[dict] = None
     enable_shopping_tag: Optional[bool] = None
     shopping_tag_keyword: Optional[str] = None
-    platform_configs: Optional[dict] = None
     status: Optional[str] = None
-    scheduled_upload_time: Optional[datetime] = None  # [NEW]
+    scheduled_upload_time: Optional[datetime] = None
 
 
 class WorkQueueItemResponse(BaseModel):
@@ -62,15 +61,16 @@ class WorkQueueItemResponse(BaseModel):
     description: Optional[str] = None
     hashtags: Optional[List[str]] = None
     tags: Optional[List[str]] = None
-    video_file_path: str
+    video_file_path: Optional[str] = None
     # Source & Quality
     source_type: Optional[str] = None
+    source_batch_id: Optional[str] = None
+    source_external_id: Optional[str] = None
     approval_required: bool
     approval_status: str
     rejection_reason: Optional[str] = None
     # Upload Config
     upload_method: Optional[str] = None
-    target_platforms: Optional[List[str]] = None
     target_platforms: Optional[List[str]] = None
     platform_configs: Optional[dict] = None
     upload_priority: int
@@ -127,6 +127,42 @@ class KeywordExtractionRequest(BaseModel):
     description: str
 
 
+class DraftItemCreate(BaseModel):
+    """임시 등록 - 기본 정보만 저장 (제목, 설명, 태그) -- 영상은 나중에 첨부"""
+    title: str
+    description: Optional[str] = None
+    hashtags: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    source_type: Optional[str] = "BULK_IMPORT"
+    upload_method: Optional[str] = "BROWSER_AUTO"
+    target_platforms: Optional[List[str]] = ["youtube"]
+    platform_configs: Optional[dict] = None
+    scheduled_upload_time: Optional[datetime] = None
+    source_batch_id: Optional[str] = None
+    source_external_id: Optional[str] = None  # JSON/Excel 각 행과 영상의 연결고리
+    source_metadata: Optional[dict] = None
+
+
+class AttachVideoRequest(BaseModel):
+    """Draft에 영상 경로를 첨부 (external_id로 Draft 식별 가능)"""
+    video_file_path: str
+    source_external_id: Optional[str] = None  # ID 대신 external_id로 Draft 찾기 지원
+
+
+class FinalizeRequest(BaseModel):
+    """최종 등록 -- PENDING->QUEUED 전환. 승인 필요 여부 지정"""
+    approval_required: bool = False
+    scheduled_upload_time: Optional[datetime] = None
+    upload_method: Optional[str] = None
+    target_platforms: Optional[List[str]] = None
+
+
+class BulkImportRequest(BaseModel):
+    """Bulk import from JSON array or CSV data"""
+    items: List[DraftItemCreate]
+    source_batch_id: Optional[str] = None
+
+
 # === API Endpoints ===
 
 @router.post("/extract-shopping-keyword")
@@ -157,6 +193,8 @@ def get_queue_items(
     status: Optional[str] = None,
     approval_status: Optional[str] = None,
     date_filter: Optional[str] = None, # "today", "week", "month", "all"
+    source_batch_id: Optional[str] = None,
+    source_external_id: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -169,6 +207,12 @@ def get_queue_items(
     
     if approval_status:
         query = query.filter(models.WorkQueueItem.approval_status == approval_status)
+    
+    if source_batch_id:
+        query = query.filter(models.WorkQueueItem.source_batch_id == source_batch_id)
+    
+    if source_external_id:
+        query = query.filter(models.WorkQueueItem.source_external_id == source_external_id)
         
     if date_filter and date_filter != "all":
         now = datetime.now()
@@ -204,29 +248,36 @@ def create_queue_item(
 ):
     """작업 대기열에 항목 추가 (Auto-Approve 지원)"""
     
-    # 파일 존재 확인
-    if not os.path.exists(item_data.video_file_path):
-        raise HTTPException(404, f"Video file not found: {item_data.video_file_path}")
+    # DISCOVERY 타입은 YouTube URL을 직접 경로로 사용 (로컬 파일 없음)
+    is_discovery = (item_data.source_type or '').upper() == 'DISCOVERY'
+    
+    if not is_discovery:
+        # 파일 존재 확인 (로컬 파일인 경우만)
+        if not os.path.exists(item_data.video_file_path):
+            raise HTTPException(404, f"Video file not found: {item_data.video_file_path}")
+            
+        # [NEW] 파일 안전 복사 로직
+        settings = db.query(models.Settings).first()
+        safe_dir = os.path.join(settings.root_download_path if settings and settings.root_download_path else os.getcwd(), "work_queue_uploads")
+        os.makedirs(safe_dir, exist_ok=True)
         
-    # [NEW] 파일 안전 복사 로직
-    settings = db.query(models.Settings).first()
-    safe_dir = os.path.join(settings.root_download_path if settings and settings.root_download_path else os.getcwd(), "work_queue_uploads")
-    os.makedirs(safe_dir, exist_ok=True)
-    
-    # 고유한 파일명 생성
-    import shutil
-    import uuid
-    ext = os.path.splitext(item_data.video_file_path)[1]
-    safe_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
-    safe_file_path = os.path.join(safe_dir, safe_filename)
-    
-    try:
-        shutil.copy2(item_data.video_file_path, safe_file_path)
-        logger.info(f"📁 Video safely copied to: {safe_file_path}")
-    except Exception as e:
-        logger.error(f"Failed to copy video file: {e}")
-        # 복사 실패 시 원본 경로 유지
+        # 고유한 파일명 생성
+        import shutil
+        import uuid
+        ext = os.path.splitext(item_data.video_file_path)[1]
+        safe_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+        safe_file_path = os.path.join(safe_dir, safe_filename)
+        
+        try:
+            shutil.copy2(item_data.video_file_path, safe_file_path)
+            logger.info(f"📁 Video safely copied to: {safe_file_path}")
+        except Exception as e:
+            logger.error(f"Failed to copy video file: {e}")
+            safe_file_path = item_data.video_file_path
+    else:
+        # DISCOVERY: YouTube URL을 그대로 경로로 저장
         safe_file_path = item_data.video_file_path
+        logger.info(f"[SEARCH] Discovery item, using URL as path: {safe_file_path}")
     
     # Determine initial status based on approval_required
     initial_status = "QUEUED"
@@ -287,7 +338,7 @@ def create_queue_item(
     # [Auto-Upload Trigger]
     # Only trigger if Auto-Approved AND NOT Scheduled
     if queue_item.approval_status == "AUTO_APPROVED" and queue_item.status == "QUEUED":
-        logger.info(f"🚀 Auto-Approved item {queue_item.id}. Queuing for upload...")
+        logger.info(f"[FALLBACK] Auto-Approved item {queue_item.id}. Queuing for upload...")
         native_worker.add_task(queue_item.id)
     
     return queue_item
@@ -437,9 +488,443 @@ def batch_apply_shield(
     db.commit()
     return {"status": "success", "updated": count}
 
+# ============================================
+# Draft & Bulk Import AK Endpoints
+# ============================================
+
+@router.post("/items/draft", response_model=WorkQueueItemResponse)
+def create_draft_item(
+    item_data: DraftItemCreate,
+    db: Session = Depends(get_db)
+):
+    """임시 등록 (Draft) - 제목+메타데이터만 저장, 영상은 나중에 첨부"""
+    import uuid
+    
+    queue_item = models.WorkQueueItem(
+        title=item_data.title,
+        description=item_data.description,
+        hashtags=item_data.hashtags,
+        tags=item_data.tags,
+        source_type=item_data.source_type or "BULK_IMPORT",
+        upload_method=item_data.upload_method or "BROWSER_AUTO",
+        target_platforms=item_data.target_platforms or ["youtube"],
+        platform_configs=item_data.platform_configs or {},
+        scheduled_upload_time=item_data.scheduled_upload_time,
+        source_batch_id=item_data.source_batch_id or str(uuid.uuid4()),
+        source_external_id=item_data.source_external_id,
+        source_metadata=item_data.source_metadata or {},
+        status="DRAFT",
+        approval_status="PENDING",
+        upload_progress=0,
+        created_at=datetime.now()
+    )
+    db.add(queue_item)
+    db.commit()
+    db.refresh(queue_item)
+    return queue_item
+
+
+@router.post("/items/bulk/import", response_model=dict)
+def bulk_import(
+    data: BulkImportRequest,
+    db: Session = Depends(get_db)
+):
+    """Bulk import (CSV JSON converted) các draft items"""
+    import uuid as _uuid
+    batch_id = data.source_batch_id or str(_uuid.uuid4())
+    created = []
+    
+    for item_data in data.items:
+        queue_item = models.WorkQueueItem(
+            title=item_data.title,
+            description=item_data.description,
+            hashtags=item_data.hashtags,
+            tags=item_data.tags,
+            source_type=item_data.source_type or "BULK_IMPORT",
+            upload_method=item_data.upload_method or "BROWSER_AUTO",
+            target_platforms=item_data.target_platforms or ["youtube"],
+            platform_configs=item_data.platform_configs or {},
+            scheduled_upload_time=item_data.scheduled_upload_time,
+            source_batch_id=batch_id,
+            source_external_id=item_data.source_external_id,
+            source_metadata=item_data.source_metadata or {},
+            status="DRAFT",
+            approval_status="PENDING",
+            upload_progress=0,
+            created_at=datetime.now()
+        )
+        db.add(queue_item)
+        created.append({'title': queue_item.title, 'external_id': item_data.source_external_id, 'id': None})
+    
+    db.commit()
+    
+    # Refresh for IDs -- first lookup by external_id, fallback to title
+    for item in db.query(models.WorkQueueItem).filter(
+        models.WorkQueueItem.source_batch_id == batch_id
+    ).all():
+        for c in created:
+            if c.get('external_id') and item.source_external_id == c['external_id']:
+                c['id'] = item.id
+            elif item.title == c['title']:
+                c['id'] = item.id
+    
+    return {
+        "batch_id": batch_id,
+        "count": len(created),
+        "items": created
+    }
+
+@router.patch("/items/{item_id}/attach", response_model=WorkQueueItemResponse)
+def attach_video(
+    item_id: int,
+    data: AttachVideoRequest,
+    db: Session = Depends(get_db)
+):
+    """Draft 초건에 영상 경로를 첨부하고 상태를 PENDING으로 전환
+    - item_id 또는 data.source_external_id로 Draft 찾기
+    """
+    item = None
+    if data.source_external_id:
+        item = db.query(models.WorkQueueItem).filter(
+            models.WorkQueueItem.source_external_id == data.source_external_id,
+            models.WorkQueueItem.status == "DRAFT"
+        ).first()
+    if not item:
+        item = db.query(models.WorkQueueItem).filter(
+            models.WorkQueueItem.id == item_id,
+            models.WorkQueueItem.status == "DRAFT"
+        ).first()
+    if not item:
+        raise HTTPException(404, "Draft not found")
+    if not os.path.exists(data.video_file_path):
+        raise HTTPException(400, f"Video file not found: {data.video_file_path}")
+
+    item.video_file_path = data.video_file_path
+    item.status = "PENDING"
+    item.updated_at = datetime.now()
+    db.commit()
+    db.refresh(item)
+    return item
+
+@router.patch("/items/{item_id}/finalize", response_model=dict)
+def finalize_draft(
+    item_id: int,
+    data: FinalizeRequest = None,
+    db: Session = Depends(get_db)
+):
+    """Finalize: PENDING -> AUTO_APPROVED (if approval_required=False) -> QUEUED (trigger upload)"""
+    item = db.query(models.WorkQueueItem).filter(
+        models.WorkQueueItem.id == item_id,
+        models.WorkQueueItem.status.in_(["DRAFT", "PENDING"])
+    ).first()
+    if not item:
+        raise HTTPException(404, "Draft verktding not found")
+
+    if not item.video_file_path:
+        raise HTTPException(400, "Video file path not attached yet")
+
+    approval_recomm = (data.approval_required if data else False)
+    item.approval_required = approval_recomm
+    item.approval_status = "PENDING" if approval_recomm else "AUTO_APPROVED"
+    item.status = "QUEUED"
+    if data and data.scheduled_upload_time:
+        item.scheduled_upload_time = data.scheduled_upload_time
+        item.status = "SCHEDULED_UPLOAD"
+    if data and data.upload_method:
+        item.upload_method = data.upload_method
+    if data and data.target_platforms:
+        item.target_platforms = data.target_platforms
+    item.updated_at = datetime.now()
+    db.commit()
+    db.refresh(item)
+
+    if item.approval_status == "AUTO_APPROVED":
+        from app.services.native_queue_worker import add_task
+        add_task(item.id)
+
+    return {
+        "item_id": item.id,
+        "status": item.status,
+        "approval_status": item.approval_status,
+        "upload_queued": item.approval_status == "AUTO_APPROVED"
+    }
+
+@router.post("/batch/attach", response_model=dict)
+def batch_attach_videos(
+    data: BulkImportRequest,
+    db: Session = Depends(get_db)
+):
+    """Batch로 external_id 기준 영상 경로 일괄 첨부 (JSON 배열)"""
+    results = []
+    for item_data in data.items:
+        if not item_data.source_external_id:
+            results.append({"external_id": None, "status": "skipped", "reason": "no external_id"})
+            continue
+        draft = db.query(models.WorkQueueItem).filter(
+            models.WorkQueueItem.source_external_id == item_data.source_external_id,
+            models.WorkQueueItem.status == "DRAFT"
+        ).first()
+        if not draft:
+            results.append({"external_id": item_data.source_external_id, "status": "not_found"})
+            continue
+        video_path = item_data.source_metadata.get("video_file_path") if item_data.source_metadata else None
+        if not video_path or not os.path.exists(video_path):
+            results.append({"external_id": item_data.source_external_id, "status": "no_video", "item_id": draft.id})
+            continue
+        draft.video_file_path = video_path
+        draft.status = "PENDING"
+        draft.updated_at = datetime.now()
+        results.append({"external_id": item_data.source_external_id, "item_id": draft.id, "status": "attached"})
+
+    db.commit()
+    return {"results": results}
+
+
+@router.post("/batch/finalize", response_model=dict)
+def batch_finalize_drafts(
+    data: BulkImportRequest,
+    db: Session = Depends(get_db)
+):
+    """Batch finalize -- external_id 기준 DRAFT/PENDING 아이템을 QUEUED로 일괄 전환"""
+    finalized = []
+    for item_data in data.items:
+        ext_id = item_data.source_external_id
+        item = None
+        if ext_id:
+            item = db.query(models.WorkQueueItem).filter(
+                models.WorkQueueItem.source_external_id == ext_id,
+                models.WorkQueueItem.status.in_(["DRAFT", "PENDING"])
+            ).first()
+        if not item:
+            finalized.append({"external_id": ext_id, "status": "not_found"})
+            continue
+        if not item.video_file_path:
+            finalized.append({"external_id": ext_id, "item_id": item.id, "status": "no_video"})
+            continue
+        item.approval_required = False
+        item.approval_status = "AUTO_APPROVED"
+        item.status = "QUEUED"
+        item.updated_at = datetime.now()
+        from app.services.native_queue_worker import add_task
+        add_task(item.id)
+        finalized.append({"external_id": ext_id, "item_id": item.id, "status": "finalized"})
+
+    db.commit()
+    return {"count": len(finalized), "results": finalized}
+
+
+class BulkFileUploadRequest(BaseModel):
+    base64_file: str  # base64-encoded file content
+    file_name: str
+    source_batch_id: Optional[str] = None
+    default_upload_method: Optional[str] = "BROWSER_AUTO"
+    default_target_platforms: Optional[List[str]] = ["youtube"]
+
+
+@router.post("/bulk/upload-file", response_model=dict)
+def bulk_upload_file(
+    data: BulkFileUploadRequest,
+    db: Session = Depends(get_db)
+):
+    """CSV (.csv) or Excel (.xlsx) 파일을 업로드해서 자동으로 Draft 임시 등록
+    - CSV: comma separated, headers on row 1
+    - Excel: .xlsx only, first sheet, headers on row 1
+    - external_id를 filename+row로 자동 생성 (override 가능)
+    - 각 행은 제목(title) + 설명(description) + external_id를 JSON으로 변환
+    """
+    import base64
+    import io
+    import uuid as _uuid
+
+    raw = base64.b64decode(data.base64_file)
+    ext = os.path.splitext(data.file_name or "")[1].lower() if hasattr(data, 'file_name') else ".csv"
+    if not hasattr(data, 'file_name'):
+        ext = ".csv"
+
+    rows = []
+    if ext in (".xlsx", ".xls"):
+        try:
+            import openpyxl
+        except ImportError:
+            raise HTTPException(400, "openpyxl not installed. Run: pip install openpyxl")
+        wb = openpyxl.load_workbook(io.BytesIO(raw), read_only=True)
+        ws = wb.active
+        headers = []
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            if i == 0:
+                headers = [cell.strip() if isinstance(cell, str) else str(cell or "").strip() for cell in row]
+                continue
+            vals = [cell if isinstance(cell, str) else (str(cell) if cell is not None else "") for cell in row]
+            row_dict = {}
+            for j, h in enumerate(headers):
+                row_dict[h] = vals[j] if j < len(vals) else ""
+            rows.append(row_dict)
+        wb.close()
+    else:
+        text = raw.decode("utf-8-sig")
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
+        if not lines:
+            raise HTTPException(400, "Empty CSV file")
+        headers = [h.strip() for h in lines[0].split(",")]
+        for line in lines[1:]:
+            vals = [v.strip() for v in line.split(",")]
+            row_dict = {}
+            for j, h in enumerate(headers):
+                row_dict[h] = vals[j] if j < len(vals) else ""
+            rows.append(row_dict)
+
+    if not rows:
+        raise HTTPException(400, "No data rows found")
+
+    batch_id = data.source_batch_id or str(_uuid.uuid4())
+    created = []
+
+    title_col = next((h for h in headers if h.lower() in ("title", "제목", "name")), None)
+    desc_col = next((h for h in headers if h.lower() in ("description", "desc", "설명")), None)
+    ext_col = next((h for h in headers if h.lower() in ("external_id", "외부id", "id")), None)
+    hashtag_col = next((h for h in headers if h.lower() in ("hashtags",)), None)
+    tag_col = next((h for h in headers if h.lower() in ("tags", "태그")), None)
+    um_col = next((h for h in headers if h.lower() in ("upload_method", "업로드방식")), None)
+    plat_col = next((h for h in headers if h.lower() in ("platforms", "플랫폼")), None)
+    pp_col = next((h for h in headers if h.lower() in ("platform_privacy", "공개설정")), None)
+    st_col = next((h for h in headers if h.lower() in ("scheduled_time", "예약시간")), None)
+
+    for row in rows:
+        title = row.get(title_col, "") if title_col else f"Item {len(created) + 1}"
+        description = row.get(desc_col, "") if desc_col else ""
+        external_id = row.get(ext_col, "") if ext_col else f"{batch_id}_{len(created) + 1:04d}"
+
+        hashtags_raw = row.get(hashtag_col, "") if hashtag_col else ""
+        tags_raw = row.get(tag_col, "") if tag_col else ""
+        parsed_hashtags = [t if t.startswith('#') else f"#{t}" for t in hashtags_raw.split() if t.strip()] if hashtags_raw else None
+        parsed_tags = [t.strip() for t in tags_raw.split(",") if t.strip()] if tags_raw else None
+
+        upload_method = row.get(um_col, "").strip() if um_col else None
+        if not upload_method:
+            upload_method = data.default_upload_method or "BROWSER_AUTO"
+
+        platforms_raw = row.get(plat_col, "").strip() if plat_col else ""
+        target_platforms = [p.strip() for p in platforms_raw.split(",") if p.strip()] if platforms_raw else (data.default_target_platforms or ["youtube"])
+
+        privacy = row.get(pp_col, "").strip().lower() if pp_col else None
+        platform_configs = {}
+        if privacy and target_platforms:
+            for p in target_platforms:
+                platform_configs[p] = {"privacy": privacy}
+
+        scheduled_raw = row.get(st_col, "").strip() if st_col else ""
+        scheduled_upload_time = None
+        if scheduled_raw:
+            try:
+                scheduled_upload_time = datetime.fromisoformat(scheduled_raw)
+            except ValueError:
+                pass
+
+        queue_item = models.WorkQueueItem(
+            title=title.strip() or f"Item {len(created) + 1}",
+            description=description.strip(),
+            hashtags=parsed_hashtags,
+            tags=parsed_tags,
+            source_type="BULK_IMPORT",
+            upload_method=upload_method or "BROWSER_AUTO",
+            target_platforms=target_platforms,
+            platform_configs=platform_configs,
+            scheduled_upload_time=scheduled_upload_time,
+            source_batch_id=batch_id,
+            source_external_id=external_id,
+            source_metadata={"original_row": row},
+            status="DRAFT",
+            approval_status="PENDING",
+            upload_progress=0,
+            created_at=datetime.now()
+        )
+        db.add(queue_item)
+        db.flush()
+        created.append({
+            "id": queue_item.id,
+            "external_id": external_id,
+            "title": queue_item.title,
+            "status": "DRAFT"
+        })
+
+    db.commit()
+    return {
+        "batch_id": batch_id,
+        "count": len(created),
+        "items": created
+    }
+
+# === Template Download Endpoints ===
+
+TEMPLATE_COLUMNS = [
+    "title", "description", "hashtags", "tags",
+    "external_id", "upload_method", "platforms", "platform_privacy", "scheduled_time"
+]
+
+TEMPLATE_SAMPLE_ROWS = [
+    ["재미있는 고양이 영상", "고양이가 장난감과 노는 모습을 담은 영상입니다", "#cat #funny", "cat,funny", "cat_001", "BROWSER_AUTO", "youtube", "private", ""],
+    ["하늘 풍경 타임랩스", "아름다운 노을과 구름의 변화를 담았습니다", "#sky #timelapse", "sky, timelapse, nature", "sky_002", "API", "youtube,tiktok", "unlisted", "2026-08-01 09:00"],
+]
+
+import csv
+import io
+import tempfile
+from fastapi.responses import StreamingResponse, FileResponse
+
+HAS_OPENPYXL = False
+try:
+    import openpyxl
+    HAS_OPENPYXL = True
+except ImportError:
+    pass
+
+def _generate_template_csv():
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(TEMPLATE_COLUMNS)
+    for row in TEMPLATE_SAMPLE_ROWS:
+        writer.writerow(row)
+    return output.getvalue().encode("utf-8-sig")
+
+@router.get("/template/csv")
+def download_template_csv():
+    content = _generate_template_csv()
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=VLStudio_work_queue_template.csv"}
+    )
+
+@router.get("/template/xlsx")
+def download_template_xlsx():
+    if not HAS_OPENPYXL:
+        raise HTTPException(status_code=501, detail="openpyxl is not installed. Install with: pip install openpyxl")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Work Queue Template"
+    ws.append(TEMPLATE_COLUMNS)
+    for row in TEMPLATE_SAMPLE_ROWS:
+        ws.append(row)
+    tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
+    try:
+        wb.save(tmp.name)
+        tmp.close()
+        return FileResponse(
+            tmp.name,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename="VLStudio_work_queue_template.xlsx",
+            background=None,
+        )
+    except Exception:
+        os.unlink(tmp.name)
+        raise
+
+
 @router.get("/stats")
 def get_queue_stats(db: Session = Depends(get_db)):
     """작업 대기열 통계"""
+    draft = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "DRAFT").count()
+    pending = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "PENDING").count()
     total = db.query(models.WorkQueueItem).count()
     queued = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "QUEUED").count()
     uploading = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "UPLOADING").count()
@@ -454,6 +939,8 @@ def get_queue_stats(db: Session = Depends(get_db)):
     
     return {
         "total": total,
+        "draft": draft,
+        "pending": pending,
         "queued": queued,
         "uploading": uploading,
         "completed": completed,
@@ -475,7 +962,7 @@ class ConnectionManager:
         if item_id not in self.active_connections:
             self.active_connections[item_id] = []
         self.active_connections[item_id].append(websocket)
-        logger.info(f"✅ WebSocket Client connected to item {item_id}")
+        logger.info(f"[OK] WebSocket Client connected to item {item_id}")
 
     def disconnect(self, websocket: WebSocket, item_id: int):
         if item_id in self.active_connections:
@@ -859,7 +1346,7 @@ def generate_metadata(
             platform=request.platform.lower()
         )
         
-        logger.info(f"✅ Generated metadata for {request.platform}: {metadata.get('title', 'N/A')}")
+        logger.info(f"[OK] Generated metadata for {request.platform}: {metadata.get('title', 'N/A')}")
         
         return {
             "success": True,

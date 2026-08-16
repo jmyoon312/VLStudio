@@ -44,6 +44,7 @@ const PROVIDER_OPTIONS = [
     { value: "xai", label: "xAI (Grok)" },
     { value: "nvidia", label: "NVIDIA" },
     { value: "ollama", label: "Ollama" },
+    { value: "youtube1", label: "YouTube1" },
 ];
 
 const AIModelSelector = ({
@@ -180,7 +181,7 @@ const AIModelSelector = ({
                     <SelectContent>
                         {PROVIDER_OPTIONS.filter((opt) => {
                             // Only display providers that have models loaded from user's keys
-                            return fetchedModels?.[opt.value]?.length > 0 || ['ollama', 'nvidia', 'xai', 'openai', 'anthropic'].includes(opt.value);
+                            return fetchedModels?.[opt.value]?.length > 0 || ['ollama', 'nvidia', 'xai', 'openai', 'anthropic', 'youtube1'].includes(opt.value);
                         }).map((opt) => (
                             <SelectItem key={opt.value} value={opt.value} className={itemClass}>
                                 {opt.label}

@@ -25,7 +25,7 @@ import {
 import { ScrollArea } from "../components/ui/scroll-area";
 import StatsGraph from '../components/StatsGraph';
 import {
-    Search, TrendingUp, Youtube, FileText, Copy, Languages,
+    Search, TrendingUp, PlaySquare, FileText, Copy, Languages,
     ChevronUp, ChevronDown, MonitorPlay, Film, Smartphone, Trash2,
     Flame, Zap
 } from 'lucide-react';
@@ -120,7 +120,7 @@ const ScriptLab = () => {
         queryKey: ['videos', 'script', 'strict_mode_v1'], // [FIX] Rotated key to bust stale cache
         queryFn: async () => {
             // [FIX] Must explicitly request 'script' mode, otherwise backend defaults to 'video' and returns 0 scripts.
-            const res = await api.get<Video[]>('/videos', {
+            const res = await api.get<Video[]>('/videos/', {
                 params: {
                     mode: 'script',
                     limit: 1000,
@@ -294,8 +294,8 @@ const ScriptLab = () => {
                         {info.getValue()}
                     </span>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                        <Youtube className="w-3 h-3 text-red-500" />
-                        <span className="truncate max-w-sm">{info.row.original.content || "Youtube Shorts"}</span>
+                        <PlaySquare className="w-3 h-3 text-red-500" />
+                        <span className="truncate max-w-sm">{info.row.original.content || "PlaySquare Shorts"}</span>
                     </div>
                 </div>
             ),
