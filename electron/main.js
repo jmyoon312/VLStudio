@@ -785,8 +785,10 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  // Open DevTools in development (detached so it doesn't cover WebContentsView)
-  mainWindow.webContents.openDevTools({ mode: 'detach' })
+  // Open DevTools in development only (detached so it doesn't cover WebContentsView)
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
+  }
   mainWindow.webContents.on('console-message', (event, ...args) => {
     let msg, src, ln;
     if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null && 'message' in args[0]) {
