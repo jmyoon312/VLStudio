@@ -73,7 +73,7 @@ skills/
 docs/
 tests/
 story/
-src/
+/src/
 test_*.js
 test_*.mjs
 test_*.ts

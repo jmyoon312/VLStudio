@@ -7,27 +7,31 @@ import { ThemeProvider as MuiThemeProvider, CssBaseline } from '@mui/material'
 import { pixelingTheme } from './theme/pixeling'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// Intercept console.error to log to server (Electron only)
-const originalConsoleError = console.error;
-console.error = (...args) => {
-  originalConsoleError(...args);
-  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
-    try {
-      fetch('http://localhost:37643/log-error', {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: args.map(a => String(a)).join(' ') })
-      }).catch(() => {});
-    } catch (e) {}
-  }
-};
-
-// Configure global Axios defaults for packaged Electron env (file:/// protocol)
+// Configure global Axios and Fetch defaults for packaged Electron env (file:/// protocol)
 if (typeof window !== 'undefined') {
   const isFileProtocol = window.location.protocol === 'file:';
-  axios.defaults.baseURL = isFileProtocol ? 'http://127.0.0.1:8000' : '';
+  const backendBase = 'http://127.0.0.1:8000';
+  axios.defaults.baseURL = isFileProtocol ? backendBase : '';
   console.log(`[Axios Setup] Global axios.defaults.baseURL forced to: ${axios.defaults.baseURL || 'relative'}`);
+
+  // Global window.fetch interceptor for file:/// packaged electron app
+  if (isFileProtocol && window.fetch) {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      if (typeof input === 'string') {
+        if (input.startsWith('/api/') || input === '/api') {
+          input = `${backendBase}${input}`;
+        } else if (input.startsWith('/swarm/') || input === '/swarm') {
+          input = `http://127.0.0.1:4000${input}`;
+        }
+      } else if (input instanceof URL) {
+        if (input.pathname.startsWith('/api')) {
+          input = new URL(`${backendBase}${input.pathname}${input.search}`);
+        }
+      }
+      return originalFetch(input, init);
+    };
+  }
 }
 // Global Robust Polyfill for crypto.randomUUID (highly critical for HTTP and specific legacy Electron webviews)
 if (typeof window !== 'undefined') {
