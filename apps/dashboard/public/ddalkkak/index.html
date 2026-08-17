@@ -17,10 +17,18 @@
     // Global API fetch interceptor for Electron file:// or standalone iframe embedding
     (function() {
       const originalFetch = window.fetch;
+      const backendBase = 'http://127.0.0.1:8000/api/ddalkkak';
       window.fetch = function(input, init) {
         let url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
         if (url.startsWith('/')) {
-          url = 'http://127.0.0.1:8000' + url;
+          url = backendBase + url;
+          if (typeof input === 'string') {
+            input = url;
+          } else if (input && input.url) {
+            input = new Request(url, init);
+          }
+        } else if (url.startsWith('http://127.0.0.1:8000/api/') && !url.startsWith('http://127.0.0.1:8000/api/ddalkkak')) {
+          url = url.replace('http://127.0.0.1:8000/api/', 'http://127.0.0.1:8000/api/ddalkkak/api/');
           if (typeof input === 'string') {
             input = url;
           } else if (input && input.url) {
