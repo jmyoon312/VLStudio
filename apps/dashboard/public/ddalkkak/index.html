@@ -17,24 +17,45 @@
     // Global API fetch interceptor for Electron file:// or standalone iframe embedding
     (function() {
       const originalFetch = window.fetch;
-      const backendBase = 'http://127.0.0.1:8000/api/ddalkkak';
+      const backendBase = 'http://127.0.0.1:8000';
       window.fetch = function(input, init) {
         let url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
-        if (url.startsWith('/')) {
+        
+        // Remove duplicate prefix if present
+        while (url.includes('/api/ddalkkak/api/ddalkkak')) {
+          url = url.replace('/api/ddalkkak/api/ddalkkak', '/api/ddalkkak');
+        }
+
+        if (url === '/health') {
+          url = backendBase + '/health';
+        } else if (url.startsWith('/api/ddalkkak/')) {
           url = backendBase + url;
-          if (typeof input === 'string') {
-            input = url;
-          } else if (input && input.url) {
-            input = new Request(url, init);
+        } else if (url.startsWith('/api/')) {
+          url = backendBase + '/api/ddalkkak' + url;
+        } else if (url.startsWith('/')) {
+          url = backendBase + '/api/ddalkkak/api' + url;
+        } else if (url.startsWith('http://127.0.0.1:8000/') || url.startsWith('http://localhost:8000/')) {
+          let path = url.replace(/^http:\/\/(127\.0\.0\.1|localhost):8000/, '');
+          while (path.includes('/api/ddalkkak/api/ddalkkak')) {
+            path = path.replace('/api/ddalkkak/api/ddalkkak', '/api/ddalkkak');
           }
-        } else if (url.startsWith('http://127.0.0.1:8000/api/') && !url.startsWith('http://127.0.0.1:8000/api/ddalkkak')) {
-          url = url.replace('http://127.0.0.1:8000/api/', 'http://127.0.0.1:8000/api/ddalkkak/api/');
-          if (typeof input === 'string') {
-            input = url;
-          } else if (input && input.url) {
-            input = new Request(url, init);
+          if (path === '/health') {
+            url = backendBase + '/health';
+          } else if (path.startsWith('/api/ddalkkak/')) {
+            url = backendBase + path;
+          } else if (path.startsWith('/api/')) {
+            url = backendBase + '/api/ddalkkak' + path;
+          } else {
+            url = backendBase + '/api/ddalkkak/api' + path;
           }
         }
+
+        if (typeof input === 'string') {
+          input = url;
+        } else if (input && input.url) {
+          input = new Request(url, init);
+        }
+
         return originalFetch.call(this, input, init);
       };
     })();

@@ -292,16 +292,22 @@ app.add_middleware(
 
 @app.middleware("http")
 async def strip_api_prefix_middleware(request: Request, call_next):
-    """Strip /api from the route path before it hits the APIRouter, 
-    so frontend's /api/jobs requests map to @app.get('/jobs')."""
+    """Strip all variations of /api and /api/ddalkkak prefixes from request path
+    so every frontend request maps cleanly to root endpoints like @app.get('/jobs'), @app.get('/auth/me')."""
     scope_path = request.scope.get("path", "")
-    if scope_path.startswith("/api/ddalkkak/api/"):
-        request.scope["path"] = scope_path[len("/api/ddalkkak/api"):]
-    elif scope_path.startswith("/api/ddalkkak/"):
-        # For routes directly under /api/ddalkkak if any
-        request.scope["path"] = scope_path[len("/api/ddalkkak"):]
-    elif scope_path.startswith("/api/") and scope_path != "/api/ddalkkak/":
-        request.scope["path"] = scope_path[4:]
+    
+    # Strip any repeated /api/ddalkkak or /ddalkkak patterns
+    while "/api/ddalkkak" in scope_path or "/ddalkkak" in scope_path:
+        scope_path = scope_path.replace("/api/ddalkkak", "").replace("/ddalkkak", "")
+
+    # Strip /api prefix if present
+    while scope_path.startswith("/api/") or scope_path == "/api":
+        scope_path = scope_path[4:] if scope_path.startswith("/api/") else "/"
+
+    if not scope_path.startswith("/"):
+        scope_path = "/" + scope_path
+
+    request.scope["path"] = scope_path
     return await call_next(request)
 
 
