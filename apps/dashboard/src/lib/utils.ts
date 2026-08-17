@@ -146,8 +146,8 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
     }
 
     const encodedPath = target.split('/').map(encodeURIComponent).join('/');
-    // [FIX] Use /files/ to match backend StaticFiles mount
-    return `/files/${encodedPath}`;
+    const prefix = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
+    return `${prefix}/files/${encodedPath}`;
 }
 
 /**

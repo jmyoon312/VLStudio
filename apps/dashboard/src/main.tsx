@@ -19,13 +19,13 @@ if (typeof window !== 'undefined') {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       if (typeof input === 'string') {
-        if (input.startsWith('/api/') || input === '/api') {
+        if (input.startsWith('/api/') || input === '/api' || input.startsWith('/files/') || input.startsWith('/thumbnails/')) {
           input = `${backendBase}${input}`;
         } else if (input.startsWith('/swarm/') || input === '/swarm') {
           input = `http://127.0.0.1:4000${input}`;
         }
       } else if (input instanceof URL) {
-        if (input.pathname.startsWith('/api')) {
+        if (input.pathname.startsWith('/api') || input.pathname.startsWith('/files') || input.pathname.startsWith('/thumbnails')) {
           input = new URL(`${backendBase}${input.pathname}${input.search}`);
         }
       }
