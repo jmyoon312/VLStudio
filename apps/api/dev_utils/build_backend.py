@@ -6,7 +6,8 @@ def build():
     print("[Build] Compiling FastAPI backend with PyInstaller...")
     
     # 1. Define paths
-    api_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    api_dir = os.path.abspath(os.path.join(script_dir, ".."))
     entry_point = os.path.join(api_dir, "app", "main.py")
     output_dir = os.path.abspath(os.path.join(api_dir, "..", "..", "dist-backend"))
     
@@ -45,7 +46,11 @@ def build():
     print(f"[Build] Command: {' '.join(cmd)}")
     
     # Use python environment's pyinstaller
-    pyinstaller_bin = os.path.join(api_dir, "..", "..", "venv", "Scripts", "pyinstaller.exe")
+    pyinstaller_bin = os.path.join(api_dir, "..", "..", "venv_build", "Scripts", "pyinstaller.exe")
+    if not os.path.exists(pyinstaller_bin):
+        pyinstaller_bin = os.path.join(api_dir, "..", "..", "venv", "Scripts", "pyinstaller.exe")
+    if not os.path.exists(pyinstaller_bin):
+        pyinstaller_bin = os.path.join(api_dir, "venv", "Scripts", "pyinstaller.exe")
     if os.path.exists(pyinstaller_bin):
         cmd[0] = pyinstaller_bin
         
