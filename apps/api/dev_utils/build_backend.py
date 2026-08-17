@@ -37,6 +37,7 @@ def build():
         "--hidden-import=jinja2",
         # Include static datasets / JSON resources
         "--add-data=app/services/persona/persona_library.json;app/services/persona",
+        "--add-data=app/legacy_ddalkkak/frontend/dist;app/legacy_ddalkkak/frontend/dist",
         # Set main.py as the build target
         entry_point
     ]

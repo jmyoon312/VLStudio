@@ -6985,7 +6985,26 @@ async def shorts_delete(job_id: int,
 
 # ===== Static frontend (PWA) =====
 
-frontend_dir = Path(__file__).parent.parent / "frontend" / "dist"
+def _get_frontend_dir() -> Path:
+    # 1. PyInstaller bundled temp folder
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        p = Path(sys._MEIPASS) / "app" / "legacy_ddalkkak" / "frontend" / "dist"
+        if p.exists():
+            return p
+    # 2. Local source path
+    p = Path(__file__).parent.parent / "frontend" / "dist"
+    if p.exists():
+        return p
+    # 3. Electron resources fallback
+    p = Path(sys.executable).parent / "legacy_ddalkkak" / "frontend" / "dist"
+    if p.exists():
+        return p
+    p = Path(os.getcwd()) / "legacy_ddalkkak" / "frontend" / "dist"
+    if p.exists():
+        return p
+    return p
+
+frontend_dir = _get_frontend_dir()
 if frontend_dir.exists():
     @app.get("/")
     @app.get("")
