@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Sparkles, Download, Play, FolderOpen, Globe, Loader2, Trash2, Scissors, CheckCheck, X, Search, CheckCircle2, ChevronRight, Video, FileVideo, Users, Image as ImageIcon, UploadCloud, Layers, Film, Wand2 } from 'lucide-react';
+import { API_BASE_URL } from '../lib/api';
 
 const CATEGORIES = [
   { id: 'family', name: '가족갈등', stars: ['婆媳关系','母爱感人'], cores: ['偏心','争遗产','不孝子'] },
@@ -294,15 +295,15 @@ export default function SmartDouyinSearch() {
   // Fetch TTS Data when modal opens
   useEffect(() => {
       if (showTtsModal) {
-          fetch('/api/douyin-shorts/tts-voices').then(r=>r.json()).then(d => { if(d.ok) setTtsVoices(d.voices); });
-          fetch('/api/douyin-shorts/tts-presets').then(r=>r.json()).then(d => { if(d.ok) setTtsPresets(d.presets); });
-          fetch('/api/douyin-shorts/tts-rvc-models').then(r=>r.json()).then(d => { if(d.ok) setRvcModels(d.models); });
+          fetch(`${API_BASE_URL}/douyin-shorts/tts-voices`).then(r=>r.json()).then(d => { if(d.ok) setTtsVoices(d.voices); }).catch(e => console.error(e));
+          fetch(`${API_BASE_URL}/douyin-shorts/tts-presets`).then(r=>r.json()).then(d => { if(d.ok) setTtsPresets(d.presets); }).catch(e => console.error(e));
+          fetch(`${API_BASE_URL}/douyin-shorts/tts-rvc-models`).then(r=>r.json()).then(d => { if(d.ok) setRvcModels(d.models); }).catch(e => console.error(e));
       }
   }, [showTtsModal]);
 
   const handleTtsPresetChange = (category: string, newConfig: any) => {
       setTtsPresets(prev => ({ ...prev, [category]: newConfig }));
-      fetch('/api/douyin-shorts/tts-presets', {
+      fetch(`${API_BASE_URL}/douyin-shorts/tts-presets`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ category, ...newConfig })
@@ -332,7 +333,7 @@ export default function SmartDouyinSearch() {
 
   async function doPoll(jid: number) {
     try {
-      const r = await fetch(`/api/douyin-shorts/${jid}`);
+      const r = await fetch(`${API_BASE_URL}/douyin-shorts/${jid}`);
       if (r.status === 404) {
         setJobId(null);
         if (timerRef.current) clearInterval(timerRef.current);
@@ -373,11 +374,11 @@ export default function SmartDouyinSearch() {
   useEffect(() => { return () => { if (timerRef.current) clearInterval(timerRef.current); }; }, []);
 
   useEffect(() => {
-    fetch('/api/browser-profiles')
+    fetch(`${API_BASE_URL}/browser-profiles`)
       .then(r => r.json())
       .then(data => {
-        setProfiles(data);
-        if (data.length > 0) setSelectedProfileId(data[0].id);
+        setProfiles(Array.isArray(data) ? data : []);
+        if (Array.isArray(data) && data.length > 0) setSelectedProfileId(data[0].id);
       })
       .catch(e => console.error(e));
   }, []);
@@ -387,7 +388,7 @@ export default function SmartDouyinSearch() {
     setJobStatus('searching');
     setProcessMsg('스텔스 브라우저 구동 및 네트워크 분석 중 (약 10~15초 소요)...');
     try {
-      const res = await fetch('/api/douyin-shorts/start-search', {
+      const res = await fetch(`${API_BASE_URL}/douyin-shorts/start-search`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyword_seeds: allKeywords, category_tags: selected, min_duration_sec: minDur, max_duration_sec: maxDur, date_after: dateAfter, download_count: count, channel_deep: deep, expand_with_ai: true, profile_id: selectedProfileId }),
       });
@@ -405,7 +406,7 @@ export default function SmartDouyinSearch() {
     if (!jobId) return;
     setJobStatus('editing');
     setProcessMsg(`영상 #${idx} Vision AI 단독 분석 중...`);
-    await fetch('/api/douyin-shorts/process-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, target_video_indices: [idx], stage: 'analyze', script_style: scriptStyle }) });
+    await fetch(`${API_BASE_URL}/douyin-shorts/process-batch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, target_video_indices: [idx], stage: 'analyze', script_style: scriptStyle }) });
     startPolling(jobId);
   };
 
@@ -413,7 +414,7 @@ export default function SmartDouyinSearch() {
     if (!jobId) return;
     setJobStatus('editing');
     setProcessMsg(`영상 #${idx} TTS 및 자막 생성(조립) 중...`);
-    await fetch('/api/douyin-shorts/process-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, target_video_indices: [idx], stage: 'tts_and_assemble', script_style: scriptStyle }) });
+    await fetch(`${API_BASE_URL}/douyin-shorts/process-batch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, target_video_indices: [idx], stage: 'tts_and_assemble', script_style: scriptStyle }) });
     startPolling(jobId);
   };
 
@@ -422,24 +423,24 @@ export default function SmartDouyinSearch() {
     const indices = selectedVideos.map(v => v.idx);
     setJobStatus('editing');
     setProcessMsg('AI 스튜디오 배치 프로세서 가동 중 (Vision ➡️ TTS ➡️ Slicer)...');
-    await fetch('/api/douyin-shorts/process-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, target_video_indices: indices, script_style: scriptStyle }) });
+    await fetch(`${API_BASE_URL}/douyin-shorts/process-batch`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, target_video_indices: indices, script_style: scriptStyle }) });
     startPolling(jobId);
   };
 
   const handleExport = async () => {
     if (!jobId) return;
     setExportMsg('CapCut 프로젝트 분리 조립 중...');
-    await fetch('/api/douyin-shorts/export-capcut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, video_indices: selectedVideos.map(v => v.idx) }) });
+    await fetch(`${API_BASE_URL}/douyin-shorts/export-capcut`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, video_indices: selectedVideos.map(v => v.idx) }) });
     setExportMsg('CapCut 멀티 트랙 프로젝트 내보내기 및 레지스트리 등록 완료');
   };
 
   const handleOpenFolder = async () => {
-    await fetch('/api/douyin-shorts/open-folder', { method: 'POST' });
+    await fetch(`${API_BASE_URL}/douyin-shorts/open-folder`, { method: 'POST' });
   };
 
   const handleDelete = async (indices: number[]) => {
     if (!jobId) return;
-    await fetch('/api/douyin-shorts/delete-videos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, indices }) });
+    await fetch(`${API_BASE_URL}/douyin-shorts/delete-videos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, indices }) });
     setVideos(prev => prev.filter(v => !indices.includes(v.idx)));
   };
 
@@ -447,7 +448,7 @@ export default function SmartDouyinSearch() {
     if (!jobId) return;
     setProcessMsg(`영상 #${idx} 매핑 데이터 저장 중...`);
     try {
-      await fetch('/api/douyin-shorts/update-script', { 
+      await fetch(`${API_BASE_URL}/douyin-shorts/update-script`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ job_id: jobId, video_idx: idx, script_data: scriptData }) 
@@ -477,7 +478,7 @@ export default function SmartDouyinSearch() {
       setProcessMsg("파일 업로드 중...");
       setJobStatus("searching");
       
-      fetch('/api/douyin-shorts/upload-local', {
+      fetch(`${API_BASE_URL}/douyin-shorts/upload-local`, {
           method: 'POST',
           body: formData
       })
@@ -628,7 +629,7 @@ export default function SmartDouyinSearch() {
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block flex justify-between items-center">
                                     세부 추출 키워드
-                                    <button onClick={() => { setAiLoading(true); fetch('/api/douyin-shorts/expand-keywords', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword_seeds: allKeywords.slice(0,5), category_tags: selected, n:5 }) }).then(r => r.json()).then(d => { setAiKeys(d.additional || []); setAiLoading(false); }).catch(() => setAiLoading(false)); }} disabled={aiLoading}
+                                    <button onClick={() => { setAiLoading(true); fetch(`${API_BASE_URL}/douyin-shorts/expand-keywords`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword_seeds: allKeywords.slice(0,5), category_tags: selected, n:5 }) }).then(r => r.json()).then(d => { setAiKeys(d.additional || []); setAiLoading(false); }).catch(() => setAiLoading(false)); }} disabled={aiLoading}
                                     className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md text-xs">
                                     {aiLoading ? '분석 중...' : 'AI 자동 확장'}
                                     </button>
@@ -695,7 +696,7 @@ export default function SmartDouyinSearch() {
                                     </button>
                                     <button onClick={async () => {
                                         if(!jobId) return;
-                                        await fetch('/api/douyin-shorts/send-to-factory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, target_video_indices: ingestVideos.filter(v => v.selected).map(v => v.idx) }) });
+                                        await fetch(`${API_BASE_URL}/douyin-shorts/send-to-factory`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, target_video_indices: ingestVideos.filter(v => v.selected).map(v => v.idx) }) });
                                         setActiveTab('batch');
                                     }} disabled={ingestVideos.filter(v => v.selected).length === 0} className="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-colors flex items-center gap-2">
                                         선택 항목 2단계(AI 매핑 편집)로 전송 <CheckCircle2 size={16} />
