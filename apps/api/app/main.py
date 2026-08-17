@@ -428,9 +428,17 @@ app.include_router(browser.router)  # /api/browser/launch, /upload, /close, /eng
 
 # [Legacy Ddalkkak Sub-Application Mounting]
 try:
-    from app.legacy_ddalkkak.api.main import app as ddalkkak_app
+    from app.legacy_ddalkkak.api.main import app as ddalkkak_app, frontend_dir as ddalkkak_frontend_dir
     app.mount("/api/ddalkkak/api", ddalkkak_app)
     app.mount("/api/ddalkkak", ddalkkak_app)
+    
+    # Direct explicit routes to ensure iframe src="/api/ddalkkak" or "/api/ddalkkak/" always serves HTML
+    if ddalkkak_frontend_dir.exists():
+        @app.get("/api/ddalkkak", include_in_schema=False)
+        @app.get("/api/ddalkkak/", include_in_schema=False)
+        async def serve_ddalkkak_html():
+            return FileResponse(str(ddalkkak_frontend_dir / "index.html"))
+
     print("✅ Legacy Ddalkkak mounted at /api/ddalkkak and /api/ddalkkak/api")
 except Exception as e:
     print(f"⚠️ Failed to mount legacy Ddalkkak: {e}")

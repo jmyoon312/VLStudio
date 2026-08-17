@@ -6987,18 +6987,11 @@ async def shorts_delete(job_id: int,
 
 frontend_dir = Path(__file__).parent.parent / "frontend" / "dist"
 if frontend_dir.exists():
-    # Robust SPA router fallback
-    from fastapi.responses import FileResponse
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        if not full_path or full_path == "/":
-            return FileResponse(str(frontend_dir / "index.html"))
-        
-        target = frontend_dir / full_path
-        if target.exists() and target.is_file():
-            return FileResponse(str(target))
-            
-        # SPA routing fallback
+    @app.get("/")
+    @app.get("")
+    async def serve_index():
         return FileResponse(str(frontend_dir / "index.html"))
+
+    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="ddalkkak_static")
 else:
     print("WARNING: Ddalkkak frontend dir not found at", frontend_dir.resolve())
