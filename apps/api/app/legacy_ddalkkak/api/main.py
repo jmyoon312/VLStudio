@@ -7017,6 +7017,9 @@ if frontend_dir.exists():
     async def serve_index():
         return FileResponse(str(frontend_dir / "index.html"))
 
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="ddalkkak_static")
+    if (frontend_dir / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=str(frontend_dir / "assets")), name="ddalkkak_assets")
+    if (frontend_dir / "icons").exists():
+        app.mount("/icons", StaticFiles(directory=str(frontend_dir / "icons")), name="ddalkkak_icons")
 else:
     print("WARNING: Ddalkkak frontend dir not found at", frontend_dir.resolve())
