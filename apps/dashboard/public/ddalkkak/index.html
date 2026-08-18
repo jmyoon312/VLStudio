@@ -2090,8 +2090,8 @@ window.playDing = function() {
                   <div x-show="r.ok" class="text-emerald-400" x-text="'✅ ' + (r.size_mb || '?') + 'MB'"></div>
                   <div x-show="!r.ok" class="text-red-400 truncate" x-text="'❌ ' + (r.error || '실패')"></div>
                 </div>
-                <a x-show="r.ok" :href="r.download_url + '?token=' + token" :download="r.filename"
-                   class="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-white whitespace-nowrap">받기</a>
+                <button x-show="r.ok" @click="downloadDownloadedVideo(r)"
+                        class="px-2 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-white whitespace-nowrap">받기</button>
               </div>
             </template>
           </div>
@@ -3776,6 +3776,25 @@ window.playDing = function() {
             alert("다운로드 실패: " + e.message);
           } finally {
             this.dlLoading = false;
+          }
+        },
+
+        async downloadDownloadedVideo(item) {
+          try {
+            const fullUrl = `http://127.0.0.1:8000/api/ddalkkak/subtitle/downloaded/${encodeURIComponent(item.filename)}`;
+            const res = await fetch(fullUrl, { headers: this.authHeader() });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = (item.title ? item.title.replace(/[\\/:*?"<>|]/g, "_") : item.filename) + ".mp4";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+          } catch (err) {
+            alert("파일 저장 실패: " + err.message);
           }
         },
 

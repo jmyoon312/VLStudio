@@ -5538,7 +5538,7 @@ async def subtitle_export_capcut(job_id: int, target_path: str = None, current=D
 
 
 # ===== URL로 영상 다운로드 (여러 개) =====
-VIDEO_DL_DIR = Path(__file__).parent.parent / "data" / "video_downloads"
+VIDEO_DL_DIR = _BB_DATA / "video_downloads"
 VIDEO_DL_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -5549,7 +5549,7 @@ class DownloadUrlsRequest(BaseModel):
 @app.post("/subtitle/download-from-urls")
 async def download_from_urls(req: DownloadUrlsRequest,
                               current=Depends(auth.require_feature("subtitle"))):
-    """URL 여러 개 → yt-dlp로 영상 다운로드. 최대 20개."""
+    """URL 여러 개 → yt-dlp로 최고화질 영상 다운로드. 최대 20개."""
     import uuid as _uuid
     urls = []
     for u in req.urls.replace(",", "\n").split("\n"):
@@ -5580,8 +5580,9 @@ async def download_from_urls(req: DownloadUrlsRequest,
                 pass
             # 다운로드 (최고 화질 비디오 + 최고 화질 오디오 병합)
             proc = await asyncio.create_subprocess_exec(
-                ytdlp, "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                ytdlp, "-f", "bestvideo+bestaudio/best",
                 "--merge-output-format", "mp4",
+                "--recode-video", "mp4",
                 "-o", out_tmpl, url,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
             )

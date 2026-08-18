@@ -33,9 +33,9 @@ from api import database as db
 # Gemini API
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta"
 GEMINI_UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta"  # resumable upload용 별도
-_env_model = os.getenv("DEFAULT_LLM_MODEL", "gemini-2.0-flash")
-if "/" in _env_model or "youtube" in _env_model:
-    _env_model = "gemini-2.0-flash"
+_env_model = os.getenv("DEFAULT_LLM_MODEL", "gemini-2.0-flash-exp")
+if "/" in _env_model or "youtube" in _env_model or _env_model == "gemini-2.0-flash":
+    _env_model = "gemini-2.0-flash-exp"
 GEMINI_FLASH_MODEL = _env_model
 GEMINI_PRO_MODEL = _env_model
 

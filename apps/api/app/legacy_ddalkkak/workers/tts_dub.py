@@ -23,7 +23,16 @@ from workers.auto_subtitle import (
     GEMINI_PRO_MODEL, apply_user_gemini_key,
 )
 
-OUT_DIR = Path(__file__).parent.parent / "data" / "tts_dub"
+def _get_persistent_tts_out_dir() -> Path:
+    local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if local_app:
+        d = Path(local_app) / "ViraLoop Studio" / "data" / "tts_dub"
+    else:
+        d = Path.home() / ".viraloop_studio" / "data" / "tts_dub"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+OUT_DIR = _get_persistent_tts_out_dir()
 TYPECAST_URL = "https://api.typecast.ai/v1/text-to-speech"
 DEFAULT_VOICE = "tc_68257f68bc6e3c161ab5078d"  # 필재(Piljae) 한국 남성
 SPEED = 1.4  # (대표님 지시 2026-06-06) atempo 1.4. 무음제거 포함 실효 ~1.66배
