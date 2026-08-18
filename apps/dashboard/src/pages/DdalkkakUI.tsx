@@ -1,155 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, 
-  FileText, 
-  Mic, 
-  Scissors, 
   Layers, 
-  UploadCloud, 
-  Play, 
   Download, 
   RefreshCw, 
-  CheckCircle2, 
-  AlertCircle, 
-  Clock, 
-  ChevronRight, 
   FolderPlus,
-  Zap,
-  DollarSign,
-  Activity,
-  Cpu
+  Play,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ddalkkakApi, SubtitleJob, TtsDubJob, ClipEditJob, DissectionItem, CostSummary } from '../services/ddalkkakApi';
+import { ddalkkakApi } from '../services/ddalkkakApi';
 import { ExportModal } from '../features/flow2capcut/components/ExportModal';
 
+interface BatchItem {
+  id: string;
+  name: string;
+  file?: File;
+  url?: string;
+  status: 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  message?: string;
+  jobId?: number;
+}
+
 const DdalkkakUI: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'subtitle' | 'dubbing' | 'clip' | 'dissection'>('subtitle');
-  
-  // Cost & Status state
-  const [costSummary, setCostSummary] = useState<CostSummary>({ today_usd: 0, month_usd: 0, total_usd: 0 });
-  const [serverHealthy, setServerHealthy] = useState<boolean>(true);
-  const [loading, setLoading] = useState(false);
+  const [iframeSrc] = useState<string>('./ddalkkak/index.html');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Subtitle state
-  const [subtitleJobs, setSubtitleJobs] = useState<SubtitleJob[]>([]);
-  const [selectedSubFile, setSelectedSubFile] = useState<File | null>(null);
-  const [subtitleStyle, setSubtitleStyle] = useState('shorts');
-  const [isUploadingSub, setIsUploadingSub] = useState(false);
+  // Batch Multi-Video Processing Drawer / Panel state
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  const [batchMode, setBatchMode] = useState<'subtitle' | 'ttsdub' | 'clip'>('subtitle');
+  const [batchUrlsInput, setBatchUrlsInput] = useState('');
+  const [isBatchRunning, setIsBatchRunning] = useState(false);
 
-  // Dubbing state
-  const [ttsJobs, setTtsJobs] = useState<TtsDubJob[]>([]);
-  const [ttsText, setTtsText] = useState('');
-  const [ttsVoice, setTtsVoice] = useState('ko-KR-Standard-A');
-  const [isSynthesizingTts, setIsSynthesizingTts] = useState(false);
-
-  // Clip Edit state
-  const [clipJobs, setClipJobs] = useState<ClipEditJob[]>([]);
-  const [selectedClipFile, setSelectedClipFile] = useState<File | null>(null);
-  const [isProcessingClip, setIsProcessingClip] = useState(false);
-
-  // Dissection state
-  const [dissections, setDissections] = useState<DissectionItem[]>([]);
-
-  // Export Modal state
+  // CapCut Export Modal state
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportPhase, setExportPhase] = useState<'saving' | 'launching' | null>(null);
   const [currentExportJob, setCurrentExportJob] = useState<{ type: string; id: number } | null>(null);
 
-  // Fetch initial data
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      const [cost, subs, tts, clips, diss] = await Promise.allSettled([
-        ddalkkakApi.getCostSummary(),
-        ddalkkakApi.getSubtitles(),
-        ddalkkakApi.getTtsJobs(),
-        ddalkkakApi.getClipEditJobs(),
-        ddalkkakApi.getDissections()
-      ]);
-
-      if (cost.status === 'fulfilled') setCostSummary(cost.value);
-      if (subs.status === 'fulfilled') setSubtitleJobs(subs.value);
-      if (tts.status === 'fulfilled') setTtsJobs(tts.value);
-      if (clips.status === 'fulfilled') setClipJobs(clips.value);
-      if (diss.status === 'fulfilled') setDissections(diss.value);
-      setServerHealthy(true);
-    } catch (e) {
-      setServerHealthy(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Listen to postMessage from embedded Ddalkkak iframe (e.g. CapCut Export requests)
   useEffect(() => {
-    loadDashboardData();
-    const interval = setInterval(loadDashboardData, 8000);
-    return () => clearInterval(interval);
+    const handleMessage = (event: MessageEvent) => {
+      if (!event.data || typeof event.data !== 'object') return;
+      if (event.data.type === 'DDALKKAK_EXPORT_CAPCUT') {
+        const { jobType, jobId } = event.data;
+        setCurrentExportJob({ type: jobType, id: Number(jobId) });
+        setIsExportModalOpen(true);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
-
-  // Handlers
-  const handleCreateSubtitle = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedSubFile) {
-      toast.error('동영상 또는 오디오 파일을 선택해주세요.');
-      return;
-    }
-    try {
-      setIsUploadingSub(true);
-      const fd = new FormData();
-      fd.append('file', selectedSubFile);
-      fd.append('style', subtitleStyle);
-      await ddalkkakApi.createSubtitleJob(fd);
-      toast.success('자막 생성 작업이 등록되었습니다.');
-      setSelectedSubFile(null);
-      loadDashboardData();
-    } catch (err: any) {
-      toast.error(`자막 생성 실패: ${err.message || '알 수 없는 오류'}`);
-    } finally {
-      setIsUploadingSub(false);
-    }
-  };
-
-  const handleCreateTts = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!ttsText.trim()) {
-      toast.error('더빙할 대본 텍스트를 입력해주세요.');
-      return;
-    }
-    try {
-      setIsSynthesizingTts(true);
-      await ddalkkakApi.createTtsJob({ text: ttsText, voice: ttsVoice });
-      toast.success('AI 음성 합성이 시작되었습니다.');
-      setTtsText('');
-      loadDashboardData();
-    } catch (err: any) {
-      toast.error(`TTS 생성 실패: ${err.message || '알 수 없는 오류'}`);
-    } finally {
-      setIsSynthesizingTts(false);
-    }
-  };
-
-  const handleCreateClipEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedClipFile) {
-      toast.error('구간 편집할 동영상 파일을 선택해주세요.');
-      return;
-    }
-    try {
-      setIsProcessingClip(true);
-      const fd = new FormData();
-      fd.append('file', selectedClipFile);
-      await ddalkkakApi.createClipEditJob(fd);
-      toast.success('클립 분석 및 하이라이트 편집 작업이 등록되었습니다.');
-      setSelectedClipFile(null);
-      loadDashboardData();
-    } catch (err: any) {
-      toast.error(`클립 편집 실패: ${err.message || '알 수 없는 오류'}`);
-    } finally {
-      setIsProcessingClip(false);
-    }
-  };
 
   const handleExportCapcut = async (settings: any) => {
     if (!currentExportJob || isExporting) return;
@@ -225,381 +129,248 @@ const DdalkkakUI: React.FC = () => {
     }
   };
 
+  const reloadIframe = () => {
+    if (iframeRef.current) {
+      iframeRef.current.src = iframeRef.current.src;
+      toast.info('딸깍 자동 생성 화면을 새로고침했습니다.');
+    }
+  };
+
+  const handleFilesAdded = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const newItems: BatchItem[] = Array.from(files).map((f) => ({
+      id: 'batch_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      name: f.name,
+      file: f,
+      status: 'idle',
+      progress: 0,
+    }));
+    setBatchItems((prev) => [...prev, ...newItems]);
+    toast.success(`${newItems.length}개 영상 파일이 일괄 작업 큐에 추가되었습니다.`);
+  };
+
+  const handleAddUrlsToBatch = () => {
+    if (!batchUrlsInput.trim()) return;
+    const lines = batchUrlsInput.split('\n').map(s => s.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+
+    const newItems: BatchItem[] = lines.map((u) => ({
+      id: 'batch_url_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      name: u,
+      url: u,
+      status: 'idle',
+      progress: 0,
+    }));
+    setBatchItems((prev) => [...prev, ...newItems]);
+    setBatchUrlsInput('');
+    toast.success(`${newItems.length}개 영상 URL이 일괄 작업 큐에 추가되었습니다.`);
+  };
+
+  const startBatchExecution = async () => {
+    if (batchItems.length === 0 || isBatchRunning) return;
+    setIsBatchRunning(true);
+
+    for (let i = 0; i < batchItems.length; i++) {
+      const item = batchItems[i];
+      if (item.status === 'completed') continue;
+
+      setBatchItems((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, status: 'processing', message: '작업 등록 중...' } : it))
+      );
+
+      try {
+        if (item.file) {
+          const fd = new FormData();
+          fd.append('file', item.file);
+          fd.append('style', 'shorts');
+          if (batchMode === 'subtitle') {
+            const res = await ddalkkakApi.createSubtitleJob(fd);
+            setBatchItems((prev) =>
+              prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, jobId: res.job_id, message: '자막 작업 등록 완료' } : it))
+            );
+          } else if (batchMode === 'clip') {
+            const res = await ddalkkakApi.createClipEditJob(fd);
+            setBatchItems((prev) =>
+              prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, jobId: res.job_id, message: '클립 작업 등록 완료' } : it))
+            );
+          }
+        } else if (item.url) {
+          if (batchMode === 'subtitle') {
+            await fetch('http://127.0.0.1:8000/api/ddalkkak/api/subtitle/download-from-urls', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ urls: item.url }),
+            });
+            setBatchItems((prev) =>
+              prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, message: 'URL 다운로드 및 등록 완료' } : it))
+            );
+          }
+        }
+      } catch (err: any) {
+        setBatchItems((prev) =>
+          prev.map((it) => (it.id === item.id ? { ...it, status: 'failed', message: err.message || '실패' } : it))
+        );
+      }
+    }
+
+    setIsBatchRunning(false);
+    toast.success('🎉 모든 일괄 작업이 등록 완료되었습니다. 메인 화면에서 진행 상황을 확인하세요.');
+    reloadIframe();
+  };
+
   return (
-    <div className="w-full h-full flex flex-col bg-[#0B0F17] text-slate-100 overflow-y-auto">
-      {/* Header */}
-      <div className="p-6 border-b border-slate-800/80 bg-[#0E131F]/90 backdrop-blur sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                딸깍 자동 생성 스튜디오
-                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">Native Pro</span>
-              </h1>
-              <p className="text-xs text-slate-400 mt-0.5">
-                AI 자막 자동 생성 · 고음질 음성 더빙 · 하이라이트 클립 발굴 · 숏폼 구조 해체 분석
-              </p>
-            </div>
+    <div className="w-full h-full flex flex-col bg-[#0B0F17] text-slate-100 overflow-hidden relative">
+      <div className="h-12 border-b border-slate-800 bg-[#0E131F] px-4 flex items-center justify-between shrink-0 z-10 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-amber-500 flex items-center justify-center font-bold text-xs">
+            🐝
           </div>
+          <span className="font-bold text-sm text-slate-200">딸깍 자동 생성 스튜디오 (Ddalkkak Pro)</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium">
+            100% Full Core Engine
+          </span>
         </div>
 
-        {/* Global Stats bar */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
-            <Activity className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-slate-400">시스템:</span>
-            <span className={serverHealthy ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold"}>
-              {serverHealthy ? "정상 가동 (Ready)" : "연결 확인 필요"}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
-            <DollarSign className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-slate-400">오늘 비용:</span>
-            <span className="text-amber-300 font-mono font-bold">${costSummary.today_usd.toFixed(3)}</span>
-          </div>
-
-          <button 
-            onClick={loadDashboardData}
-            disabled={loading}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700/50"
-            title="새로고침"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsBatchOpen(!isBatchOpen)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              isBatchOpen 
+                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' 
+                : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30'
+            }`}
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-400' : ''}`} />
+            <FolderPlus className="w-3.5 h-3.5" />
+            <span>다중 영상 일괄 작업 ({batchItems.length})</span>
+          </button>
+
+          <button
+            onClick={reloadIframe}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1 border border-slate-700"
+            title="화면 새로고침"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Main Tabs Navigation */}
-      <div className="px-6 pt-4 border-b border-slate-800 bg-[#0B0F17]">
-        <div className="flex items-center gap-2">
-          {[
-            { id: 'subtitle', label: '자막 추출 & 스타일링', icon: FileText, desc: 'Whisper AI 고정밀 자막' },
-            { id: 'dubbing', label: 'AI 음성 더빙 (TTS)', icon: Mic, desc: '멀티 보이스 음성 합성' },
-            { id: 'clip', label: '클립 편집 & 숏폼 발굴', icon: Scissors, desc: '하이라이트 자동 분할' },
-            { id: 'dissection', label: '숏폼 구조 해체 분석', icon: Layers, desc: '훅 & 지속율 데이터 분석' },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2.5 px-4 py-3 border-b-2 font-medium text-sm transition-all ${
-                  isActive
-                    ? 'border-blue-500 text-blue-400 bg-blue-500/5'
-                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
-                <div className="text-left">
-                  <div className="leading-none">{tab.label}</div>
-                  <div className="text-[10px] text-slate-500 mt-1 font-normal">{tab.desc}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex-1 w-full h-full relative overflow-hidden bg-stone-950">
+        <iframe
+          ref={iframeRef}
+          src={iframeSrc}
+          className="w-full h-full border-0"
+          title="Ddalkkak Studio"
+          allow="clipboard-read; clipboard-write; microphone; camera"
+        />
       </div>
 
-      {/* Tab Contents Area */}
-      <div className="p-6 flex-1 max-w-7xl w-full mx-auto space-y-6">
-        
-        {/* ================= Tab 1: Subtitle ================= */}
-        {activeTab === 'subtitle' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Input Form */}
-            <div className="lg:col-span-1 bg-[#111625] rounded-2xl border border-slate-800 p-5 shadow-xl flex flex-col justify-between">
-              <div>
-                <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-                  <UploadCloud className="w-4 h-4 text-blue-400" />
-                  신규 자막 생성 작업
-                </h3>
+      {isBatchOpen && (
+        <div className="absolute right-0 top-12 bottom-0 w-96 bg-[#111625]/95 backdrop-blur-md border-l border-slate-800 shadow-2xl z-30 flex flex-col p-4 animate-in slide-in-from-right duration-200">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-2">
+              <FolderPlus className="w-4 h-4 text-amber-400" />
+              <h3 className="font-bold text-sm text-white">다중 영상 일괄 작업 큐</h3>
+            </div>
+            <button onClick={() => setIsBatchOpen(false)} className="text-slate-400 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-                <form onSubmit={handleCreateSubtitle} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">영상/오디오 파일 선택</label>
-                    <div className="border-2 border-dashed border-slate-700/80 hover:border-blue-500/50 rounded-xl p-5 text-center cursor-pointer transition-colors bg-slate-900/40 relative">
-                      <input
-                        type="file"
-                        accept="video/*,audio/*"
-                        onChange={(e) => setSelectedSubFile(e.target.files?.[0] || null)}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                      />
-                      <FileText className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                      <p className="text-xs text-slate-300 font-medium">
-                        {selectedSubFile ? selectedSubFile.name : '클릭하거나 파일을 드래그하여 업로드'}
-                      </p>
-                      <p className="text-[10px] text-slate-500 mt-1">MP4, MOV, MP3, WAV 지원</p>
-                    </div>
-                  </div>
+          <div className="mt-3 space-y-3 flex-1 overflow-y-auto pr-1">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">작업 유형 선택</label>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setBatchMode('subtitle')}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium ${batchMode === 'subtitle' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-300'}`}
+                >
+                  📝 자막 자동 생성
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBatchMode('clip')}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium ${batchMode === 'clip' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-300'}`}
+                >
+                  ✂️ 클립 구간 편집
+                </button>
+              </div>
+            </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">자막 스타일 프리셋</label>
-                    <select
-                      value={subtitleStyle}
-                      onChange={(e) => setSubtitleStyle(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="shorts">숏폼 트렌디 볼드 (Shorts/Reels)</option>
-                      <option value="youtube">유튜브 일반 자막 (Clean Box)</option>
-                      <option value="karaoke">노래방식 하이라이트 (Pop-up)</option>
-                      <option value="cinema">영화 시네마틱 (Minimal)</option>
-                    </select>
-                  </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">여러 영상 파일 드롭 / 선택</label>
+              <input
+                type="file"
+                multiple
+                accept="video/*"
+                onChange={(e) => handleFilesAdded(e.target.files)}
+                className="w-full text-xs text-slate-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-slate-700 file:text-slate-200 cursor-pointer"
+              />
+            </div>
 
-                  <button
-                    type="submit"
-                    disabled={isUploadingSub || !selectedSubFile}
-                    className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium text-xs shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
-                  >
-                    {isUploadingSub ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    자막 추출 및 생성 시작
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">여러 URL 붙여넣기 (한 줄에 하나씩)</label>
+              <textarea
+                value={batchUrlsInput}
+                onChange={(e) => setBatchUrlsInput(e.target.value)}
+                placeholder="https://youtube.com/shorts/...&#10;https://tiktok.com/..."
+                rows={3}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-200 resize-none"
+              />
+              <button
+                type="button"
+                onClick={handleAddUrlsToBatch}
+                className="mt-1 w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs"
+              >
+                + URL 일괄 추가
+              </button>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                <span>등록된 작업 목록 ({batchItems.length})</span>
+                {batchItems.length > 0 && (
+                  <button onClick={() => setBatchItems([])} className="text-rose-400 hover:underline text-[11px]">
+                    전체 비우기
                   </button>
-                </form>
+                )}
               </div>
-
-              <div className="mt-6 pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 flex items-center gap-2">
-                <Cpu className="w-3.5 h-3.5 text-blue-400" />
-                OpenAI Whisper v3 고성능 엔진 탑재
-              </div>
-            </div>
-
-            {/* List & Table */}
-            <div className="lg:col-span-2 bg-[#111625] rounded-2xl border border-slate-800 p-5 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-400" />
-                  자막 생성 작업 목록 ({subtitleJobs.length}건)
-                </h3>
-              </div>
-
-              {subtitleJobs.length === 0 ? (
-                <div className="text-center py-16 text-slate-500 text-xs">
-                  <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  생성된 자막 작업이 없습니다. 좌측에서 파일을 올려 시작해보세요.
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
-                  {subtitleJobs.map((job) => (
-                    <div key={job.id} className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 transition-all flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-xs font-bold">
-                          #{job.id}
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-slate-200 flex items-center gap-2">
-                            {job.video_name || `작업 #${job.id}`}
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                              job.status === 'done' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                              job.status === 'failed' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                              'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            }`}>
-                              {job.status === 'done' ? '완료' : job.status === 'failed' ? '실패' : '진행중'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{job.progress_message || job.style || '자동 자막 처리'}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {job.status === 'done' && (
-                          <button
-                            onClick={() => {
-                              setCurrentExportJob({ type: 'subtitle', id: job.id });
-                              setIsExportModalOpen(true);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-medium shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            CapCut 내보내기
-                          </button>
-                        )}
-                      </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {batchItems.map((item, idx) => (
+                  <div key={item.id} className="p-2 rounded bg-slate-900 border border-slate-800 text-xs flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1 truncate">
+                      <div className="text-slate-200 truncate font-mono text-[11px]">{idx + 1}. {item.name}</div>
+                      {item.message && <div className="text-[10px] text-amber-400">{item.message}</div>}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ================= Tab 2: Dubbing ================= */}
-        {activeTab === 'dubbing' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 bg-[#111625] rounded-2xl border border-slate-800 p-5 shadow-xl">
-              <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-                <Mic className="w-4 h-4 text-purple-400" />
-                AI 음성 합성 요청
-              </h3>
-              <form onSubmit={handleCreateTts} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">대본 텍스트 입력</label>
-                  <textarea
-                    value={ttsText}
-                    onChange={(e) => setTtsText(e.target.value)}
-                    rows={6}
-                    placeholder="더빙할 대본을 입력하세요. 줄바꿈을 기준으로 자연스러운 음성 호흡이 들어갑니다."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-purple-500 resize-none font-sans"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">AI 성우 목소리 선택</label>
-                  <select
-                    value={ttsVoice}
-                    onChange={(e) => setTtsVoice(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="ko-KR-Standard-A">한국어 여성 (신뢰감 있는 나레이션 A)</option>
-                    <option value="ko-KR-Standard-B">한국어 여성 (발랄한 숏폼 스타일 B)</option>
-                    <option value="ko-KR-Standard-C">한국어 남성 (중저음 톤앤매너 C)</option>
-                    <option value="ko-KR-Standard-D">한국어 남성 (다이나믹 하이톤 D)</option>
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSynthesizingTts || !ttsText.trim()}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-xs shadow-lg shadow-purple-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isSynthesizingTts ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                  고음질 AI 음성 합성 시작
-                </button>
-              </form>
-            </div>
-
-            <div className="lg:col-span-2 bg-[#111625] rounded-2xl border border-slate-800 p-5 shadow-xl">
-              <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-                <Mic className="w-4 h-4 text-purple-400" />
-                더빙 작업 기록 ({ttsJobs.length}건)
-              </h3>
-              {ttsJobs.length === 0 ? (
-                <div className="text-center py-16 text-slate-500 text-xs">
-                  더빙 기록이 없습니다. 좌측에서 대본을 입력하여 음성을 합성해보세요.
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
-                  {ttsJobs.map((job) => (
-                    <div key={job.id} className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-4">
-                      <div>
-                        <div className="text-xs font-semibold text-slate-200">더빙 작업 #{job.id}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">{job.voice_name || '기본 성우'} · 상태: {job.status}</div>
-                      </div>
-                      {job.audio_url && (
-                        <audio controls src={job.audio_url} className="h-8 w-60" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ================= Tab 3: Clip Editing ================= */}
-        {activeTab === 'clip' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 bg-[#111625] rounded-2xl border border-slate-800 p-5 shadow-xl">
-              <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-                <Scissors className="w-4 h-4 text-emerald-400" />
-                롱폼 영상 하이라이트 발굴
-              </h3>
-              <form onSubmit={handleCreateClipEdit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">영상 파일 선택</label>
-                  <div className="border-2 border-dashed border-slate-700/80 hover:border-emerald-500/50 rounded-xl p-5 text-center cursor-pointer transition-colors bg-slate-900/40 relative">
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={(e) => setSelectedClipFile(e.target.files?.[0] || null)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
-                    <Scissors className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                    <p className="text-xs text-slate-300 font-medium">
-                      {selectedClipFile ? selectedClipFile.name : '동영상 파일을 드래그하여 업로드'}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isProcessingClip || !selectedClipFile}
-                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-lg shadow-emerald-500/25 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isProcessingClip ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  하이라이트 구간 자동 발굴
-                </button>
-              </form>
-            </div>
-
-            <div className="lg:col-span-2 bg-[#111625] rounded-2xl border border-slate-800 p-5 shadow-xl">
-              <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-                <Scissors className="w-4 h-4 text-emerald-400" />
-                발굴된 숏폼 클립 구간 목록
-              </h3>
-              {clipJobs.length === 0 ? (
-                <div className="text-center py-16 text-slate-500 text-xs">
-                  분석된 클립이 없습니다.
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
-                  {clipJobs.map((job) => (
-                    <div key={job.id} className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between gap-4">
-                      <div>
-                        <div className="text-xs font-semibold text-slate-200">{job.video_name || `클립 세트 #${job.id}`}</div>
-                        <div className="text-[11px] text-slate-500 mt-0.5">상태: {job.status}</div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setCurrentExportJob({ type: 'clip-edit', id: job.id });
-                          setIsExportModalOpen(true);
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium flex items-center gap-1.5"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        CapCut 내보내기
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ================= Tab 4: Dissection ================= */}
-        {activeTab === 'dissection' && (
-          <div className="bg-[#111625] rounded-2xl border border-slate-800 p-5 shadow-xl">
-            <h3 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
-              <Layers className="w-4 h-4 text-amber-400" />
-              숏폼 구조 해체 분석 데이터
-            </h3>
-            {dissections.length === 0 ? (
-              <div className="text-center py-16 text-slate-500 text-xs">
-                분석 데이터가 존재하지 않습니다.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {dissections.map((d) => (
-                  <div key={d.id} className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 transition-all">
-                    <div className="text-xs font-semibold text-slate-200">{d.name}</div>
-                    <div className="text-[11px] text-slate-500 mt-1">후보풀 영상: {d.candidate_count || 0}개</div>
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-amber-400 font-mono">
-                      <span>훅 성공률: {d.hook_rate || 85}%</span>
-                      <span>유지율: {d.retention_score || 92}점</span>
-                    </div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                      item.status === 'completed' ? 'bg-emerald-900/60 text-emerald-300' :
+                      item.status === 'failed' ? 'bg-rose-900/60 text-rose-300' :
+                      item.status === 'processing' ? 'bg-blue-900/60 text-blue-300' :
+                      'bg-slate-800 text-slate-400'
+                    }`}>
+                      {item.status}
+                    </span>
                   </div>
                 ))}
+                {batchItems.length === 0 && (
+                  <div className="text-center py-6 text-slate-500 text-xs">큐가 비어 있습니다.</div>
+                )}
               </div>
-            )}
+            </div>
           </div>
-        )}
 
-      </div>
+          <div className="pt-3 border-t border-slate-800 mt-2">
+            <button
+              onClick={startBatchExecution}
+              disabled={isBatchRunning || batchItems.length === 0}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
+            >
+              {isBatchRunning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+              {isBatchRunning ? '일괄 순차 처리 중...' : `일괄 작업 시작 (${batchItems.length}개)`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* CapCut Export Modal Integration */}
       <ExportModal

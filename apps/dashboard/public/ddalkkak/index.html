@@ -126,18 +126,32 @@ window.playDing = function() {
     <div x-show="token" class="max-w-3xl mx-auto p-4 space-y-4">
 
       <!-- Header -->
-      <header class="flex items-center justify-between py-2">
-        <div class="flex items-center gap-2">
+      <header class="flex items-center justify-between py-2 border-b border-stone-800 pb-3">
+        <div class="flex items-center gap-3">
           <span class="text-2xl">🐝</span>
           <div>
-            <div class="font-bold text-lg">딸깍공장</div>
-            <div class="text-xs text-stone-500" x-text="healthLabel"></div>
+            <div class="font-bold text-lg text-white">딸깍 자동 생성</div>
+            <div class="text-[11px] text-stone-400" x-text="healthLabel"></div>
           </div>
         </div>
-        <div class="flex items-center gap-3 text-xs">
-          <span class="text-stone-400" x-show="user"
-                x-text="user ? `${user.full_name || user.username}` + ` (${user.role_label || (user.role==='admin' ? '관리자' : '프리랜서')})` : ''"></span>
-          <button @click="logout()" class="text-stone-500 hover:text-stone-300">로그아웃</button>
+
+        <!-- Top Quick Tab Buttons (3 Active Features) -->
+        <div class="flex items-center gap-1.5 bg-stone-900 border border-stone-800 p-1 rounded-xl">
+          <button @click="navTo('subtitle'); loadSubtitleJobs()" 
+                  :class="tab === 'subtitle' ? 'bg-violet-600 text-white font-bold' : 'text-stone-400 hover:text-stone-200'"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1">
+            <span>📝 자막</span>
+          </button>
+          <button @click="navTo('ttsdub'); loadTtsDubJobs()" 
+                  :class="tab === 'ttsdub' ? 'bg-violet-600 text-white font-bold' : 'text-stone-400 hover:text-stone-200'"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1">
+            <span>🎬 더빙</span>
+          </button>
+          <button @click="navTo('clipedit'); loadClipJobs()" 
+                  :class="tab === 'clipedit' ? 'bg-violet-600 text-white font-bold' : 'text-stone-400 hover:text-stone-200'"
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1">
+            <span>✂️ 클립편집</span>
+          </button>
         </div>
       </header>
       <div class="px-3 py-2 bg-violet-950/40 border border-violet-800/50 rounded-lg flex items-center justify-between text-sm mb-2 cost-banner" x-show="costSummary">
@@ -3284,61 +3298,24 @@ window.playDing = function() {
 
     <!-- ===== Bottom Navigation ===== -->
     <nav x-show="token" class="fixed bottom-0 inset-x-0 bg-stone-900 border-t border-stone-800 z-40">
-      <div class="max-w-3xl mx-auto grid gap-1 p-2"
-           :class="user?.role === 'admin' ? 'grid-cols-5' : 'grid-cols-4'">
-        <button x-show="false"
- @click="navTo('dissect')"
-                :class="tab === 'dissect' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">🐟</div>해체
+      <div class="max-w-md mx-auto grid grid-cols-3 gap-2 p-2">
+        <button @click="navTo('subtitle'); loadSubtitleJobs()" 
+                :class="tab === 'subtitle' ? 'bg-stone-800 text-violet-400 font-bold border border-violet-500/30' : 'text-stone-400 hover:text-stone-200'" 
+                class="py-3 rounded-xl text-xs font-medium transition-all flex flex-col items-center justify-center">
+          <div class="text-xl mb-1">📝</div>
+          <span>자막 생성</span>
         </button>
-        <button x-show="false" @click="navTo('jobs'); loadDissections()" :class="tab === 'jobs' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">📋</div>작업
+        <button @click="navTo('ttsdub'); loadTtsDubJobs()" 
+                :class="tab === 'ttsdub' ? 'bg-stone-800 text-violet-400 font-bold border border-violet-500/30' : 'text-stone-400 hover:text-stone-200'" 
+                class="py-3 rounded-xl text-xs font-medium transition-all flex flex-col items-center justify-center">
+          <div class="text-xl mb-1">🎬</div>
+          <span>대본+더빙</span>
         </button>
-        <button x-show="false" @click="navTo('candidates'); loadAvailableJobs(); loadCandidates()" :class="tab === 'candidates' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">📊</div>후보
-        </button>
-        <button x-show="user && user.role !== 'admin'" @click="navTo('mykey')" :class="tab === 'mykey' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">🔑</div>내 키<span x-show="user?.requires_personal_key && !user?.has_api_key" class="text-red-400 font-bold"> ●</span>
-        </button>
-        <button x-show="user?.role === 'admin' || ((user?.features || []).includes('subtitle') && (!user?.requires_personal_key || user?.has_api_key))" @click="navTo('subtitle'); loadSubtitleJobs()" :class="tab === 'subtitle' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">📝</div>자막
-        </button>
-        <button x-show="false" @click="navTo('audiosub'); loadAudioJobs()" :class="tab === 'audiosub' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">🎙️</div>음성자막
-        </button>
-        <button x-show="user?.role === 'admin' || (user?.features || []).includes('ttsdub')" @click="navTo('ttsdub'); loadTtsDubJobs()" :class="tab === 'ttsdub' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">🎬</div>더빙
-        </button>
-        <button x-show="false" @click="navTo('shorts'); loadShortsJobs()" :class="tab === 'shorts' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">✂️</div>쇼츠메이커
-        </button>
-        <button x-show="false" @click="navTo('japanese'); loadJapaneseJobs()" :class="tab === 'japanese' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">🇯🇵</div>일본어
-        </button>
-        <button x-show="user?.role==='admin' || (user?.features||[]).includes('clip')" @click="navTo('clipedit'); loadClipJobs()" :class="tab === 'clipedit' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">✂️</div>클립편집
-        </button>
-        <button x-show="false"
-                @click="navTo('report'); loadReport()"
-                :class="tab === 'report' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">📈</div>보고서
-        </button>
-        <button x-show="false"
-                @click="navTo('users'); loadUsers(); loadAllJobs()"
-                :class="tab === 'users' ? 'bg-stone-800 text-violet-400' : 'text-stone-400'"
-                class="py-3 rounded-xl text-xs font-medium">
-          <div class="text-xl mb-0.5">👥</div>사용자
+        <button @click="navTo('clipedit'); loadClipJobs()" 
+                :class="tab === 'clipedit' ? 'bg-stone-800 text-violet-400 font-bold border border-violet-500/30' : 'text-stone-400 hover:text-stone-200'" 
+                class="py-3 rounded-xl text-xs font-medium transition-all flex flex-col items-center justify-center">
+          <div class="text-xl mb-1">✂️</div>
+          <span>클립 편집</span>
         </button>
       </div>
     </nav>
@@ -3538,7 +3515,7 @@ window.playDing = function() {
         myTypecastKeyInput: "",       // 프리랜서 본인 타입캐스트(TTS) 키 입력
 
         async init() {
-          if (!this.token) { this.token = "solo"; this.user = { id: 1, username: "owner", role: "admin", full_name: "사장님", features: ["subtitle","ttsdub","clip"] }; localStorage.setItem("ddalkkak_token", "solo"); localStorage.setItem("ddalkkak_user", JSON.stringify(this.user)); }
+          if (!this.token) { this.token = "solo"; this.user = { id: 1, username: "owner", role: "admin", full_name: "운영자", features: ["subtitle","ttsdub","clip"] }; localStorage.setItem("ddalkkak_token", "solo"); localStorage.setItem("ddalkkak_user", JSON.stringify(this.user)); }
           if (this.token) {
             // 항상 서버에서 최신 user info 받아오기 (localStorage stale fix)
             try {
@@ -3547,28 +3524,15 @@ window.playDing = function() {
                 const fresh = await r.json();
                 this.user = fresh;
                 localStorage.setItem("ddalkkak_user", JSON.stringify(fresh));
-              } else if (r.status === 401) {
-                this.logout();
-                return;
               }
             } catch (e) { console.error("auth/me", e); }
 
-            // Freelancers land on the candidate pool by default — no dissect access
-            if (this.user?.role !== "admin") {
-              this.tab = "candidates";
-            }
+            this.tab = "subtitle";
             await this.checkHealth();
-            await this.loadDissections(); await this.loadCostSummary();
-            await this.loadAvailableJobs();
-            if (this.user?.role === "admin") {
-              // Phase 2: 풀빌드 메뉴 제거 → loadPoolStats() 호출 안 함
-              this.loadMascots();
-            }
-            if (this.tab === "candidates") {
-              await this.loadCandidates();
-            } else if (this.tab === "subtitle") {
-              await this.loadSubtitleJobs();
-            }
+            await this.loadSubtitleJobs();
+            await this.loadTtsDubJobs();
+            await this.loadClipJobs();
+            await this.loadCostSummary();
           }
         },
 

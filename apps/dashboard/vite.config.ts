@@ -15,7 +15,17 @@ export default defineConfig({
     },
     build: {
         outDir: path.resolve(__dirname, '../../dist'),
-        emptyOutDir: true
+        emptyOutDir: true,
+        chunkSizeWarningLimit: 10000,
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    vendor_react: ['react', 'react-dom', 'react-router-dom'],
+                    vendor_icons: ['lucide-react'],
+                    vendor_utils: ['axios', 'clsx', 'tailwind-merge', 'sonner'],
+                }
+            }
+        }
     },
     define: {
         '__APP_VERSION__': JSON.stringify('0.9.10'),
