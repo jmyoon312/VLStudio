@@ -1,4 +1,5 @@
-"""SQLite database access layer."""
+import os
+import sys
 import sqlite3
 import json
 from pathlib import Path
@@ -6,7 +7,23 @@ from contextlib import contextmanager
 from typing import Any, Optional
 
 
-DB_PATH = Path(__file__).parent.parent / "db" / "discover.db"
+def _get_persistent_db_path() -> Path:
+    # 1. 환경변수 또는 AppData/Local 우선 (일체형 exe 실행 시 _MEIPASS 임시폴더 쓰기 방지)
+    local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if local_app:
+        target_dir = Path(local_app) / "ViraLoop Studio" / "db"
+    else:
+        target_dir = Path.home() / ".viraloop_studio" / "db"
+    try:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        return target_dir / "discover.db"
+    except Exception:
+        # Fallback to module relative dir
+        fallback_dir = Path(__file__).parent.parent / "db"
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+        return fallback_dir / "discover.db"
+
+DB_PATH = _get_persistent_db_path()
 
 
 @contextmanager
@@ -82,27 +99,49 @@ def _ensure_visual_match_columns(conn) -> None:
 
 def init_db():
     """Initialize DB from schema.sql if not exists."""
-    schema_path = Path(__file__).parent.parent / "db" / "schema.sql"
-    schema_v2_path = Path(__file__).parent.parent / "db" / "schema_v2.sql"
-    schema_v3_path = Path(__file__).parent.parent / "db" / "schema_v3.sql"
-    schema_v4_path = Path(__file__).parent.parent / "db" / "schema_v4.sql"
-    schema_v5_path = Path(__file__).parent.parent / "db" / "schema_v5.sql"
-    schema_v6_path = Path(__file__).parent.parent / "db" / "schema_v6.sql"
-    schema_v7_path = Path(__file__).parent.parent / "db" / "schema_v7.sql"
     with get_db() as conn:
-        conn.executescript(schema_path.read_text(encoding="utf-8"))
-        if schema_v2_path.exists():
-            conn.executescript(schema_v2_path.read_text(encoding="utf-8"))
-        if schema_v3_path.exists():
-            conn.executescript(schema_v3_path.read_text(encoding="utf-8"))
-        if schema_v4_path.exists():
-            conn.executescript(schema_v4_path.read_text(encoding="utf-8"))
-        if schema_v5_path.exists():
-            conn.executescript(schema_v5_path.read_text(encoding="utf-8"))
-        if schema_v6_path.exists():
-            conn.executescript(schema_v6_path.read_text(encoding="utf-8"))
-        if schema_v7_path.exists():
-            conn.executescript(schema_v7_path.read_text(encoding="utf-8"))
+        for v in ["schema.sql", "schema_v2.sql", "schema_v3.sql", "schema_v4.sql", "schema_v5.sql", "schema_v6.sql", "schema_v7.sql", "schema_v8.sql", "schema_v9.sql"]:
+            sp = Path(__file__).parent.parent / "db" / v
+            if sp.exists():
+                try:
+                    conn.executescript(sp.read_text(encoding="utf-8"))
+                except Exception as e:
+                    print(f"⚠️ Failed to apply {v}: {e}")
+        
+        # Fallback direct creation for essential tables
+        conn.execute("""CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'admin',
+            full_name TEXT,
+            features TEXT DEFAULT '["subtitle","ttsdub","clip"]',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            last_login_at TEXT
+        )""")
+        
+        conn.execute("""CREATE TABLE IF NOT EXISTS subtitle_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            video_filename TEXT,
+            video_path TEXT,
+            duration_sec REAL,
+            original_urls TEXT,
+            status TEXT DEFAULT 'pending',
+            progress INTEGER DEFAULT 0,
+            progress_message TEXT,
+            subtitle_paths TEXT,
+            title_candidates TEXT,
+            gemini_results TEXT,
+            cross_validation TEXT,
+            needs_review INTEGER DEFAULT 0,
+            review_note TEXT,
+            user_id INTEGER,
+            cost_usd REAL DEFAULT 0,
+            error TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            completed_at TEXT,
+            style TEXT DEFAULT 'shorts'
+        )""")
         _ensure_visual_match_columns(conn)
         # users 개인 API 키 컬럼 (프리랜서 비용 분리: Gemini=대본, Typecast=TTS)
         try:

@@ -246,8 +246,8 @@ async def authenticate(
     Query (?token= / ?api_key=) is needed for <img>/<video> tags that can't
     send headers. Use only for read-only endpoints (preview thumbnails etc.).
     """
-    # [배포판] SOLO_MODE: 개인용 — 로그인 없이 관리자 권한
-    if os.getenv("SOLO_MODE", "") == "1":
+    # [배포판] SOLO_MODE: 개인용 — 로그인 없이 관리자 권한 (기본 활성화)
+    if os.getenv("SOLO_MODE", "1") == "1":
         return {"id": 1, "username": "owner", "role": "admin",
                 "full_name": "사장님", "features": ["subtitle", "ttsdub", "clip"],
                 "requires_personal_key": False, "has_api_key": False,
@@ -269,16 +269,19 @@ async def authenticate(
         except ValueError:
             raise HTTPException(401, "토큰 형식 오류")
         user = get_user_by_id(uid)
-        if not user:
-            raise HTTPException(401, "사용자를 찾을 수 없음")
-        return user
+        if user:
+            return user
 
     key_str = x_api_key or api_key
     if key_str and backend_key and key_str == backend_key:
         return {"id": 0, "username": "_legacy_api_key_", "role": "admin",
                 "full_name": "Legacy"}
 
-    raise HTTPException(401, "인증 필요 (Bearer JWT 또는 X-API-Key)")
+    # Default fallback for standalone desktop execution
+    return {"id": 1, "username": "owner", "role": "admin",
+            "full_name": "사장님", "features": ["subtitle", "ttsdub", "clip"],
+            "requires_personal_key": False, "has_api_key": False,
+            "has_typecast_key": False}
 
 
 async def admin_only(user: dict = Depends(authenticate)) -> dict:

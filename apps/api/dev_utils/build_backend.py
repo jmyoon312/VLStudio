@@ -56,6 +56,8 @@ def build():
         "--hidden-import=app.legacy_ddalkkak.workers",
         # Include workers package data
         f"--add-data={os.path.join(api_dir, 'app', 'legacy_ddalkkak', 'workers')};app/legacy_ddalkkak/workers",
+        # Include legacy db schema data
+        f"--add-data={os.path.join(api_dir, 'app', 'legacy_ddalkkak', 'db')};app/legacy_ddalkkak/db",
         # Include static datasets / JSON resources
         "--add-data=app/services/persona/persona_library.json;app/services/persona",
         "--add-data=app/legacy_ddalkkak/frontend/dist;app/legacy_ddalkkak/frontend/dist",
