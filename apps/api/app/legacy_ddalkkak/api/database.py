@@ -26,6 +26,27 @@ def _get_persistent_db_path() -> Path:
 DB_PATH = _get_persistent_db_path()
 
 
+_db_migrated = False
+
+def _ensure_schema_columns(conn: sqlite3.Connection):
+    global _db_migrated
+    if _db_migrated:
+        return
+    try:
+        scols = {r[1] for r in conn.execute("PRAGMA table_info(subtitle_jobs)")}
+        if scols and "tts_config" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN tts_config TEXT")
+        if scols and "style" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN style TEXT DEFAULT 'shorts'")
+        
+        tcols = {r[1] for r in conn.execute("PRAGMA table_info(tts_dub_jobs)")}
+        if tcols and "tts_config" not in tcols:
+            conn.execute("ALTER TABLE tts_dub_jobs ADD COLUMN tts_config TEXT")
+        _db_migrated = True
+    except Exception:
+        pass
+
+
 @contextmanager
 def get_db():
     """Context manager for SQLite connection with row factory."""
@@ -34,6 +55,7 @@ def get_db():
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 30000")
     conn.execute("PRAGMA journal_mode = WAL")  # reader/writer 분리
+    _ensure_schema_columns(conn)
     try:
         yield conn
         conn.commit()
@@ -140,7 +162,8 @@ def init_db():
             error TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             completed_at TEXT,
-            style TEXT DEFAULT 'shorts'
+            style TEXT DEFAULT 'shorts',
+            tts_config TEXT
         )""")
         _ensure_visual_match_columns(conn)
         # users 개인 API 키 컬럼 (프리랜서 비용 분리: Gemini=대본, Typecast=TTS)
@@ -152,11 +175,20 @@ def init_db():
                 conn.execute("ALTER TABLE users ADD COLUMN typecast_api_key TEXT")
         except Exception:
             pass
-        # subtitle_jobs.style — 스키마 파일엔 없고 운영 DB에만 있던 컬럼. 빈 DB 보강.
+        # subtitle_jobs.style & tts_config 보강
         try:
             scols = {r[1] for r in conn.execute("PRAGMA table_info(subtitle_jobs)")}
             if "style" not in scols:
                 conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN style TEXT DEFAULT 'shorts'")
+            if "tts_config" not in scols:
+                conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN tts_config TEXT")
+        except Exception:
+            pass
+        # tts_dub_jobs.tts_config 보강
+        try:
+            tcols = {r[1] for r in conn.execute("PRAGMA table_info(tts_dub_jobs)")}
+            if "tts_config" not in tcols:
+                conn.execute("ALTER TABLE tts_dub_jobs ADD COLUMN tts_config TEXT")
         except Exception:
             pass
         # 클립편집 잡 테이블 (스키마 파일엔 없음 — 빈 DB에서 자동 생성, 대표님 0614 배포 호환)

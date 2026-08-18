@@ -98,8 +98,8 @@ async def _call_gemini_direct(url: str, payload: dict, headers: dict = None, tim
         _headers["x-goog-api-key"] = key
     
     # URL 안의 모델명이 youtube1/youtube1 등 비정상 모델명인 경우 정규화
-    if "models/youtube" in url or "models/youtube1" in url or "models/none" in url:
-        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    if "models/youtube" in url or "models/youtube1" in url or "models/none" in url or "models/gemini-2.0-flash:" in url:
+        url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
         
     async with httpx.AsyncClient(timeout=timeout) as client:
         r = await client.post(url, json=payload, headers=_headers)

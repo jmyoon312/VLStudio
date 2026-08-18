@@ -97,7 +97,17 @@ _sync_global_settings()
 from pathlib import Path as _BBPath
 import sys as _bb_sys, shutil as _bb_shutil
 _BB_ROOT = _BBPath(__file__).resolve().parent.parent
-_BB_DATA = _BB_ROOT / "data"
+
+def _get_persistent_data_dir() -> _BBPath:
+    local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+    if local_app:
+        d = _BBPath(local_app) / "ViraLoop Studio" / "data"
+    else:
+        d = _BBPath.home() / ".viraloop_studio" / "data"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+_BB_DATA = _get_persistent_data_dir()
 
 if str(_BB_ROOT) not in _bb_sys.path:
     _bb_sys.path.insert(0, str(_BB_ROOT))
@@ -5112,7 +5122,7 @@ async def freelancer_report_detail(user_id: int,
 # ============================================================
 from fastapi import UploadFile, File, Form
 
-SUBTITLES_DIR = Path(__file__).parent.parent / "data" / "subtitles"
+SUBTITLES_DIR = _BB_DATA / "subtitles"
 SUBTITLES_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -6433,7 +6443,8 @@ async def audio_sub_delete(job_id: int, current=Depends(auth.require_feature("su
 
 # ===== 대본+더빙 (영상→Gemini 대본/메타 + 타입캐스트 TTS + SRT) =====
 
-TTS_DUB_DIR = Path(__file__).parent.parent / "data" / "tts_dub"
+TTS_DUB_DIR = _BB_DATA / "tts_dub"
+TTS_DUB_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @app.post("/tts-dub/upload")
