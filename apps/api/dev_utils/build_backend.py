@@ -14,6 +14,17 @@ def build():
     # Ensure dist-backend directory exists
     os.makedirs(output_dir, exist_ok=True)
     
+    # Collect all workers submodule names for hidden imports
+    workers_dir = os.path.join(api_dir, "app", "legacy_ddalkkak", "workers")
+    worker_hidden = []
+    if os.path.isdir(workers_dir):
+        for fname in os.listdir(workers_dir):
+            if fname.endswith(".py") and not fname.startswith("__"):
+                mod = fname[:-3]
+                worker_hidden.append(f"app.legacy_ddalkkak.workers.{mod}")
+                # Also include without full path (legacy import style)
+                worker_hidden.append(f"workers.{mod}")
+
     # 2. PyInstaller flags
     cmd = [
         "pyinstaller",
@@ -21,7 +32,7 @@ def build():
         "--name=api_server",
         f"--distpath={output_dir}",
         "--clean",
-        # Include hidden imports for FastAPI, SQLAlchemy, SQLite, and optional utilities
+        # Core uvicorn/FastAPI hidden imports
         "--hidden-import=uvicorn.logging",
         "--hidden-import=uvicorn.loops",
         "--hidden-import=uvicorn.loops.auto",
@@ -36,12 +47,25 @@ def build():
         "--hidden-import=sqlite3",
         "--hidden-import=pydantic_settings",
         "--hidden-import=jinja2",
+        # Legacy ddalkkak package and workers
+        "--hidden-import=app.legacy_ddalkkak",
+        "--hidden-import=app.legacy_ddalkkak.api",
+        "--hidden-import=app.legacy_ddalkkak.api.main",
+        "--hidden-import=app.legacy_ddalkkak.api.database",
+        "--hidden-import=app.legacy_ddalkkak.api.auth",
+        "--hidden-import=app.legacy_ddalkkak.workers",
+        # Include workers package data
+        f"--add-data={os.path.join(api_dir, 'app', 'legacy_ddalkkak', 'workers')};app/legacy_ddalkkak/workers",
         # Include static datasets / JSON resources
         "--add-data=app/services/persona/persona_library.json;app/services/persona",
         "--add-data=app/legacy_ddalkkak/frontend/dist;app/legacy_ddalkkak/frontend/dist",
         # Set main.py as the build target
         entry_point
     ]
+
+    # Add all worker hidden imports
+    for hidden in worker_hidden:
+        cmd.append(f"--hidden-import={hidden}")
     
     print(f"[Build] Command: {' '.join(cmd)}")
     
