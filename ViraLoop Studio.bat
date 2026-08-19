@@ -9,4 +9,12 @@ echo.
 set "ROOT_DIR=%~dp0"
 set "PATH=%ROOT_DIR%runtime\adb;%ROOT_DIR%runtime\ffmpeg;%ROOT_DIR%runtime\ytdlp;%PATH%"
 
-npm run dev
+call npm run dev
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo ===================================================
+    echo [ERROR] ViraLoop Studio terminated unexpectedly!
+    echo ===================================================
+    echo.
+    pause
+)
