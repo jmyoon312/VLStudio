@@ -17,47 +17,15 @@ const randomDelay = () => new Promise(r => setTimeout(r, 1000 + Math.random() * 
 // Vite dev server가 missing 파일에 SPA fallback(index.html)을 반환하므로
 // Content-Type 을 반드시 검증해서 실제 이미지만 허용.
 // 확장자는 jpg → png → webp 순으로 시도 (실제 포맷 다양성 대응)
-const BUNDLED_THUMB_EXTS = ['jpg', 'png', 'webp']
-
-async function fetchFirstAvailable(id) {
-  for (const ext of BUNDLED_THUMB_EXTS) {
-    try {
-      const res = await fetch(`./style-thumbnails/${id}.${ext}`)
-      if (!res.ok) continue
-      const contentType = res.headers.get('content-type') || ''
-      if (!contentType.startsWith('image/')) continue
-      const blob = await res.blob()
-      if (blob.size === 0) continue
-      return blob
-    } catch {}
-  }
-  return null
-}
-
 async function loadBundledThumbnails(existingIds = []) {
   const allStyles = STYLE_PRESETS?.styles || []
   const missingStyles = allStyles.filter(s => !existingIds.includes(s.id))
   if (missingStyles.length === 0) return {}
 
   const bundled = {}
-  
-  // file:// 프로토콜 하에서는 보안 상의 이유로 fetch()가 차단되거나 오동작하므로, 직접 상대 경로로 매핑합니다.
-  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
-    missingStyles.forEach(style => {
-      bundled[style.id] = `./style-thumbnails/${style.id}.jpg`
-    })
-    return bundled
-  }
-
-  await Promise.all(
-    missingStyles.map(async (style) => {
-      const blob = await fetchFirstAvailable(style.id)
-      if (blob) bundled[style.id] = URL.createObjectURL(blob)
-    })
-  )
-  if (Object.keys(bundled).length > 0) {
-    console.log('[StyleThumbnails] Loaded', Object.keys(bundled).length, 'bundled thumbnails')
-  }
+  missingStyles.forEach(style => {
+    bundled[style.id] = `/style-thumbnails/${style.id}.jpg`
+  })
   return bundled
 }
 

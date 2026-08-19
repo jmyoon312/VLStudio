@@ -17,7 +17,10 @@
     // Global API fetch interceptor for Electron file:// or standalone iframe embedding
     (function() {
       const originalFetch = window.fetch;
-      const backendBase = 'http://127.0.0.1:8000';
+      // In Vite/Web dev or NPM domain, use relative /api/ddalkkak or port 8000 if file://
+      const isFileProtocol = window.location.protocol === 'file:';
+      const backendBase = isFileProtocol ? 'http://127.0.0.1:8000' : '';
+      
       window.fetch = function(input, init) {
         let url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
         
@@ -46,7 +49,7 @@
         if (path === '/health') {
           url = backendBase + '/health';
         } else {
-          url = backendBase + '/api/ddalkkak' + path;
+          url = backendBase + '/api/ddalkkak/api' + path;
         }
 
         if (typeof input === 'string') {
