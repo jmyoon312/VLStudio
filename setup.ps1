@@ -79,6 +79,41 @@ Write-Host "[*] Installing Python backend requirements..." -ForegroundColor Cyan
 Write-Host "[*] Initializing FFmpeg binaries..." -ForegroundColor Cyan
 & ".\venv\Scripts\python.exe" -c "import static_ffmpeg; static_ffmpeg.add_paths()" 2>$null
 
+# 6. Check & Download Platform Tools (ADB)
+$adbExe = Join-Path $PSScriptRoot "runtime\adb\adb.exe"
+if (-not (Test-Path $adbExe)) {
+    Write-Host "[*] ADB (Android Platform Tools) is missing. Downloading official Google platform-tools..." -ForegroundColor Cyan
+    $adbZip = Join-Path $tempDir "platform-tools.zip"
+    $adbDir = Join-Path $PSScriptRoot "runtime\adb"
+    if (-not (Test-Path $adbDir)) { New-Item -ItemType Directory -Path $adbDir -Force | Out-Null }
+    
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    (New-Object System.Net.WebClient).DownloadFile("https://dl.google.com/android/repository/platform-tools-latest-windows.zip", $adbZip)
+    
+    Write-Host "[*] Extracting ADB platform-tools..." -ForegroundColor Cyan
+    Expand-Archive -Path $adbZip -DestinationPath $tempDir -Force
+    $extractedPlatformTools = Join-Path $tempDir "platform-tools"
+    if (Test-Path $extractedPlatformTools) {
+        Copy-Item -Path "$extractedPlatformTools\*" -Destination $adbDir -Recurse -Force
+    }
+    Write-Host "[OK] ADB installed to runtime\adb" -ForegroundColor Green
+} else {
+    Write-Host "[OK] ADB is already installed." -ForegroundColor Green
+}
+
+# 7. Check & Download yt-dlp
+$ytdlpExe = Join-Path $PSScriptRoot "runtime\ytdlp\yt-dlp.exe"
+if (-not (Test-Path $ytdlpExe)) {
+    Write-Host "[*] Downloading official yt-dlp.exe..." -ForegroundColor Cyan
+    $ytdlpDir = Join-Path $PSScriptRoot "runtime\ytdlp"
+    if (-not (Test-Path $ytdlpDir)) { New-Item -ItemType Directory -Path $ytdlpDir -Force | Out-Null }
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    (New-Object System.Net.WebClient).DownloadFile("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", $ytdlpExe)
+    Write-Host "[OK] yt-dlp installed to runtime\ytdlp" -ForegroundColor Green
+} else {
+    Write-Host "[OK] yt-dlp is already installed." -ForegroundColor Green
+}
+
 # 6. Windows Firewall rules
 Write-Host ""
 Write-Host "[*] Configuring Windows Firewall (5183, 8000)..." -ForegroundColor Cyan
