@@ -271,21 +271,34 @@ POST /api/references       — 레퍼런스 조회
 POST /api/generate         — 이미지 생성 트리거
 ```
 
-## 빠른 시작 및 간편 설치 (Quick Start)
+## ⚡ 원클릭 초간편 자동 설치 (PowerShell 1줄 실행)
 
-초기화된 윈도우 11 및 모든 PC에서 사전 프로그램(Node.js, Python 등)을 별도로 설치할 필요 없이, **원클릭 자동 설치**로 즉시 사용할 수 있습니다.
+Git, Python, Node.js 등이 아무것도 깔려있지 않은 **초기화된 새 컴퓨터**에서도 **PowerShell에서 아래 명령어 딱 한 줄만 붙여넣고 엔터**를 치면, 모든 소스 다운로드부터 환경 구축까지 100% 전자동으로 완료됩니다:
+
+```powershell
+irm https://raw.githubusercontent.com/jmyoon312/VLStudio/main/install.ps1 | iex
+```
+
+> 💡 **수행되는 작업**:
+> 1. Git 설치 여부 확인 (Git 없으면 GitHub 최신 소스 자동 ZIP 다운로드 & 압축 해제)
+> 2. Node.js LTS 및 Python 3.11 공식 무인 자동 설치
+> 3. Google ADB 도구 및 yt-dlp 바이너리 자동 다운로드
+> 4. FFmpeg 가상환경 내장 및 npm/pip 패키지 자동 세팅
+> 5. 바탕화면에 **"ViraLoop Studio" 바로가기** 자동 생성
+
+---
+
+## 📂 수동 다운로드 및 설치 방법
 
 ### 📥 1. 소스 코드 다운로드
 - **Git 사용 시**:
   ```bash
   git clone https://github.com/jmyoon312/VLStudio.git
-  cd VLStudio
   ```
 - **일반 다운로드**: 상단 **`Code` → `Download ZIP`** 다운로드 후 원하는 폴더에 압축 해제
 
-### ⚙️ 2. 원클릭 환경 자동 구성 (최초 1회)
-- 압축 해제한 폴더에서 **`setup_install.bat`** 파일을 **우클릭 → [관리자 권한으로 실행]**
-- Node.js LTS, Python 3.11, 백엔드 의존성 및 방화벽 설정이 무인(Silent)으로 자동 설치되며, 바탕화면에 **"ViraLoop Studio" 바로가기 아이콘**이 생성됩니다.
+### ⚙️ 2. 환경 자동 구성 (최초 1회)
+- 폴더 내 **`setup_install.bat`** 파일을 **우클릭 → [관리자 권한으로 실행]**
 
 ### 🚀 3. 앱 실행 및 업데이트
 - **실행**: 바탕화면의 **`ViraLoop Studio`** 아이콘(또는 `ViraLoop Studio.bat`) 더블클릭
