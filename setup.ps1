@@ -1,10 +1,16 @@
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host "  ViraLoop Studio - Universal Auto Installer" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host ""
+
+# Check Administrative Rights
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "[!] Note: Running in standard user mode." -ForegroundColor Yellow
+}
 
 $tempDir = Join-Path $env:TEMP "vlstudio_installer"
 if (-not (Test-Path $tempDir)) {
@@ -117,8 +123,10 @@ if (-not (Test-Path $ytdlpExe)) {
 # 6. Windows Firewall rules
 Write-Host ""
 Write-Host "[*] Configuring Windows Firewall (5183, 8000)..." -ForegroundColor Cyan
-netsh advfirewall firewall add rule name="VLStudio Vite 5183" dir=in action=allow protocol=TCP localport=5183 | Out-Null
-netsh advfirewall firewall add rule name="VLStudio FastAPI 8000" dir=in action=allow protocol=TCP localport=8000 | Out-Null
+try {
+    netsh advfirewall firewall add rule name="VLStudio Vite 5183" dir=in action=allow protocol=TCP localport=5183 2>$null | Out-Null
+    netsh advfirewall firewall add rule name="VLStudio FastAPI 8000" dir=in action=allow protocol=TCP localport=8000 2>$null | Out-Null
+} catch {}
 
 # 7. Desktop Shortcut Creation
 Write-Host ""
