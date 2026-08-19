@@ -7,11 +7,27 @@ Google Flow AI로 이미지/비디오를 **대량 생성**하고, CapCut 영상 
 [![Release](https://img.shields.io/github/v/release/jmyoon312/VLStudio)](https://github.com/jmyoon312/VLStudio/releases)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue)](LICENSE)
 
-## 개요
+## 🚀 30초 원클릭 자동 설치 가이드
 
-AI 영상, 아직도 한 장면씩 만들고 계신가요?
+초기화된 윈도우 11 및 모든 PC에서 사전 프로그램(Git, Node.js, Python 등)이 없어도 **완전 무인 자동 설치**가 가능합니다.
 
-ViraLoop Studio는 AI 영상 제작 전 과정을 자동화합니다. Google Flow AI(labs.google/fx)로 이미지와 비디오를 생성하고, 바로 편집 가능한 CapCut 프로젝트로 변환합니다. 대본을 가져오고, 비주얼을 생성하고, 씬별로 최적의 미디어를 선택한 뒤, 원클릭으로 내보내세요.
+### 방법 1. PowerShell 명령어 1줄 실행 (가장 빠름 ⚡)
+**시작 버튼 우클릭 → [터미널] 또는 [PowerShell]**을 열고 아래 명령어를 붙여넣은 뒤 엔터를 누르면 끝납니다:
+```powershell
+irm https://raw.githubusercontent.com/jmyoon312/VLStudio/main/install.ps1 | iex
+```
+
+### 방법 2. 원클릭 인스톨러 배치 파일 다운로드 💾
+1. 저장소에서 [`OneClick_Install.bat`](https://raw.githubusercontent.com/jmyoon312/VLStudio/main/OneClick_Install.bat) 우클릭 후 다른 이름으로 저장 (또는 소스 다운로드)
+2. `OneClick_Install.bat` 더블클릭 (관리자 권한 실행)
+
+> 💡 **자동으로 구성되는 환경**:
+> - Git 소스 다운로드 / 최신 버전 자동 동기화
+> - Node.js LTS 및 Python 3.11 공식 무인 설치
+> - Android ADB 도구, yt-dlp 바이너리 및 FFmpeg 내장
+> - 백엔드 의존성 및 방화벽 설정 + 바탕화면에 **"ViraLoop Studio" 바로가기** 자동 생성
+
+---
 
 ## 주요 기능
 
