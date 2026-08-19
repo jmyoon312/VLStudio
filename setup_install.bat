@@ -1,5 +1,4 @@
 @echo off
-setlocal enabledelayedexpansion
 title ViraLoop Studio - Universal Auto Installer
 echo ===================================================
 echo   ViraLoop Studio - Universal Environment Setup
@@ -37,28 +36,34 @@ set "PATH=C:\Program Files\Python311;C:\Program Files\Python311\Scripts;%LOCALAP
 
 :: 3. Determine python and npm executable paths
 set "NPM_CMD=npm"
-if exist "C:\Program Files\nodejs\npm.cmd" set "NPM_CMD=C:\Program Files\nodejs\npm.cmd"
+if exist "C:\Program Files\nodejs\npm.cmd" (
+    set "NPM_CMD=C:\Program Files\nodejs\npm.cmd"
+)
 
 set "PY_CMD=python"
-if exist "C:\Program Files\Python311\python.exe" set "PY_CMD=C:\Program Files\Python311\python.exe"
-if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" set "PY_CMD=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+if exist "C:\Program Files\Python311\python.exe" (
+    set "PY_CMD=C:\Program Files\Python311\python.exe"
+)
+if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
+    set "PY_CMD=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+)
 
 :: 4. Verify Runtimes
 echo.
 echo [*] Verifying Runtimes:
-call "!NPM_CMD!" -v
-"!PY_CMD!" --version
+call "%NPM_CMD%" -v
+"%PY_CMD%" --version
 
 :: 5. npm install (Mandatory)
 echo.
 echo [*] Installing Node.js packages (npm install)...
-call "!NPM_CMD!" install --force
+call "%NPM_CMD%" install --force
 
 :: 6. Python Virtual Environment
 echo.
 echo [*] Setting up Python Virtual Environment (venv)...
 if not exist "venv\Scripts\python.exe" (
-    "!PY_CMD!" -m venv venv
+    "%PY_CMD%" -m venv venv
 )
 
 :: 7. Python Requirements Install
