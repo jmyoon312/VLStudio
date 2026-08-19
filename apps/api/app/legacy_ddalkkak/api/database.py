@@ -33,18 +33,45 @@ def _ensure_schema_columns(conn: sqlite3.Connection):
     if _db_migrated:
         return
     try:
+        # 1. subtitle_jobs
         scols = {r[1] for r in conn.execute("PRAGMA table_info(subtitle_jobs)")}
         if scols and "tts_config" not in scols:
             conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN tts_config TEXT")
         if scols and "style" not in scols:
             conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN style TEXT DEFAULT 'shorts'")
+        if scols and "cost_usd" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN cost_usd REAL DEFAULT 0")
         
+        # 2. tts_dub_jobs
         tcols = {r[1] for r in conn.execute("PRAGMA table_info(tts_dub_jobs)")}
         if tcols and "tts_config" not in tcols:
             conn.execute("ALTER TABLE tts_dub_jobs ADD COLUMN tts_config TEXT")
+        if tcols and "cost_usd" not in tcols:
+            conn.execute("ALTER TABLE tts_dub_jobs ADD COLUMN cost_usd REAL DEFAULT 0")
+
+        # 3. dissection_analyses
+        dcols = {r[1] for r in conn.execute("PRAGMA table_info(dissection_analyses)")}
+        if dcols and "cost_usd" not in dcols:
+            conn.execute("ALTER TABLE dissection_analyses ADD COLUMN cost_usd REAL DEFAULT 0")
+
+        # 4. remixes
+        rcols = {r[1] for r in conn.execute("PRAGMA table_info(remixes)")}
+        if rcols and "cost_usd" not in rcols:
+            conn.execute("ALTER TABLE remixes ADD COLUMN cost_usd REAL DEFAULT 0")
+
+        # 5. audio_subtitle_jobs
+        acols = {r[1] for r in conn.execute("PRAGMA table_info(audio_subtitle_jobs)")}
+        if acols and "cost_usd" not in acols:
+            conn.execute("ALTER TABLE audio_subtitle_jobs ADD COLUMN cost_usd REAL DEFAULT 0")
+
+        # 6. clip_edit_jobs
+        ccols = {r[1] for r in conn.execute("PRAGMA table_info(clip_edit_jobs)")}
+        if ccols and "cost_usd" not in ccols:
+            conn.execute("ALTER TABLE clip_edit_jobs ADD COLUMN cost_usd REAL DEFAULT 0")
+
         _db_migrated = True
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[DB Migration Error] {e}")
 
 
 @contextmanager
