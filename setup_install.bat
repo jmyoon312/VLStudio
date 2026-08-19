@@ -6,13 +6,15 @@ echo   ViraLoop Studio - Environment Setup
 echo ===================================================
 echo.
 
+:: 0. Refresh PATH from Registry
+set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;C:\Program Files\Python311;C:\Program Files\Python311\Scripts;%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
+
 :: 1. Check Python
 python --version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [!] Python is not found.
     echo [*] Installing Python 3.11 via winget...
     winget install --id Python.Python.3.11 -e --source winget --accept-package-agreements --accept-source-agreements
-    set "PATH=C:\Program Files\Python311;C:\Program Files\Python311\Scripts;%LOCALAPPDATA%\Programs\Python\Python311;%LOCALAPPDATA%\Programs\Python\Python311\Scripts;%PATH%"
 ) else (
     echo [OK] Python is installed.
 )
@@ -23,15 +25,14 @@ if %ERRORLEVEL% NEQ 0 (
     echo [!] Node.js is not found.
     echo [*] Installing Node.js LTS via winget...
     winget install --id OpenJS.NodeJS.LTS -e --source winget --accept-package-agreements --accept-source-agreements
-    set "PATH=C:\Program Files\nodejs;%APPDATA%\npm;%PATH%"
 ) else (
     echo [OK] Node.js is installed.
 )
 
-:: 3. npm install
+:: 3. npm install (Mandatory Check)
 echo.
-echo [*] Installing Node.js packages...
-call npm install
+echo [*] Installing Node.js packages (npm install)...
+call npm install --force
 
 :: 4. Python venv
 echo.
