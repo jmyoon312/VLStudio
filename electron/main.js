@@ -785,8 +785,8 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  // Open DevTools in development only (detached so it doesn't cover WebContentsView)
-  if (!app.isPackaged) {
+  // Open DevTools in development only if OPEN_DEVTOOLS=1 is explicitly set
+  if (!app.isPackaged && process.env.OPEN_DEVTOOLS === '1') {
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   }
   mainWindow.webContents.on('console-message', (event, ...args) => {
