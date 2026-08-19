@@ -1884,37 +1884,34 @@ function _doStartBackend() {
 
   let executablePath = ''
   let spawnArgs = []
-  let workingDir = ''
+  let workingDir = path.join(__dirname, '..', 'apps', 'api')
 
-  if (isPackaged) {
-    console.log('[Orchestration] App is packaged. Launching ViraLoop FastAPI Backend via standalone executable...')
+  // Search for Python runtime in root/runtime, apps/api/venv, venv, or system python
+  const candidatePythons = [
+    path.join(__dirname, '..', 'runtime', 'python.exe'),
+    path.join(__dirname, '..', 'runtime', 'Scripts', 'python.exe'),
+    path.join(__dirname, '..', 'apps', 'api', 'venv', 'Scripts', 'python.exe'),
+    path.join(__dirname, '..', 'venv', 'Scripts', 'python.exe'),
+    path.join(resourcesPath, 'api_server.exe')
+  ]
+
+  let foundPython = candidatePythons.find(p => fsSync.existsSync(p))
+
+  if (isPackaged && fsSync.existsSync(path.join(resourcesPath, 'api_server.exe')) && !foundPython?.endsWith('python.exe')) {
+    console.log('[Orchestration] App is packaged. Launching standalone api_server.exe...')
     executablePath = path.join(resourcesPath, 'api_server.exe')
     spawnArgs = []
     workingDir = resourcesPath
-
-    if (!fsSync.existsSync(executablePath)) {
-      console.error('[Orchestration] Standalone api_server.exe not found at:', executablePath)
-      return
-    }
-  } else {
-    console.log('[Orchestration] App is in development. Launching ViraLoop FastAPI Backend via local python venv...')
-    const apiDir = path.join(__dirname, '..', 'apps', 'api')
-    let pythonExecutable = path.join(apiDir, 'venv', 'Scripts', 'python.exe')
-    if (!fsSync.existsSync(pythonExecutable)) {
-      pythonExecutable = path.join(__dirname, '..', 'venv_build', 'Scripts', 'python.exe')
-    }
-    if (!fsSync.existsSync(pythonExecutable)) {
-      pythonExecutable = path.join(__dirname, '..', 'venv', 'Scripts', 'python.exe')
-    }
-
-    if (!fsSync.existsSync(pythonExecutable)) {
-      console.warn('[Orchestration] Python virtual environment not found at:', pythonExecutable)
-      return
-    }
-
-    executablePath = pythonExecutable
+  } else if (foundPython) {
+    console.log('[Orchestration] Launching ViraLoop FastAPI Backend via:', foundPython)
+    executablePath = foundPython
     spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000']
-    workingDir = apiDir
+    workingDir = path.join(__dirname, '..', 'apps', 'api')
+  } else {
+    console.log('[Orchestration] Fallback: using system python...')
+    executablePath = 'python'
+    spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000']
+    workingDir = path.join(__dirname, '..', 'apps', 'api')
   }
 
   // 대용량 미디어 및 브라우저 프로필을 위한 Local AppData 경로 생성 (AD Roaming 방지)

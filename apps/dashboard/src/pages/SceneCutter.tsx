@@ -18,7 +18,7 @@ const SceneCutter: React.FC = () => {
         className="w-full h-full border-none"
         title="Scene Cutter Pro"
         sandbox="allow-scripts allow-same-origin allow-downloads allow-modals allow-popups allow-forms"
-        allow="cross-origin-isolated"
+        allow="clipboard-read *; clipboard-write *; display-capture *; fullscreen *"
       />
     </div>
   );
