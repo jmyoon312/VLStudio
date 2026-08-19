@@ -25,28 +25,32 @@ def discover_ffmpeg() -> str:
     import shutil
     import os
     
-    # 1. Check User Local AppData media bin folder (Primary)
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if not local_app_data:
-        local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    # 1. Check system PATH first
+    if shutil.which("ffmpeg"): return "ffmpeg"
+
+    # 2. Check static_ffmpeg / imageio_ffmpeg in Python environment
+    try:
+        import static_ffmpeg
+        ffmpeg_exe, _ = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise()
+        if ffmpeg_exe and os.path.exists(ffmpeg_exe):
+            return ffmpeg_exe
+    except Exception:
+        pass
+
+    # 3. Check App Root runtime/ffmpeg/bin/ffmpeg.exe
+    current_file = os.path.abspath(__file__)
+    # apps/api/app/config/__init__.py -> root
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    rel_ffmpeg = os.path.join(root_dir, "runtime", "ffmpeg", "bin", "ffmpeg.exe")
+    if os.path.exists(rel_ffmpeg):
+        return rel_ffmpeg
+
+    # 4. Check User Local AppData media bin folder
+    local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
     local_ffmpeg_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "bin", "ffmpeg", "bin", "ffmpeg.exe")
     if os.path.exists(local_ffmpeg_path):
         return local_ffmpeg_path
         
-    # 2. Check bundled / backup ViraLoop FFmpeg at C:\ViraLoopMedia\bin (Secondary)
-    backup_path = r"C:\ViraLoopMedia\bin\ffmpeg\bin\ffmpeg.exe"
-    if os.path.exists(backup_path):
-        return backup_path
-        
-    # 3. Check system PATH
-    if shutil.which("ffmpeg"): return "ffmpeg"
-    
-    # 4. Check Playwright's bundled FFmpeg
-    pw_path: str = os.path.expanduser("~\\AppData\\Local\\ms-playwright")
-    if os.path.exists(pw_path):
-        for root, dirs, files in os.walk(pw_path):
-            if "ffmpeg.exe" in files:
-                return os.path.join(root, "ffmpeg.exe")
     return "ffmpeg"
 
 class Settings(BaseSettings):

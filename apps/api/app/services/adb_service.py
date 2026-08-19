@@ -16,20 +16,26 @@ class ADBService:
     - WSL2/리눅스 환경 호환성 확보
     """
     def __init__(self):
-        # [FIX] Prioritize root-level path to bypass Antivirus DLL profile heuristic blocks (STATUS_DLL_NOT_FOUND 0xC0000135)
-        legacy_path = r"C:\ViraLoopMedia\bin\adb\adb.exe"
+        import shutil
         from app.config import settings as settings_conf
         
-        # [NEW] Check Auto-Downloaded Dependency Installer Path First
+        # 1. Check App Root runtime/adb/adb.exe
+        current_file = os.path.abspath(__file__)
+        root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+        rel_adb = os.path.join(root_dir, "runtime", "adb", "adb.exe")
+        
+        # 2. Check Auto-Downloaded Dependency Installer Path
         auto_downloaded_path = os.path.join(settings_conf.MEDIA_ROOT, "09_System", "bin", "adb", "platform-tools", "adb.exe").replace("\\", "/")
         fallback_auto_downloaded_path = os.path.join(settings_conf.MEDIA_ROOT, "09_System", "bin", "adb", "adb.exe").replace("\\", "/")
         
-        if os.path.exists(auto_downloaded_path):
+        if os.path.exists(rel_adb):
+            self.adb_path = rel_adb
+        elif os.path.exists(auto_downloaded_path):
             self.adb_path = auto_downloaded_path
         elif os.path.exists(fallback_auto_downloaded_path):
             self.adb_path = fallback_auto_downloaded_path
-        elif os.path.exists(legacy_path):
-            self.adb_path = legacy_path
+        elif shutil.which("adb"):
+            self.adb_path = shutil.which("adb")
         else:
             self.adb_path = fallback_auto_downloaded_path
         self.CMD_POWERSHELL = "powershell.exe"

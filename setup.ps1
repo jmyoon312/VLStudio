@@ -73,7 +73,11 @@ if (-not (Test-Path "venv\Scripts\python.exe")) {
 Write-Host ""
 Write-Host "[*] Installing Python backend requirements..." -ForegroundColor Cyan
 & ".\venv\Scripts\pip.exe" install -r apps\api\requirements.txt
-& ".\venv\Scripts\pip.exe" install pydantic-settings "fastapi[standard]" requests
+& ".\venv\Scripts\pip.exe" install pydantic-settings "fastapi[standard]" requests static-ffmpeg
+
+# Ensure FFmpeg binaries are extracted locally in python venv
+Write-Host "[*] Initializing FFmpeg binaries..." -ForegroundColor Cyan
+& ".\venv\Scripts\python.exe" -c "import static_ffmpeg; static_ffmpeg.add_paths()" 2>$null
 
 # 6. Windows Firewall rules
 Write-Host ""

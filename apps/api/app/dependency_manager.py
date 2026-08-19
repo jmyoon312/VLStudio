@@ -127,17 +127,26 @@ class DependencyManager:
             # Prevent picking up a dummy or non-working one if possible, but generally trust system PATH
             return system_ffmpeg
 
-        # 3. Check User Local AppData media bin folder (Primary Bundled Fallback)
+        # 3. Check static_ffmpeg in Python environment
+        try:
+            import static_ffmpeg
+            ffmpeg_exe, _ = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise()
+            if ffmpeg_exe and os.path.exists(ffmpeg_exe):
+                return ffmpeg_exe
+        except Exception:
+            pass
+
+        # 4. Check App Root runtime/ffmpeg/bin/ffmpeg.exe
+        rel_ffmpeg = os.path.join(root_dir, "runtime", "ffmpeg", "bin", "ffmpeg.exe")
+        if os.path.exists(rel_ffmpeg):
+            return rel_ffmpeg
+
+        # 5. Check User Local AppData media bin folder
         local_ffmpeg = os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg", "bin", "ffmpeg.exe")
         if os.path.exists(local_ffmpeg):
             return local_ffmpeg
 
-        # 4. Check backup path at C:\ViraLoopMedia\bin (Secondary Bundled Fallback)
-        backup_ffmpeg = r"C:\ViraLoopMedia\bin\ffmpeg\bin\ffmpeg.exe"
-        if os.path.exists(backup_ffmpeg):
-            return backup_ffmpeg
-
-        # 5. Fallback
+        # 6. Fallback
         return "ffmpeg"
 
     @staticmethod
