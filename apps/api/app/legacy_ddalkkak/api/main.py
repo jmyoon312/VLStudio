@@ -57,8 +57,8 @@ def _sync_global_settings():
             s_dict = dict(s)
             
             # Sync LLM Model & Provider
-            default_model = s_dict.get("default_llm_model") or "gemini-2.0-flash-exp"
-            provider = s_dict.get("openclaw_preferred_provider") or "auto"
+            default_model = s_dict.get("default_llm_model") or "gemini-1.5-flash"
+            provider = s_dict.get("openclaw_preferred_provider") or "youtube1"
             
             os.environ["DEFAULT_LLM_MODEL"] = default_model
 
@@ -76,7 +76,7 @@ def _sync_global_settings():
                     except: pass
             else:
                 os.environ["LLM_BACKEND"] = "youtube1"
-                os.environ["YOUTUBE1_MODEL"] = default_model
+                os.environ["YOUTUBE1_MODEL"] = default_model or "gemini-1.5-flash"
                 
                 # Fetch youtube1 key if available
                 y_keys = s_dict.get("youtube1_api_keys")
@@ -6500,11 +6500,17 @@ async def tts_dub_download(job_id: int, kind: str,
         raise HTTPException(403, "권한 없음")
     base = (job.get("video_filename") or f"job_{job_id}").rsplit(".", 1)[0]
     if kind == "srt" and job.get("srt_path"):
-        return FileResponse(job["srt_path"], filename=base + ".srt",
-                            media_type="application/x-subrip")
+        srt_p = Path(job["srt_path"])
+        if srt_p.exists():
+            return FileResponse(str(srt_p), filename=base + ".srt",
+                                media_type="application/x-subrip")
+        raise HTTPException(404, "SRT 파일이 디스크에 없습니다")
     if kind == "mp3" and job.get("tts_path"):
-        return FileResponse(job["tts_path"], filename=base + "_TTS.mp3",
-                            media_type="audio/mpeg")
+        tts_p = Path(job["tts_path"])
+        if tts_p.exists():
+            return FileResponse(str(tts_p), filename=base + "_TTS.mp3",
+                                media_type="audio/mpeg")
+        raise HTTPException(404, "TTS 오디오 파일이 디스크에 없습니다")
     if kind == "bgm" and job.get("tts_path"):
         # convention: bgm_mix.mp3는 tts.mp3와 같은 폴더
         bgm_path = Path(job["tts_path"]).parent / "bgm_mix.mp3"
@@ -6612,6 +6618,81 @@ async def tts_dub_export_capcut(job_id: int, target_path: str = None, current=De
             
     gen.generate_local_project(str(target_folder), media_paths)
     return {"ok": True, "project": project_name}
+
+
+@app.get("/tts-dub/{job_id}/capcut-data")
+async def tts_dub_capcut_data(job_id: int, current=Depends(auth.require_feature("subtitle"))):
+    job = db.get_tts_dub_job(job_id)
+    if not job:
+        raise HTTPException(404, "job not found")
+        
+    video_path = job.get("video_path")
+    if not video_path or not Path(video_path).exists():
+        raise HTTPException(400, "Original video file is missing on disk")
+        
+    duration = float(job.get("duration_sec") or 0.0)
+    if duration == 0:
+        duration = 60.0
+        
+    tts_path = job.get("tts_path")
+    srt_path = job.get("srt_path")
+    
+    subtitles = []
+    if srt_path and Path(srt_path).exists():
+        try:
+            content = Path(srt_path).read_text(encoding="utf-8")
+            blocks = [b.strip() for b in content.strip().split("\n\n") if b.strip()]
+            for block in blocks:
+                lines = block.splitlines()
+                if len(lines) >= 2:
+                    times = lines[1].split(" --> ")
+                    if len(times) == 2:
+                        def ts2sec(ts):
+                            ts = ts.strip().replace(",", ".")
+                            h, m, s = ts.split(":")
+                            return int(h)*3600 + int(m)*60 + float(s)
+                        try:
+                            start_sec = ts2sec(times[0])
+                            end_sec = ts2sec(times[1])
+                            text = "\n".join(lines[2:]).strip()
+                            subtitles.append({
+                                "start": start_sec,
+                                "end": end_sec,
+                                "text": text,
+                                "track": "dub_subtitle"
+                            })
+                        except Exception:
+                            pass
+        except Exception as e:
+            print(f"SRT parse error: {e}")
+            
+    title_text = None
+    res_json = job.get("result_json")
+    if isinstance(res_json, str):
+        try:
+            res_json = json.loads(res_json)
+        except Exception:
+            res_json = None
+    if isinstance(res_json, dict):
+        title_text = res_json.get("hook_title") or res_json.get("youtube_title")
+        
+    media_files = [
+        {"src": str(video_path).replace("\\", "/"), "name": Path(video_path).name}
+    ]
+    if tts_path and Path(tts_path).exists():
+        media_files.append({"src": str(tts_path).replace("\\", "/"), "name": Path(tts_path).name})
+        
+    project_name = f"Ddalkkak_TTSDub_{job_id}"
+    return {
+        "ok": True,
+        "project_name": project_name,
+        "duration_sec": duration,
+        "video_path": str(video_path).replace("\\", "/"),
+        "audio_path": str(tts_path).replace("\\", "/") if tts_path else None,
+        "subtitles": subtitles,
+        "title": title_text,
+        "media_files": media_files
+    }
 
 
 # ===== 쇼츠 메이커 (긴 URL → 하이라이트 N개 → ≤59초 쇼츠 양산) =====

@@ -585,7 +585,7 @@ async def call_gemini(model: str, file_uri: str, prompt: str,
     """Gemini 호출 + JSON 응답 받기. LLM_BACKEND=youtube1 시 gemini_auth.call_gemini()로 라우팅."""
     from workers.llm import get_llm_backend
     if fallback_chain is None:
-        fallback_chain = (os.getenv("DEFAULT_LLM_MODEL", "gemini-2.0-flash-exp-exp"), "gemini-2.0-flash-exp-lite-001", os.getenv("DEFAULT_LLM_MODEL", "gemini-2.0-flash-exp-exp"))
+        fallback_chain = (os.getenv("DEFAULT_LLM_MODEL", "gemini-1.5-flash"), "gemini-1.5-flash", "gemini-2.5-flash")
         
     if get_llm_backend() == "youtube1":
         payload = {
@@ -616,8 +616,8 @@ async def call_gemini(model: str, file_uri: str, prompt: str,
     last_err: Exception | None = None
     _original_model = model
     gemini_model = model
-    if "/" in gemini_model or "youtube" in gemini_model:
-        gemini_model = "gemini-2.0-flash"
+    if "/" in gemini_model or "youtube" in gemini_model or "gemini-2.0" in gemini_model:
+        gemini_model = "gemini-1.5-flash"
     # 시도별 max tokens 증가 (응답 잘림 대응)
     max_tokens_per_try = [16384, 24576, 32768]
     for attempt in range(max_retries):

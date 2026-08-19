@@ -80,7 +80,7 @@ export const ddalkkakApi = {
   },
 
   createSubtitleJob: async (formData: FormData) => {
-    const res = await apiLong.post('/ddalkkak/api/subtitle/create', formData, {
+    const res = await apiLong.post('/ddalkkak/api/subtitle/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     return res.data;
@@ -92,8 +92,10 @@ export const ddalkkakApi = {
     return Array.isArray(res.data) ? res.data : (res.data?.jobs || []);
   },
 
-  createTtsJob: async (data: { text: string; voice: string; speed?: number; pitch?: number }) => {
-    const res = await apiLong.post('/ddalkkak/api/tts-dub/create', data);
+  createTtsJob: async (formData: FormData) => {
+    const res = await apiLong.post('/ddalkkak/api/tts-dub/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return res.data;
   },
 

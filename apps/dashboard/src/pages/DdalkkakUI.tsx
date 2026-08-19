@@ -181,14 +181,22 @@ const DdalkkakUI: React.FC = () => {
       try {
         if (item.file) {
           const fd = new FormData();
-          fd.append('file', item.file);
-          fd.append('style', 'shorts');
           if (batchMode === 'subtitle') {
+            fd.append('video', item.file);
+            fd.append('style', 'shorts');
             const res = await ddalkkakApi.createSubtitleJob(fd);
             setBatchItems((prev) =>
               prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, jobId: res.job_id, message: '자막 작업 등록 완료' } : it))
             );
+          } else if (batchMode === 'ttsdub') {
+            fd.append('file', item.file);
+            fd.append('make_tts', '0');
+            const res = await ddalkkakApi.createTtsJob(fd);
+            setBatchItems((prev) =>
+              prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, jobId: res.id, message: '더빙 작업 등록 완료' } : it))
+            );
           } else if (batchMode === 'clip') {
+            fd.append('file', item.file);
             const res = await ddalkkakApi.createClipEditJob(fd);
             setBatchItems((prev) =>
               prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, jobId: res.job_id, message: '클립 작업 등록 완료' } : it))
@@ -260,7 +268,7 @@ const DdalkkakUI: React.FC = () => {
           src={iframeSrc}
           className="w-full h-full border-0"
           title="Ddalkkak Studio"
-          allow="clipboard-read; clipboard-write; microphone; camera"
+          allow="clipboard-read *; clipboard-write *; microphone *; camera *; display-capture *; fullscreen *"
         />
       </div>
 
