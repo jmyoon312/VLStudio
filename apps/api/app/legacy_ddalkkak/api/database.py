@@ -147,53 +147,143 @@ def _ensure_visual_match_columns(conn) -> None:
 
 
 def init_db():
-    """Initialize DB from schema.sql if not exists."""
-    with get_db() as conn:
-        for v in ["schema.sql", "schema_v2.sql", "schema_v3.sql", "schema_v4.sql", "schema_v5.sql", "schema_v6.sql", "schema_v7.sql", "schema_v8.sql", "schema_v9.sql"]:
+    """Initialize DB from schema.sql if not exists.
+    Uses a raw sqlite3 connection (not get_db()) to avoid executescript()
+    autocommit conflicts with the contextmanager transaction.
+    """
+    print(f"🗄️  init_db: DB_PATH = {DB_PATH}")
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Use raw connection so executescript() doesn't conflict with get_db() transactions
+    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA foreign_keys = ON")
+
+        # Apply schema files in order
+        for v in ["schema.sql", "schema_v2.sql", "schema_v3.sql", "schema_v4.sql",
+                   "schema_v5.sql", "schema_v6.sql", "schema_v7.sql", "schema_v8.sql",
+                   "schema_v9.sql"]:
             sp = Path(__file__).parent.parent / "db" / v
             if sp.exists():
                 try:
                     conn.executescript(sp.read_text(encoding="utf-8"))
+                    print(f"  ✅ Applied {v}")
                 except Exception as e:
-                    print(f"⚠️ Failed to apply {v}: {e}")
-        
-        # Fallback direct creation for essential tables
-        conn.execute("""CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'admin',
-            full_name TEXT,
-            features TEXT DEFAULT '["subtitle","ttsdub","clip"]',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            last_login_at TEXT
-        )""")
-        
-        conn.execute("""CREATE TABLE IF NOT EXISTS subtitle_jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            video_filename TEXT,
-            video_path TEXT,
-            duration_sec REAL,
-            original_urls TEXT,
-            status TEXT DEFAULT 'pending',
-            progress INTEGER DEFAULT 0,
-            progress_message TEXT,
-            subtitle_paths TEXT,
-            title_candidates TEXT,
-            gemini_results TEXT,
-            cross_validation TEXT,
-            needs_review INTEGER DEFAULT 0,
-            review_note TEXT,
-            user_id INTEGER,
-            cost_usd REAL DEFAULT 0,
-            error TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            completed_at TEXT,
-            style TEXT DEFAULT 'shorts',
-            tts_config TEXT
-        )""")
-        _ensure_visual_match_columns(conn)
-        # users 개인 API 키 컬럼 (프리랜서 비용 분리: Gemini=대본, Typecast=TTS)
+                    print(f"  ⚠️ Failed to apply {v}: {e}")
+            else:
+                print(f"  ⚠️ Schema file not found: {sp}")
+
+        # Fallback direct creation for essential tables (idempotent via IF NOT EXISTS)
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'admin',
+                full_name TEXT,
+                features TEXT DEFAULT '["subtitle","ttsdub","clip"]',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                last_login_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS subtitle_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_filename TEXT,
+                video_path TEXT,
+                duration_sec REAL,
+                original_urls TEXT,
+                status TEXT DEFAULT 'pending',
+                progress INTEGER DEFAULT 0,
+                progress_message TEXT,
+                subtitle_paths TEXT,
+                title_candidates TEXT,
+                gemini_results TEXT,
+                cross_validation TEXT,
+                needs_review INTEGER DEFAULT 0,
+                review_note TEXT,
+                user_id INTEGER,
+                cost_usd REAL DEFAULT 0,
+                error TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT,
+                style TEXT DEFAULT 'shorts',
+                tts_config TEXT
+            );
+            CREATE TABLE IF NOT EXISTS clip_edit_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                urls TEXT,
+                song_title TEXT,
+                target_duration INTEGER DEFAULT 50,
+                status TEXT DEFAULT 'pending',
+                progress INTEGER DEFAULT 0,
+                progress_message TEXT,
+                result_path TEXT,
+                segments_json TEXT,
+                cost_usd REAL DEFAULT 0,
+                user_id INTEGER,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT,
+                error TEXT,
+                srt_path TEXT,
+                make_tts INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS audio_subtitle_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                audio_filename TEXT,
+                audio_path TEXT,
+                duration_sec REAL,
+                status TEXT DEFAULT 'pending',
+                progress INTEGER DEFAULT 0,
+                progress_message TEXT,
+                segments_json TEXT,
+                srt_path TEXT,
+                user_id INTEGER,
+                cost_usd REAL DEFAULT 0,
+                error TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS tts_dub_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                video_filename TEXT,
+                video_path TEXT,
+                duration_sec REAL,
+                status TEXT DEFAULT 'pending',
+                progress INTEGER DEFAULT 0,
+                progress_message TEXT,
+                result_json TEXT,
+                srt_path TEXT,
+                tts_path TEXT,
+                voice_id TEXT,
+                user_id INTEGER,
+                cost_usd REAL DEFAULT 0,
+                error TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT
+            );
+            CREATE TABLE IF NOT EXISTS shorts_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT,
+                name TEXT,
+                out_dir TEXT,
+                status TEXT DEFAULT 'pending',
+                progress INTEGER DEFAULT 0,
+                progress_message TEXT,
+                highlights_count INTEGER DEFAULT 0,
+                results_json TEXT,
+                pass1_json TEXT,
+                source_duration REAL,
+                source_size_mb INTEGER,
+                user_id INTEGER,
+                cost_usd REAL DEFAULT 0,
+                error TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                completed_at TEXT
+            );
+        """)
+
+        # Column migrations (ALTER TABLE — not supported in executescript multi-DDL)
         try:
             ucols = {r[1] for r in conn.execute("PRAGMA table_info(users)")}
             if "gemini_api_key" not in ucols:
@@ -202,88 +292,50 @@ def init_db():
                 conn.execute("ALTER TABLE users ADD COLUMN typecast_api_key TEXT")
         except Exception:
             pass
-        # subtitle_jobs.style & tts_config 보강
         try:
             scols = {r[1] for r in conn.execute("PRAGMA table_info(subtitle_jobs)")}
             if "style" not in scols:
                 conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN style TEXT DEFAULT 'shorts'")
             if "tts_config" not in scols:
                 conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN tts_config TEXT")
+            if "cost_usd" not in scols:
+                conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN cost_usd REAL DEFAULT 0")
         except Exception:
             pass
-        # tts_dub_jobs.tts_config 보강
         try:
             tcols = {r[1] for r in conn.execute("PRAGMA table_info(tts_dub_jobs)")}
             if "tts_config" not in tcols:
                 conn.execute("ALTER TABLE tts_dub_jobs ADD COLUMN tts_config TEXT")
+            if "cost_usd" not in tcols:
+                conn.execute("ALTER TABLE tts_dub_jobs ADD COLUMN cost_usd REAL DEFAULT 0")
         except Exception:
             pass
-        # 클립편집 잡 테이블 (스키마 파일엔 없음 — 빈 DB에서 자동 생성, 대표님 0614 배포 호환)
-        conn.execute("""CREATE TABLE IF NOT EXISTS clip_edit_jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, urls TEXT, song_title TEXT,
-            target_duration INTEGER DEFAULT 50, status TEXT DEFAULT 'pending',
-            progress INTEGER DEFAULT 0, progress_message TEXT, result_path TEXT,
-            segments_json TEXT, cost_usd REAL DEFAULT 0, user_id INTEGER,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP, completed_at TEXT, error TEXT,
-            srt_path TEXT, make_tts INTEGER DEFAULT 0)""")
-        # 음성 자막 잡 테이블 (Whisper large-v3 + Gemini 어투보존 교정 + 검수)
-        conn.execute("""CREATE TABLE IF NOT EXISTS audio_subtitle_jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            audio_filename TEXT,
-            audio_path TEXT,
-            duration_sec REAL,
-            status TEXT DEFAULT 'pending',
-            progress INTEGER DEFAULT 0,
-            progress_message TEXT,
-            segments_json TEXT,
-            srt_path TEXT,
-            user_id INTEGER,
-            cost_usd REAL DEFAULT 0,
-            error TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            completed_at TEXT
-        )""")
+        try:
+            dcols = {r[1] for r in conn.execute("PRAGMA table_info(dissection_analyses)")}
+            if dcols and "cost_usd" not in dcols:
+                conn.execute("ALTER TABLE dissection_analyses ADD COLUMN cost_usd REAL DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            rcols = {r[1] for r in conn.execute("PRAGMA table_info(remixes)")}
+            if rcols and "cost_usd" not in rcols:
+                conn.execute("ALTER TABLE remixes ADD COLUMN cost_usd REAL DEFAULT 0")
+        except Exception:
+            pass
 
-        # 대본+더빙 (영상→Gemini 대본/메타 + 타입캐스트 TTS + SRT)
-        conn.execute("""CREATE TABLE IF NOT EXISTS tts_dub_jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            video_filename TEXT,
-            video_path TEXT,
-            duration_sec REAL,
-            status TEXT DEFAULT 'pending',
-            progress INTEGER DEFAULT 0,
-            progress_message TEXT,
-            result_json TEXT,
-            srt_path TEXT,
-            tts_path TEXT,
-            voice_id TEXT,
-            user_id INTEGER,
-            cost_usd REAL DEFAULT 0,
-            error TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            completed_at TEXT
-        )""")
+        conn.commit()
+        _ensure_visual_match_columns(conn)
+        conn.commit()
+        print("✅ init_db complete")
+    except Exception as e:
+        print(f"❌ init_db FAILED: {e}")
+        import traceback
+        traceback.print_exc()
+        conn.rollback()
+    finally:
+        conn.close()
 
-        # 쇼츠 메이커 (긴 URL → 하이라이트 N개 → 각 ≤59초 쇼츠+자막+메타)
-        conn.execute("""CREATE TABLE IF NOT EXISTS shorts_jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            url TEXT,
-            name TEXT,
-            out_dir TEXT,
-            status TEXT DEFAULT 'pending',
-            progress INTEGER DEFAULT 0,
-            progress_message TEXT,
-            highlights_count INTEGER DEFAULT 0,
-            results_json TEXT,
-            pass1_json TEXT,
-            source_duration REAL,
-            source_size_mb INTEGER,
-            user_id INTEGER,
-            cost_usd REAL DEFAULT 0,
-            error TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            completed_at TEXT
-        )""")
+
 
 
 # ===== Dissection analysis CRUD =====
