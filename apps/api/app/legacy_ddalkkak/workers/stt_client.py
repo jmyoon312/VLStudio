@@ -141,9 +141,8 @@ def _call_whisper(audio_path: str | Path, language: str | None,
                   progress_cb=None) -> dict:
     """VLStudio's faster-whisper fallback."""
     import subprocess
-    import json
-    
-    python_exe = r"C:\ViraLoopMedia\VLStudio\venv\Scripts\python.exe"
+    import sys
+    python_exe = sys.executable
     script_path = str(Path(__file__).parent / "run_whisper.py")
     
     cmd = [python_exe, script_path, str(audio_path), str(language or "None"), "base"]

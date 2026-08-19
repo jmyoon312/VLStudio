@@ -84,8 +84,7 @@ else:
         connect_args={"check_same_thread": False, "timeout": 35}
     )
 
-    with open(r"C:\ViraLoopMedia\VLStudio\db_url.txt", "a") as f:
-        f.write(f"PID {os.getpid()} engine URL: {SQLALCHEMY_DATABASE_URL}\n")
+
 
 
     # Enable WAL Mode for SQLite concurrency (Development/Desktop only)
