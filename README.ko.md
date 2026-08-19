@@ -271,9 +271,39 @@ POST /api/references       — 레퍼런스 조회
 POST /api/generate         — 이미지 생성 트리거
 ```
 
+## 빠른 시작 및 간편 설치 (Quick Start)
+
+초기화된 윈도우 11 및 모든 PC에서 사전 프로그램(Node.js, Python 등)을 별도로 설치할 필요 없이, **원클릭 자동 설치**로 즉시 사용할 수 있습니다.
+
+### 📥 1. 소스 코드 다운로드
+- **Git 사용 시**:
+  ```bash
+  git clone https://github.com/jmyoon312/VLStudio.git
+  cd VLStudio
+  ```
+- **일반 다운로드**: 상단 **`Code` → `Download ZIP`** 다운로드 후 원하는 폴더에 압축 해제
+
+### ⚙️ 2. 원클릭 환경 자동 구성 (최초 1회)
+- 압축 해제한 폴더에서 **`setup_install.bat`** 파일을 **우클릭 → [관리자 권한으로 실행]**
+- Node.js LTS, Python 3.11, 백엔드 의존성 및 방화벽 설정이 무인(Silent)으로 자동 설치되며, 바탕화면에 **"ViraLoop Studio" 바로가기 아이콘**이 생성됩니다.
+
+### 🚀 3. 앱 실행 및 업데이트
+- **실행**: 바탕화면의 **`ViraLoop Studio`** 아이콘(또는 `ViraLoop Studio.bat`) 더블클릭
+- **원클릭 업데이트**: 폴더 내 **`Update.bat`**을 더블클릭하면 1초 만에 최신 버전으로 자동 동기화
+
+---
+
+## 외부 접속 및 웹 브라우저 사용
+
+앱을 켜두면 데스크톱 앱뿐만 아니라 크롬 브라우저 및 외부 네트워크에서도 접근할 수 있습니다:
+- **로컬 웹 대시보드**: `http://localhost:5183`
+- **로컬 LAN IP 접속**: `http://192.168.45.228:5183`
+- **Nginx Proxy Manager(NPM) 연동**: `viraloop.gogloo.gleeze.com` 형태로 외부 도메인 포워딩 지원
+
 ## 다운로드
 
-- **macOS / Windows**: [GitHub Releases](https://github.com/jmyoon312/VLStudio/releases)
+- **GitHub 소스 & 런처**: [github.com/jmyoon312/VLStudio](https://github.com/jmyoon312/VLStudio)
+- **과거 설치형 아카이브**: [GitHub Releases](https://github.com/jmyoon312/VLStudio/releases)
 
 ## 링크
 

@@ -271,9 +271,39 @@ POST /api/references       — Query references
 POST /api/generate         — Trigger image generation
 ```
 
-## Download
+## Quick Start & One-Click Setup
 
-- **macOS / Windows**: [GitHub Releases](https://github.com/jmyoon312/VLStudio/releases)
+No need to manually install dependencies (Node.js, Python, etc.) on clean Windows machines. Everything is handled automatically.
+
+### 📥 1. Download
+- **Via Git**:
+  ```bash
+  git clone https://github.com/jmyoon312/VLStudio.git
+  cd VLStudio
+  ```
+- **Direct Download**: Click **`Code` → `Download ZIP`** on GitHub and extract to any directory.
+
+### ⚙️ 2. One-Click Environment Setup (First time only)
+- Right-click **`setup_install.bat`** in the extracted directory and choose **[Run as administrator]**.
+- Node.js LTS, Python 3.11, backend libraries, and firewall rules will be automatically installed in silent mode, and a **"ViraLoop Studio" desktop shortcut** will be created.
+
+### 🚀 3. Run & Update
+- **Launch**: Double-click the **`ViraLoop Studio`** desktop shortcut (or `ViraLoop Studio.bat`).
+- **Instant Update**: Double-click **`Update.bat`** to pull and sync the latest updates in 1 second.
+
+---
+
+## Web Browser & LAN Access
+
+When the app is running, access the dashboard from Chrome or your local network:
+- **Local Web**: `http://localhost:5183`
+- **LAN Access**: `http://192.168.45.228:5183`
+- **Nginx Proxy Manager**: Supports external domain routing (e.g. `viraloop.gogloo.gleeze.com`)
+
+## Downloads
+
+- **Source & Smart Launcher**: [github.com/jmyoon312/VLStudio](https://github.com/jmyoon312/VLStudio)
+- **Archived Installers**: [GitHub Releases](https://github.com/jmyoon312/VLStudio/releases)
 
 ## Links
 
