@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS dissection_analyses (
     excluded_keywords TEXT,
     excluded_channels TEXT,
     platforms TEXT,
+    cost_usd REAL DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     completed_at TEXT,
     error TEXT

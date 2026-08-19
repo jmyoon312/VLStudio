@@ -65,7 +65,8 @@ venv_build/
 *.sqlite
 *.sqlite3
 apps/api/app/legacy_ddalkkak/data/
-apps/api/app/legacy_ddalkkak/db/
+apps/api/app/legacy_ddalkkak/db/*.db
+apps/api/app/legacy_ddalkkak/db/*.sqlite*
 # Non-essential / workflow / test bundles
 infra/workflows/
 .agent/
