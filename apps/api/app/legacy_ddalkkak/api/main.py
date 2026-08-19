@@ -139,7 +139,29 @@ PUBLIC_PATHS = {"/health", "/", "/manifest.json", "/sw.js", "/favicon.ico",
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    # ── post-init guard: 필수 테이블이 없으면 init_db 재실행 ──────────────────
+    # 신규 PC 에서 init_db 가 executescript 충돌로 테이블 생성에 실패했을 때 보호
+    try:
+        import sqlite3 as _sqlite3
+        _conn = _sqlite3.connect(str(db.DB_PATH), timeout=10)
+        _tables = {r[0] for r in _conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        _conn.close()
+        _REQUIRED = {"subtitle_jobs", "tts_dub_jobs", "clip_edit_jobs",
+                     "audio_subtitle_jobs", "shorts_jobs", "users"}
+        _missing = _REQUIRED - _tables
+        if _missing:
+            print(f"⚠️  Missing tables detected after init_db: {_missing}")
+            print("🔄 Re-running init_db() …")
+            db.init_db()
+        else:
+            print(f"✅ All required tables present: {_REQUIRED}")
+    except Exception as _e:
+        print(f"⚠️  Table-existence check failed: {_e}")
+    # ────────────────────────────────────────────────────────────────────────
     auth.bootstrap_admin()
+
     # Cleanup orphaned remix tasks left over from previous server crash/reload
     try:
         with db.get_db() as conn:

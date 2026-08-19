@@ -1077,19 +1077,23 @@ def get_subtitle_job(job_id: int) -> Optional[dict]:
 
 
 def list_subtitle_jobs(user_id: int = None, limit: int = 50) -> list[dict]:
-    with get_db() as conn:
-        if user_id:
-            rows = conn.execute(
-                "SELECT * FROM subtitle_jobs WHERE user_id=? "
-                "ORDER BY created_at DESC LIMIT ?",
-                (user_id, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM subtitle_jobs ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [dict(r) for r in rows]
+    try:
+        with get_db() as conn:
+            if user_id:
+                rows = conn.execute(
+                    "SELECT * FROM subtitle_jobs WHERE user_id=? "
+                    "ORDER BY created_at DESC LIMIT ?",
+                    (user_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM subtitle_jobs ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"⚠️ list_subtitle_jobs error (table may not exist yet): {e}")
+        return []
 
 
 def delete_subtitle_job(job_id: int) -> None:
@@ -1129,19 +1133,23 @@ def get_audio_subtitle_job(job_id: int) -> Optional[dict]:
 
 
 def list_audio_subtitle_jobs(user_id: int = None, limit: int = 50) -> list[dict]:
-    with get_db() as conn:
-        if user_id:
-            rows = conn.execute(
-                "SELECT * FROM audio_subtitle_jobs WHERE user_id=? "
-                "ORDER BY created_at DESC LIMIT ?",
-                (user_id, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM audio_subtitle_jobs ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [dict(r) for r in rows]
+    try:
+        with get_db() as conn:
+            if user_id:
+                rows = conn.execute(
+                    "SELECT * FROM audio_subtitle_jobs WHERE user_id=? "
+                    "ORDER BY created_at DESC LIMIT ?",
+                    (user_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM audio_subtitle_jobs ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"⚠️ list_audio_subtitle_jobs error (table may not exist yet): {e}")
+        return []
 
 
 def delete_audio_subtitle_job(job_id: int) -> None:
@@ -1182,19 +1190,23 @@ def get_tts_dub_job(job_id: int) -> Optional[dict]:
 
 
 def list_tts_dub_jobs(user_id: int = None, limit: int = 50) -> list[dict]:
-    with get_db() as conn:
-        if user_id:
-            rows = conn.execute(
-                "SELECT * FROM tts_dub_jobs WHERE user_id=? "
-                "ORDER BY created_at DESC LIMIT ?",
-                (user_id, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM tts_dub_jobs ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [dict(r) for r in rows]
+    try:
+        with get_db() as conn:
+            if user_id:
+                rows = conn.execute(
+                    "SELECT * FROM tts_dub_jobs WHERE user_id=? "
+                    "ORDER BY created_at DESC LIMIT ?",
+                    (user_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM tts_dub_jobs ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"⚠️ list_tts_dub_jobs error (table may not exist yet): {e}")
+        return []
 
 
 def delete_tts_dub_job(job_id: int) -> None:
@@ -1303,18 +1315,22 @@ def get_clip_edit_job(job_id: int) -> Optional[dict]:
 
 
 def list_clip_edit_jobs(user_id: int = None, limit: int = 50) -> list[dict]:
-    with get_db() as conn:
-        if user_id:
-            rows = conn.execute(
-                "SELECT * FROM clip_edit_jobs WHERE user_id=? "
-                "ORDER BY created_at DESC LIMIT ?", (user_id, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM clip_edit_jobs ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [dict(r) for r in rows]
+    try:
+        with get_db() as conn:
+            if user_id:
+                rows = conn.execute(
+                    "SELECT * FROM clip_edit_jobs WHERE user_id=? "
+                    "ORDER BY created_at DESC LIMIT ?", (user_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM clip_edit_jobs ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"⚠️ list_clip_edit_jobs error (table may not exist yet): {e}")
+        return []
 
 
 def delete_clip_edit_job(job_id: int) -> None:
@@ -1362,19 +1378,23 @@ def get_japanese_multiuse_job(job_id: int) -> Optional[dict]:
 
 
 def list_japanese_multiuse_jobs(user_id: int = None, limit: int = 50) -> list[dict]:
-    with get_db() as conn:
-        if user_id:
-            rows = conn.execute(
-                "SELECT * FROM japanese_multiuse_jobs WHERE user_id=? "
-                "ORDER BY created_at DESC LIMIT ?",
-                (user_id, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM japanese_multiuse_jobs ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        return [dict(r) for r in rows]
+    try:
+        with get_db() as conn:
+            if user_id:
+                rows = conn.execute(
+                    "SELECT * FROM japanese_multiuse_jobs WHERE user_id=? "
+                    "ORDER BY created_at DESC LIMIT ?",
+                    (user_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM japanese_multiuse_jobs ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"⚠️ list_japanese_multiuse_jobs error (table may not exist yet): {e}")
+        return []
 
 
 def delete_japanese_multiuse_job(job_id: int) -> None:
