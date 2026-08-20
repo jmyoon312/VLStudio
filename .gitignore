@@ -123,3 +123,5 @@ apps/api/parse_old_transcript.py
 apps/api/parse_transcript.py
 apps/api/test_browser_profiles.py
 apps/api/test_import.py
+
+apps/api/07_Downloads/
