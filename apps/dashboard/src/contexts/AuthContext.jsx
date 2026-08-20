@@ -17,7 +17,10 @@ import {
 } from '../firebase/firestore'
 
 const IS_DEV = import.meta.env.DEV
-const VITE_DEV_BYPASS_AUTH = true
+// Bypass auth in Vite dev server OR pre-built Electron (non-packaged)
+// window.electronAPI exists in all Electron contexts (packaged or not)
+const IS_ELECTRON = typeof window !== 'undefined' && !!window.electronAPI
+const VITE_DEV_BYPASS_AUTH = IS_DEV || IS_ELECTRON
 
 const DEV_MOCK_USER = Object.freeze({
   uid: 'dev-bypass-user',
