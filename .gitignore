@@ -99,3 +99,5 @@ db_url.txt
 *.dll
 *.exe
 
+
+apps/dashboard/dist/
