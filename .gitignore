@@ -101,3 +101,25 @@ db_url.txt
 
 
 apps/dashboard/dist/
+
+# apps/swarm (openclaw - unused external agent framework)
+apps/swarm/
+
+# apps/api runtime/debug files
+apps/api/*.log
+apps/api/**/*.log
+apps/api/*.png
+apps/api/CACHEDIR.TAG
+apps/api/**/__pycache__/
+apps/api/.pytest_cache/
+
+# apps/api one-off utility scripts
+apps/api/check_dates.py
+apps/api/cleanup_old_videos.py
+apps/api/diagnose_db.py
+apps/api/find_channel_ids.py
+apps/api/migrate_profile_type.py
+apps/api/parse_old_transcript.py
+apps/api/parse_transcript.py
+apps/api/test_browser_profiles.py
+apps/api/test_import.py
