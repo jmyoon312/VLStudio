@@ -267,7 +267,7 @@ const Home = () => {
                     },
                     { 
                         label: "누적 숏폼 비디오", 
-                        value: stats.total_videos || "1,248", 
+                        value: stats.total_videos ?? 0, 
                         detail: `오늘 다운로드/생성: ${stats.downloaded_today}개`, 
                         icon: Flame, 
                         color: "text-rose-500 dark:text-rose-400",
