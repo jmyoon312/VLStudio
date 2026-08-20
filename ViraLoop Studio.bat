@@ -10,21 +10,20 @@ set "ROOT_DIR=%~dp0"
 set "PATH=%ROOT_DIR%runtime\adb;%ROOT_DIR%runtime\ffmpeg;%ROOT_DIR%runtime\ytdlp;%PATH%"
 
 rem -------------------------------------------------------
-rem  1단계: Pre-built 파일이 있는지 확인
+rem  Step 1: Check if pre-built files exist
 rem -------------------------------------------------------
 if not exist "%ROOT_DIR%dist-electron\main.js" goto :dev_mode
 
 rem -------------------------------------------------------
-rem  2단계: git hash 비교 (코드 변경 감지)
-rem  - 빌드 시점 hash: dist-electron\.build-hash 에 저장됨
-rem  - 현재 HEAD hash: git rev-parse HEAD 로 읽음
-rem  - 두 값이 다르면 → 코드가 바뀐 것 (git pull 등)
+rem  Step 2: Compare git hash to detect stale build
+rem  - Build-time hash saved in: dist-electron\.build-hash
+rem  - Current HEAD hash read from: git rev-parse HEAD
+rem  - If different -> code has changed since last build
 rem -------------------------------------------------------
 set "BUILD_HASH_FILE=%ROOT_DIR%dist-electron\.build-hash"
 set "CURRENT_HASH="
 set "BUILT_HASH="
 
-rem 현재 git HEAD hash 읽기 (git 없으면 건너뜀)
 for /f "delims=" %%H in ('git rev-parse HEAD 2^>nul') do set "CURRENT_HASH=%%H"
 
 if defined CURRENT_HASH (
@@ -35,32 +34,32 @@ if defined CURRENT_HASH (
     if defined BUILT_HASH (
         if not "!CURRENT_HASH!"=="!BUILT_HASH!" (
             echo ===================================================
-            echo  [!] 코드 변경 감지됨!
-            echo      빌드: !BUILT_HASH:~0,7!
-            echo      현재: !CURRENT_HASH:~0,7!
+            echo  [!] Code change detected since last build!
+            echo      Built : !BUILT_HASH:~0,7!
+            echo      Current: !CURRENT_HASH:~0,7!
             echo ===================================================
             echo.
-            echo  선택하세요:
-            echo  [1] 지금 바로 확인 (dev 모드, 느리지만 최신 코드)
-            echo  [2] 재빌드 후 실행 (3~10분 소요, 이후 빠른 시작)
-            echo  [3] 현재 빌드로 그냥 실행 (이전 코드)
+            echo  Choose an option:
+            echo  [1] Run in dev mode now  (latest code, slower start)
+            echo  [2] Rebuild then run     (3-10 min, fast from next time)
+            echo  [3] Run current build    (old code, fast start)
             echo.
-            set /p "CHOICE=선택 (1/2/3): "
+            set /p "CHOICE=Enter choice (1/2/3): "
 
             if "!CHOICE!"=="1" goto :dev_mode
             if "!CHOICE!"=="2" goto :rebuild_and_run
-            rem 3 또는 기타: 현재 빌드로 그냥 실행
+            rem 3 or anything else: run existing build
             echo.
-            echo [*] 현재 빌드로 실행합니다...
+            echo [*] Running current build...
         )
     )
 )
 
 rem -------------------------------------------------------
-rem  3단계: Pre-built 실행 (VITE_DEV_SERVER_URL 없이)
+rem  Step 3: Launch pre-built Electron (no Vite dev server)
 rem -------------------------------------------------------
 :prebuilt_run
-echo [*] Pre-built 모드로 실행합니다 (빠른 시작)...
+echo [*] Launching in pre-built mode (fast start)...
 echo.
 npx electron .
 if %ERRORLEVEL% NEQ 0 (
@@ -74,24 +73,24 @@ if %ERRORLEVEL% NEQ 0 (
 goto :eof
 
 rem -------------------------------------------------------
-rem  재빌드 후 실행
+rem  Rebuild then run
 rem -------------------------------------------------------
 :rebuild_and_run
 echo.
-echo [*] 재빌드 중입니다... (잠시 기다려주세요)
+echo [*] Rebuilding... please wait.
 call npm run pack
 if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] 빌드 실패. dev 모드로 전환합니다.
+    echo [ERROR] Build failed. Falling back to dev mode.
     goto :dev_mode
 )
-echo [OK] 빌드 완료!
+echo [OK] Build complete!
 goto :prebuilt_run
 
 rem -------------------------------------------------------
-rem  개발 서버 모드 (fallback)
+rem  Dev server mode (fallback / latest code)
 rem -------------------------------------------------------
 :dev_mode
-echo [*] 개발 서버 모드로 실행합니다 (최신 코드, 느린 시작)...
+echo [*] Launching in dev mode (latest code, slower start)...
 echo.
 call npm run dev
 if %ERRORLEVEL% NEQ 0 (

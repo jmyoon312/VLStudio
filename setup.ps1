@@ -143,27 +143,27 @@ $shortcut.Description = "ViraLoop Studio"
 $shortcut.Save()
 
 Write-Host ""
-Write-Host "====================================================" -ForegroundColor Cyan
+Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host "  [*] Pre-building ViraLoop Studio for fast startup..." -ForegroundColor Cyan
-Write-Host "      (이 작업은 3~10분 걸리지만 한 번만 합니다)" -ForegroundColor Yellow
-Write-Host "====================================================" -ForegroundColor Cyan
+Write-Host "      (This only runs once - takes 3 to 10 minutes)" -ForegroundColor Yellow
+Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host ""
 
 & $npmCmd run pack
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "" 
-    Write-Host "[WARNING] 빌드에 실패했습니다." -ForegroundColor Yellow
-    Write-Host "          첫 실행 시 개발 서버 모드(느림)로 동작합니다." -ForegroundColor Yellow
-    Write-Host "          나중에 Update.bat 을 실행하면 빌드할 수 있습니다." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "[WARNING] Build failed." -ForegroundColor Yellow
+    Write-Host "          First launch will use dev mode (slower)." -ForegroundColor Yellow
+    Write-Host "          Run Update.bat later to retry the build." -ForegroundColor Yellow
 } else {
     Write-Host ""
-    Write-Host "[OK] Pre-build 완료! 빠른 시작 모드가 활성화됩니다." -ForegroundColor Green
+    Write-Host "[OK] Pre-build complete! Fast startup mode is now active." -ForegroundColor Green
 }
 
 Write-Host ""
-Write-Host "====================================================" -ForegroundColor Green
+Write-Host "===================================================" -ForegroundColor Green
 Write-Host "   [SUCCESS] Universal Setup Completed!" -ForegroundColor Green
 Write-Host "   ViraLoop Studio is ready to use." -ForegroundColor Green
-Write-Host "====================================================" -ForegroundColor Green
+Write-Host "===================================================" -ForegroundColor Green
 Write-Host ""
 Read-Host "Press Enter to exit..."
