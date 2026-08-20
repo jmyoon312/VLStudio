@@ -25,12 +25,23 @@ set "BUILT_HASH="
 
 for /f "delims=" %%H in ('git rev-parse HEAD 2^>nul') do set "CURRENT_HASH=%%H"
 
+rem If git is not available, just run pre-built
 if not defined CURRENT_HASH goto :prebuilt_run
-if not exist "%BUILD_HASH_FILE%" goto :prebuilt_run
+
+rem If .build-hash doesn't exist -> pack was never run -> dev mode
+if not exist "%BUILD_HASH_FILE%" (
+    echo [*] No build hash found. Run Update.bat first to enable fast startup.
+    echo     Launching in dev mode...
+    echo.
+    goto :dev_mode
+)
 
 for /f "delims=" %%H in (%BUILD_HASH_FILE%) do set "BUILT_HASH=%%H"
 
-if not defined BUILT_HASH goto :prebuilt_run
+rem If hash file is empty -> dev mode
+if not defined BUILT_HASH goto :dev_mode
+
+rem Hashes match -> pre-built is up to date
 if "!CURRENT_HASH!"=="!BUILT_HASH!" goto :prebuilt_run
 
 rem -------------------------------------------------------
