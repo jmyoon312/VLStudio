@@ -15,7 +15,7 @@
     "build:prod": "vite build --mode production && npm run build --workspace=apps/dashboard",
     "preview": "vite preview",
     "make-ico": "node scripts/make-ico.cjs",
-    "pack": "npm run build --workspace=apps/dashboard && vite build && electron-builder --dir && node scripts/save-build-hash.cjs",
+    "pack": "npm run build --workspace=apps/dashboard && vite build && node scripts/save-build-hash.cjs",
     "dist": "npm run bump:build && npm run build:prod && electron-builder",
     "dist:mac": "npm run bump:build && npm run build:prod && electron-builder --mac",
     "dist:win": "npm run bump:build && npm run build:prod && python apps/api/dev_utils/build_backend.py && electron-builder --win",
