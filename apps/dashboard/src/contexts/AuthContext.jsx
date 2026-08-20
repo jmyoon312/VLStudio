@@ -109,7 +109,7 @@ export function AuthProvider({ children }) {
 
   // Firebase Auth 상태 변화 감지
   useEffect(() => {
-    if (IS_DEV && VITE_DEV_BYPASS_AUTH) {
+    if (VITE_DEV_BYPASS_AUTH) {
       console.log('[AuthContext] DEV_BYPASS_AUTH: injecting mock user')
       setUser(DEV_MOCK_USER)
       setUserData(DUMMY_USER_DATA)
