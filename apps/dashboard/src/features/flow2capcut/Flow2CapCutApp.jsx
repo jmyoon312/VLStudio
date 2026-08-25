@@ -1253,6 +1253,29 @@ function App() {
         </div>
 
 
+        {/* 🎨 독립형 프리미엄 적용 스타일 바 (Style Selection Bar) */}
+        {(() => {
+          const startStyleLabel = styleResolver.resolveLabelForId(selectedStyleRefId)
+          const startStyleApplies = activeTab === 'text' || activeTab === 'list' || activeTab === 'video-text'
+          if (!startStyleApplies || anyRunning) return null
+          return (
+            <div className="style-selection-bar">
+              <div className="ss-label-group">
+                <span className="ss-icon">🎨</span>
+                <span className="ss-title">{t('actions.selectStyle') || '적용 스타일'} :</span>
+              </div>
+              <button 
+                className="ss-value-button" 
+                onClick={() => setShowStylePicker(true)}
+                title="클릭하여 스타일을 변경합니다."
+              >
+                <span className="ss-value">{startStyleLabel}</span>
+                <span className="ss-arrow">▾</span>
+              </button>
+            </div>
+          )
+        })()}
+
         {/* 액션 버튼 */}
         <div className="action-buttons">
           {/* expired 상태: 생성 시작 전에 업그레이드 버튼 표시 */}
@@ -1279,8 +1302,6 @@ function App() {
             const requiredCount = Math.ceil(scenes.length * threshold / 100)
             const canExport = hasScenes && hasRun && !anyRunning && doneCount >= requiredCount
 
-            const startStyleLabel = styleResolver.resolveLabelForId(selectedStyleRefId)
-            const startStyleApplies = activeTab === 'text' || activeTab === 'list' || activeTab === 'video-text'
             // Stop 버튼은 실행 시작 시 snapshot된 runningStyle.label 우선 사용.
             // label snapshot이 없는 케이스(이전 동작 호환)만 fallback으로 다시 계산.
             const stopStyleLabel = runningStyle.label !== undefined
@@ -1290,24 +1311,6 @@ function App() {
 
             return (
               <>
-                {/* 🎨 독립형 프리미엄 적용 스타일 바 (Style Selection Bar) */}
-                {startStyleApplies && !anyRunning && (
-                  <div className="style-selection-bar">
-                    <div className="ss-label-group">
-                      <span className="ss-icon">🎨</span>
-                      <span className="ss-title">{t('actions.selectStyle') || '적용 스타일'} :</span>
-                    </div>
-                    <button 
-                      className="ss-value-button" 
-                      onClick={() => setShowStylePicker(true)}
-                      title="클릭하여 스타일을 변경합니다."
-                    >
-                      <span className="ss-value">{startStyleLabel}</span>
-                      <span className="ss-arrow">▾</span>
-                    </button>
-                  </div>
-                )}
-
                 {anyRunning ? (
                   <button
                     className={`btn-danger ${canExport ? 'half' : ''}`}
