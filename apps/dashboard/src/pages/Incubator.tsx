@@ -157,36 +157,37 @@ const Incubator = () => {
 
                 {activeTab === 'network' && (
                     <div className="max-w-4xl mx-auto">
-                        <Card className="border-border shadow-sm bg-card">
-                            <CardContent className="p-8 space-y-8">
+                        <Card className="border-border/80 shadow-xs bg-card rounded-2xl overflow-hidden">
+                            <CardContent className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
 
                                 {/* Status Row */}
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-xl border ${isConnected ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-muted border-border text-muted-foreground'}`}>
-                                            <Smartphone className="w-8 h-8" />
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                    <div className="flex items-center gap-3 sm:gap-4">
+                                        <div className={`p-2.5 sm:p-3 rounded-xl border shrink-0 ${isConnected ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-muted border-border text-muted-foreground'}`}>
+                                            <Smartphone className="w-6 h-6 sm:w-8 sm:h-8" />
                                         </div>
                                         <div>
-                                            <h2 className="text-lg font-bold text-foreground">듀얼 프록시 격리 시스템</h2>
-                                            <div className="flex items-center gap-2 mt-1 text-sm">
+                                            <h2 className="text-base sm:text-lg font-bold text-foreground">듀얼 프록시 격리 시스템</h2>
+                                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs sm:text-sm">
                                                 {isConnected ? (
-                                                    <span className="flex items-center text-emerald-500 font-medium">
-                                                        <CheckCircle2 className="w-4 h-4 mr-1" /> 온라인
+                                                    <span className="flex items-center text-emerald-500 font-bold whitespace-nowrap">
+                                                        <CheckCircle2 className="w-4 h-4 mr-1 shrink-0" /> 온라인
                                                     </span>
                                                 ) : (
-                                                    <span className="flex items-center text-rose-500 font-medium">
-                                                        <XCircle className="w-4 h-4 mr-1" /> 오프라인
+                                                    <span className="flex items-center text-rose-500 font-bold whitespace-nowrap">
+                                                        <XCircle className="w-4 h-4 mr-1 shrink-0" /> 오프라인
                                                     </span>
                                                 )}
                                                 <span className="text-muted-foreground">|</span>
-                                                <span className="text-muted-foreground font-mono">IF: {networkStatus.interface_ip}</span>
+                                                <span className="text-muted-foreground font-mono text-xs">IF: {networkStatus.interface_ip || 'Not Detected'}</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                                         <Button 
                                             variant="secondary" 
                                             size="sm" 
+                                            className="text-xs h-8 px-2.5 flex-1 sm:flex-initial"
                                             onClick={async () => {
                                                 try {
                                                     const res = await api.post('/resources/network/fix-permissions');
@@ -196,52 +197,52 @@ const Incubator = () => {
                                                 }
                                             }}
                                         >
-                                            <Shield className="w-4 h-4 mr-2 text-emerald-500" />
-                                            메인 네트워크 절대 우선권 부여
+                                            <Shield className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />
+                                            메인 네트워크 우선권
                                         </Button>
-                                        <Button variant="outline" size="sm" onClick={() => loadNetworkStatus(true)} disabled={isNetworkLoading}>
-                                            <RefreshCw className={`w-4 h-4 mr-2 ${isNetworkLoading ? 'animate-spin' : ''}`} />
+                                        <Button variant="outline" size="sm" className="text-xs h-8 px-2.5" onClick={() => loadNetworkStatus(true)} disabled={isNetworkLoading}>
+                                            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isNetworkLoading ? 'animate-spin' : ''}`} />
                                             상태 확인
                                         </Button>
                                     </div>
                                 </div>
 
-                                <hr className="border-border" />
+                                <hr className="border-border/80" />
 
                                 {/* Dual-Proxy Status Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                     {/* LTE Proxy Group */}
-                                    <div className="p-5 rounded-xl border border-rose-500/20 bg-rose-500/5 space-y-4">
+                                    <div className="p-4 sm:p-5 rounded-2xl border border-rose-500/20 bg-rose-500/5 space-y-3 sm:space-y-4">
                                         <div className="flex justify-between items-start">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-rose-500/10 text-rose-500 rounded-lg"><Smartphone className="w-6 h-6" /></div>
-                                                <div>
-                                                    <h3 className="font-bold text-foreground">LTE 듀얼 프록시 그룹 (공유망)</h3>
-                                                    <p className="text-xs text-rose-400 font-medium">Every Proxy (Port 1080 SOCKS5)</p>
+                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                                                <div className="p-2 bg-rose-500/10 text-rose-500 rounded-xl shrink-0"><Smartphone className="w-5 h-5 sm:w-6 sm:h-6" /></div>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-bold text-sm sm:text-base text-foreground truncate">LTE 듀얼 프록시 그룹 (공유망)</h3>
+                                                    <p className="text-[11px] sm:text-xs text-rose-400 font-medium truncate">Every Proxy (Port 1080 SOCKS5)</p>
                                                 </div>
                                             </div>
                                             {networkStatus.monitor?.lte ? (
-                                                <span className="flex items-center text-[10px] font-bold text-rose-500 bg-rose-500/10 px-2 py-1 rounded-full">
+                                                <span className="flex items-center text-[10px] font-bold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full shrink-0">
                                                     <Shield className="w-3 h-3 mr-1" /> 격리됨
                                                 </span>
                                             ) : (
-                                                <span className="flex items-center text-[10px] font-bold text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                                                <span className="flex items-center text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">
                                                     <XCircle className="w-3 h-3 mr-1" /> 연결 안됨
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="space-y-2 bg-card p-3 rounded-lg border border-border">
-                                            <div className="flex justify-between text-xs pb-1 border-b border-border">
+                                        <div className="space-y-2 bg-card p-3 rounded-xl border border-border/80">
+                                            <div className="flex justify-between text-xs pb-1 border-b border-border/80">
                                                 <span className="text-muted-foreground">공용 IP</span>
                                                 <span className="font-mono font-bold text-rose-500">{networkStatus.mobile_public_ip || '확인 중'}</span>
                                             </div>
                                             <div className="mt-2 space-y-1">
-                                                <span className="text-xs text-muted-foreground font-bold mb-1 block">소속 계정:</span>
+                                                <span className="text-[11px] text-muted-foreground font-bold mb-1 block">소속 계정:</span>
                                                 {networkStatus.profiles?.lte?.length > 0 ? (
                                                     networkStatus.profiles.lte.map((p: any) => (
                                                         <div key={p.id} className="text-xs flex justify-between items-center bg-muted/50 px-2 py-1 rounded">
                                                             <span className="truncate w-32">{p.email || p.id}</span>
-                                                            <span className="text-[10px] bg-rose-500/10 text-rose-500 px-1 rounded">LTE</span>
+                                                            <span className="text-[10px] bg-rose-500/10 text-rose-500 px-1 rounded font-bold">LTE</span>
                                                         </div>
                                                     ))
                                                 ) : (
@@ -252,21 +253,21 @@ const Incubator = () => {
                                     </div>
 
                                     {/* ISP Proxy Group */}
-                                    <div className="p-5 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-4">
+                                    <div className="p-4 sm:p-5 rounded-2xl border border-blue-500/20 bg-blue-500/5 space-y-3 sm:space-y-4">
                                         <div className="flex justify-between items-start">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg"><Server className="w-6 h-6" /></div>
-                                                <div>
-                                                    <h3 className="font-bold text-foreground">ISP 고정 프록시 그룹 (독립망)</h3>
-                                                    <p className="text-xs text-blue-400 font-medium">개별 IP 할당</p>
+                                            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                                                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-xl shrink-0"><Server className="w-5 h-5 sm:w-6 sm:h-6" /></div>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-bold text-sm sm:text-base text-foreground truncate">ISP 고정 프록시 그룹 (독립망)</h3>
+                                                    <p className="text-[11px] sm:text-xs text-blue-400 font-medium truncate">개별 IP 할당</p>
                                                 </div>
                                             </div>
-                                            <span className="flex items-center text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-1 rounded-full">
+                                            <span className="flex items-center text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full shrink-0">
                                                 <CheckCircle2 className="w-3 h-3 mr-1" /> 작동 중
                                             </span>
                                         </div>
-                                        <div className="space-y-2 bg-card p-3 rounded-lg border border-border">
-                                            <div className="flex justify-between text-xs pb-1 border-b border-border">
+                                        <div className="space-y-2 bg-card p-3 rounded-xl border border-border/80">
+                                            <div className="flex justify-between text-xs pb-1 border-b border-border/80">
                                                 <span className="text-muted-foreground">할당된 계정 수</span>
                                                 <span className="font-mono font-bold text-blue-500">{networkStatus.profiles?.isp?.length || 0}개</span>
                                             </div>
@@ -289,14 +290,14 @@ const Incubator = () => {
                                 </div>
                                 
                                 {/* Security Isolation Verification Checklist */}
-                                <div className="relative overflow-hidden rounded-xl bg-slate-500/5 p-5 font-mono text-sm border border-slate-500/20 shadow-sm">
+                                <div className="relative overflow-hidden rounded-2xl bg-card p-4 sm:p-5 text-sm border border-border/80 shadow-xs">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-rose-500 opacity-80"></div>
-                                    <div className="flex justify-between items-center mb-4">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
                                         <div className="flex items-center gap-2">
-                                            <Shield className="w-5 h-5 text-indigo-400" />
-                                            <span className="font-bold text-indigo-400 tracking-wide text-[13px]">보안 격리 상태 검증 (Security Isolation Checklist)</span>
+                                            <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400 shrink-0" />
+                                            <span className="font-bold text-indigo-400 tracking-wide text-xs sm:text-sm">보안 격리 상태 검증 (Security Isolation Checklist)</span>
                                         </div>
-                                        <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
                                             VERIFIED SECURE
                                         </span>
                                     </div>

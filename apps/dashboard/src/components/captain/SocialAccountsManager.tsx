@@ -204,25 +204,27 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ profileId
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <Globe className="w-6 h-6 text-blue-500" />
+        <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs">
+                <div className="space-y-1.5">
+                    <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2 text-foreground">
+                        <Globe className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" />
                         소셜 미디어 계정 관리 (Browser Profiles)
                     </h2>
-                    <p className="text-slate-500 text-sm mt-1">
-                        틱톡, 인스타그램 등 다중 계정을 위한 브라우저 프로필을 관리합니다.<br />
-                        <span className="text-amber-600 font-semibold text-xs border border-amber-200 bg-amber-50 px-2 py-0.5 rounded ml-1">
-                            권장: 유튜브 브랜드 채널과 연동하여 동일한 브라우저 환경을 유지하세요.
-                        </span>
+                    <p className="text-muted-foreground text-xs sm:text-sm">
+                        틱톡, 인스타그램 등 다중 계정을 위한 브라우저 프로필을 격리 관리합니다.
                     </p>
+                    <div className="pt-0.5">
+                        <span className="inline-block text-amber-600 dark:text-amber-400 font-medium text-xs border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg">
+                            💡 권장: 유튜브 브랜드 채널과 연동하여 동일한 브라우저 환경을 유지하세요.
+                        </span>
+                    </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                         <DialogTrigger asChild>
-                            <Button variant="outline">
-                                <Plus className="w-4 h-4 mr-2" />
+                            <Button variant="outline" size="sm" className="h-9 px-3 text-xs font-bold">
+                                <Plus className="w-3.5 h-3.5 mr-1.5" />
                                 빈 프로필 생성
                             </Button>
                         </DialogTrigger>
@@ -420,10 +422,12 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ profileId
                 ))}
 
                 {profiles.length === 0 && !loading && (
-                    <div className="col-span-full py-12 text-center text-slate-600 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                        <Globe className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                        <p>생성된 브라우저 프로필이 없습니다.</p>
-                        <Button variant="link" onClick={() => setIsAddOpen(true)}>
+                    <div className="col-span-full py-12 text-center text-muted-foreground bg-card rounded-2xl border border-dashed border-border/80 p-6 shadow-xs">
+                        <Globe className="w-12 h-12 mx-auto mb-3 opacity-30 text-primary" />
+                        <p className="text-sm font-medium text-foreground">생성된 브라우저 프로필이 없습니다.</p>
+                        <p className="text-xs text-muted-foreground mt-1 mb-3">소셜 미디어(틱톡, 인스타, 더우인) 계정 격리를 위해 프로필을 생성하세요.</p>
+                        <Button variant="outline" size="sm" onClick={() => setIsAddOpen(true)} className="text-xs font-bold">
+                            <Plus className="w-3.5 h-3.5 mr-1.5" />
                             첫 프로필 생성하기
                         </Button>
                     </div>

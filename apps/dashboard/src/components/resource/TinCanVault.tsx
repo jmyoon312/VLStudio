@@ -38,6 +38,15 @@ const ProfileApiStatus = ({ profileId }: { profileId: string }) => {
     return <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded ml-1 font-semibold" title="API 미인증">API 🟡</span>;
 };
 
+const sanitizeChannelTitle = (title?: string) => {
+    if (!title) return "브랜드 채널 미수집";
+    if (/[\u7240-\u7299]|[\uB370-\uB37F]\?\?/.test(title) || title.includes('??')) {
+        const cleaned = title.replace(/^[^a-zA-Z0-9가-힣]+/, '').trim();
+        return cleaned ? `브랜드 채널 (${cleaned})` : "브랜드 채널 (연결됨)";
+    }
+    return title;
+};
+
 const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -257,7 +266,7 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                     <div className="flex items-center gap-1.5 text-xs whitespace-nowrap">
                         <span className="font-semibold text-foreground bg-muted/60 px-2.5 py-0.5 rounded flex items-center gap-1.5 border border-border">
                             <span className="text-sm">📺</span>
-                            <span className="font-medium text-foreground">{channel?.title || channel?.channel_name || "브랜드 채널 미수집"}</span>
+                            <span className="font-medium text-foreground">{sanitizeChannelTitle(channel?.title || channel?.channel_name)}</span>
                         </span>
                         <Button
                             variant="outline"
@@ -474,7 +483,7 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                         <div className="flex items-center justify-between gap-2 p-2 bg-muted/40 rounded-lg border border-border text-xs">
                                             <div className="flex items-center gap-1.5 min-w-0">
                                                 <span className="text-sm">📺</span>
-                                                <span className="font-medium text-foreground truncate">{channel?.title || channel?.channel_name || "브랜드 채널 미수집"}</span>
+                                                <span className="font-medium text-foreground truncate">{sanitizeChannelTitle(channel?.title || channel?.channel_name)}</span>
                                             </div>
                                             <Button
                                                 variant="outline"
