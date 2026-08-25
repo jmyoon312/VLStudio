@@ -105,7 +105,7 @@ const Incubator = () => {
     const isWired = sysMode.includes("WIRED");
 
     return (
-        <div className="p-3 sm:p-6 pb-36 md:pb-8 space-y-3 sm:space-y-4 bg-background min-h-screen text-foreground font-sans">
+        <div className="p-3 sm:p-6 pb-52 sm:pb-40 md:pb-16 space-y-3 sm:space-y-4 bg-background min-h-screen text-foreground font-sans">
 
 
             {/* Compact Header */}
@@ -121,23 +121,24 @@ const Incubator = () => {
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex space-x-1 bg-muted p-1 rounded-xl w-full sm:w-fit overflow-x-auto max-w-full">
+            {/* 3대 통합 탭 (모바일 3등분 반응형 그리드) */}
+            <div className="grid grid-cols-3 gap-1 bg-muted/90 p-1 rounded-xl w-full sm:w-fit sm:flex sm:space-x-1">
                 {[
-                    { id: 'vault', label: '통합 계정 & 육성 관리', icon: Shield },
-                    { id: 'social', label: '멀티 플랫폼 (Social)', icon: Globe },
-                    { id: 'network', label: '네트워크 대시보드', icon: Activity }
+                    { id: 'vault', label: '통합 계정 & 육성 관리', shortLabel: '계정/육성', icon: Shield },
+                    { id: 'social', label: '멀티 플랫폼 (Social)', shortLabel: '멀티플랫폼', icon: Globe },
+                    { id: 'network', label: '네트워크 대시보드', shortLabel: '네트워크', icon: Activity }
                 ].map((tab: any) => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
-                        className={`flex items-center px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-all shrink-0 ${activeTab === tab.id
-                            ? 'bg-background text-primary shadow-2xs font-bold'
+                        className={`flex items-center justify-center sm:justify-start px-2 sm:px-4 py-2 sm:py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-center ${activeTab === tab.id
+                            ? 'bg-background text-primary shadow-xs font-extrabold'
                             : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
-                        <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 shrink-0" />
-                        <span className="whitespace-nowrap">{tab.label}</span>
+                        <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
+                        <span className="sm:hidden text-[11px] truncate">{tab.shortLabel}</span>
+                        <span className="hidden sm:inline whitespace-nowrap">{tab.label}</span>
                     </button>
                 ))}
             </div>
