@@ -609,8 +609,62 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                     </div>
                   </div>
 
-                  {/* 준비 목록 테이블 */}
-                  <div className="max-h-[580px] overflow-y-auto custom-scrollbar">
+                  {/* 준비 목록: 모바일 전용 카드 리스트 (md:hidden) */}
+                  <div className="md:hidden divide-y divide-border max-h-[500px] overflow-y-auto custom-scrollbar">
+                    {filteredQueueItems.map((item, idx) => {
+                      const formatSize = (bytes?: number) => {
+                        if (!bytes || bytes === 0) return '클라우드/URL';
+                        const k = 1024;
+                        const sizes = ['B', 'KB', 'MB', 'GB'];
+                        const i = Math.floor(Math.log(bytes) / Math.log(k));
+                        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                      };
+
+                      return (
+                        <div key={item.id} className="p-3 space-y-2 hover:bg-muted/20 transition-colors">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="font-mono text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                #{idx + 1}
+                              </span>
+                              <FileVideo className="w-3.5 h-3.5 text-primary shrink-0" />
+                              <span className="font-semibold text-xs text-foreground truncate" title={item.video.name}>
+                                {item.video.name}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeVideoItem(item.itemIndex)}
+                              className="text-muted-foreground hover:text-destructive p-1 rounded shrink-0"
+                              title="제거"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-wrap text-[11px] pl-6">
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatSize(item.video.size)}
+                            </span>
+                            <span>·</span>
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                              <span>{item.langInfo?.flag}</span>
+                              <span>{item.langInfo?.name || item.langCode}</span>
+                            </span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-border">
+                              {item.preset.name.split('-')[0].trim()}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+                              준비 (Ready)
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 준비 목록: 데스크톱 전용 테이블 (hidden md:block) */}
+                  <div className="hidden md:block max-h-[580px] overflow-y-auto custom-scrollbar">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead className="bg-muted/40 text-muted-foreground text-[11px] font-semibold sticky top-0 border-b border-border z-10 backdrop-blur-xs">
                         <tr>
@@ -639,7 +693,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                               </td>
                               <td className="py-2.5 px-3">
                                 <div className="flex items-center gap-2 min-w-0 max-w-xs sm:max-w-md">
-                                  <FileVideo className="w-4 h-4 text-indigo-500 shrink-0" />
+                                  <FileVideo className="w-4 h-4 text-primary shrink-0" />
                                   <div className="truncate font-semibold text-foreground" title={item.video.name}>
                                     {item.video.name}
                                   </div>
@@ -649,7 +703,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                                 </div>
                               </td>
                               <td className="py-2.5 px-3">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
                                   <span>{item.langInfo?.flag}</span>
                                   <span>{item.langInfo?.name || item.langCode}</span>
                                 </span>
@@ -660,7 +714,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                                 </span>
                               </td>
                               <td className="py-2.5 px-3">
-                                <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/20">
+                                <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
                                   준비 (Ready)
                                 </Badge>
                               </td>
@@ -668,7 +722,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => removeVideoItem(item.itemIndex)}
-                                  className="text-muted-foreground hover:text-rose-500 p-1 rounded transition-colors"
+                                  className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors"
                                   title="이 영상 파일 목록에서 제외"
                                 >
                                   <X className="w-3.5 h-3.5" />
