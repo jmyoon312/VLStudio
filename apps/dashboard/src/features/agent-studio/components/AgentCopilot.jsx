@@ -416,40 +416,42 @@ const AgentCopilot = () => {
   return (
     <div className="absolute inset-0 flex flex-col bg-white dark:bg-zinc-950">
       <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex flex-col gap-3">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center">
-            <Wand2 size={18} className="mr-2 text-purple-500" />
-            Agent Copilot
-          </h2>
-          
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="p-1 rounded bg-blue-50 dark:bg-zinc-800 text-blue-600">
+              <Wand2 size={16} />
+            </span>
+            <span className="font-bold text-gray-900 dark:text-gray-100 text-sm whitespace-nowrap">Agent Copilot</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => {
-                if (window.confirm('대화 내용을 초기화하시겠습니까?')) {
-                  useAgentStore.setState({ chatHistory: [] });
+                if (window.confirm('채팅 기록을 초기화하시겠습니까?')) {
+                  resetStore();
                 }
               }}
-              className="px-2 py-1 text-xs rounded text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-zinc-800 transition-colors"
+              className="p-1.5 text-xs rounded text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-zinc-800 transition-colors"
               title="대화 초기화"
             >
               <Eraser size={14} />
             </button>
             <button
               onClick={async () => { if (window.confirm('캔버스를 모두 초기화하시겠습니까?')) { resetStore(); } }}
-              className="px-2 py-1 text-xs rounded text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-zinc-800 transition-colors"
+              className="p-1.5 text-xs rounded text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-zinc-800 transition-colors"
               title="캔버스 초기화"
             >
               <Trash2 size={14} />
             </button>
-            <div className="flex bg-gray-100 dark:bg-zinc-800 rounded p-1 text-xs">
+            <div className="flex bg-gray-100 dark:bg-zinc-800 rounded-lg p-0.5 text-xs">
               <button 
-                className={`px-3 py-1 rounded ${selectedModel === 'omni_flash' ? 'bg-white dark:bg-zinc-700 shadow text-blue-600' : 'text-gray-500'}`}
+                className={`px-2 py-1 rounded-md whitespace-nowrap transition-all ${selectedModel === 'omni_flash' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-blue-600' : 'text-gray-500'}`}
                 onClick={() => setSelectedModel('omni_flash')}
               >
-                <Clock size={12} className="inline mr-1" /> 10초 (Omni)
+                <Clock size={11} className="inline mr-1" /> 10초 (Omni)
               </button>
               <button 
-                className={`px-3 py-1 rounded ${selectedModel === 'veo_3_1' ? 'bg-white dark:bg-zinc-700 shadow text-blue-600' : 'text-gray-500'}`}
+                className={`px-2 py-1 rounded-md whitespace-nowrap transition-all ${selectedModel === 'veo_3_1' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-blue-600' : 'text-gray-500'}`}
                 onClick={() => setSelectedModel('veo_3_1')}
               >
                 8초 (VEO)
@@ -459,18 +461,18 @@ const AgentCopilot = () => {
         </div>
 
         {/* Phase 5.1: 롱폼/쇼츠 토글 및 생성 밀도 슬라이더 */}
-        <div className="flex items-center justify-between text-xs mt-1">
-          <div className="flex items-center gap-2">
-            <LayoutTemplate size={14} className="text-gray-400" />
-            <div className="flex bg-gray-100 dark:bg-zinc-800 rounded p-0.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 border-t border-gray-100 dark:border-zinc-800/60">
+          <div className="flex items-center gap-1.5">
+            <LayoutTemplate size={13} className="text-gray-400 shrink-0" />
+            <div className="flex bg-gray-100 dark:bg-zinc-800 rounded-lg p-0.5">
               <button 
-                className={`px-2 py-1 rounded ${format === 'long' ? 'bg-white dark:bg-zinc-700 shadow font-bold text-gray-800 dark:text-gray-200' : 'text-gray-500'}`}
+                className={`px-2 py-1 rounded-md whitespace-nowrap transition-all ${format === 'long' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-gray-800 dark:text-gray-200' : 'text-gray-500'}`}
                 onClick={() => setFormat('long')}
               >
                 롱폼 (16:9)
               </button>
               <button 
-                className={`px-2 py-1 rounded ${format === 'short' ? 'bg-white dark:bg-zinc-700 shadow font-bold text-gray-800 dark:text-gray-200' : 'text-gray-500'}`}
+                className={`px-2 py-1 rounded-md whitespace-nowrap transition-all ${format === 'short' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-gray-800 dark:text-gray-200' : 'text-gray-500'}`}
                 onClick={() => setFormat('short')}
               >
                 쇼츠 (9:16)
@@ -478,19 +480,19 @@ const AgentCopilot = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Settings2 size={14} className="text-gray-400" />
-            <span className="text-gray-500 font-medium">씬 밀도:</span>
-            <div className="flex bg-gray-100 dark:bg-zinc-800 rounded p-0.5">
+          <div className="flex items-center gap-1.5">
+            <Settings2 size={13} className="text-gray-400 shrink-0" />
+            <span className="text-gray-500 font-medium whitespace-nowrap">씬 밀도:</span>
+            <div className="flex bg-gray-100 dark:bg-zinc-800 rounded-lg p-0.5">
               <button 
-                className={`px-2 py-1 rounded ${density === 'fast' ? 'bg-white dark:bg-zinc-700 shadow font-bold text-blue-600' : 'text-gray-500'}`}
+                className={`px-2 py-1 rounded-md whitespace-nowrap transition-all ${density === 'fast' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-blue-600' : 'text-gray-500'}`}
                 onClick={() => setDensity('fast')}
                 title="1~2문장 당 1씬 (빠른 호흡)"
               >
                 Fast
               </button>
               <button 
-                className={`px-2 py-1 rounded ${density === 'auto' ? 'bg-white dark:bg-zinc-700 shadow font-bold text-blue-600' : 'text-gray-500'}`}
+                className={`px-2 py-1 rounded-md whitespace-nowrap transition-all ${density === 'auto' ? 'bg-white dark:bg-zinc-700 shadow-xs font-bold text-blue-600' : 'text-gray-500'}`}
                 onClick={() => setDensity('auto')}
                 title="AI가 문맥에 맞춰 자동 분할"
               >
