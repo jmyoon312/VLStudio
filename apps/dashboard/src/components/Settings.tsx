@@ -577,35 +577,35 @@ const Settings = () => {
 
             <div className="flex-1 w-full min-w-0">
                 <Tabs defaultValue="general" className="w-full min-w-0">
-                    {/* Modern Scrollable Tab Bar: zero clipping, smooth swipe on mobile, clean flex on desktop */}
-                    <div className="overflow-x-auto no-scrollbar w-full pb-1">
-                        <TabsList className="bg-muted/80 p-1.5 rounded-2xl border border-border shadow-2xs flex flex-nowrap items-center gap-1.5 w-max min-w-full h-auto">
-                            <TabsTrigger value="general" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <SettingsIcon className="w-3.5 h-3.5" /> 일반
+                    {/* All 9 Tabs Visible on One Screen: 3x3 Grid on Mobile, Flex on Desktop */}
+                    <div className="w-full min-w-0 mb-5">
+                        <TabsList className="bg-muted/80 p-1.5 rounded-2xl border border-border shadow-2xs grid grid-cols-3 sm:flex sm:flex-nowrap gap-1.5 w-full h-auto min-w-0">
+                            <TabsTrigger value="general" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <SettingsIcon className="w-3.5 h-3.5 shrink-0 text-foreground" /> <span className="truncate">일반</span>
                             </TabsTrigger>
-                            <TabsTrigger value="intelligence" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <BrainCircuit className="w-3.5 h-3.5 text-primary" /> AI 지능
+                            <TabsTrigger value="intelligence" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <BrainCircuit className="w-3.5 h-3.5 shrink-0 text-primary" /> <span className="truncate">AI 지능</span>
                             </TabsTrigger>
-                            <TabsTrigger value="voice" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <Mic2 className="w-3.5 h-3.5 text-sky-500" /> 음성
+                            <TabsTrigger value="voice" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <Mic2 className="w-3.5 h-3.5 shrink-0 text-sky-400" /> <span className="truncate">음성</span>
                             </TabsTrigger>
-                            <TabsTrigger value="subtitles" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <MessageSquare className="w-3.5 h-3.5 text-emerald-500" /> 자막
+                            <TabsTrigger value="subtitles" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <MessageSquare className="w-3.5 h-3.5 shrink-0 text-emerald-400" /> <span className="truncate">자막</span>
                             </TabsTrigger>
-                            <TabsTrigger value="maintenance" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <Wrench className="w-3.5 h-3.5 text-rose-500" /> 관리
+                            <TabsTrigger value="maintenance" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <Wrench className="w-3.5 h-3.5 shrink-0 text-rose-400" /> <span className="truncate">관리</span>
                             </TabsTrigger>
-                            <TabsTrigger value="hermes" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <BrainCircuit className="w-3.5 h-3.5 text-indigo-500" /> Loopie
+                            <TabsTrigger value="hermes" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <BrainCircuit className="w-3.5 h-3.5 shrink-0 text-indigo-400" /> <span className="truncate">Loopie</span>
                             </TabsTrigger>
-                            <TabsTrigger value="system" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <SettingsIcon className="w-3.5 h-3.5 text-slate-400" /> 시스템
+                            <TabsTrigger value="system" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <SettingsIcon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" /> <span className="truncate">시스템</span>
                             </TabsTrigger>
-                            <TabsTrigger value="aigrid" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <Zap className="w-3.5 h-3.5 text-amber-500" /> AI Grid
+                            <TabsTrigger value="aigrid" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <Zap className="w-3.5 h-3.5 shrink-0 text-amber-400" /> <span className="truncate">AI Grid</span>
                             </TabsTrigger>
-                            <TabsTrigger value="browser" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
-                                <Globe className="w-3.5 h-3.5 text-teal-500" /> 브라우저
+                            <TabsTrigger value="browser" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
+                                <Globe className="w-3.5 h-3.5 shrink-0 text-teal-400" /> <span className="truncate">브라우저</span>
                             </TabsTrigger>
                         </TabsList>
                     </div>
