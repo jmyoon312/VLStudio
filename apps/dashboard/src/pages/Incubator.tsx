@@ -367,36 +367,45 @@ const Incubator = () => {
                                     </div>
                                 </div>
 
-                                {/* Controls */}
-                                <div className="space-y-6 pt-3">
-                                    <div className="space-y-3">
-                                        <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                            <Activity className="w-4 h-4 text-muted-foreground" /> 신원 교체 제어 (IP Rotation)
-                                        </label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <Button
-                                                onClick={() => handleRotate('soft')}
-                                                disabled={isRotating}
-                                                className="relative overflow-hidden group h-12 bg-card hover:bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-sm hover:shadow-md hover:border-blue-500/30 transition-all"
-                                            >
-                                                <div className="relative flex items-center justify-center font-bold tracking-wide">
-                                                    {isRotating ? <RefreshCw className="w-4 h-4 mr-2.5 animate-spin text-blue-500" /> : <RefreshCw className="w-4 h-4 mr-2.5 text-blue-400 group-hover:rotate-180 transition-transform duration-500" />}
-                                                    소프트 교체 <span className="ml-1.5 text-blue-400/70 font-medium text-xs">(Data Toggle)</span>
-                                                </div>
-                                            </Button>
-                                            
-                                            <Button
-                                                onClick={() => handleRotate('hard')}
-                                                disabled={isRotating}
-                                                className="relative overflow-hidden group h-12 bg-card hover:bg-rose-500/10 text-rose-500 border border-rose-500/20 shadow-sm hover:shadow-md hover:border-rose-500/30 transition-all"
-                                            >
-                                                <div className="relative flex items-center justify-center font-bold tracking-wide">
-                                                    {isRotating ? <RefreshCw className="w-4 h-4 mr-2.5 animate-spin text-rose-500" /> : <Rocket className="w-4 h-4 mr-2.5 text-rose-400 group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform duration-300" />}
-                                                    하드 교체 <span className="ml-1.5 text-rose-400/70 font-medium text-xs">(Airplane Mode)</span>
-                                                </div>
-                                            </Button>
-                                        </div>
+                                {/* Controls (IP Rotation) */}
+                                <div className="space-y-4 pt-2 pb-16 sm:pb-8">
+                                    <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                        <Activity className="w-4 h-4 text-primary" /> 신원 교체 제어 (IP Rotation)
+                                    </label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <Button
+                                            onClick={() => handleRotate('soft')}
+                                            disabled={isRotating}
+                                            className="relative overflow-hidden group h-14 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 dark:text-blue-400 border border-blue-500/30 shadow-sm hover:shadow-md transition-all rounded-xl"
+                                        >
+                                            <div className="relative flex items-center justify-center font-extrabold text-sm tracking-wide">
+                                                {isRotating ? (
+                                                    <RefreshCw className="w-4 h-4 mr-2.5 animate-spin text-blue-500" />
+                                                ) : (
+                                                    <RefreshCw className="w-4 h-4 mr-2.5 text-blue-400 group-hover:rotate-180 transition-transform duration-500" />
+                                                )}
+                                                소프트 교체 <span className="ml-1.5 text-blue-400/80 font-medium text-xs">(Data Toggle)</span>
+                                            </div>
+                                        </Button>
+                                        
+                                        <Button
+                                            onClick={() => handleRotate('hard')}
+                                            disabled={isRotating}
+                                            className="relative overflow-hidden group h-14 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 border border-rose-500/30 shadow-sm hover:shadow-md transition-all rounded-xl"
+                                        >
+                                            <div className="relative flex items-center justify-center font-extrabold text-sm tracking-wide">
+                                                {isRotating ? (
+                                                    <RefreshCw className="w-4 h-4 mr-2.5 animate-spin text-rose-500" />
+                                                ) : (
+                                                    <Rocket className="w-4 h-4 mr-2.5 text-rose-400 group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform duration-300" />
+                                                )}
+                                                하드 교체 <span className="ml-1.5 text-rose-400/80 font-medium text-xs">(Airplane Mode)</span>
+                                            </div>
+                                        </Button>
                                     </div>
+                                    <p className="text-[11px] text-muted-foreground text-center pt-1">
+                                        💡 웜업 전/후 새로운 모바일 LTE IP가 필요할 때 원클릭으로 통신사 IP를 교체합니다.
+                                    </p>
                                 </div>
 
                             </CardContent>
@@ -404,6 +413,9 @@ const Incubator = () => {
                     </div>
                 )}
             </div>
+
+            {/* Extra Mobile Touch Clearance Spacer */}
+            <div className="h-16 md:hidden pointer-events-none" aria-hidden="true" />
 
         </div>
     );
