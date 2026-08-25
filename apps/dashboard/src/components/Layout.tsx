@@ -374,7 +374,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     </div>
                 </div>
 
-                <nav className="p-4 flex-1 overflow-y-auto dashboard-scroll-area">
+                <nav className="p-4 flex-1 overflow-y-auto dashboard-scroll-area pb-28 md:pb-4">
                     <div className="mb-4">
                         <Link
                             to="/"
@@ -438,7 +438,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 </nav>
 
                 {/* Sidebar Bottom: User Profile Card & Theme Toggle (Pixeling Style) */}
-                <div className="p-3 border-t border-sidebar-border shrink-0 space-y-2">
+                <div className="p-3 border-t border-sidebar-border shrink-0 space-y-2 pb-[calc(env(safe-area-inset-bottom)+12px)]">
                     {/* User Account Info Box */}
                     <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-border/80 shadow-2xs">
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -562,7 +562,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             </main>
 
             {/* Mobile Bottom Navigation Bar (Pixeling-grade App Bar) */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-border/80 flex items-center justify-around h-16 pb-[env(safe-area-inset-bottom)] px-2 shadow-lg select-none">
+            <nav className={cn(
+                "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-xl border-t border-border/80 flex items-center justify-around h-16 pb-[env(safe-area-inset-bottom)] px-2 shadow-lg select-none transition-all duration-300",
+                mobileMenuOpen ? "opacity-0 pointer-events-none translate-y-full" : "opacity-100 pointer-events-auto translate-y-0"
+            )}>
                 <button 
                     onClick={() => { navigate('/'); setMobileMenuOpen(false); }} 
                     className={cn(
