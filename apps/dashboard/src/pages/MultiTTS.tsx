@@ -503,7 +503,7 @@ const MultiTTS = () => {
     };
 
     return (
-        <div className="max-w-[1800px] mx-auto space-y-4 sm:space-y-6 p-3 sm:p-6 font-sans text-foreground min-h-screen bg-background">
+        <div className="max-w-[1800px] mx-auto space-y-4 sm:space-y-6 p-3 sm:p-6 pb-28 md:pb-8 font-sans text-foreground min-h-screen bg-background">
             <div />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
@@ -588,65 +588,53 @@ const MultiTTS = () => {
                             </div>
                         ) : null}
 
-
-
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* Engine & Language Selection */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div className="space-y-1.5">
-                                <Label className="text-sm font-semibold text-foreground">엔진</Label>
+                                <Label className="text-xs sm:text-sm font-semibold text-foreground">엔진 (Engine)</Label>
                                 <select
-                                    className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
+                                    className="w-full h-10 rounded-lg border border-border bg-background text-foreground px-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
                                     value={engine}
-                                    onChange={(e) => setEngine(e.target.value)}
+                                    onChange={(e) => {
+                                        setEngine(e.target.value);
+                                        setVoiceId("");
+                                    }}
                                 >
-                                    <option value="edge" className="bg-card text-foreground">Microsoft Edge (자연스러운 무료)</option>
-                                    <option value="google" className="bg-card text-foreground">Google TTS (무료/기본)</option>
-                                    <option value="kokoro" className="bg-card text-foreground">Kokoro (로컬/고품질)</option>
-                                    <option value="elevenlabs" className="bg-card text-foreground">ElevenLabs (유료)</option>
-                                    <option value="supertone-local" className="bg-card text-foreground">Supertonic (Local)</option>
-                                    <option value="typecast" className="bg-card text-foreground">Typecast (유료)</option>
+                                    <option value="supertone-local" className="bg-card text-foreground">Supertonic (Local AI)</option>
+                                    <option value="typecast" className="bg-card text-foreground">Typecast (API)</option>
                                     <option value="qwen" className="bg-card text-foreground">Qwen 2.5 (Remote)</option>
+                                    <option value="google" className="bg-card text-foreground">Google Cloud TTS</option>
+                                    <option value="edge" className="bg-card text-foreground">Edge TTS (Free)</option>
+                                    <option value="elevenlabs" className="bg-card text-foreground">ElevenLabs (Pro)</option>
                                 </select>
                             </div>
+
                             <div className="space-y-1.5">
-                                <Label className="text-sm font-semibold text-foreground">언어</Label>
+                                <Label className="text-xs sm:text-sm font-semibold text-foreground">언어 (Language)</Label>
                                 <select
-                                    className="w-full h-10 rounded-md border border-border bg-background text-foreground px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
+                                    className="w-full h-10 rounded-lg border border-border bg-background text-foreground px-3 text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all outline-none"
                                     value={language}
-                                    onChange={(e) => setLanguage(e.target.value)}
+                                    onChange={(e) => {
+                                        setLanguage(e.target.value);
+                                        setVoiceId("");
+                                    }}
                                 >
-                                    {engine === 'supertone-local' ? (
+                                    {engine === 'typecast' ? (
+                                        <>
+                                            <option value="ko" className="bg-card text-foreground">🇰🇷 한국어 (Korean)</option>
+                                            <option value="en" className="bg-card text-foreground">🇺🇸 영어 (English)</option>
+                                            <option value="ja" className="bg-card text-foreground">🇯🇵 일본어 (Japanese)</option>
+                                        </>
+                                    ) : engine === 'elevenlabs' ? (
                                         <>
                                             <option value="ko">🇰🇷 한국어 (Korean)</option>
                                             <option value="en">🇺🇸 영어 (English)</option>
                                             <option value="ja">🇯🇵 일본어 (Japanese)</option>
-                                            <option value="ar">🇸🇦 아랍어 (Arabic)</option>
-                                            <option value="bg">🇧🇬 불가리아어 (Bulgarian)</option>
-                                            <option value="cs">🇨🇿 체코어 (Czech)</option>
-                                            <option value="da">🇩🇰 덴마크어 (Danish)</option>
-                                            <option value="de">🇩🇪 독일어 (German)</option>
-                                            <option value="el">🇬🇷 그리스어 (Greek)</option>
+                                            <option value="zh">🇨🇳 중국어 (Chinese)</option>
                                             <option value="es">🇪🇸 스페인어 (Spanish)</option>
-                                            <option value="et">🇪🇪 에스토니아어 (Estonian)</option>
-                                            <option value="fi">🇫🇮 핀란드어 (Finnish)</option>
                                             <option value="fr">🇫🇷 프랑스어 (French)</option>
-                                            <option value="hi">🇮🇳 힌디어 (Hindi)</option>
-                                            <option value="hr">🇭🇷 크로아티아어 (Croatian)</option>
-                                            <option value="hu">🇭🇺 헝가리어 (Hungarian)</option>
-                                            <option value="id">🇮🇩 인도네시아어 (Indonesian)</option>
+                                            <option value="de">🇩🇪 독일어 (German)</option>
                                             <option value="it">🇮🇹 이탈리아어 (Italian)</option>
-                                            <option value="lt">🇱🇹 리투아니아어 (Lithuanian)</option>
-                                            <option value="lv">🇱🇻 라트비아어 (Latvian)</option>
-                                            <option value="nl">🇳🇱 네덜란드어 (Dutch)</option>
-                                            <option value="pl">🇵🇱 폴란드어 (Polish)</option>
-                                            <option value="pt">🇵🇹 포르투갈어 (Portuguese)</option>
-                                            <option value="ro">🇷🇴 루마니아어 (Romanian)</option>
-                                            <option value="ru">🇷🇺 러시아어 (Russian)</option>
-                                            <option value="sk">🇸🇰 슬로바키아어 (Slovak)</option>
-                                            <option value="sl">🇸🇮 슬로베니아어 (Slovenian)</option>
-                                            <option value="sv">🇸🇪 스웨덴어 (Swedish)</option>
-                                            <option value="tr">🇹🇷 터키어 (Turkish)</option>
-                                            <option value="uk">🇺🇦 우크라이나어 (Ukrainian)</option>
-                                            <option value="vi">🇻🇳 베트남어 (Vietnamese)</option>
                                         </>
                                     ) : (
                                         <>
@@ -668,14 +656,14 @@ const MultiTTS = () => {
                         </div>
 
                         {/* Global Gender & Age Filters */}
-                        <div className="flex justify-end -mt-2 mb-2 gap-2">
+                        <div className="flex flex-wrap justify-end -mt-1 mb-2 gap-2">
                             {/* Gender Filter */}
-                            <div className="flex items-center gap-2 bg-primary/5 p-1.5 rounded-lg border border-primary/20">
-                                <Label className="text-xs px-2 font-medium text-primary">성별:</Label>
+                            <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-lg border border-border">
+                                <Label className="text-xs px-1.5 font-medium text-foreground">성별:</Label>
                                 <select
                                     value={gender}
                                     onChange={(e: any) => setGender(e.target.value)}
-                                    className="h-7 w-[80px] text-xs rounded-md border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                                    className="h-7 w-[75px] text-xs rounded-md border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
                                 >
                                     <option value="all" className="bg-card text-foreground">전체</option>
                                     <option value="male" className="bg-card text-foreground">남성</option>
@@ -684,12 +672,12 @@ const MultiTTS = () => {
                             </div>
 
                             {/* Age Filter */}
-                            <div className="flex items-center gap-2 bg-primary/5 p-1.5 rounded-lg border border-primary/20">
-                                <Label className="text-xs px-2 font-medium text-primary">나이:</Label>
+                            <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-lg border border-border">
+                                <Label className="text-xs px-1.5 font-medium text-foreground">나이:</Label>
                                 <select
                                     value={ageGroup}
                                     onChange={(e: any) => setAgeGroup(e.target.value)}
-                                    className="h-7 w-[90px] text-xs rounded-md border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                                    className="h-7 w-[85px] text-xs rounded-md border-border bg-background text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
                                 >
                                     <option value="all" className="bg-card text-foreground">전체</option>
                                     <option value="youth" className="bg-card text-foreground">청소년/아이</option>
@@ -886,7 +874,7 @@ const MultiTTS = () => {
                                     </select>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-6 pt-4 bg-muted/50 p-5 rounded-xl border border-border">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-4 bg-muted/40 p-4 sm:p-5 rounded-xl border border-border">
                                     <div className="space-y-3">
                                         <div className="flex justify-between items-center">
                                             <Label className="text-sm font-semibold text-foreground">속도 (Speed)</Label>

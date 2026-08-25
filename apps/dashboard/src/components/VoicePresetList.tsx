@@ -191,28 +191,28 @@ export const VoicePresetList: React.FC<VoicePresetListProps> = ({ currentConfig,
                     저장된 목소리가 없습니다. 현재 설정을 추가해보세요.
                 </div>
             ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                     {presets.map(preset => (
                         <div
                             key={preset.id}
-                            className="group relative flex items-center p-2 rounded-lg border bg-white hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all"
+                            className="group relative flex items-center p-2.5 rounded-xl border border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all shadow-2xs"
                             onClick={() => onSelect(preset)}
                         >
-                            <div className="flex-1 min-w-0">
-                                <div className="font-medium text-sm truncate flex items-center gap-1.5">
-                                    <Badge variant="secondary" className="px-1 py-0 text-[10px] h-4 leading-none">
+                            <div className="flex-1 min-w-0 pr-6">
+                                <div className="font-semibold text-xs truncate flex items-center gap-1.5">
+                                    <Badge variant="secondary" className="px-1 py-0 text-[10px] h-4 leading-none shrink-0 font-bold">
                                         {preset.language === 'ko' ? '한글' : preset.language.toUpperCase()}
                                     </Badge>
-                                    <span className="truncate">{preset.label}</span>
+                                    <span className="truncate text-foreground">{preset.label}</span>
                                 </div>
-                                <div className="text-[10px] text-muted-foreground truncate mt-0.5">
+                                <div className="text-[11px] text-muted-foreground truncate mt-0.5 font-mono">
                                     {preset.engine} · {preset.voice_id}
                                 </div>
                             </div>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity absolute right-1 top-1/2 -translate-y-1/2 hover:bg-red-50 hover:text-red-600"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity absolute right-1.5 top-1/2 -translate-y-1/2 hover:bg-destructive/10 hover:text-destructive"
                                 onClick={(e) => handleDelete(e, preset.id)}
                             >
                                 <Trash2 className="w-3 h-3" />
