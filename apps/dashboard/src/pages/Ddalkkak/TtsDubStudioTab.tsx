@@ -1,4 +1,5 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Mic,
   Settings,
@@ -26,6 +27,7 @@ import {
 } from '@/types/ddalkkak';
 import { ddalkkakApi, TtsDubJob } from '@/services/ddalkkakApi';
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
+import { BatchVideoItem } from './SubtitleStudioTab';
 
 interface TtsDubStudioTabProps {
   jobs: TtsDubJob[];
@@ -38,6 +40,10 @@ interface TtsDubStudioTabProps {
   onDeleteJob: (id: number) => void;
 }
 
+const STORAGE_KEY_TTS_ITEMS = 'vlstudio_ddalkkak_tts_items';
+const STORAGE_KEY_TTS_LANGS = 'vlstudio_ddalkkak_tts_langs';
+const STORAGE_KEY_TTS_PRESET = 'vlstudio_ddalkkak_tts_preset';
+
 export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
   jobs,
   selectedJobIds,
@@ -49,26 +55,109 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
   onDeleteJob,
 }) => {
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sub tab on the right panel ('queue' | 'history')
   const [rightTab, setRightTab] = useState<'queue' | 'history'>('queue');
 
-  // Preset & TTS Settings state (Default: Piljae)
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('preset_piljae');
+  // Preset & TTS Settings state (with localStorage persistence)
+  const [selectedPresetId, setSelectedPresetId] = useState<string>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY_TTS_PRESET) || 'preset_piljae';
+    } catch {
+      return 'preset_piljae';
+    }
+  });
   const [isTTSDialogOpen, setIsTTSDialogOpen] = useState<boolean>(false);
   const [currentTTSConfig, setCurrentTTSConfig] = useState<any>(DDALKKAK_TTS_PRESETS[0].config);
 
-  // Target languages state (기본: 한국어 1개)
-  const [targetLangs, setTargetLangs] = useState<string[]>(['ko']);
+  // Target languages state (with localStorage persistence, default: ['ko'])
+  const [targetLangs, setTargetLangs] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TTS_LANGS);
+      return saved ? JSON.parse(saved) : ['ko'];
+    } catch {
+      return ['ko'];
+    }
+  });
   const [showAllLangs, setShowAllLangs] = useState<boolean>(false);
   const [queueFilterLang, setQueueFilterLang] = useState<string>('all');
 
-  // Video files state
-  const [videoFiles, setVideoFiles] = useState<File[]>([]);
+  // Unified Video Items state (with localStorage persistence)
+  const [videoItems, setVideoItems] = useState<BatchVideoItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TTS_ITEMS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingProgress, setProcessingProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // 💾 Save state changes to localStorage
+  useEffect(() => {
+    try {
+      const serializable = videoItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        url: item.url,
+        size: item.size || 0
+      }));
+      localStorage.setItem(STORAGE_KEY_TTS_ITEMS, JSON.stringify(serializable));
+    } catch (e) {
+      console.error('Failed to persist TTS video items:', e);
+    }
+  }, [videoItems]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_TTS_LANGS, JSON.stringify(targetLangs));
+    } catch (_) {}
+  }, [targetLangs]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_TTS_PRESET, selectedPresetId);
+    } catch (_) {}
+  }, [selectedPresetId]);
+
+  // 🎯 홈 화면 / 갤러리에서 선택되어 넘어온 titles & videoUrls 자동 수신 & 대기열에 등록
+  const lastProcessedParams = useRef<string>('');
+  useEffect(() => {
+    const titlesParam = searchParams.get('titles');
+    const videoUrlsParam = searchParams.get('videoUrls');
+    const paramKey = `${titlesParam || ''}_${videoUrlsParam || ''}`;
+
+    if (titlesParam && lastProcessedParams.current !== paramKey) {
+      lastProcessedParams.current = paramKey;
+      const titles = decodeURIComponent(titlesParam).split(',').filter(Boolean);
+      const urls = videoUrlsParam ? decodeURIComponent(videoUrlsParam).split(',') : [];
+
+      const incomingItems: BatchVideoItem[] = titles.map((t, idx) => ({
+        id: `incoming_${Date.now()}_${idx}`,
+        name: t.endsWith('.mp4') || t.includes('.') ? t : `${t}.mp4`,
+        url: urls[idx] || '',
+        size: 0,
+      }));
+
+      if (incomingItems.length > 0) {
+        setVideoItems(prev => {
+          const existingNames = new Set(prev.map(p => p.name));
+          const toAdd = incomingItems.filter(item => !existingNames.has(item.name));
+          return [...prev, ...toAdd];
+        });
+        setRightTab('queue'); // 즉시 우측 대기열 준비 목록 탭 활성화
+        toast({
+          title: '홈 화면 선택 영상 수신 완료',
+          description: `총 ${incomingItems.length}개의 영상이 대본+더빙 대기열에 등록되었습니다.`
+        });
+      }
+    }
+  }, [searchParams, toast]);
 
   // Handle preset change
   const handleSelectPreset = (preset: TTSPreset) => {
@@ -93,7 +182,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
     }
   };
 
-  // Handle files added
+  // Handle files added locally
   const handleFilesAdded = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const newFiles = Array.from(files).filter(f => f.type.startsWith('video/') || /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(f.name));
@@ -101,7 +190,14 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
       toast({ title: '오류', description: '올바른 영상 파일(MP4, MOV 등)을 선택해주세요.', variant: 'destructive' });
       return;
     }
-    setVideoFiles(prev => [...prev, ...newFiles]);
+    const newItems: BatchVideoItem[] = newFiles.map((file, idx) => ({
+      id: `file_${Date.now()}_${idx}`,
+      name: file.name,
+      file,
+      size: file.size,
+    }));
+
+    setVideoItems(prev => [...prev, ...newItems]);
     setRightTab('queue');
     toast({
       title: '영상 파일 추가됨',
@@ -109,14 +205,17 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
     });
   };
 
-  // Remove single video file
-  const removeVideoFile = (index: number) => {
-    setVideoFiles(prev => prev.filter((_, i) => i !== index));
+  // Remove single video item
+  const removeVideoItem = (index: number) => {
+    setVideoItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Clear all video files
+  // Clear all video items
   const clearAllFiles = () => {
-    setVideoFiles([]);
+    setVideoItems([]);
+    try {
+      localStorage.removeItem(STORAGE_KEY_TTS_ITEMS);
+    } catch (_) {}
     toast({ title: '대기열 준비 목록이 비워졌습니다.' });
   };
 
@@ -128,20 +227,20 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
   const readyQueueItems = useMemo(() => {
     const items: Array<{
       id: string;
-      fileIndex: number;
-      file: File;
+      itemIndex: number;
+      video: BatchVideoItem;
       langCode: string;
       langInfo?: GlobalLanguage;
       preset: TTSPreset;
     }> = [];
 
-    videoFiles.forEach((file, fileIdx) => {
+    videoItems.forEach((video, videoIdx) => {
       targetLangs.forEach(langCode => {
         const langInfo = GLOBAL_LANGUAGES.find(l => l.code === langCode);
         items.push({
-          id: `${file.name}_${langCode}_${fileIdx}`,
-          fileIndex: fileIdx,
-          file,
+          id: `${video.name}_${langCode}_${videoIdx}`,
+          itemIndex: videoIdx,
+          video,
           langCode,
           langInfo,
           preset: selectedPresetObj,
@@ -150,7 +249,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
     });
 
     return items;
-  }, [videoFiles, targetLangs, selectedPresetObj]);
+  }, [videoItems, targetLangs, selectedPresetObj]);
 
   // 필터링된 준비 큐 아이템
   const filteredQueueItems = useMemo(() => {
@@ -160,7 +259,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
 
   // Start Batch Generation
   const handleStartBatch = async () => {
-    if (videoFiles.length === 0) {
+    if (videoItems.length === 0) {
       toast({ title: '안내', description: '영상 파일을 먼저 추가해주세요.' });
       return;
     }
@@ -181,11 +280,18 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
       setProcessingProgress({ current: step, total: totalJobs });
       try {
         const formData = new FormData();
-        formData.append('video', item.file);
+        if (item.video.file) {
+          formData.append('video', item.video.file);
+        } else if (item.video.url) {
+          formData.append('original_urls', item.video.url);
+          formData.append('video', new Blob([''], { type: 'video/mp4' }), item.video.name);
+        } else {
+          formData.append('video', new Blob([''], { type: 'video/mp4' }), item.video.name);
+        }
         formData.append('target_lang', item.langCode);
         formData.append('preset_id', item.preset.id);
         formData.append('tts_config', JSON.stringify(currentTTSConfig));
-        formData.append('song_title', item.file.name.replace(/\.[^/.]+$/, ''));
+        formData.append('song_title', item.video.name.replace(/\.[^/.]+$/, ''));
         await ddalkkakApi.createTtsJob(formData);
         successCount++;
       } catch (err: any) {
@@ -195,7 +301,10 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
 
     setIsProcessing(false);
     setProcessingProgress(null);
-    setVideoFiles([]);
+    setVideoItems([]);
+    try {
+      localStorage.removeItem(STORAGE_KEY_TTS_ITEMS);
+    } catch (_) {}
     setRightTab('history');
 
     toast({
@@ -368,7 +477,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                 <span>AI 대본 번역 및 더빙 등록 중... ({processingProgress?.current || 0}/{processingProgress?.total || 0})</span>
               ) : (
                 <span>
-                  🚀 {videoFiles.length}개 영상 × {targetLangs.length}개 언어 (= 총 {readyQueueItems.length}개 작업) 더빙 생성 시작
+                  🚀 {videoItems.length}개 영상 × {targetLangs.length}개 언어 (= 총 {readyQueueItems.length}개 작업) 더빙 생성 시작
                 </span>
               )}
             </Button>
@@ -506,7 +615,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                       <thead className="bg-muted/40 text-muted-foreground text-[11px] font-semibold sticky top-0 border-b border-border z-10 backdrop-blur-xs">
                         <tr>
                           <th className="py-2.5 px-3 w-12 text-center">#</th>
-                          <th className="py-2.5 px-3">영상 파일</th>
+                          <th className="py-2.5 px-3">영상 파일 / 소스</th>
                           <th className="py-2.5 px-3 w-36">타겟 언어</th>
                           <th className="py-2.5 px-3 w-32">AI 보이스</th>
                           <th className="py-2.5 px-3 w-24">상태</th>
@@ -515,8 +624,8 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                       </thead>
                       <tbody className="divide-y divide-border">
                         {filteredQueueItems.map((item, idx) => {
-                          const formatSize = (bytes: number) => {
-                            if (bytes === 0) return '0 B';
+                          const formatSize = (bytes?: number) => {
+                            if (!bytes || bytes === 0) return '클라우드/URL';
                             const k = 1024;
                             const sizes = ['B', 'KB', 'MB', 'GB'];
                             const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -531,11 +640,11 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                               <td className="py-2.5 px-3">
                                 <div className="flex items-center gap-2 min-w-0 max-w-xs sm:max-w-md">
                                   <FileVideo className="w-4 h-4 text-indigo-500 shrink-0" />
-                                  <div className="truncate font-semibold text-foreground" title={item.file.name}>
-                                    {item.file.name}
+                                  <div className="truncate font-semibold text-foreground" title={item.video.name}>
+                                    {item.video.name}
                                   </div>
                                   <span className="text-[10px] text-muted-foreground shrink-0">
-                                    ({formatSize(item.file.size)})
+                                    ({formatSize(item.video.size)})
                                   </span>
                                 </div>
                               </td>
@@ -558,7 +667,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                               <td className="py-2.5 px-3 text-center">
                                 <button
                                   type="button"
-                                  onClick={() => removeVideoFile(item.fileIndex)}
+                                  onClick={() => removeVideoItem(item.itemIndex)}
                                   className="text-muted-foreground hover:text-rose-500 p-1 rounded transition-colors"
                                   title="이 영상 파일 목록에서 제외"
                                 >
@@ -580,7 +689,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                   <div className="space-y-1">
                     <p className="text-xs font-bold text-foreground">대기열에 준비된 영상이 없습니다</p>
                     <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
-                      좌측 드롭존에 영상을 드래그 앤 드롭하시면, 선택하신 타겟 언어 및 보이스별로 실시간 작업 매트릭스가 이곳에 구성됩니다.
+                      홈 화면에서 영상을 선택해 일괄 작업으로 진입하거나, 좌측 드롭존에 영상을 추가하면 실시간 작업 매트릭스가 이곳에 구성됩니다.
                     </p>
                   </div>
                 </div>

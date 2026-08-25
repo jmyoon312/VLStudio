@@ -393,8 +393,10 @@ const Home = () => {
         const selectedList = allShorts.filter(s => selectedVideoIds.has(s.id));
         const titles = selectedList.map(s => s.title).join(',');
         const videoUrls = selectedList.map(s => s.videoUrl || s.img).join(',');
+        const actualCount = selectedList.length;
         
-        toast.success(`선택한 ${selectedVideoIds.size}개 영상으로 딸깍 ${tab === 'subtitle' ? '자막 생성' : '대본+더빙'} 일괄 작업을 시작합니다!`);
+        toast.success(`선택한 ${actualCount}개 영상으로 딸깍 ${tab === 'subtitle' ? '자막 생성' : '대본+더빙'} 일괄 작업을 시작합니다!`);
+        setSelectedVideoIds(new Set());
         navigate(`/ddalkkak?tab=${tab}&batch=true&titles=${encodeURIComponent(titles)}&videoUrls=${encodeURIComponent(videoUrls)}`);
     };
 
