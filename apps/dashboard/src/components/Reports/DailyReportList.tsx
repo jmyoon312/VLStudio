@@ -377,76 +377,144 @@ export function DailyReportList() {
 
             <Card className="border-border shadow-2xs overflow-hidden bg-card">
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader className="bg-muted/40">
-                            <TableRow>
-                                <TableHead className="w-[50px] text-center">선택</TableHead>
-                                <TableHead className="w-[180px]">리포트 날짜</TableHead>
-                                <TableHead className="w-[100px]">상태</TableHead>
-                                <TableHead>주요 요약 (Executive Summary)</TableHead>
-                                <TableHead className="text-right w-[100px]">보기</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-32 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                            <span className="text-xs">데이터 로딩 중...</span>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : reports?.map((report) => (
-                                <TableRow
+                    {/* 모바일 전용 카드 리스트 (md:hidden) */}
+                    <div className="md:hidden divide-y divide-border p-3 space-y-3">
+                        {isLoading ? (
+                            <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                <span className="text-xs">데이터 로딩 중...</span>
+                            </div>
+                        ) : reports?.length === 0 ? (
+                            <div className="text-center py-12 text-xs text-muted-foreground">
+                                생성된 리포트가 없습니다.
+                            </div>
+                        ) : (
+                            reports?.map((report) => (
+                                <div
                                     key={report.id}
-                                    className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/30'}`}
+                                    className={`report-row p-3 rounded-xl border transition-all cursor-pointer space-y-2 bg-card ${selectedIds.has(report.id) ? 'border-primary bg-primary/5 shadow-2xs' : 'border-border hover:border-muted-foreground/30'}`}
                                     onClick={() => handleViewReport(report)}
                                     data-id={report.id}
                                 >
-                                    <TableCell className="text-center no-drag" onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedIds(prev => {
-                                            const next = new Set(prev);
-                                            if (next.has(report.id)) {
-                                                next.delete(report.id);
-                                            } else {
-                                                next.add(report.id);
-                                            }
-                                            return next;
-                                        });
-                                    }}>
-                                        <div className="flex items-center justify-center">
-                                            <div className={`w-4 h-4 rounded border transition-all ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-border bg-background'}`}>
-                                                {selectedIds.has(report.id) && <CheckCircle2 className="w-4 h-4 text-white p-0.5" />}
+                                    {/* 상단 행: 체크박스 + 날짜 + 배지 + 보기 버튼 */}
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <div
+                                                className="no-drag p-1 -m-1"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(report.id)) next.delete(report.id);
+                                                        else next.add(report.id);
+                                                        return next;
+                                                    });
+                                                }}
+                                            >
+                                                <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-border bg-background'}`}>
+                                                    {selectedIds.has(report.id) && <CheckCircle2 className="w-3.5 h-3.5 text-white p-0.5" />}
+                                                </div>
                                             </div>
+                                            <span className="font-bold text-foreground text-xs truncate">
+                                                {format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}
+                                            </span>
+                                            {!report.is_read ? (
+                                                <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-2xs animate-pulse text-[9px] px-1.5 py-0">신규</Badge>
+                                            ) : (
+                                                <Badge variant="secondary" className="text-muted-foreground bg-muted font-medium text-[9px] px-1.5 py-0">읽음</Badge>
+                                            )}
                                         </div>
-                                    </TableCell>
-                                    <TableCell className="font-semibold text-foreground text-xs sm:text-sm">
-                                        {format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}
-                                    </TableCell>
-                                    <TableCell>
-                                        {!report.is_read ? (
-                                            <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-2xs animate-pulse text-[10px]">신규 (New)</Badge>
-                                        ) : (
-                                            <Badge variant="secondary" className="text-muted-foreground bg-muted font-medium text-[10px]">읽음 (Archived)</Badge>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="max-w-[500px] truncate text-muted-foreground text-xs sm:text-sm font-medium">
-                                        {report.summary_markdown.replace(/[#*`\-]/g, '').trim().slice(0, 120)}...
-                                    </TableCell>
-                                    <TableCell className="text-right no-drag">
-                                        <Button size="icon" variant="ghost" className="hover:bg-primary/10" onClick={(e) => {
+
+                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-primary hover:bg-primary/10 shrink-0" onClick={(e) => {
                                             e.stopPropagation();
                                             handleViewReport(report);
                                         }}>
-                                            <Eye className="h-4 w-4 text-primary" />
+                                            <Eye className="h-4 w-4" />
                                         </Button>
-                                    </TableCell>
+                                    </div>
+
+                                    {/* 요약 본문 */}
+                                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                        {report.summary_markdown.replace(/[#*`\-]/g, '').trim().slice(0, 150)}
+                                    </p>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* 데스크톱 전용 테이블 (hidden md:block) */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <Table>
+                            <TableHeader className="bg-muted/40">
+                                <TableRow>
+                                    <TableHead className="w-[50px] text-center">선택</TableHead>
+                                    <TableHead className="w-[180px]">리포트 날짜</TableHead>
+                                    <TableHead className="w-[100px]">상태</TableHead>
+                                    <TableHead>주요 요약 (Executive Summary)</TableHead>
+                                    <TableHead className="text-right w-[100px]">보기</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="h-32 text-center">
+                                            <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                <span className="text-xs">데이터 로딩 중...</span>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : reports?.map((report) => (
+                                    <TableRow
+                                        key={report.id}
+                                        className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/30'}`}
+                                        onClick={() => handleViewReport(report)}
+                                        data-id={report.id}
+                                    >
+                                        <TableCell className="text-center no-drag" onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedIds(prev => {
+                                                const next = new Set(prev);
+                                                if (next.has(report.id)) {
+                                                    next.delete(report.id);
+                                                } else {
+                                                    next.add(report.id);
+                                                }
+                                                return next;
+                                            });
+                                        }}>
+                                            <div className="flex items-center justify-center">
+                                                <div className={`w-4 h-4 rounded border transition-all ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-border bg-background'}`}>
+                                                    {selectedIds.has(report.id) && <CheckCircle2 className="w-4 h-4 text-white p-0.5" />}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="font-semibold text-foreground text-xs sm:text-sm">
+                                            {format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}
+                                        </TableCell>
+                                        <TableCell>
+                                            {!report.is_read ? (
+                                                <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-2xs animate-pulse text-[10px]">신규 (New)</Badge>
+                                            ) : (
+                                                <Badge variant="secondary" className="text-muted-foreground bg-muted font-medium text-[10px]">읽음 (Archived)</Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="max-w-[500px] truncate text-muted-foreground text-xs sm:text-sm font-medium">
+                                            {report.summary_markdown.replace(/[#*`\-]/g, '').trim().slice(0, 120)}...
+                                        </TableCell>
+                                        <TableCell className="text-right no-drag">
+                                            <Button size="icon" variant="ghost" className="hover:bg-primary/10" onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleViewReport(report);
+                                            }}>
+                                                <Eye className="h-4 w-4 text-primary" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
 
