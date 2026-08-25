@@ -27,7 +27,7 @@ import StatsGraph from '../components/StatsGraph';
 import {
     Search, TrendingUp, PlaySquare, FileText, Copy, Languages,
     ChevronUp, ChevronDown, MonitorPlay, Film, Smartphone, Trash2,
-    Flame, Zap
+    Flame, Zap, Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
