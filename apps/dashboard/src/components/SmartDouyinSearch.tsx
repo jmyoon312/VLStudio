@@ -575,21 +575,39 @@ export default function SmartDouyinSearch() {
         )}
 
         {/* STUDIO TABS (반응형 3분할 탭) */}
-        <div className="grid grid-cols-3 gap-1 bg-muted/80 p-1 sm:p-1.5 rounded-2xl border border-border shadow-2xs select-none">
-            <button onClick={() => setActiveTab('ingest')} className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'ingest' ? 'bg-card text-primary shadow-xs font-extrabold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}>
-                <Download size={15} className="shrink-0" />
-                <span className="sm:hidden text-[11px] truncate">1단계: 수집</span>
+        <div className="grid grid-cols-3 gap-1 bg-muted/90 p-1 sm:p-1.5 rounded-2xl border border-border shadow-2xs select-none">
+            <button 
+                onClick={() => setActiveTab('ingest')} 
+                className={`flex items-center justify-center gap-1 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'ingest' 
+                    ? 'bg-card text-primary shadow-xs font-extrabold border border-border/80' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                }`}
+            >
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="sm:hidden text-[11px] font-bold">1. 수집/분석</span>
                 <span className="hidden sm:inline whitespace-nowrap">1단계: 수집 및 분석</span>
             </button>
-            <button onClick={() => setActiveTab('batch')} className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'batch' ? 'bg-card text-primary shadow-xs font-extrabold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}>
-                <Scissors size={15} className="shrink-0" />
-                <span className="sm:hidden text-[11px] truncate">2단계: 매핑</span>
+            <button 
+                onClick={() => setActiveTab('batch')} 
+                className={`flex items-center justify-center gap-1 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'batch' 
+                    ? 'bg-card text-primary shadow-xs font-extrabold border border-border/80' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                }`}
+            >
+                <Scissors className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="sm:hidden text-[11px] font-bold">2. AI 매핑</span>
                 <span className="hidden sm:inline whitespace-nowrap">2단계: AI 매핑</span>
-                {videos.length > 0 && <span className="ml-1 bg-primary/20 text-primary px-1.5 py-0.2 rounded-full text-[10px] shrink-0 font-mono">{videos.length}</span>}
+                {videos.length > 0 && <span className="ml-1 bg-primary/20 text-primary px-1.5 py-0.2 rounded-full text-[10px] shrink-0 font-mono font-bold">{videos.length}</span>}
             </button>
-            <button onClick={() => setActiveTab('timeline')} className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'timeline' ? 'bg-card text-primary shadow-xs font-extrabold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}>
-                <CheckCheck size={15} className="shrink-0" />
-                <span className="sm:hidden text-[11px] truncate">3단계: 검수</span>
+            <button 
+                onClick={() => setActiveTab('timeline')} 
+                className={`flex items-center justify-center gap-1 sm:gap-2 px-1 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'timeline' 
+                    ? 'bg-card text-primary shadow-xs font-extrabold border border-border/80' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+                }`}
+            >
+                <CheckCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                <span className="sm:hidden text-[11px] font-bold">3. 최종 검수</span>
                 <span className="hidden sm:inline whitespace-nowrap">3단계: 최종 검수</span>
             </button>
         </div>
