@@ -120,8 +120,8 @@ export function SystemSettingsTab() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">시스템 설정</h2>
-                    <p className="text-muted-foreground">
+                    <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">시스템 설정</h2>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                         시스템 전체 동작, 성능 최적화 및 유지보수 작업을 설정합니다.
                     </p>
                 </div>
@@ -130,37 +130,37 @@ export function SystemSettingsTab() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 {/* Rate Limiting Card */}
-                <Card>
-                    <CardHeader>
+                <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                    <CardHeader className="bg-muted/30 border-b border-border py-3.5">
                         <div className="flex items-center justify-between">
                             <div className="space-y-1">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <Shield className="h-4 w-4 text-blue-500" />
+                                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                                    <Shield className="h-4 w-4 text-sky-500" />
                                     Rate Limiting (속도 제한)
                                 </CardTitle>
-                                <CardDescription>
+                                <CardDescription className="text-xs">
                                     유튜브 차단을 방지하고 다운로드 안정성을 확보합니다.
                                 </CardDescription>
                             </div>
-                            <Badge variant={settings?.rate_limiting?.enabled ? "default" : "secondary"}>
+                            <Badge variant={settings?.rate_limiting?.enabled ? "default" : "secondary"} className="font-bold">
                                 {settings?.rate_limiting?.mode || 'UNKNOWN'}
                             </Badge>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex flex-col gap-4">
+                    <CardContent className="space-y-4 pt-4">
+                        <div className="flex flex-col gap-3">
                             <div
-                                className={`p-4 rounded-lg border cursor-pointer transition-all ${settings?.rate_limiting?.mode === 'SAFE' ? 'border-green-500 bg-green-50/10' : 'hover:bg-accent'}`}
+                                className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${settings?.rate_limiting?.mode === 'SAFE' ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-muted/30 hover:bg-muted/50'}`}
                                 onClick={() => handleRateLimitingChange('SAFE')}
                             >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium">안전 모드 (Safe)</span>
-                                    {settings?.rate_limiting?.mode === 'SAFE' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="font-bold text-sm text-foreground">안전 모드 (Safe)</span>
+                                    {settings?.rate_limiting?.mode === 'SAFE' && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
                                 </div>
-                                <p className="text-sm text-muted-foreground mb-2">
+                                <p className="text-xs text-muted-foreground mb-2">
                                     보수적인 제한. IP 차단 위험 최소화. 24/7 자동화에 권장됩니다.
                                 </p>
-                                <div className="flex gap-2 text-xs font-mono text-muted-foreground bg-muted/50 p-2 rounded">
+                                <div className="flex gap-2 text-xs font-mono font-bold text-muted-foreground bg-muted/50 p-2 rounded-xl border border-border">
                                     <span>20 RPM</span>
                                     <span>•</span>
                                     <span>60s Window</span>
@@ -170,17 +170,17 @@ export function SystemSettingsTab() {
                             </div>
 
                             <div
-                                className={`p-4 rounded-lg border cursor-pointer transition-all ${settings?.rate_limiting?.mode === 'BALANCED' ? 'border-blue-500 bg-blue-50/10' : 'hover:bg-accent'}`}
+                                className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${settings?.rate_limiting?.mode === 'BALANCED' ? 'border-sky-500 bg-sky-500/10' : 'border-border bg-muted/30 hover:bg-muted/50'}`}
                                 onClick={() => handleRateLimitingChange('BALANCED')}
                             >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium">균형 모드 (Balanced)</span>
-                                    {settings?.rate_limiting?.mode === 'BALANCED' && <CheckCircle2 className="h-4 w-4 text-blue-500" />}
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="font-bold text-sm text-foreground">균형 모드 (Balanced)</span>
+                                    {settings?.rate_limiting?.mode === 'BALANCED' && <CheckCircle2 className="h-4 w-4 text-sky-400" />}
                                 </div>
-                                <p className="text-sm text-muted-foreground mb-2">
+                                <p className="text-xs text-muted-foreground mb-2">
                                     성능과 안정성의 조화. 일반적인 사용 시 기본 설정입니다.
                                 </p>
-                                <div className="flex gap-2 text-xs font-mono text-muted-foreground bg-muted/50 p-2 rounded">
+                                <div className="flex gap-2 text-xs font-mono font-bold text-muted-foreground bg-muted/50 p-2 rounded-xl border border-border">
                                     <span>30 RPM</span>
                                     <span>•</span>
                                     <span>60s Window</span>
@@ -190,17 +190,17 @@ export function SystemSettingsTab() {
                             </div>
 
                             <div
-                                className={`p-4 rounded-lg border cursor-pointer transition-all ${settings?.rate_limiting?.mode === 'AGGRESSIVE' ? 'border-orange-500 bg-orange-50/10' : 'hover:bg-accent'}`}
+                                className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${settings?.rate_limiting?.mode === 'AGGRESSIVE' ? 'border-amber-500 bg-amber-500/10' : 'border-border bg-muted/30 hover:bg-muted/50'}`}
                                 onClick={() => handleRateLimitingChange('AGGRESSIVE')}
                             >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium">공격적 모드 (Aggressive)</span>
-                                    {settings?.rate_limiting?.mode === 'AGGRESSIVE' && <CheckCircle2 className="h-4 w-4 text-orange-500" />}
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="font-bold text-sm text-foreground">공격적 모드 (Aggressive)</span>
+                                    {settings?.rate_limiting?.mode === 'AGGRESSIVE' && <CheckCircle2 className="h-4 w-4 text-amber-400" />}
                                 </div>
-                                <p className="text-sm text-muted-foreground mb-2">
+                                <p className="text-xs text-muted-foreground mb-2">
                                     최대 처리량. 일시적 차단 위험이 있으며, 프록시 사용 시에만 권장됩니다.
                                 </p>
-                                <div className="flex gap-2 text-xs font-mono text-muted-foreground bg-muted/50 p-2 rounded">
+                                <div className="flex gap-2 text-xs font-mono font-bold text-muted-foreground bg-muted/50 p-2 rounded-xl border border-border">
                                     <span>60 RPM</span>
                                     <span>•</span>
                                     <span>60s Window</span>
@@ -210,17 +210,17 @@ export function SystemSettingsTab() {
                             </div>
                         </div>
 
-                        <Separator className="my-4" />
+                        <Separator className="my-4 bg-border" />
 
                         {/* [NEW] Advanced Controls */}
                         <div className="space-y-4">
-                            <h4 className="text-sm font-medium">고급 설정 (Advanced)</h4>
+                            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">고급 설정 (Advanced)</h4>
 
                             {/* RPM Slider */}
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <Label className="text-xs">분당 최대 요청 (Requests Per Minute)</Label>
-                                    <span className="text-xs font-mono">{settings?.rate_limiting?.requests_per_minute} RPM</span>
+                                    <Label className="text-xs font-bold text-muted-foreground">분당 최대 요청 (Requests Per Minute)</Label>
+                                    <span className="text-xs font-mono font-bold text-sky-400">{settings?.rate_limiting?.requests_per_minute} RPM</span>
                                 </div>
                                 <Slider
                                     value={[settings?.rate_limiting?.requests_per_minute || 30]}
@@ -241,8 +241,8 @@ export function SystemSettingsTab() {
                             {/* Window Slider */}
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <Label className="text-xs">제한 윈도우 (Window Seconds)</Label>
-                                    <span className="text-xs font-mono">{settings?.rate_limiting?.rate_limit_window || 60}s</span>
+                                    <Label className="text-xs font-bold text-muted-foreground">제한 윈도우 (Window Seconds)</Label>
+                                    <span className="text-xs font-mono font-bold text-sky-400">{settings?.rate_limiting?.rate_limit_window || 60}s</span>
                                 </div>
                                 <Slider
                                     value={[settings?.rate_limiting?.rate_limit_window || 60]}
@@ -263,8 +263,8 @@ export function SystemSettingsTab() {
                             {/* Threshold Slider */}
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <Label className="text-xs">Circuit Breaker 임계값 (Threshold)</Label>
-                                    <span className="text-xs font-mono">{settings?.rate_limiting?.circuit_breaker_threshold || 5} Errors</span>
+                                    <Label className="text-xs font-bold text-muted-foreground">Circuit Breaker 임계값 (Threshold)</Label>
+                                    <span className="text-xs font-mono font-bold text-rose-400">{settings?.rate_limiting?.circuit_breaker_threshold || 5} Errors</span>
                                 </div>
                                 <Slider
                                     value={[settings?.rate_limiting?.circuit_breaker_threshold || 5]}
@@ -286,110 +286,112 @@ export function SystemSettingsTab() {
                 </Card>
 
                 {/* [NEW] Strategic Options Card */}
-                <Card>
-                    <CardHeader>
-                        <div className="space-y-1">
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4 text-orange-500" />
-                                전략적 수집 제어 (Strategic Collection)
-                            </CardTitle>
-                            <CardDescription>
-                                유튜브 IP 차단 위험을 줄이기 위해 특정 수집 기능을 비활성화합니다.
-                            </CardDescription>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="flex items-center justify-between space-x-2">
-                            <div className="space-y-0.5">
-                                <Label htmlFor="view-stats">조회수 추적 활성화 (View Stats Tracking)</Label>
-                                <p className="text-sm text-muted-foreground">
-                                    이미 다운로드된 영상의 조회수 변화를 주기적으로 수집합니다. 끄면 요청 수가 줄어듭니다.
-                                </p>
+                <div className="space-y-6">
+                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                        <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                            <div className="space-y-1">
+                                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                                    전략적 수집 제어 (Strategic Collection)
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                    유튜브 IP 차단 위험을 줄이기 위해 특정 수집 기능을 비활성화합니다.
+                                </CardDescription>
                             </div>
-                            <Switch
-                                id="view-stats"
-                                checked={settings?.rate_limiting?.enable_view_stats_collection}
-                                onCheckedChange={(checked) => {
-                                    if (settings && settings.rate_limiting) {
-                                        updateRateLimitingMutation.mutate({
-                                            ...settings.rate_limiting,
-                                            enable_view_stats_collection: checked
-                                        });
-                                    }
-                                }}
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Maintenance Card */}
-                <Card>
-                    <CardHeader>
-                        <div className="space-y-1">
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <Database className="h-4 w-4 text-purple-500" />
-                                시스템 유지보수
-                            </CardTitle>
-                            <CardDescription>
-                                데이터베이스 최적화 및 디스크 정리
-                            </CardDescription>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="flex items-center justify-between space-x-2">
-                            <div className="space-y-0.5">
-                                <Label htmlFor="auto-cleanup">자동 정리 (Auto Cleanup)</Label>
-                                <p className="text-sm text-muted-foreground">
-                                    오래된 프로세스 로그 및 임시 파일을 자동 삭제합니다
-                                </p>
-                            </div>
-                            <Switch
-                                id="auto-cleanup"
-                                checked={settings?.maintenance?.auto_cleanup}
-                                onCheckedChange={(checked) => handleMaintenanceChange('auto_cleanup', checked)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>정리 주기 (Cleanup Interval)</Label>
-                            <div className="flex items-center gap-4">
-                                <Slider
-                                    value={[settings?.maintenance?.cleanup_interval_days || 30]}
-                                    max={90}
-                                    min={7}
-                                    step={1}
-                                    onValueChange={(value) => handleMaintenanceChange('cleanup_interval_days', value[0])}
-                                    className="flex-1"
+                        </CardHeader>
+                        <CardContent className="space-y-6 pt-4">
+                            <div className="flex items-center justify-between space-x-3 p-3.5 bg-muted/30 border border-border rounded-2xl">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="view-stats" className="font-bold text-xs sm:text-sm text-foreground cursor-pointer">조회수 추적 활성화</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        이미 다운로드된 영상의 조회수 변화를 주기적으로 수집합니다. 끄면 요청 수가 줄어듭니다.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="view-stats"
+                                    checked={settings?.rate_limiting?.enable_view_stats_collection}
+                                    onCheckedChange={(checked) => {
+                                        if (settings && settings.rate_limiting) {
+                                            updateRateLimitingMutation.mutate({
+                                                ...settings.rate_limiting,
+                                                enable_view_stats_collection: checked
+                                            });
+                                        }
+                                    }}
                                 />
-                                <span className="w-12 text-right text-sm font-mono">
-                                    {settings?.maintenance?.cleanup_interval_days}일
-                                </span>
                             </div>
-                        </div>
+                        </CardContent>
+                    </Card>
 
-                        <Separator />
-
-                        <div className="flex items-center justify-between space-x-2">
-                            <div className="space-y-0.5">
-                                <Label htmlFor="daily-backup">일일 백업 (Daily Backup)</Label>
-                                <p className="text-sm text-muted-foreground">
-                                    매일 새벽 3시에 데이터베이스를 자동으로 백업합니다
-                                </p>
+                    {/* Maintenance Card */}
+                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                        <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                            <div className="space-y-1">
+                                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                                    <Database className="h-4 w-4 text-purple-500" />
+                                    시스템 유지보수
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                    데이터베이스 최적화 및 디스크 정리
+                                </CardDescription>
                             </div>
-                            <Switch
-                                id="daily-backup"
-                                checked={settings?.maintenance?.backup_enabled}
-                                onCheckedChange={(checked) => handleMaintenanceChange('backup_enabled', checked)}
-                            />
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                        <Button variant="outline" className="w-full" onClick={() => toast.info('수동 백업이 시작되었습니다')}>
-                            <Save className="mr-2 h-4 w-4" />
-                            지금 백업 실행
-                        </Button>
-                    </CardFooter>
-                </Card>
+                        </CardHeader>
+                        <CardContent className="space-y-6 pt-4">
+                            <div className="flex items-center justify-between space-x-3 p-3.5 bg-muted/30 border border-border rounded-2xl">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="auto-cleanup" className="font-bold text-xs sm:text-sm text-foreground cursor-pointer">자동 정리 (Auto Cleanup)</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        오래된 프로세스 로그 및 임시 파일을 자동 삭제합니다
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="auto-cleanup"
+                                    checked={settings?.maintenance?.auto_cleanup}
+                                    onCheckedChange={(checked) => handleMaintenanceChange('auto_cleanup', checked)}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-muted-foreground">정리 주기 (Cleanup Interval)</Label>
+                                <div className="flex items-center gap-4">
+                                    <Slider
+                                        value={[settings?.maintenance?.cleanup_interval_days || 30]}
+                                        max={90}
+                                        min={7}
+                                        step={1}
+                                        onValueChange={(value) => handleMaintenanceChange('cleanup_interval_days', value[0])}
+                                        className="flex-1"
+                                    />
+                                    <span className="w-12 text-right text-xs font-mono font-bold text-purple-400">
+                                        {settings?.maintenance?.cleanup_interval_days}일
+                                    </span>
+                                </div>
+                            </div>
+
+                            <Separator className="bg-border" />
+
+                            <div className="flex items-center justify-between space-x-3 p-3.5 bg-muted/30 border border-border rounded-2xl">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="daily-backup" className="font-bold text-xs sm:text-sm text-foreground cursor-pointer">일일 백업 (Daily Backup)</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        매일 새벽 3시에 데이터베이스를 자동으로 백업합니다
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="daily-backup"
+                                    checked={settings?.maintenance?.backup_enabled}
+                                    onCheckedChange={(checked) => handleMaintenanceChange('backup_enabled', checked)}
+                                />
+                            </div>
+                        </CardContent>
+                        <CardFooter className="border-t border-border pt-4">
+                            <Button variant="outline" className="w-full h-10 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs" onClick={() => toast.info('수동 백업이 시작되었습니다')}>
+                                <Save className="mr-2 h-4 w-4" />
+                                지금 백업 실행
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </div>
             </div>
         </div>
     );

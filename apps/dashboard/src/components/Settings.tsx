@@ -577,51 +577,57 @@ const Settings = () => {
 
             <div className="flex-1">
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="mb-4 bg-muted/80 p-1 sm:p-1.5 rounded-2xl border border-border shadow-2xs flex items-center gap-1 overflow-x-auto select-none dashboard-scroll-area flex-nowrap w-full justify-start">
-                        <TabsTrigger value="general" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <SettingsIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 일반
+                    {/* Responsive Tab Grid: 3-cols on Mobile, Flex on Desktop - No Clipping */}
+                    <TabsList className="mb-5 bg-muted/80 p-1.5 rounded-2xl border border-border shadow-2xs grid grid-cols-3 sm:flex sm:flex-nowrap sm:overflow-x-auto gap-1.5 w-full h-auto">
+                        <TabsTrigger value="general" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <SettingsIcon className="w-3.5 h-3.5" /> 일반
                         </TabsTrigger>
-                        <TabsTrigger value="intelligence" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <BrainCircuit className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> AI 지능
+                        <TabsTrigger value="intelligence" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <BrainCircuit className="w-3.5 h-3.5 text-primary" /> AI 지능
                         </TabsTrigger>
-                        <TabsTrigger value="voice" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <Mic2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 음성
+                        <TabsTrigger value="voice" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <Mic2 className="w-3.5 h-3.5 text-sky-500" /> 음성
                         </TabsTrigger>
-                        <TabsTrigger value="subtitles" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 자막
+                        <TabsTrigger value="subtitles" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-500" /> 자막
                         </TabsTrigger>
-                        <TabsTrigger value="maintenance" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 관리
+                        <TabsTrigger value="maintenance" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <Wrench className="w-3.5 h-3.5 text-rose-500" /> 관리
                         </TabsTrigger>
-                        <TabsTrigger value="hermes" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <BrainCircuit className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" /> Loopie 지능
+                        <TabsTrigger value="hermes" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <BrainCircuit className="w-3.5 h-3.5 text-indigo-500" /> Loopie
                         </TabsTrigger>
-                        <TabsTrigger value="system" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <SettingsIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 시스템
+                        <TabsTrigger value="system" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <SettingsIcon className="w-3.5 h-3.5 text-slate-400" /> 시스템
                         </TabsTrigger>
-                        <TabsTrigger value="aigrid" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" /> AI Grid
+                        <TabsTrigger value="aigrid" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <Zap className="w-3.5 h-3.5 text-amber-500" /> AI Grid
                         </TabsTrigger>
-                        <TabsTrigger value="browser" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
-                            <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" /> 안티디텍트 브라우저
+                        <TabsTrigger value="browser" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+                            <Globe className="w-3.5 h-3.5 text-teal-500" /> 브라우저
                         </TabsTrigger>
                     </TabsList>
 
                     {/* --- TAB 1: GENERAL --- */}
                     <TabsContent value="general">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>다운로드 및 시스템</CardTitle>
-                                <CardDescription>파일 경로와 자동화 설정을 관리합니다.</CardDescription>
+                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                            <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                                <CardTitle className="text-base font-bold text-foreground">다운로드 및 시스템</CardTitle>
+                                <CardDescription className="text-xs">파일 경로와 자동화 설정을 관리합니다.</CardDescription>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="pt-5">
                                 <form onSubmit={handleSave} className="space-y-6">
                                     {/* Download Path */}
                                     <div className="space-y-2">
                                         <Label className="text-xs sm:text-sm font-bold text-foreground">기본 다운로드 경로</Label>
-                                        <div className="flex gap-2">
-                                            <input type="text" value={formData.root_download_path || ''} readOnly className="flex h-10 w-full rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-xs sm:text-sm text-foreground focus:outline-none" />
-                                            <Button type="button" variant="outline" onClick={() => handlePickPath('root_download_path', 'folder')} className="h-10 px-4 font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="text"
+                                                value={formData.root_download_path || ''}
+                                                readOnly
+                                                className="flex-1 min-w-0 bg-muted/40 border-border text-foreground font-mono text-xs rounded-xl h-10"
+                                            />
+                                            <Button type="button" variant="outline" onClick={() => handlePickPath('root_download_path', 'folder')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
                                                 <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
                                             </Button>
                                         </div>
@@ -630,9 +636,15 @@ const Settings = () => {
                                     {/* Cookies */}
                                     <div className="space-y-2">
                                         <Label className="text-xs sm:text-sm font-bold text-foreground">쿠키 파일 경로 (선택)</Label>
-                                        <div className="flex gap-2">
-                                            <input type="text" value={formData.cookies_path || ''} readOnly placeholder="선택된 파일 없음" className="flex h-10 w-full rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-xs sm:text-sm text-foreground focus:outline-none" />
-                                            <Button type="button" variant="outline" onClick={() => handlePickPath('cookies_path', 'file')} className="h-10 px-4 font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                type="text"
+                                                value={formData.cookies_path || ''}
+                                                readOnly
+                                                placeholder="선택된 파일 없음"
+                                                className="flex-1 min-w-0 bg-muted/40 border-border text-foreground font-mono text-xs rounded-xl h-10"
+                                            />
+                                            <Button type="button" variant="outline" onClick={() => handlePickPath('cookies_path', 'file')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
                                                 <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
                                             </Button>
                                         </div>
@@ -1331,9 +1343,11 @@ const Settings = () => {
                                 </Alert>
                                 <div className="space-y-2">
                                     <Label className="text-xs sm:text-sm font-bold text-foreground">Whisper 모델 경로</Label>
-                                    <div className="flex gap-2">
-                                        <Input value={formData.whisper_model_path || ''} readOnly className="bg-muted/40 border-border rounded-xl" />
-                                        <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')} className="h-10 px-4 border-border bg-card rounded-xl shrink-0 font-bold">선택</Button>
+                                    <div className="flex items-center gap-2">
+                                        <Input value={formData.whisper_model_path || ''} readOnly className="flex-1 min-w-0 bg-muted/40 text-foreground font-mono text-xs border-border rounded-xl h-10" />
+                                        <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card hover:bg-muted rounded-xl shrink-0 font-bold">
+                                            <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
+                                        </Button>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

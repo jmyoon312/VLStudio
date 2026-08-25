@@ -99,19 +99,19 @@ const LoopieTab = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-xl font-bold flex items-center gap-2">
-                        <BrainCircuit className="w-5 h-5 text-indigo-500" /> Loopie Intelligence Center
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                        <BrainCircuit className="w-5 h-5 text-indigo-400" /> Loopie Intelligence Center
                     </h2>
                     <p className="text-xs text-muted-foreground">Sovereign Intelligence의 행동 논리와 전략적 성찰을 관리합니다.</p>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                    <div className="flex gap-2">
+                <div className="flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                         <Button
                             variant="outline"
                             size="sm"
-                            className="gap-2 h-9"
+                            className="gap-1.5 h-9 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl flex-1 sm:flex-none"
                             onClick={() => autoUpdateMutation.mutate()}
                             disabled={isUpdating}
                         >
@@ -121,7 +121,7 @@ const LoopieTab = () => {
                         <Button
                             variant="outline"
                             size="icon"
-                            className="h-9 w-9 text-slate-600 hover:text-slate-900"
+                            className="h-9 w-9 border-border bg-card hover:bg-muted text-foreground rounded-xl"
                             onClick={() => window.open('https://github.com/NousResearch/hermes-agent', '_blank')}
                         >
                             <ExternalLink className="w-4 h-4" />
@@ -129,7 +129,7 @@ const LoopieTab = () => {
                         <Button
                             variant="outline"
                             size="icon"
-                            className="h-9 w-9 text-slate-600 hover:text-indigo-600"
+                            className="h-9 w-9 border-border bg-card hover:bg-muted text-indigo-400 rounded-xl"
                             onClick={() => window.open(`http://${window.location.hostname}:9119`, '_blank')}
                             title="Open Hermes Kanban Dashboard"
                         >
@@ -138,7 +138,7 @@ const LoopieTab = () => {
                         <Button
                             variant="default"
                             size="sm"
-                            className="bg-indigo-600 hover:bg-indigo-700 gap-2 h-9 shadow-md"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 h-9 shadow-2xs rounded-xl flex-1 sm:flex-none"
                             onClick={handleSave}
                             disabled={isSaving}
                         >
@@ -148,7 +148,7 @@ const LoopieTab = () => {
                     </div>
                     {loopieStatus?.version && (
                         <div className="text-[10px] text-muted-foreground mr-1">
-                            현재 버전: <span className="font-mono text-indigo-600">
+                            현재 버전: <span className="font-mono font-bold text-indigo-400">
                                 {typeof loopieStatus.version === 'object' 
                                     ? `local: ${loopieStatus.version.local} | latest: ${loopieStatus.version.latest}` 
                                     : loopieStatus.version}
@@ -160,46 +160,48 @@ const LoopieTab = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                 {/* Left: Identity Card */}
-                <Card className="md:col-span-4 bg-muted/10 border-dashed border-2">
-                    <CardHeader className="pb-2">
-                        <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-2">
-                            <Sparkles className="w-6 h-6 text-indigo-600" />
+                <Card className="md:col-span-4 bg-muted/20 border-border rounded-2xl shadow-2xs overflow-hidden">
+                    <CardHeader className="pb-3 bg-muted/30 border-b border-border">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center mb-2">
+                            <Sparkles className="w-5 h-5 text-indigo-400" />
                         </div>
-                        <CardTitle className="text-lg">Core Identity</CardTitle>
-                        <CardDescription>지능 엔진 식별 정보</CardDescription>
+                        <CardTitle className="text-base font-bold text-foreground">Core Identity</CardTitle>
+                        <CardDescription className="text-xs">지능 엔진 식별 정보</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-4 pt-4">
                         <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground uppercase">Designation</Label>
-                            <div className="text-sm font-semibold text-indigo-900">{loopieStatus?.identity || 'Strategic Coordinator'}</div>
+                            <Label className="text-[10px] text-muted-foreground uppercase font-bold">Designation</Label>
+                            <div className="text-sm font-bold text-foreground">{loopieStatus?.identity || 'Strategic Coordinator'}</div>
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground uppercase">Current reasoning Model</Label>
-                            <Badge variant="outline" className="text-xs">{loopieStatus?.model}</Badge>
+                            <Label className="text-[10px] text-muted-foreground uppercase font-bold">Current reasoning Model</Label>
+                            <div>
+                                <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-400 border-indigo-500/20 font-mono font-bold">{loopieStatus?.model || 'Auto'}</Badge>
+                            </div>
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground uppercase">Integrity Status</Label>
-                            <div className="flex items-center gap-2 text-green-600 text-xs font-bold">
+                            <Label className="text-[10px] text-muted-foreground uppercase font-bold">Integrity Status</Label>
+                            <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
                                 <ShieldCheck className="w-4 h-4" /> SECURE / OPTIMIZED
                             </div>
                         </div>
                     </CardContent>
-                    <CardFooter className="pt-0 border-t mt-4 text-[10px] text-muted-foreground p-4">
-                        <Info className="w-3 h-3 mr-1" /> Loopie는 Collective Wisdom을 활용하여 자율 의사 결정을 수행합니다.
+                    <CardFooter className="pt-0 border-t border-border mt-2 text-[10px] text-muted-foreground p-4">
+                        <Info className="w-3.5 h-3.5 mr-1 shrink-0 text-primary" /> Loopie는 Collective Wisdom을 활용하여 자율 의사 결정을 수행합니다.
                     </CardFooter>
                 </Card>
 
                 {/* Right: Detailed Settings */}
                 <div className="md:col-span-8 space-y-6">
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-sm border-b pb-2">Cognitive Configuration</CardTitle>
+                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                        <CardHeader className="pb-3 bg-muted/30 border-b border-border">
+                            <CardTitle className="text-sm font-bold text-foreground">Cognitive Configuration</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-6">
+                        <CardContent className="space-y-6 pt-4">
                             {/* Model Selection */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label className="text-xs">전략 추론 모델 (Reasoning Model)</Label>
+                                    <Label className="text-xs font-bold text-foreground">전략 추론 모델 (Reasoning Model)</Label>
                                     <AIModelSelector
                                         provider={formData.agent_provider}
                                         onProviderChange={(p) => handleFieldChange('agent_provider', p)}
@@ -210,12 +212,12 @@ const LoopieTab = () => {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs">성찰 깊이 (Reflection Verbosity)</Label>
+                                    <Label className="text-xs font-bold text-foreground">성찰 깊이 (Reflection Verbosity)</Label>
                                     <Select
                                         value={formData.reflection_verbosity}
                                         onValueChange={(v) => handleFieldChange('reflection_verbosity', v)}
                                     >
-                                        <SelectTrigger className="h-9">
+                                        <SelectTrigger className="h-10 bg-card border-border rounded-xl text-xs">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -228,39 +230,39 @@ const LoopieTab = () => {
                             </div>
 
                             {/* GitHub Token Section */}
-                            <div className="space-y-2 pt-2 border-t border-dashed">
-                                <Label className="text-xs flex items-center gap-2">
-                                    <Globe className="w-3 h-3 text-slate-500" /> GitHub Access Token (for Auto-Update)
+                            <div className="space-y-2 pt-2 border-t border-border">
+                                <Label className="text-xs font-bold flex items-center gap-2 text-foreground">
+                                    <Globe className="w-3.5 h-3.5 text-muted-foreground" /> GitHub Access Token (for Auto-Update)
                                 </Label>
-                                <div className="flex gap-2">
+                                <div className="flex items-center gap-2">
                                     <input
                                         type="password"
                                         value={formData.github_token}
                                         onChange={(e) => handleFieldChange('github_token', e.target.value)}
                                         placeholder="ghp_xxxxxxxxxxxx"
-                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="flex-1 min-w-0 h-10 rounded-xl border border-border bg-card px-3 py-2 text-xs text-foreground font-mono shadow-2xs focus:outline-none"
                                     />
                                     <Button 
                                         variant="outline" 
                                         size="sm" 
-                                        className="text-[10px] h-9 px-2"
+                                        className="h-10 px-3 font-bold text-xs border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0"
                                         onClick={() => window.open('https://github.com/settings/tokens', '_blank')}
                                     >
                                         토큰 발급
                                     </Button>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground italic">
+                                <p className="text-[10px] text-muted-foreground">
                                     * 비공개 리포지토리 업데이트를 위해 필요합니다. 토큰은 DB에 안전하게 암호화되어 저장됩니다.
                                 </p>
                             </div>
 
                             {/* Wisdom Depth Slider */}
                             <div className="space-y-4">
-                                <div className="flex justify-between">
-                                    <Label className="text-xs font-bold flex items-center gap-2">
-                                        <Database className="w-3 h-3 text-indigo-500" /> Wisdom Context Depth
+                                <div className="flex justify-between items-center">
+                                    <Label className="text-xs font-bold flex items-center gap-2 text-foreground">
+                                        <Database className="w-3.5 h-3.5 text-indigo-400" /> Wisdom Context Depth
                                     </Label>
-                                    <span className="text-xs font-mono text-indigo-600">{formData.hermes_wisdom_depth} Successful Missions</span>
+                                    <span className="text-xs font-mono font-bold text-indigo-400">{formData.hermes_wisdom_depth} Successful Missions</span>
                                 </div>
                                 <Slider
                                     value={[formData.hermes_wisdom_depth]}
@@ -270,16 +272,16 @@ const LoopieTab = () => {
                                         handleFieldChange('hermes_wisdom_depth', val[0]);
                                     }}
                                 />
-                                <p className="text-[10px] text-muted-foreground italic">
+                                <p className="text-[10px] text-muted-foreground">
                                     추론 시 과거의 어떤 성공 경험을 얼마큼 참조할지 결정합니다. 수치가 높을수록 정확하지만 연산량이 많아집니다.
                                 </p>
                             </div>
 
                             {/* Automation Switches */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                                <div className="flex items-center justify-between p-3 border rounded-lg bg-indigo-50/20">
+                                <div className="flex items-center justify-between p-3.5 border border-border rounded-2xl bg-muted/30">
                                     <div className="space-y-0.5">
-                                        <Label className="text-xs font-bold">자율 성찰 (Auto-Reflection)</Label>
+                                        <Label className="text-xs font-bold text-foreground">자율 성찰 (Auto-Reflection)</Label>
                                         <p className="text-[10px] text-muted-foreground">미션 종료 시 자동 학습 수행</p>
                                     </div>
                                     <Switch
@@ -287,9 +289,9 @@ const LoopieTab = () => {
                                         onCheckedChange={(c) => handleFieldChange('auto_reflection', c)}
                                     />
                                 </div>
-                                <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50/20">
+                                <div className="flex items-center justify-between p-3.5 border border-border rounded-2xl bg-muted/30">
                                     <div className="space-y-0.5">
-                                        <Label className="text-xs font-bold">지능 자동 갱신 (Auto-Update)</Label>
+                                        <Label className="text-xs font-bold text-foreground">지능 자동 갱신 (Auto-Update)</Label>
                                         <p className="text-[10px] text-muted-foreground">최신 tactical definitions 동기화</p>
                                     </div>
                                     <Switch
@@ -301,10 +303,10 @@ const LoopieTab = () => {
                         </CardContent>
                     </Card>
 
-                    <Alert className="bg-amber-50 border-amber-200">
-                        <History className="h-4 w-4 text-amber-600" />
-                        <CardTitle className="text-xs font-bold text-amber-800">Learning Cycle Insight</CardTitle>
-                        <AlertDescription className="text-[10px] text-amber-700">
+                    <Alert className="bg-amber-500/10 border-amber-500/20 text-foreground">
+                        <History className="h-4 w-4 text-amber-500" />
+                        <CardTitle className="text-xs font-bold text-foreground">Learning Cycle Insight</CardTitle>
+                        <AlertDescription className="text-[10px] text-muted-foreground leading-relaxed">
                             현재 시스템은 총 {loopieStatus?.wisdom_depth || formData.hermes_wisdom_depth}개의 의미론적 맥락을 유지하고 있습니다. '이미지 생성 오류' 영역에서 최근 72시간 내 가장 활발한 자가 교정이 일어났습니다.
                         </AlertDescription>
                     </Alert>
