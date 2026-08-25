@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Sparkles, Wand2, ShieldAlert, Copy, Check, Trash2, Edit, Plus, Mic, Globe, Search, TrendingUp, ChevronDown, ChevronRight, FileText, ExternalLink, Zap, Activity, BarChart3, Undo, ArrowRight } from 'lucide-react';
+import { Bot, Sparkles, Wand2, ShieldAlert, Copy, Check, Trash2, Edit, Plus, Mic, Globe, Search, TrendingUp, ChevronDown, ChevronUp, ChevronRight, FileText, ExternalLink, Zap, Activity, BarChart3, Undo, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTextWithLineBreaks, cn } from "@/lib/utils";
 import AIModelSelector from '@/components/shared/AIModelSelector';
