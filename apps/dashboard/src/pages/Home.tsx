@@ -554,16 +554,22 @@ const Home = () => {
 
 
     return (
-        <div className="animate-in fade-in duration-500 pb-20 md:pb-12 px-3 sm:px-6 pt-2.5 sm:pt-4 space-y-4 sm:space-y-5 bg-background text-foreground min-h-screen relative">
+        <div className="animate-in fade-in duration-500 pb-36 md:pb-12 px-3 sm:px-6 pt-2.5 sm:pt-4 space-y-4 sm:space-y-5 bg-background text-foreground min-h-screen relative">
 
             {/* 1. 상단 공지 띠 배너 (컴팩트 슬림형) */}
             {showNotice && (
-                <div className="bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl px-3.5 py-2 flex items-center justify-between gap-3 text-xs text-blue-900 dark:text-blue-200 shadow-2xs">
-                    <div className="flex items-center gap-2 min-w-0">
+                <div className="bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded-xl px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-blue-900 dark:text-blue-200 shadow-2xs">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto">
                         <span className="bg-blue-600 text-white font-bold text-[9px] px-1.5 py-0.5 rounded shrink-0">파이프라인</span>
-                        <p className="truncate font-medium text-[11px] sm:text-xs">
-                            [소재 소싱/갤러리] ➔ [대본 추출/AI 재창작] ➔ [⚡ 딸깍 일괄 자동 생성] ➔ [최종 완성본 작업 대기열 스텔스 배포]
-                        </p>
+                        <div className="flex items-center gap-1 font-medium text-[11px] sm:text-xs shrink-0">
+                            <span>1. 소재 소싱</span>
+                            <span>➔</span>
+                            <span>2. 대본 각색</span>
+                            <span>➔</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">3. ⚡ AI 렌더링</span>
+                            <span>➔</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">4. 작업 대기열</span>
+                        </div>
                     </div>
                     <button 
                         onClick={() => setShowNotice(false)} 
@@ -576,7 +582,7 @@ const Home = () => {
 
             {/* 2. 히어로 배너: 바이럴루프 원클릭 파이프라인 진입점 (컴팩트 디자인) */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-card border border-border/80 rounded-2xl p-4 sm:p-5 shadow-xs relative overflow-hidden">
-                <div className="space-y-2 z-10 max-w-2xl">
+                <div className="space-y-2.5 z-10 max-w-2xl">
                     <div className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
                         <Compass className="w-3 h-3" /> DISCOVERY & CREATIVE HUB
                     </div>
@@ -584,40 +590,40 @@ const Home = () => {
                         오늘 어디서부터 볼지 먼저 정하고 들어가는 홈
                     </h2>
                     <p className="text-xs text-muted-foreground leading-normal">
-                        소재 소싱부터 대본 추출, <strong>딸깍 다중 영상 일괄 생성</strong>, 최종 완성본 배포 대기열까지 단계별로 진행합니다.
+                        소재 소싱부터 대본 추출, <strong>AI 다중 영상 일괄 생성</strong>, 최종 완성본 작업 대기열 배포까지 단계별로 진행합니다.
                     </p>
 
                     {/* 빠른 진입 필터 태그 버튼들 */}
-                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 pt-0.5">
                         <button 
-                            onClick={() => navigate('/douyin-search')}
-                            className="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+                            onClick={() => navigate('/download')}
+                            className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5"
                         >
-                            <Globe className="w-3.5 h-3.5" /> 더우인/쇼츠 수집
+                            <Download className="w-3.5 h-3.5" /> 레퍼런스 수집
                         </button>
                         <button 
                             onClick={() => navigate('/gallery')}
-                            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center gap-1.5"
+                            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5"
                         >
-                            <FolderOpen className="w-3.5 h-3.5 text-amber-500" /> 수집 미디어 갤러리 ({stats.total_videos}개)
+                            <FolderOpen className="w-3.5 h-3.5 text-amber-500" /> 보관함 (갤러리) ({stats.total_videos}개)
                         </button>
                         <button 
-                            onClick={() => navigate('/ddalkkak')}
-                            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center gap-1.5"
+                            onClick={() => navigate('/creative-studio')}
+                            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5"
                         >
-                            <Zap className="w-3.5 h-3.5 text-amber-500" /> ⚡ 딸깍 자동 생성
+                            <Zap className="w-3.5 h-3.5 text-amber-500" /> ⚡ AI 자동 생성
                         </button>
                         <button 
                             onClick={() => navigate('/script-lab')}
-                            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center gap-1.5"
+                            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5"
                         >
-                            <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> 대본 추출 및 분석
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> 대본 추출 & 각색
                         </button>
                         <button 
                             onClick={() => navigate('/work-queue')}
-                            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center gap-1.5"
+                            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5 col-span-2 sm:col-span-1"
                         >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 배포 대기열 ({queueStats.queued}건)
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> 작업 대기열 ({queueStats.queued}건)
                         </button>
                     </div>
                 </div>
@@ -853,12 +859,12 @@ const Home = () => {
             {/* 4. 하단 4열 통합 인텔리전스 워크플로우 위젯 (컴팩트 카드) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
                 
-                {/* 1열: 📁 [1단계] 수집 미디어 갤러리 */}
+                {/* 1열: 📁 [1단계] 보관함 (갤러리) */}
                 <div className="bg-card border border-border/80 rounded-xl p-3.5 shadow-xs flex flex-col justify-between">
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                <FolderOpen className="w-3.5 h-3.5 text-amber-500" /> 수집 미디어 갤러리
+                                <FolderOpen className="w-3.5 h-3.5 text-amber-500" /> 보관함 (갤러리)
                             </h3>
                             <Link to="/gallery" className="text-[11px] font-semibold text-primary hover:underline">
                                 전체보기
@@ -874,7 +880,7 @@ const Home = () => {
                                         key={v.id} 
                                         onClick={() => handleSingleDdalkkak(v, 'subtitle')}
                                         className="flex items-center justify-between p-1.5 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer group"
-                                        title="클릭 시 딸깍 자동 생성으로 이동"
+                                        title="클릭 시 AI 자동 생성으로 이동"
                                     >
                                         <div className="flex items-center gap-1.5 min-w-0">
                                             <span className="text-[11px] font-bold font-mono text-muted-foreground w-3 text-center">{idx + 1}</span>
@@ -884,15 +890,15 @@ const Home = () => {
                                             </div>
                                         </div>
                                         <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 shrink-0">
-                                            ⚡ 딸깍
+                                            ⚡ AI 생성
                                         </span>
                                     </div>
                                 ))
                             ) : (
                                 <div className="p-4 text-center text-[11px] text-muted-foreground space-y-1.5">
                                     <p>수집된 영상이 없습니다.</p>
-                                    <Link to="/douyin-search" className="inline-block text-[10px] font-bold text-primary hover:underline">
-                                        더우인/쇼츠 수집하러 가기 ➔
+                                    <Link to="/download" className="inline-block text-[10px] font-bold text-primary hover:underline">
+                                        레퍼런스 수집하러 가기 ➔
                                     </Link>
                                 </div>
                             )}
