@@ -541,41 +541,71 @@ const ScriptLab = () => {
     }, [videoHistory, statsVideo]);
 
     return (
-        <div className="h-full flex flex-col bg-background p-3 sm:p-6 space-y-3 sm:space-y-4" ref={tableContainerRef}>
+        <div className="min-h-screen flex flex-col bg-background p-3 sm:p-6 space-y-3 sm:space-y-4 overflow-x-hidden" ref={tableContainerRef}>
             {/* Header Area */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                <div />
-                <div className="flex flex-wrap gap-2 items-center justify-end">
-                    {/* Select All Button */}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleSelectAll(table.getFilteredRowModel().rows.map(r => r.original))}
-                        className="text-muted-foreground hover:text-primary text-xs"
-                    >
-                        {selectedIds.size === table.getFilteredRowModel().rows.length && table.getFilteredRowModel().rows.length > 0
-                            ? "전체 해제"
-                            : "전체 선택"}
-                    </Button>
-
-                    {/* Delete Button (Visible if Selected) */}
-                    {selectedIds.size > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
+                        총 <span className="text-foreground font-bold">{table.getFilteredRowModel().rows.length}</span>개의 대본
+                    </span>
+                    {/* Selection Toggle on Mobile */}
+                    <div className="flex items-center gap-1.5 sm:hidden">
                         <Button
-                            variant="destructive"
+                            variant="outline"
                             size="sm"
-                            onClick={handleDelete}
-                            className="gap-1.5 animate-in fade-in zoom-in duration-200 text-xs"
+                            onClick={() => toggleSelectAll(table.getFilteredRowModel().rows.map(r => r.original))}
+                            className="text-xs h-8 px-2.5 border-border"
                         >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            {selectedIds.size}개 삭제
+                            {selectedIds.size === table.getFilteredRowModel().rows.length && table.getFilteredRowModel().rows.length > 0
+                                ? "전체 해제"
+                                : "전체 선택"}
                         </Button>
-                    )}
+                        {selectedIds.size > 0 && (
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={handleDelete}
+                                className="h-8 px-2.5 text-xs gap-1 animate-in fade-in"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                                {selectedIds.size}
+                            </Button>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-end">
+                    {/* Desktop Selection Buttons */}
+                    <div className="hidden sm:flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleSelectAll(table.getFilteredRowModel().rows.map(r => r.original))}
+                            className="text-muted-foreground hover:text-primary text-xs h-9"
+                        >
+                            {selectedIds.size === table.getFilteredRowModel().rows.length && table.getFilteredRowModel().rows.length > 0
+                                ? "전체 해제"
+                                : "전체 선택"}
+                        </Button>
+
+                        {selectedIds.size > 0 && (
+                            <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={handleDelete}
+                                className="gap-1.5 animate-in fade-in zoom-in duration-200 text-xs h-9"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                {selectedIds.size}개 삭제
+                            </Button>
+                        )}
+                    </div>
 
                     <div className="relative w-full sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
                             placeholder="제목, 채널 검색..."
-                            className="pl-9 bg-card shadow-2xs text-xs h-9"
+                            className="pl-9 bg-card shadow-2xs text-xs h-9 w-full"
                             value={globalFilter}
                             onChange={e => setGlobalFilter(e.target.value)}
                         />
@@ -583,50 +613,58 @@ const ScriptLab = () => {
                 </div>
             </div>
 
-            {/* Data Table */}
-            <div className="flex-1 rounded-xl border border-border bg-card shadow-2xs overflow-hidden flex flex-col select-none relative">
-                <div
-                    className="overflow-x-auto flex-1 w-full"
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={onTableMouseMove}
-                >
-                    <Table className="w-full min-w-[760px]">
-                        {/* Headers */}
-                        <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-xs z-10 shadow-2xs">
-                            {table.getHeaderGroups().map(headerGroup => (
-                                <TableRow key={headerGroup.id}>
-                                    {headerGroup.headers.map(header => {
-                                        // Determine alignment based on column ID
-                                        let alignClass = 'justify-start';
-                                        if (header.column.id === 'viral_score' || header.column.id === 'select') alignClass = 'justify-center'; // Grade & Checkbox
-                                        else if (['viral_val', 'velocity_score', 'view_count', 'upload_date'].includes(header.column.id)) alignClass = 'justify-end';
+            {/* Data Table Container */}
+            <div className="flex-1 rounded-xl border border-border bg-card shadow-2xs overflow-hidden flex flex-col select-none relative min-h-[350px]">
+                {table.getRowModel().rows?.length === 0 ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center text-muted-foreground gap-2">
+                        <Sparkles className="w-10 h-10 opacity-30 text-primary mb-1" />
+                        <p className="text-sm font-semibold text-foreground">분석된 대본 데이터가 없습니다</p>
+                        <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                            더우인 수집기 또는 미디어 고속 다운로드에서 영상을 추출하여 대본 분석을 시작해보세요.
+                        </p>
+                    </div>
+                ) : (
+                    <div
+                        className="overflow-x-auto flex-1 w-full"
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={onTableMouseMove}
+                    >
+                        <Table className="w-full min-w-[760px]">
+                            {/* Headers */}
+                            <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-xs z-10 shadow-2xs">
+                                {table.getHeaderGroups().map(headerGroup => (
+                                    <TableRow key={headerGroup.id}>
+                                        {headerGroup.headers.map(header => {
+                                            // Determine alignment based on column ID
+                                            let alignClass = 'justify-start';
+                                            if (header.column.id === 'viral_score' || header.column.id === 'select') alignClass = 'justify-center'; // Grade & Checkbox
+                                            else if (['viral_val', 'velocity_score', 'view_count', 'upload_date'].includes(header.column.id)) alignClass = 'justify-end';
 
-                                        return (
-                                            <TableHead key={header.id} className="whitespace-nowrap px-3 h-10 sm:h-12" style={{ width: header.getSize() }}>
-                                                {header.isPlaceholder
-                                                    ? null
-                                                    : (
-                                                        <div
-                                                            className={`flex items-center gap-1 cursor-pointer select-none ${alignClass} ${header.column.getCanSort() ? 'hover:text-primary' : ''}`}
-                                                            onClick={header.column.getToggleSortingHandler()}
-                                                        >
-                                                            {flexRender(header.column.columnDef.header, header.getContext())}
-                                                            {{
-                                                                asc: <ChevronUp className="w-3 h-3" />,
-                                                                desc: <ChevronDown className="w-3 h-3" />,
-                                                            }[header.column.getIsSorted() as string] ?? null}
-                                                        </div>
-                                                    )
-                                                }
-                                            </TableHead>
-                                        );
-                                    })}
-                                </TableRow>
-                            ))}
-                        </TableHeader>
-                        <TableBody>
-                            {table.getRowModel().rows?.length ? (
-                                table.getRowModel().rows.map(row => (
+                                            return (
+                                                <TableHead key={header.id} className="whitespace-nowrap px-3 h-10 sm:h-12" style={{ width: header.getSize() }}>
+                                                    {header.isPlaceholder
+                                                        ? null
+                                                        : (
+                                                            <div
+                                                                className={`flex items-center gap-1 cursor-pointer select-none ${alignClass} ${header.column.getCanSort() ? 'hover:text-primary' : ''}`}
+                                                                onClick={header.column.getToggleSortingHandler()}
+                                                            >
+                                                                {flexRender(header.column.columnDef.header, header.getContext())}
+                                                                {{
+                                                                    asc: <ChevronUp className="w-3 h-3" />,
+                                                                    desc: <ChevronDown className="w-3 h-3" />,
+                                                                }[header.column.getIsSorted() as string] ?? null}
+                                                            </div>
+                                                        )
+                                                    }
+                                                </TableHead>
+                                            );
+                                        })}
+                                    </TableRow>
+                                ))}
+                            </TableHeader>
+                            <TableBody>
+                                {table.getRowModel().rows.map(row => (
                                     <TableRow
                                         key={row.id}
                                         data-state={row.getIsSelected() && "selected"}
@@ -648,17 +686,11 @@ const ScriptLab = () => {
                                             </TableCell>
                                         ))}
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground text-xs sm:text-sm">
-                                        데이터가 없습니다.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
 
                 {/* Pagination / Footer */}
                 <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t border-border bg-muted/40 text-xs text-muted-foreground gap-2">
