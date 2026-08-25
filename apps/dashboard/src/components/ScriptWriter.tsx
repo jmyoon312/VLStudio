@@ -505,13 +505,13 @@ const ScriptWriter = () => {
             )}
 
             {/* Zone 2: Workspace */}
-            <div className="flex-1 flex flex-col md:flex-row gap-3 sm:gap-4 min-h-[600px] md:min-h-[700px]">
+            <div className="flex-1 flex flex-col md:flex-row gap-3 sm:gap-4 min-h-[500px]">
                 {/* Left Pane: Source */}
-                <Card className="flex-1 flex flex-col min-h-[250px] md:min-h-0">
-                    <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b bg-muted/30">
+                <Card className="flex-1 flex flex-col min-h-[220px] md:min-h-0 border-border bg-card">
+                    <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border bg-muted/30">
                         <div className="flex justify-between items-center">
-                            <CardTitle className="text-sm sm:text-base font-bold">원본 자막/스크립트 (Source)</CardTitle>
-                            <Button variant="ghost" size="sm" onClick={handlePaste} className="h-7 sm:h-8 text-xs">
+                            <CardTitle className="text-xs sm:text-sm font-bold text-foreground">원본 자막/스크립트 (Source)</CardTitle>
+                            <Button variant="ghost" size="sm" onClick={handlePaste} className="h-7 sm:h-8 text-xs text-muted-foreground hover:text-foreground">
                                 <Copy className="w-3 h-3 mr-1" />
                                 붙여넣기
                             </Button>
@@ -519,7 +519,7 @@ const ScriptWriter = () => {
                     </CardHeader>
                     <CardContent className="flex-1 p-0 relative">
                         <Textarea
-                            className="w-full h-full min-h-[200px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground"
+                            className="w-full h-full min-h-[180px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground"
                             placeholder="번역 및 변환할 원본 텍스트를 여기에 입력하거나 붙여넣으세요..."
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
@@ -528,61 +528,61 @@ const ScriptWriter = () => {
                 </Card>
 
                 {/* Center Action */}
-                <div className="flex flex-row md:flex-col justify-center gap-2">
+                <div className="flex flex-row md:flex-col justify-center items-center gap-2">
                     <Button
                         size="lg"
-                        className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg py-2.5 sm:py-3"
+                        className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90 shadow-md py-3 sm:py-4 px-4 sm:px-6 rounded-xl font-bold text-xs sm:text-sm"
                         onClick={handleGenerate}
                         disabled={isGenerating}
                     >
                         {isGenerating ? (
-                            <Wand2 className="w-5 h-5 animate-spin mr-1.5 md:mr-0" />
+                            <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-1.5 md:mr-0" />
                         ) : (
-                            <Sparkles className="w-5 h-5 mr-1.5 md:mr-0" />
+                            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 md:mr-0" />
                         )}
-                        <span className="md:hidden font-bold text-xs">AI 대본 변환 및 생성</span>
+                        <span className="md:hidden font-bold">AI 대본 변환 및 생성</span>
                     </Button>
                 </div>
 
                 {/* Right Pane: Result */}
-                <Card className="flex-1 flex flex-col min-h-0 border-blue-200 dark:border-blue-900 shadow-sm">
-                    <CardHeader className="py-3 px-4 border-b bg-blue-50/50 dark:bg-blue-950/20">
+                <Card className="flex-1 flex flex-col min-h-[260px] md:min-h-0 border-border bg-card shadow-2xs">
+                    <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border bg-muted/30">
                         <div className="flex justify-between items-center">
-                            <CardTitle className="text-base text-blue-900 dark:text-blue-100">생성된 대본 (Result)</CardTitle>
-                            <div className="flex gap-2">
+                            <CardTitle className="text-xs sm:text-sm font-bold text-foreground">생성된 대본 (Result)</CardTitle>
+                            <div className="flex gap-1.5 sm:gap-2">
                                 <Button
                                     variant="secondary"
                                     size="sm"
                                     onClick={() => navigate('/multi-tts', { state: { importedScript: formatTextWithLineBreaks(resultText) } })}
                                     disabled={!resultText}
-                                    className="h-8 text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900 dark:text-indigo-100"
+                                    className="h-7 sm:h-8 text-xs bg-primary/10 text-primary hover:bg-primary/20"
                                 >
                                     <Mic className="w-3 h-3 mr-1" />
                                     TTS 생성
                                 </Button>
-                                <Button variant="ghost" size="sm" onClick={handleCopyResult} className="h-8 text-xs">
+                                <Button variant="ghost" size="sm" onClick={handleCopyResult} className="h-7 sm:h-8 text-xs text-muted-foreground hover:text-foreground">
                                     <Copy className="w-3 h-3 mr-1" />
                                     복사하기
                                 </Button>
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="flex-1 p-0 relative flex flex-col">
+                    <CardContent className="flex-1 p-0 relative flex flex-col min-h-0">
                         <Textarea
-                            className="flex-1 resize-none border-0 focus-visible:ring-0 p-4 rounded-none font-medium leading-relaxed"
+                            className="flex-1 resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm font-medium leading-relaxed placeholder:text-muted-foreground"
                             placeholder="AI가 생성한 대본이 여기에 표시됩니다..."
                             value={resultText}
                             onChange={(e) => setResultText(e.target.value)}
                         />
 
-                        <div className="p-2 border-t bg-muted/20 flex gap-2 overflow-x-auto items-center">
-                            <Button variant="outline" size="sm" onClick={() => handleRefine("기존 대본의 맥락, 말투, 톤앤매너를 100% 완벽하게 유지하면서, 전체 분량을 20~30% 정도 줄여서 더 빠르고 간결하게 만들어줘. 불필요한 번역투, 한자어, 중국어투가 절대 들어가지 않도록 극도로 주의해. 오직 자연스러운 한국어로만 작성해.")} disabled={isGenerating || !resultText}>
+                        <div className="p-2 border-t border-border bg-muted/20 flex gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar items-center select-none">
+                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground shrink-0" onClick={() => handleRefine("기존 대본의 맥락, 말투, 톤앤매너를 100% 완벽하게 유지하면서, 전체 분량을 20~30% 정도 줄여서 더 빠르고 간결하게 만들어줘. 불필요한 번역투, 한자어, 중국어투가 절대 들어가지 않도록 극도로 주의해. 오직 자연스러운 한국어로만 작성해.")} disabled={isGenerating || !resultText}>
                                 <Wand2 className="w-3 h-3 mr-1" /> 더 짧게
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleRefine("기존 대본의 핵심 주제와 흐름을 유지하면서, 훨씬 더 유머러스하고 텐션이 높은 숏폼 스타일로 다듬어줘. 억지스러운 번역투나 중국어투는 절대 배제하고, 한국 네티즌들이 쓰는 자연스러운 밈과 말투를 활용해.")} disabled={isGenerating || !resultText}>
+                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground shrink-0" onClick={() => handleRefine("기존 대본의 핵심 주제와 흐름을 유지하면서, 훨씬 더 유머러스하고 텐션이 높은 숏폼 스타일로 다듬어줘. 억지스러운 번역투나 중국어투는 절대 배제하고, 한국 네티즌들이 쓰는 자연스러운 밈과 말투를 활용해.")} disabled={isGenerating || !resultText}>
                                 <Sparkles className="w-3 h-3 mr-1" /> 더 재미있게
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => {
+                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground shrink-0" onClick={() => {
                                 setSafetyEditText(resultText);
                                 safetyReviewMutation.mutate({
                                     current_text: resultText,
@@ -592,8 +592,8 @@ const ScriptWriter = () => {
                             }} disabled={safetyReviewMutation.isPending || !resultText}>
                                 <ShieldAlert className="w-3 h-3 mr-1" /> 안전 표현 수정
                             </Button>
-                            <div className="flex-1" />
-                            <Button variant="ghost" size="sm" onClick={handleUndo} disabled={undoHistory.length === 0 || isGenerating} className="h-8 text-xs text-muted-foreground hover:text-foreground">
+                            <div className="flex-1 min-w-[8px]" />
+                            <Button variant="ghost" size="sm" onClick={handleUndo} disabled={undoHistory.length === 0 || isGenerating} className="h-7 sm:h-8 text-xs text-muted-foreground hover:text-foreground shrink-0">
                                 <Undo className="w-3 h-3 mr-1" /> 되돌리기
                             </Button>
                         </div>

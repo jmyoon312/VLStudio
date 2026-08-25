@@ -156,9 +156,9 @@ const AIModelSelector = ({
     }, [model, provider, fetchedModels, isLoading]);
 
     // --- Styling Classes ---
-    const labelClass = compact ? "text-[10px] text-slate-500" : "text-sm font-medium";
-    const selectTriggerClass = compact ? "h-8 text-xs bg-white" : "bg-white";
-    const itemClass = compact ? "text-xs" : "";
+    const labelClass = compact ? "text-[10px] text-muted-foreground font-semibold" : "text-xs sm:text-sm font-semibold text-foreground";
+    const selectTriggerClass = compact ? "h-8 text-xs bg-background border-border text-foreground" : "h-10 text-xs sm:text-sm bg-background border-border text-foreground";
+    const itemClass = compact ? "text-xs" : "text-xs sm:text-sm";
 
     // Fetch Styles (only if needed)
     const { data: styles } = useQuery<ScriptStyle[]>({
@@ -168,15 +168,15 @@ const AIModelSelector = ({
     });
 
     return (
-        <div className={cn("grid gap-4", compact ? "grid-cols-2 gap-3" : "grid-cols-1 md:grid-cols-2")}>
+        <div className={cn("grid gap-3 sm:gap-4", compact ? "grid-cols-2 gap-3" : "grid-cols-1 md:grid-cols-2")}>
             {/* Provider Section */}
-            <div className="space-y-2">
-                <div className="flex items-end min-h-[28px] pb-1">
+            <div className="space-y-1.5">
+                <div className="flex items-end min-h-[24px] pb-0.5">
                     <Label className={labelClass}>제공자 (Provider)</Label>
                 </div>
                 <Select value={provider} onValueChange={handleProviderChange} disabled={disabled}>
                     <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Select Provider" />
+                        <SelectValue placeholder="제공자 선택..." />
                     </SelectTrigger>
                     <SelectContent>
                         {PROVIDER_OPTIONS.filter((opt) => {
@@ -193,12 +193,12 @@ const AIModelSelector = ({
 
             {/* Model Dropdown (Dynamic) */}
             {showModel && (
-                <div className="space-y-2">
-                    <div className="flex items-end justify-between min-h-[28px] pb-1">
+                <div className="space-y-1.5">
+                    <div className="flex items-end justify-between min-h-[24px] pb-0.5">
                         <Label className={labelClass}>모델 (Model)</Label>
                         <button 
                             onClick={(e) => { e.preventDefault(); forceRefresh(); }}
-                            className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50/80 px-2 py-0.5 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                            className="text-[10px] font-bold text-primary hover:text-primary/80 flex items-center gap-1 bg-primary/10 px-2 py-0.5 rounded border border-primary/20 hover:bg-primary/20 transition-colors"
                             disabled={isLoading}
                         >
                             <RefreshCcw className={cn("w-2.5 h-2.5", isLoading && "animate-spin")} />
@@ -220,22 +220,22 @@ const AIModelSelector = ({
                     >
                         <SelectTrigger className={selectTriggerClass}>
                             {isLoading ? (
-                                <div className="flex items-center gap-2 text-slate-500">
+                                <div className="flex items-center gap-2 text-muted-foreground">
                                     <Loader2 className="w-3 h-3 animate-spin" />
                                     <span>로딩 중...</span>
                                 </div>
                             ) : isError ? (
-                                <div className="flex items-center gap-2 text-red-500 cursor-pointer" onClick={() => refetch()}>
+                                <div className="flex items-center gap-2 text-destructive cursor-pointer" onClick={() => refetch()}>
                                     <AlertCircle className="w-3 h-3" />
                                     <span>오류 (클릭해서 재시도)</span>
                                 </div>
                             ) : isCustom ? (
-                                <div className="flex items-center gap-2 text-blue-600">
+                                <div className="flex items-center gap-2 text-primary font-medium">
                                     <Settings2 className="w-3 h-3" />
                                     <span>커스텀 입력 중...</span>
                                 </div>
                             ) : currentProviderModels.length === 0 && !allowCustom ? (
-                                <div className="flex items-center gap-2 text-red-400">
+                                <div className="flex items-center gap-2 text-destructive">
                                     <AlertCircle className="w-3 h-3" />
                                     <span>모델 없음 (Check Key)</span>
                                 </div>
@@ -245,10 +245,10 @@ const AIModelSelector = ({
                         </SelectTrigger>
                         <SelectContent className="max-h-[400px] min-w-[300px]">
                             {/* [NEW] Search Input */}
-                            <div className="flex items-center px-3 py-2 border-b sticky top-0 bg-white z-10">
-                                <Search className="w-3.5 h-3.5 mr-2 text-slate-600" />
+                            <div className="flex items-center px-3 py-2 border-b border-border sticky top-0 bg-popover z-10">
+                                <Search className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
                                 <input
-                                    className="flex-1 bg-transparent border-none outline-none text-xs placeholder:text-slate-600"
+                                    className="flex-1 bg-transparent border-none outline-none text-xs text-foreground placeholder:text-muted-foreground"
                                     placeholder="모델 검색..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -258,7 +258,7 @@ const AIModelSelector = ({
                                 {searchTerm && (
                                     <button 
                                         onClick={(e) => { e.stopPropagation(); setSearchTerm(""); }}
-                                        className="text-slate-600 hover:text-slate-600 ml-1"
+                                        className="text-muted-foreground hover:text-foreground ml-1"
                                     >
                                         ×
                                     </button>
@@ -273,15 +273,15 @@ const AIModelSelector = ({
                                         </SelectItem>
                                     ))
                                 ) : (
-                                    <div className="py-6 text-center text-xs text-slate-600 italic">
+                                    <div className="py-6 text-center text-xs text-muted-foreground italic">
                                         검색 결과가 없습니다
                                     </div>
                                 )}
                             </div>
                             {allowCustom && (
                                 <>
-                                    <div className="h-px bg-slate-100 my-1" />
-                                    <SelectItem value="custom" className={cn(itemClass, "text-blue-600 font-medium")}>
+                                    <div className="h-px bg-border my-1" />
+                                    <SelectItem value="custom" className={cn(itemClass, "text-primary font-medium")}>
                                         커스텀 모델 직접 입력...
                                     </SelectItem>
                                 </>
@@ -296,7 +296,7 @@ const AIModelSelector = ({
                                 value={model}
                                 onChange={(e) => onModelChange(e.target.value)}
                                 placeholder="예: openrouter/free 또는 provider/model-id"
-                                className="h-8 text-xs border-blue-200 focus:border-blue-400 bg-blue-50/30"
+                                className="h-9 text-xs border-primary/40 focus:border-primary bg-primary/5 text-foreground placeholder:text-muted-foreground"
                             />
                         </div>
                     )}
