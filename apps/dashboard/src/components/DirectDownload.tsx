@@ -296,7 +296,7 @@ const DirectDownload = () => {
             <Card className="shadow-2xs border-border bg-card">
                 <CardContent className="pt-4 sm:pt-6 p-3.5 sm:p-6">
                     <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap">
-                        {PLATFORMS.map((platform) => (
+                        {SUPPORTED_PLATFORMS.map((platform) => (
                             <a
                                 key={platform.name}
                                 href={platform.url}
