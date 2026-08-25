@@ -168,12 +168,12 @@ export const ScenePanel: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex flex-col bg-gray-50">
+        <div className="h-full flex flex-col bg-card">
             {/* Header */}
-            <div className="flex-shrink-0 p-3 border-b border-gray-200 bg-white flex justify-between items-center">
+            <div className="flex-shrink-0 p-3 border-b border-border bg-card flex justify-between items-center">
                 <div>
-                    <h2 className="text-sm font-bold text-gray-900 mb-1">씬 (Scenes)</h2>
-                    <p className="text-xs text-gray-500">
+                    <h2 className="text-sm font-bold text-foreground mb-1">씬 (Scenes)</h2>
+                    <p className="text-xs text-muted-foreground">
                         {scenes.length}개의 씬
                     </p>
                 </div>
@@ -190,7 +190,7 @@ export const ScenePanel: React.FC = () => {
             </div>
 
             {/* Scene List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-card">
                 {scenes.map((scene, index) => (
                     <SceneItem
                         key={scene.id}
@@ -210,7 +210,7 @@ export const ScenePanel: React.FC = () => {
 
                 {scenes.length === 0 && (
                     <div className="text-center py-12">
-                        <p className="text-sm text-slate-600 mb-4">씬이 없습니다</p>
+                        <p className="text-sm text-muted-foreground mb-4">씬이 없습니다</p>
                         <Button onClick={handleCreateScene} size="sm">
                             <Plus className="w-4 h-4 mr-2" />
                             첫 씬 만들기
@@ -220,7 +220,7 @@ export const ScenePanel: React.FC = () => {
             </div>
 
             {/* Footer Actions */}
-            <div className="flex-shrink-0 p-2 border-t border-gray-200 bg-white space-y-2">
+            <div className="flex-shrink-0 p-2 border-t border-border bg-card space-y-2">
                 <Button
                     onClick={handleCreateScene}
                     className="w-full"

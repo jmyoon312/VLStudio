@@ -320,26 +320,26 @@ export const LayerPanel: React.FC = () => {
                 onChange={handleFileChange}
             />
             {/* Header */}
-            <div className="flex-shrink-0 p-3 border-b border-gray-200 bg-white">
-                <h2 className="text-sm font-bold text-gray-900 mb-2">레이어 (Layers)</h2>
+            <div className="flex-shrink-0 p-3 border-b border-border bg-card">
+                <h2 className="text-sm font-bold text-foreground mb-2">레이어 (Layers)</h2>
 
                 {/* Search */}
                 <div className="relative">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="레이어 검색..."
-                        className="pl-8 h-8 text-sm"
+                        className="pl-8 h-8 text-sm bg-background border-border"
                     />
                 </div>
             </div>
 
             {/* Layer List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 bg-card">
                 {sortedLayers.length === 0 && !searchQuery && (
                     <div className="text-center py-12">
-                        <p className="text-sm text-slate-600 mb-4">레이어가 없습니다</p>
+                        <p className="text-sm text-muted-foreground mb-4">레이어가 없습니다</p>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button size="sm">
@@ -364,7 +364,7 @@ export const LayerPanel: React.FC = () => {
 
                 {sortedLayers.length === 0 && searchQuery && (
                     <div className="text-center py-12">
-                        <p className="text-sm text-slate-600">레이어를 찾을 수 없습니다</p>
+                        <p className="text-sm text-muted-foreground">레이어를 찾을 수 없습니다</p>
                     </div>
                 )}
 
@@ -390,13 +390,13 @@ export const LayerPanel: React.FC = () => {
 
             {/* Layer Properties */}
             {selectedLayer && (
-                <div className="flex-shrink-0 border-t border-gray-200 bg-white max-h-96 overflow-y-auto">
+                <div className="flex-shrink-0 border-t border-border bg-card max-h-96 overflow-y-auto">
                     <LayerProperties layer={selectedLayer} />
                 </div>
             )}
 
             {/* Footer Actions */}
-            <div className="flex-shrink-0 p-3 border-t border-gray-200 bg-white space-y-3">
+            <div className="flex-shrink-0 p-3 border-t border-border bg-card space-y-3">
 
                 {/* Crossfade Support */}
                 <div>

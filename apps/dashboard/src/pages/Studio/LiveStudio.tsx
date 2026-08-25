@@ -382,7 +382,7 @@ export const LiveStudio: React.FC = () => {
     }, []);
 
     return (
-        <div className="h-full w-full flex flex-col bg-gray-100 overflow-hidden">
+        <div className="h-full w-full flex flex-col bg-background text-foreground overflow-hidden pb-20 md:pb-0">
             <audio
                 ref={audioRef}
                 onEnded={handleTrackEnded}
@@ -397,24 +397,24 @@ export const LiveStudio: React.FC = () => {
             />
 
             {/* Top Bar */}
-            <div className="flex-shrink-0 h-12 bg-white border-b border-gray-200 flex items-center justify-between px-3 relative z-20">
-                <div className="min-w-0 flex-shrink flex items-center gap-3">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/station-manager')}>
+            <div className="flex-shrink-0 min-h-[48px] bg-card border-b border-border flex flex-wrap items-center justify-between p-2 sm:px-3 relative z-20 gap-2">
+                <div className="min-w-0 flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-foreground shrink-0" onClick={() => navigate('/station-manager')}>
                         <ArrowLeft className="w-4 h-4" />
                     </Button>
-                    <div>
-                        <h1 className="text-sm font-bold text-gray-900 truncate">라이브 디자인 스튜디오</h1>
-                        <p className="text-xs text-gray-500 truncate">
+                    <div className="min-w-0">
+                        <h1 className="text-xs sm:text-sm font-bold text-foreground truncate">라이브 디자인 스튜디오</h1>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                             {editingStation ? `Editing: ${editingStation.name}` : '새 디자인 작업 중'}
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-wrap shrink-0">
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs px-2"
+                        className="text-xs px-2 h-7 border-border text-foreground bg-background"
                         onClick={handleLoadTemplateClick}
                     >
                         <Upload className="w-3 h-3 mr-1" />
@@ -423,18 +423,18 @@ export const LiveStudio: React.FC = () => {
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs px-2"
+                        className="text-xs px-2 h-7 border-border text-foreground bg-background"
                         onClick={handleSaveTemplate}
                     >
                         <Save className="w-3 h-3 mr-1" />
-                        <span className="hidden sm:inline">템플릿 저장</span>
+                        <span className="hidden sm:inline">저장</span>
                     </Button>
 
                     {/* [NEW] Asset Generator Button */}
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs px-2 text-purple-600 border-purple-200 hover:bg-purple-50"
+                        className="text-xs px-2 h-7 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800 bg-purple-500/10 hover:bg-purple-500/20"
                         onClick={() => setAssetGeneratorOpen(true)}
                     >
                         <Wand2 className="w-3 h-3 mr-1" />
@@ -445,7 +445,7 @@ export const LiveStudio: React.FC = () => {
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-xs px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-xs px-2 h-7 text-rose-500 border-rose-300 dark:border-rose-800 hover:bg-rose-500/10"
                         onClick={handleResetStudio}
                         disabled={!!editingStation}
                         title={editingStation ? "기존 스테이션 편집 중에는 초기화할 수 없습니다." : "새 디자인 시작"}
@@ -458,17 +458,17 @@ export const LiveStudio: React.FC = () => {
                     <Button
                         variant="secondary"
                         size="sm"
-                        className="text-xs px-2"
+                        className="text-xs px-2 h-7"
                         onClick={handleDownloadVideo}
                     >
                         <Video className="w-3 h-3 mr-1" />
-                        <span className="hidden sm:inline">영상 추출</span>
+                        <span className="hidden sm:inline">추출</span>
                     </Button>
 
                     {/* [NEW] Register/Update Button */}
                     <Button
                         size="sm"
-                        className={`text-xs px-2 ${editingStation ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                        className={`text-xs px-2.5 h-7 font-bold shadow-2xs ${editingStation ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-primary hover:bg-primary/90 text-primary-foreground'}`}
                         onClick={handleRegisterDesign}
                     >
                         {editingStation ? <RefreshCw className="w-3 h-3 mr-1" /> : <Radio className="w-3 h-3 mr-1" />}
@@ -477,43 +477,41 @@ export const LiveStudio: React.FC = () => {
 
                     <Button
                         variant="ghost"
-                        size="sm"
-                        className="px-2"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
                         onClick={handleSettings}
                     >
-                        <Settings className="w-3 h-3" />
+                        <Settings className="w-3.5 h-3.5" />
                     </Button>
                 </div>
             </div>
 
             {/* Main Content - Responsive Layout */}
-            <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[minmax(180px,15%)_1fr_minmax(200px,20%)] gap-0 overflow-hidden min-h-0 bg-gray-200">
+            <div className="flex-1 flex flex-col lg:grid lg:grid-cols-[minmax(180px,15%)_1fr_minmax(200px,20%)] gap-0 overflow-hidden min-h-0 bg-background">
                 {/* Left Panel - Scene Manager (Desktop) */}
                 <div
-                    className="hidden lg:block border-r border-gray-200 bg-white overflow-hidden transition-[padding] duration-200 ease-out"
-                    style={{ paddingBottom: `${bottomPadding + 10}px` }} // +10px for visual breathing room
+                    className="hidden lg:block border-r border-border bg-card overflow-hidden"
                 >
                     <ScenePanel />
                 </div>
 
                 {/* Center Panel - Canvas */}
-                <div className="flex bg-transparent overflow-hidden items-center justify-center relative z-10 w-full lg:w-auto h-auto lg:h-full">
-                    <div id="studio-stage-container" className="w-full aspect-video bg-black shadow-2xl relative max-h-[calc(100vh-100px)]">
+                <div className="flex bg-background overflow-hidden items-center justify-center relative z-10 w-full lg:w-auto h-auto lg:h-full p-2 sm:p-0">
+                    <div id="studio-stage-container" className="w-full aspect-video bg-black rounded-lg shadow-2xl relative max-h-[calc(100vh-140px)] border border-border">
                         <LiveStudioStage />
                     </div>
                 </div>
 
                 {/* Right Panel - Properties & Mobile Tabs */}
                 <div
-                    className="flex-1 border-gray-200 bg-white overflow-hidden flex flex-col lg:border-l transition-[padding] duration-200 ease-out"
-                    style={{ paddingBottom: `${bottomPadding + 10}px` }} // +10px for visual breathing room
+                    className="flex-1 border-border bg-card overflow-hidden flex flex-col lg:border-l"
                 >
                     <Tabs defaultValue="layers" className="h-full flex flex-col">
-                        <TabsList className="w-full grid grid-cols-4 lg:grid-cols-3 rounded-none border-b flex-shrink-0">
+                        <TabsList className="w-full grid grid-cols-3 rounded-none border-b border-border bg-muted/60 p-0 h-9 flex-shrink-0">
                             {/* Mobile Only: Scene Tab */}
-                            <TabsTrigger value="scenes" className="text-xs lg:hidden">씬</TabsTrigger>
-                            <TabsTrigger value="layers" className="text-xs">레이어</TabsTrigger>
-                            <TabsTrigger value="playlist" className="text-xs">재생목록</TabsTrigger>
+                            <TabsTrigger value="scenes" className="text-xs lg:hidden data-[state=active]:bg-background">씬</TabsTrigger>
+                            <TabsTrigger value="layers" className="text-xs data-[state=active]:bg-background">레이어</TabsTrigger>
+                            <TabsTrigger value="playlist" className="text-xs data-[state=active]:bg-background">재생목록</TabsTrigger>
                         </TabsList>
 
                         {/* Mobile Only: Scene Content */}

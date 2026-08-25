@@ -74,8 +74,8 @@ const TrackItem: React.FC<TrackItemProps> = ({
             onDrop={onDrop}
             className={cn(
                 'group p-3 rounded-lg border transition-all',
-                isPlaying && 'bg-blue-50 border-blue-500',
-                !isPlaying && 'bg-white border-gray-200 hover:border-gray-300',
+                isPlaying && 'bg-primary/10 border-primary',
+                !isPlaying && 'bg-card border-border hover:border-muted-foreground/30',
                 isDragging && 'opacity-50'
             )}
         >
@@ -85,7 +85,7 @@ const TrackItem: React.FC<TrackItemProps> = ({
                     onClick={isPlaying ? onPause : onPlay}
                     className={cn(
                         'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors',
-                        isPlaying ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        isPlaying ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
                     )}
                 >
                     {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
@@ -94,10 +94,10 @@ const TrackItem: React.FC<TrackItemProps> = ({
                 {/* Track Info */}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-gray-500 font-mono">{index + 1}.</span>
+                        <span className="text-xs text-muted-foreground font-mono">{index + 1}.</span>
                         <h4 className={cn(
                             'text-sm font-semibold truncate',
-                            isPlaying ? 'text-blue-900' : 'text-gray-900'
+                            isPlaying ? 'text-primary font-bold' : 'text-foreground'
                         )}>
                             {track.title}
                         </h4>
@@ -276,14 +276,14 @@ export const PlaylistPanel: React.FC = () => {
     );
 
     return (
-        <div className="h-full flex flex-col bg-gray-50">
+        <div className="h-full flex flex-col bg-card">
             {/* Header */}
-            <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-white">
-                <h2 className="text-sm font-bold text-gray-900 mb-3">재생목록 (Playlist)</h2>
+            <div className="flex-shrink-0 p-4 border-b border-border bg-card">
+                <h2 className="text-sm font-bold text-foreground mb-3">재생목록 (Playlist)</h2>
 
                 {/* Search */}
                 <div className="relative mb-3">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -316,8 +316,8 @@ export const PlaylistPanel: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {filteredTracks.length === 0 && !searchQuery && (
                     <div className="text-center py-12">
-                        <Music className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-                        <p className="text-sm text-slate-600 mb-4">트랙이 없습니다</p>
+                        <Music className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-sm text-muted-foreground mb-4">트랙이 없습니다</p>
                         <Button
                             onClick={() => fileInputRef.current?.click()}
                             size="sm"

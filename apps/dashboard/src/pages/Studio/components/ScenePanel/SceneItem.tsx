@@ -163,8 +163,8 @@ export const SceneItem: React.FC<SceneItemProps> = ({
             onMouseLeave={() => setIsHovered(false)}
             className={cn(
                 'group relative p-3 rounded-lg border transition-all cursor-pointer',
-                isActive && 'bg-blue-50 border-blue-500 shadow-sm',
-                !isActive && 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm',
+                isActive && 'bg-primary/10 border-primary shadow-2xs',
+                !isActive && 'bg-card border-border hover:border-muted-foreground/30 hover:shadow-2xs',
                 isDragging && 'opacity-50'
             )}
         >
@@ -172,9 +172,9 @@ export const SceneItem: React.FC<SceneItemProps> = ({
             <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
                     {isActive ? (
-                        <Play className="w-4 h-4 text-blue-600 fill-blue-600" />
+                        <Play className="w-4 h-4 text-primary fill-primary" />
                     ) : (
-                        <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                        <div className="w-4 h-4 rounded-full border-2 border-border" />
                     )}
                 </div>
 
@@ -182,12 +182,12 @@ export const SceneItem: React.FC<SceneItemProps> = ({
                 <div className="flex-1 min-w-0">
                     {/* Name & Index */}
                     <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-semibold text-gray-500">
+                        <span className="text-xs font-semibold text-muted-foreground">
                             {index + 1}.
                         </span>
                         <h4 className={cn(
                             'text-sm font-semibold truncate',
-                            isActive ? 'text-blue-900' : 'text-gray-900'
+                            isActive ? 'text-primary font-bold' : 'text-foreground'
                         )}>
                             {scene.name}
                         </h4>
@@ -195,7 +195,7 @@ export const SceneItem: React.FC<SceneItemProps> = ({
 
                     {/* Thumbnail */}
                     {scene.thumbnail ? (
-                        <div className="mb-2 rounded overflow-hidden bg-gray-100 aspect-video">
+                        <div className="mb-2 rounded overflow-hidden bg-muted aspect-video">
                             <img
                                 src={scene.thumbnail}
                                 alt={scene.name}
