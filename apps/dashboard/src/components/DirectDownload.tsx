@@ -295,15 +295,15 @@ const DirectDownload = () => {
 
             <Card className="shadow-2xs border-border bg-card">
                 <CardContent className="pt-4 sm:pt-6 p-3.5 sm:p-6">
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2.5 mb-5 sm:mb-6">
-                        {SUPPORTED_PLATFORMS.map((platform) => (
+                    <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar sm:flex-wrap">
+                        {PLATFORMS.map((platform) => (
                             <a
                                 key={platform.name}
                                 href={platform.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={cn(
-                                    "text-xs sm:text-sm font-medium px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg border shadow-2xs transition-all hover:opacity-80 hover:-translate-y-0.5 active:scale-95",
+                                    "text-xs sm:text-sm font-medium px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg border shadow-2xs transition-all hover:opacity-80 shrink-0",
                                     platform.color
                                 )}
                             >
@@ -314,11 +314,11 @@ const DirectDownload = () => {
 
                     <form onSubmit={addToQueue} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">카테고리</label>
+                            <label className="text-xs sm:text-sm font-medium">카테고리</label>
                             <select
                                 value={selectedCategoryId || ''}
                                 onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs sm:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                 disabled={isBatchProcessing || status === 'loading'}
                             >
                                 <option value="">카테고리 없음 (임시저장)</option>
@@ -333,13 +333,13 @@ const DirectDownload = () => {
                             </p>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">영상 URL 목록 (줄바꿈으로 구분)</label>
+                            <label className="text-xs sm:text-sm font-medium">영상 URL 목록 (줄바꿈으로 구분)</label>
                             <textarea
                                 value={urlInput}
                                 onChange={(e) => setUrlInput(e.target.value)}
                                 placeholder="https://youtube.com/shorts/...\nhttps://tiktok.com/..."
                                 rows={5}
-                                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                className="flex min-h-[120px] w-full rounded-lg border border-input bg-background px-3 py-2 text-xs sm:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                 disabled={isBatchProcessing || status === 'loading'}
                             />
 
@@ -352,13 +352,13 @@ const DirectDownload = () => {
                                         onCheckedChange={setUseBypass}
                                         disabled={isBatchProcessing || status === 'loading'}
                                     />
-                                    <Label htmlFor="bypass-mode" className="text-sm font-medium cursor-pointer">
+                                    <Label htmlFor="bypass-mode" className="text-xs sm:text-sm font-medium cursor-pointer">
                                         우회 모드 사용 (Bypass Mode) - Douyin/Music 등 다운로드 실패 시 사용
                                     </Label>
                                 </div>
 
                                 {useBypass && (
-                                    <div className="flex flex-col gap-3 ml-12 animate-in fade-in slide-in-from-top-1">
+                                    <div className="flex flex-col gap-3 ml-6 sm:ml-12 animate-in fade-in slide-in-from-top-1">
                                         <div className="flex items-center space-x-2">
                                             <Switch
                                                 id="show-browser"
@@ -366,17 +366,17 @@ const DirectDownload = () => {
                                                 onCheckedChange={setShowBrowser}
                                                 disabled={isBatchProcessing || status === 'loading'}
                                             />
-                                            <Label htmlFor="show-browser" className="text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400">
+                                            <Label htmlFor="show-browser" className="text-xs sm:text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400">
                                                 브라우저 화면 보기 (디버깅용)
                                             </Label>
                                         </div>
                                         <div className="flex items-center gap-2 mt-1 w-full max-w-sm">
-                                            <Label htmlFor="profile-select" className="text-sm font-medium min-w-[100px]">연결할 프로필:</Label>
+                                            <Label htmlFor="profile-select" className="text-xs sm:text-sm font-medium min-w-[90px]">연결할 프로필:</Label>
                                             <select
                                                 id="profile-select"
                                                 value={selectedProfileId || ''}
                                                 onChange={(e) => setSelectedProfileId(e.target.value || null)}
-                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs sm:text-sm shadow-2xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                                                 disabled={isBatchProcessing || status === 'loading'}
                                             >
                                                 <option value="">(선택 안함 - 기본 브라우저 환경)</option>
@@ -400,13 +400,13 @@ const DirectDownload = () => {
                                     onCheckedChange={setScriptOnly}
                                     disabled={isBatchProcessing || status === 'loading'}
                                 />
-                                <Label htmlFor="script-only-mode" className="text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400">
+                                <Label htmlFor="script-only-mode" className="text-xs sm:text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400">
                                     스크립트 모드 (영상 다운로드 건너뛰기)
                                 </Label>
                             </div>
 
                             {['xiaohongshu', 'weibo', 'bilibili', 'douyin'].some(p => urlInput.toLowerCase().includes(p)) && (
-                                <div className="flex items-start gap-2 p-3 mt-2 text-sm rounded-md bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-900">
+                                <div className="flex items-start gap-2 p-3 mt-2 text-xs sm:text-sm rounded-lg bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-900">
                                     <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                                     <div>
                                         <p className="font-semibold">쿠키 설정 필요</p>
@@ -415,11 +415,11 @@ const DirectDownload = () => {
                                 </div>
                             )}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                             <Button
                                 type="button"
                                 onClick={handleSingleDownload}
-                                className="flex-1 h-12 bg-primary hover:bg-primary/90"
+                                className="w-full sm:flex-1 h-11 sm:h-12 bg-primary hover:bg-primary/90 text-xs sm:text-sm font-bold"
                                 disabled={isBatchProcessing || status === 'loading' || !urlInput.trim()}
                             >
                                 {status === 'loading' ? (
@@ -437,7 +437,7 @@ const DirectDownload = () => {
                             <Button
                                 type="submit"
                                 variant="outline"
-                                className="flex-1 h-12"
+                                className="w-full sm:flex-1 h-11 sm:h-12 text-xs sm:text-sm font-bold border-border"
                                 disabled={isBatchProcessing || status === 'loading' || !urlInput.trim()}
                             >
                                 <Plus className="mr-2 h-4 w-4" />
@@ -452,28 +452,28 @@ const DirectDownload = () => {
             {
                 status === 'success' && result && (
                     <div className={cn(
-                        "rounded-lg border p-6 animate-in fade-in slide-in-from-bottom-2",
+                        "rounded-lg border p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-2",
                         result.status === 'exists'
                             ? "border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-900"
                             : "border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-900"
                     )}>
-                        <div className="flex items-start gap-4">
+                        <div className="flex items-start gap-3 sm:gap-4">
                             {result.status === 'exists' ? (
-                                <AlertCircle className="h-6 w-6 text-yellow-600 dark:text-yellow-400 shrink-0 mt-1" />
+                                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
                             ) : (
-                                <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400 shrink-0 mt-1" />
+                                <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
                             )}
                             <div className="space-y-1 flex-1">
-                                <h3 className={cn("font-semibold", result.status === 'exists' ? "text-yellow-900 dark:text-yellow-300" : "text-green-900 dark:text-green-300")}>
+                                <h3 className={cn("font-semibold text-sm sm:text-base", result.status === 'exists' ? "text-yellow-900 dark:text-yellow-300" : "text-green-900 dark:text-green-300")}>
                                     {result.status === 'exists' ? "이미 파일이 존재합니다 (갤러리에 복구됨)" : "다운로드 완료!"}
                                 </h3>
-                                <p className={cn("text-sm", result.status === 'exists' ? "text-yellow-700 dark:text-yellow-400" : "text-green-700 dark:text-green-400")}>
+                                <p className={cn("text-xs sm:text-sm", result.status === 'exists' ? "text-yellow-700 dark:text-yellow-400" : "text-green-700 dark:text-green-400")}>
                                     {result.metadata?.title || "영상이 성공적으로 저장되었습니다."}
                                 </p>
-                                <div className="pt-2">
+                                <div className="pt-1.5 sm:pt-2">
                                     <button
                                         onClick={() => openFolder(result.file_path || '')}
-                                        className={cn("text-sm font-medium hover:underline inline-flex items-center", result.status === 'exists' ? "text-yellow-700 dark:text-yellow-400" : "text-green-700 dark:text-green-400")}
+                                        className={cn("text-xs sm:text-sm font-medium hover:underline inline-flex items-center", result.status === 'exists' ? "text-yellow-700 dark:text-yellow-400" : "text-green-700 dark:text-green-400")}
                                     >
                                         폴더 열기 <ExternalLink className="ml-1 h-3 w-3" />
                                     </button>
@@ -486,12 +486,12 @@ const DirectDownload = () => {
 
             {
                 status === 'error' && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-900 p-6 animate-in fade-in slide-in-from-bottom-2">
-                        <div className="flex items-start gap-4">
-                            <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400 shrink-0 mt-1" />
+                    <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-900 p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-2">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                            <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                             <div className="space-y-1">
-                                <h3 className="font-semibold text-red-900 dark:text-red-300">다운로드 실패</h3>
-                                <p className="text-sm text-red-700 dark:text-red-400">{errorMsg}</p>
+                                <h3 className="font-semibold text-sm sm:text-base text-red-900 dark:text-red-300">다운로드 실패</h3>
+                                <p className="text-xs sm:text-sm text-red-700 dark:text-red-400">{errorMsg}</p>
                             </div>
                         </div>
                     </div>
@@ -500,7 +500,7 @@ const DirectDownload = () => {
 
             {/* Queue Section */}
             <div className="space-y-4">
-                <div className="flex items-center justify-between border-t pt-8">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between border-t border-border pt-6 sm:pt-8 gap-3">
                     <div className="flex items-center gap-2 text-muted-foreground">
                         <Download className="w-4 h-4" />
                         <span className="text-xs font-bold uppercase tracking-wider">Batch Queue</span>
@@ -508,7 +508,7 @@ const DirectDownload = () => {
                     <Button
                         onClick={processBatch}
                         disabled={isBatchProcessing || queue.filter(i => i.status === 'pending').length === 0}
-                        className="bg-primary hover:bg-primary-hover text-primary-foreground px-8"
+                        className="bg-primary hover:bg-primary-hover text-primary-foreground px-6 sm:px-8 h-10 sm:h-11 text-xs sm:text-sm font-bold"
                     >
                         {isBatchProcessing ? (
                             <>
@@ -524,51 +524,51 @@ const DirectDownload = () => {
                     </Button>
                 </div>
 
-                <div className="rounded-md border bg-card">
-                    <div className="relative w-full overflow-auto">
-                        <table className="w-full caption-bottom text-sm">
-                            <thead className="[&_tr]:border-b">
-                                <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[120px]">상태</th>
-                                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[150px]">카테고리</th>
-                                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">URL</th>
-                                    <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground w-[120px]">우회</th>
-                                    <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground w-[120px]">스크립트</th>
-                                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground w-[100px]">작업</th>
+                <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
+                    <div className="relative w-full overflow-x-auto">
+                        <table className="w-full min-w-[650px] caption-bottom text-xs sm:text-sm">
+                            <thead className="[&_tr]:border-b bg-muted/40">
+                                <tr className="border-b transition-colors hover:bg-muted/50">
+                                    <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground min-w-[100px] whitespace-nowrap">상태</th>
+                                    <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px] whitespace-nowrap">카테고리</th>
+                                    <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground min-w-[160px] whitespace-nowrap">URL</th>
+                                    <th className="h-10 sm:h-12 px-3 sm:px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px] whitespace-nowrap">우회</th>
+                                    <th className="h-10 sm:h-12 px-3 sm:px-4 text-center align-middle font-medium text-muted-foreground min-w-[90px] whitespace-nowrap">스크립트</th>
+                                    <th className="h-10 sm:h-12 px-3 sm:px-4 text-right align-middle font-medium text-muted-foreground min-w-[80px] whitespace-nowrap">작업</th>
                                 </tr>
                             </thead>
                             <tbody className="[&_tr:last-child]:border-0">
                                 {queue.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
                                             대기열이 비어있습니다.
                                         </td>
                                     </tr>
                                 ) : (
                                     queue.map((item) => (
                                         <tr key={item.id} className={cn(
-                                            "border-b transition-colors hover:bg-muted/50",
+                                            "border-b transition-colors hover:bg-muted/30",
                                             item.id === currentProcessingId && "bg-accent/50"
                                         )}>
-                                            <td className="p-4 align-middle">
-                                                {item.status === 'pending' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">대기</span>}
-                                                {item.status === 'processing' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-blue-500/10 text-blue-500"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> 처리중</span>}
-                                                {item.status === 'success' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-emerald-500/10 text-emerald-500"><CheckCircle2 className="w-3 h-3 mr-1" /> {item.message}</span>}
-                                                {item.status === 'error' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-red-500/10 text-red-500"><AlertCircle className="w-3 h-3 mr-1" /> {item.message}</span>}
+                                            <td className="p-3 sm:p-4 align-middle whitespace-nowrap">
+                                                {item.status === 'pending' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-border bg-secondary text-secondary-foreground">대기</span>}
+                                                {item.status === 'processing' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-blue-500/10 text-blue-500"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> 처리중</span>}
+                                                {item.status === 'success' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-emerald-500/10 text-emerald-500"><CheckCircle2 className="w-3 h-3 mr-1" /> {item.message}</span>}
+                                                {item.status === 'error' && <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-red-500/10 text-red-500"><AlertCircle className="w-3 h-3 mr-1" /> {item.message}</span>}
                                             </td>
-                                            <td className="p-4 align-middle font-medium">
+                                            <td className="p-3 sm:p-4 align-middle font-medium whitespace-nowrap">
                                                 {getCategoryName(item.categoryId)}
                                             </td>
-                                            <td className="p-4 align-middle truncate max-w-[300px]" title={item.url}>
+                                            <td className="p-3 sm:p-4 align-middle truncate max-w-[250px] whitespace-nowrap" title={item.url}>
                                                 {item.url}
                                             </td>
-                                            <td className="p-4 align-middle text-center">
+                                            <td className="p-3 sm:p-4 align-middle text-center whitespace-nowrap">
                                                 {item.useBypass ? <span className="text-orange-600 dark:text-orange-400 font-bold text-xs">ON</span> : <span className="text-muted-foreground text-xs">-</span>}
                                             </td>
-                                            <td className="p-4 align-middle text-center">
+                                            <td className="p-3 sm:p-4 align-middle text-center whitespace-nowrap">
                                                 {item.scriptOnly ? <span className="text-blue-600 dark:text-blue-400 font-bold text-xs">ON</span> : <span className="text-muted-foreground text-xs">-</span>}
                                             </td>
-                                            <td className="p-4 align-middle text-right">
+                                            <td className="p-3 sm:p-4 align-middle text-right whitespace-nowrap">
                                                 {item.status === 'success' && item.filePath ? (
                                                     <Button variant="ghost" size="sm" onClick={() => openFolder(item.filePath!)}>
                                                         <ExternalLink className="w-4 h-4" />

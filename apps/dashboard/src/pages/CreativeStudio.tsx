@@ -1394,31 +1394,31 @@ const CreativeStudio = () => {
     };
 
     return (
-        <div className="h-[calc(100vh-4rem)] flex flex-col gap-6 p-6 overflow-y-auto">
+        <div className="min-h-screen flex flex-col gap-4 sm:gap-6 p-3 sm:p-6 overflow-y-auto bg-background text-foreground">
             <div className="flex items-center justify-between shrink-0">
                 <div />
             </div>
 
             {/* Zone 1: Style Presets (Collapsible) */}
-            <Card className="border-l-4 border-l-purple-500 shadow-sm">
-                <CardHeader className="py-3 px-4 cursor-pointer hover:bg-muted/5 transition-colors border-b" onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}>
+            <Card className="border-l-4 border-l-purple-500 shadow-2xs bg-card border-border">
+                <CardHeader className="py-2.5 sm:py-3 px-3.5 sm:px-4 cursor-pointer hover:bg-muted/50 transition-colors border-b border-border" onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-muted-foreground">
-                            <Wand2 className="w-4 h-4" />
+                            <Wand2 className="w-4 h-4 text-purple-500" />
                             <span className="text-xs font-bold uppercase tracking-wider">Style & Configuration</span>
                         </div>
                         {isStyleCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                     </div>
                 </CardHeader>
                 {!isStyleCollapsed && (
-                    <CardContent className="space-y-4 pt-0">
+                    <CardContent className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 p-3.5 sm:p-6">
                         {/* Row 1: Preset Controls */}
-                        <div className="flex items-end gap-4">
+                        <div className="flex flex-col md:flex-row items-stretch md:items-end gap-3 sm:gap-4">
                             <div className="flex-1 space-y-1.5">
                                 <Label className="text-xs font-medium text-muted-foreground">스타일 프리셋 (Style Preset)</Label>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap sm:flex-nowrap gap-2">
                                     <Select value={selectedPresetId} onValueChange={handleSelectPreset}>
-                                        <SelectTrigger className="flex-1 h-9 text-sm">
+                                        <SelectTrigger className="flex-1 h-9 text-xs sm:text-sm">
                                             <SelectValue placeholder="프리셋 선택..." />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -1433,16 +1433,16 @@ const CreativeStudio = () => {
                                             <Trash2 className="w-4 h-4" />
                                         </Button>
                                     )}
-                                    <Button variant="outline" size="sm" className="h-9 whitespace-nowrap bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200" onClick={() => setIsStyleGalleryOpen(true)}>
+                                    <Button variant="outline" size="sm" className="h-9 whitespace-nowrap text-xs sm:text-sm bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800" onClick={() => setIsStyleGalleryOpen(true)}>
                                         🎨 갤러리에서 찾기
                                     </Button>
                                 </div>
                             </div>
-                            <div className="flex-[1.5] space-y-1.5">
+                            <div className="flex-1 md:flex-[1.5] space-y-1.5">
                                 <Label className="text-xs font-medium text-muted-foreground">프리셋 이름</Label>
                                 <div className="flex gap-2">
-                                    <Input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="예: Cyberpunk Style" className="h-9 text-sm" />
-                                    <Button onClick={handleSavePreset} disabled={!presetName} size="sm" className="h-9 px-4">
+                                    <Input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="예: Cyberpunk Style" className="h-9 text-xs sm:text-sm" />
+                                    <Button onClick={handleSavePreset} disabled={!presetName} size="sm" className="h-9 px-4 text-xs sm:text-sm font-bold shrink-0">
                                         <Save className="w-4 h-4 mr-2" /> 저장
                                     </Button>
                                 </div>

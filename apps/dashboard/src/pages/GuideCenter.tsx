@@ -595,25 +595,23 @@ export default function GuideCenter() {
     ];
 
     return (
-        <div className="container mx-auto p-4 md:p-8 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Functional Content Only */}
-
+        <div className="container mx-auto p-3 sm:p-6 md:p-8 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-screen bg-background text-foreground">
             {/* Content Layout */}
-            <div className="grid lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8">
 
                 {/* Left: Navigation Menu (Sticky) */}
                 <div className="lg:col-span-1">
-                    <div className="sticky top-8 space-y-6">
+                    <div className="static lg:sticky top-8 space-y-4 sm:space-y-6">
                         <div className="relative">
-                            <Search className="absolute left-3 top-3.5 w-5 h-5 text-muted-foreground" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                             <Input
                                 placeholder="궁금한 기능을 검색..."
-                                className="pl-10 h-12 text-lg shadow-sm bg-background"
+                                className="pl-10 h-10 sm:h-12 text-sm sm:text-base shadow-2xs bg-background"
                             />
                         </div>
 
-                        <ScrollArea className="h-[calc(100vh-200px)] pr-4">
-                            <Accordion type="single" collapsible className="space-y-4" defaultValue="analytics">
+                        <ScrollArea className="h-auto max-h-[400px] lg:max-h-none lg:h-[calc(100vh-200px)] pr-2 sm:pr-4">
+                            <Accordion type="single" collapsible className="space-y-3 sm:space-y-4" defaultValue="analytics">
                                 {guideCategories.map((cat) => (
                                     <AccordionItem key={cat.id} value={cat.id} className="border rounded-xl px-4 bg-card shadow-sm hover:shadow-md transition-shadow">
                                         <AccordionTrigger className="hover:no-underline py-4">

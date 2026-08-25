@@ -584,15 +584,15 @@ const ScriptLab = () => {
             </div>
 
             {/* Data Table */}
-            <div className="flex-1 rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col select-none relative">
+            <div className="flex-1 rounded-xl border border-border bg-card shadow-2xs overflow-hidden flex flex-col select-none relative">
                 <div
-                    className="overflow-auto flex-1 w-full"
+                    className="overflow-x-auto flex-1 w-full"
                     onMouseDown={handleMouseDown}
                     onMouseMove={onTableMouseMove}
                 >
-                    <Table className="w-full table-fixed">
-                        {/* ... Headers ... */}
-                        <TableHeader className="sticky top-0 bg-muted z-10 shadow-sm">
+                    <Table className="w-full min-w-[760px]">
+                        {/* Headers */}
+                        <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-xs z-10 shadow-2xs">
                             {table.getHeaderGroups().map(headerGroup => (
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map(header => {
@@ -602,7 +602,7 @@ const ScriptLab = () => {
                                         else if (['viral_val', 'velocity_score', 'view_count', 'upload_date'].includes(header.column.id)) alignClass = 'justify-end';
 
                                         return (
-                                            <TableHead key={header.id} className="whitespace-nowrap px-2" style={{ width: header.getSize() }}>
+                                            <TableHead key={header.id} className="whitespace-nowrap px-3 h-10 sm:h-12" style={{ width: header.getSize() }}>
                                                 {header.isPlaceholder
                                                     ? null
                                                     : (
@@ -631,8 +631,8 @@ const ScriptLab = () => {
                                         key={row.id}
                                         data-state={row.getIsSelected() && "selected"}
                                         className={cn(
-                                            "cursor-pointer transition-colors h-14",
-                                            row.getIsSelected() ? "bg-primary/10 hover:bg-primary/20" : "hover:bg-muted/80"
+                                            "cursor-pointer transition-colors h-12 sm:h-14",
+                                            row.getIsSelected() ? "bg-primary/10 hover:bg-primary/20" : "hover:bg-muted/60"
                                         )}
                                         onClick={(e) => {
                                             // [FIX] Only open dialog if NOT dragged
@@ -643,7 +643,7 @@ const ScriptLab = () => {
                                         onMouseEnter={() => handleRowMouseEnter(row)}
                                     >
                                         {row.getVisibleCells().map(cell => (
-                                            <TableCell key={cell.id} className="py-2 px-2 truncate" style={{ width: cell.column.getSize() }}>
+                                            <TableCell key={cell.id} className="p-2 sm:p-3 text-xs sm:text-sm whitespace-nowrap">
                                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                             </TableCell>
                                         ))}
@@ -651,7 +651,7 @@ const ScriptLab = () => {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground text-xs sm:text-sm">
                                         데이터가 없습니다.
                                     </TableCell>
                                 </TableRow>
@@ -660,28 +660,32 @@ const ScriptLab = () => {
                     </Table>
                 </div>
 
-                {/* Pagination */}
-                <div className="flex items-center justify-end space-x-2 p-4 border-t bg-muted">
-                    <div className="flex-1 text-sm text-muted-foreground">
+                {/* Pagination / Footer */}
+                <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t border-border bg-muted/40 text-xs text-muted-foreground gap-2">
+                    <div className="flex-1 text-center sm:text-left">
                         {table.getFilteredSelectedRowModel().rows.length} of{" "}
                         {table.getFilteredRowModel().rows.length} row(s) selected.
                     </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                    >
-                        이전
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                    >
-                        다음
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => table.previousPage()}
+                            disabled={!table.getCanPreviousPage()}
+                            className="h-8 text-xs border-border"
+                        >
+                            이전
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => table.nextPage()}
+                            disabled={!table.getCanNextPage()}
+                            className="h-8 text-xs border-border"
+                        >
+                            다음
+                        </Button>
+                    </div>
                 </div>
             </div>
 

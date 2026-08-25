@@ -637,33 +637,33 @@ export default function SmartDouyinSearch() {
                                 </label>
                                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 min-h-[60px] flex flex-wrap gap-1.5">
                                     {allKeywords.map((k,i) => (
-                                    <span key={i} className={`px-2.5 py-1 rounded-md text-xs font-medium border ${aiKeys.includes(k) ? 'bg-indigo-100 border-indigo-200 text-indigo-800' : 'bg-white text-slate-700'}`}>{k}</span>
+                                    <span key={i} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${aiKeys.includes(k) ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted/40 border-border text-foreground'}`}>{k}</span>
                                     ))}
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">수집 수량</label>
-                                    <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">수집 수량</label>
+                                    <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-xs sm:text-sm text-foreground focus:outline-none focus:border-primary" />
                                 </div>
                             </div>
 
                             <button onClick={handleSearch} disabled={isWorking || allKeywords.length === 0}
-                                className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-                                {isWorking ? <Loader2 className="animate-spin" size={18} /> : <Download size={18} />}
+                                className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+                                {isWorking ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
                                 대기열로 수집 시작 (Queue)
                             </button>
                         </div>
                     </div>
 
                     {/* 로컬 업로드 */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-                            <UploadCloud className="text-slate-600" size={24} />
+                    <div className="space-y-4 sm:space-y-6">
+                        <div className="flex items-center gap-3 pb-3 sm:pb-4 border-b border-border">
+                            <UploadCloud className="text-primary" size={24} />
                             <div>
-                                <h3 className="font-bold text-slate-900 text-lg">로컬 영상 다중 업로드</h3>
-                                <p className="text-sm text-slate-500">PC에 저장된 수십 개의 영상을 한 번에 업로드합니다.</p>
+                                <h3 className="font-bold text-foreground text-base sm:text-lg">로컬 영상 다중 업로드</h3>
+                                <p className="text-xs sm:text-sm text-muted-foreground">PC에 저장된 수십 개의 영상을 한 번에 업로드합니다.</p>
                             </div>
                         </div>
 
@@ -671,13 +671,13 @@ export default function SmartDouyinSearch() {
                             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
                             onDragLeave={() => setDragActive(false)}
                             onDrop={handleDrop}
-                            className={`h-[400px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-colors ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 bg-slate-50'}`}
+                            className={`h-[220px] sm:h-[360px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-4 transition-colors ${dragActive ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'}`}
                         >
-                            <div className="w-20 h-20 bg-white rounded-full shadow-sm flex items-center justify-center mb-4">
-                                <UploadCloud size={32} className={dragActive ? 'text-indigo-600' : 'text-slate-400'} />
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-card border border-border rounded-full shadow-2xs flex items-center justify-center mb-3">
+                                <UploadCloud size={24} className={dragActive ? 'text-primary' : 'text-muted-foreground'} />
                             </div>
-                            <h3 className="text-lg font-bold text-slate-700">여기로 영상 파일 드래그 앤 드롭</h3>
-                            <p className="text-sm text-slate-500 mt-2 text-center max-w-xs">
+                            <h3 className="text-sm sm:text-base font-bold text-foreground text-center">여기로 영상 파일 드래그 앤 드롭</h3>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-1 text-center max-w-xs">
                                 MP4, MOV 파일을 여러 개 선택하여 한 번에 끌어다 놓으세요.
                             </p>
                         </div>
@@ -685,14 +685,14 @@ export default function SmartDouyinSearch() {
 
                     {/* 수집 큐 (스테이징 리스트) */}
                     {ingestVideos.length > 0 && (
-                        <div className="col-span-1 lg:col-span-2 mt-8 space-y-4 border-t border-slate-200 pt-8">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-                                    <Layers className="text-indigo-600" size={20} />
+                        <div className="col-span-1 lg:col-span-2 mt-6 sm:mt-8 space-y-4 border-t border-border pt-6 sm:pt-8">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <h3 className="font-bold text-foreground text-base sm:text-lg flex items-center gap-2">
+                                    <Layers className="text-primary" size={18} />
                                     방금 수집/업로드된 영상 목록 ({ingestVideos.length}개)
                                 </h3>
                                 <div className="flex gap-2">
-                                    <button onClick={() => handleDelete(selectedVideos.map(v => v.idx))} disabled={selectedVideos.length === 0} className="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-200 transition-colors">
+                                    <button onClick={() => handleDelete(selectedVideos.map(v => v.idx))} disabled={selectedVideos.length === 0} className="px-3.5 py-2 bg-muted text-foreground text-xs sm:text-sm font-bold rounded-lg hover:bg-muted/80 transition-colors">
                                         선택 삭제
                                     </button>
                                     <button onClick={async () => {

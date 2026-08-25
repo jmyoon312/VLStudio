@@ -179,15 +179,15 @@ const ChannelManager = () => {
 
 
             {/* Category Management */}
-            <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-                <div className="flex items-center justify-between">
+            <div className="bg-card border border-border rounded-xl p-3.5 sm:p-6 space-y-3 sm:space-y-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-bold uppercase tracking-wider">Category Management</span>
                     </div>
                     <button
                         onClick={() => setShowCategoryInput(!showCategoryInput)}
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                        className="inline-flex items-center justify-center rounded-lg text-xs sm:text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 w-full sm:w-auto"
                     >
                         <FolderPlus className="w-4 h-4 mr-2" />
                         새 카테고리
@@ -195,31 +195,33 @@ const ChannelManager = () => {
                 </div>
 
                 {showCategoryInput && (
-                    <form onSubmit={handleAddCategory} className="flex gap-2">
+                    <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
                             value={newCategoryName}
                             onChange={(e) => setNewCategoryName(e.target.value)}
                             placeholder="카테고리 이름 (예: 영화, 음악)"
-                            className="flex h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            className="flex h-10 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-xs sm:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         />
-                        <button type="submit" className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4">
-                            추가
-                        </button>
-                        <button type="button" onClick={() => setShowCategoryInput(false)} className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent h-10 px-3">
-                            <X className="w-4 h-4" />
-                        </button>
+                        <div className="flex gap-2">
+                            <button type="submit" className="flex-1 sm:flex-initial inline-flex items-center justify-center rounded-lg text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4">
+                                추가
+                            </button>
+                            <button type="button" onClick={() => setShowCategoryInput(false)} className="inline-flex items-center justify-center rounded-lg text-xs sm:text-sm font-medium border border-input bg-background hover:bg-accent h-10 px-3">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
                     </form>
                 )}
 
                 {categories && categories.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {categories.map((category) => (
                             <div key={category.id} className="inline-flex items-center gap-1 rounded-full border bg-accent px-3 py-1">
-                                <span className="text-sm font-medium">{category.name}</span>
+                                <span className="text-xs sm:text-sm font-medium">{category.name}</span>
                                 <button
                                     onClick={() => handleDeleteCategory(category.id, category.name)}
-                                    className="ml-1 rounded-full hover:bg-destructive/10 p-1"
+                                    className="ml-1 rounded-full hover:bg-destructive/10 p-0.5"
                                 >
                                     <X className="w-3 h-3" />
                                 </button>
@@ -230,14 +232,14 @@ const ChannelManager = () => {
             </div>
 
             {/* Add Channel */}
-            <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-                <form onSubmit={handleAdd} className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">카테고리 (선택사항)</label>
+            <div className="bg-card border border-border rounded-xl p-3.5 sm:p-6 space-y-3 sm:space-y-4">
+                <form onSubmit={handleAdd} className="space-y-3 sm:space-y-4">
+                    <div className="space-y-1.5 sm:space-y-2">
+                        <label className="text-xs sm:text-sm font-medium">카테고리 (선택사항)</label>
                         <select
                             value={selectedCategoryId || ''}
                             onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs sm:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                             <option value="">카테고리 없음</option>
                             {categories?.map((category) => (
@@ -248,33 +250,33 @@ const ChannelManager = () => {
                         </select>
                     </div>
 
-                    <div className="flex gap-4 items-end">
-                        <div className="flex-1 space-y-2">
-                            <label className="text-sm font-medium">새 채널 URL</label>
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-end">
+                        <div className="flex-1 space-y-1.5 sm:space-y-2">
+                            <label className="text-xs sm:text-sm font-medium">새 채널 URL</label>
                             <input
                                 type="text"
                                 value={newUrl}
                                 onChange={(e) => setNewUrl(e.target.value)}
                                 placeholder="https://www.youtube.com/@channel"
-                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs sm:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             />
                         </div>
-                        <div className="flex items-center space-x-2 pb-2">
+                        <div className="flex items-center space-x-2 py-1 sm:pb-2">
                             <input
                                 id="scriptOnly"
                                 type="checkbox"
                                 checked={isScriptOnly}
                                 onChange={(e) => setIsScriptOnly(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                             />
-                            <label htmlFor="scriptOnly" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            <label htmlFor="scriptOnly" className="text-xs sm:text-sm font-medium leading-none cursor-pointer whitespace-nowrap">
                                 스크립트 모드 (영상 미다운로드)
                             </label>
                         </div>
                         <button
                             type="submit"
                             disabled={isAdding}
-                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                            className="inline-flex items-center justify-center rounded-lg text-xs sm:text-sm font-bold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full sm:w-auto shrink-0"
                         >
                             {isAdding ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
                             채널 추가
@@ -288,61 +290,61 @@ const ChannelManager = () => {
                 {selectedChannels.size > 0 && (
                     <button
                         onClick={handleBatchDelete}
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2"
+                        className="inline-flex items-center justify-center rounded-lg text-xs sm:text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2"
                     >
                         <Trash2 className="w-4 h-4 mr-2" />
                         선택 삭제 ({selectedChannels.size})
                     </button>
                 )}
             </div>
-            <div className="rounded-md border border-border bg-card">
-                <div className="relative w-full overflow-auto">
-                    <table className="w-full caption-bottom text-sm">
-                        <thead className="[&_tr]:border-b">
+            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
+                <div className="relative w-full overflow-x-auto">
+                    <table className="w-full min-w-[700px] caption-bottom text-xs sm:text-sm">
+                        <thead className="[&_tr]:border-b bg-muted/40">
                             <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-12">
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground w-10 sm:w-12">
                                     <input 
                                         type="checkbox" 
-                                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                                        className="rounded border-border text-primary focus:ring-primary"
                                         checked={channels?.length > 0 && selectedChannels.size === channels?.length}
                                         onChange={toggleAllChannels}
                                     />
                                 </th>
-                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px] whitespace-nowrap">카테고리</th>
-                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">플랫폼</th>
-                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">이름</th>
-                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">URL</th>
-                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">상태</th>
-                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">자동 다운로드</th>
-                                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">스크립트 모드</th>
-                                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">작업</th>
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground min-w-[100px] whitespace-nowrap">카테고리</th>
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">플랫폼</th>
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground min-w-[140px] whitespace-nowrap">이름</th>
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground min-w-[160px] whitespace-nowrap">URL</th>
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">상태</th>
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">자동 다운로드</th>
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">스크립트 모드</th>
+                                <th className="h-10 sm:h-12 px-3 sm:px-4 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">작업</th>
                             </tr>
                         </thead>
                         <tbody className="[&_tr:last-child]:border-0">
                             {isLoading ? (
-                                <tr><td colSpan={8} className="p-4 text-center">로딩 중...</td></tr>
+                                <tr><td colSpan={9} className="p-4 text-center text-muted-foreground">로딩 중...</td></tr>
                             ) : channels?.map((channel) => (
-                                <tr key={channel.id} className="border-b transition-colors hover:bg-muted/50">
-                                    <td className="p-4 align-middle">
+                                <tr key={channel.id} className="border-b transition-colors hover:bg-muted/30">
+                                    <td className="p-3 sm:p-4 align-middle">
                                         <input 
                                             type="checkbox"
-                                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                                            className="rounded border-border text-primary focus:ring-primary"
                                             checked={selectedChannels.has(channel.id)}
                                             onChange={() => toggleChannel(channel.id)}
                                         />
                                     </td>
-                                    <td className="p-4 align-middle whitespace-nowrap">
+                                    <td className="p-3 sm:p-4 align-middle whitespace-nowrap">
                                         <span className={cn(
-                                            "inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                                            "inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors border-border bg-secondary text-secondary-foreground text-xs",
                                             (categories?.find(c => c.id === channel.category_id)?.name.length || 0) > 8 ? "text-[10px]" : "text-xs"
                                         )}>
                                             {categories?.find(c => c.id === channel.category_id)?.name || '없음'}
                                         </span>
                                     </td>
-                                    <td className="p-4 align-middle font-medium">{getPlatformDisplay(channel.platform)}</td>
-                                    <td className="p-4 align-middle">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0 overflow-hidden relative">
+                                    <td className="p-3 sm:p-4 align-middle font-medium whitespace-nowrap">{getPlatformDisplay(channel.platform)}</td>
+                                    <td className="p-3 sm:p-4 align-middle whitespace-nowrap">
+                                        <div className="flex items-center gap-2.5 sm:gap-3">
+                                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold flex-shrink-0 overflow-hidden relative">
                                                 <span className="absolute inset-0 flex items-center justify-center">
                                                     {channel.name[0]}
                                                 </span>
@@ -355,10 +357,10 @@ const ChannelManager = () => {
                                                     />
                                                 )}
                                             </div>
-                                            <span>{channel.name}</span>
+                                            <span className="font-bold text-foreground">{channel.name}</span>
                                         </div>
                                     </td>
-                                    <td className="p-4 align-middle text-muted-foreground truncate max-w-[150px]">
+                                    <td className="p-3 sm:p-4 align-middle text-muted-foreground truncate max-w-[150px] whitespace-nowrap">
                                         {editingChannelId === channel.id ? (
                                             <input
                                                 type="text"
