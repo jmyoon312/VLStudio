@@ -309,81 +309,70 @@ const SubtitleConverter = () => {
     };
 
     return (
-        <div className="h-full min-h-screen md:h-[calc(100vh-2rem)] flex flex-col gap-3 sm:gap-4 p-3 sm:p-6 max-w-[1800px] mx-auto font-sans overflow-y-auto md:overflow-hidden bg-background text-foreground">
-
-            {/* Zone 1: File Input & Options */}
-            <Card className="shrink-0 border border-border shadow-2xs rounded-xl bg-card text-card-foreground">
-                <CardContent className="p-3 sm:p-4 flex gap-3 sm:gap-6 items-center flex-wrap">
-                    <div className="flex-1 min-w-[260px] sm:min-w-[300px] flex gap-2 sm:gap-3 items-center">
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleFileSelect}
-                            accept="audio/*,video/*"
-                        />
-                        <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="shrink-0 h-9 text-xs sm:text-sm font-medium border-border">
-                            <FolderOpen className="w-4 h-4 mr-1.5 sm:mr-2" />
-                            파일 선택
-                        </Button>
-                        <div className="flex-1 px-3 sm:px-4 py-2 bg-muted/40 rounded-lg text-xs sm:text-sm font-mono truncate flex items-center gap-2 border border-border h-9">
-                            {selectedFile ? (
-                                <>
-                                    <FileAudio className="w-4 h-4 text-primary shrink-0" />
-                                    <span className="truncate">{selectedFile.name}</span>
-                                </>
-                            ) : (
-                                <span className="text-muted-foreground truncate">선택된 파일 없음</span>
-                            )}
-                        </div>
+        <div className="flex flex-col h-full space-y-4 p-3 sm:p-6 pb-28 md:pb-8 bg-background text-foreground overflow-y-auto">
+            {/* Header: File Drop Zone */}
+            <div className="shrink-0">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-muted/30 border border-dashed border-border rounded-xl">
+                    <div className="flex items-center gap-3">
+                        <label className="cursor-pointer">
+                            <input
+                                type="file"
+                                accept="audio/*,video/*,.srt"
+                                className="hidden"
+                                onChange={handleFileSelect}
+                            />
+                            <div className="flex items-center gap-2 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs hover:bg-primary/90 transition-all">
+                                <FolderOpen className="w-3.5 h-3.5" />
+                                파일 선택
+                            </div>
+                        </label>
+                        <span className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-xs">
+                            {selectedFile ? selectedFile.name : "선택된 파일 없음"}
+                        </span>
                     </div>
 
-                    <div className="flex gap-3 sm:gap-6 items-center flex-wrap">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <span className="text-xs sm:text-sm font-semibold text-muted-foreground">언어:</span>
-                            <Select value={language} onValueChange={setLanguage}>
-                                <SelectTrigger className="w-[120px] sm:w-[140px] h-9 border-border bg-background text-xs sm:text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="auto">자동 감지 (Auto)</SelectItem>
-                                    <SelectItem value="ko">한국어 (Korean)</SelectItem>
-                                    <SelectItem value="en">영어 (English)</SelectItem>
-                                    <SelectItem value="ja">일본어 (Japanese)</SelectItem>
-                                    <SelectItem value="zh">중국어 (Chinese)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex items-center gap-2 sm:gap-3">
-                            <span className="text-xs sm:text-sm font-semibold text-muted-foreground">모델:</span>
-                            <Select value={subtitleModel} onValueChange={setSubtitleModel}>
-                                <SelectTrigger className="w-[120px] sm:w-[140px] h-9 border-border bg-background text-xs sm:text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="tiny">Tiny (빠름)</SelectItem>
-                                    <SelectItem value="base">Base (기본)</SelectItem>
-                                    <SelectItem value="small">Small (정확)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <Select value={language} onValueChange={setLanguage}>
+                            <SelectTrigger className="w-[110px] h-8 text-xs bg-background border-border">
+                                <SelectValue placeholder="언어 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="auto">🌐 자동 감지</SelectItem>
+                                <SelectItem value="ko">🇰🇷 한국어</SelectItem>
+                                <SelectItem value="en">🇺🇸 영어</SelectItem>
+                                <SelectItem value="ja">🇯🇵 일본어</SelectItem>
+                                <SelectItem value="zh">🇨🇳 중국어</SelectItem>
+                            </SelectContent>
+                        </Select>
 
-            {/* Zone 2: Main Workspace */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 flex-1 min-h-0">
+                        <Select value={subtitleModel} onValueChange={setSubtitleModel}>
+                            <SelectTrigger className="w-[100px] h-8 text-xs bg-background border-border">
+                                <SelectValue placeholder="모델 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="tiny">Tiny (초고속)</SelectItem>
+                                <SelectItem value="base">Base (표준)</SelectItem>
+                                <SelectItem value="small">Small (정확)</SelectItem>
+                                <SelectItem value="medium">Medium (고품질)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </div>
+
+            {/* Zone 2: Dual Editor Grid (Original Script + SRT Source) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-[360px]">
                 {/* Left Column: Original Script */}
-                <Card className="flex flex-col min-h-[300px] md:h-full border border-border shadow-2xs rounded-xl bg-card text-card-foreground overflow-hidden">
+                <Card className="flex flex-col h-full border border-border shadow-2xs rounded-xl bg-card overflow-hidden">
                     <CardHeader className="py-2 px-3 sm:px-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between space-y-0 shrink-0">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <FileText className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Original Script</span>
+                        <div className="flex items-center gap-2 text-foreground font-bold">
+                            <FileText className="w-3.5 h-3.5 text-primary" />
+                            <span className="text-[11px] font-bold uppercase tracking-wider">Original Script</span>
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 flex flex-col">
                         {/* Toolbar */}
-                        <div className="p-2 border-b border-border bg-muted/20 flex flex-col gap-2">
+                        <div className="p-2.5 border-b border-border bg-muted/10 flex flex-col gap-2">
                             {/* Row 1: Selectors */}
                             <div className="w-full">
                                 <AIModelSelector
@@ -401,7 +390,7 @@ const SubtitleConverter = () => {
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="flex-1 h-7 text-xs font-medium border-border"
+                                    className="flex-1 h-7 text-xs font-medium border-border text-foreground"
                                     onClick={() => {
                                         if (!originalScript) return;
                                         setOriginalScript(formatTextWithLineBreaks(originalScript));
@@ -415,7 +404,7 @@ const SubtitleConverter = () => {
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    className="flex-1 h-7 text-xs bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 border border-purple-200 dark:border-purple-800 font-medium transition-colors"
+                                    className="flex-1 h-7 text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-300 dark:border-purple-800 font-bold transition-colors"
                                     onClick={handleAddMarkers}
                                     disabled={isProcessing}
                                 >
@@ -434,28 +423,28 @@ const SubtitleConverter = () => {
                 </Card>
 
                 {/* Right Column: SRT Source */}
-                <Card className="flex flex-col h-full border border-gray-100 shadow-sm rounded-xl bg-white overflow-hidden">
-                    <CardHeader className="py-2 px-4 border-b bg-gray-50/50 flex flex-row items-center justify-between space-y-0 shrink-0">
-                        <div className="flex items-center gap-2 text-slate-600">
-                            <Wand2 className="w-3 h-3" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">SRT Source</span>
+                <Card className="flex flex-col h-full border border-border shadow-2xs rounded-xl bg-card overflow-hidden">
+                    <CardHeader className="py-2 px-3 sm:px-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between space-y-0 shrink-0">
+                        <div className="flex items-center gap-2 text-foreground font-bold">
+                            <Wand2 className="w-3.5 h-3.5 text-primary" />
+                            <span className="text-[11px] font-bold uppercase tracking-wider">SRT Source</span>
                         </div>
                         <div className="flex gap-2">
                             <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={handleLoadSrt}
-                                className="h-7 text-xs font-medium"
+                                className="h-7 text-xs font-medium border-border text-foreground"
                             >
                                 📂 SRT 불러오기
                             </Button>
                             <Button
                                 size="sm"
-                                className="bg-orange-500 hover:bg-orange-600 text-white h-7 text-xs font-bold shadow-sm"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 text-xs font-bold shadow-2xs"
                                 onClick={handleExtractSrt}
                                 disabled={isProcessing}
                             >
-                                {isProcessing ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Wand2 className="w-3 h-3 mr-2" />}
+                                {isProcessing ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Wand2 className="w-3 h-3 mr-1.5" />}
                                 SRT 추출
                             </Button>
                         </div>
@@ -465,144 +454,142 @@ const SubtitleConverter = () => {
                             value={srtContent}
                             onChange={(e) => setSrtContent(e.target.value)}
                             placeholder="SRT 자막 내용이 여기에 표시됩니다..."
-                            className="flex-1 resize-none border-0 focus-visible:ring-0 p-4 font-mono text-sm leading-relaxed text-gray-800 placeholder:text-slate-600"
+                            className="flex-1 resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 font-mono text-xs sm:text-sm leading-relaxed bg-background text-foreground placeholder:text-muted-foreground"
                         />
                         {/* Footer: Progress */}
-                        <div className="h-8 border-t bg-gray-50/50 flex items-center px-4 gap-4 text-xs font-medium text-gray-500 shrink-0">
-                            <div className="w-20">진행 상태:</div>
-                            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-8 border-t border-border bg-muted/20 flex items-center px-3 sm:px-4 gap-3 text-xs font-medium text-muted-foreground shrink-0">
+                            <div className="w-16 shrink-0">진행 상태:</div>
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                                 <div
-                                    className="h-full bg-orange-500 transition-all duration-300 rounded-full"
+                                    className="h-full bg-primary transition-all duration-300 rounded-full"
                                     style={{ width: `${progress}%` }}
                                 />
                             </div>
-                            <div className="w-12 text-right font-mono">{progress}%</div>
-                            <div className="w-48 truncate text-right text-gray-600">{statusMessage}</div>
+                            <div className="w-10 text-right font-mono shrink-0">{progress}%</div>
+                            <div className="truncate text-right text-foreground max-w-[120px]">{statusMessage}</div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Zone 3: Control Strip */}
-            <Card className="shrink-0 bg-white border border-gray-100 shadow-sm rounded-xl">
-                <CardContent className="p-3 flex items-center gap-8">
-                    <div className="flex items-center gap-4">
-                        <Switch
-                            checked={isAlignmentMode}
-                            onCheckedChange={(checked) => {
-                                setIsAlignmentMode(checked);
-                                if (!checked) setIsManualMarkerMode(false);
-                            }}
-                            id="align-mode"
-                            className="data-[state=checked]:bg-primary"
-                        />
-                        <label htmlFor="align-mode" className="cursor-pointer select-none flex flex-col">
-                            <span className="text-sm font-bold text-gray-800">대조 모드</span>
-                            <span className="text-xs text-muted-foreground">원본 대본 + SRT</span>
-                        </label>
+            <Card className="shrink-0 bg-card border border-border shadow-2xs rounded-xl">
+                <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                        <div className="flex items-center gap-2.5">
+                            <Switch
+                                checked={isAlignmentMode}
+                                onCheckedChange={(checked) => {
+                                    setIsAlignmentMode(checked);
+                                    if (!checked) setIsManualMarkerMode(false);
+                                }}
+                                id="align-mode"
+                            />
+                            <label htmlFor="align-mode" className="cursor-pointer select-none flex flex-col">
+                                <span className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">대조 모드</span>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">원본 대본 + SRT</span>
+                            </label>
+                        </div>
+
+                        <div className="h-6 w-px bg-border hidden sm:block" />
+
+                        <div className={`flex items-center gap-2.5 transition-opacity ${!isAlignmentMode ? 'opacity-50' : ''}`}>
+                            <Switch
+                                checked={isManualMarkerMode}
+                                onCheckedChange={setIsManualMarkerMode}
+                                id="manual-marker-mode"
+                                disabled={!isAlignmentMode}
+                            />
+                            <label htmlFor="manual-marker-mode" className={`cursor-pointer select-none flex flex-col ${!isAlignmentMode ? 'cursor-not-allowed' : ''}`}>
+                                <span className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">수동 분절 모드</span>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">// 기호 기준 분리</span>
+                            </label>
+                        </div>
                     </div>
 
-                    <div className="h-8 w-px bg-gray-200" />
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-1 md:max-w-md">
+                        <div className={`flex items-center gap-3 flex-1 transition-opacity ${isManualMarkerMode ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">분할 기준:</span>
+                            <Slider
+                                value={[splitLimit]}
+                                onValueChange={(vals) => setSplitLimit(vals[0])}
+                                min={5}
+                                max={50}
+                                step={1}
+                                className="flex-1"
+                                disabled={isManualMarkerMode}
+                            />
+                            <span className="text-xs sm:text-sm font-mono font-bold w-10 text-right text-primary shrink-0">{splitLimit}자</span>
+                        </div>
 
-                    <div className={`flex items-center gap-4 transition-opacity ${!isAlignmentMode ? 'opacity-50' : ''}`}>
-                        <Switch
-                            checked={isManualMarkerMode}
-                            onCheckedChange={setIsManualMarkerMode}
-                            id="manual-marker-mode"
-                            disabled={!isAlignmentMode}
-                            className="data-[state=checked]:bg-purple-600"
-                        />
-                        <label htmlFor="manual-marker-mode" className={`cursor-pointer select-none flex flex-col ${!isAlignmentMode ? 'cursor-not-allowed' : ''}`}>
-                            <span className="text-sm font-bold text-gray-800">수동 분절 모드</span>
-                            <span className="text-xs text-muted-foreground">// 기호 기준 분리</span>
-                        </label>
+                        <Button
+                            size="lg"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-9 sm:h-10 shadow-md transition-all active:scale-95 rounded-xl text-xs sm:text-sm shrink-0"
+                            onClick={handleRunConversion}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Play className="w-4 h-4 mr-1.5" />}
+                            변환 실행
+                        </Button>
                     </div>
-
-                    <div className="h-8 w-px bg-gray-200" />
-
-                    <div className={`flex items-center gap-6 flex-1 min-w-[200px] transition-opacity ${isManualMarkerMode ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">분할 기준:</span>
-                        <Slider
-                            value={[splitLimit]}
-                            onValueChange={(vals) => setSplitLimit(vals[0])}
-                            min={5}
-                            max={50}
-                            step={1}
-                            className="flex-1"
-                            disabled={isManualMarkerMode}
-                        />
-                        <span className="text-sm font-mono font-bold w-12 text-right text-primary">{splitLimit}자</span>
-                    </div>
-
-                    <div className="flex-1" />
-
-                    <Button
-                        size="lg"
-                        className="bg-green-600 hover:bg-green-700 text-white font-bold px-8 h-10 shadow-lg shadow-green-200 transition-all hover:scale-105 active:scale-95 rounded-lg text-sm"
-                        onClick={handleRunConversion}
-                        disabled={isProcessing}
-                    >
-                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                        변환 실행
-                    </Button>
                 </CardContent>
             </Card>
 
             {/* Zone 4: Results & Logs */}
-            <div className="flex-1 min-h-0 flex flex-col gap-4">
+            <div className="flex-1 min-h-[300px] flex flex-col gap-3">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
                     <div className="flex items-center justify-between mb-2 shrink-0">
-                        <TabsList className="bg-gray-100 p-1 rounded-lg h-9">
-                            <TabsTrigger value="step1" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-1 text-xs font-medium h-7">1단계: 시간 정렬 결과</TabsTrigger>
-                            <TabsTrigger value="step2" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-1 text-xs font-medium h-7">2단계: 최종 SRT</TabsTrigger>
+                        <TabsList className="bg-muted p-1 rounded-lg h-9">
+                            <TabsTrigger value="step1" className="text-xs px-3 py-1">1단계: 시간 정렬 결과</TabsTrigger>
+                            <TabsTrigger value="step2" className="text-xs px-3 py-1">2단계: 최종 SRT</TabsTrigger>
                         </TabsList>
                         {activeTab === 'step1' && (
-                            <Button size="sm" variant="outline" onClick={() => handleSaveResult(resultStep1, 'step1_aligned.srt')} className="h-8 font-medium text-xs">
-                                <Save className="w-3 h-3 mr-2" />
+                            <Button size="sm" variant="outline" onClick={() => handleSaveResult(resultStep1, 'step1_aligned.srt')} className="h-8 font-medium text-xs border-border text-foreground">
+                                <Save className="w-3.5 h-3.5 mr-1.5" />
                                 .srt 파일 저장
                             </Button>
                         )}
                         {activeTab === 'step2' && (
-                            <Button size="sm" variant="outline" onClick={() => handleSaveResult(resultStep2, 'final_output.srt')} className="h-8 font-medium text-xs">
-                                <Save className="w-3 h-3 mr-2" />
+                            <Button size="sm" variant="outline" onClick={() => handleSaveResult(resultStep2, 'final_output.srt')} className="h-8 font-medium text-xs border-border text-foreground">
+                                <Save className="w-3.5 h-3.5 mr-1.5" />
                                 .srt 파일 저장
                             </Button>
                         )}
                     </div>
 
-                    <TabsContent value="step1" className="flex-1 mt-0 h-0">
-                        <Card className="h-full border border-gray-200 shadow-sm rounded-xl overflow-hidden">
+                    <TabsContent value="step1" className="flex-1 mt-0 min-h-[200px]">
+                        <Card className="h-full border border-border shadow-2xs rounded-xl overflow-hidden bg-card">
                             <CardContent className="p-0 h-full">
                                 <Textarea
                                     value={resultStep1}
                                     readOnly
-                                    className="h-full resize-none border-0 focus-visible:ring-0 p-4 font-mono text-sm leading-relaxed text-gray-800 bg-white"
+                                    className="h-full min-h-[200px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 font-mono text-xs sm:text-sm leading-relaxed text-foreground bg-background"
                                 />
                             </CardContent>
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="step2" className="flex-1 mt-0 h-0">
-                        <Card className="h-full border border-green-200 shadow-sm rounded-xl overflow-hidden ring-1 ring-green-50">
+                    <TabsContent value="step2" className="flex-1 mt-0 min-h-[200px]">
+                        <Card className="h-full border border-border shadow-2xs rounded-xl overflow-hidden bg-card">
                             <CardContent className="p-0 h-full">
                                 <Textarea
                                     value={resultStep2}
                                     readOnly
-                                    className="h-full resize-none border-0 focus-visible:ring-0 p-4 font-mono text-sm leading-relaxed text-gray-800 bg-white"
+                                    className="h-full min-h-[200px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 font-mono text-xs sm:text-sm leading-relaxed text-foreground bg-background"
                                 />
                             </CardContent>
                         </Card>
                     </TabsContent>
                 </Tabs>
 
-                {/* System Logs (Refactored: White, Small) */}
-                <div className="h-24 shrink-0 bg-white border-t border-gray-200 p-3 overflow-y-auto font-mono text-xs">
-                    <h3 className="text-xs font-bold mb-2 text-gray-500 flex items-center gap-2 uppercase tracking-wider">
-                        <AlertCircle className="w-3 h-3" />
+                {/* System Logs */}
+                <div className="h-24 shrink-0 bg-card border border-border rounded-xl p-3 overflow-y-auto font-mono text-xs text-foreground">
+                    <h3 className="text-xs font-bold mb-2 text-muted-foreground flex items-center gap-1.5 uppercase tracking-wider">
+                        <AlertCircle className="w-3.5 h-3.5 text-primary" />
                         System Logs
                     </h3>
                     <div className="space-y-1">
-                        {logs.length === 0 && <div className="text-slate-600 italic">No logs yet.</div>}
+                        {logs.length === 0 && <div className="text-muted-foreground italic">No logs yet.</div>}
                         {logs.map((log, i) => (
                             <div key={i} className={log.type === 'error' ? 'text-red-500' : 'text-gray-600'}>
                                 <span className="opacity-50 mr-2 text-slate-600">[{log.time}]</span>
