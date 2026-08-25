@@ -163,38 +163,38 @@ export const BulkWarmupPanel = () => {
                     </div>
 
                     {/* Bulk Action Buttons */}
-                    <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-border/50">
-                        <div className="flex-1 flex flex-wrap gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-border">
+                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 flex-1">
                             <Button
                                 onClick={() => startMutation.mutate("all")}
                                 disabled={startMutation.isPending}
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xs h-8 text-xs font-bold"
                             >
-                                <Flame className="w-4 h-4 mr-2" /> 전체 시작
+                                <Flame className="w-3.5 h-3.5 mr-1.5" /> 전체 시작
                             </Button>
                             <Button
                                 onClick={() => autoScheduleMutation.mutate()}
                                 disabled={autoScheduleMutation.isPending}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs h-8 text-xs font-bold"
                             >
-                                {autoScheduleMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "▶ 스케줄러 자동 실행"}
+                                {autoScheduleMutation.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : "▶ 스케줄러 자동"}
                             </Button>
                             <Button
                                 onClick={() => startMutation.mutate("pending")}
                                 disabled={startMutation.isPending}
                                 variant="outline"
-                                className="bg-background"
+                                className="bg-background border-border text-foreground h-8 text-xs col-span-2 sm:col-span-1"
                             >
                                 대기중 시작
                             </Button>
                         </div>
                         
-                        <div className="flex flex-wrap gap-2 justify-end">
+                        <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2 justify-end">
                             <Button
                                 onClick={() => startMutation.mutate("failed")}
                                 disabled={startMutation.isPending}
                                 variant="outline"
-                                className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                                className="text-rose-500 border-rose-300 dark:border-rose-800 hover:bg-rose-500/10 h-8 text-xs"
                             >
                                 오류 재시작
                             </Button>
@@ -202,7 +202,7 @@ export const BulkWarmupPanel = () => {
                                 onClick={() => pauseMutation.mutate()}
                                 disabled={pauseMutation.isPending}
                                 variant="outline"
-                                className="bg-background"
+                                className="bg-background border-border text-foreground h-8 text-xs"
                             >
                                 일시정지
                             </Button>
@@ -210,7 +210,7 @@ export const BulkWarmupPanel = () => {
                                 onClick={() => resetMutation.mutate()}
                                 disabled={resetMutation.isPending}
                                 variant="outline"
-                                className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                                className="text-rose-500 border-rose-300 dark:border-rose-800 hover:bg-rose-500/10 h-8 text-xs"
                             >
                                 초기화
                             </Button>

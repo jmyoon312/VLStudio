@@ -105,7 +105,7 @@ const Incubator = () => {
     const isWired = sysMode.includes("WIRED");
 
     return (
-        <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 bg-background min-h-screen text-foreground font-sans">
+        <div className="p-3 sm:p-6 pb-36 md:pb-8 space-y-3 sm:space-y-4 bg-background min-h-screen text-foreground font-sans">
 
 
             {/* Compact Header */}

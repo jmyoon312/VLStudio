@@ -224,13 +224,13 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
         const channel = channels?.find((c: any) => c.owner_profile_id === p.id || c.channel_id === p.channel_id);
         
         return (
-        <TableRow key={p.id} className="hover:bg-slate-50/80 transition-colors">
+        <TableRow key={p.id} className="hover:bg-muted/40 transition-colors">
             <TableCell className="align-middle">
                 <Badge variant="outline" className={
-                    p.status?.toLowerCase() === 'active' ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold px-2 py-0.5' :
-                        p.status?.toLowerCase() === 'draft' ? 'bg-amber-100 text-amber-800 border-amber-300 px-2 py-0.5' :
-                            p.status?.toUpperCase() === 'QUARANTINED' ? 'bg-red-100 text-red-800 border-red-300 px-2 py-0.5' :
-                                'bg-slate-100 text-slate-700 px-2 py-0.5'
+                    p.status?.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold px-2 py-0.5' :
+                        p.status?.toLowerCase() === 'draft' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 px-2 py-0.5' :
+                            p.status?.toUpperCase() === 'QUARANTINED' ? 'bg-destructive/10 text-destructive border-destructive/20 px-2 py-0.5' :
+                                'bg-muted text-muted-foreground px-2 py-0.5'
                 }>
                     {p.status ? p.status.toUpperCase() : 'UNKNOWN'}
                 </Badge>
@@ -238,15 +238,15 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
 
             <TableCell className="align-middle">
                 <div className="flex flex-col gap-1.5 py-1">
-                    <div className="flex items-center gap-2 font-bold text-slate-900 text-xs whitespace-nowrap">
-                        <Mail className="w-4 h-4 text-indigo-600 shrink-0" />
-                        {p.email ? <span className="font-mono text-slate-800">{p.email}</span> : (
-                            <span className="text-slate-500 italic flex items-center gap-1">
+                    <div className="flex items-center gap-2 font-bold text-foreground text-xs whitespace-nowrap">
+                        <Mail className="w-4 h-4 text-indigo-500 shrink-0" />
+                        {p.email ? <span className="font-mono text-foreground">{p.email}</span> : (
+                            <span className="text-muted-foreground italic flex items-center gap-1">
                                 <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> 미설정 ({p.id.slice(0, 6)})
                             </span>
                         )}
                         {channel?.warmup_status === 'RUNNING' && (
-                            <Badge variant="outline" className="border-orange-500/30 text-orange-600 bg-orange-50 text-[10px] h-5 animate-pulse shrink-0">
+                            <Badge variant="outline" className="border-orange-500/30 text-orange-600 dark:text-orange-400 bg-orange-500/10 text-[10px] h-5 animate-pulse shrink-0">
                                 🔥 WARMUP
                             </Badge>
                         )}
@@ -255,23 +255,23 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                     
                     {/* 브랜드 채널 정보 및 수집/갱신 버튼 */}
                     <div className="flex items-center gap-1.5 text-xs whitespace-nowrap">
-                        <span className="font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded flex items-center gap-1.5 border border-slate-200">
+                        <span className="font-semibold text-foreground bg-muted/60 px-2.5 py-0.5 rounded flex items-center gap-1.5 border border-border">
                             <span className="text-sm">📺</span>
-                            <span className="font-medium text-slate-800">{channel?.title || channel?.channel_name || "브랜드 채널 미수집"}</span>
+                            <span className="font-medium text-foreground">{channel?.title || channel?.channel_name || "브랜드 채널 미수집"}</span>
                         </span>
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-6 px-2 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-50 border-indigo-200 shrink-0 shadow-2xs"
+                            className="h-6 px-2 text-[11px] font-semibold text-primary hover:bg-primary/10 border-border shrink-0 shadow-2xs"
                             title="유튜브 스튜디오 접속 후 브랜드 채널명 자동 수집"
                             onClick={() => handleSyncChannel(p.id)}
                             disabled={syncingId === p.id}
                         >
-                            <RefreshCw className={`w-3 h-3 mr-1 ${syncingId === p.id ? 'animate-spin text-indigo-600' : ''}`} />
+                            <RefreshCw className={`w-3 h-3 mr-1 ${syncingId === p.id ? 'animate-spin text-primary' : ''}`} />
                             {syncingId === p.id ? '수집 중...' : '채널 수집'}
                         </Button>
                     </div>
-                    {isQuarantined && <span className="text-xs text-red-500 mt-0.5">사유: {p.quarantine_reason}</span>}
+                    {isQuarantined && <span className="text-xs text-destructive mt-0.5">사유: {p.quarantine_reason}</span>}
                 </div>
             </TableCell>
             
@@ -405,40 +405,40 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
     return (
         <div className="space-y-8">
             {/* Active Ops Section */}
-            <Card className="shadow-sm border-slate-200">
-                <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <Card className="shadow-2xs border-border bg-card">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
                     <div>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <ShieldCheck className="w-6 h-6 text-indigo-600" />
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground">
+                            <ShieldCheck className="w-5 h-5 text-indigo-500" />
                             구글 계정 관리 (Google Accounts)
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs text-muted-foreground mt-0.5">
                             안전하게 격리된 브라우저 프로필을 생성하고 관리합니다. (Import & Setup)
                         </CardDescription>
                     </div>
-                    <div className="flex gap-2 items-center">
-                        <Button onClick={() => { setDraftData(null); setIsWizardOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 font-bold">
-                            <Plus className="w-4 h-4 mr-2" /> 새 계정 가져오기
+                    <div className="flex gap-2 items-center self-end sm:self-auto">
+                        <Button onClick={() => { setDraftData(null); setIsWizardOpen(true); }} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-8 text-xs shadow-2xs">
+                            <Plus className="w-3.5 h-3.5 mr-1.5" /> 새 계정 가져오기
                         </Button>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0 overflow-x-auto">
-                    <Table className="w-full min-w-[1000px]">
+                    <Table className="w-full min-w-[900px]">
                         <TableHeader>
-                            <TableRow className="bg-slate-100/80 border-y border-slate-200">
-                                <TableHead className="w-[100px] font-bold text-slate-700">상태</TableHead>
-                                <TableHead className="min-w-[280px] font-bold text-slate-700">계정 & 브랜드 채널</TableHead>
-                                <TableHead className="min-w-[220px] font-bold text-slate-700">엔진 & 프록시 IP</TableHead>
-                                <TableHead className="min-w-[360px] font-bold text-slate-700">운영 제어 (보안접속 & 웜업)</TableHead>
-                                <TableHead className="w-[110px] text-right font-bold text-slate-700">최근 활동</TableHead>
-                                <TableHead className="w-[110px] text-right font-bold text-slate-700">관리</TableHead>
+                            <TableRow className="bg-muted/40 border-b border-border">
+                                <TableHead className="w-[90px] font-bold text-xs text-foreground">상태</TableHead>
+                                <TableHead className="min-w-[260px] font-bold text-xs text-foreground">계정 & 브랜드 채널</TableHead>
+                                <TableHead className="min-w-[200px] font-bold text-xs text-foreground">엔진 & 프록시 IP</TableHead>
+                                <TableHead className="min-w-[320px] font-bold text-xs text-foreground">운영 제어 (보안접속 & 웜업)</TableHead>
+                                <TableHead className="w-[100px] text-right font-bold text-xs text-foreground">최근 활동</TableHead>
+                                <TableHead className="w-[100px] text-right font-bold text-xs text-foreground">관리</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-8">로딩 중...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">로딩 중...</TableCell></TableRow>
                             ) : activeOps.length === 0 ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">운영 중인 계정이 없습니다.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">운영 중인 계정이 없습니다.</TableCell></TableRow>
                             ) : (
                                 activeOps.map((p: any) => renderRow(p, false))
                             )}
