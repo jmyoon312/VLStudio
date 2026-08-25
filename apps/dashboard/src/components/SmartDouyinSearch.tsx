@@ -519,7 +519,7 @@ export default function SmartDouyinSearch() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-3 sm:p-6 font-sans">
+    <div className="min-h-screen bg-background text-foreground p-3 sm:p-6 pb-36 md:pb-12 font-sans">
       <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6">
         
         {/* HEADER */}
@@ -537,7 +537,7 @@ export default function SmartDouyinSearch() {
             </p>
           </div>
           <div className="flex gap-2 sm:gap-3">
-             <button onClick={handleOpenFolder} className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-card border border-border shadow-xs text-foreground text-xs sm:text-sm font-semibold rounded-xl hover:bg-muted transition-all">
+             <button onClick={handleOpenFolder} className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-card border border-border shadow-2xs text-foreground text-xs sm:text-sm font-semibold rounded-xl hover:bg-muted transition-all">
                <FolderOpen size={16} />
                로컬 팩토리 폴더 열기
              </button>
@@ -553,18 +553,18 @@ export default function SmartDouyinSearch() {
                       <Loader2 className="h-5 w-5 animate-spin" />
                     </div>
                  ) : jobStatus === 'error' ? (
-                    <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 shrink-0">
+                    <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-rose-500/10 text-rose-500 shrink-0">
                       <X className="h-5 w-5" />
                     </div>
                  ) : (
-                    <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 shrink-0">
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
                  )}
                  <div>
                    <h3 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
                      배치 세션 #{jobId}
-                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isWorking ? 'bg-primary/10 text-primary' : jobStatus === 'error' ? 'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'}`}>
+                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isWorking ? 'bg-primary/10 text-primary' : jobStatus === 'error' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
                        {jobStatus}
                      </span>
                    </h3>
@@ -574,22 +574,28 @@ export default function SmartDouyinSearch() {
           </div>
         )}
 
-        {/* STUDIO TABS */}
-        <div className="bg-card rounded-t-2xl border border-border shadow-2xs p-1.5 sm:p-2 flex items-center gap-1.5 sm:gap-2 overflow-x-auto dashboard-scroll-area select-none">
-            <button onClick={() => setActiveTab('ingest')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${activeTab === 'ingest' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:bg-muted'}`}>
-                <Download size={15} /> 1단계: 수집 및 분석
+        {/* STUDIO TABS (반응형 3분할 탭) */}
+        <div className="grid grid-cols-3 gap-1 bg-muted/80 p-1 sm:p-1.5 rounded-2xl border border-border shadow-2xs select-none">
+            <button onClick={() => setActiveTab('ingest')} className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'ingest' ? 'bg-card text-primary shadow-xs font-extrabold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}>
+                <Download size={15} className="shrink-0" />
+                <span className="sm:hidden text-[11px] truncate">1단계: 수집</span>
+                <span className="hidden sm:inline whitespace-nowrap">1단계: 수집 및 분석</span>
             </button>
-            <button onClick={() => setActiveTab('batch')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${activeTab === 'batch' ? 'bg-indigo-600 text-white shadow-xs' : 'text-muted-foreground hover:bg-muted'}`}>
-                <Scissors size={15} /> 2단계: AI 매핑
-                {videos.length > 0 && <span className="ml-1.5 bg-white/20 text-white px-2 py-0.2 rounded-full text-[10px]">{videos.length}</span>}
+            <button onClick={() => setActiveTab('batch')} className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'batch' ? 'bg-card text-primary shadow-xs font-extrabold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}>
+                <Scissors size={15} className="shrink-0" />
+                <span className="sm:hidden text-[11px] truncate">2단계: 매핑</span>
+                <span className="hidden sm:inline whitespace-nowrap">2단계: AI 매핑</span>
+                {videos.length > 0 && <span className="ml-1 bg-primary/20 text-primary px-1.5 py-0.2 rounded-full text-[10px] shrink-0 font-mono">{videos.length}</span>}
             </button>
-            <button onClick={() => setActiveTab('timeline')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${activeTab === 'timeline' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:bg-muted'}`}>
-                <CheckCheck size={15} /> 3단계: 최종 검수
+            <button onClick={() => setActiveTab('timeline')} className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center ${activeTab === 'timeline' ? 'bg-card text-primary shadow-xs font-extrabold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}>
+                <CheckCheck size={15} className="shrink-0" />
+                <span className="sm:hidden text-[11px] truncate">3단계: 검수</span>
+                <span className="hidden sm:inline whitespace-nowrap">3단계: 최종 검수</span>
             </button>
         </div>
 
         {/* TAB CONTENTS */}
-        <div className="bg-card border-x border-b border-border shadow-2xs rounded-b-2xl p-4 sm:p-6 min-h-[600px]">
+        <div className="bg-card border border-border shadow-2xs rounded-2xl p-4 sm:p-6 min-h-[600px]">
             
             {/* 탭 1: 수집 & 업로드 */}
             {activeTab === 'ingest' && (
@@ -606,8 +612,8 @@ export default function SmartDouyinSearch() {
 
                         <div className="space-y-5">
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">더우인 연동 프로필 선택</label>
-                                <select value={selectedProfileId} onChange={e => setSelectedProfileId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg p-3">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">더우인 연동 프로필 선택</label>
+                                <select value={selectedProfileId} onChange={e => setSelectedProfileId(e.target.value)} className="w-full bg-muted/40 border border-border text-foreground text-xs sm:text-sm rounded-xl p-3 focus:outline-none focus:border-primary">
                                     <option value="">-- 쿠키 없는 기본 스텔스 봇 --</option>
                                     {profiles.map(p => (
                                     <option key={p.id} value={p.id}>{p.name} (연동: {p.douyin_count || 0})</option>
@@ -616,11 +622,11 @@ export default function SmartDouyinSearch() {
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">카테고리</label>
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">카테고리</label>
                                 <div className="flex flex-wrap gap-2">
                                     {CATEGORIES.map(c => (
                                     <button key={c.id} onClick={() => setSelected(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id])}
-                                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${selected.includes(c.id) ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-600'}`}>
+                                        className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all border ${selected.includes(c.id) ? 'bg-primary text-primary-foreground border-primary font-bold shadow-xs' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'}`}>
                                         {c.name}
                                     </button>
                                     ))}
@@ -628,16 +634,16 @@ export default function SmartDouyinSearch() {
                             </div>
 
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block flex justify-between items-center">
-                                    세부 추출 키워드
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex justify-between items-center">
+                                    <span>세부 추출 키워드</span>
                                     <button onClick={() => { setAiLoading(true); fetch(`${API_BASE_URL}/douyin-shorts/expand-keywords`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword_seeds: allKeywords.slice(0,5), category_tags: selected, n:5 }) }).then(r => r.json()).then(d => { setAiKeys(d.additional || []); setAiLoading(false); }).catch(() => setAiLoading(false)); }} disabled={aiLoading}
-                                    className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md text-xs">
-                                    {aiLoading ? '분석 중...' : 'AI 자동 확장'}
+                                    className="text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors">
+                                    {aiLoading ? '분석 중...' : '✨ AI 자동 확장'}
                                     </button>
                                 </label>
-                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 min-h-[60px] flex flex-wrap gap-1.5">
+                                <div className="p-3 bg-muted/30 rounded-xl border border-border min-h-[60px] flex flex-wrap gap-1.5">
                                     {allKeywords.map((k,i) => (
-                                    <span key={i} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${aiKeys.includes(k) ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted/40 border-border text-foreground'}`}>{k}</span>
+                                    <span key={i} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${aiKeys.includes(k) ? 'bg-primary/15 border-primary/40 text-primary font-bold' : 'bg-card border-border text-foreground shadow-2xs'}`}>{k}</span>
                                     ))}
                                 </div>
                             </div>
@@ -645,7 +651,7 @@ export default function SmartDouyinSearch() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">수집 수량</label>
-                                    <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-xs sm:text-sm text-foreground focus:outline-none focus:border-primary" />
+                                    <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} className="w-full bg-muted/40 border border-border rounded-xl px-3.5 py-2 text-xs sm:text-sm text-foreground focus:outline-none focus:border-primary" />
                                 </div>
                             </div>
 
