@@ -1737,7 +1737,7 @@ const CreativeStudio = () => {
                         </DropdownMenu>
 
                         {/* [NEW] CapCut Export Button */}
-                        <Button variant="outline" size="sm" className="h-8 text-xs bg-black text-white hover:bg-zinc-800 border-black" onClick={() => setIsExportModalOpen(true)}>
+                        <Button variant="default" size="sm" className="h-8 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs" onClick={() => setIsExportModalOpen(true)}>
                             ✂️ CapCut 내보내기
                         </Button>
 
