@@ -550,13 +550,13 @@ const Settings = () => {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto p-3 sm:p-6 pb-36 md:pb-12 bg-background text-foreground min-h-screen font-sans">
+        <div className="space-y-4 sm:space-y-6 max-w-4xl w-full mx-auto pb-36 md:pb-12 bg-background text-foreground min-h-screen font-sans min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="space-y-1">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">설정</h1>
                     <p className="text-xs sm:text-sm text-muted-foreground font-medium">애플리케이션의 전역 설정을 관리합니다.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
+                <div className="grid grid-cols-2 gap-2 w-full sm:w-auto shrink-0">
                     <Button variant="outline" size="sm" onClick={handleBackup} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
                         <Download className="w-3.5 h-3.5 mr-1.5" />
                         설정 백업 (Export)
@@ -575,42 +575,44 @@ const Settings = () => {
                 </div>
             </div>
 
-            <div className="flex-1">
-                <Tabs defaultValue="general" className="w-full">
-                    {/* Responsive Tab Grid: 3-cols on Mobile, Flex on Desktop - No Clipping */}
-                    <TabsList className="mb-5 bg-muted/80 p-1.5 rounded-2xl border border-border shadow-2xs grid grid-cols-3 sm:flex sm:flex-nowrap sm:overflow-x-auto gap-1.5 w-full h-auto">
-                        <TabsTrigger value="general" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <SettingsIcon className="w-3.5 h-3.5" /> 일반
-                        </TabsTrigger>
-                        <TabsTrigger value="intelligence" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <BrainCircuit className="w-3.5 h-3.5 text-primary" /> AI 지능
-                        </TabsTrigger>
-                        <TabsTrigger value="voice" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <Mic2 className="w-3.5 h-3.5 text-sky-500" /> 음성
-                        </TabsTrigger>
-                        <TabsTrigger value="subtitles" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-500" /> 자막
-                        </TabsTrigger>
-                        <TabsTrigger value="maintenance" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <Wrench className="w-3.5 h-3.5 text-rose-500" /> 관리
-                        </TabsTrigger>
-                        <TabsTrigger value="hermes" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <BrainCircuit className="w-3.5 h-3.5 text-indigo-500" /> Loopie
-                        </TabsTrigger>
-                        <TabsTrigger value="system" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <SettingsIcon className="w-3.5 h-3.5 text-slate-400" /> 시스템
-                        </TabsTrigger>
-                        <TabsTrigger value="aigrid" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <Zap className="w-3.5 h-3.5 text-amber-500" /> AI Grid
-                        </TabsTrigger>
-                        <TabsTrigger value="browser" className="gap-1 px-2 sm:px-4 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
-                            <Globe className="w-3.5 h-3.5 text-teal-500" /> 브라우저
-                        </TabsTrigger>
-                    </TabsList>
+            <div className="flex-1 w-full min-w-0">
+                <Tabs defaultValue="general" className="w-full min-w-0">
+                    {/* Modern Scrollable Tab Bar: zero clipping, smooth swipe on mobile, clean flex on desktop */}
+                    <div className="overflow-x-auto no-scrollbar w-full pb-1">
+                        <TabsList className="bg-muted/80 p-1.5 rounded-2xl border border-border shadow-2xs flex flex-nowrap items-center gap-1.5 w-max min-w-full h-auto">
+                            <TabsTrigger value="general" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <SettingsIcon className="w-3.5 h-3.5" /> 일반
+                            </TabsTrigger>
+                            <TabsTrigger value="intelligence" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <BrainCircuit className="w-3.5 h-3.5 text-primary" /> AI 지능
+                            </TabsTrigger>
+                            <TabsTrigger value="voice" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <Mic2 className="w-3.5 h-3.5 text-sky-500" /> 음성
+                            </TabsTrigger>
+                            <TabsTrigger value="subtitles" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <MessageSquare className="w-3.5 h-3.5 text-emerald-500" /> 자막
+                            </TabsTrigger>
+                            <TabsTrigger value="maintenance" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <Wrench className="w-3.5 h-3.5 text-rose-500" /> 관리
+                            </TabsTrigger>
+                            <TabsTrigger value="hermes" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <BrainCircuit className="w-3.5 h-3.5 text-indigo-500" /> Loopie
+                            </TabsTrigger>
+                            <TabsTrigger value="system" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <SettingsIcon className="w-3.5 h-3.5 text-slate-400" /> 시스템
+                            </TabsTrigger>
+                            <TabsTrigger value="aigrid" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <Zap className="w-3.5 h-3.5 text-amber-500" /> AI Grid
+                            </TabsTrigger>
+                            <TabsTrigger value="browser" className="gap-1.5 px-3.5 h-9 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0">
+                                <Globe className="w-3.5 h-3.5 text-teal-500" /> 브라우저
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
                     {/* --- TAB 1: GENERAL --- */}
                     <TabsContent value="general">
-                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden w-full">
                             <CardHeader className="bg-muted/30 border-b border-border py-3.5">
                                 <CardTitle className="text-base font-bold text-foreground">다운로드 및 시스템</CardTitle>
                                 <CardDescription className="text-xs">파일 경로와 자동화 설정을 관리합니다.</CardDescription>
