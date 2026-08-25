@@ -232,13 +232,14 @@ export const DdalkkakUI: React.FC = () => {
     setResultModalOpen(false);
     const metaText = generatePixelingStandardMeta(jobsToExport);
     sessionStorage.setItem('pending_pixeling_meta', metaText);
+    sessionStorage.setItem('pending_pixeling_open', 'true');
 
     toast({
       title: '픽셀링 메타 화면으로 이동',
       description: `총 ${jobsToExport.length}개의 표준 픽셀링 메타가 준비되었습니다. 자동화 작업 대기열로 이동합니다.`
     });
 
-    navigate('/work-queue', { state: { openPixeling: true } });
+    navigate('/work-queue');
   };
 
   // ---------- 📋 픽셀링 메타 텍스트 복사 ----------

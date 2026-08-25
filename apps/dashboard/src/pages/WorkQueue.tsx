@@ -43,13 +43,15 @@ const WorkQueue = () => {
     const hasHandledOpenRef = useRef(false);
 
     useEffect(() => {
-        const shouldOpen = (location.state as any)?.openPixeling || searchParams.get('openPixeling') === 'true';
-        if (shouldOpen && !hasHandledOpenRef.current) {
+        const hasSessionPending = sessionStorage.getItem('pending_pixeling_open') === 'true' || sessionStorage.getItem('pending_pixeling_meta');
+        const hasStatePending = (location.state as any)?.openPixeling || searchParams.get('openPixeling') === 'true';
+        
+        if ((hasSessionPending || hasStatePending) && !hasHandledOpenRef.current) {
             hasHandledOpenRef.current = true;
+            sessionStorage.removeItem('pending_pixeling_open');
             setIsPixelingOpen(true);
-            navigate('/work-queue', { replace: true, state: {} });
         }
-    }, []);
+    }, [location.pathname]);
     const { toast } = useToast();
     const [queueItems, setQueueItems] = useState<any[]>([]);
     const [stats, setStats] = useState<any>({});
