@@ -746,37 +746,48 @@ export default function SmartDouyinSearch() {
 
             {/* 탭 2: 배치 매니저 (매핑 편집) */}
             {activeTab === 'batch' && (
-                <div className="flex flex-col h-[700px]">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-lg font-bold text-slate-900">2단계: AI 매핑 및 컷편집 ({factoryVideos.length}개)</h2>
+                <div className="flex flex-col min-h-[600px]">
+                    <div className="flex flex-col gap-3 mb-4">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                            <h2 className="text-base sm:text-lg font-bold text-foreground">
+                                2단계: AI 매핑 및 컷편집 <span className="text-primary font-extrabold">({factoryVideos.length}개)</span>
+                            </h2>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => setShowTtsModal(true)} className="flex-1 sm:flex-initial px-3 py-1.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs font-bold rounded-lg border border-orange-300 dark:border-orange-800 hover:bg-orange-500/20 transition flex items-center justify-center gap-1 shadow-2xs">
+                                    <Wand2 size={14} /> AI TTS 보이스 매핑 설정
+                                </button>
+                                {selectedVideos.length > 0 && (
+                                    <button onClick={() => handleDelete(selectedVideos.map(v => v.idx))} className="px-3 py-1.5 bg-destructive/10 text-destructive text-xs font-bold rounded-lg hover:bg-destructive/20 transition-colors flex items-center gap-1">
+                                        <Trash2 size={14} /> 삭제 ({selectedVideos.length})
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
                             <select 
                                 value={scriptStyle} 
                                 onChange={(e) => setScriptStyle(e.target.value)}
-                                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                                className="text-xs sm:text-sm border border-border rounded-lg px-3 py-1.5 bg-background text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary shadow-2xs w-full sm:w-auto"
                             >
                                 <option value="base">🔥 자극적 어그로 (기본)</option>
                                 <option value="old_people">👵 50~70대 공감형</option>
                                 <option value="drama">🎭 과몰입 드라마형</option>
                                 <option value="info">💡 정보 전달형</option>
                             </select>
-                            <button onClick={() => setShowTtsModal(true)} className="px-3 py-1.5 bg-orange-50 text-orange-600 text-xs font-bold rounded border border-orange-200 hover:bg-orange-100 transition flex items-center gap-1">
-                                <Wand2 size={14} /> AI TTS 보이스 매핑 설정
-                            </button>
                         </div>
-                        <button onClick={() => handleDelete(selectedVideos.map(v => v.idx))} disabled={selectedVideos.length === 0} className="px-4 py-2 bg-red-50 text-red-600 text-sm font-bold rounded-lg hover:bg-red-100 transition-colors flex items-center gap-2">
-                            <Trash2 size={16} /> 삭제
-                        </button>
                     </div>
 
-                    <div className="flex-1 bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
-                        <div className="grid grid-cols-12 gap-4 px-6 py-4 border-b border-slate-200 bg-white text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            <div className="col-span-1 flex justify-center">
-                                <input type="checkbox" checked={selectAll} onChange={() => { const n = !selectAll; setSelectAll(n); setVideos(prev => prev.map(v => ({ ...v, selected: n }))); }} className="rounded text-indigo-600" />
+                    <div className="flex-1 bg-muted/30 rounded-2xl border border-border overflow-hidden flex flex-col">
+                        <div className="overflow-x-auto w-full">
+                            <div className="grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-3 border-b border-border bg-card text-[11px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider min-w-[500px]">
+                                <div className="col-span-1 flex justify-center">
+                                    <input type="checkbox" checked={selectAll} onChange={() => { const n = !selectAll; setSelectAll(n); setVideos(prev => prev.map(v => ({ ...v, selected: n }))); }} className="rounded text-primary" />
+                                </div>
+                                <div className="col-span-5">비디오 제목</div>
+                                <div className="col-span-3 text-center">진행 단계</div>
+                                <div className="col-span-3 text-center">작업 제어</div>
                             </div>
-                            <div className="col-span-5">비디오 제목</div>
-                            <div className="col-span-2 text-center">진행 단계</div>
-                            <div className="col-span-4 text-center">작업 제어</div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -914,11 +925,11 @@ export default function SmartDouyinSearch() {
 
             {/* 탭 3: 타임라인 검수 */}
             {activeTab === 'timeline' && (
-                <div className="flex flex-col h-[700px]">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
+                <div className="flex flex-col min-h-[600px]">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-2 flex-1">
                             <select 
-                                className="bg-white border border-slate-200 rounded-lg p-2 text-sm font-bold w-64"
+                                className="bg-background border border-border text-foreground rounded-lg p-2 text-xs sm:text-sm font-bold w-full sm:w-64 shadow-2xs"
                                 onChange={e => setPreviewVideo(videos.find(v => v.idx === Number(e.target.value)))}
                             >
                                 <option value="">검수할 영상을 선택하세요</option>
@@ -926,11 +937,14 @@ export default function SmartDouyinSearch() {
                                     <option key={v.idx} value={v.idx}>{v.title}</option>
                                 ))}
                             </select>
-                            {previewVideo && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">분석 완료</span>}
+                            {previewVideo && <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded whitespace-nowrap">분석 완료</span>}
                         </div>
-                        <button onClick={handleExport} disabled={!jobId || videos.filter(v=>v.editing==='done').length === 0} 
-                            className="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-sm font-bold uppercase tracking-wider rounded-xl shadow-md hover:bg-slate-800 disabled:opacity-50">
-                            <Play size={16} /> 선택된 배치 전체 CapCut 내보내기
+                        <button 
+                            onClick={handleExport} 
+                            disabled={!jobId || videos.filter(v=>v.editing==='done').length === 0} 
+                            className="inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 bg-primary text-primary-foreground text-xs sm:text-sm font-bold uppercase tracking-wider rounded-xl shadow-md hover:bg-primary/90 disabled:opacity-50 transition-all w-full sm:w-auto shrink-0"
+                        >
+                            <Play size={15} className="fill-current" /> 선택된 배치 전체 CapCut 내보내기
                         </button>
                     </div>
 
