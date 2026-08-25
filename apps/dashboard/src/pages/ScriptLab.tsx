@@ -614,83 +614,84 @@ const ScriptLab = () => {
             </div>
 
             {/* Data Table Container */}
-            <div className="flex-1 rounded-xl border border-border bg-card shadow-2xs overflow-hidden flex flex-col select-none relative min-h-[350px]">
-                {table.getRowModel().rows?.length === 0 ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center text-muted-foreground gap-2">
-                        <Sparkles className="w-10 h-10 opacity-30 text-primary mb-1" />
-                        <p className="text-sm font-semibold text-foreground">분석된 대본 데이터가 없습니다</p>
-                        <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-                            더우인 수집기 또는 미디어 고속 다운로드에서 영상을 추출하여 대본 분석을 시작해보세요.
-                        </p>
-                    </div>
-                ) : (
-                    <div
-                        className="overflow-x-auto flex-1 w-full"
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={onTableMouseMove}
-                    >
-                        <Table className="w-full min-w-[760px]">
-                            {/* Headers */}
-                            <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-xs z-10 shadow-2xs">
-                                {table.getHeaderGroups().map(headerGroup => (
-                                    <TableRow key={headerGroup.id}>
-                                        {headerGroup.headers.map(header => {
-                                            // Determine alignment based on column ID
-                                            let alignClass = 'justify-start';
-                                            if (header.column.id === 'viral_score' || header.column.id === 'select') alignClass = 'justify-center'; // Grade & Checkbox
-                                            else if (['viral_val', 'velocity_score', 'view_count', 'upload_date'].includes(header.column.id)) alignClass = 'justify-end';
+            <div className="flex-1 rounded-xl border border-border bg-card shadow-2xs overflow-hidden flex flex-col select-none relative min-h-[360px]">
+                <div
+                    className="overflow-x-auto flex-1 w-full relative"
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={onTableMouseMove}
+                >
+                    <Table className="w-full min-w-[760px]">
+                        {/* Headers: Always visible to show column structure */}
+                        <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-xs z-10 shadow-2xs">
+                            {table.getHeaderGroups().map(headerGroup => (
+                                <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map(header => {
+                                        // Determine alignment based on column ID
+                                        let alignClass = 'justify-start';
+                                        if (header.column.id === 'viral_score' || header.column.id === 'select') alignClass = 'justify-center'; // Grade & Checkbox
+                                        else if (['viral_val', 'velocity_score', 'view_count', 'upload_date'].includes(header.column.id)) alignClass = 'justify-end';
 
-                                            return (
-                                                <TableHead key={header.id} className="whitespace-nowrap px-3 h-10 sm:h-12" style={{ width: header.getSize() }}>
-                                                    {header.isPlaceholder
-                                                        ? null
-                                                        : (
-                                                            <div
-                                                                className={`flex items-center gap-1 cursor-pointer select-none ${alignClass} ${header.column.getCanSort() ? 'hover:text-primary' : ''}`}
-                                                                onClick={header.column.getToggleSortingHandler()}
-                                                            >
-                                                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                                                {{
-                                                                    asc: <ChevronUp className="w-3 h-3" />,
-                                                                    desc: <ChevronDown className="w-3 h-3" />,
-                                                                }[header.column.getIsSorted() as string] ?? null}
-                                                            </div>
-                                                        )
-                                                    }
-                                                </TableHead>
-                                            );
-                                        })}
-                                    </TableRow>
-                                ))}
-                            </TableHeader>
-                            <TableBody>
-                                {table.getRowModel().rows.map(row => (
-                                    <TableRow
-                                        key={row.id}
-                                        data-state={row.getIsSelected() && "selected"}
-                                        className={cn(
-                                            "cursor-pointer transition-colors h-12 sm:h-14",
-                                            row.getIsSelected() ? "bg-primary/10 hover:bg-primary/20" : "hover:bg-muted/60"
-                                        )}
-                                        onClick={(e) => {
-                                            // [FIX] Only open dialog if NOT dragged
-                                            if (!isDragMoved.current) {
-                                                setSelectedVideo(row.original);
-                                            }
-                                        }}
-                                        onMouseEnter={() => handleRowMouseEnter(row)}
-                                    >
-                                        {row.getVisibleCells().map(cell => (
-                                            <TableCell key={cell.id} className="p-2 sm:p-3 text-xs sm:text-sm whitespace-nowrap">
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                )}
+                                        return (
+                                            <TableHead key={header.id} className="whitespace-nowrap px-3 h-10 sm:h-12 text-xs sm:text-sm font-semibold" style={{ width: header.getSize() }}>
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : (
+                                                        <div
+                                                            className={`flex items-center gap-1 cursor-pointer select-none ${alignClass} ${header.column.getCanSort() ? 'hover:text-primary' : ''}`}
+                                                            onClick={header.column.getToggleSortingHandler()}
+                                                        >
+                                                            {flexRender(header.column.columnDef.header, header.getContext())}
+                                                            {{
+                                                                asc: <ChevronUp className="w-3 h-3" />,
+                                                                desc: <ChevronDown className="w-3 h-3" />,
+                                                            }[header.column.getIsSorted() as string] ?? null}
+                                                        </div>
+                                                    )
+                                                }
+                                            </TableHead>
+                                        );
+                                    })}
+                                </TableRow>
+                            ))}
+                        </TableHeader>
+                        <TableBody>
+                            {table.getRowModel().rows.map(row => (
+                                <TableRow
+                                    key={row.id}
+                                    data-state={row.getIsSelected() && "selected"}
+                                    className={cn(
+                                        "cursor-pointer transition-colors h-12 sm:h-14",
+                                        row.getIsSelected() ? "bg-primary/10 hover:bg-primary/20" : "hover:bg-muted/60"
+                                    )}
+                                    onClick={(e) => {
+                                        // [FIX] Only open dialog if NOT dragged
+                                        if (!isDragMoved.current) {
+                                            setSelectedVideo(row.original);
+                                        }
+                                    }}
+                                    onMouseEnter={() => handleRowMouseEnter(row)}
+                                >
+                                    {row.getVisibleCells().map(cell => (
+                                        <TableCell key={cell.id} className="p-2 sm:p-3 text-xs sm:text-sm whitespace-nowrap">
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+
+                    {/* Centered Empty State Overlay (Viewport relative) */}
+                    {table.getRowModel().rows?.length === 0 && (
+                        <div className="absolute inset-x-0 bottom-0 top-12 flex flex-col items-center justify-center p-6 text-center text-muted-foreground gap-2 bg-card/60 backdrop-blur-2xs">
+                            <Sparkles className="w-9 h-9 opacity-30 text-primary mb-0.5" />
+                            <p className="text-sm font-semibold text-foreground">분석된 대본 데이터가 없습니다</p>
+                            <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                                더우인 수집기 또는 미디어 고속 다운로드에서 영상을 추출하여 대본 분석을 시작해보세요.
+                            </p>
+                        </div>
+                    )}
+                </div>
 
                 {/* Pagination / Footer */}
                 <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t border-border bg-muted/40 text-xs text-muted-foreground gap-2">
@@ -704,7 +705,7 @@ const ScriptLab = () => {
                             size="sm"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
-                            className="h-8 text-xs border-border"
+                            className="h-8 text-xs border-border bg-card text-foreground"
                         >
                             이전
                         </Button>
@@ -713,7 +714,7 @@ const ScriptLab = () => {
                             size="sm"
                             onClick={() => table.nextPage()}
                             disabled={!table.getCanNextPage()}
-                            className="h-8 text-xs border-border"
+                            className="h-8 text-xs border-border bg-card text-foreground"
                         >
                             다음
                         </Button>
