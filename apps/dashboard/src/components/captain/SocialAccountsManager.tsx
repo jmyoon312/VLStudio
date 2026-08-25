@@ -220,132 +220,110 @@ const SocialAccountsManager: React.FC<SocialAccountsManagerProps> = ({ profileId
                         </span>
                     </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-9 px-3 text-xs font-bold">
-                                <Plus className="w-3.5 h-3.5 mr-1.5" />
-                                빈 프로필 생성
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>새 빈 브라우저 프로필 생성</DialogTitle>
-                                <DialogDescription>
-                                    예: "게임 채널용", "일상 브랜드용" 등 용도에 맞는 이름을 입력하세요.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="py-4">
-                                <Input
-                                    placeholder="프로필 이름 입력..."
-                                    value={newProfileName}
-                                    onChange={(e) => setNewProfileName(e.target.value)}
-                                />
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsAddOpen(false)}>취소</Button>
-                                <Button onClick={handleCreateProfile}>생성</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                    <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm" className="h-9 px-3.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs">
+                                    <Plus className="w-4 h-4 mr-1.5 shrink-0" />
+                                    빈 프로필 생성
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="bg-card border-border text-foreground">
+                                <DialogHeader>
+                                    <DialogTitle>새 빈 브라우저 프로필 생성</DialogTitle>
+                                    <DialogDescription>
+                                        예: "게임 채널용", "일상 브랜드용" 등 용도에 맞는 이름을 입력하세요.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                    <Input
+                                        placeholder="프로필 이름 입력..."
+                                        value={newProfileName}
+                                        onChange={(e) => setNewProfileName(e.target.value)}
+                                        className="bg-muted/50 border-border"
+                                    />
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsAddOpen(false)}>취소</Button>
+                                    <Button onClick={handleCreateProfile}>생성</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
 
-                    <Dialog open={isSyncOpen} onOpenChange={setIsSyncOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="bg-red-600 hover:bg-red-700 text-white shadow-sm">
-                                <Link className="w-4 h-4 mr-2" />
-                                유튜브 채널 연동
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>유튜브 채널과 프로필 연동</DialogTitle>
-                                <DialogDescription>
-                                    유튜브 채널과 동일한 브라우저 쿠키를 사용하도록 연동합니다.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="py-4">
-                                <Select value={syncChannelId} onValueChange={setSyncChannelId}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="연동할 유튜브 채널을 선택하세요" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {youtubeChannels.map((ch) => (
-                                            <SelectItem key={ch.channel_id} value={ch.channel_id}>
-                                                {ch.channel_name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsSyncOpen(false)}>취소</Button>
-                                <Button onClick={handleSyncYouTubeChannel} className="bg-red-600 hover:bg-red-700 text-white">연동하기</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    <Dialog open={isNotebookLMOpen} onOpenChange={setIsNotebookLMOpen}>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>NotebookLM 연동</DialogTitle>
-                                <DialogDescription>
-                                    연동할 NotebookLM 계정의 이메일 주소를 입력하세요.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="py-4">
-                                <Input
-                                    placeholder="example@gmail.com"
-                                    value={notebookLMEmail}
-                                    onChange={(e) => setNotebookLMEmail(e.target.value)}
-                                    type="email"
-                                />
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsNotebookLMOpen(false)}>취소</Button>
-                                <Button onClick={handleLinkIntelligence}>연동하기</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                        <Dialog open={isSyncOpen} onOpenChange={setIsSyncOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm" variant="outline" className="h-9 px-3.5 text-xs font-bold border-rose-500/30 text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 shadow-2xs">
+                                    <Link className="w-4 h-4 mr-1.5 shrink-0" />
+                                    유튜브 채널 연동
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="bg-card border-border text-foreground">
+                                <DialogHeader>
+                                    <DialogTitle>유튜브 채널과 프로필 연동</DialogTitle>
+                                    <DialogDescription>
+                                        유튜브 채널과 동일한 브라우저 쿠키를 사용하도록 연동합니다.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4">
+                                    <Select value={syncChannelId} onValueChange={setSyncChannelId}>
+                                        <SelectTrigger className="bg-muted/50 border-border">
+                                            <SelectValue placeholder="연동할 유튜브 채널을 선택하세요" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {youtubeChannels.map((ch) => (
+                                                <SelectItem key={ch.channel_id} value={ch.channel_id}>
+                                                    {ch.channel_name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsSyncOpen(false)}>취소</Button>
+                                    <Button onClick={handleSyncYouTubeChannel} className="bg-rose-600 hover:bg-rose-700 text-white">연동하기</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
 
                     <Dialog>
                         <DialogTrigger asChild>
-                            <Button className="bg-slate-800 hover:bg-slate-900 text-white shadow-sm ml-2">
-                                <HelpCircle className="w-4 h-4 mr-2" />
+                            <Button variant="outline" size="sm" className="h-9 px-3 text-xs font-semibold text-muted-foreground hover:text-foreground border-border hover:bg-muted/60 shadow-2xs">
+                                <HelpCircle className="w-3.5 h-3.5 mr-1.5 text-primary shrink-0" />
                                 더우인(Douyin) 가입 가이드
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-3xl">
+                        <DialogContent className="max-w-2xl bg-card border-border text-foreground shadow-2xl p-4 sm:p-6">
                             <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2 text-xl">
-                                    <Smartphone className="w-6 h-6 text-slate-800" />
+                                <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground">
+                                    <Smartphone className="w-5 h-5 text-primary" />
                                     더우인 무료 가입 및 쿠키 연동 가이드
                                 </DialogTitle>
-                                <DialogDescription>
+                                <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                                     무료 가상 번호를 사용하면 계정이 정지되거나 블락당합니다. 본인의 실제 한국 스마트폰 번호(+82)로 1회 가입만 해두면 평생 무료로 안전하게 수집할 수 있습니다.
                                 </DialogDescription>
                             </DialogHeader>
-                            <div className="py-4 space-y-6 text-sm text-slate-700 max-h-[60vh] overflow-y-auto pr-4">
-                                <div className="space-y-2">
-                                    <h3 className="font-bold text-base text-slate-900">1단계: 앱 설치 (모바일)</h3>
-                                    <p>• <b>안드로이드:</b> 구글 플레이에 없으므로, 모바일 크롬이나 삼성인터넷으로 <a href="https://douyin.com" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">douyin.com</a> 에 접속하여 <b>APK</b> 파일을 다운받아 설치합니다.</p>
-                                    <p>• <b>iOS (아이폰):</b> App Store 앱을 열고 오른쪽 위 프로필을 눌러 계정 설정으로 들어간 뒤, <b>국가/지역을 '중국 본토'로 변경</b>합니다. '抖音'을 검색해 다운로드 받은 후 국가를 다시 한국으로 변경합니다.</p>
+                            <div className="py-3 space-y-4 text-xs sm:text-sm max-h-[60vh] overflow-y-auto pr-2">
+                                <div className="bg-muted/40 p-3.5 rounded-xl border border-border space-y-1.5">
+                                    <h3 className="font-bold text-foreground">1단계: 앱 설치 (모바일)</h3>
+                                    <p className="text-muted-foreground leading-relaxed">• <b>안드로이드:</b> 구글 플레이에 없으므로, 모바일 크롬으로 <a href="https://douyin.com" target="_blank" rel="noreferrer" className="text-primary underline">douyin.com</a> 에 접속하여 <b>APK</b> 파일을 다운로드합니다.</p>
+                                    <p className="text-muted-foreground leading-relaxed">• <b>iOS (아이폰):</b> App Store에서 <b>국가/지역을 '중국 본토'로 변경</b> 후 '抖音'을 다운로드하고 다시 한국으로 복귀합니다.</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <h3 className="font-bold text-base text-slate-900">2단계: 휴대폰 번호로 가입</h3>
-                                    <p>1. 더우인 앱을 실행하고 우측 하단의 <b>我 (나)</b> 탭을 누릅니다.</p>
-                                    <p>2. 전화번호 입력 화면이 나오면, 국가번호를 <b>+86</b>에서 <b>+82 (한국)</b>으로 변경합니다.</p>
-                                    <p>3. 본인의 휴대폰 번호를 입력하고 인증번호(SMS)를 받아 로그인을 완료합니다.</p>
+                                <div className="bg-muted/40 p-3.5 rounded-xl border border-border space-y-1.5">
+                                    <h3 className="font-bold text-foreground">2단계: 휴대폰 번호로 가입</h3>
+                                    <p className="text-muted-foreground">1. 더우인 앱 우측 하단의 <b>我 (나)</b> 탭을 누릅니다.</p>
+                                    <p className="text-muted-foreground">2. 국가번호를 <b>+86</b>에서 <b>+82 (한국)</b>으로 변경합니다.</p>
+                                    <p className="text-muted-foreground">3. 본인 휴대폰 번호로 SMS 인증을 받아 로그인을 완료합니다.</p>
                                 </div>
-                                <div className="space-y-2">
-                                    <h3 className="font-bold text-base text-slate-900">3단계: ViraLoop에 더우인 연동하기 (PC)</h3>
-                                    <p>1. 이 창을 닫고 왼쪽의 <b>[+ 빈 프로필 생성]</b> 버튼을 눌러 "더우인 전용" 등의 이름으로 새 프로필을 만듭니다.</p>
-                                    <p>2. 방금 만든 프로필 하단의 <b>[브라우저 열기 (로그인)]</b> 버튼을 클릭합니다. 팝업 브라우저가 열립니다.</p>
-                                    <p>3. 팝업 브라우저 주소창에 <b>douyin.com</b>을 입력하고 들어갑니다.</p>
-                                    <p>4. 우측 상단 로그인 버튼을 누르고, 스마트폰 더우인 앱 상단의 <b>🔍돋보기 옆 QR 스캐너</b>를 켜서 PC 화면의 QR 코드를 스캔합니다.</p>
-                                    <p>5. 스마트폰에서 승인하면 브라우저에 로그인이 완료됩니다. <b>이제 팝업 브라우저를 닫으시면 됩니다! (연동 끝)</b></p>
+                                <div className="bg-muted/40 p-3.5 rounded-xl border border-border space-y-1.5">
+                                    <h3 className="font-bold text-foreground">3단계: ViraLoop에 더우인 연동 (PC)</h3>
+                                    <p className="text-muted-foreground">1. <b>[+ 빈 프로필 생성]</b> 버튼으로 "더우인 전용" 프로필을 생성합니다.</p>
+                                    <p className="text-muted-foreground">2. 프로필의 <b>[브라우저 열기]</b>를 클릭하여 <b>douyin.com</b>에 접속합니다.</p>
+                                    <p className="text-muted-foreground">3. 모바일 앱 상단 QR 스캐너로 PC의 QR 코드를 스캔하여 승인하면 연동 완료!</p>
                                 </div>
-                                <div className="bg-amber-50 border border-amber-200 rounded p-3 text-amber-800">
-                                    <b>참고:</b> 한 번 로그인해둔 브라우저 프로필을 "더우인 쇼츠 수집" 메뉴에서 선택하면, ViraLoop 봇이 해당 프로필의 쿠키를 가져가 자동으로 로그인된 상태로 대량 수집을 진행합니다!
+                                <div className="bg-primary/10 border border-primary/25 rounded-xl p-3 text-xs text-foreground/90">
+                                    <b>💡 팁:</b> 한번 연동해둔 프로필은 ViraLoop 봇이 쿠키를 자동 활용하여 로그인 상태로 대량 수집을 수행합니다.
                                 </div>
                             </div>
                             <DialogFooter>
