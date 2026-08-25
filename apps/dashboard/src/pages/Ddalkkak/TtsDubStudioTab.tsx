@@ -490,20 +490,20 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
         <div className="border rounded-2xl overflow-hidden shadow-xs bg-card text-card-foreground border-border">
           
           {/* 상단 서브 탭 헤더 */}
-          <div className="p-3 border-b flex items-center justify-between border-border bg-muted/20">
-            <div className="flex items-center gap-1.5">
+          <div className="p-2.5 sm:p-3 border-b flex flex-col sm:flex-row gap-2 sm:items-center justify-between border-border bg-muted/20">
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setRightTab('queue')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
                   rightTab === 'queue'
-                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    ? 'bg-primary text-primary-foreground shadow-2xs'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 }`}
               >
                 <ListTodo className="w-3.5 h-3.5" />
-                <span>대기열 준비 목록</span>
-                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${rightTab === 'queue' ? 'bg-white/20 text-white' : ''}`}>
+                <span>대기열 준비</span>
+                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${rightTab === 'queue' ? 'bg-primary-foreground/20 text-primary-foreground' : ''}`}>
                   {readyQueueItems.length}
                 </Badge>
               </button>
@@ -511,22 +511,22 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
               <button
                 type="button"
                 onClick={() => setRightTab('history')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
                   rightTab === 'history'
-                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    ? 'bg-primary text-primary-foreground shadow-2xs'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
                 <span>작업 큐 & 라이브러리</span>
-                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${rightTab === 'history' ? 'bg-white/20 text-white' : ''}`}>
+                <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 ${rightTab === 'history' ? 'bg-primary-foreground/20 text-primary-foreground' : ''}`}>
                   {jobs.length}
                 </Badge>
               </button>
             </div>
 
             {/* 탭별 우측 액션 버튼들 */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-end gap-1.5">
               {rightTab === 'queue' ? (
                 <>
                   {readyQueueItems.length > 0 && (
@@ -535,7 +535,7 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                       size="sm"
                       variant="ghost"
                       onClick={clearAllFiles}
-                      className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs h-7 px-2"
+                      className="text-destructive hover:bg-destructive/10 text-xs h-7 px-2"
                     >
                       <Trash2 className="w-3 h-3 mr-1" />
                       <span>전체 비우기</span>
@@ -704,25 +704,24 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                 const isSelected = selectedJobIds.includes(job.id);
                 const isDone = job.status === 'completed' || job.status === 'done';
                 const isFailed = job.status === 'failed';
-                const isRunning = !isDone && !isFailed;
                 const langObj = GLOBAL_LANGUAGES.find(l => l.code === job.target_lang);
 
                 return (
                   <div
                     key={job.id}
-                    className={`p-3 transition-colors flex items-center justify-between gap-3 text-xs ${
-                      isSelected ? 'bg-indigo-50/60 dark:bg-indigo-950/20' : 'hover:bg-muted/30'
+                    className={`p-2.5 sm:p-3 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 text-xs border-b border-border/50 last:border-b-0 ${
+                      isSelected ? 'bg-primary/5' : 'hover:bg-muted/30'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => onToggleSelectJob(job.id)}
-                        className="w-4 h-4 rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                        className="w-4 h-4 mt-0.5 sm:mt-0 rounded text-primary focus:ring-0 cursor-pointer shrink-0"
                       />
 
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold shrink-0 text-sm bg-muted/80 text-muted-foreground">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold shrink-0 text-sm bg-muted/80 text-muted-foreground">
                         🎙️
                       </div>
 
@@ -730,24 +729,24 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                         <div className="font-bold truncate text-xs text-foreground">
                           {job.video_filename || `더빙 작업 #${job.id}`}
                         </div>
-                        <div className="text-[11px] flex items-center gap-2 mt-0.5 text-muted-foreground">
+                        <div className="text-[11px] flex items-center gap-1.5 mt-0.5 text-muted-foreground flex-wrap">
                           <span className="font-mono">
                             {job.created_at ? new Date(job.created_at).toLocaleTimeString('ko-KR') : ''}
                           </span>
                           <span>·</span>
                           <span
-                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold shrink-0 ${
                               isDone
                                 ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                                 : isFailed
-                                ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
-                                : 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 animate-pulse'
+                                ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                                : 'bg-primary/10 text-primary border border-primary/20 animate-pulse'
                             }`}
                           >
-                            {isDone ? '완료' : isFailed ? '오류' : 'AI 더빙 생성 중'}
+                            {isDone ? '완료' : isFailed ? '오류' : '더빙 생성 중'}
                           </span>
                           {job.target_lang && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-muted border border-border">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-muted border border-border shrink-0">
                               <span>{langObj?.flag || '🌐'}</span>
                               <span className="uppercase">{job.target_lang}</span>
                             </span>
@@ -757,12 +756,12 @@ export const TtsDubStudioTab: React.FC<TtsDubStudioTabProps> = ({
                     </div>
 
                     {/* 개별 액션 버튼들 */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center justify-end gap-1.5 shrink-0 pl-6 sm:pl-0">
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => onOpenResult(job)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-7 px-2.5 rounded-lg shadow-2xs"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-7 px-2 sm:px-2.5 rounded-lg shadow-2xs"
                       >
                         <Eye className="w-3 h-3 mr-1" />
                         <span>결과 보기</span>
