@@ -43,13 +43,13 @@ const KeyListInput = ({
 
     return (
         <div className="space-y-2">
-            <Label className="text-sm font-medium">{label}</Label>
-            <div className="border rounded-md p-2 bg-muted/20 space-y-2 max-h-[120px] overflow-y-auto">
-                {keys.length === 0 && <p className="text-xs text-muted-foreground text-center">키가 없습니다.</p>}
+            {label && <Label className="text-xs sm:text-sm font-bold text-foreground">{label}</Label>}
+            <div className="border border-border rounded-xl p-2.5 bg-muted/30 space-y-2 max-h-[140px] overflow-y-auto">
+                {keys.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">키가 등록되지 않았습니다.</p>}
                 {keys.map((k, i) => (
-                    <div key={i} className="flex gap-2">
-                        <Input value={k} readOnly className="h-8 text-xs bg-background text-foreground" type="password" />
-                        <Button variant="ghost" size="sm" onClick={() => onChange(keys.filter((_, idx) => idx !== i))} className="h-8 w-8 text-red-500"><Trash2 className="w-4 h-4" /></Button>
+                    <div key={i} className="flex items-center gap-2">
+                        <Input value={k} readOnly className="h-8 text-xs bg-card text-foreground font-mono border-border rounded-lg" type="password" />
+                        <Button variant="ghost" size="sm" onClick={() => onChange(keys.filter((_, idx) => idx !== i))} className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-4 h-4" /></Button>
                     </div>
                 ))}
             </div>
@@ -58,12 +58,12 @@ const KeyListInput = ({
                     value={inputVal}
                     onChange={e => setInputVal(e.target.value)}
                     placeholder={placeholder}
-                    className="h-9 text-sm"
+                    className="h-9 text-xs sm:text-sm bg-card border-border rounded-lg"
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addKey())}
                 />
-                <Button variant="secondary" size="sm" onClick={addKey} className="shrink-0">추가</Button>
+                <Button variant="secondary" size="sm" onClick={addKey} className="shrink-0 h-9 font-bold px-3.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-lg">추가</Button>
             </div>
-            <p className="text-[10px] text-muted-foreground">여러 키를 등록하면 순환 사용됩니다.</p>
+            <p className="text-[10px] text-muted-foreground">여러 키를 등록하면 자동으로 순환하여 사용됩니다.</p>
         </div>
     );
 };
@@ -99,19 +99,19 @@ const CloakBrowserUpdater = () => {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-muted/30 rounded-2xl border border-border">
                 <div className="space-y-1">
-                    <div className="font-medium flex items-center gap-2">
+                    <div className="font-bold text-sm text-foreground flex items-center gap-2">
                         현재 설치된 버전
                         {isLoading ? (
                             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                         ) : (
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-mono font-bold">
                                 v{data?.version || 'Unknown'}
                             </Badge>
                         )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground font-medium">
                         CloakBrowser는 유튜브/틱톡 업로드 시 봇 탐지를 우회하는 핵심 엔진입니다.
                     </p>
                 </div>
@@ -119,7 +119,7 @@ const CloakBrowserUpdater = () => {
                     onClick={() => updateMutation.mutate()} 
                     disabled={updateMutation.isPending}
                     variant={updateMutation.isPending ? "outline" : "default"}
-                    className="min-w-[120px]"
+                    className="min-w-[120px] font-bold shadow-2xs rounded-xl"
                 >
                     {updateMutation.isPending ? (
                         <>
@@ -136,7 +136,7 @@ const CloakBrowserUpdater = () => {
             </div>
             
             {updateMutation.data && !updateMutation.data.success && updateMutation.data.logs && (
-                <div className="mt-4 p-3 bg-red-50 text-red-800 text-xs rounded border border-red-200 whitespace-pre-wrap font-mono h-32 overflow-y-auto">
+                <div className="mt-4 p-3 bg-rose-500/10 text-rose-400 text-xs rounded-xl border border-rose-500/30 whitespace-pre-wrap font-mono h-32 overflow-y-auto">
                     {updateMutation.data.logs}
                 </div>
             )}
@@ -550,18 +550,18 @@ const Settings = () => {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto p-3 sm:p-6 pb-16 bg-background text-foreground min-h-screen">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+        <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto p-3 sm:p-6 pb-36 md:pb-12 bg-background text-foreground min-h-screen font-sans">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="space-y-1">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">설정</h1>
-                    <p className="text-xs sm:text-sm text-muted-foreground">애플리케이션의 전역 설정을 관리합니다.</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground font-medium">애플리케이션의 전역 설정을 관리합니다.</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={handleBackup} className="h-8 sm:h-9 text-xs sm:text-sm">
+                <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" onClick={handleBackup} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
                         <Download className="w-3.5 h-3.5 mr-1.5" />
                         설정 백업 (Export)
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-8 sm:h-9 text-xs sm:text-sm">
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
                         <Upload className="w-3.5 h-3.5 mr-1.5" />
                         설정 복원 (Import)
                     </Button>
@@ -577,33 +577,33 @@ const Settings = () => {
 
             <div className="flex-1">
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="mb-4 bg-muted/50 p-1 h-auto flex-wrap w-full justify-start gap-1">
-                        <TabsTrigger value="general" className="gap-2 px-4 h-9">
-                            <SettingsIcon className="w-4 h-4" /> 일반
+                    <TabsList className="mb-4 bg-muted/80 p-1 sm:p-1.5 rounded-2xl border border-border shadow-2xs flex items-center gap-1 overflow-x-auto select-none dashboard-scroll-area flex-nowrap w-full justify-start">
+                        <TabsTrigger value="general" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <SettingsIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 일반
                         </TabsTrigger>
-                        <TabsTrigger value="intelligence" className="gap-2 px-4 h-9">
-                            <BrainCircuit className="w-4 h-4" /> AI 지능
+                        <TabsTrigger value="intelligence" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <BrainCircuit className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> AI 지능
                         </TabsTrigger>
-                        <TabsTrigger value="voice" className="gap-2 px-4 h-9">
-                            <Mic2 className="w-4 h-4" /> 음성
+                        <TabsTrigger value="voice" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <Mic2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 음성
                         </TabsTrigger>
-                        <TabsTrigger value="subtitles" className="gap-2 px-4 h-9">
-                            <MessageSquare className="w-4 h-4" /> 자막
+                        <TabsTrigger value="subtitles" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 자막
                         </TabsTrigger>
-                        <TabsTrigger value="maintenance" className="gap-2 px-4 h-9">
-                            <Wrench className="w-4 h-4" /> 관리
+                        <TabsTrigger value="maintenance" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 관리
                         </TabsTrigger>
-                        <TabsTrigger value="hermes" className="gap-2 px-4 h-9">
-                            <BrainCircuit className="w-4 h-4 text-indigo-500" /> Loopie 지능
+                        <TabsTrigger value="hermes" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <BrainCircuit className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" /> Loopie 지능
                         </TabsTrigger>
-                        <TabsTrigger value="system" className="gap-2 px-4 h-9">
-                            <SettingsIcon className="w-4 h-4" /> 시스템
+                        <TabsTrigger value="system" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <SettingsIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 시스템
                         </TabsTrigger>
-                        <TabsTrigger value="aigrid" className="gap-2 px-4 h-9">
-                            <Zap className="w-4 h-4 text-amber-500" /> AI Grid (분산 노드)
+                        <TabsTrigger value="aigrid" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" /> AI Grid
                         </TabsTrigger>
-                        <TabsTrigger value="browser" className="gap-2 px-4 h-9">
-                            <Globe className="w-4 h-4 text-emerald-500" /> 안티디텍트 브라우저
+                        <TabsTrigger value="browser" className="gap-1.5 px-3 sm:px-4 h-8 sm:h-9 text-xs sm:text-sm font-bold rounded-xl shrink-0 whitespace-nowrap">
+                            <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" /> 안티디텍트 브라우저
                         </TabsTrigger>
                     </TabsList>
 
@@ -618,52 +618,52 @@ const Settings = () => {
                                 <form onSubmit={handleSave} className="space-y-6">
                                     {/* Download Path */}
                                     <div className="space-y-2">
-                                        <Label>기본 다운로드 경로</Label>
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">기본 다운로드 경로</Label>
                                         <div className="flex gap-2">
-                                            <input type="text" value={formData.root_download_path || ''} readOnly className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm" />
-                                            <button type="button" onClick={() => handlePickPath('root_download_path', 'folder')} className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent h-10 px-4 py-2 w-32">
-                                                <FolderOpen className="w-4 h-4 mr-2" /> 선택
-                                            </button>
+                                            <input type="text" value={formData.root_download_path || ''} readOnly className="flex h-10 w-full rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-xs sm:text-sm text-foreground focus:outline-none" />
+                                            <Button type="button" variant="outline" onClick={() => handlePickPath('root_download_path', 'folder')} className="h-10 px-4 font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
+                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
+                                            </Button>
                                         </div>
                                     </div>
 
                                     {/* Cookies */}
                                     <div className="space-y-2">
-                                        <Label>쿠키 파일 경로 (선택)</Label>
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">쿠키 파일 경로 (선택)</Label>
                                         <div className="flex gap-2">
-                                            <input type="text" value={formData.cookies_path || ''} readOnly placeholder="선택된 파일 없음" className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm" />
-                                            <button type="button" onClick={() => handlePickPath('cookies_path', 'file')} className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent h-10 px-4 py-2 w-32">
-                                                <FolderOpen className="w-4 h-4 mr-2" /> 선택
-                                            </button>
+                                            <input type="text" value={formData.cookies_path || ''} readOnly placeholder="선택된 파일 없음" className="flex h-10 w-full rounded-xl border border-border bg-muted/40 px-3.5 py-2 text-xs sm:text-sm text-foreground focus:outline-none" />
+                                            <Button type="button" variant="outline" onClick={() => handlePickPath('cookies_path', 'file')} className="h-10 px-4 font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
+                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
+                                            </Button>
                                         </div>
                                     </div>
 
                                     {/* Auto Download Switch */}
-                                    <div className="flex items-center space-x-2 border p-3 rounded bg-slate-50">
+                                    <div className="flex items-center space-x-3 border border-border p-3.5 rounded-2xl bg-muted/30">
                                         <Switch id="global_dl" checked={formData.global_auto_download} onCheckedChange={(c) => setFormData({ ...formData, global_auto_download: c })} />
-                                        <Label htmlFor="global_dl" className="cursor-pointer">전역 자동 다운로드 활성화</Label>
+                                        <Label htmlFor="global_dl" className="cursor-pointer font-bold text-xs sm:text-sm text-foreground">전역 자동 다운로드 활성화</Label>
                                     </div>
 
                                     {/* Scan Interval */}
                                     <div className="space-y-2">
-                                        <Label>스캔 주기 (분)</Label>
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">스캔 주기 (분)</Label>
                                         <div className="flex gap-2 items-center">
-                                            <Input type="number" value={formData.scan_interval_minutes || 60} onChange={(e) => setFormData({ ...formData, scan_interval_minutes: parseInt(e.target.value) })} className="h-10" />
-                                            <Button type="button" variant="outline" onClick={triggerScan} disabled={isScanning} className="shrink-0 gap-2">
+                                            <Input type="number" value={formData.scan_interval_minutes || 60} onChange={(e) => setFormData({ ...formData, scan_interval_minutes: parseInt(e.target.value) })} className="h-10 bg-card border-border rounded-xl text-xs sm:text-sm" />
+                                            <Button type="button" variant="outline" onClick={triggerScan} disabled={isScanning} className="h-10 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0 gap-1.5">
                                                 {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} 즉시 스캔
                                             </Button>
                                         </div>
                                     </div>
 
                                     {/* Auto Delete Interval */}
-                                    <div className="space-y-2 pt-4 border-t border-dashed">
-                                        <Label>영상 파일 자동 삭제 주기 (용량 확보)</Label>
+                                    <div className="space-y-2 pt-4 border-t border-border">
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">영상 파일 자동 삭제 주기 (용량 확보)</Label>
                                         <div className="flex gap-2 items-center">
                                             <Select
                                                 value={(formData as any).auto_delete_mp4_days?.toString() || "7"}
                                                 onValueChange={(val) => setFormData({ ...formData, auto_delete_mp4_days: parseInt(val) } as any)}
                                             >
-                                                <SelectTrigger className="w-[200px] bg-white">
+                                                <SelectTrigger className="w-full sm:w-[220px] bg-card border-border rounded-xl text-xs sm:text-sm text-foreground">
                                                     <SelectValue placeholder="자동 삭제 주기 선택" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -681,24 +681,25 @@ const Settings = () => {
                                     </div>
 
                                     {/* [NEW] Outlier Pre-filtering Configuration */}
-                                    <div className="space-y-4 pt-4 border-t border-dashed">
+                                    <div className="space-y-4 pt-4 border-t border-border">
                                         <div className="space-y-0.5">
-                                            <Label className="font-bold flex items-center gap-2">
-                                                <TrendingUp className="w-4 h-4 text-purple-600" />
+                                            <Label className="font-bold flex items-center gap-2 text-foreground">
+                                                <TrendingUp className="w-4 h-4 text-primary" />
                                                 수집 기준 (Outlier Thresholds)
                                             </Label>
                                             <p className="text-xs text-muted-foreground">
                                                 자동 스캔 시 해당 기준을 넘지 못하는 평범한 영상은 DB에 수집되지 않습니다.
                                             </p>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4 bg-muted/40 p-4 border rounded-lg">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/30 p-4 border border-border rounded-2xl">
                                             <div className="space-y-2">
-                                                <Label>쇼츠 영상 EV 기준 (%)</Label>
+                                                <Label className="text-xs font-bold text-muted-foreground">쇼츠 영상 EV 기준 (%)</Label>
                                                 <div className="flex items-center gap-2">
                                                     <Input
                                                         type="number"
                                                         value={formData.outlier_ev_threshold ?? 120}
                                                         onChange={e => setFormData({ ...formData, outlier_ev_threshold: parseInt(e.target.value) || 0 })}
+                                                        className="bg-card border-border rounded-xl"
                                                     />
                                                     <span className="text-sm font-bold text-muted-foreground">%</span>
                                                 </div>
@@ -707,12 +708,13 @@ const Settings = () => {
                                                 </p>
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>일반 영상 Ratio 기준</Label>
+                                                <Label className="text-xs font-bold text-muted-foreground">일반 영상 Ratio 기준</Label>
                                                 <div className="flex items-center gap-2">
                                                     <Input
                                                         type="number" step="0.1"
                                                         value={formData.outlier_ratio_threshold ?? 1.5}
                                                         onChange={e => setFormData({ ...formData, outlier_ratio_threshold: parseFloat(e.target.value) || 0 })}
+                                                        className="bg-card border-border rounded-xl"
                                                     />
                                                     <span className="text-sm font-bold text-muted-foreground">x</span>
                                                 </div>
@@ -724,17 +726,17 @@ const Settings = () => {
                                     </div>
 
                                     {/* Cleanup Old Videos Section */}
-                                    <div className="space-y-2 pt-4 border-t border-dashed">
-                                        <Label>오래된 영상 정리 (Clean up old videos)</Label>
-                                        <div className="flex items-end gap-3 p-3 bg-slate-50 border rounded-lg">
+                                    <div className="space-y-2 pt-4 border-t border-border">
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">오래된 영상 정리 (Clean up old videos)</Label>
+                                        <div className="flex flex-col sm:flex-row sm:items-end gap-3 p-3.5 bg-muted/30 border border-border rounded-2xl">
                                             <div className="space-y-1">
-                                                <Label className="text-xs text-muted-foreground">보관 기간 (일)</Label>
-                                                <div className="flex items-center gap-1">
+                                                <Label className="text-xs text-muted-foreground font-semibold">보관 기간 (일)</Label>
+                                                <div className="flex items-center gap-1.5">
                                                     <Button
                                                         type="button"
                                                         variant="outline"
                                                         size="icon"
-                                                        className="h-9 w-9"
+                                                        className="h-9 w-9 rounded-xl border-border bg-card text-foreground"
                                                         onClick={() => setCleanupDays(Math.max(1, cleanupDays - 1))}
                                                     >
                                                         -
@@ -743,13 +745,13 @@ const Settings = () => {
                                                         type="number"
                                                         value={cleanupDays}
                                                         onChange={(e) => setCleanupDays(Math.max(1, parseInt(e.target.value) || 1))}
-                                                        className="h-9 w-16 text-center"
+                                                        className="h-9 w-16 text-center font-bold bg-card border-border rounded-xl"
                                                     />
                                                     <Button
                                                         type="button"
                                                         variant="outline"
                                                         size="icon"
-                                                        className="h-9 w-9"
+                                                        className="h-9 w-9 rounded-xl border-border bg-card text-foreground"
                                                         onClick={() => setCleanupDays(cleanupDays + 1)}
                                                     >
                                                         +
@@ -760,11 +762,11 @@ const Settings = () => {
                                             <Button
                                                 type="button"
                                                 variant="destructive"
-                                                className="h-9 flex-1"
+                                                className="h-9 flex-1 font-bold rounded-xl"
                                                 disabled={!oldVideosData || oldVideosData.count === 0}
                                                 onClick={handleCleanup}
                                             >
-                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                <Trash2 className="w-4 h-4 mr-1.5" />
                                                 {cleanupDays}일 경과 즉시 삭제
                                                 {oldVideosData && oldVideosData.count > 0 && (
                                                     <span className="ml-1 text-xs opacity-80">
@@ -789,10 +791,10 @@ const Settings = () => {
                     {/* --- TAB 2: INTELLIGENCE (LLM + Search) --- */}
                     <TabsContent value="intelligence">
                         <div className="space-y-6">
-                            <Alert className="bg-blue-50 border-blue-200">
-                                <BrainCircuit className="h-4 w-4 text-blue-600" />
-                                <AlertTitle className="text-blue-800">AI 모델 및 검색 설정</AlertTitle>
-                                <AlertDescription className="text-blue-700 text-xs">
+                            <Alert className="bg-primary/10 border-primary/20 text-foreground">
+                                <BrainCircuit className="h-4 w-4 text-primary" />
+                                <AlertTitle className="text-foreground font-bold">AI 모델 및 검색 설정</AlertTitle>
+                                <AlertDescription className="text-muted-foreground text-xs">
                                     대본 작성, 분석, 그리고 웹 검색을 위한 API 키를 관리합니다. 여러 키를 입력하면 자동으로 순환하여 사용됩니다.
                                 </AlertDescription>
                             </Alert>
@@ -800,11 +802,11 @@ const Settings = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                                 {/* Left Column: LLM Keys */}
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>LLM API 설정</CardTitle>
+                                <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                    <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                        <CardTitle className="text-base font-bold">LLM API 설정</CardTitle>
                                     </CardHeader>
-                                    <CardContent className="space-y-6">
+                                    <CardContent className="space-y-6 pt-4">
                                         <KeyListInput
                                             label="Groq API Keys (Llama 3 고속 생성)"
                                             keys={formData.groq_api_keys || []}
@@ -825,7 +827,7 @@ const Settings = () => {
                                         />
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center">
-                                                <Label>OpenRouter API Key</Label>
+                                                <Label className="text-xs sm:text-sm font-bold text-foreground">OpenRouter API Key</Label>
                                                 <Button
                                                     size="sm"
                                                     variant="ghost"
@@ -837,19 +839,19 @@ const Settings = () => {
                                                     테스트
                                                 </Button>
                                             </div>
-                                            <Input type="password" value={formData.openrouter_api_key || ''} onChange={e => setFormData({ ...formData, openrouter_api_key: e.target.value })} placeholder="or-..." />
+                                            <Input type="password" value={formData.openrouter_api_key || ''} onChange={e => setFormData({ ...formData, openrouter_api_key: e.target.value })} placeholder="or-..." className="bg-card border-border rounded-xl" />
                                         </div>
 
-                                        <div className="space-y-2 pt-4 border-t border-dashed">
+                                        <div className="space-y-2 pt-4 border-t border-border">
                                             <div className="flex justify-between items-center">
                                                 <div className="flex items-center gap-2">
-                                                    <Zap className="w-4 h-4 text-purple-600" />
-                                                    <Label className="font-bold">OpenCode Zen API Keys</Label>
+                                                    <Zap className="w-4 h-4 text-purple-500" />
+                                                    <Label className="font-bold text-foreground">OpenCode Zen API Keys</Label>
                                                 </div>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    className="h-8 gap-1"
+                                                    className="h-8 gap-1 border-border bg-card rounded-lg font-bold"
                                                     onClick={() => testConnection("opencode", { api_key: formData.opencode_api_keys?.[0] })}
                                                     disabled={testResults["opencode"]?.loading}
                                                 >
@@ -867,8 +869,8 @@ const Settings = () => {
                                                 * OpenAI 호환 무료 모델 (DeepSeek V4 Flash, Nemotron 3, Qwen 3.6 등) 지원
                                             </p>
                                             {testResults["opencode"] && !testResults["opencode"].loading && (
-                                                <Alert className={cn("py-2", testResults["opencode"].success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200")}>
-                                                    <AlertDescription className={cn("text-[10px]", testResults["opencode"].success ? "text-green-700" : "text-red-700")}>
+                                                <Alert className={cn("py-2", testResults["opencode"].success ? "bg-emerald-500/10 border-emerald-500/30" : "bg-rose-500/10 border-rose-500/30")}>
+                                                    <AlertDescription className={cn("text-[10px] font-bold", testResults["opencode"].success ? "text-emerald-500" : "text-rose-500")}>
                                                         {testResults["opencode"].message}
                                                     </AlertDescription>
                                                 </Alert>
@@ -876,16 +878,16 @@ const Settings = () => {
                                         </div>
 
                                         {/* [NEW] Ollama Settings */}
-                                        <div className="pt-4 border-t border-dashed space-y-4">
+                                        <div className="pt-4 border-t border-border space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <Server className="w-4 h-4 text-orange-600" />
-                                                    <Label className="font-bold">로컬 지능 (Ollama)</Label>
+                                                    <Server className="w-4 h-4 text-amber-500" />
+                                                    <Label className="font-bold text-foreground">로컬 지능 (Ollama)</Label>
                                                 </div>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    className="h-8 gap-1"
+                                                    className="h-8 gap-1 border-border bg-card rounded-lg font-bold"
                                                     onClick={() => testConnection("ollama", { base_url: formData.ollama_api_base_url })}
                                                     disabled={testResults["ollama"]?.loading}
                                                 >
@@ -894,19 +896,20 @@ const Settings = () => {
                                                 </Button>
                                             </div>
                                             <div className="space-y-1">
-                                                <Label className="text-xs">API Base URL</Label>
+                                                <Label className="text-xs text-muted-foreground font-semibold">API Base URL</Label>
                                                 <Input
                                                     value={formData.ollama_api_base_url || 'http://localhost:11434/v1'}
                                                     onChange={e => setFormData({ ...formData, ollama_api_base_url: e.target.value })}
                                                     placeholder="http://localhost:11434/v1"
+                                                    className="bg-card border-border rounded-xl"
                                                 />
                                                 <p className="text-[10px] text-muted-foreground">
                                                     * 로컬에 설치된 Ollama 서버 주소입니다. (Gemma 3/4 백업용)
                                                 </p>
                                             </div>
                                             {testResults["ollama"] && !testResults["ollama"].loading && (
-                                                <Alert className={cn("py-2", testResults["ollama"].success ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200")}>
-                                                    <AlertDescription className={cn("text-[10px]", testResults["ollama"].success ? "text-green-700" : "text-red-700")}>
+                                                <Alert className={cn("py-2", testResults["ollama"].success ? "bg-emerald-500/10 border-emerald-500/30" : "bg-rose-500/10 border-rose-500/30")}>
+                                                    <AlertDescription className={cn("text-[10px] font-bold", testResults["ollama"].success ? "text-emerald-500" : "text-rose-500")}>
                                                         {testResults["ollama"].message}
                                                     </AlertDescription>
                                                 </Alert>
@@ -919,16 +922,16 @@ const Settings = () => {
                                             onChange={k => setFormData({ ...formData, sambanova_api_keys: k })}
                                             placeholder="sk-..."
                                         />
-                                        <div className="pt-4 border-t border-dashed space-y-4">
+                                        <div className="pt-4 border-t border-border space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <Cpu className="w-4 h-4 text-green-600" />
-                                                    <Label className="font-bold">NVIDIA NIM (Cloud/API)</Label>
+                                                    <Cpu className="w-4 h-4 text-emerald-500" />
+                                                    <Label className="font-bold text-foreground">NVIDIA NIM (Cloud/API)</Label>
                                                 </div>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    className="h-8 gap-1"
+                                                    className="h-8 gap-1 border-border bg-card rounded-lg font-bold"
                                                     onClick={() => testConnection("nvidia", { api_key: formData.nvidia_api_keys?.[0] })}
                                                     disabled={testResults["nvidia"]?.loading}
                                                 >
@@ -949,10 +952,10 @@ const Settings = () => {
                                             onChange={k => setFormData({ ...formData, cerebras_api_keys: k })}
                                             placeholder="sk-..."
                                         />
-                                        <div className="pt-4 border-t border-dashed space-y-4">
+                                        <div className="pt-4 border-t border-border space-y-4">
                                             <div className="flex items-center gap-2">
-                                                <RadioReceiver className="w-4 h-4 text-orange-600" />
-                                                <Label className="font-bold">YouTube1 (Custom OpenAI API)</Label>
+                                                <RadioReceiver className="w-4 h-4 text-amber-500" />
+                                                <Label className="font-bold text-foreground">YouTube1 (Custom OpenAI API)</Label>
                                             </div>
                                             <KeyListInput
                                                 label=""
@@ -969,20 +972,20 @@ const Settings = () => {
 
                                 {/* Right Column: Web Search & Model Config */}
                                 <div className="space-y-6">
-                                    <Card className="border-indigo-200 bg-indigo-50/30">
-                                        <CardHeader>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <Search className="w-4 h-4 text-indigo-600" /> Web Search Strategy
+                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                            <CardTitle className="flex items-center gap-2 text-base font-bold">
+                                                <Search className="w-4 h-4 text-primary" /> Web Search Strategy
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="space-y-4">
+                                        <CardContent className="space-y-4 pt-4">
                                             <div className="space-y-1">
-                                                <Label>Search Engine Strategy</Label>
+                                                <Label className="text-xs font-bold text-muted-foreground">Search Engine Strategy</Label>
                                                 <Select
                                                     value={formData.web_search_engine || "searxng_first"}
                                                     onValueChange={(val) => setFormData({ ...formData, web_search_engine: val })}
                                                 >
-                                                    <SelectTrigger className="bg-white">
+                                                    <SelectTrigger className="bg-card border-border rounded-xl">
                                                         <SelectValue placeholder="Select Strategy" />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -999,13 +1002,13 @@ const Settings = () => {
                                         </CardContent>
                                     </Card>
 
-                                    <Card className="border-sky-200 bg-sky-50/30">
-                                        <CardHeader>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <Globe className="w-4 h-4 text-sky-600" /> Web Search (Tavily)
+                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                            <CardTitle className="flex items-center gap-2 text-base font-bold">
+                                                <Globe className="w-4 h-4 text-sky-500" /> Web Search (Tavily)
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent>
+                                        <CardContent className="pt-4">
                                             <KeyListInput
                                                 label="Tavily API Keys (리서치 도구)"
                                                 keys={formData.tavily_api_keys || []}
@@ -1018,20 +1021,21 @@ const Settings = () => {
                                         </CardContent>
                                     </Card>
 
-                                    <Card className="border-orange-200 bg-orange-50/30">
-                                        <CardHeader>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <Search className="w-4 h-4 text-orange-600" /> Web Search (SearXNG)
+                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                            <CardTitle className="flex items-center gap-2 text-base font-bold">
+                                                <Search className="w-4 h-4 text-amber-500" /> Web Search (SearXNG)
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="space-y-2">
+                                        <CardContent className="space-y-2 pt-4">
 
                                             <div className="space-y-1">
-                                                <Label>SearXNG Server URL</Label>
+                                                <Label className="text-xs font-bold text-muted-foreground">SearXNG Server URL</Label>
                                                 <Input
                                                     value={formData.searxng_url || ''}
                                                     onChange={e => setFormData({ ...formData, searxng_url: e.target.value })}
                                                     placeholder="https://search.gogloo.gleeze.com/search"
+                                                    className="bg-card border-border rounded-xl"
                                                 />
                                             </div>
                                             <p className="text-[10px] text-muted-foreground">
@@ -1040,19 +1044,20 @@ const Settings = () => {
                                         </CardContent>
                                     </Card>
 
-                                    <Card className="border-purple-200 bg-purple-50/30">
-                                        <CardHeader>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <Globe className="w-4 h-4 text-purple-600" /> Web Fetch (Jina Reader)
+                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                            <CardTitle className="flex items-center gap-2 text-base font-bold">
+                                                <Globe className="w-4 h-4 text-purple-500" /> Web Fetch (Jina Reader)
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="space-y-2">
+                                        <CardContent className="space-y-2 pt-4">
                                             <div className="space-y-1">
-                                                <Label>Jina Reader Endpoint</Label>
+                                                <Label className="text-xs font-bold text-muted-foreground">Jina Reader Endpoint</Label>
                                                 <Input
                                                     value={formData.jina_reader_endpoint || ''}
                                                     onChange={e => setFormData({ ...formData, jina_reader_endpoint: e.target.value })}
                                                     placeholder="http://localhost:20128/v1/web/fetch"
+                                                    className="bg-card border-border rounded-xl"
                                                 />
                                             </div>
                                             <KeyListInput
@@ -1067,14 +1072,14 @@ const Settings = () => {
                                         </CardContent>
                                     </Card>
 
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>기본 분석 모델</CardTitle>
+                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                            <CardTitle className="text-base font-bold">기본 분석 모델</CardTitle>
                                             <CardDescription>
-                                                대본 작성, 분석, 그리고 검색을 위한 AI 기능을 관리합니다. 여러 키를 입력하여 자동으로 순환하여 사용합니다.
+                                                대본 작성, 분석, 그리고 검색을 위한 AI 기능을 관리합니다.
                                             </CardDescription>
                                         </CardHeader>
-                                        <CardContent>
+                                        <CardContent className="pt-4">
                                             <AIModelSelector
                                                 provider={formData.script_analysis_provider || 'opencode'}
                                                 onProviderChange={(val) => setFormData(prev => ({ ...prev, script_analysis_provider: val }))}
@@ -1086,16 +1091,16 @@ const Settings = () => {
                                     </Card>
 
                                     {/* [NEW] Quick Model Verification Chat */}
-                                    <Card className="border-blue-200 bg-blue-50/10">
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-blue-800">
-                                                <MessageSquare className="w-4 h-4" /> 지능 검증 퀵 채팅
+                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                        <CardHeader className="pb-3 bg-muted/30 border-b border-border">
+                                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
+                                                <MessageSquare className="w-4 h-4 text-primary" /> 지능 검증 퀵 채팅
                                             </CardTitle>
                                             <CardDescription className="text-xs">
                                                 위에서 선택한 모델과 직접 대화하여 기능을 확인합니다.
                                             </CardDescription>
                                         </CardHeader>
-                                        <CardContent className="space-y-3">
+                                        <CardContent className="space-y-3 pt-4">
                                             <div className="flex gap-2">
                                                 <Input
                                                     placeholder="질문을 입력하세요... (예: 안녕?)"
@@ -1103,22 +1108,22 @@ const Settings = () => {
                                                     onChange={e => setChatInput(e.target.value)}
                                                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleTestChat()}
                                                     disabled={isChatLoading}
-                                                    className="bg-white"
+                                                    className="bg-card border-border rounded-xl"
                                                 />
                                                 <Button
                                                     size="sm"
                                                     onClick={handleTestChat}
                                                     disabled={isChatLoading || !chatInput.trim()}
-                                                    className="bg-blue-600 hover:bg-blue-700"
+                                                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl"
                                                 >
                                                     {isChatLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "전송"}
                                                 </Button>
                                             </div>
 
                                             {chatResponse && (
-                                                <div className="p-3 rounded-lg bg-white border border-blue-100 shadow-sm">
-                                                    <p className="text-[10px] uppercase font-bold text-blue-500 mb-1">AI Response</p>
-                                                    <div className="text-xs whitespace-pre-wrap leading-relaxed text-slate-700 font-medium">
+                                                <div className="p-3.5 rounded-xl bg-muted/30 border border-border shadow-2xs">
+                                                    <p className="text-[10px] uppercase font-bold text-primary mb-1">AI Response</p>
+                                                    <div className="text-xs whitespace-pre-wrap leading-relaxed text-foreground font-medium">
                                                         {chatResponse}
                                                     </div>
                                                 </div>
@@ -1129,33 +1134,33 @@ const Settings = () => {
                                     {/* [NEW] Pluggable Cognitive Brain Configurations */}
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <BrainCircuit className="w-5 h-5 text-indigo-600 animate-pulse" />
-                                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">에이전트 지능 코어 설정 (Agentic OS Brains)</h3>
+                                            <BrainCircuit className="w-5 h-5 text-primary animate-pulse" />
+                                            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">에이전트 지능 코어 설정 (Agentic OS Brains)</h3>
                                         </div>
 
                                         {/* 1. OpenClaude (마스터 기획 / 스텔스 운영) */}
-                                        <Card className="border-purple-200 bg-purple-50/20 overflow-hidden">
-                                            <CardHeader className="pb-3">
-                                                <div className="flex justify-between items-start mb-3">
+                                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                            <CardHeader className="pb-3 bg-muted/30 border-b border-border">
+                                                <div className="flex justify-between items-start mb-2">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="p-2 bg-purple-100 rounded-lg">
-                                                            <Wrench className="w-5 h-5 text-purple-600" />
+                                                        <div className="p-2 bg-purple-500/10 rounded-xl">
+                                                            <Wrench className="w-5 h-5 text-purple-500" />
                                                         </div>
                                                         <div>
-                                                            <CardTitle className="text-lg font-bold text-purple-900">OpenClaude / OpenHands</CardTitle>
+                                                            <CardTitle className="text-base font-bold text-foreground">OpenClaude / OpenHands</CardTitle>
                                                             <div className="flex items-center gap-2 mt-0.5">
-                                                                <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200 text-[10px] h-4">Master Planner / Stealth Operator</Badge>
-                                                                <span className="text-[10px] text-purple-600/70 italic">Logical AI Core</span>
+                                                                <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-[10px] h-4">Master Planner / Stealth Operator</Badge>
+                                                                <span className="text-[10px] text-muted-foreground italic">Logical AI Core</span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                <CardDescription className="text-purple-800/70 text-xs mb-1 leading-relaxed">
+                                                <CardDescription className="text-xs mb-1 leading-relaxed">
                                                     전체 생산 파이프라인 기획(OpenClaude) 및 OS/코드 터미널 실행(OpenHands)을 담당하는 지휘 통제 모델을 설정합니다.
                                                 </CardDescription>
                                             </CardHeader>
-                                            <CardContent>
+                                            <CardContent className="pt-4">
                                                 <AIModelSelector
                                                     provider={formData.openclaude_provider || 'google'}
                                                     onProviderChange={(val) => setFormData(prev => ({ ...prev, openclaude_provider: val }))}
@@ -1167,38 +1172,36 @@ const Settings = () => {
                                         </Card>
 
                                         {/* 2. Hermes (추론 & 자율 생산) */}
-                                        <Card className="border-indigo-300 bg-indigo-50/20 overflow-hidden">
-                                            <CardHeader className="pb-3">
-                                                <div className="flex justify-between items-start mb-3">
+                                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                            <CardHeader className="pb-3 bg-muted/30 border-b border-border">
+                                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="p-2 bg-indigo-100 rounded-lg">
-                                                            <Cpu className="w-5 h-5 text-indigo-600" />
+                                                        <div className="p-2 bg-indigo-500/10 rounded-xl">
+                                                            <Cpu className="w-5 h-5 text-indigo-500" />
                                                         </div>
                                                         <div>
-                                                            <CardTitle className="text-lg font-bold text-indigo-900">Hermes 지능 & 워크플로우</CardTitle>
+                                                            <CardTitle className="text-base font-bold text-foreground">Hermes 지능 & 워크플로우</CardTitle>
                                                             <div className="flex items-center gap-2 mt-0.5">
-                                                                <Badge variant="outline" className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] h-4">Worker Bees</Badge>
-                                                                <span className="text-[10px] text-indigo-600/70 italic">Strategy & Reasoning Engine</span>
+                                                                <Badge variant="outline" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 text-[10px] h-4">Worker Bees</Badge>
+                                                                <span className="text-[10px] text-muted-foreground italic">Strategy Engine</span>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex gap-1.5">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-8 gap-2 bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50"
-                                                            onClick={() => window.open(`http://${window.location.hostname}:9119`, '_blank')}
-                                                        >
-                                                            <ExternalLink className="w-3 h-3" /> n8n 대시보드
-                                                        </Button>
-                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-8 gap-2 bg-card text-foreground border-border hover:bg-muted rounded-xl self-start"
+                                                        onClick={() => window.open(`http://${window.location.hostname}:9119`, '_blank')}
+                                                    >
+                                                        <ExternalLink className="w-3 h-3" /> n8n 대시보드
+                                                    </Button>
                                                 </div>
 
-                                                <CardDescription className="text-indigo-800/70 text-xs mb-1 leading-relaxed">
+                                                <CardDescription className="text-xs mb-1 leading-relaxed">
                                                     ViraLoop의 세부 작업 실행 및 자율 콘텐츠 생산을 처리하는 논리 엔진을 설정합니다. n8n 워크플로우 대시보드에서 연동 상태를 관리할 수 있습니다.
                                                 </CardDescription>
                                             </CardHeader>
-                                            <CardContent>
+                                            <CardContent className="pt-4">
                                                 <AIModelSelector
                                                     provider={(formData as any).hermes_agent_provider || 'google'}
                                                     onProviderChange={(val) => setFormData(prev => ({ ...prev, hermes_agent_provider: val } as any))}
@@ -1212,7 +1215,7 @@ const Settings = () => {
                                 </div>
                             </div>
                             <div className="flex justify-end">
-                                <Button onClick={handleSave} disabled={isSaving}>{isSaving && <Loader2 className="mr-2 animate-spin" />}설정 저장</Button>
+                                <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">{isSaving && <Loader2 className="mr-2 animate-spin" />}설정 저장</Button>
                             </div>
                         </div>
                     </TabsContent>
@@ -1225,12 +1228,12 @@ const Settings = () => {
 
                     {/* --- TAB 3: VOICE (TTS) --- */}
                     <TabsContent value="voice">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>음성 합성 (TTS)</CardTitle>
-                                <CardDescription>ElevenLabs, Typecast 등 TTS 서비스 키를 관리합니다.</CardDescription>
+                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                            <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                <CardTitle className="text-base font-bold">음성 합성 (TTS)</CardTitle>
+                                <CardDescription className="text-xs">ElevenLabs, Typecast 등 TTS 서비스 키를 관리합니다.</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-6">
+                            <CardContent className="space-y-6 pt-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <KeyListInput
                                         label="ElevenLabs Keys"
@@ -1245,10 +1248,10 @@ const Settings = () => {
                                     />
 
                                     {/* Supertonic Local Config */}
-                                    <div className="space-y-4 pt-4 border-t border-dashed col-span-1 md:col-span-2">
+                                    <div className="space-y-4 pt-4 border-t border-border col-span-1 md:col-span-2">
                                         <div className="flex items-center justify-between">
                                             <div className="space-y-0.5">
-                                                <Label className="text-base font-bold flex items-center gap-2">
+                                                <Label className="text-sm font-bold flex items-center gap-2 text-foreground">
                                                     <Zap className="w-4 h-4 text-amber-500" />
                                                     Supertonic Local (On-Device)
                                                 </Label>
@@ -1262,22 +1265,24 @@ const Settings = () => {
                                             />
                                         </div>
 
-                                        <div className="flex gap-4 items-end bg-slate-50 p-4 rounded-lg border">
+                                        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end bg-muted/30 p-4 rounded-2xl border border-border">
                                             <div className="space-y-2 flex-1">
-                                                <Label>모델 경로 (Models Path)</Label>
+                                                <Label className="text-xs font-bold text-muted-foreground">모델 경로 (Models Path)</Label>
                                                 <div className="flex gap-2">
                                                     <Input
                                                         value={formData.supertone_model_path || 'backend/models/supertonic'}
                                                         onChange={e => setFormData({ ...formData, supertone_model_path: e.target.value })}
                                                         placeholder="backend/models/supertonic"
+                                                        className="bg-card border-border rounded-xl"
                                                     />
-                                                    <Button variant="outline" onClick={() => handlePickPath('supertone_model_path', 'folder')}>
+                                                    <Button variant="outline" onClick={() => handlePickPath('supertone_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card rounded-xl shrink-0">
                                                         <FolderOpen className="w-4 h-4" />
                                                     </Button>
                                                 </div>
                                             </div>
                                             <Button
                                                 variant="secondary"
+                                                className="h-10 font-bold bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl shrink-0"
                                                 onClick={async () => {
                                                     try {
                                                         const res = await api.post('/tools/tts/supertonic/download');
@@ -1294,30 +1299,30 @@ const Settings = () => {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label>Kokoro TTS 서버 URL</Label>
-                                        <Input value={formData.kokoro_tts_url || ''} onChange={e => setFormData({ ...formData, kokoro_tts_url: e.target.value })} />
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">Kokoro TTS 서버 URL</Label>
+                                        <Input value={formData.kokoro_tts_url || ''} onChange={e => setFormData({ ...formData, kokoro_tts_url: e.target.value })} className="bg-card border-border rounded-xl" />
                                     </div>
                                 </div>
-                                <Button onClick={handleSave} disabled={isSaving}>{isSaving && <Loader2 className="mr-2 animate-spin" />}저장</Button>
+                                <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">{isSaving && <Loader2 className="mr-2 animate-spin" />}저장</Button>
                             </CardContent>
                         </Card>
                     </TabsContent>
 
                     {/* --- TAB 4: SUBTITLES --- */}
                     <TabsContent value="subtitles">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>자막 및 트랜스크립션</CardTitle>
+                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                            <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                <CardTitle className="text-base font-bold">자막 및 트랜스크립션</CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-6">
-                                <Alert>
-                                    <Info className="h-4 w-4" />
-                                    <AlertTitle>FFmpeg Status</AlertTitle>
+                            <CardContent className="space-y-6 pt-4">
+                                <Alert className="bg-primary/10 border-primary/20 text-foreground">
+                                    <Info className="h-4 w-4 text-primary" />
+                                    <AlertTitle className="font-bold">FFmpeg Status</AlertTitle>
                                     <AlertDescription>
                                         {formData.ffmpeg_status && formData.ffmpeg_status !== 'Missing' ? (
                                             <div className="flex flex-col gap-1 mt-1">
-                                                <p className="font-mono text-xs bg-black/10 p-1.5 rounded break-all">{formData.ffmpeg_status}</p>
-                                                <p className="text-xs text-green-700 font-bold">시스템 내부 FFmpeg가 활성화되어 있습니다.</p>
+                                                <p className="font-mono text-xs bg-muted/40 p-2 rounded-lg break-all border border-border">{formData.ffmpeg_status}</p>
+                                                <p className="text-xs text-emerald-400 font-bold">시스템 내부 FFmpeg가 활성화되어 있습니다.</p>
                                             </div>
                                         ) : (
                                             "시스템 내부 FFmpeg가 활성화되어 있습니다. 별도 설정이 필요하지 않습니다."
@@ -1325,29 +1330,29 @@ const Settings = () => {
                                     </AlertDescription>
                                 </Alert>
                                 <div className="space-y-2">
-                                    <Label>Whisper 모델 경로</Label>
+                                    <Label className="text-xs sm:text-sm font-bold text-foreground">Whisper 모델 경로</Label>
                                     <div className="flex gap-2">
-                                        <Input value={formData.whisper_model_path || ''} readOnly />
-                                        <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')}>선택</Button>
+                                        <Input value={formData.whisper_model_path || ''} readOnly className="bg-muted/40 border-border rounded-xl" />
+                                        <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')} className="h-10 px-4 border-border bg-card rounded-xl shrink-0 font-bold">선택</Button>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label>기본 모델 크기</Label>
+                                        <Label className="text-xs font-bold text-muted-foreground">기본 모델 크기</Label>
                                         <Select value={formData.default_model_size || 'base'} onValueChange={v => setFormData({ ...formData, default_model_size: v })}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectTrigger className="bg-card border-border rounded-xl"><SelectValue /></SelectTrigger>
                                             <SelectContent><SelectItem value="base">Base</SelectItem><SelectItem value="small">Small</SelectItem><SelectItem value="medium">Medium</SelectItem></SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>기본 언어</Label>
+                                        <Label className="text-xs font-bold text-muted-foreground">기본 언어</Label>
                                         <Select value={formData.default_language || 'ko'} onValueChange={v => setFormData({ ...formData, default_language: v })}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectTrigger className="bg-card border-border rounded-xl"><SelectValue /></SelectTrigger>
                                             <SelectContent><SelectItem value="auto">자동</SelectItem><SelectItem value="ko">한국어</SelectItem><SelectItem value="en">영어</SelectItem></SelectContent>
                                         </Select>
                                     </div>
                                 </div>
-                                <Button onClick={handleSave} disabled={isSaving}>{isSaving && <Loader2 className="mr-2 animate-spin" />}저장</Button>
+                                <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">{isSaving && <Loader2 className="mr-2 animate-spin" />}저장</Button>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -1355,35 +1360,35 @@ const Settings = () => {
                     {/* --- TAB 5: MAINTENANCE --- */}
                     <TabsContent value="maintenance">
                         <div className="space-y-6">
-                            <Card className="border-red-100">
-                                <CardHeader>
-                                    <CardTitle className="text-red-700">로그 및 초기화</CardTitle>
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                    <CardTitle className="text-base font-bold text-rose-500">로그 및 초기화</CardTitle>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
+                                <CardContent className="space-y-4 pt-4">
                                     <div className="flex gap-2">
-                                        <Button variant="secondary" onClick={() => setIsLogOpen(true)} className="w-full">
+                                        <Button variant="secondary" onClick={() => setIsLogOpen(true)} className="w-full h-10 font-bold bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl">
                                             로그 뷰어 열기
                                         </Button>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>시스템 업데이트</CardTitle>
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                    <CardTitle className="text-base font-bold">시스템 업데이트</CardTitle>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
+                                <CardContent className="space-y-4 pt-4">
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
-                                            <Label>yt-dlp 자동 업데이트</Label>
+                                            <Label className="text-xs sm:text-sm font-bold text-foreground">yt-dlp 자동 업데이트</Label>
                                             <p className="text-xs text-muted-foreground">매주 최신 버전으로 업데이트합니다.</p>
                                         </div>
                                         <Switch checked={formData.ytdlp_auto_update} onCheckedChange={c => setFormData({ ...formData, ytdlp_auto_update: c })} />
                                     </div>
-                                    <div className="pt-2 flex justify-between items-center bg-muted/30 p-3 rounded">
-                                        <div className="text-sm">
-                                            <span className="text-muted-foreground mr-2">현재 버전:</span>
-                                            <span className="font-mono">{ytdlpVersion?.version || maintenanceStatus?.version || 'Unknown'}</span>
+                                    <div className="pt-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-muted/30 p-3.5 rounded-2xl border border-border">
+                                        <div className="text-xs sm:text-sm">
+                                            <span className="text-muted-foreground mr-2 font-medium">현재 버전:</span>
+                                            <span className="font-mono font-bold text-foreground">{ytdlpVersion?.version || maintenanceStatus?.version || 'Unknown'}</span>
                                         </div>
                                         <Button variant="outline" size="sm" disabled={isUpdatingYtdlp} onClick={async () => {
                                             setIsUpdatingYtdlp(true);
@@ -1400,30 +1405,30 @@ const Settings = () => {
                                             } finally {
                                                 setIsUpdatingYtdlp(false);
                                             }
-                                        }}>
+                                        }} className="h-9 px-4 font-bold border-border bg-card rounded-xl self-end sm:self-auto">
                                             {isUpdatingYtdlp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                             {isUpdatingYtdlp ? '업데이트 중...' : '지금 업데이트'}
                                         </Button>
                                     </div>
-                                    <Button onClick={handleSave} disabled={isSaving}>설정 저장</Button>
+                                    <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">설정 저장</Button>
                                 </CardContent>
                             </Card>
 
-                            <Card className="border-destructive/50 bg-destructive/5">
-                                <CardHeader>
-                                    <CardTitle className="text-destructive flex items-center gap-2">
+                            <Card className="border-rose-500/30 bg-rose-500/5 shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-rose-500/10 border-b border-rose-500/20 py-3">
+                                    <CardTitle className="text-rose-500 flex items-center gap-2 text-base font-bold">
                                         <AlertTriangle className="w-5 h-5" />
                                         위험 구역
                                     </CardTitle>
-                                    <CardDescription>
+                                    <CardDescription className="text-xs text-rose-400/80">
                                         데이터베이스를 초기화하면 모든 채널 및 영상 기록이 영구적으로 삭제됩니다.
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="pt-4">
                                     <Button
                                         type="button"
                                         variant="destructive"
-                                        className="w-full"
+                                        className="w-full h-10 font-bold rounded-xl"
                                         onClick={async () => {
                                             if (confirm("경고: 데이터베이스를 초기화하면 모든 채널 등록 정보와 영상 기록이 삭제됩니다.\n정말로 계속하시겠습니까?")) {
                                                 try {
@@ -1451,13 +1456,13 @@ const Settings = () => {
                     {/* --- TAB 8: BROWSER (Anti-detect) --- */}
                     <TabsContent value="browser">
                         <div className="grid gap-6">
-                            <Card className="border-emerald-200">
-                                <CardHeader className="bg-emerald-50/50">
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Globe className="w-5 h-5 text-emerald-600" />
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                                    <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                                        <Globe className="w-5 h-5 text-emerald-500" />
                                         자체 개발 브라우저 (CloakBrowser) 버전 패치
                                     </CardTitle>
-                                    <CardDescription>
+                                    <CardDescription className="text-xs">
                                         최신 우회 패치가 적용된 CloakBrowser 버전을 확인하고 자동 업데이트할 수 있습니다.
                                     </CardDescription>
                                 </CardHeader>
@@ -1466,52 +1471,53 @@ const Settings = () => {
                                 </CardContent>
                             </Card>
 
-                            <Card className="border-emerald-200">
-                                <CardHeader className="bg-emerald-50/50">
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Globe className="w-5 h-5 text-emerald-600" />
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                                    <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                                        <Globe className="w-5 h-5 text-emerald-500" />
                                         서드파티 브라우저 (iXBrowser) 연동 설정
                                     </CardTitle>
-                                    <CardDescription>
+                                    <CardDescription className="text-xs">
                                         iXBrowser를 사용할 경우의 로컬 API 주소를 설정합니다.
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6 pt-6">
                                     <div className="space-y-4 max-w-md">
                                         <div className="space-y-2">
-                                            <Label>iXBrowser API Base URL</Label>
+                                            <Label className="text-xs sm:text-sm font-bold text-foreground">iXBrowser API Base URL</Label>
                                             <Input
                                                 value={formData.ixbrowser_api_url || 'http://127.0.0.1:4320'}
                                                 onChange={e => setFormData({ ...formData, ixbrowser_api_url: e.target.value })}
                                                 placeholder="http://127.0.0.1:4320"
+                                                className="bg-card border-border rounded-xl"
                                             />
                                             <p className="text-[10px] text-muted-foreground">
                                                 * iXBrowser 클라이언트가 실행 중인 로컬 API 주소입니다.
                                             </p>
                                         </div>
-                                        <Button onClick={handleSave} disabled={isSaving}>
+                                        <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">
                                             {isSaving && <Loader2 className="mr-2 animate-spin w-4 h-4" />}설정 저장
                                         </Button>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            <Card className="border-emerald-200">
-                                <CardHeader className="bg-emerald-50/50">
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Globe className="w-5 h-5 text-emerald-600" />
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                                    <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                                        <Globe className="w-5 h-5 text-emerald-500" />
                                         네트워크 및 다중 프록시 라우팅 전략
                                     </CardTitle>
-                                    <CardDescription>
+                                    <CardDescription className="text-xs">
                                         통신사 테더링 차단 우회 및 IP 관리를 위한 프록시 연동 방식을 선택합니다.
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6 pt-6">
                                     <div className="space-y-4 max-w-xl">
                                         <div className="space-y-2">
-                                            <Label>프록시 모드 선택</Label>
+                                            <Label className="text-xs sm:text-sm font-bold text-foreground">프록시 모드 선택</Label>
                                             <Select value={formData.proxy_mode || 'DIRECT_LTE'} onValueChange={v => setFormData({...formData, proxy_mode: v})}>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="bg-card border-border rounded-xl text-xs sm:text-sm">
                                                     <SelectValue placeholder="프록시 모드를 선택하세요" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -1523,43 +1529,46 @@ const Settings = () => {
                                         </div>
                                         
                                         {formData.proxy_mode === 'NETSHARE' && (
-                                            <div className="grid grid-cols-2 gap-4 border p-4 rounded-md bg-muted/20">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border border-border p-4 rounded-2xl bg-muted/30">
                                                 <div className="space-y-2">
-                                                    <Label>NetShare IP 주소</Label>
+                                                    <Label className="text-xs font-bold text-muted-foreground">NetShare IP 주소</Label>
                                                     <Input 
                                                         value={formData.netshare_ip || '192.168.49.1'} 
                                                         onChange={e => setFormData({...formData, netshare_ip: e.target.value})}
+                                                        className="bg-card border-border rounded-xl"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label>NetShare 포트</Label>
+                                                    <Label className="text-xs font-bold text-muted-foreground">NetShare 포트</Label>
                                                     <Input 
                                                         type="number"
                                                         value={formData.netshare_port || 8282} 
                                                         onChange={e => setFormData({...formData, netshare_port: parseInt(e.target.value) || 8282})}
+                                                        className="bg-card border-border rounded-xl"
                                                     />
                                                 </div>
-                                                <p className="col-span-2 text-xs text-muted-foreground mt-2">
+                                                <p className="col-span-1 sm:col-span-2 text-xs text-muted-foreground mt-1">
                                                     * 핸드폰의 NetShare 앱을 켜고 하단에 표시되는 Address와 Port를 입력하세요. (보통 192.168.49.1 : 8282)
                                                 </p>
                                             </div>
                                         )}
 
                                         {formData.proxy_mode === 'ISP_PROXY' && (
-                                            <div className="space-y-2 border p-4 rounded-md bg-muted/20">
-                                                <Label>ISP 프록시 주소 (SOCKS5 / HTTP)</Label>
+                                            <div className="space-y-2 border border-border p-4 rounded-2xl bg-muted/30">
+                                                <Label className="text-xs font-bold text-muted-foreground">ISP 프록시 주소 (SOCKS5 / HTTP)</Label>
                                                 <Input 
                                                     value={formData.isp_proxy_url || ''} 
                                                     onChange={e => setFormData({...formData, isp_proxy_url: e.target.value})}
                                                     placeholder="socks5://username:password@12.34.56.78:1080"
+                                                    className="bg-card border-border rounded-xl"
                                                 />
-                                                <p className="text-xs text-muted-foreground mt-2">
+                                                <p className="text-xs text-muted-foreground mt-1">
                                                     * 구매하신 유료 프록시 주소를 입력하세요. ID/PW 인증이 포함된 주소 형식을 지원합니다.
                                                 </p>
                                             </div>
                                         )}
                                         
-                                        <Button onClick={handleSave} disabled={isSaving}>
+                                        <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">
                                             {isSaving && <Loader2 className="mr-2 animate-spin w-4 h-4" />}라우팅 설정 저장
                                         </Button>
                                     </div>
@@ -1570,83 +1579,87 @@ const Settings = () => {
 
                     {/* --- TAB 7: AI GRID (Nodes) --- */}
                     <TabsContent value="aigrid">
-                        <Card className="border-amber-200">
-                            <CardHeader className="bg-amber-50/50">
-                                <CardTitle className="flex items-center gap-2">
-                                    <Zap className="w-5 h-5 text-amber-600" />
+                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                            <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                                <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                                    <Zap className="w-5 h-5 text-amber-500" />
                                     AI Grid 분산 노드 설정
                                 </CardTitle>
-                                <CardDescription>
+                                <CardDescription className="text-xs">
                                     Audio Node와 Visual Node의 주소 및 API 키를 관리합니다.
                                     (Colab 또는 전용 서버 연동용)
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6 pt-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Audio Node Section */}
-                                    <div className="space-y-4 p-4 border rounded-xl bg-slate-50/50">
-                                        <div className="flex items-center gap-2 font-bold text-lg text-blue-700">
+                                    <div className="space-y-4 p-4 border border-border rounded-2xl bg-muted/30">
+                                        <div className="flex items-center gap-2 font-bold text-base text-sky-500">
                                             <Mic2 className="w-5 h-5" /> Audio Node (TTS)
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Node URL</Label>
+                                            <Label className="text-xs font-bold text-muted-foreground">Node URL</Label>
                                             <Input
                                                 value={formData.audio_node_url || ''}
                                                 onChange={e => setFormData({ ...formData, audio_node_url: e.target.value })}
                                                 placeholder="https://...ngrok-free.dev"
+                                                className="bg-card border-border rounded-xl"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>API Key (Optional)</Label>
+                                            <Label className="text-xs font-bold text-muted-foreground">API Key (Optional)</Label>
                                             <Input
                                                 type="password"
                                                 value={formData.audio_node_api_key || ''}
                                                 onChange={e => setFormData({ ...formData, audio_node_api_key: e.target.value })}
                                                 placeholder="Node API Key"
+                                                className="bg-card border-border rounded-xl"
                                             />
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground bg-white/50 p-2 rounded border border-dashed">
+                                        <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-xl border border-border">
                                             * Qwen3-TTS 모델이 실행되고 있는 서버 주소를 입력하세요.
                                         </div>
                                     </div>
 
                                     {/* Visual Node Section */}
-                                    <div className="space-y-4 p-4 border rounded-xl bg-slate-50/50">
-                                        <div className="flex items-center gap-2 font-bold text-lg text-purple-700">
+                                    <div className="space-y-4 p-4 border border-border rounded-2xl bg-muted/30">
+                                        <div className="flex items-center gap-2 font-bold text-base text-purple-500">
                                             <Play className="w-5 h-5" /> Visual Node (Image/Video)
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>Node URL</Label>
+                                            <Label className="text-xs font-bold text-muted-foreground">Node URL</Label>
                                             <Input
                                                 value={formData.visual_node_url || ''}
                                                 onChange={e => setFormData({ ...formData, visual_node_url: e.target.value })}
                                                 placeholder="https://...ngrok-free.dev"
+                                                className="bg-card border-border rounded-xl"
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>API Key (Optional)</Label>
+                                            <Label className="text-xs font-bold text-muted-foreground">API Key (Optional)</Label>
                                             <Input
                                                 type="password"
                                                 value={formData.visual_node_api_key || ''}
                                                 onChange={e => setFormData({ ...formData, visual_node_api_key: e.target.value })}
                                                 placeholder="Node API Key"
+                                                className="bg-card border-border rounded-xl"
                                             />
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground bg-white/50 p-2 rounded border border-dashed">
+                                        <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-xl border border-border">
                                             * SDXL 및 Zeroscopev2 모델이 실행되고 있는 서버 주소를 입력하세요.
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex flex-col gap-2 pt-4 border-t">
-                                    <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                <div className="flex flex-col gap-3 pt-4 border-t border-border">
+                                    <div className="flex items-start gap-2.5 text-xs text-amber-500 bg-amber-500/10 p-3.5 rounded-2xl border border-amber-500/20">
                                         <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                                         <div>
                                             <p className="font-bold">주의사항</p>
-                                            <p>노드 주소가 올바르지 않으면 AI 자산 생성 기능이 동작하지 않습니다. Ngrok 주소의 경우 일정 시간이 지나면 주소가 변경될 수 있으니 확인 후 업데이트해주세요.</p>
+                                            <p className="text-muted-foreground mt-0.5">노드 주소가 올바르지 않으면 AI 자산 생성 기능이 동작하지 않습니다. Ngrok 주소의 경우 일정 시간이 지나면 주소가 변경될 수 있으니 확인 후 업데이트해주세요.</p>
                                         </div>
                                     </div>
-                                    <Button onClick={handleSave} disabled={isSaving}>
+                                    <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">
                                         {isSaving && <Loader2 className="mr-2 animate-spin" />}설정 저장
                                     </Button>
                                 </div>
