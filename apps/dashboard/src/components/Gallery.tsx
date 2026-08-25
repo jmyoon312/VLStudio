@@ -909,55 +909,55 @@ const Gallery = () => {
                         </div>
 
                         {/* 우측: 상세 메타데이터 & 바이럴루프 원클릭 제작 액션 패널 */}
-                        <div className="w-full md:w-[52%] h-[55%] md:h-full p-5 sm:p-6 overflow-y-auto flex flex-col justify-between space-y-4 bg-slate-900/90 text-slate-100">
+                        <div className="w-full md:w-[52%] h-[55%] md:h-full p-4 sm:p-6 overflow-y-auto flex flex-col justify-between space-y-4 bg-card text-card-foreground">
                             <div className="space-y-4">
                                 
                                 {/* 타이틀 및 채널 */}
                                 <div>
-                                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                                        <span>채널: <strong className="text-slate-200">{(selectedVideo.channel_id && channelMap[selectedVideo.channel_id]?.name) || (selectedVideo.metadata_json as any)?.uploader || '트렌딩 크리에이터'}</strong></span>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                        <span>채널: <strong className="text-foreground">{(selectedVideo.channel_id && channelMap[selectedVideo.channel_id]?.name) || (selectedVideo.metadata_json as any)?.uploader || '트렌딩 크리에이터'}</strong></span>
                                         <span>{selectedVideo.upload_date ? new Date(selectedVideo.upload_date).toLocaleDateString() : '최근'}</span>
                                     </div>
-                                    <h3 className="text-base sm:text-lg font-extrabold text-white leading-snug">
+                                    <h3 className="text-sm sm:text-base md:text-lg font-extrabold text-foreground leading-snug">
                                         {selectedVideo.title}
                                     </h3>
                                 </div>
 
                                 {/* 메트릭 4분할 그리드 */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400">조회수</p>
-                                        <p className="text-xs font-extrabold text-white mt-0.5">{formatCount(selectedVideo.view_count || (selectedVideo.metadata_json as any)?.view_count)}</p>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">조회수</p>
+                                        <p className="text-xs font-extrabold text-foreground mt-0.5">{formatCount(selectedVideo.view_count || (selectedVideo.metadata_json as any)?.view_count)}</p>
                                     </div>
-                                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400">바이럴 스코어</p>
-                                        <p className="text-xs font-extrabold text-amber-400 mt-0.5">{selectedVideo.viral_score || 0}%</p>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">바이럴 스코어</p>
+                                        <p className="text-xs font-extrabold text-amber-500 mt-0.5">{selectedVideo.viral_score || 0}%</p>
                                     </div>
-                                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400">영상 길이</p>
-                                        <p className="text-xs font-extrabold text-white mt-0.5">{selectedVideo.duration ? `${selectedVideo.duration}초` : '30초'}</p>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">영상 길이</p>
+                                        <p className="text-xs font-extrabold text-foreground mt-0.5">{selectedVideo.duration ? `${selectedVideo.duration}초` : '30초'}</p>
                                     </div>
-                                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400">수집 상태</p>
-                                        <p className="text-xs font-extrabold text-emerald-400 mt-0.5">보관완료</p>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">수집 상태</p>
+                                        <p className="text-xs font-extrabold text-emerald-500 mt-0.5">보관완료</p>
                                     </div>
                                 </div>
 
                                 {/* 설명 & 해시태그 박스 */}
-                                <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/40 text-xs text-slate-300 space-y-1.5">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">영상 설명 및 추출 대본</p>
-                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-slate-200">
+                                <div className="p-3 rounded-xl bg-muted/30 border border-border text-xs text-foreground space-y-1.5">
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">영상 설명 및 추출 대본</p>
+                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-muted-foreground">
                                         {selectedVideo.extracted_text || (selectedVideo.metadata_json as any)?.description || '추출된 대본 또는 영상 설명이 없습니다.'}
                                     </p>
                                 </div>
 
                                 {/* 수집 기록 및 성과 분석 */}
-                                <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-900/50 text-xs space-y-1">
-                                    <div className="flex items-center justify-between text-[11px] font-bold text-indigo-300">
+                                <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs space-y-1">
+                                    <div className="flex items-center justify-between text-[11px] font-bold text-primary">
                                         <span>📊 AI 바이럴 점수 분석</span>
-                                        <span className="text-emerald-400">상위 {Math.max(1, (100 - (selectedVideo.viral_score || 50) / 10)).toFixed(1)}%</span>
+                                        <span className="text-emerald-500">상위 {Math.max(1, (100 - (selectedVideo.viral_score || 50) / 10)).toFixed(1)}%</span>
                                     </div>
-                                    <p className="text-[10px] text-slate-400 leading-normal">
+                                    <p className="text-[10px] text-muted-foreground leading-normal">
                                         수집된 영상 자산입니다. 딸깍 자동 생성을 통해 자막 합성 및 더빙 버전으로 재가공하여 새로운 숏폼으로 제작할 수 있습니다.
                                     </p>
                                 </div>
@@ -965,7 +965,7 @@ const Gallery = () => {
                             </div>
 
                             {/* 하단 바이럴루프 원클릭 제작 액션 버튼 바 */}
-                            <div className="space-y-2 pt-2 border-t border-slate-800">
+                            <div className="space-y-2 pt-2 border-t border-border">
                                 <div className="grid grid-cols-2 gap-2">
                                     <Button 
                                         onClick={() => handleSingleDdalkkak(selectedVideo, 'subtitle')}
@@ -984,16 +984,16 @@ const Gallery = () => {
                                     <Button 
                                         variant="outline" 
                                         onClick={() => handleGoToScriptLab(selectedVideo)}
-                                        className="bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 text-xs py-2 flex items-center justify-center gap-1.5 rounded-xl"
+                                        className="bg-muted hover:bg-muted/80 border-border text-foreground text-xs py-2 flex items-center justify-center gap-1.5 rounded-xl"
                                     >
-                                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> 대본 추출 & AI 재창작
+                                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> 대본 추출 & AI 재창작
                                     </Button>
                                     <Button 
                                         variant="outline" 
                                         onClick={() => handleGoToSceneCutter(selectedVideo)}
-                                        className="bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200 text-xs py-2 flex items-center justify-center gap-1.5 rounded-xl"
+                                        className="bg-muted hover:bg-muted/80 border-border text-foreground text-xs py-2 flex items-center justify-center gap-1.5 rounded-xl"
                                     >
-                                        <Scissors className="w-3.5 h-3.5 text-amber-400" /> ✂️ 씬 커터로 컷팅
+                                        <Scissors className="w-3.5 h-3.5 text-amber-500" /> ✂️ 씬 커터로 컷팅
                                     </Button>
                                 </div>
                             </div>
@@ -1015,28 +1015,28 @@ const Gallery = () => {
 
             {/* 7. 바이럴 추이 그래프 모달 */}
             <Dialog open={!!statsVideo} onOpenChange={(open) => !open && setStatsVideo(null)}>
-                <DialogContent className="max-w-2xl bg-slate-900 border border-slate-800 text-white">
+                <DialogContent className="max-w-2xl bg-card border border-border text-foreground">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-indigo-400" /> 바이럴 변화 추이 분석
+                        <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-indigo-500" /> 바이럴 변화 추이 분석
                         </DialogTitle>
-                        <DialogDescription className="text-xs text-slate-400">{statsVideo?.title}</DialogDescription>
+                        <DialogDescription className="text-xs text-muted-foreground">{statsVideo?.title}</DialogDescription>
                     </DialogHeader>
                     <div className="h-[300px] w-full mt-4">
                         {videoHistory && videoHistory.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <RechartsLineChart data={chartData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                                     <XAxis
                                         dataKey="timestamp"
                                         tickFormatter={(time) => new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        stroke="#94a3b8"
+                                        className="text-muted-foreground fill-muted-foreground"
                                         fontSize={11}
                                     />
                                     <YAxis yAxisId="left" stroke="#818cf8" fontSize={11} tickFormatter={(val) => formatCount(val)} />
                                     <YAxis yAxisId="right" orientation="right" stroke="#fbbf24" fontSize={11} tickFormatter={(val) => formatCount(val) + '/h'} />
                                     <Tooltip
-                                        contentStyle={{ borderRadius: '12px', border: '1px solid #334155', backgroundColor: '#0f172a', color: '#fff' }}
+                                        contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)' }}
                                         labelFormatter={(label) => new Date(label).toLocaleString()}
                                     />
                                     <Line yAxisId="left" type="monotone" dataKey="view_count" name="누적 조회수" stroke="#818cf8" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
@@ -1044,8 +1044,8 @@ const Gallery = () => {
                                 </RechartsLineChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="flex items-center justify-center h-full text-slate-400 text-xs">
-                                <TrendingUp className="w-8 h-8 mr-2 opacity-50 text-indigo-400" />
+                            <div className="flex items-center justify-center h-full text-muted-foreground text-xs">
+                                <TrendingUp className="w-8 h-8 mr-2 opacity-50 text-indigo-500" />
                                 수집된 시간대별 통계 데이터가 충분하지 않습니다.
                             </div>
                         )}

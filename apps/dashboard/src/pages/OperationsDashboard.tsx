@@ -267,58 +267,58 @@ const OperationsDashboard: React.FC = () => {
     const currentList = filteredVideos[activeTab as keyof typeof filteredVideos] as Video[];
 
     return (
-        <div className="space-y-6 container mx-auto p-6 max-w-7xl">
+        <div className="space-y-3 sm:space-y-6 container mx-auto p-3 sm:p-6 max-w-7xl min-h-screen bg-background text-foreground">
             {/* [SAIF-2026] Tactical Network Control Center */}
-            <Card className="bg-card border-border shadow-md overflow-hidden mb-6 relative">
+            <Card className="bg-card border-border shadow-2xs overflow-hidden mb-3 sm:mb-6 relative">
                 <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
                     <ShieldCheck className="w-24 h-24 text-foreground" />
                 </div>
-                <CardContent className="p-6 relative z-10">
-                    <div className="flex flex-col lg:flex-row gap-8 items-center justify-between">
+                <CardContent className="p-4 sm:p-6 relative z-10">
+                    <div className="flex flex-col lg:flex-row gap-4 sm:gap-8 items-start lg:items-center justify-between">
                         {/* Status Group */}
-                        <div className="flex flex-wrap gap-6 items-center">
+                        <div className="flex flex-wrap gap-4 sm:gap-6 items-center">
                             <div className="space-y-1">
                                 <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest flex items-center gap-1">
                                     <div className={`w-2 h-2 rounded-full animate-pulse ${netStatus?.status_detail !== 'WIFI_MODE' ? 'bg-emerald-500' : 'bg-red-500'}`} />
                                     Network Isolation
                                 </div>
-                                <div className="text-xl font-black text-foreground flex items-center gap-2">
+                                <div className="text-base sm:text-xl font-black text-foreground flex items-center gap-2">
                                     {netStatus?.status_detail === 'LTE_MODE' ? 'FULL-TUNNEL ACTIVE' : 
                                      netStatus?.status_detail === 'DUAL_MODE' ? 'DUAL BINDING' : 'WIFI EXPOSED'}
-                                    {netStatus?.status_detail === 'WIFI_MODE' && <AlertCircle className="text-red-500 w-5 h-5 animate-bounce" />}
+                                    {netStatus?.status_detail === 'WIFI_MODE' && <AlertCircle className="text-red-500 w-4 h-4 animate-bounce" />}
                                 </div>
                             </div>
 
-                            <Separator orientation="vertical" className="h-10 bg-border hidden lg:block" />
+                            <Separator orientation="vertical" className="h-8 sm:h-10 bg-border hidden lg:block" />
 
                             <div className="space-y-1">
                                 <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Public Identity (IP)</div>
-                                <div className="text-sm font-mono text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                                <div className="text-xs sm:text-sm font-mono text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
                                     {netStatus?.public_ip || "SCANNING..."}
                                 </div>
                             </div>
 
-                            <Separator orientation="vertical" className="h-10 bg-border hidden lg:block" />
+                            <Separator orientation="vertical" className="h-8 sm:h-10 bg-border hidden lg:block" />
 
                             <div className="space-y-1">
                                 <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">ADB Tethering</div>
-                                <div className="text-sm font-medium">
+                                <div className="text-xs sm:text-sm font-medium">
                                     {netStatus?.adb_connected ? (
-                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20">
+                                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] sm:text-xs">
                                             CONNECTED ({netStatus?.device_count})
                                         </Badge>
                                     ) : (
-                                        <Badge variant="destructive">DISCONNECTED</Badge>
+                                        <Badge variant="destructive" className="text-[10px] sm:text-xs">DISCONNECTED</Badge>
                                     )}
                                 </div>
                             </div>
                         </div>
 
                         {/* Action Group */}
-                        <div className="flex gap-3 w-full lg:w-auto">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full lg:w-auto">
                             <Button 
                                 variant="outline" 
-                                className="bg-card border-border text-foreground hover:bg-accent flex-1 lg:flex-none h-12 shadow-sm"
+                                className="bg-card border-border text-foreground hover:bg-accent flex-1 lg:flex-none h-10 sm:h-12 shadow-2xs text-xs sm:text-sm"
                                 onClick={() => rotateMutation.mutate()}
                                 disabled={rotateMutation.isPending}
                             >
@@ -326,7 +326,7 @@ const OperationsDashboard: React.FC = () => {
                                 Force IP Rotation
                             </Button>
                             <Button 
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 h-12 flex-1 lg:flex-none shadow-sm shadow-primary/20"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 sm:px-8 h-10 sm:h-12 flex-1 lg:flex-none shadow-2xs text-xs sm:text-sm"
                                 onClick={() => queryClient.invalidateQueries({ queryKey: ['network-status'] })}
                             >
                                 Security Audit

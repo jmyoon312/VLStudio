@@ -69,29 +69,29 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#EF4444']; // Blue,
 
 // Custom Markdown Components for Styling
 const markdownComponents = {
-    h1: ({ node, ...props }: any) => <h1 className="text-2xl font-bold mt-6 mb-4 pb-2 border-b border-border text-primary" {...props} />,
-    h2: ({ node, ...props }: any) => <h2 className="text-xl font-semibold mt-8 mb-3 flex items-center gap-2 text-foreground/90" {...props} />,
-    h3: ({ node, ...props }: any) => <h3 className="text-lg font-medium mt-4 mb-2 text-foreground/80" {...props} />,
-    p: ({ node, ...props }: any) => <p className="leading-7 mb-4 text-foreground/80" {...props} />,
-    ul: ({ node, ...props }: any) => <ul className="list-disc pl-6 mb-4 space-y-1" {...props} />,
-    ol: ({ node, ...props }: any) => <ol className="list-decimal pl-6 mb-4 space-y-1" {...props} />,
-    li: ({ node, ...props }: any) => <li className="pl-1" {...props} />,
+    h1: ({ node, ...props }: any) => <h1 className="text-xl sm:text-2xl font-extrabold mt-6 mb-4 pb-2 border-b border-border text-primary" {...props} />,
+    h2: ({ node, ...props }: any) => <h2 className="text-lg sm:text-xl font-bold mt-8 mb-3 flex items-center gap-2 text-foreground" {...props} />,
+    h3: ({ node, ...props }: any) => <h3 className="text-base sm:text-lg font-semibold mt-4 mb-2 text-foreground/90" {...props} />,
+    p: ({ node, ...props }: any) => <p className="leading-7 mb-4 text-foreground/80 text-xs sm:text-sm" {...props} />,
+    ul: ({ node, ...props }: any) => <ul className="list-disc pl-6 mb-4 space-y-1 text-xs sm:text-sm" {...props} />,
+    ol: ({ node, ...props }: any) => <ol className="list-decimal pl-6 mb-4 space-y-1 text-xs sm:text-sm" {...props} />,
+    li: ({ node, ...props }: any) => <li className="pl-1 text-foreground/80" {...props} />,
     blockquote: ({ node, ...props }: any) => (
-        <blockquote className="border-l-4 border-blue-500 pl-4 py-2 my-4 bg-blue-50/50 italic rounded-r-lg text-foreground/90" {...props} />
+        <blockquote className="border-l-4 border-primary pl-4 py-2 my-4 bg-primary/10 italic rounded-r-lg text-foreground/90 text-xs sm:text-sm" {...props} />
     ),
     code: ({ node, inline, ...props }: any) => (
         inline
-            ? <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-sm text-pink-600" {...props} />
-            : <div className="bg-slate-950 text-slate-50 p-4 rounded-lg my-4 overflow-x-auto"><code className="font-mono text-sm" {...props} /></div>
+            ? <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs text-primary" {...props} />
+            : <div className="bg-muted/80 text-foreground p-4 rounded-lg my-4 overflow-x-auto border border-border"><code className="font-mono text-xs" {...props} /></div>
     ),
     table: ({ node, ...props }: any) => (
         <div className="overflow-x-auto my-6 rounded-lg border border-border">
-            <table className="w-full text-sm border-collapse" {...props} />
+            <table className="w-full text-xs sm:text-sm border-collapse" {...props} />
         </div>
     ),
     thead: ({ node, ...props }: any) => <thead className="bg-muted/50" {...props} />,
-    th: ({ node, ...props }: any) => <th className="border-b border-border p-3 text-left font-medium text-muted-foreground" {...props} />,
-    td: ({ node, ...props }: any) => <td className="border-b border-border p-3 align-top" {...props} />,
+    th: ({ node, ...props }: any) => <th className="border-b border-border p-3 text-left font-medium text-muted-foreground text-xs" {...props} />,
+    td: ({ node, ...props }: any) => <td className="border-b border-border p-3 align-top text-xs" {...props} />,
     hr: ({ node, ...props }: any) => <hr className="my-8 border-border" {...props} />,
     a: ({ node, ...props }: any) => <a className="text-primary hover:underline font-medium" {...props} />,
 };
@@ -375,10 +375,10 @@ export function DailyReportList() {
 
             <SystemHealthDashboard />
 
-            <Card className="border-border/50 shadow-sm overflow-hidden">
+            <Card className="border-border shadow-2xs overflow-hidden bg-card">
                 <CardContent className="p-0">
                     <Table>
-                        <TableHeader className="bg-slate-50/75">
+                        <TableHeader className="bg-muted/40">
                             <TableRow>
                                 <TableHead className="w-[50px] text-center">선택</TableHead>
                                 <TableHead className="w-[180px]">리포트 날짜</TableHead>
@@ -392,7 +392,7 @@ export function DailyReportList() {
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-32 text-center">
                                         <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                            <Loader2 className="h-8 w-8 animate-spin" />
+                                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             <span className="text-xs">데이터 로딩 중...</span>
                                         </div>
                                     </TableCell>
@@ -400,7 +400,7 @@ export function DailyReportList() {
                             ) : reports?.map((report) => (
                                 <TableRow
                                     key={report.id}
-                                    className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-blue-50/70 hover:bg-blue-100/50' : 'hover:bg-slate-50/50'}`}
+                                    className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-muted/30'}`}
                                     onClick={() => handleViewReport(report)}
                                     data-id={report.id}
                                 >
@@ -417,30 +417,30 @@ export function DailyReportList() {
                                         });
                                     }}>
                                         <div className="flex items-center justify-center">
-                                            <div className={`w-4 h-4 rounded border transition-all ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-slate-300 bg-white'}`}>
+                                            <div className={`w-4 h-4 rounded border transition-all ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-border bg-background'}`}>
                                                 {selectedIds.has(report.id) && <CheckCircle2 className="w-4 h-4 text-white p-0.5" />}
                                             </div>
                                         </div>
                                     </TableCell>
-                                    <TableCell className="font-semibold text-slate-700">
+                                    <TableCell className="font-semibold text-foreground text-xs sm:text-sm">
                                         {format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}
                                     </TableCell>
                                     <TableCell>
                                         {!report.is_read ? (
-                                            <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-sm animate-pulse">신규 (New)</Badge>
+                                            <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-2xs animate-pulse text-[10px]">신규 (New)</Badge>
                                         ) : (
-                                            <Badge variant="secondary" className="text-slate-500 bg-slate-100 font-medium">읽음 (Archived)</Badge>
+                                            <Badge variant="secondary" className="text-muted-foreground bg-muted font-medium text-[10px]">읽음 (Archived)</Badge>
                                         )}
                                     </TableCell>
-                                    <TableCell className="max-w-[500px] truncate text-slate-600 text-sm font-medium">
+                                    <TableCell className="max-w-[500px] truncate text-muted-foreground text-xs sm:text-sm font-medium">
                                         {report.summary_markdown.replace(/[#*`\-]/g, '').trim().slice(0, 120)}...
                                     </TableCell>
                                     <TableCell className="text-right no-drag">
-                                        <Button size="icon" variant="ghost" className="hover:bg-blue-50" onClick={(e) => {
+                                        <Button size="icon" variant="ghost" className="hover:bg-primary/10" onClick={(e) => {
                                             e.stopPropagation();
                                             handleViewReport(report);
                                         }}>
-                                            <Eye className="h-4 w-4 text-blue-600" />
+                                            <Eye className="h-4 w-4 text-primary" />
                                         </Button>
                                     </TableCell>
                                 </TableRow>
@@ -452,26 +452,26 @@ export function DailyReportList() {
 
             {/* Rich Report Dialog */}
             <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
-                <DialogContent className="max-w-5xl h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-white border border-slate-200 text-slate-900 shadow-2xl">
+                <DialogContent className="max-w-5xl h-[90vh] overflow-hidden flex flex-col p-0 gap-0 bg-card border border-border text-foreground shadow-2xl">
                     {selectedReport && (
                         <>
-                            <DialogHeader className="p-6 border-b border-slate-100 bg-slate-50/50 shrink-0">
+                            <DialogHeader className="p-4 sm:p-6 border-b border-border bg-muted/30 shrink-0">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                                            <Activity className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                        <div className="p-2 bg-primary/10 rounded-lg">
+                                            <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                                         </div>
                                         <div>
-                                            <DialogTitle className="text-xl">
+                                            <DialogTitle className="text-base sm:text-xl font-extrabold text-foreground">
                                                 {format(new Date(selectedReport!.report_date), 'yyyy년 MM월 dd일 시스템 리포트')}
                                             </DialogTitle>
-                                            <DialogDescription>
+                                            <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                                                 종합 데이터 분석 및 AI 인사이트
                                             </DialogDescription>
                                         </div>
                                     </div>
                                     <div className="flex items-center">
-                                        <Badge variant="outline" className="text-xs font-mono mr-2">
+                                        <Badge variant="outline" className="text-xs font-mono mr-2 border-border">
                                             ID: {selectedReport!.id}
                                         </Badge>
 

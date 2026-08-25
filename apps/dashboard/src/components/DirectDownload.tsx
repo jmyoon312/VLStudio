@@ -284,18 +284,18 @@ const DirectDownload = () => {
     };
 
     return (
-        <div className="space-y-8 max-w-4xl mx-auto py-10">
+        <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto p-3 sm:p-6 py-4 sm:py-8 min-h-screen bg-background text-foreground">
 
             {batchSource && (
-                <div className="px-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-center gap-3 mb-4 animate-in fade-in slide-in-from-top-2">
-                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{batchSource}</span>
+                <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 animate-in fade-in slide-in-from-top-2">
+                    <span className="text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400">{batchSource}</span>
                     <span className="text-[10px] text-muted-foreground">(우회 모드: {useBypass ? 'ON' : 'OFF'})</span>
                 </div>
             )}
 
-            <Card className="shadow-sm">
-                <CardContent className="pt-6">
-                    <div className="flex flex-wrap gap-3 mb-8">
+            <Card className="shadow-2xs border-border bg-card">
+                <CardContent className="pt-4 sm:pt-6 p-3.5 sm:p-6">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2.5 mb-5 sm:mb-6">
                         {SUPPORTED_PLATFORMS.map((platform) => (
                             <a
                                 key={platform.name}
@@ -303,7 +303,7 @@ const DirectDownload = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={cn(
-                                    "text-sm font-medium px-4 py-1.5 rounded-md border shadow-sm transition-all hover:opacity-80 hover:-translate-y-0.5 active:scale-95",
+                                    "text-xs sm:text-sm font-medium px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-lg border shadow-2xs transition-all hover:opacity-80 hover:-translate-y-0.5 active:scale-95",
                                     platform.color
                                 )}
                             >

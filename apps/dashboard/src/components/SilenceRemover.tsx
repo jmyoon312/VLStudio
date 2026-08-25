@@ -329,10 +329,10 @@ export default function SilenceRemover() {
     };
 
     return (
-        <div className="p-6 space-y-6 max-w-6xl mx-auto">
+        <div className="p-3 sm:p-6 space-y-3 sm:space-y-6 max-w-6xl mx-auto min-h-screen bg-background text-foreground">
             {/* Zone 1: Top Actions */}
-            <div className="flex justify-between items-center bg-card p-4 rounded-lg border shadow-sm">
-                <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-card p-3 sm:p-4 rounded-xl border border-border shadow-2xs gap-2.5">
+                <div className="flex flex-wrap gap-2">
                     <input
                         type="file"
                         multiple
@@ -341,17 +341,17 @@ export default function SilenceRemover() {
                         ref={fileInputRef}
                         onChange={handleAddFiles}
                     />
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                        <FolderOpen className="mr-2 h-4 w-4" />
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="text-xs sm:text-sm">
+                        <FolderOpen className="mr-1.5 h-4 w-4" />
                         파일 추가
                     </Button>
-                    <Button variant="destructive" onClick={clearFiles} className="bg-white text-destructive border-destructive border hover:bg-destructive/10">
-                        <Trash2 className="mr-2 h-4 w-4" />
+                    <Button variant="destructive" size="sm" onClick={clearFiles} className="bg-transparent text-destructive border-destructive border hover:bg-destructive/10 text-xs sm:text-sm">
+                        <Trash2 className="mr-1.5 h-4 w-4" />
                         목록 초기화
                     </Button>
                 </div>
-                <Button size="lg" className={cn("text-white", (threshold === 0 || activePreset === 'merge') ? "bg-indigo-600 hover:bg-indigo-700" : "bg-green-600 hover:bg-green-700")} onClick={handleStartProcessing}>
-                    <Play className="mr-2 h-5 w-5" />
+                <Button size="sm" className={cn("text-white text-xs sm:text-sm font-bold h-9 px-4", (threshold === 0 || activePreset === 'merge') ? "bg-indigo-600 hover:bg-indigo-700" : "bg-green-600 hover:bg-green-700")} onClick={handleStartProcessing}>
+                    <Play className="mr-1.5 h-4 w-4" />
                     {(threshold === 0 || activePreset === 'merge') ? "합치기 시작" : "처리 시작"}
                 </Button>
             </div>

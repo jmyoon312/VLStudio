@@ -309,13 +309,12 @@ const SubtitleConverter = () => {
     };
 
     return (
-        <div className="h-[calc(100vh-2rem)] flex flex-col gap-4 p-6 max-w-[1800px] mx-auto font-sans overflow-hidden">
-
+        <div className="h-full min-h-screen md:h-[calc(100vh-2rem)] flex flex-col gap-3 sm:gap-4 p-3 sm:p-6 max-w-[1800px] mx-auto font-sans overflow-y-auto md:overflow-hidden bg-background text-foreground">
 
             {/* Zone 1: File Input & Options */}
-            <Card className="shrink-0 border border-gray-100 shadow-sm rounded-xl bg-white">
-                <CardContent className="p-4 flex gap-6 items-center flex-wrap">
-                    <div className="flex-1 min-w-[300px] flex gap-3 items-center">
+            <Card className="shrink-0 border border-border shadow-2xs rounded-xl bg-card text-card-foreground">
+                <CardContent className="p-3 sm:p-4 flex gap-3 sm:gap-6 items-center flex-wrap">
+                    <div className="flex-1 min-w-[260px] sm:min-w-[300px] flex gap-2 sm:gap-3 items-center">
                         <input
                             type="file"
                             ref={fileInputRef}
@@ -323,27 +322,27 @@ const SubtitleConverter = () => {
                             onChange={handleFileSelect}
                             accept="audio/*,video/*"
                         />
-                        <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="shrink-0 h-9 text-sm font-medium">
-                            <FolderOpen className="w-4 h-4 mr-2" />
+                        <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="shrink-0 h-9 text-xs sm:text-sm font-medium border-border">
+                            <FolderOpen className="w-4 h-4 mr-1.5 sm:mr-2" />
                             파일 선택
                         </Button>
-                        <div className="flex-1 px-4 py-2 bg-gray-50 rounded-lg text-sm font-mono truncate flex items-center gap-2 border border-gray-100 h-9">
+                        <div className="flex-1 px-3 sm:px-4 py-2 bg-muted/40 rounded-lg text-xs sm:text-sm font-mono truncate flex items-center gap-2 border border-border h-9">
                             {selectedFile ? (
                                 <>
-                                    <FileAudio className="w-4 h-4 text-blue-500" />
-                                    {selectedFile.name}
+                                    <FileAudio className="w-4 h-4 text-primary shrink-0" />
+                                    <span className="truncate">{selectedFile.name}</span>
                                 </>
                             ) : (
-                                <span className="text-muted-foreground">선택된 파일 없음</span>
+                                <span className="text-muted-foreground truncate">선택된 파일 없음</span>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex gap-6 items-center">
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-gray-700">언어:</span>
+                    <div className="flex gap-3 sm:gap-6 items-center flex-wrap">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <span className="text-xs sm:text-sm font-semibold text-muted-foreground">언어:</span>
                             <Select value={language} onValueChange={setLanguage}>
-                                <SelectTrigger className="w-[140px] h-9 border-gray-200 focus:ring-2 focus:ring-primary/20 text-sm">
+                                <SelectTrigger className="w-[120px] sm:w-[140px] h-9 border-border bg-background text-xs sm:text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -355,10 +354,10 @@ const SubtitleConverter = () => {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-gray-700">모델:</span>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <span className="text-xs sm:text-sm font-semibold text-muted-foreground">모델:</span>
                             <Select value={subtitleModel} onValueChange={setSubtitleModel}>
-                                <SelectTrigger className="w-[140px] h-9 border-gray-200 focus:ring-2 focus:ring-primary/20 text-sm">
+                                <SelectTrigger className="w-[120px] sm:w-[140px] h-9 border-border bg-background text-xs sm:text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -373,18 +372,18 @@ const SubtitleConverter = () => {
             </Card>
 
             {/* Zone 2: Main Workspace */}
-            <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 flex-1 min-h-0">
                 {/* Left Column: Original Script */}
-                <Card className="flex flex-col h-full border border-gray-100 shadow-sm rounded-xl bg-white overflow-hidden">
-                    <CardHeader className="py-2 px-4 border-b bg-gray-50/50 flex flex-row items-center justify-between space-y-0 shrink-0">
-                        <div className="flex items-center gap-2 text-slate-600">
-                            <FileText className="w-3 h-3" />
+                <Card className="flex flex-col min-h-[300px] md:h-full border border-border shadow-2xs rounded-xl bg-card text-card-foreground overflow-hidden">
+                    <CardHeader className="py-2 px-3 sm:px-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between space-y-0 shrink-0">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                            <FileText className="w-3.5 h-3.5" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Original Script</span>
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 flex flex-col">
                         {/* Toolbar */}
-                        <div className="p-2 border-b bg-gray-50/30 flex flex-col gap-2">
+                        <div className="p-2 border-b border-border bg-muted/20 flex flex-col gap-2">
                             {/* Row 1: Selectors */}
                             <div className="w-full">
                                 <AIModelSelector
@@ -402,7 +401,7 @@ const SubtitleConverter = () => {
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="flex-1 h-7 text-xs font-medium"
+                                    className="flex-1 h-7 text-xs font-medium border-border"
                                     onClick={() => {
                                         if (!originalScript) return;
                                         setOriginalScript(formatTextWithLineBreaks(originalScript));
@@ -416,7 +415,7 @@ const SubtitleConverter = () => {
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    className="flex-1 h-7 text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100 font-medium transition-colors"
+                                    className="flex-1 h-7 text-xs bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 border border-purple-200 dark:border-purple-800 font-medium transition-colors"
                                     onClick={handleAddMarkers}
                                     disabled={isProcessing}
                                 >
@@ -429,7 +428,7 @@ const SubtitleConverter = () => {
                             value={originalScript}
                             onChange={(e) => setOriginalScript(e.target.value)}
                             placeholder="여기에 원본 대본을 붙여넣으세요... (// 로 수동 분절 가능)"
-                            className="h-full resize-none border-0 focus-visible:ring-0 p-4 font-sans text-base leading-relaxed text-gray-800 placeholder:text-slate-600"
+                            className="h-full min-h-[160px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 font-sans text-sm sm:text-base leading-relaxed bg-background text-foreground placeholder:text-muted-foreground"
                         />
                     </CardContent>
                 </Card>

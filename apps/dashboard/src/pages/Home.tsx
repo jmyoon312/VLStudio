@@ -1037,34 +1037,34 @@ const Home = () => {
 
             {/* 5. 🎯 하단 플로팅 액션 바 (Pixeling Style Floating Action Bar for Batch Ddalkkak) */}
             {selectedVideoIds.size > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 dark:bg-slate-900/95 text-white backdrop-blur-md border border-slate-700/80 rounded-2xl px-5 py-3 shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 duration-300">
-                    <div className="flex items-center gap-2 border-r border-slate-700 pr-4">
-                        <span className="w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[94vw] max-w-lg sm:w-auto bg-card/95 text-card-foreground backdrop-blur-md border border-border rounded-2xl px-4 py-2.5 sm:px-5 sm:py-3 shadow-2xl flex items-center justify-between sm:justify-start gap-2.5 sm:gap-4 animate-in slide-in-from-bottom-5 duration-300">
+                    <div className="flex items-center gap-1.5 sm:gap-2 border-r border-border pr-2.5 sm:pr-4 shrink-0">
+                        <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary text-white text-[11px] sm:text-xs font-bold flex items-center justify-center">
                             {selectedVideoIds.size}
                         </span>
-                        <span className="text-xs font-bold text-slate-200">개 선택됨</span>
+                        <span className="text-[11px] sm:text-xs font-bold text-foreground">개 선택</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-initial">
                         <button 
                             onClick={() => handleLaunchBatchDdalkkak('subtitle')}
-                            className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md"
+                            className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-[11px] sm:text-xs px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl transition-all flex items-center justify-center gap-1 sm:gap-1.5 shadow-md flex-1 sm:flex-initial"
                         >
-                            <Zap className="w-3.5 h-3.5 text-amber-300" />
-                            ⚡ 자막 일괄 생성 (딸깍)
+                            <Zap className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                            <span className="truncate">⚡ 자막 일괄 생성</span>
                         </button>
                         <button 
                             onClick={() => handleLaunchBatchDdalkkak('ttsdub')}
-                            className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all border border-slate-600 flex items-center gap-1.5"
+                            className="bg-muted hover:bg-muted/80 active:scale-95 text-foreground font-bold text-[11px] sm:text-xs px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl transition-all border border-border flex items-center justify-center gap-1 sm:gap-1.5 flex-1 sm:flex-initial"
                         >
-                            <Radio className="w-3.5 h-3.5 text-purple-400" />
-                            🎙️ 대본 + 더빙 일괄 작업
+                            <Radio className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span className="truncate">🎙️ 대본+더빙</span>
                         </button>
                     </div>
 
                     <button 
                         onClick={() => setSelectedVideoIds(new Set())}
-                        className="text-slate-400 hover:text-white p-1 rounded-lg ml-1"
+                        className="text-muted-foreground hover:text-foreground p-1 rounded-lg shrink-0"
                         title="선택 취소"
                     >
                         <X className="w-4 h-4" />
@@ -1075,14 +1075,14 @@ const Home = () => {
             {/* 6. 📱 대형 9:16 쇼츠 상세 & 플레이어 팝업 모달 (Pixeling Original Modal Style) */}
             {selectedVideo && (
                 <Dialog open={!!selectedVideo} onOpenChange={(open) => !open && setSelectedVideo(null)}>
-                    <DialogContent className="max-w-4xl w-[95vw] h-[85vh] max-h-[780px] p-0 bg-slate-950 border border-slate-800 text-white overflow-hidden rounded-2xl flex flex-col md:flex-row">
+                    <DialogContent className="max-w-4xl w-[95vw] h-[85vh] max-h-[780px] p-0 bg-card border border-border text-foreground overflow-hidden rounded-2xl flex flex-col md:flex-row shadow-2xl">
                         <DialogHeader className="sr-only">
                             <DialogTitle>{selectedVideo.title || '쇼츠 상세 정보'}</DialogTitle>
                             <DialogDescription>{selectedVideo.description || '선택한 숏폼 영상의 세부 정보 및 딸깍 제작 옵션'}</DialogDescription>
                         </DialogHeader>
                         
                         {/* 좌측: 9:16 비디오 플레이어 영역 */}
-                        <div className="w-full md:w-[48%] h-[45%] md:h-full bg-black relative flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-slate-800">
+                        <div className="w-full md:w-[48%] h-[45%] md:h-full bg-black relative flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-border">
                             {selectedVideo.videoUrl && !selectedVideo.videoUrl.startsWith('http') && selectedVideo.videoUrl.includes('/api/files/stream') ? (
                                 <video 
                                     src={selectedVideo.videoUrl} 
@@ -1140,56 +1140,55 @@ const Home = () => {
                         </div>
 
                         {/* 우측: 상세 메타데이터 & 바이럴루프 제작 액션 패널 */}
-
-                        <div className="w-full md:w-[52%] h-[55%] md:h-full p-5 sm:p-6 overflow-y-auto flex flex-col justify-between space-y-4 bg-slate-900/90 text-slate-100">
+                        <div className="w-full md:w-[52%] h-[55%] md:h-full p-4 sm:p-6 overflow-y-auto flex flex-col justify-between space-y-4 bg-card text-card-foreground">
                             <div className="space-y-4">
                                 
                                 {/* 타이틀 및 채널 */}
                                 <div>
-                                    <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                                        <span>채널: <strong className="text-slate-200">{selectedVideo.channel || '트렌딩 크리에이터'}</strong></span>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                        <span>채널: <strong className="text-foreground">{selectedVideo.channel || '트렌딩 크리에이터'}</strong></span>
                                         <span>{selectedVideo.time || '1일 전'}</span>
                                     </div>
-                                    <h3 className="text-base sm:text-lg font-extrabold text-white leading-snug">
+                                    <h3 className="text-sm sm:text-base md:text-lg font-extrabold text-foreground leading-snug">
                                         {selectedVideo.title}
                                     </h3>
                                 </div>
 
                                 {/* 메트릭 4분할 그리드 (Pixeling Metric Cards) */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400">조회수</p>
-                                        <p className="text-xs font-extrabold text-white mt-0.5">{selectedVideo.views}</p>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">조회수</p>
+                                        <p className="text-xs font-extrabold text-foreground mt-0.5">{selectedVideo.views}</p>
                                     </div>
-                                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400">댓글수</p>
-                                        <p className="text-xs font-extrabold text-white mt-0.5">{selectedVideo.comments || '450개'}</p>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">댓글수</p>
+                                        <p className="text-xs font-extrabold text-foreground mt-0.5">{selectedVideo.comments || '450개'}</p>
                                     </div>
-                                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400">영상 길이</p>
-                                        <p className="text-xs font-extrabold text-white mt-0.5">{selectedVideo.duration}</p>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">영상 길이</p>
+                                        <p className="text-xs font-extrabold text-foreground mt-0.5">{selectedVideo.duration}</p>
                                     </div>
-                                    <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400">상태</p>
-                                        <p className="text-xs font-extrabold text-emerald-400 mt-0.5">수집완료</p>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">상태</p>
+                                        <p className="text-xs font-extrabold text-emerald-500 mt-0.5">수집완료</p>
                                     </div>
                                 </div>
 
                                 {/* 설명 & 해시태그 박스 */}
-                                <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/40 text-xs text-slate-300 space-y-1.5">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">영상 설명 및 태그</p>
-                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-slate-200">
+                                <div className="p-3 rounded-xl bg-muted/30 border border-border text-xs text-foreground space-y-1.5">
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">영상 설명 및 태그</p>
+                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-muted-foreground">
                                         {selectedVideo.description}
                                     </p>
                                 </div>
 
                                 {/* 수집 기록 및 성과 분석 */}
-                                <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-900/50 text-xs space-y-1">
-                                    <div className="flex items-center justify-between text-[11px] font-bold text-indigo-300">
+                                <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs space-y-1">
+                                    <div className="flex items-center justify-between text-[11px] font-bold text-primary">
                                         <span>📊 AI 바이럴 점수 분석</span>
-                                        <span className="text-emerald-400">상위 1.2%</span>
+                                        <span className="text-emerald-500">상위 1.2%</span>
                                     </div>
-                                    <p className="text-[10px] text-slate-400 leading-normal">
+                                    <p className="text-[10px] text-muted-foreground leading-normal">
                                         초반 3초 시청 유지율 78% 기록. 딸깍 자막 또는 AI 더빙으로 재가공 시 높은 도달률이 예상됩니다.
                                     </p>
                                 </div>
@@ -1197,7 +1196,7 @@ const Home = () => {
                             </div>
 
                             {/* 하단 바이럴루프 원클릭 제작 액션 버튼 바 */}
-                            <div className="space-y-2 pt-2 border-t border-slate-800">
+                            <div className="space-y-2 pt-2 border-t border-border">
                                 <div className="grid grid-cols-2 gap-2">
                                     <Button 
                                         onClick={() => handleSingleDdalkkak(selectedVideo, 'subtitle')}

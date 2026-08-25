@@ -360,10 +360,10 @@ const RemoverEditor = () => {
     };
 
     return (
-        <div className="flex h-[calc(100vh-theme(spacing.16))] bg-background text-foreground border-t border-border">
+        <div className="flex flex-col lg:flex-row h-full min-h-screen lg:h-[calc(100vh-theme(spacing.16))] bg-background text-foreground border-t border-border overflow-y-auto lg:overflow-hidden">
             {/* Sidebar */}
-            <aside className="w-80 bg-card border-r border-border flex flex-col shadow-sm z-10">
-                <div className="p-4 border-b border-border flex items-center justify-between">
+            <aside className="w-full lg:w-80 bg-card border-b lg:border-b-0 lg:border-r border-border flex flex-col shadow-2xs z-10 shrink-0">
+                <div className="p-3.5 sm:p-4 border-b border-border flex items-center justify-between">
                     <Badge variant="outline" className="text-[10px] font-black uppercase border-primary/30 text-primary bg-primary/10">Object Removal System</Badge>
                     <div className="flex gap-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -371,7 +371,7 @@ const RemoverEditor = () => {
                     </div>
                 </div>
 
-                <div className="flex-1 p-4 space-y-8 overflow-y-auto">
+                <div className="flex-1 p-3.5 sm:p-4 space-y-5 sm:space-y-6 overflow-y-auto">
                     {/* Visual Tools */}
                     <div className="space-y-3">
                         <label className="text-sm font-semibold flex items-center gap-2">

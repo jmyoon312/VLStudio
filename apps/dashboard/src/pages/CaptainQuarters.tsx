@@ -92,17 +92,17 @@ const CaptainQuarters: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background">
-            <div className="container mx-auto p-6 space-y-6">
+        <div className="min-h-screen bg-background text-foreground">
+            <div className="container mx-auto p-3 sm:p-6 space-y-3 sm:space-y-6">
                 {/* Header with Tabs and Captain Selector */}
-                <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                <div className="bg-card rounded-xl shadow-2xs border border-border p-3.5 sm:p-6">
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 w-full md:w-auto">
                             {/* Captain Selector */}
                             {!loading && captains.length > 1 && (
                                 <Select value={selectedCaptain} onValueChange={handleCaptainChange}>
-                                    <SelectTrigger className="w-[280px] bg-background border-border">
-                                        <Users className="w-4 h-4 mr-2" />
+                                    <SelectTrigger className="w-full md:w-[280px] bg-background border-border text-xs sm:text-sm">
+                                        <Users className="w-4 h-4 mr-2 text-primary shrink-0" />
                                         <SelectValue placeholder="관리자 선택" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -124,29 +124,28 @@ const CaptainQuarters: React.FC = () => {
                             setActiveTab(val);
                             const path = selectedCaptain === "all" ? `/captain/${val}` : `/captain/${selectedCaptain}/${val}`;
                             navigate(path);
-                        }}>
-                            <TabsList className="bg-muted border border-border p-1 h-auto">
+                        }} className="w-full md:w-auto">
+                            <TabsList className="bg-muted border border-border p-1 h-auto w-full md:w-auto flex-wrap">
                                 <TabsTrigger
                                     value="dashboard"
-                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm px-4 py-2 gap-2"
+                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-2xs px-3 sm:px-4 py-1.5 sm:py-2 gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold flex-1 md:flex-initial"
                                 >
-                                    <BarChart3 className="w-4 h-4" />
+                                    <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     대시보드
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="channels"
-                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm px-4 py-2 gap-2"
+                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-2xs px-3 sm:px-4 py-1.5 sm:py-2 gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold flex-1 md:flex-initial"
                                 >
-                                    <Layers className="w-4 h-4" />
+                                    <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     채널 관리
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="settings"
-                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm px-4 py-2 gap-2"
-                                    disabled={selectedCaptain === "all"}
+                                    className="data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-2xs px-3 sm:px-4 py-1.5 sm:py-2 gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold flex-1 md:flex-initial"
                                 >
-                                    <Settings className="w-4 h-4" />
-                                    설정
+                                    <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                    환경 설정
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>

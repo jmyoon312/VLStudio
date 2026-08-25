@@ -240,10 +240,10 @@ export default function StationManager() {
 
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8 bg-background text-foreground min-h-screen">
-            <header className="flex items-center justify-between">
+        <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6 bg-background text-foreground min-h-screen">
+            <header className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div />
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                     <button
                         onClick={fetchStations}
                         className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"

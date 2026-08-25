@@ -48,7 +48,7 @@ const KeyListInput = ({
                 {keys.length === 0 && <p className="text-xs text-muted-foreground text-center">키가 없습니다.</p>}
                 {keys.map((k, i) => (
                     <div key={i} className="flex gap-2">
-                        <Input value={k} readOnly className="h-8 text-xs bg-white" type="password" />
+                        <Input value={k} readOnly className="h-8 text-xs bg-background text-foreground" type="password" />
                         <Button variant="ghost" size="sm" onClick={() => onChange(keys.filter((_, idx) => idx !== i))} className="h-8 w-8 text-red-500"><Trash2 className="w-4 h-4" /></Button>
                     </div>
                 ))}
@@ -547,22 +547,22 @@ const Settings = () => {
         }
     };
 
-    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
+    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="space-y-8 max-w-4xl mx-auto pb-10">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto p-3 sm:p-6 pb-16 bg-background text-foreground min-h-screen">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight">설정</h1>
-                    <p className="text-muted-foreground">애플리케이션의 전역 설정을 관리합니다.</p>
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">설정</h1>
+                    <p className="text-xs sm:text-sm text-muted-foreground">애플리케이션의 전역 설정을 관리합니다.</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleBackup} className="h-9">
-                        <Download className="w-4 h-4 mr-2" />
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={handleBackup} className="h-8 sm:h-9 text-xs sm:text-sm">
+                        <Download className="w-3.5 h-3.5 mr-1.5" />
                         설정 백업 (Export)
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-9">
-                        <Upload className="w-4 h-4 mr-2" />
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-8 sm:h-9 text-xs sm:text-sm">
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
                         설정 복원 (Import)
                     </Button>
                     <input
@@ -577,7 +577,7 @@ const Settings = () => {
 
             <div className="flex-1">
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="mb-4 bg-muted/50 p-1 h-auto flex-wrap w-full justify-start">
+                    <TabsList className="mb-4 bg-muted/50 p-1 h-auto flex-wrap w-full justify-start gap-1">
                         <TabsTrigger value="general" className="gap-2 px-4 h-9">
                             <SettingsIcon className="w-4 h-4" /> 일반
                         </TabsTrigger>
@@ -691,7 +691,7 @@ const Settings = () => {
                                                 자동 스캔 시 해당 기준을 넘지 못하는 평범한 영상은 DB에 수집되지 않습니다.
                                             </p>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 border rounded-lg">
+                                        <div className="grid grid-cols-2 gap-4 bg-muted/40 p-4 border rounded-lg">
                                             <div className="space-y-2">
                                                 <Label>쇼츠 영상 EV 기준 (%)</Label>
                                                 <div className="flex items-center gap-2">

@@ -105,14 +105,14 @@ const Incubator = () => {
     const isWired = sysMode.includes("WIRED");
 
     return (
-        <div className="p-4 md:p-6 space-y-4 bg-background min-h-screen text-foreground font-sans">
+        <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 bg-background min-h-screen text-foreground font-sans">
 
 
             {/* Compact Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-3 border-b border-border">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-2.5 sm:pb-3 border-b border-border">
                 <div />
 
-                <div className="flex items-center gap-3 mt-3 md:mt-0">
+                <div className="flex items-center gap-2 sm:gap-3 mt-2 md:mt-0 w-full md:w-auto justify-end">
                     <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full text-[10px] font-bold text-muted-foreground">
                         <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-muted'}`} />
                         {isConnected ? `CONNECTED: ${networkStatus.current_ip}` : 'OFFLINE'}
@@ -122,7 +122,7 @@ const Incubator = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit overflow-x-auto">
+            <div className="flex space-x-1 bg-muted p-1 rounded-xl w-full sm:w-fit overflow-x-auto max-w-full">
                 {[
                     { id: 'vault', label: '통합 계정 & 육성 관리', icon: Shield },
                     { id: 'social', label: '멀티 플랫폼 (Social)', icon: Globe },
@@ -131,12 +131,12 @@ const Incubator = () => {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
-                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === tab.id
-                            ? 'bg-background text-primary shadow-sm'
+                        className={`flex items-center px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-all shrink-0 ${activeTab === tab.id
+                            ? 'bg-background text-primary shadow-2xs font-bold'
                             : 'text-muted-foreground hover:text-foreground'
                             }`}
                     >
-                        <tab.icon className="w-4 h-4 mr-2 shrink-0" />
+                        <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 shrink-0" />
                         <span className="whitespace-nowrap">{tab.label}</span>
                     </button>
                 ))}

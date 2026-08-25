@@ -541,17 +541,17 @@ const ScriptLab = () => {
     }, [videoHistory, statsVideo]);
 
     return (
-        <div className="h-full flex flex-col bg-background p-6 space-y-4" ref={tableContainerRef}>
+        <div className="h-full flex flex-col bg-background p-3 sm:p-6 space-y-3 sm:space-y-4" ref={tableContainerRef}>
             {/* Header Area */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 <div />
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-wrap gap-2 items-center justify-end">
                     {/* Select All Button */}
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleSelectAll(table.getFilteredRowModel().rows.map(r => r.original))}
-                        className="text-muted-foreground hover:text-primary"
+                        className="text-muted-foreground hover:text-primary text-xs"
                     >
                         {selectedIds.size === table.getFilteredRowModel().rows.length && table.getFilteredRowModel().rows.length > 0
                             ? "전체 해제"
@@ -564,18 +564,18 @@ const ScriptLab = () => {
                             variant="destructive"
                             size="sm"
                             onClick={handleDelete}
-                            className="gap-2 animate-in fade-in zoom-in duration-200"
+                            className="gap-1.5 animate-in fade-in zoom-in duration-200 text-xs"
                         >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                             {selectedIds.size}개 삭제
                         </Button>
                     )}
 
-                    <div className="relative w-64">
+                    <div className="relative w-full sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
                             placeholder="제목, 채널 검색..."
-                            className="pl-9 bg-card shadow-sm"
+                            className="pl-9 bg-card shadow-2xs text-xs h-9"
                             value={globalFilter}
                             onChange={e => setGlobalFilter(e.target.value)}
                         />

@@ -503,18 +503,18 @@ const MultiTTS = () => {
     };
 
     return (
-        <div className="max-w-[1800px] mx-auto space-y-8 p-8 font-sans text-foreground">
+        <div className="max-w-[1800px] mx-auto space-y-4 sm:space-y-6 p-3 sm:p-6 font-sans text-foreground min-h-screen bg-background">
             <div />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
                 {/* Step 1: TTS Generation (Main Stage - Wider) */}
-                <Card className="lg:col-span-7 h-fit border border-border shadow-sm rounded-xl bg-card">
-                    <CardHeader className="pb-4">
-                        <CardTitle className="flex items-center gap-3 text-xl font-bold text-foreground">
-                            <span className="bg-primary/10 text-primary w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                <Card className="lg:col-span-7 h-fit border border-border shadow-2xs rounded-xl bg-card">
+                    <CardHeader className="pb-3 sm:pb-4 p-4 sm:p-6">
+                        <CardTitle className="flex items-center gap-2.5 sm:gap-3 text-lg sm:text-xl font-extrabold text-foreground">
+                            <span className="bg-primary/10 text-primary w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold">1</span>
                             음성 생성
                         </CardTitle>
-                        <CardDescription className="text-base text-muted-foreground">AI 음성을 생성합니다.</CardDescription>
+                        <CardDescription className="text-xs sm:text-sm text-muted-foreground">AI 음성을 생성합니다.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
 

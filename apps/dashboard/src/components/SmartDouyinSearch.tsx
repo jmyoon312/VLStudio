@@ -79,12 +79,12 @@ const AdvancedTtsCard = ({
     };
 
     return (
-        <div className="border border-slate-200 rounded-xl p-3 hover:border-orange-200 transition-colors bg-white">
+        <div className="border border-border rounded-xl p-3 hover:border-primary/40 transition-colors bg-card text-card-foreground">
             <div className="flex items-center justify-between mb-3">
-                <h4 className="text-[11px] font-bold text-slate-500">{label}</h4>
+                <h4 className="text-[11px] font-bold text-muted-foreground">{label}</h4>
                 <button 
                     onClick={togglePlay}
-                    className="h-7 px-3 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-orange-100 hover:text-orange-600 transition-colors text-xs font-bold"
+                    className="h-7 px-3 rounded-full bg-muted flex items-center justify-center text-foreground hover:bg-primary/10 hover:text-primary transition-colors text-xs font-bold"
                     title={isPlaying ? "정지" : "미리듣기"}
                 >
                     {isPlaying ? <div className="w-2.5 h-2.5 bg-current rounded-sm"></div> : <Play size={12} className="mr-1" />}
@@ -94,22 +94,22 @@ const AdvancedTtsCard = ({
             <div className="space-y-2">
                 <div className="flex gap-2">
                     <div className="flex-1">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">TTS 엔진</label>
+                        <label className="text-[9px] font-bold text-muted-foreground uppercase mb-1 block">TTS 엔진</label>
                         <select 
                             value={currentEngine}
                             onChange={(e) => onChange(category, { ...config, engine: e.target.value, voice_id: e.target.value === 'supertone-local' ? 'M1' : (VOICE_PRESETS[e.target.value as keyof typeof VOICE_PRESETS]?.[0]?.id || VOICE_PRESETS[e.target.value as keyof typeof VOICE_PRESETS]?.[0] || '') })}
-                            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-slate-50 focus:outline-none focus:border-orange-300"
+                            className="w-full text-xs p-1.5 border border-border rounded bg-background text-foreground focus:outline-none focus:border-primary"
                         >
                             {ENGINE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                         </select>
                     </div>
                     <div className="flex-1">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">목소리 (Voice/Actor ID)</label>
+                        <label className="text-[9px] font-bold text-muted-foreground uppercase mb-1 block">목소리 (Voice/Actor ID)</label>
                         {currentEngine === 'supertone-local' ? (
                             <select 
                                 value={config.voice_id}
                                 onChange={(e) => onChange(category, { ...config, voice_id: e.target.value })}
-                                className="w-full text-xs p-1.5 border border-slate-200 rounded bg-slate-50 focus:outline-none focus:border-orange-300"
+                                className="w-full text-xs p-1.5 border border-border rounded bg-background text-foreground focus:outline-none focus:border-primary"
                             >
                                 {voices.map(v => <option key={v} value={v}>{v}</option>)}
                             </select>
@@ -118,7 +118,7 @@ const AdvancedTtsCard = ({
                                 <select
                                     value={config.voice_id}
                                     onChange={(e) => onChange(category, { ...config, voice_id: e.target.value })}
-                                    className="w-full text-xs p-1 border border-slate-200 rounded bg-slate-50 focus:outline-none focus:border-orange-300"
+                                    className="w-full text-xs p-1.5 border border-border rounded bg-background text-foreground focus:outline-none focus:border-primary"
                                 >
                                     {(VOICE_PRESETS[currentEngine as keyof typeof VOICE_PRESETS] as any[]).map((v: any) => (
                                         <option key={v.id || v} value={v.id || v}>{v.label || v}</option>
@@ -128,7 +128,7 @@ const AdvancedTtsCard = ({
                                     type="text" 
                                     value={config.voice_id} 
                                     onChange={(e) => onChange(category, { ...config, voice_id: e.target.value })}
-                                    className="w-full text-[10px] p-1 border border-slate-200 rounded bg-white text-slate-500 placeholder:text-slate-300"
+                                    className="w-full text-[10px] p-1 border border-border rounded bg-background text-foreground placeholder:text-muted-foreground"
                                     placeholder="커스텀 Actor ID 입력"
                                 />
                             </div>
@@ -519,24 +519,25 @@ export default function SmartDouyinSearch() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 font-sans">
-      <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="min-h-screen bg-background text-foreground p-3 sm:p-6 font-sans">
+      <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6">
         
         {/* HEADER */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-sm text-white">
-                <Scissors size={24} />
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
+              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-sm text-white shrink-0">
+                <Scissors className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              Douyin Studio Pro <span className="text-xs font-black bg-slate-900 text-white px-2 py-0.5 rounded-full relative -top-3 left-1 tracking-widest">BATCH</span>
+              <span>Douyin Studio Pro</span>
+              <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-full relative -top-2 left-0.5 tracking-widest">BATCH</span>
             </h1>
-            <p className="mt-2 text-sm text-slate-500 font-medium tracking-wide">
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground font-medium tracking-wide">
               수백 개의 숏폼 영상을 동시 다발적으로 분석/편집하는 멀티모달 AI 팩토리
             </p>
           </div>
-          <div className="flex gap-3">
-             <button onClick={handleOpenFolder} className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 shadow-sm text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all">
+          <div className="flex gap-2 sm:gap-3">
+             <button onClick={handleOpenFolder} className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-card border border-border shadow-xs text-foreground text-xs sm:text-sm font-semibold rounded-xl hover:bg-muted transition-all">
                <FolderOpen size={16} />
                로컬 팩토리 폴더 열기
              </button>
@@ -545,61 +546,61 @@ export default function SmartDouyinSearch() {
 
         {/* PROGRESS BANNER */}
         {jobId && (
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
-             <div className="flex items-center gap-4">
+          <div className="bg-card rounded-2xl p-3.5 sm:p-4 border border-border shadow-2xs flex items-center justify-between">
+             <div className="flex items-center gap-3 sm:gap-4">
                  {isWorking ? (
-                    <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
-                      <Loader2 className="h-5 w-5 text-indigo-600 animate-spin" />
+                    <div className="relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+                      <Loader2 className="h-5 w-5 animate-spin" />
                     </div>
                  ) : jobStatus === 'error' ? (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
+                    <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 shrink-0">
                       <X className="h-5 w-5" />
                     </div>
                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                    <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 shrink-0">
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
                  )}
                  <div>
-                   <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                   <h3 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
                      배치 세션 #{jobId}
-                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isWorking ? 'bg-indigo-100 text-indigo-700' : jobStatus === 'error' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isWorking ? 'bg-primary/10 text-primary' : jobStatus === 'error' ? 'bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'}`}>
                        {jobStatus}
                      </span>
                    </h3>
-                   <p className="text-sm text-slate-500 font-medium">{processMsg}</p>
+                   <p className="text-xs sm:text-sm text-muted-foreground font-medium">{processMsg}</p>
                  </div>
              </div>
           </div>
         )}
 
         {/* STUDIO TABS */}
-        <div className="bg-white rounded-t-2xl border border-slate-200 shadow-sm p-2 flex items-center gap-2">
-            <button onClick={() => setActiveTab('ingest')} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'ingest' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>
-                <Download size={16} /> 1단계: 수집 및 분석 큐
+        <div className="bg-card rounded-t-2xl border border-border shadow-2xs p-1.5 sm:p-2 flex items-center gap-1.5 sm:gap-2 overflow-x-auto dashboard-scroll-area select-none">
+            <button onClick={() => setActiveTab('ingest')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${activeTab === 'ingest' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:bg-muted'}`}>
+                <Download size={15} /> 1단계: 수집 및 분석
             </button>
-            <button onClick={() => setActiveTab('batch')} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'batch' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>
-                <Scissors size={16} /> 2단계: AI 매핑 편집기
-                {videos.length > 0 && <span className="ml-2 bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-full text-xs">{videos.length}</span>}
+            <button onClick={() => setActiveTab('batch')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${activeTab === 'batch' ? 'bg-indigo-600 text-white shadow-xs' : 'text-muted-foreground hover:bg-muted'}`}>
+                <Scissors size={15} /> 2단계: AI 매핑
+                {videos.length > 0 && <span className="ml-1.5 bg-white/20 text-white px-2 py-0.2 rounded-full text-[10px]">{videos.length}</span>}
             </button>
-            <button onClick={() => setActiveTab('timeline')} className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === 'timeline' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}>
-                <CheckCheck size={16} /> 3단계: 최종 검수 및 내보내기
+            <button onClick={() => setActiveTab('timeline')} className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${activeTab === 'timeline' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:bg-muted'}`}>
+                <CheckCheck size={15} /> 3단계: 최종 검수
             </button>
         </div>
 
         {/* TAB CONTENTS */}
-        <div className="bg-white border-x border-b border-slate-200 shadow-sm rounded-b-2xl p-6 min-h-[600px]">
+        <div className="bg-card border-x border-b border-border shadow-2xs rounded-b-2xl p-4 sm:p-6 min-h-[600px]">
             
             {/* 탭 1: 수집 & 업로드 */}
             {activeTab === 'ingest' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                     {/* 더우인 스크래퍼 */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-                            <Globe className="text-indigo-600" size={24} />
+                    <div className="space-y-4 sm:space-y-6">
+                        <div className="flex items-center gap-3 pb-3 sm:pb-4 border-b border-border">
+                            <Globe className="text-primary" size={24} />
                             <div>
-                                <h3 className="font-bold text-slate-900 text-lg">Douyin 네트워크 수집</h3>
-                                <p className="text-sm text-slate-500">프로필을 선택하고 키워드로 영상을 수집합니다.</p>
+                                <h3 className="font-bold text-foreground text-base sm:text-lg">Douyin 네트워크 수집</h3>
+                                <p className="text-xs sm:text-sm text-muted-foreground">프로필을 선택하고 키워드로 영상을 수집합니다.</p>
                             </div>
                         </div>
 

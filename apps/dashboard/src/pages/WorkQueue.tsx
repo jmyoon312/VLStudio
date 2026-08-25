@@ -309,8 +309,8 @@ const WorkQueue = () => {
             {/* 1. 상단 타이틀 및 액션 버튼 바 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full">
                 <div>
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
-                        <Layers className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-600" />
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Layers className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
                         자동화 작업 대기열
                     </h1>
                     <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
@@ -318,29 +318,29 @@ const WorkQueue = () => {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                    <Button onClick={() => setIsPixelingOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs">
+                <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                    <Button onClick={() => setIsPixelingOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs flex-1 sm:flex-initial">
                         <Layers className="w-3.5 h-3.5 mr-1.5" /> 픽셀링 메타 가져오기
                     </Button>
-                    <Button onClick={() => { setEditingItem(null); setIsAddDialogOpen(true); }} variant="outline" className="text-xs border-border font-medium">
+                    <Button onClick={() => { setEditingItem(null); setIsAddDialogOpen(true); }} variant="outline" className="text-xs border-border font-medium flex-1 sm:flex-initial">
                         <Plus className="w-3.5 h-3.5 mr-1.5" /> 수동 등록
                     </Button>
-                    <Button onClick={() => setShowBulkImport(true)} variant="outline" className="text-xs border-border font-medium">
-                        <Upload className="w-3.5 h-3.5 mr-1.5" /> 엑셀/CSV 일괄 등록
+                    <Button onClick={() => setShowBulkImport(true)} variant="outline" className="text-xs border-border font-medium flex-1 sm:flex-initial">
+                        <Upload className="w-3.5 h-3.5 mr-1.5" /> 엑셀/CSV 일괄
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={() => { loadQueueItems(); loadStats(); loadBatchGroups(); }} className="text-muted-foreground hover:text-foreground h-8 w-8" title="새로고침">
+                    <Button size="icon" variant="ghost" onClick={() => { loadQueueItems(); loadStats(); loadBatchGroups(); }} className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0" title="새로고침">
                         <RefreshCw className="w-4 h-4" />
                     </Button>
                 </div>
             </div>
 
             {/* 2. 대기열 상태 통계 요약 카드 (7개 상태 완벽 동기화) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3 w-full">
                 <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-indigo-400 transition-colors" onClick={() => setActiveTab('all')}>
-                    <CardContent className="p-3.5 flex items-center justify-between">
+                    <CardContent className="p-3 sm:p-3.5 flex items-center justify-between">
                         <div>
-                            <p className="text-[11px] font-medium text-muted-foreground">전체</p>
-                            <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">{totalCount}</h3>
+                            <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">전체</p>
+                            <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-foreground mt-0.5">{totalCount}</h3>
                         </div>
                         <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
                             <FileText className="w-4 h-4" />
@@ -349,12 +349,12 @@ const WorkQueue = () => {
                 </Card>
 
                 <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-slate-400 transition-colors" onClick={() => setActiveTab('draft')}>
-                    <CardContent className="p-3.5 flex items-center justify-between">
+                    <CardContent className="p-3 sm:p-3.5 flex items-center justify-between">
                         <div>
-                            <p className="text-[11px] font-medium text-muted-foreground">임시 보관</p>
-                            <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">{draftCount}</h3>
+                            <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">임시 보관</p>
+                            <h3 className="text-lg sm:text-xl font-extrabold tracking-tight text-foreground mt-0.5">{draftCount}</h3>
                         </div>
-                        <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        <div className="p-2 rounded-lg bg-muted text-muted-foreground">
                             <Edit className="w-4 h-4" />
                         </div>
                     </CardContent>

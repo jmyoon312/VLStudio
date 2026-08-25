@@ -505,13 +505,13 @@ const ScriptWriter = () => {
             )}
 
             {/* Zone 2: Workspace */}
-            <div className="flex-1 flex gap-4 min-h-[700px]">
+            <div className="flex-1 flex flex-col md:flex-row gap-3 sm:gap-4 min-h-[600px] md:min-h-[700px]">
                 {/* Left Pane: Source */}
-                <Card className="flex-1 flex flex-col min-h-0">
-                    <CardHeader className="py-3 px-4 border-b bg-muted/30">
+                <Card className="flex-1 flex flex-col min-h-[250px] md:min-h-0">
+                    <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b bg-muted/30">
                         <div className="flex justify-between items-center">
-                            <CardTitle className="text-base">원본 자막/스크립트 (Source)</CardTitle>
-                            <Button variant="ghost" size="sm" onClick={handlePaste} className="h-8 text-xs">
+                            <CardTitle className="text-sm sm:text-base font-bold">원본 자막/스크립트 (Source)</CardTitle>
+                            <Button variant="ghost" size="sm" onClick={handlePaste} className="h-7 sm:h-8 text-xs">
                                 <Copy className="w-3 h-3 mr-1" />
                                 붙여넣기
                             </Button>
@@ -519,7 +519,7 @@ const ScriptWriter = () => {
                     </CardHeader>
                     <CardContent className="flex-1 p-0 relative">
                         <Textarea
-                            className="w-full h-full resize-none border-0 focus-visible:ring-0 p-4 rounded-none"
+                            className="w-full h-full min-h-[200px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground"
                             placeholder="번역 및 변환할 원본 텍스트를 여기에 입력하거나 붙여넣으세요..."
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
@@ -528,18 +528,19 @@ const ScriptWriter = () => {
                 </Card>
 
                 {/* Center Action */}
-                <div className="flex flex-col justify-center gap-2">
+                <div className="flex flex-row md:flex-col justify-center gap-2">
                     <Button
                         size="lg"
-                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
+                        className="w-full md:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg py-2.5 sm:py-3"
                         onClick={handleGenerate}
                         disabled={isGenerating}
                     >
                         {isGenerating ? (
-                            <Wand2 className="w-5 h-5 animate-spin" />
+                            <Wand2 className="w-5 h-5 animate-spin mr-1.5 md:mr-0" />
                         ) : (
-                            <Sparkles className="w-5 h-5" />
+                            <Sparkles className="w-5 h-5 mr-1.5 md:mr-0" />
                         )}
+                        <span className="md:hidden font-bold text-xs">AI 대본 변환 및 생성</span>
                     </Button>
                 </div>
 
