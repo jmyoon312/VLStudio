@@ -595,43 +595,43 @@ export default function GuideCenter() {
     ];
 
     return (
-        <div className="container mx-auto p-3 sm:p-6 md:p-8 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-screen bg-background text-foreground">
+        <div className="container mx-auto p-3 sm:p-6 md:p-8 pb-36 md:pb-8 max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-screen bg-background text-foreground">
             {/* Content Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-8">
 
                 {/* Left: Navigation Menu (Sticky) */}
                 <div className="lg:col-span-1">
-                    <div className="static lg:sticky top-8 space-y-4 sm:space-y-6">
+                    <div className="static lg:sticky top-8 space-y-3 sm:space-y-6">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                             <Input
                                 placeholder="궁금한 기능을 검색..."
-                                className="pl-10 h-10 sm:h-12 text-sm sm:text-base shadow-2xs bg-background"
+                                className="pl-9 sm:pl-10 h-9 sm:h-12 text-xs sm:text-base shadow-2xs bg-background"
                             />
                         </div>
 
-                        <ScrollArea className="h-auto max-h-[400px] lg:max-h-none lg:h-[calc(100vh-200px)] pr-2 sm:pr-4">
-                            <Accordion type="single" collapsible className="space-y-3 sm:space-y-4" defaultValue="analytics">
+                        <ScrollArea className="h-auto max-h-[220px] lg:max-h-none lg:h-[calc(100vh-200px)] pr-2 sm:pr-4">
+                            <Accordion type="single" collapsible className="space-y-2 sm:space-y-4">
                                 {guideCategories.map((cat) => (
-                                    <AccordionItem key={cat.id} value={cat.id} className="border rounded-xl px-4 bg-card shadow-sm hover:shadow-md transition-shadow">
-                                        <AccordionTrigger className="hover:no-underline py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-primary/10 rounded-lg">
-                                                    <cat.icon className="w-4 h-4 text-primary" />
+                                    <AccordionItem key={cat.id} value={cat.id} className="border border-border rounded-xl px-3 sm:px-4 bg-card shadow-2xs">
+                                        <AccordionTrigger className="hover:no-underline py-2.5 sm:py-4">
+                                            <div className="flex items-center gap-2 sm:gap-3">
+                                                <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                                                    <cat.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
                                                 </div>
-                                                <span className="font-bold text-base text-card-foreground">{cat.title}</span>
+                                                <span className="font-bold text-xs sm:text-base text-card-foreground">{cat.title}</span>
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent>
-                                            <div className="space-y-1 pt-1 pb-3">
+                                            <div className="space-y-1 pt-1 pb-2 sm:pb-3">
                                                 {cat.guides.map((guide) => (
                                                     <a
                                                         key={guide.id}
                                                         href={`#${guide.key}`}
-                                                        className="block p-2.5 rounded-lg hover:bg-accent/50 border border-transparent hover:border-accent transition-all group"
+                                                        className="block p-2 sm:p-2.5 rounded-lg hover:bg-muted/60 border border-transparent transition-all group"
                                                     >
                                                         <div className="flex justify-between items-center mb-0.5">
-                                                            <span className="font-medium text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                                                            <span className="font-medium text-xs sm:text-sm text-muted-foreground group-hover:text-primary transition-colors">
                                                                 {guide.title}
                                                             </span>
                                                         </div>
@@ -652,15 +652,15 @@ export default function GuideCenter() {
                 </div>
 
                 {/* Right: Detailed Content Area */}
-                <div className="lg:col-span-3 space-y-16 pb-20">
+                <div className="lg:col-span-3 space-y-8 sm:space-y-16">
                     {/* Render each documented section */}
                     {Object.entries(detailedGuides).map(([key, content]) => (
                         <div key={key} id={key} className="scroll-mt-24 group">
                             {/* Card Container */}
-                            <Card className="overflow-hidden border-border/50 shadow-lg ring-1 ring-border/50">
+                            <Card className="overflow-hidden border-border bg-card shadow-2xs ring-1 ring-border/50">
                                 {/* Hero Image Section (Conditional) */}
                                 {content.image && (
-                                    <div className="aspect-[21/9] w-full bg-muted relative overflow-hidden border-b border-border/50">
+                                    <div className="aspect-video sm:aspect-[21/9] w-full bg-muted relative overflow-hidden border-b border-border">
                                         <img
                                             src={content.image}
                                             alt={content.titleOverride || key}
@@ -670,13 +670,13 @@ export default function GuideCenter() {
                                                 e.currentTarget.style.display = 'none';
                                             }}
                                         />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent flex items-end p-6 md:p-8">
+                                        <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent flex items-end p-4 sm:p-6 md:p-8">
                                             <div className="text-foreground">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <Badge className="bg-primary hover:bg-primary/90 border-0 text-primary-foreground">가이드</Badge>
-                                                    <span className="text-sm font-medium text-primary-foreground/80 drop-shadow-sm">Step-by-Step</span>
+                                                <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5">
+                                                    <Badge className="bg-primary hover:bg-primary/90 border-0 text-primary-foreground text-[10px] sm:text-xs">가이드</Badge>
+                                                    <span className="text-xs sm:text-sm font-medium text-foreground/80 drop-shadow-sm">Step-by-Step</span>
                                                 </div>
-                                                <h2 className="text-2xl md:text-3xl font-bold shadow-sm drop-shadow-md">
+                                                <h2 className="text-lg sm:text-2xl md:text-3xl font-bold drop-shadow-md">
                                                     {content.titleOverride ||
                                                         // Match title from categories if no override
                                                         guideCategories.flatMap(c => c.guides).find(g => g.key === key)?.title ||
