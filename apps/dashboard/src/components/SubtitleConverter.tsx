@@ -309,31 +309,31 @@ const SubtitleConverter = () => {
     };
 
     return (
-        <div className="flex flex-col h-full space-y-4 p-3 sm:p-6 pb-28 md:pb-8 bg-background text-foreground overflow-y-auto">
+        <div className="flex flex-col h-full space-y-4 p-3 sm:p-6 pb-36 md:pb-10 bg-background text-foreground overflow-y-auto font-sans">
             {/* Header: File Drop Zone */}
             <div className="shrink-0">
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-muted/30 border border-dashed border-border rounded-xl">
-                    <div className="flex items-center gap-3">
-                        <label className="cursor-pointer">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 sm:p-3.5 bg-muted/40 border border-dashed border-border rounded-2xl shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <label className="cursor-pointer shrink-0">
                             <input
                                 type="file"
                                 accept="audio/*,video/*,.srt"
                                 className="hidden"
                                 onChange={handleFileSelect}
                             />
-                            <div className="flex items-center gap-2 bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs hover:bg-primary/90 transition-all">
+                            <div className="flex items-center gap-2 bg-primary text-primary-foreground px-3.5 py-2 rounded-xl text-xs font-bold shadow-2xs hover:bg-primary/90 transition-all">
                                 <FolderOpen className="w-3.5 h-3.5" />
                                 파일 선택
                             </div>
                         </label>
-                        <span className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-xs">
+                        <span className="text-xs text-muted-foreground truncate font-medium">
                             {selectedFile ? selectedFile.name : "선택된 파일 없음"}
                         </span>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
                         <Select value={language} onValueChange={setLanguage}>
-                            <SelectTrigger className="w-[110px] h-8 text-xs bg-background border-border">
+                            <SelectTrigger className="w-full sm:w-[120px] h-8 text-xs bg-card border-border rounded-lg">
                                 <SelectValue placeholder="언어 선택" />
                             </SelectTrigger>
                             <SelectContent>
@@ -346,7 +346,7 @@ const SubtitleConverter = () => {
                         </Select>
 
                         <Select value={subtitleModel} onValueChange={setSubtitleModel}>
-                            <SelectTrigger className="w-[100px] h-8 text-xs bg-background border-border">
+                            <SelectTrigger className="w-full sm:w-[110px] h-8 text-xs bg-card border-border rounded-lg">
                                 <SelectValue placeholder="모델 선택" />
                             </SelectTrigger>
                             <SelectContent>
@@ -363,11 +363,11 @@ const SubtitleConverter = () => {
             {/* Zone 2: Dual Editor Grid (Original Script + SRT Source) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-[360px]">
                 {/* Left Column: Original Script */}
-                <Card className="flex flex-col h-full border border-border shadow-2xs rounded-xl bg-card overflow-hidden">
-                    <CardHeader className="py-2 px-3 sm:px-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between space-y-0 shrink-0">
+                <Card className="flex flex-col h-full border border-border shadow-2xs rounded-2xl bg-card overflow-hidden">
+                    <CardHeader className="py-2.5 px-3.5 sm:px-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between space-y-0 shrink-0">
                         <div className="flex items-center gap-2 text-foreground font-bold">
                             <FileText className="w-3.5 h-3.5 text-primary" />
-                            <span className="text-[11px] font-bold uppercase tracking-wider">Original Script</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">Original Script</span>
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1 p-0 flex flex-col">
@@ -386,11 +386,11 @@ const SubtitleConverter = () => {
                             </div>
 
                             {/* Row 2: Actions */}
-                            <div className="flex items-center gap-2 justify-end w-full">
+                            <div className="grid grid-cols-2 gap-2 w-full">
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    className="flex-1 h-7 text-xs font-medium border-border text-foreground"
+                                    className="h-8 text-xs font-semibold border-border text-foreground rounded-lg"
                                     onClick={() => {
                                         if (!originalScript) return;
                                         setOriginalScript(formatTextWithLineBreaks(originalScript));
@@ -398,17 +398,17 @@ const SubtitleConverter = () => {
                                     }}
                                     title="문장 끝(., ?, !)에서 줄바꿈"
                                 >
-                                    <WrapText className="w-3 h-3 mr-1.5" />
+                                    <WrapText className="w-3.5 h-3.5 mr-1.5" />
                                     자동 줄바꿈
                                 </Button>
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    className="flex-1 h-7 text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-300 dark:border-purple-800 font-bold transition-colors"
+                                    className="h-8 text-xs bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-300 border border-purple-300/50 dark:border-purple-700/50 font-bold transition-colors rounded-lg"
                                     onClick={handleAddMarkers}
                                     disabled={isProcessing}
                                 >
-                                    <Wand2 className="w-3 h-3 mr-1.5" />
+                                    <Wand2 className="w-3.5 h-3.5 mr-1.5" />
                                     AI 분절 실행
                                 </Button>
                             </div>
@@ -417,34 +417,34 @@ const SubtitleConverter = () => {
                             value={originalScript}
                             onChange={(e) => setOriginalScript(e.target.value)}
                             placeholder="여기에 원본 대본을 붙여넣으세요... (// 로 수동 분절 가능)"
-                            className="h-full min-h-[160px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 font-sans text-sm sm:text-base leading-relaxed bg-background text-foreground placeholder:text-muted-foreground"
+                            className="h-full min-h-[160px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 font-sans text-xs sm:text-sm leading-relaxed bg-background text-foreground placeholder:text-muted-foreground"
                         />
                     </CardContent>
                 </Card>
 
                 {/* Right Column: SRT Source */}
-                <Card className="flex flex-col h-full border border-border shadow-2xs rounded-xl bg-card overflow-hidden">
-                    <CardHeader className="py-2 px-3 sm:px-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between space-y-0 shrink-0">
+                <Card className="flex flex-col h-full border border-border shadow-2xs rounded-2xl bg-card overflow-hidden">
+                    <CardHeader className="py-2.5 px-3.5 sm:px-4 border-b border-border bg-muted/30 flex flex-row items-center justify-between space-y-0 shrink-0">
                         <div className="flex items-center gap-2 text-foreground font-bold">
                             <Wand2 className="w-3.5 h-3.5 text-primary" />
-                            <span className="text-[11px] font-bold uppercase tracking-wider">SRT Source</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">SRT Source</span>
                         </div>
                         <div className="flex gap-2">
                             <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={handleLoadSrt}
-                                className="h-7 text-xs font-medium border-border text-foreground"
+                                className="h-8 text-xs font-semibold border-border text-foreground rounded-lg px-2.5 sm:px-3"
                             >
-                                📂 SRT 불러오기
+                                📂 불러오기
                             </Button>
                             <Button
                                 size="sm"
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground h-7 text-xs font-bold shadow-2xs"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground h-8 text-xs font-bold shadow-2xs rounded-lg px-2.5 sm:px-3"
                                 onClick={handleExtractSrt}
                                 disabled={isProcessing}
                             >
-                                {isProcessing ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Wand2 className="w-3 h-3 mr-1.5" />}
+                                {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Wand2 className="w-3.5 h-3.5 mr-1" />}
                                 SRT 추출
                             </Button>
                         </div>
@@ -457,15 +457,15 @@ const SubtitleConverter = () => {
                             className="flex-1 resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 font-mono text-xs sm:text-sm leading-relaxed bg-background text-foreground placeholder:text-muted-foreground"
                         />
                         {/* Footer: Progress */}
-                        <div className="h-8 border-t border-border bg-muted/20 flex items-center px-3 sm:px-4 gap-3 text-xs font-medium text-muted-foreground shrink-0">
-                            <div className="w-16 shrink-0">진행 상태:</div>
+                        <div className="h-9 border-t border-border bg-muted/20 flex items-center px-3 sm:px-4 gap-3 text-xs font-medium text-muted-foreground shrink-0">
+                            <div className="w-16 shrink-0 font-semibold">진행 상태:</div>
                             <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                                 <div
                                     className="h-full bg-primary transition-all duration-300 rounded-full"
                                     style={{ width: `${progress}%` }}
                                 />
                             </div>
-                            <div className="w-10 text-right font-mono shrink-0">{progress}%</div>
+                            <div className="w-10 text-right font-mono font-bold text-foreground shrink-0">{progress}%</div>
                             <div className="truncate text-right text-foreground max-w-[120px]">{statusMessage}</div>
                         </div>
                     </CardContent>
@@ -473,10 +473,10 @@ const SubtitleConverter = () => {
             </div>
 
             {/* Zone 3: Control Strip */}
-            <Card className="shrink-0 bg-card border border-border shadow-2xs rounded-xl">
-                <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
-                    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                        <div className="flex items-center gap-2.5">
+            <Card className="shrink-0 bg-card border border-border shadow-2xs rounded-2xl">
+                <CardContent className="p-3.5 sm:p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
+                    <div className="grid grid-cols-2 sm:flex items-center gap-3 sm:gap-6">
+                        <div className="flex items-center gap-2.5 bg-muted/30 p-2 sm:p-0 rounded-xl">
                             <Switch
                                 checked={isAlignmentMode}
                                 onCheckedChange={(checked) => {
@@ -487,13 +487,13 @@ const SubtitleConverter = () => {
                             />
                             <label htmlFor="align-mode" className="cursor-pointer select-none flex flex-col">
                                 <span className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">대조 모드</span>
-                                <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">원본 대본 + SRT</span>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">대본+SRT</span>
                             </label>
                         </div>
 
                         <div className="h-6 w-px bg-border hidden sm:block" />
 
-                        <div className={`flex items-center gap-2.5 transition-opacity ${!isAlignmentMode ? 'opacity-50' : ''}`}>
+                        <div className={`flex items-center gap-2.5 bg-muted/30 p-2 sm:p-0 rounded-xl transition-opacity ${!isAlignmentMode ? 'opacity-50' : ''}`}>
                             <Switch
                                 checked={isManualMarkerMode}
                                 onCheckedChange={setIsManualMarkerMode}
@@ -502,13 +502,13 @@ const SubtitleConverter = () => {
                             />
                             <label htmlFor="manual-marker-mode" className={`cursor-pointer select-none flex flex-col ${!isAlignmentMode ? 'cursor-not-allowed' : ''}`}>
                                 <span className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">수동 분절 모드</span>
-                                <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">// 기호 기준 분리</span>
+                                <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">// 기호 분리</span>
                             </label>
                         </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 flex-1 md:max-w-md">
-                        <div className={`flex items-center gap-3 flex-1 transition-opacity ${isManualMarkerMode ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <div className={`flex items-center gap-3 flex-1 bg-muted/20 px-3 py-2 rounded-xl transition-opacity ${isManualMarkerMode ? 'opacity-50 pointer-events-none' : ''}`}>
                             <span className="text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">분할 기준:</span>
                             <Slider
                                 value={[splitLimit]}
@@ -524,11 +524,11 @@ const SubtitleConverter = () => {
 
                         <Button
                             size="lg"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-9 sm:h-10 shadow-md transition-all active:scale-95 rounded-xl text-xs sm:text-sm shrink-0"
+                            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 h-10 shadow-md transition-all active:scale-95 rounded-xl text-xs sm:text-sm shrink-0 flex items-center justify-center gap-2"
                             onClick={handleRunConversion}
                             disabled={isProcessing}
                         >
-                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Play className="w-4 h-4 mr-1.5" />}
+                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                             변환 실행
                         </Button>
                     </div>
@@ -538,19 +538,19 @@ const SubtitleConverter = () => {
             {/* Zone 4: Results & Logs */}
             <div className="flex-1 min-h-[300px] flex flex-col gap-3">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-                    <div className="flex items-center justify-between mb-2 shrink-0">
-                        <TabsList className="bg-muted p-1 rounded-lg h-9">
-                            <TabsTrigger value="step1" className="text-xs px-3 py-1">1단계: 시간 정렬 결과</TabsTrigger>
-                            <TabsTrigger value="step2" className="text-xs px-3 py-1">2단계: 최종 SRT</TabsTrigger>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 shrink-0">
+                        <TabsList className="bg-muted p-1 rounded-xl h-9 grid grid-cols-2 w-full sm:w-auto">
+                            <TabsTrigger value="step1" className="text-xs px-3 py-1 font-bold">1단계: 시간 정렬</TabsTrigger>
+                            <TabsTrigger value="step2" className="text-xs px-3 py-1 font-bold">2단계: 최종 SRT</TabsTrigger>
                         </TabsList>
                         {activeTab === 'step1' && (
-                            <Button size="sm" variant="outline" onClick={() => handleSaveResult(resultStep1, 'step1_aligned.srt')} className="h-8 font-medium text-xs border-border text-foreground">
+                            <Button size="sm" variant="outline" onClick={() => handleSaveResult(resultStep1, 'step1_aligned.srt')} className="h-8 font-semibold text-xs border-border text-foreground rounded-lg self-end sm:self-auto">
                                 <Save className="w-3.5 h-3.5 mr-1.5" />
                                 .srt 파일 저장
                             </Button>
                         )}
                         {activeTab === 'step2' && (
-                            <Button size="sm" variant="outline" onClick={() => handleSaveResult(resultStep2, 'final_output.srt')} className="h-8 font-medium text-xs border-border text-foreground">
+                            <Button size="sm" variant="outline" onClick={() => handleSaveResult(resultStep2, 'final_output.srt')} className="h-8 font-semibold text-xs border-border text-foreground rounded-lg self-end sm:self-auto">
                                 <Save className="w-3.5 h-3.5 mr-1.5" />
                                 .srt 파일 저장
                             </Button>
@@ -558,7 +558,7 @@ const SubtitleConverter = () => {
                     </div>
 
                     <TabsContent value="step1" className="flex-1 mt-0 min-h-[200px]">
-                        <Card className="h-full border border-border shadow-2xs rounded-xl overflow-hidden bg-card">
+                        <Card className="h-full border border-border shadow-2xs rounded-2xl overflow-hidden bg-card">
                             <CardContent className="p-0 h-full">
                                 <Textarea
                                     value={resultStep1}
@@ -570,7 +570,7 @@ const SubtitleConverter = () => {
                     </TabsContent>
 
                     <TabsContent value="step2" className="flex-1 mt-0 min-h-[200px]">
-                        <Card className="h-full border border-border shadow-2xs rounded-xl overflow-hidden bg-card">
+                        <Card className="h-full border border-border shadow-2xs rounded-2xl overflow-hidden bg-card">
                             <CardContent className="p-0 h-full">
                                 <Textarea
                                     value={resultStep2}
@@ -583,7 +583,7 @@ const SubtitleConverter = () => {
                 </Tabs>
 
                 {/* System Logs */}
-                <div className="h-24 shrink-0 bg-card border border-border rounded-xl p-3 overflow-y-auto font-mono text-xs text-foreground">
+                <div className="h-28 shrink-0 bg-card border border-border rounded-2xl p-3 overflow-y-auto font-mono text-xs text-foreground shadow-2xs">
                     <h3 className="text-xs font-bold mb-2 text-muted-foreground flex items-center gap-1.5 uppercase tracking-wider">
                         <AlertCircle className="w-3.5 h-3.5 text-primary" />
                         System Logs
@@ -591,8 +591,8 @@ const SubtitleConverter = () => {
                     <div className="space-y-1">
                         {logs.length === 0 && <div className="text-muted-foreground italic">No logs yet.</div>}
                         {logs.map((log, i) => (
-                            <div key={i} className={log.type === 'error' ? 'text-red-500' : 'text-gray-600'}>
-                                <span className="opacity-50 mr-2 text-slate-600">[{log.time}]</span>
+                            <div key={i} className={log.type === 'error' ? 'text-rose-400' : 'text-emerald-400/90'}>
+                                <span className="opacity-50 mr-2 text-muted-foreground">[{log.time}]</span>
                                 {log.message}
                             </div>
                         ))}
