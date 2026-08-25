@@ -22,11 +22,11 @@ export const FloatingBatchActionBar: React.FC<FloatingBatchActionBarProps> = ({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 backdrop-blur-md bg-white/95 dark:bg-stone-900/95 border border-blue-400 dark:border-blue-500/50 shadow-2xl rounded-2xl px-5 py-3 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
-      <div className="flex items-center gap-2 pr-2 border-r border-stone-200 dark:border-stone-800">
-        <CheckCircle2 className="w-4 h-4 text-blue-500" />
-        <span className="text-xs font-bold text-stone-700 dark:text-stone-300">
-          선택 <span className="text-blue-600 dark:text-blue-400 font-extrabold">{selectedCount}</span>개
+    <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 backdrop-blur-md bg-card/95 border border-primary/40 shadow-2xl rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3 flex flex-wrap sm:flex-nowrap items-center justify-center gap-2 sm:gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200 max-w-[95vw]">
+      <div className="flex items-center gap-2 pr-2 border-r border-border">
+        <CheckCircle2 className="w-4 h-4 text-primary" />
+        <span className="text-xs font-bold text-foreground">
+          선택 <span className="text-primary font-extrabold">{selectedCount}</span>개
         </span>
       </div>
 

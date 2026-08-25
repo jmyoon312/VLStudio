@@ -355,53 +355,53 @@ export const DdalkkakUI: React.FC = () => {
                                activeTab === 'ttsdub' ? selectedTtsDubJobIds.length : selectedClipJobIds.length;
 
   return (
-    <div className="w-full max-w-[1700px] mx-auto p-4 sm:p-6 space-y-4 select-none animate-in fade-in duration-150">
+    <div className="w-full max-w-[1700px] mx-auto p-2 sm:p-6 space-y-4 select-none animate-in fade-in duration-150 pb-16 sm:pb-4">
       {/* ===== Top Navigation Header ===== */}
-      <header className="flex items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800/80">
-        <div className="flex items-center gap-2.5">
-          <Badge variant="outline" className="text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pb-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-lg bg-primary/10 text-primary border-primary/20 shrink-0">
             ⚡ AI Core Engine
           </Badge>
-          <span className="text-xs font-mono text-stone-500 dark:text-stone-400">{engineStatus}</span>
+          <span className="text-[11px] sm:text-xs font-mono text-muted-foreground truncate">{engineStatus}</span>
         </div>
 
         {/* Top Segmented Tab Buttons (Pixeling Style) */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl shadow-xs border bg-white border-stone-200 dark:bg-stone-900 dark:border-stone-800">
+        <div className="grid grid-cols-3 sm:flex sm:items-center gap-1 p-1 rounded-xl sm:rounded-2xl shadow-xs border bg-muted/40 border-border w-full sm:w-auto">
           <button
             type="button"
             onClick={() => handleTabChange('subtitle')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'subtitle'
-                ? 'bg-blue-600 text-white font-bold shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+                ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
             }`}
           >
             <span>📝</span>
-            <span>자막 생성</span>
+            <span className="truncate">자막 생성</span>
           </button>
           <button
             type="button"
             onClick={() => handleTabChange('ttsdub')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'ttsdub'
-                ? 'bg-blue-600 text-white font-bold shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+                ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
             }`}
           >
             <span>🎙️</span>
-            <span>대본 + 더빙</span>
+            <span className="truncate">대본 + 더빙</span>
           </button>
           <button
             type="button"
             onClick={() => handleTabChange('clipedit')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-2.5 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'clipedit'
-                ? 'bg-blue-600 text-white font-bold shadow-xs'
-                : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+                ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
             }`}
           >
             <span>✂️</span>
-            <span>클립 일괄 편집</span>
+            <span className="truncate">클립 일괄 편집</span>
           </button>
         </div>
       </header>
