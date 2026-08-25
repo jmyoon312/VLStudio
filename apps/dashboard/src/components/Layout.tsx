@@ -551,25 +551,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     "flex-1 flex flex-col custom-scrollbar min-h-0 md:pb-0 pb-16",
                     location.pathname.startsWith('/agent-studio') ? "overflow-hidden" : "overflow-y-auto"
                 )}>
-                        {openTabs.map((tab) => {
-                            const isTabActive = location.pathname === tab.path;
-                            const cachedNode = tabCache[tab.path];
-                            return (
-                                <div
-                                    key={tab.path}
-                                    className={cn(isTabActive ? "flex-grow flex flex-col min-h-0" : "hidden")}
-                                >
-                                    {cachedNode ? cachedNode : (
-                                        <div className="flex flex-col items-center justify-center p-20 text-muted-foreground gap-3 mt-10">
-                                            <div className="w-6 h-6 border-2 border-muted border-t-primary rounded-full animate-spin"></div>
-                                            <p className="text-xs font-semibold">작업 세션 복원 중...</p>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        {!openTabs.some(tab => tab.path === location.pathname) && children}
-                        <Footer className={cn(location.pathname === '/' ? "px-12" : "px-0")} />
+                    <div className="flex-grow flex flex-col min-h-0">
+                        {children}
+                    </div>
+                    <Footer className={cn(location.pathname === '/' ? "px-12" : "px-0")} />
                 </div>
             </main>
 
