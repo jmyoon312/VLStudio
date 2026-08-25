@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bot, Sparkles, Wand2, ShieldAlert, Copy, Check, Trash2, Edit, Plus, Mic, Globe, Search, TrendingUp, ChevronDown, ChevronRight, FileText, ExternalLink, Zap, Activity, BarChart3, Undo, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatTextWithLineBreaks } from "@/lib/utils";
+import { formatTextWithLineBreaks, cn } from "@/lib/utils";
 import AIModelSelector from '@/components/shared/AIModelSelector';
 
 
