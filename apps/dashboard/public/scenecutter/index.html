@@ -634,13 +634,44 @@
     .btn{padding:.45rem .7rem;border-radius:10px;font-size:.88rem;gap:.35rem}
     .action-bar{margin-top:.55rem;gap:.5rem}
     .button-group{gap:.4rem}
-    .badge{padding:.24rem .45rem;font-size:.73rem}
-    .slot-list{gap:.45rem;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
-    .video-slot{min-height:0;padding:.55rem;gap:.45rem;border-radius:13px}
-    .slot-label{font-size:.9rem}
-    .slot-file{min-height:44px;padding:.45rem;border-radius:10px}
-    .slot-file input{font-size:.8rem}
-    .video-wrap{
+    .slot-list{gap:.55rem;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+    .video-slot{min-height:0;padding:.65rem;gap:.5rem;border-radius:14px;background:rgba(30,35,50,.85);border:1px solid var(--border)}
+    .slot-label{font-size:.9rem;font-weight:700}
+    .slot-file{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      min-height:64px;
+      padding:.75rem .5rem;
+      border:1px dashed var(--border2);
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+      cursor:pointer;
+      transition:all .2s ease;
+      user-select:none;
+    }
+    .slot-file:hover{border-color:var(--accent);background:rgba(99,102,241,.12)}
+    .slot-file input[type="file"]{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      opacity:0;
+      cursor:pointer;
+      z-index:2;
+    }
+    .slot-file span{pointer-events:none;z-index:1;font-size:.85rem;font-weight:700;color:var(--text);line-height:1.3}
+    .slot-file small{display:block;margin-top:.25rem;font-size:.72rem;color:var(--sub);font-weight:500}
+    @media(max-width:680px){
+      .app-header{flex-direction:column;align-items:stretch;gap:.75rem;padding:.85rem 1rem}
+      .header-actions{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;width:100%}
+      .header-actions .btn{width:100%;justify-content:center;padding:.6rem .5rem;font-size:.82rem}
+      .slot-list{grid-template-columns:1fr;gap:.6rem}
+      .video-slot{padding:.7rem;gap:.45rem}
+    }
       background:#090d16;
       border:1px solid var(--border);
       border-radius:16px;

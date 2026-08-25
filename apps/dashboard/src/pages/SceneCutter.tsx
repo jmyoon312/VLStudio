@@ -36,7 +36,7 @@ const SceneCutter: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-background text-foreground overflow-hidden relative">
+    <div className="w-full h-full flex flex-col bg-background text-foreground overflow-hidden relative pb-16 md:pb-0">
       {/* iframe 뷰어 */}
       <div className="flex-1 w-full h-full relative overflow-hidden bg-background">
         <iframe
