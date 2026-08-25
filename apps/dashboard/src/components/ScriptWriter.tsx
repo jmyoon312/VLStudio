@@ -315,12 +315,32 @@ const ScriptWriter = () => {
         }
     };
 
+    const [showMobileConfig, setShowMobileConfig] = useState(false);
+
     return (
-        <div className="flex-1 flex flex-col gap-3 sm:gap-4 min-h-0 pb-8 sm:pb-4">
+        <div className="flex-1 flex flex-col gap-3 sm:gap-4 min-h-0 pb-12 sm:pb-4">
 
             {/* Zone 1: Control Bar */}
             <Card className="flex-shrink-0 border-border bg-card">
-                <CardContent className="p-3 sm:p-4">
+                {/* Mobile Collapsible Header */}
+                <div 
+                    className="md:hidden flex items-center justify-between p-3 border-b border-border cursor-pointer bg-muted/20 select-none"
+                    onClick={() => setShowMobileConfig(!showMobileConfig)}
+                >
+                    <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-bold text-foreground">AI 모델 및 스타일 설정</span>
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-border text-muted-foreground">
+                            {scriptProvider}
+                        </Badge>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold">
+                        <span>{showMobileConfig ? "접기" : "설정 펼치기"}</span>
+                        {showMobileConfig ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </div>
+                </div>
+
+                <CardContent className={cn("p-3 sm:p-4", !showMobileConfig && "hidden md:block")}>
                     <AIModelSelector
                         provider={scriptProvider}
                         onProviderChange={(p) => setScriptProvider(p)}
@@ -521,7 +541,7 @@ const ScriptWriter = () => {
                     </CardHeader>
                     <CardContent className="p-0 flex-1 flex flex-col">
                         <Textarea
-                            className="w-full min-h-[160px] sm:min-h-[220px] md:min-h-[280px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground"
+                            className="w-full min-h-[140px] sm:min-h-[220px] md:min-h-[280px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground"
                             placeholder="번역 및 변환할 원본 텍스트를 여기에 입력하거나 붙여넣으세요..."
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
@@ -571,20 +591,21 @@ const ScriptWriter = () => {
                     </CardHeader>
                     <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                         <Textarea
-                            className="w-full min-h-[160px] sm:min-h-[220px] md:min-h-[280px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm font-medium leading-relaxed placeholder:text-muted-foreground"
+                            className="w-full min-h-[140px] sm:min-h-[220px] md:min-h-[280px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm font-medium leading-relaxed placeholder:text-muted-foreground"
                             placeholder="AI가 생성한 대본이 여기에 표시됩니다..."
                             value={resultText}
                             onChange={(e) => setResultText(e.target.value)}
                         />
 
-                        <div className="p-2 sm:p-2.5 border-t border-border bg-muted/20 flex gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar items-center select-none">
-                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground shrink-0" onClick={() => handleRefine("기존 대본의 맥락, 말투, 톤앤매너를 100% 완벽하게 유지하면서, 전체 분량을 20~30% 정도 줄여서 더 빠르고 간결하게 만들어줘. 불필요한 번역투, 한자어, 중국어투가 절대 들어가지 않도록 극도로 주의해. 오직 자연스러운 한국어로만 작성해.")} disabled={isGenerating || !resultText}>
+                        {/* Result Refinement Toolbar (Wrap-friendly on mobile) */}
+                        <div className="p-2 sm:p-2.5 border-t border-border bg-muted/20 flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 select-none">
+                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground flex-1 sm:flex-initial" onClick={() => handleRefine("기존 대본의 맥락, 말투, 톤앤매너를 100% 완벽하게 유지하면서, 전체 분량을 20~30% 정도 줄여서 더 빠르고 간결하게 만들어줘. 불필요한 번역투, 한자어, 중국어투가 절대 들어가지 않도록 극도로 주의해. 오직 자연스러운 한국어로만 작성해.")} disabled={isGenerating || !resultText}>
                                 <Wand2 className="w-3 h-3 mr-1" /> 더 짧게
                             </Button>
-                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground shrink-0" onClick={() => handleRefine("기존 대본의 핵심 주제와 흐름을 유지하면서, 훨씬 더 유머러스하고 텐션이 높은 숏폼 스타일로 다듬어줘. 억지스러운 번역투나 중국어투는 절대 배제하고, 한국 네티즌들이 쓰는 자연스러운 밈과 말투를 활용해.")} disabled={isGenerating || !resultText}>
+                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground flex-1 sm:flex-initial" onClick={() => handleRefine("기존 대본의 핵심 주제와 흐름을 유지하면서, 훨씬 더 유머러스하고 텐션이 높은 숏폼 스타일로 다듬어줘. 억지스러운 번역투나 중국어투는 절대 배제하고, 한국 네티즌들이 쓰는 자연스러운 밈과 말투를 활용해.")} disabled={isGenerating || !resultText}>
                                 <Sparkles className="w-3 h-3 mr-1" /> 더 재미있게
                             </Button>
-                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground shrink-0" onClick={() => {
+                            <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground flex-1 sm:flex-initial" onClick={() => {
                                 setSafetyEditText(resultText);
                                 safetyReviewMutation.mutate({
                                     current_text: resultText,
@@ -594,8 +615,7 @@ const ScriptWriter = () => {
                             }} disabled={safetyReviewMutation.isPending || !resultText}>
                                 <ShieldAlert className="w-3 h-3 mr-1" /> 안전 표현 수정
                             </Button>
-                            <div className="flex-1 min-w-[8px]" />
-                            <Button variant="ghost" size="sm" onClick={handleUndo} disabled={undoHistory.length === 0 || isGenerating} className="h-7 sm:h-8 text-xs text-muted-foreground hover:text-foreground shrink-0">
+                            <Button variant="ghost" size="sm" onClick={handleUndo} disabled={undoHistory.length === 0 || isGenerating} className="h-7 sm:h-8 text-xs text-muted-foreground hover:text-foreground ml-auto sm:ml-0">
                                 <Undo className="w-3 h-3 mr-1" /> 되돌리기
                             </Button>
                         </div>
