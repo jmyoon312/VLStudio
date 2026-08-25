@@ -621,12 +621,9 @@ const Settings = () => {
                                     <div className="space-y-2">
                                         <Label className="text-xs sm:text-sm font-bold text-foreground">기본 다운로드 경로</Label>
                                         <div className="flex items-center gap-2">
-                                            <Input
-                                                type="text"
-                                                value={formData.root_download_path || ''}
-                                                readOnly
-                                                className="flex-1 min-w-0 bg-muted/40 border-border text-foreground font-mono text-xs rounded-xl h-10"
-                                            />
+                                            <div className="flex-1 min-w-0 h-10 px-3.5 flex items-center rounded-xl border border-border bg-card text-foreground font-mono text-xs overflow-hidden select-all shadow-2xs">
+                                                <span className="truncate">{formData.root_download_path || <span className="text-muted-foreground italic">선택된 경로 없음</span>}</span>
+                                            </div>
                                             <Button type="button" variant="outline" onClick={() => handlePickPath('root_download_path', 'folder')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
                                                 <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
                                             </Button>
@@ -637,13 +634,9 @@ const Settings = () => {
                                     <div className="space-y-2">
                                         <Label className="text-xs sm:text-sm font-bold text-foreground">쿠키 파일 경로 (선택)</Label>
                                         <div className="flex items-center gap-2">
-                                            <Input
-                                                type="text"
-                                                value={formData.cookies_path || ''}
-                                                readOnly
-                                                placeholder="선택된 파일 없음"
-                                                className="flex-1 min-w-0 bg-muted/40 border-border text-foreground font-mono text-xs rounded-xl h-10"
-                                            />
+                                            <div className="flex-1 min-w-0 h-10 px-3.5 flex items-center rounded-xl border border-border bg-card text-foreground font-mono text-xs overflow-hidden select-all shadow-2xs">
+                                                <span className="truncate">{formData.cookies_path || <span className="text-muted-foreground italic">선택된 파일 없음</span>}</span>
+                                            </div>
                                             <Button type="button" variant="outline" onClick={() => handlePickPath('cookies_path', 'file')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
                                                 <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
                                             </Button>
@@ -1344,8 +1337,10 @@ const Settings = () => {
                                 <div className="space-y-2">
                                     <Label className="text-xs sm:text-sm font-bold text-foreground">Whisper 모델 경로</Label>
                                     <div className="flex items-center gap-2">
-                                        <Input value={formData.whisper_model_path || ''} readOnly className="flex-1 min-w-0 bg-muted/40 text-foreground font-mono text-xs border-border rounded-xl h-10" />
-                                        <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card hover:bg-muted rounded-xl shrink-0 font-bold">
+                                        <div className="flex-1 min-w-0 h-10 px-3.5 flex items-center rounded-xl border border-border bg-card text-foreground font-mono text-xs overflow-hidden select-all shadow-2xs">
+                                            <span className="truncate">{formData.whisper_model_path || <span className="text-muted-foreground italic">기본 Whisper 모델 경로 사용</span>}</span>
+                                        </div>
+                                        <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card hover:bg-muted rounded-xl shrink-0 font-bold text-foreground">
                                             <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
                                         </Button>
                                     </div>
