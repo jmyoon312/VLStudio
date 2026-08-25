@@ -329,7 +329,7 @@ export default function SilenceRemover() {
     };
 
     return (
-        <div className="p-3 sm:p-6 space-y-3 sm:space-y-6 max-w-6xl mx-auto min-h-screen bg-background text-foreground">
+        <div className="p-3 sm:p-6 pb-36 md:pb-8 space-y-3 sm:space-y-6 max-w-6xl mx-auto min-h-screen bg-background text-foreground">
             {/* Zone 1: Top Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-card p-3 sm:p-4 rounded-xl border border-border shadow-2xs gap-2.5">
                 <div className="flex flex-wrap gap-2">
@@ -447,70 +447,79 @@ export default function SilenceRemover() {
                                 <label className="text-sm font-medium whitespace-nowrap w-24">최소 무음 <span className="text-orange-600">({minSilence}ms)</span></label>
                                 <Slider value={[minSilence]} min={100} max={2000} step={50} onValueChange={vals => { setMinSilence(vals[0]); markAsPendingOnChange(); }} className="flex-1" />
                             </div>
-                            <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                                <label className="text-xs font-medium">유지(ms):</label>
-                                <Input type="number" value={keepSilence} onChange={e => { setKeepSilence(parseInt(e.target.value) || 0); markAsPendingOnChange(); }} className="w-16 h-7 text-xs" />
-                                <label className="text-xs font-medium ml-2">크로스페이드(ms):</label>
-                                <Input type="number" value={crossfade} onChange={e => { setCrossfade(parseInt(e.target.value) || 0); markAsPendingOnChange(); }} className="w-16 h-7 text-xs" />
-                                <label className="text-xs font-medium ml-2">NR 강도:</label>
-                                <Input type="number" step="0.01" min="0.05" max="0.4" value={nrAggr} onChange={e => { setNrAggr(e.target.value); markAsPendingOnChange(); }} className="w-16 h-7 text-xs" disabled={!useNr} />
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-2 border-t border-border">
+                                <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-medium text-foreground whitespace-nowrap">유지:</label>
+                                    <Input type="number" value={keepSilence} onChange={e => { setKeepSilence(parseInt(e.target.value) || 0); markAsPendingOnChange(); }} className="w-16 h-7 text-xs bg-background border-border text-foreground" />
+                                    <span className="text-[10px] text-muted-foreground">ms</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-medium text-foreground whitespace-nowrap">크로스페이드:</label>
+                                    <Input type="number" value={crossfade} onChange={e => { setCrossfade(parseInt(e.target.value) || 0); markAsPendingOnChange(); }} className="w-16 h-7 text-xs bg-background border-border text-foreground" />
+                                    <span className="text-[10px] text-muted-foreground">ms</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <label className="text-xs font-medium text-foreground whitespace-nowrap">NR 강도:</label>
+                                    <Input type="number" step="0.01" min="0.05" max="0.4" value={nrAggr} onChange={e => { setNrAggr(e.target.value); markAsPendingOnChange(); }} className="w-16 h-7 text-xs bg-background border-border text-foreground" disabled={!useNr} />
+                                </div>
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Zone 3.5: Studio Enhancements */}
-                <Card className="border-purple-200 dark:border-purple-900 shadow-md relative overflow-hidden">
+                <Card className="border-purple-300 dark:border-purple-800 shadow-2xs relative overflow-hidden bg-card text-card-foreground">
                     <div className="absolute top-0 right-0 p-2">
-                        <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider animate-pulse">Pro</span>
+                        <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Pro</span>
                     </div>
-                    <CardHeader className="pb-3 bg-purple-50/50 dark:bg-purple-900/20 border-b border-purple-100 dark:border-purple-900/50">
-                        <CardTitle className="text-lg flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                    <CardHeader className="pb-3 bg-purple-500/10 border-b border-purple-200 dark:border-purple-900/50">
+                        <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-purple-600 dark:text-purple-400 font-bold">
                             ✨ 스튜디오 음질 개선
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-4 space-y-3">
-                        <div className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", studioCompressor ? "bg-purple-50 border-purple-300 dark:bg-purple-900/30" : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100")}>
-                            <div>
-                                <div className="font-bold text-sm">🎙️ 팟캐스트 보이스 (다이내믹 컴프레서)</div>
-                                <div className="text-xs text-muted-foreground mt-0.5">작은 소리는 키우고 큰 소리는 억제하여 단단하고 힘있는 목소리</div>
+                        <div className={cn("flex items-center justify-between p-3 rounded-xl border border-border transition-colors", studioCompressor ? "bg-purple-500/10 border-purple-400 dark:border-purple-700" : "bg-muted/30 hover:bg-muted/50")}>
+                            <div className="pr-2">
+                                <div className="font-bold text-xs sm:text-sm text-foreground">🎙️ 팟캐스트 보이스 (다이내믹 컴프레서)</div>
+                                <div className="text-[11px] text-muted-foreground mt-0.5">작은 소리는 키우고 큰 소리는 억제하여 단단하고 힘있는 목소리</div>
                             </div>
-                            <Switch checked={studioCompressor} onCheckedChange={(val) => { setStudioCompressor(val); markAsPendingOnChange(); }} />
+                            <Switch checked={studioCompressor} onCheckedChange={(val) => { setStudioCompressor(val); markAsPendingOnChange(); }} className="shrink-0" />
                         </div>
-                        <div className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", studioEq ? "bg-purple-50 border-purple-300 dark:bg-purple-900/30" : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100")}>
-                            <div>
-                                <div className="font-bold text-sm">🎚️ 또렷하고 풍성하게 (보컬 EQ 부스트)</div>
-                                <div className="text-xs text-muted-foreground mt-0.5">고음을 살려 선명하게, 저음을 더해 웅장하게 (라디오 질감)</div>
+                        <div className={cn("flex items-center justify-between p-3 rounded-xl border border-border transition-colors", studioEq ? "bg-purple-500/10 border-purple-400 dark:border-purple-700" : "bg-muted/30 hover:bg-muted/50")}>
+                            <div className="pr-2">
+                                <div className="font-bold text-xs sm:text-sm text-foreground">🎚️ 또렷하고 풍성하게 (보컬 EQ 부스트)</div>
+                                <div className="text-[11px] text-muted-foreground mt-0.5">고음을 살려 선명하게, 저음을 더해 웅장하게 (라디오 질감)</div>
                             </div>
-                            <Switch checked={studioEq} onCheckedChange={(val) => { setStudioEq(val); markAsPendingOnChange(); }} />
+                            <Switch checked={studioEq} onCheckedChange={(val) => { setStudioEq(val); markAsPendingOnChange(); }} className="shrink-0" />
                         </div>
-                        <div className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", studioGate ? "bg-purple-50 border-purple-300 dark:bg-purple-900/30" : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100")}>
-                            <div>
-                                <div className="font-bold text-sm">🔇 완벽한 적막 (스마트 노이즈 게이트)</div>
-                                <div className="text-xs text-muted-foreground mt-0.5">말을 하지 않는 구간의 백그라운드 노이즈를 완벽히 차단</div>
+                        <div className={cn("flex items-center justify-between p-3 rounded-xl border border-border transition-colors", studioGate ? "bg-purple-500/10 border-purple-400 dark:border-purple-700" : "bg-muted/30 hover:bg-muted/50")}>
+                            <div className="pr-2">
+                                <div className="font-bold text-xs sm:text-sm text-foreground">🔇 완벽한 적막 (스마트 노이즈 게이트)</div>
+                                <div className="text-[11px] text-muted-foreground mt-0.5">말을 하지 않는 구간의 백그라운드 노이즈를 완벽히 차단</div>
                             </div>
-                            <Switch checked={studioGate} onCheckedChange={(val) => { setStudioGate(val); markAsPendingOnChange(); }} />
+                            <Switch checked={studioGate} onCheckedChange={(val) => { setStudioGate(val); markAsPendingOnChange(); }} className="shrink-0" />
                         </div>
-                        <div className={cn("flex items-center justify-between p-3 rounded-lg border transition-colors", studioLoudnorm ? "bg-purple-50 border-purple-300 dark:bg-purple-900/30" : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100")}>
-                            <div>
-                                <div className="font-bold text-sm">📺 유튜브 표준 음량 (EBU R128 정규화)</div>
-                                <div className="text-xs text-muted-foreground mt-0.5">유튜브/방송 표준인 -14 LUFS에 맞춰 듣기 편한 최적의 볼륨</div>
+                        <div className={cn("flex items-center justify-between p-3 rounded-xl border border-border transition-colors", studioLoudnorm ? "bg-purple-500/10 border-purple-400 dark:border-purple-700" : "bg-muted/30 hover:bg-muted/50")}>
+                            <div className="pr-2">
+                                <div className="font-bold text-xs sm:text-sm text-foreground">📺 유튜브 표준 음량 (EBU R128 정규화)</div>
+                                <div className="text-[11px] text-muted-foreground mt-0.5">유튜브/방송 표준인 -14 LUFS에 맞춰 듣기 편한 최적의 볼륨</div>
                             </div>
-                            <Switch checked={studioLoudnorm} onCheckedChange={(val) => { setStudioLoudnorm(val); markAsPendingOnChange(); }} />
+                            <Switch checked={studioLoudnorm} onCheckedChange={(val) => { setStudioLoudnorm(val); markAsPendingOnChange(); }} className="shrink-0" />
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Zone 4: File List */}
-            <Card className="border-green-500 dark:border-green-700 border-2">
-                <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
+            <Card className="border-emerald-500/40 dark:border-emerald-700 border-2 bg-card text-card-foreground shadow-2xs rounded-xl">
+                <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2 font-bold text-foreground">
                         📁 파일 목록
+                        <span className="text-xs font-normal text-muted-foreground">({files.length}개)</span>
                     </CardTitle>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
                         <Select value={sortKey} onValueChange={setSortKey}>
-                            <SelectTrigger className="w-[100px] h-8 text-xs">
+                            <SelectTrigger className="w-[90px] sm:w-[100px] h-8 text-xs bg-background border-border">
                                 <SelectValue placeholder="정렬" />
                             </SelectTrigger>
                             <SelectContent>
@@ -520,7 +529,7 @@ export default function SilenceRemover() {
                             </SelectContent>
                         </Select>
                         <Select value={sortOrder} onValueChange={setSortOrder}>
-                            <SelectTrigger className="w-[100px] h-8 text-xs">
+                            <SelectTrigger className="w-[90px] sm:w-[100px] h-8 text-xs bg-background border-border">
                                 <SelectValue placeholder="순서" />
                             </SelectTrigger>
                             <SelectContent>
@@ -530,39 +539,64 @@ export default function SilenceRemover() {
                         </Select>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border mb-4">
+                <CardContent className="p-3 sm:p-4">
+                    {/* 모바일 전용 카드 리스트 (md:hidden) */}
+                    <div className="md:hidden divide-y divide-border/60">
+                        {sortedFiles.length === 0 ? (
+                            <div className="text-center py-8 text-xs text-muted-foreground">
+                                추가된 파일이 없습니다.
+                            </div>
+                        ) : (
+                            sortedFiles.map(file => (
+                                <div key={file.id} className="py-2.5 flex items-center justify-between gap-2 text-xs">
+                                    <div className="min-w-0 flex-1 flex items-center gap-2">
+                                        <FileAudio className="h-4 w-4 text-primary shrink-0" />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="font-semibold text-foreground truncate">{file.file.name}</div>
+                                            <div className="text-[11px] text-muted-foreground">{(file.file.size / (1024 * 1024)).toFixed(2)} MB</div>
+                                        </div>
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${file.status === 'done' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : file.status === 'processing' ? 'bg-primary/10 text-primary border border-primary/20 animate-pulse' : file.status === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' : 'bg-muted text-muted-foreground'}`}>
+                                        {file.status === 'error' ? '오류' : file.status === 'done' ? '완료' : file.status === 'processing' ? '처리중' : '대기'}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* 데스크톱 전용 테이블 (hidden md:block) */}
+                    <div className="hidden md:block rounded-lg border border-border overflow-hidden">
                         <Table>
-                            <TableHeader>
+                            <TableHeader className="bg-muted/40">
                                 <TableRow>
-                                    <TableHead>파일명</TableHead>
-                                    <TableHead>경로</TableHead>
-                                    <TableHead className="w-[100px] text-right">크기</TableHead>
-                                    <TableHead className="w-[150px]">상태</TableHead>
+                                    <TableHead className="text-xs font-bold text-foreground">파일명</TableHead>
+                                    <TableHead className="text-xs font-bold text-foreground">경로</TableHead>
+                                    <TableHead className="w-[100px] text-right text-xs font-bold text-foreground">크기</TableHead>
+                                    <TableHead className="w-[120px] text-center text-xs font-bold text-foreground">상태</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {sortedFiles.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                                        <TableCell colSpan={4} className="text-center h-24 text-xs text-muted-foreground">
                                             추가된 파일이 없습니다.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     sortedFiles.map(file => (
-                                        <TableRow key={file.id}>
-                                            <TableCell className="font-medium flex items-center gap-2">
-                                                <FileAudio className="h-4 w-4 text-blue-500" />
-                                                {file.file.name}
+                                        <TableRow key={file.id} className="hover:bg-muted/30">
+                                            <TableCell className="font-medium flex items-center gap-2 text-xs text-foreground">
+                                                <FileAudio className="h-4 w-4 text-primary shrink-0" />
+                                                <span className="truncate max-w-xs">{file.file.name}</span>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground text-xs">
+                                            <TableCell className="text-muted-foreground text-xs truncate max-w-xs">
                                                 {file.file.webkitRelativePath || '-'}
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right text-xs font-mono text-muted-foreground">
                                                 {(file.file.size / (1024 * 1024)).toFixed(2)} MB
                                             </TableCell>
-                                            <TableCell>
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${file.status === 'done' ? 'bg-green-100 text-green-800' : file.status === 'processing' ? 'bg-blue-100 text-blue-800' : file.status === 'error' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                                            <TableCell className="text-center">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${file.status === 'done' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : file.status === 'processing' ? 'bg-primary/10 text-primary border border-primary/20 animate-pulse' : file.status === 'error' ? 'bg-destructive/10 text-destructive border border-destructive/20' : 'bg-muted text-muted-foreground'}`}>
                                                     {file.status === 'error' ? '오류' : file.status === 'done' ? '완료' : file.status === 'processing' ? '처리중...' : '대기'}
                                                 </span>
                                             </TableCell>
@@ -576,16 +610,31 @@ export default function SilenceRemover() {
             </Card>
 
             {/* Zone 5: Logs */}
-            <div className="bg-white border border-slate-200 text-slate-700 rounded-lg p-4 font-mono text-xs h-48 overflow-hidden flex flex-col shadow-sm">
-                <div className="mb-2 font-bold text-slate-900 border-b pb-1">시스템 로그</div>
+            <div className="bg-card border border-border text-foreground rounded-xl p-3 sm:p-4 font-mono text-xs h-40 overflow-hidden flex flex-col shadow-2xs">
+                <div className="mb-2 font-bold text-foreground border-b border-border pb-1 text-xs flex items-center justify-between">
+                    <span>시스템 로그</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">{logs.length}줄</span>
+                </div>
                 <ScrollArea className="flex-1">
                     <div className="space-y-1">
                         {logs.map((log, i) => (
-                            <div key={i}>{log}</div>
+                            <div key={i} className="text-muted-foreground">{log}</div>
                         ))}
-                        {logs.length === 0 && <div className="text-slate-600 italic">준비됨...</div>}
+                        {logs.length === 0 && <div className="text-muted-foreground italic">준비됨...</div>}
                     </div>
                 </ScrollArea>
+            </div>
+
+            {/* Zone 6: Bottom Sticky Action Button for Mobile Convenience */}
+            <div className="pt-2">
+                <Button
+                    size="lg"
+                    className={cn("w-full text-white font-bold h-11 shadow-lg transition-all rounded-xl text-sm", (threshold === 0 || activePreset === 'merge') ? "bg-indigo-600 hover:bg-indigo-700" : "bg-emerald-600 hover:bg-emerald-700")}
+                    onClick={handleStartProcessing}
+                >
+                    <Play className="mr-2 h-4 w-4" />
+                    {(threshold === 0 || activePreset === 'merge') ? "🔗 일괄 합치기 시작" : "⚡ 무음 제거 및 음질 개선 일괄 시작"}
+                </Button>
             </div>
         </div>
     );
