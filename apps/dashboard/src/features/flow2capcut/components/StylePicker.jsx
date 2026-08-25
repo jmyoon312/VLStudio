@@ -189,6 +189,12 @@ export default function StylePicker({
                     src={toFileUrl(thumb)}
                     alt={styleName}
                     loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        e.currentTarget.nextElementSibling.style.display = 'inline';
+                      }
+                    }}
                     onDoubleClick={(e) => {
                       e.stopPropagation()
                       setPreviewStyle({ ...style, thumb })
@@ -202,9 +208,10 @@ export default function StylePicker({
                     }}
                     onMouseLeave={() => setHoverPreview(null)}
                   />
-                ) : (
-                  <span className="sp-icon">{cat?.icon || '🎨'}</span>
-                )}
+                ) : null}
+                <span className="sp-icon" style={{ display: thumb ? 'none' : 'inline' }}>
+                  {cat?.icon || '🎨'}
+                </span>
               </div>
               <div className="sp-name">{styleName}</div>
             </div>
