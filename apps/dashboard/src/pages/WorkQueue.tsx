@@ -304,7 +304,7 @@ const WorkQueue = () => {
     const failedCount = (stats.failed ?? 0);
 
     return (
-        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 w-full min-h-screen pb-24 md:pb-8">
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 w-full min-h-screen pb-36 md:pb-8">
 
             {/* 1. 상단 타이틀 및 액션 버튼 바 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full">
@@ -452,32 +452,34 @@ const WorkQueue = () => {
             {/* 5. 탭 및 스마트 필터 툴바 */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 w-full">
-                    <TabsList className="bg-muted border border-border flex-wrap h-auto p-1 gap-1">
-                        <TabsTrigger value="all" className="text-xs px-3 py-1.5 font-medium">전체 ({totalCount})</TabsTrigger>
-                        <TabsTrigger value="draft" className="text-xs px-3 py-1.5 font-medium">임시 보관 ({draftCount})</TabsTrigger>
-                        <TabsTrigger value="pending" className="text-xs px-3 py-1.5 font-medium">승인 대기 ({pendingCount})</TabsTrigger>
-                        <TabsTrigger value="queued" className="text-xs px-3 py-1.5 font-medium">대기열 ({queuedCount})</TabsTrigger>
-                        <TabsTrigger value="uploading" className="text-xs px-3 py-1.5 font-medium">업로드 중 ({uploadingCount})</TabsTrigger>
-                        <TabsTrigger value="completed" className="text-xs px-3 py-1.5 font-medium">완료 ({completedCount})</TabsTrigger>
-                        <TabsTrigger value="failed_review" className="text-xs px-3 py-1.5 font-medium">실패 ({failedCount})</TabsTrigger>
-                    </TabsList>
+                    <div className="w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                        <TabsList className="bg-muted border border-border flex flex-nowrap sm:flex-wrap h-auto p-1 gap-1 min-w-max">
+                            <TabsTrigger value="all" className="text-xs px-2.5 sm:px-3 py-1.5 font-medium whitespace-nowrap">전체 ({totalCount})</TabsTrigger>
+                            <TabsTrigger value="draft" className="text-xs px-2.5 sm:px-3 py-1.5 font-medium whitespace-nowrap">임시 보관 ({draftCount})</TabsTrigger>
+                            <TabsTrigger value="pending" className="text-xs px-2.5 sm:px-3 py-1.5 font-medium whitespace-nowrap">승인 대기 ({pendingCount})</TabsTrigger>
+                            <TabsTrigger value="queued" className="text-xs px-2.5 sm:px-3 py-1.5 font-medium whitespace-nowrap">대기열 ({queuedCount})</TabsTrigger>
+                            <TabsTrigger value="uploading" className="text-xs px-2.5 sm:px-3 py-1.5 font-medium whitespace-nowrap">업로드 중 ({uploadingCount})</TabsTrigger>
+                            <TabsTrigger value="completed" className="text-xs px-2.5 sm:px-3 py-1.5 font-medium whitespace-nowrap">완료 ({completedCount})</TabsTrigger>
+                            <TabsTrigger value="failed_review" className="text-xs px-2.5 sm:px-3 py-1.5 font-medium whitespace-nowrap">실패 ({failedCount})</TabsTrigger>
+                        </TabsList>
+                    </div>
                     
                     {/* 스마트 통합 검색 및 프로젝트 그룹 필터 */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 relative">
+                    <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                        <div className="flex items-center gap-1.5 relative flex-1 sm:flex-initial">
                             <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2 pointer-events-none" />
                             <Input 
                                 placeholder="제목, 파일명, ID 검색..." 
                                 value={searchQuery} 
                                 onChange={e => setSearchQuery(e.target.value)} 
-                                className="w-48 h-8 text-xs bg-background border-border pl-7" 
+                                className="w-full sm:w-48 h-8 text-xs bg-background border-border pl-7" 
                             />
                         </div>
                         
                         <div className="flex items-center gap-1">
                             <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
                             <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-                                <SelectTrigger className="w-36 h-8 text-xs bg-background">
+                                <SelectTrigger className="w-32 sm:w-36 h-8 text-xs bg-background">
                                     <SelectValue placeholder="프로젝트 그룹" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -492,7 +494,7 @@ const WorkQueue = () => {
                         </div>
 
                         <Select value={dateFilter} onValueChange={setDateFilter}>
-                            <SelectTrigger className="w-24 h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="w-20 sm:w-24 h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="today">오늘</SelectItem>
                                 <SelectItem value="week">7일</SelectItem>
@@ -647,17 +649,42 @@ const QueueItemCompactCard = ({
 
     return (
         <Card className={`w-full overflow-hidden border transition-all ${selectedItems.includes(item.id) ? 'border-indigo-500 bg-indigo-50/15 dark:bg-indigo-950/20 shadow-xs' : 'border-border/80 bg-card hover:border-border'}`}>
-            <CardContent className="p-3 w-full min-w-0">
-                {/* 1. 기본 컴팩트 행 (Row) */}
-                <div className="flex items-center gap-3 w-full min-w-0">
-                    {/* 선택 체크박스 & 순번 */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+            <CardContent className="p-3 w-full min-w-0 space-y-2">
+                {/* 1. 모바일 상단 바 (체크박스, 순번, 상태 배지 & 간편 조작 아이콘) */}
+                <div className="flex items-center justify-between w-full sm:hidden border-b border-border/40 pb-1.5">
+                    <div className="flex items-center gap-2">
+                        <Checkbox checked={selectedItems.includes(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="border-border" />
+                        <span className="text-[11px] font-mono text-muted-foreground">{index}</span>
+                        <div className="flex items-center gap-1">
+                            {getStatusBadge(item.status)}
+                            {item.approval_status && item.approval_status !== 'AUTO_APPROVED' && (
+                                <div className="text-[10px]">{getApprovalBadge(item.approval_status)}</div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-0.5">
+                        <Button size="icon" variant="ghost" onClick={() => setExpanded(!expanded)} className={`h-7 w-7 ${expanded ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40' : 'text-muted-foreground'}`} title="자세히 보기">
+                            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => onEdit(item)} className="h-7 w-7 text-muted-foreground hover:text-foreground" title="수정">
+                            <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => onDelete(item.id)} className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40" title="삭제">
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                </div>
+
+                {/* 2. 본문 컨텐츠 행 (썸네일 + 제목/배지/플랫폼 정보 + 데스크톱 버튼) */}
+                <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 w-full min-w-0">
+                    {/* 데스크톱 전용 체크박스 & 순번 & 상태 배지 */}
+                    <div className="hidden sm:flex items-center gap-1.5 shrink-0">
                         <Checkbox checked={selectedItems.includes(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="border-border" />
                         <span className="text-[11px] font-mono text-muted-foreground w-5 text-right">{index}</span>
                     </div>
 
-                    {/* 상태 배지 & 승인 배지 */}
-                    <div className="flex flex-col gap-1 shrink-0 w-24">
+                    <div className="hidden sm:flex flex-col gap-1 shrink-0 w-24">
                         {getStatusBadge(item.status)}
                         {item.approval_status && item.approval_status !== 'AUTO_APPROVED' && (
                             <div className="text-[10px]">{getApprovalBadge(item.approval_status)}</div>
@@ -667,7 +694,7 @@ const QueueItemCompactCard = ({
                     {/* 미니 썸네일 / 비디오 미리보기 박스 */}
                     <div 
                         onClick={() => setExpanded(!expanded)}
-                        className="w-12 h-12 rounded-md bg-muted/80 border border-border/80 shrink-0 overflow-hidden flex items-center justify-center cursor-pointer relative group hover:border-indigo-500 shadow-xs"
+                        className="w-12 h-12 rounded-lg bg-muted/80 border border-border shrink-0 overflow-hidden flex items-center justify-center cursor-pointer relative group hover:border-indigo-500 shadow-2xs"
                         title={hasVideo ? "클릭하여 영상 미리보기 및 상세 확인" : "영상 미첨부"}
                     >
                         {item.thumbnail_url ? (
@@ -691,8 +718,8 @@ const QueueItemCompactCard = ({
 
                     {/* 제목, 외부 ID, 플랫폼 채널 정보 */}
                     <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <h4 className="font-semibold text-xs sm:text-sm text-foreground truncate cursor-pointer hover:text-indigo-600 max-w-md" onClick={() => setExpanded(!expanded)}>
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                            <h4 className="font-semibold text-xs sm:text-sm text-foreground truncate cursor-pointer hover:text-indigo-600 max-w-full sm:max-w-md" onClick={() => setExpanded(!expanded)}>
                                 {item.title || '(제목 없음)'}
                             </h4>
                             {item.source_type === 'PIXELING' ? (
@@ -709,26 +736,25 @@ const QueueItemCompactCard = ({
                                 </Badge>
                             )}
                             {item.source_batch_id && (
-                                <Badge variant="outline" className="text-[9px] font-mono py-0 bg-muted/60 text-muted-foreground border-border truncate max-w-32 shrink-0" title={`프로젝트 그룹: ${item.source_batch_id}`}>
+                                <Badge variant="outline" className="text-[9px] font-mono py-0 bg-muted/60 text-muted-foreground border-border truncate max-w-28 sm:max-w-32 shrink-0" title={`프로젝트 그룹: ${item.source_batch_id}`}>
                                     📁 {item.source_batch_id}
                                 </Badge>
                             )}
-
                         </div>
 
                         {/* 플랫폼 요약 & 예약 일시 & 파일 연결 상태 */}
-                        <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs min-w-0">
                             {getPlatformSummary()}
-                            <span className="text-muted-foreground/60">·</span>
+                            <span className="text-muted-foreground/60 hidden sm:inline">·</span>
                             <span className="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
                                 <Clock4 className="w-3 h-3 text-indigo-500" />
                                 {item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '즉시 등록'}
                             </span>
-                            <span className="text-muted-foreground/60">·</span>
+                            <span className="text-muted-foreground/60 hidden sm:inline">·</span>
                             <span className="text-[10px] text-muted-foreground shrink-0">
                                 {item.upload_method === 'BROWSER_AUTO' ? '스텔스 자동' : item.upload_method === 'API' ? 'API' : '수동'}
                             </span>
-                            <span className="text-muted-foreground/60">·</span>
+                            <span className="text-muted-foreground/60 hidden sm:inline">·</span>
                             {hasVideo ? (
                                 <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 cursor-pointer hover:underline shrink-0" onClick={() => setExpanded(!expanded)}>
                                     <Play className="w-3 h-3" /> 영상 연결됨
@@ -741,8 +767,8 @@ const QueueItemCompactCard = ({
                         </div>
                     </div>
 
-                    {/* 우측 원클릭 액션 버튼 바 */}
-                    <div className="flex items-center gap-1 shrink-0 ml-auto">
+                    {/* 데스크톱 전용 우측 액션 버튼 바 */}
+                    <div className="hidden sm:flex items-center gap-1 shrink-0 ml-auto">
                         {(item.status === 'DRAFT' || !item.video_file_path) && (
                             <>
                                 <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} className="h-7 text-xs px-2 border-border">
@@ -775,7 +801,31 @@ const QueueItemCompactCard = ({
                     </div>
                 </div>
 
-                {/* 2. 자세히 보기 펼침 패널 (좌: 9:16 모바일 폰 숏폼 뷰어 / 우: 메타 60% + 배포 40% 최적 레이아웃) */}
+                {/* 3. 모바일 전용 하단 주요 액션 버튼 바 */}
+                <div className="sm:hidden flex items-center gap-1.5 w-full pt-1.5 border-t border-border/40 justify-end">
+                    {(item.status === 'DRAFT' || !item.video_file_path) && (
+                        <>
+                            <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} className="h-7 text-xs px-2.5 border-border flex-1">
+                                <Paperclip className="w-3 h-3 mr-1" /> 영상 첨부
+                            </Button>
+                            <Button size="sm" onClick={() => onFinalize(item.id)} className="h-7 text-xs px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex-1">
+                                <Rocket className="w-3 h-3 mr-1" /> 즉시 등록
+                            </Button>
+                        </>
+                    )}
+                    {item.approval_status === 'PENDING' && item.video_file_path && (
+                        <>
+                            <Button size="sm" onClick={() => onApprove(item.id)} className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex-1">
+                                <CheckCircle className="w-3 h-3 mr-1" /> 승인
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => onReject(item.id, '품질 문제')} className="h-7 text-xs px-2 flex-1">
+                                <XCircle className="w-3 h-3 mr-1" /> 반려
+                            </Button>
+                        </>
+                    )}
+                </div>
+
+                {/* 4. 자세히 보기 펼침 패널 (좌: 9:16 모바일 폰 숏폼 뷰어 / 우: 메타 60% + 배포 40% 최적 레이아웃) */}
                 {expanded && (
                     <div className="mt-3 pt-3 border-t border-border/80 space-y-3 w-full min-w-0">
                         <div className="flex flex-col md:flex-row items-stretch gap-4 text-xs w-full min-w-0">
