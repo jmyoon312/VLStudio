@@ -80,28 +80,28 @@ export const WidgetPanel: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex flex-col bg-gray-50">
-            <div className="flex-shrink-0 p-3 border-b border-gray-200 bg-white">
-                <h2 className="text-sm font-bold text-gray-900">위젯 (Widgets)</h2>
-                <p className="text-xs text-gray-500 mt-1">방송 화면에 표시할 위젯을 추가하세요.</p>
+        <div className="h-full flex flex-col bg-card">
+            <div className="flex-shrink-0 p-3 border-b border-border bg-card">
+                <h2 className="text-sm font-bold text-foreground">위젯 (Widgets)</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">방송 화면에 표시할 위젯을 추가하세요.</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-card">
                 {/* Now Playing Widget */}
-                <Card className="cursor-pointer hover:border-blue-500 transition-colors" onClick={() => handleAddWidget('nowPlaying')}>
+                <Card className="cursor-pointer hover:border-primary transition-colors bg-card border-border shadow-2xs" onClick={() => handleAddWidget('nowPlaying')}>
                     <CardHeader className="p-4 pb-2">
                         <div className="flex items-center gap-2">
-                            <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
                                 <Music className="w-5 h-5" />
                             </div>
                             <div>
-                                <CardTitle className="text-sm">현재 재생 정보</CardTitle>
-                                <CardDescription className="text-xs">Now Playing</CardDescription>
+                                <CardTitle className="text-sm text-foreground">현재 재생 정보</CardTitle>
+                                <CardDescription className="text-xs text-muted-foreground">Now Playing</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-2">
-                        <p className="text-xs text-gray-500 mb-3">현재 재생 중인 곡의 제목과 아티스트 정보를 표시합니다.</p>
+                        <p className="text-xs text-muted-foreground mb-3">현재 재생 중인 곡의 제목과 아티스트 정보를 표시합니다.</p>
                         <Button size="sm" className="w-full text-xs" variant="secondary">
                             <Plus className="w-3 h-3 mr-1" /> 추가하기
                         </Button>
@@ -109,20 +109,20 @@ export const WidgetPanel: React.FC = () => {
                 </Card>
 
                 {/* Clock Widget */}
-                <Card className="cursor-pointer hover:border-green-500 transition-colors" onClick={() => handleAddWidget('clock')}>
+                <Card className="cursor-pointer hover:border-emerald-500 transition-colors bg-card border-border shadow-2xs" onClick={() => handleAddWidget('clock')}>
                     <CardHeader className="p-4 pb-2">
                         <div className="flex items-center gap-2">
-                            <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
                                 <Clock className="w-5 h-5" />
                             </div>
                             <div>
-                                <CardTitle className="text-sm">디지털 시계</CardTitle>
-                                <CardDescription className="text-xs">Digital Clock</CardDescription>
+                                <CardTitle className="text-sm text-foreground">디지털 시계</CardTitle>
+                                <CardDescription className="text-xs text-muted-foreground">Digital Clock</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-2">
-                        <p className="text-xs text-gray-500 mb-3">현재 시간을 실시간으로 표시하는 디지털 시계 위젯입니다.</p>
+                        <p className="text-xs text-muted-foreground mb-3">현재 시간을 실시간으로 표시하는 디지털 시계 위젯입니다.</p>
                         <Button size="sm" className="w-full text-xs" variant="secondary">
                             <Plus className="w-3 h-3 mr-1" /> 추가하기
                         </Button>
@@ -130,20 +130,20 @@ export const WidgetPanel: React.FC = () => {
                 </Card>
 
                 {/* Visualizer: Bars */}
-                <Card className="cursor-pointer hover:border-purple-500 transition-colors" onClick={() => handleAddWidget('visualizer', 'bars')}>
+                <Card className="cursor-pointer hover:border-purple-500 transition-colors bg-card border-border shadow-2xs" onClick={() => handleAddWidget('visualizer', 'bars')}>
                     <CardHeader className="p-4 pb-2">
                         <div className="flex items-center gap-2">
-                            <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-500">
                                 <Activity className="w-5 h-5" />
                             </div>
                             <div>
-                                <CardTitle className="text-sm">스펙트럼 바</CardTitle>
-                                <CardDescription className="text-xs">Spectrum Bars</CardDescription>
+                                <CardTitle className="text-sm text-foreground">스펙트럼 바</CardTitle>
+                                <CardDescription className="text-xs text-muted-foreground">Spectrum Bars</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-2">
-                        <p className="text-xs text-gray-500 mb-3">비트에 맞춰 움직이는 화려한 막대형 비주얼라이저입니다.</p>
+                        <p className="text-xs text-muted-foreground mb-3">비트에 맞춰 움직이는 화려한 막대형 비주얼라이저입니다.</p>
                         <Button size="sm" className="w-full text-xs" variant="secondary">
                             <Plus className="w-3 h-3 mr-1" /> 추가하기
                         </Button>
@@ -151,20 +151,20 @@ export const WidgetPanel: React.FC = () => {
                 </Card>
 
                 {/* Visualizer: Circle Pulse */}
-                <Card className="cursor-pointer hover:border-pink-500 transition-colors" onClick={() => handleAddWidget('visualizer', 'circle')}>
+                <Card className="cursor-pointer hover:border-pink-500 transition-colors bg-card border-border shadow-2xs" onClick={() => handleAddWidget('visualizer', 'circle')}>
                     <CardHeader className="p-4 pb-2">
                         <div className="flex items-center gap-2">
-                            <div className="p-2 bg-pink-100 rounded-lg text-pink-600">
+                            <div className="p-2 bg-pink-500/10 rounded-lg text-pink-500">
                                 <Circle className="w-5 h-5" />
                             </div>
                             <div>
-                                <CardTitle className="text-sm">서클 펄스</CardTitle>
-                                <CardDescription className="text-xs">Circle Pulse</CardDescription>
+                                <CardTitle className="text-sm text-foreground">서클 펄스</CardTitle>
+                                <CardDescription className="text-xs text-muted-foreground">Circle Pulse</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-2">
-                        <p className="text-xs text-gray-500 mb-3">중앙에서 퍼져나가는 역동적인 펄스 효과입니다.</p>
+                        <p className="text-xs text-muted-foreground mb-3">중앙에서 퍼져나가는 역동적인 펄스 효과입니다.</p>
                         <Button size="sm" className="w-full text-xs" variant="secondary">
                             <Plus className="w-3 h-3 mr-1" /> 추가하기
                         </Button>
@@ -172,20 +172,20 @@ export const WidgetPanel: React.FC = () => {
                 </Card>
 
                 {/* Visualizer: Neon Wave */}
-                <Card className="cursor-pointer hover:border-cyan-500 transition-colors" onClick={() => handleAddWidget('visualizer', 'wave')}>
+                <Card className="cursor-pointer hover:border-cyan-500 transition-colors bg-card border-border shadow-2xs" onClick={() => handleAddWidget('visualizer', 'wave')}>
                     <CardHeader className="p-4 pb-2">
                         <div className="flex items-center gap-2">
-                            <div className="p-2 bg-cyan-100 rounded-lg text-cyan-600">
+                            <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-500">
                                 <Zap className="w-5 h-5" />
                             </div>
                             <div>
-                                <CardTitle className="text-sm">네온 웨이브</CardTitle>
-                                <CardDescription className="text-xs">Neon Wave</CardDescription>
+                                <CardTitle className="text-sm text-foreground">네온 웨이브</CardTitle>
+                                <CardDescription className="text-xs text-muted-foreground">Neon Wave</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-4 pt-2">
-                        <p className="text-xs text-gray-500 mb-3">네온 빛으로 흐르는 부드러운 웨이브 파형입니다.</p>
+                        <p className="text-xs text-muted-foreground mb-3">네온 빛으로 흐르는 부드러운 웨이브 파형입니다.</p>
                         <Button size="sm" className="w-full text-xs" variant="secondary">
                             <Plus className="w-3 h-3 mr-1" /> 추가하기
                         </Button>

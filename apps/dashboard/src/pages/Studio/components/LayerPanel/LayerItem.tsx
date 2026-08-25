@@ -111,8 +111,8 @@ export const LayerItem: React.FC<LayerItemProps> = ({
             onMouseLeave={() => setIsHovered(false)}
             className={cn(
                 'group relative p-2 rounded border transition-all cursor-pointer',
-                isSelected && 'bg-blue-50 border-blue-500',
-                !isSelected && 'bg-white border-gray-200 hover:border-gray-300',
+                isSelected && 'bg-primary/10 border-primary shadow-2xs',
+                !isSelected && 'bg-card border-border hover:border-muted-foreground/30',
                 isDragging && 'opacity-50',
                 layer.locked && 'cursor-not-allowed'
             )}
@@ -126,8 +126,8 @@ export const LayerItem: React.FC<LayerItemProps> = ({
                             onToggleVisibility();
                         }}
                         className={cn(
-                            'p-0.5 hover:bg-gray-100 rounded transition-colors',
-                            !layer.visible && 'text-slate-600'
+                            'p-0.5 hover:bg-muted rounded transition-colors',
+                            !layer.visible && 'text-muted-foreground'
                         )}
                         title={layer.visible ? 'Hide layer' : 'Show layer'}
                     >
@@ -144,8 +144,8 @@ export const LayerItem: React.FC<LayerItemProps> = ({
                             onToggleLock();
                         }}
                         className={cn(
-                            'p-0.5 hover:bg-gray-100 rounded transition-colors',
-                            layer.locked && 'text-red-500'
+                            'p-0.5 hover:bg-muted rounded transition-colors',
+                            layer.locked && 'text-destructive'
                         )}
                         title={layer.locked ? 'Unlock layer' : 'Lock layer'}
                     >
@@ -162,13 +162,13 @@ export const LayerItem: React.FC<LayerItemProps> = ({
                     <div className="flex items-center gap-2 mb-1">
                         <div className={cn(
                             'flex-shrink-0',
-                            isSelected ? 'text-blue-600' : 'text-gray-500'
+                            isSelected ? 'text-primary' : 'text-muted-foreground'
                         )}>
                             {getLayerIcon()}
                         </div>
                         <span className={cn(
                             'text-sm font-medium truncate',
-                            isSelected ? 'text-blue-900' : 'text-gray-900'
+                            isSelected ? 'text-primary font-bold' : 'text-foreground'
                         )}>
                             {layer.name}
                         </span>

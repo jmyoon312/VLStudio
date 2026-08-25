@@ -93,7 +93,7 @@ export const LiveStudioDock: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white border-r border-gray-200 w-48 flex-shrink-0 transition-all duration-300">
+        <div className="flex flex-col h-full bg-card border-r border-border w-48 flex-shrink-0 transition-all duration-300 text-foreground">
 
             {/* Hidden File Input */}
             <input

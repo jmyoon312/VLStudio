@@ -689,16 +689,16 @@ export const LiveStudioControls: React.FC = () => {
         <div
             onMouseEnter={() => setIsCollapsed(false)}
             onMouseLeave={() => setIsCollapsed(true)}
-            className={`pointer-events-auto flex flex-col h-full transition-all duration-300 ease-in-out relative z-20 ml-auto shadow-2xl border-l border-gray-200 ${isCollapsed ? 'w-14 bg-white/0 hover:bg-white' : 'w-[225px] bg-white'
+            className={`pointer-events-auto flex flex-col h-full transition-all duration-300 ease-in-out relative z-20 ml-auto shadow-2xl border-l border-border ${isCollapsed ? 'w-14 bg-card/0 hover:bg-card' : 'w-[225px] bg-card text-foreground'
                 }`}
         >
             {/* 1. Sidebar Toggle / Status Strip */}
-            <div className={`flex flex-col items-center h-full py-4 gap-4 w-14 absolute left-0 top-0 z-30 transition-colors ${isCollapsed ? 'bg-transparent' : 'bg-gray-50 border-r border-gray-100'
+            <div className={`flex flex-col items-center h-full py-4 gap-4 w-14 absolute left-0 top-0 z-30 transition-colors ${isCollapsed ? 'bg-transparent' : 'bg-muted/40 border-r border-border'
                 }`}>
                 {/* Collapse Toggle */}
                 <button
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="p-2 rounded-lg hover:bg-gray-200 text-gray-600 transition-colors"
+                    className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                     title={isCollapsed ? "메뉴 열기" : "메뉴 닫기"}
                 >
                     {isCollapsed ? <Settings className="w-6 h-6" /> : <X className="w-6 h-6" />}
@@ -711,14 +711,14 @@ export const LiveStudioControls: React.FC = () => {
                 <div className="flex flex-col gap-2 mt-4 w-full px-2">
                     <button
                         onClick={() => { setMainTab('settings'); setIsCollapsed(false); }}
-                        className={cn("p-2 rounded-lg flex justify-center transition-colors", mainTab === 'settings' && !isCollapsed ? "bg-blue-100 text-blue-600" : "text-slate-600 hover:bg-gray-100")}
+                        className={cn("p-2 rounded-lg flex justify-center transition-colors", mainTab === 'settings' && !isCollapsed ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
                         title="설정"
                     >
                         <Settings className="w-5 h-5" />
                     </button>
                     <button
                         onClick={() => { setMainTab('library'); setIsCollapsed(false); }}
-                        className={cn("p-2 rounded-lg flex justify-center transition-colors", mainTab === 'library' && !isCollapsed ? "bg-blue-100 text-blue-600" : "text-slate-600 hover:bg-gray-100")}
+                        className={cn("p-2 rounded-lg flex justify-center transition-colors", mainTab === 'library' && !isCollapsed ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
                         title="라이브러리"
                     >
                         <FolderOpen className="w-5 h-5" />
@@ -728,10 +728,10 @@ export const LiveStudioControls: React.FC = () => {
 
             {/* 2. Expanded Content Area */}
             {!isCollapsed && (
-                <div className="flex-1 flex flex-col ml-16 h-full">
+                <div className="flex-1 flex flex-col ml-16 h-full bg-card">
                     {/* Header */}
-                    <div className="h-14 border-b border-gray-200 flex items-center justify-between px-5 bg-white flex-shrink-0">
-                        <h3 className="font-bold text-gray-900 text-sm">
+                    <div className="h-14 border-b border-border flex items-center justify-between px-5 bg-card flex-shrink-0">
+                        <h3 className="font-bold text-foreground text-sm">
                             {mainTab === 'library' ? '라이브러리' :
                                 (currentRecipe === 'lofi' ? '로파이 설정' : '제어 센터')}
                         </h3>
