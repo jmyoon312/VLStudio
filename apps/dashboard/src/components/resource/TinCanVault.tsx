@@ -422,28 +422,161 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                         </Button>
                     </div>
                 </CardHeader>
-                <CardContent className="p-0 overflow-x-auto">
-                    <Table className="w-full min-w-[900px]">
-                        <TableHeader>
-                            <TableRow className="bg-muted/40 border-b border-border">
-                                <TableHead className="w-[90px] font-bold text-xs text-foreground">상태</TableHead>
-                                <TableHead className="min-w-[260px] font-bold text-xs text-foreground">계정 & 브랜드 채널</TableHead>
-                                <TableHead className="min-w-[200px] font-bold text-xs text-foreground">엔진 & 프록시 IP</TableHead>
-                                <TableHead className="min-w-[320px] font-bold text-xs text-foreground">운영 제어 (보안접속 & 웜업)</TableHead>
-                                <TableHead className="w-[100px] text-right font-bold text-xs text-foreground">최근 활동</TableHead>
-                                <TableHead className="w-[100px] text-right font-bold text-xs text-foreground">관리</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">로딩 중...</TableCell></TableRow>
-                            ) : activeOps.length === 0 ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">운영 중인 계정이 없습니다.</TableCell></TableRow>
-                            ) : (
-                                activeOps.map((p: any) => renderRow(p, false))
-                            )}
-                        </TableBody>
-                    </Table>
+                <CardContent className="p-0">
+                    {/* 모바일 전용 계정 카드 리스트 (md:hidden) */}
+                    <div className="md:hidden divide-y divide-border p-3 space-y-3">
+                        {isLoading ? (
+                            <div className="text-center py-8 text-xs text-muted-foreground">로딩 중...</div>
+                        ) : activeOps.length === 0 ? (
+                            <div className="text-center py-8 text-xs text-muted-foreground">운영 중인 계정이 없습니다.</div>
+                        ) : (
+                            activeOps.map((p: any) => {
+                                const channel = channels?.find((c: any) => c.owner_profile_id === p.id || c.channel_id === p.channel_id);
+                                return (
+                                    <div key={p.id} className="pt-3 first:pt-0 space-y-2.5 bg-card rounded-xl p-3 border border-border shadow-2xs">
+                                        {/* 1. 상단: 상태 배지 + 이메일 + 관리 아이콘 */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <Badge variant="outline" className={
+                                                    p.status?.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold px-1.5 py-0 text-[10px]' :
+                                                        p.status?.toLowerCase() === 'draft' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 px-1.5 py-0 text-[10px]' :
+                                                            'bg-muted text-muted-foreground px-1.5 py-0 text-[10px]'
+                                                }>
+                                                    {p.status ? p.status.toUpperCase() : 'UNKNOWN'}
+                                                </Badge>
+                                                <div className="font-semibold text-xs text-foreground truncate max-w-[160px]">
+                                                    {p.email || `미설정 (${p.id.slice(0, 6)})`}
+                                                </div>
+                                                <ProfileApiStatus profileId={p.id} />
+                                            </div>
+
+                                            {/* 우측 관리 아이콘 */}
+                                            <div className="flex items-center gap-0.5 shrink-0">
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                    onClick={() => (p.status?.toLowerCase() === 'draft' || p.status?.toLowerCase() === 'pending') ? handleResumeDraft(p) : setEditProfile(p)}
+                                                >
+                                                    <Pencil className="w-3.5 h-3.5" />
+                                                </Button>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                    onClick={() => setQuarantineTarget(p)} title="격리 조치"
+                                                >
+                                                    <AlertCircle className="w-3.5 h-3.5" />
+                                                </Button>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                                    onClick={() => setDeleteId(p.id)}
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* 2. 브랜드 채널 정보 및 수집 버튼 */}
+                                        <div className="flex items-center justify-between gap-2 p-2 bg-muted/40 rounded-lg border border-border text-xs">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <span className="text-sm">📺</span>
+                                                <span className="font-medium text-foreground truncate">{channel?.title || channel?.channel_name || "브랜드 채널 미수집"}</span>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-6 px-2 text-[11px] font-semibold text-primary hover:bg-primary/10 border-border shrink-0 shadow-2xs"
+                                                onClick={() => handleSyncChannel(p.id)}
+                                                disabled={syncingId === p.id}
+                                            >
+                                                <RefreshCw className={`w-3 h-3 mr-1 ${syncingId === p.id ? 'animate-spin text-primary' : ''}`} />
+                                                {syncingId === p.id ? '수집 중' : '수집'}
+                                            </Button>
+                                        </div>
+
+                                        {/* 3. 엔진 & 프록시 모드 정보 */}
+                                        <div className="flex items-center justify-between gap-2 text-xs">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/60 text-foreground">
+                                                    {p.engine_type === 'ixbrowser' ? '🌐 iXBrowser' : '🛡️ Cloak'}
+                                                </span>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${p.proxy_mode === 'ISP_PROXY' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-800'}`}>
+                                                    {p.proxy_mode === 'ISP_PROXY' ? '🌐 ISP' : '📱 LTE'}
+                                                </span>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+                                                onClick={() => setQuickNetworkProfile({ ...p })}
+                                            >
+                                                <Settings className="w-3 h-3 mr-1" /> 설정
+                                            </Button>
+                                        </div>
+
+                                        {/* 4. 운영 제어 버튼 (스텔스 접속 & 웜업) */}
+                                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
+                                            {p.status?.toLowerCase() === 'active' && (
+                                                <Button
+                                                    variant="default"
+                                                    size="sm"
+                                                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex-1 shadow-2xs"
+                                                    onClick={() => handleSecureConnect(p)}
+                                                >
+                                                    <ShieldCheck className="w-3.5 h-3.5 mr-1" /> 🛡️ 스텔스 접속
+                                                </Button>
+                                            )}
+                                            {p.status?.toLowerCase() === 'active' && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline" 
+                                                        className="h-7 text-xs text-primary border-border hover:bg-muted font-semibold"
+                                                        onClick={async () => {
+                                                            if (channel) {
+                                                                setSelectedChannelForWizard(channel); 
+                                                                setWizardOpen(true);
+                                                            } else {
+                                                                toast({ title: "🔄 브랜드 채널 수집 진행", description: "채널 수집 후 전략 설정 팝업이 활성화됩니다." });
+                                                                await handleSyncChannel(p.id);
+                                                                const updatedCh = channels?.find((c: any) => c.owner_profile_id === p.id || c.channel_id === p.channel_id);
+                                                                if (updatedCh) {
+                                                                    setSelectedChannelForWizard(updatedCh);
+                                                                    setWizardOpen(true);
+                                                                }
+                                                            }
+                                                        }}
+                                                    >
+                                                        전략
+                                                    </Button>
+                                                    <WarmupButton channel={channel} profileId={p.id} onNeedSync={() => handleSyncChannel(p.id)} />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    {/* 데스크톱 전용 테이블 (hidden md:block) */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <Table className="w-full min-w-[900px]">
+                            <TableHeader>
+                                <TableRow className="bg-muted/40 border-b border-border">
+                                    <TableHead className="w-[90px] font-bold text-xs text-foreground">상태</TableHead>
+                                    <TableHead className="min-w-[260px] font-bold text-xs text-foreground">계정 & 브랜드 채널</TableHead>
+                                    <TableHead className="min-w-[200px] font-bold text-xs text-foreground">엔진 & 프록시 IP</TableHead>
+                                    <TableHead className="min-w-[320px] font-bold text-xs text-foreground">운영 제어 (보안접속 & 웜업)</TableHead>
+                                    <TableHead className="w-[100px] text-right font-bold text-xs text-foreground">최근 활동</TableHead>
+                                    <TableHead className="w-[100px] text-right font-bold text-xs text-foreground">관리</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">로딩 중...</TableCell></TableRow>
+                                ) : activeOps.length === 0 ? (
+                                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">운영 중인 계정이 없습니다.</TableCell></TableRow>
+                                ) : (
+                                    activeOps.map((p: any) => renderRow(p, false))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
 
