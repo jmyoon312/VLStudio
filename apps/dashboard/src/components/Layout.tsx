@@ -585,28 +585,28 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     <span>대기열</span>
                 </button>
                 <button 
-                    onClick={() => { navigate('/captain-quarters'); setMobileMenuOpen(false); }} 
+                    onClick={() => { navigate('/incubator'); setMobileMenuOpen(false); }} 
                     className={cn(
                         "flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
-                        location.pathname.startsWith('/captain-quarters') 
+                        location.pathname.startsWith('/incubator') 
                             ? "bg-primary/10 text-primary font-bold shadow-2xs" 
                             : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     )}
                 >
-                    <Clapperboard className="w-5 h-5" strokeWidth={location.pathname.startsWith('/captain-quarters') ? 2.5 : 2} />
-                    <span>채널</span>
+                    <Users className="w-5 h-5" strokeWidth={location.pathname.startsWith('/incubator') ? 2.5 : 2} />
+                    <span>육성관리</span>
                 </button>
                 <button 
-                    onClick={() => { navigate('/operations'); setMobileMenuOpen(false); }} 
+                    onClick={() => { navigate('/gallery'); setMobileMenuOpen(false); }} 
                     className={cn(
                         "flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl gap-0.5 text-[11px] font-medium transition-all duration-150 active:scale-95", 
-                        location.pathname === '/operations' 
+                        location.pathname === '/gallery' 
                             ? "bg-primary/10 text-primary font-bold shadow-2xs" 
                             : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                     )}
                 >
-                    <BarChart3 className="w-5 h-5" strokeWidth={location.pathname === '/operations' ? 2.5 : 2} />
-                    <span>운영</span>
+                    <Image className="w-5 h-5" strokeWidth={location.pathname === '/gallery' ? 2.5 : 2} />
+                    <span>보관함</span>
                 </button>
                 <button 
                     onClick={() => setMobileMenuOpen(true)} 
