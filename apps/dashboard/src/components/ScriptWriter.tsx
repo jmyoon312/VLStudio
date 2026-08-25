@@ -316,11 +316,11 @@ const ScriptWriter = () => {
     };
 
     return (
-        <div className="flex-1 flex flex-col gap-4 min-h-0">
+        <div className="flex-1 flex flex-col gap-3 sm:gap-4 min-h-0 pb-8 sm:pb-4">
 
             {/* Zone 1: Control Bar */}
-            <Card className="flex-shrink-0">
-                <CardContent className="p-4">
+            <Card className="flex-shrink-0 border-border bg-card">
+                <CardContent className="p-3 sm:p-4">
                     <AIModelSelector
                         provider={scriptProvider}
                         onProviderChange={(p) => setScriptProvider(p)}
@@ -333,35 +333,37 @@ const ScriptWriter = () => {
                         onEditPreset={(style) => handleEditStyle(style)}
                     />
 
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <Label>주제 분야 (Niche) - 선택사항</Label>
+                    <div className="mt-3 sm:mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs sm:text-sm font-semibold text-foreground">주제 분야 (Niche) - 선택사항</Label>
                             <Input
                                 placeholder="예: Tech, Gaming, Health, Food"
                                 value={niche}
                                 onChange={(e) => setNiche(e.target.value)}
+                                className="h-9 sm:h-10 text-xs sm:text-sm bg-background border-border"
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>용어집 (Glossary) - 선택사항</Label>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs sm:text-sm font-semibold text-foreground">용어집 (Glossary) - 선택사항</Label>
                             <Input
                                 placeholder="예: AI=인공지능, LLM=대규모언어모델"
                                 value={glossary}
                                 onChange={(e) => setGlossary(e.target.value)}
+                                className="h-9 sm:h-10 text-xs sm:text-sm bg-background border-border"
                             />
                         </div>
 
-                        <div className="space-y-2 flex items-end pb-1">
-                            <div className="flex items-center gap-3 w-full">
+                        <div className="space-y-1.5 flex items-end pb-0.5">
+                            <div className="flex items-center justify-between sm:justify-start gap-3 w-full">
                                 <div className="flex items-center gap-2">
                                     <Switch
                                         id="web-search"
                                         checked={useWebSearch}
                                         onCheckedChange={setUseWebSearch}
                                     />
-                                    <Label htmlFor="web-search" className="cursor-pointer flex items-center gap-1.5 text-sm font-medium">
-                                        <Globe className="w-3.5 h-3.5 text-blue-500" />
+                                    <Label htmlFor="web-search" className="cursor-pointer flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-foreground">
+                                        <Globe className="w-3.5 h-3.5 text-primary" />
                                         웹 검색 활용
                                     </Label>
                                 </div>
@@ -376,34 +378,34 @@ const ScriptWriter = () => {
 
             {/* Trend Insights Panel (collapsible, visible when niche is set) */}
             {niche && trends && trends.length > 0 && (
-                <Card className="flex-shrink-0 border-amber-200 dark:border-amber-900">
+                <Card className="flex-shrink-0 border-amber-500/30 bg-card">
                     <button
                         onClick={() => setShowTrends(!showTrends)}
-                        className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors"
+                        className="w-full flex items-center justify-between px-3 sm:px-4 py-2 text-left hover:bg-muted/40 transition-colors"
                     >
                         <div className="flex items-center gap-2">
-                            <BarChart3 className="w-4 h-4 text-amber-600" />
-                            <span className="text-sm font-medium text-amber-800 dark:text-amber-200">트렌드 인사이트</span>
-                            <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700">
+                            <BarChart3 className="w-4 h-4 text-amber-500" />
+                            <span className="text-xs sm:text-sm font-semibold text-foreground">트렌드 인사이트</span>
+                            <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400">
                                 {trends.length}개 카테고리
                             </Badge>
                         </div>
-                        {showTrends ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        {showTrends ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                     </button>
 
                     {showTrends && (
-                        <CardContent className="px-4 pb-4 pt-2 border-t border-amber-100 dark:border-amber-900 space-y-3">
+                        <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2 border-t border-border space-y-3">
                             {trends.map((trend) => (
                                 <div key={trend.id}>
                                     <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{trend.keyword}</span>
-                                        <span className="text-[10px] text-slate-500">{trend.keyword_count}개 키워드</span>
+                                        <span className="text-xs font-semibold text-foreground">{trend.keyword}</span>
+                                        <span className="text-[10px] text-muted-foreground">{trend.keyword_count}개 키워드</span>
                                     </div>
                                     <div className="space-y-1.5">
                                         {trend.top_keywords.map((kw, i) => (
                                             <div
                                                 key={i}
-                                                className="flex items-center gap-2 p-1.5 rounded hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer transition-colors group"
+                                                className="flex items-center gap-2 p-1.5 rounded hover:bg-muted/60 cursor-pointer transition-colors group"
                                                 onClick={() => {
                                                     setNiche(trend.category);
                                                     setInputText(prev => prev ? `${prev}\n\n# ${kw.ko} (${kw.en})` : `# ${kw.ko} (${kw.en})`);
@@ -412,14 +414,14 @@ const ScriptWriter = () => {
                                             >
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="text-xs font-medium truncate">{kw.ko}</span>
-                                                        {kw.en && <span className="text-[10px] text-slate-400 truncate">({kw.en})</span>}
+                                                        <span className="text-xs font-medium text-foreground truncate">{kw.ko}</span>
+                                                        {kw.en && <span className="text-[10px] text-muted-foreground truncate">({kw.en})</span>}
                                                         <Badge
                                                             variant="outline"
                                                             className={`text-[9px] px-1 py-0 ml-auto flex-shrink-0 ${
-                                                                kw.velocity === 'Explosive' ? 'border-red-300 text-red-600 bg-red-50' :
-                                                                kw.velocity === 'Rising' ? 'border-amber-300 text-amber-600 bg-amber-50' :
-                                                                'border-slate-300 text-slate-500'
+                                                                kw.velocity === 'Explosive' ? 'border-destructive/40 text-destructive bg-destructive/10' :
+                                                                kw.velocity === 'Rising' ? 'border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10' :
+                                                                'border-border text-muted-foreground'
                                                             }`}
                                                         >
                                                             <Zap className="w-2.5 h-2.5 mr-0.5" />
@@ -428,7 +430,7 @@ const ScriptWriter = () => {
                                                     </div>
                                                     <Progress value={kw.score} className="h-1 mt-1" />
                                                 </div>
-                                                <span className="text-[10px] font-bold text-slate-500 w-8 text-right">{kw.score}</span>
+                                                <span className="text-[10px] font-bold text-muted-foreground w-8 text-right">{kw.score}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -441,41 +443,41 @@ const ScriptWriter = () => {
 
             {/* Research Context Panel (collapsible) */}
             {lastResponse && (lastResponse.research_used || lastResponse.trend_used) && (
-                <Card className="flex-shrink-0 border-emerald-200 dark:border-emerald-900">
+                <Card className="flex-shrink-0 border-emerald-500/30 bg-card">
                     <button
                         onClick={() => setShowResearch(!showResearch)}
-                        className="w-full flex items-center justify-between px-4 py-2 text-left hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
+                        className="w-full flex items-center justify-between px-3 sm:px-4 py-2 text-left hover:bg-muted/40 transition-colors"
                     >
                         <div className="flex items-center gap-2">
-                            <Search className="w-4 h-4 text-emerald-600" />
-                            <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">리서치 컨텍스트</span>
+                            <Search className="w-4 h-4 text-emerald-500" />
+                            <span className="text-xs sm:text-sm font-semibold text-foreground">리서치 컨텍스트</span>
                             <div className="flex gap-1.5">
                                 {lastResponse.research_used && (
-                                    <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                                    <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                         웹검색 {lastResponse.research_sources?.length || 0}건
                                     </Badge>
                                 )}
                                 {lastResponse.trend_used && (
-                                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                                    <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                                         트렌드 {lastResponse.trend_count}건
                                     </Badge>
                                 )}
                             </div>
                         </div>
-                        {showResearch ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        {showResearch ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                     </button>
 
                     {showResearch && (
-                        <CardContent className="px-4 pb-4 pt-2 border-t border-emerald-100 dark:border-emerald-900">
+                        <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4 pt-2 border-t border-border">
                             {lastResponse.research_used && lastResponse.research_sources && lastResponse.research_sources.length > 0 && (
                                 <div className="mb-3">
                                     <div className="flex items-center gap-1.5 mb-2">
-                                        <Globe className="w-3.5 h-3.5 text-blue-500" />
-                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">웹 검색 결과</span>
+                                        <Globe className="w-3.5 h-3.5 text-primary" />
+                                        <span className="text-xs font-semibold text-foreground">웹 검색 결과</span>
                                     </div>
                                     <ul className="space-y-1">
                                         {lastResponse.research_sources.map((src, i) => (
-                                            <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
                                                 <FileText className="w-3 h-3 mt-0.5 flex-shrink-0" />
                                                 <span>{src}</span>
                                             </li>
@@ -488,14 +490,14 @@ const ScriptWriter = () => {
                                 <div>
                                     <div className="flex items-center gap-1.5 mb-2">
                                         <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
-                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">트렌드 데이터</span>
-                                        <span className="text-[10px] text-slate-500">({lastResponse.trend_count}개 키워드 분석)</span>
+                                        <span className="text-xs font-semibold text-foreground">트렌드 데이터</span>
+                                        <span className="text-[10px] text-muted-foreground">({lastResponse.trend_count}개 키워드 분석)</span>
                                     </div>
                                 </div>
                             )}
 
                             {lastResponse.research_summary && (
-                                <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded text-xs text-slate-500 dark:text-slate-400 italic leading-relaxed border border-slate-200 dark:border-slate-700">
+                                <div className="mt-2 p-2.5 bg-muted/40 rounded-lg text-xs text-muted-foreground italic leading-relaxed border border-border">
                                     {lastResponse.research_summary}
                                 </div>
                             )}
@@ -505,9 +507,9 @@ const ScriptWriter = () => {
             )}
 
             {/* Zone 2: Workspace */}
-            <div className="flex-1 flex flex-col md:flex-row gap-3 sm:gap-4 min-h-[500px]">
+            <div className="flex-1 flex flex-col md:flex-row gap-3 sm:gap-4">
                 {/* Left Pane: Source */}
-                <Card className="flex-1 flex flex-col min-h-[220px] md:min-h-0 border-border bg-card">
+                <Card className="flex-1 flex flex-col border-border bg-card">
                     <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border bg-muted/30">
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-xs sm:text-sm font-bold text-foreground">원본 자막/스크립트 (Source)</CardTitle>
@@ -517,9 +519,9 @@ const ScriptWriter = () => {
                             </Button>
                         </div>
                     </CardHeader>
-                    <CardContent className="flex-1 p-0 relative">
+                    <CardContent className="p-0 flex-1 flex flex-col">
                         <Textarea
-                            className="w-full h-full min-h-[180px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground"
+                            className="w-full min-h-[160px] sm:min-h-[220px] md:min-h-[280px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground"
                             placeholder="번역 및 변환할 원본 텍스트를 여기에 입력하거나 붙여넣으세요..."
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
@@ -528,7 +530,7 @@ const ScriptWriter = () => {
                 </Card>
 
                 {/* Center Action */}
-                <div className="flex flex-row md:flex-col justify-center items-center gap-2">
+                <div className="flex flex-row md:flex-col justify-center items-center gap-2 py-1">
                     <Button
                         size="lg"
                         className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90 shadow-md py-3 sm:py-4 px-4 sm:px-6 rounded-xl font-bold text-xs sm:text-sm"
@@ -545,7 +547,7 @@ const ScriptWriter = () => {
                 </div>
 
                 {/* Right Pane: Result */}
-                <Card className="flex-1 flex flex-col min-h-[260px] md:min-h-0 border-border bg-card shadow-2xs">
+                <Card className="flex-1 flex flex-col border-border bg-card shadow-2xs">
                     <CardHeader className="py-2.5 sm:py-3 px-3 sm:px-4 border-b border-border bg-muted/30">
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-xs sm:text-sm font-bold text-foreground">생성된 대본 (Result)</CardTitle>
@@ -567,15 +569,15 @@ const ScriptWriter = () => {
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="flex-1 p-0 relative flex flex-col min-h-0">
+                    <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                         <Textarea
-                            className="flex-1 resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm font-medium leading-relaxed placeholder:text-muted-foreground"
+                            className="w-full min-h-[160px] sm:min-h-[220px] md:min-h-[280px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm font-medium leading-relaxed placeholder:text-muted-foreground"
                             placeholder="AI가 생성한 대본이 여기에 표시됩니다..."
                             value={resultText}
                             onChange={(e) => setResultText(e.target.value)}
                         />
 
-                        <div className="p-2 border-t border-border bg-muted/20 flex gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar items-center select-none">
+                        <div className="p-2 sm:p-2.5 border-t border-border bg-muted/20 flex gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar items-center select-none">
                             <Button variant="outline" size="sm" className="h-7 sm:h-8 text-xs border-border bg-card text-foreground shrink-0" onClick={() => handleRefine("기존 대본의 맥락, 말투, 톤앤매너를 100% 완벽하게 유지하면서, 전체 분량을 20~30% 정도 줄여서 더 빠르고 간결하게 만들어줘. 불필요한 번역투, 한자어, 중국어투가 절대 들어가지 않도록 극도로 주의해. 오직 자연스러운 한국어로만 작성해.")} disabled={isGenerating || !resultText}>
                                 <Wand2 className="w-3 h-3 mr-1" /> 더 짧게
                             </Button>

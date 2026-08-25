@@ -549,7 +549,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
                 {/* Direct Page Router View Panel */}
                 <div className={cn(
-                    "flex-1 flex flex-col custom-scrollbar min-h-0 pb-24 md:pb-6",
+                    "flex-1 flex flex-col custom-scrollbar min-h-0 pb-28 md:pb-8",
                     location.pathname.startsWith('/agent-studio') ? "overflow-hidden" : "overflow-y-auto"
                 )}>
                     <div className="flex-grow flex flex-col min-h-0 p-3 sm:p-6 max-w-[1600px] w-full mx-auto">
