@@ -284,7 +284,7 @@ const DirectDownload = () => {
     };
 
     return (
-        <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto p-3 sm:p-6 py-4 sm:py-8 min-h-screen bg-background text-foreground">
+        <div className="space-y-4 sm:space-y-6 w-full max-w-4xl mx-auto p-3 sm:p-6 py-4 sm:py-8 min-h-screen bg-background text-foreground overflow-x-hidden">
 
             {batchSource && (
                 <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 animate-in fade-in slide-in-from-top-2">
@@ -345,33 +345,35 @@ const DirectDownload = () => {
 
                             {/* Bypass Mode Switch */}
                             <div className="flex flex-col gap-2 py-2">
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-start gap-2.5">
                                     <Switch
                                         id="bypass-mode"
                                         checked={useBypass}
                                         onCheckedChange={setUseBypass}
                                         disabled={isBatchProcessing || status === 'loading'}
+                                        className="shrink-0 mt-0.5"
                                     />
-                                    <Label htmlFor="bypass-mode" className="text-xs sm:text-sm font-medium cursor-pointer">
+                                    <Label htmlFor="bypass-mode" className="text-xs sm:text-sm font-medium cursor-pointer leading-snug break-keep select-none">
                                         우회 모드 사용 (Bypass Mode) - Douyin/Music 등 다운로드 실패 시 사용
                                     </Label>
                                 </div>
 
                                 {useBypass && (
-                                    <div className="flex flex-col gap-3 ml-6 sm:ml-12 animate-in fade-in slide-in-from-top-1">
-                                        <div className="flex items-center space-x-2">
+                                    <div className="flex flex-col gap-3 pl-8 sm:pl-10 pt-1 animate-in fade-in slide-in-from-top-1">
+                                        <div className="flex items-start gap-2.5">
                                             <Switch
                                                 id="show-browser"
                                                 checked={showBrowser}
                                                 onCheckedChange={setShowBrowser}
                                                 disabled={isBatchProcessing || status === 'loading'}
+                                                className="shrink-0 mt-0.5"
                                             />
-                                            <Label htmlFor="show-browser" className="text-xs sm:text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400">
+                                            <Label htmlFor="show-browser" className="text-xs sm:text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400 leading-snug select-none">
                                                 브라우저 화면 보기 (디버깅용)
                                             </Label>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-1 w-full max-w-sm">
-                                            <Label htmlFor="profile-select" className="text-xs sm:text-sm font-medium min-w-[90px]">연결할 프로필:</Label>
+                                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 mt-1 w-full max-w-sm">
+                                            <Label htmlFor="profile-select" className="text-xs sm:text-sm font-medium shrink-0">연결할 프로필:</Label>
                                             <select
                                                 id="profile-select"
                                                 value={selectedProfileId || ''}
@@ -393,14 +395,15 @@ const DirectDownload = () => {
 
 
                             {/* Script Only Switch */}
-                            <div className="flex items-center space-x-2 py-2">
+                            <div className="flex items-start gap-2.5 py-1">
                                 <Switch
                                     id="script-only-mode"
                                     checked={scriptOnly}
                                     onCheckedChange={setScriptOnly}
                                     disabled={isBatchProcessing || status === 'loading'}
+                                    className="shrink-0 mt-0.5"
                                 />
-                                <Label htmlFor="script-only-mode" className="text-xs sm:text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400">
+                                <Label htmlFor="script-only-mode" className="text-xs sm:text-sm font-medium cursor-pointer text-blue-600 dark:text-blue-400 leading-snug select-none">
                                     스크립트 모드 (영상 다운로드 건너뛰기)
                                 </Label>
                             </div>
@@ -415,21 +418,21 @@ const DirectDownload = () => {
                                 </div>
                             )}
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2">
                             <Button
                                 type="button"
                                 onClick={handleSingleDownload}
-                                className="w-full sm:flex-1 h-11 sm:h-12 bg-primary hover:bg-primary/90 text-xs sm:text-sm font-bold"
+                                className="w-full sm:flex-1 h-11 sm:h-12 bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm font-bold shadow-xs transition-transform active:scale-[0.99]"
                                 disabled={isBatchProcessing || status === 'loading' || !urlInput.trim()}
                             >
                                 {status === 'loading' ? (
                                     <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary-foreground" />
                                         다운로드 중...
                                     </>
                                 ) : (
                                     <>
-                                        <Download className="mr-2 h-4 w-4" />
+                                        <Download className="mr-2 h-4 w-4 text-primary-foreground" />
                                         즉시 다운로드
                                     </>
                                 )}
@@ -437,7 +440,7 @@ const DirectDownload = () => {
                             <Button
                                 type="submit"
                                 variant="outline"
-                                className="w-full sm:flex-1 h-11 sm:h-12 text-xs sm:text-sm font-bold border-border"
+                                className="w-full sm:flex-1 h-11 sm:h-12 text-xs sm:text-sm font-bold border-border bg-card text-foreground hover:bg-muted shadow-2xs transition-transform active:scale-[0.99]"
                                 disabled={isBatchProcessing || status === 'loading' || !urlInput.trim()}
                             >
                                 <Plus className="mr-2 h-4 w-4" />
@@ -508,16 +511,16 @@ const DirectDownload = () => {
                     <Button
                         onClick={processBatch}
                         disabled={isBatchProcessing || queue.filter(i => i.status === 'pending').length === 0}
-                        className="bg-primary hover:bg-primary-hover text-primary-foreground px-6 sm:px-8 h-10 sm:h-11 text-xs sm:text-sm font-bold"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 sm:px-8 h-10 sm:h-11 text-xs sm:text-sm font-bold shadow-xs transition-transform active:scale-[0.99]"
                     >
                         {isBatchProcessing ? (
                             <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary-foreground" />
                                 처리 중...
                             </>
                         ) : (
                             <>
-                                <Play className="mr-2 h-4 w-4" />
+                                <Play className="mr-2 h-4 w-4 text-primary-foreground fill-current" />
                                 일괄 다운로드 시작
                             </>
                         )}
