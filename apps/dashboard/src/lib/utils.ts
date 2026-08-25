@@ -124,7 +124,8 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
 
     // Special Case: Local Backend Thumbnails
     if (path.replace(/\\/g, '/').startsWith('thumbnails/')) {
-        return `/${path.replace(/\\/g, '/')}`;
+        const prefix = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
+        return `${prefix}/${path.replace(/\\/g, '/')}`;
     }
 
     // Clean path separators

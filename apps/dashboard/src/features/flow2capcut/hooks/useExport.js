@@ -11,7 +11,7 @@ import { useState } from 'react'
 import { fileSystemAPI } from './useFileSystem'
 import { toast } from '../components/Toast'
 import useI18n from './useI18n'
-import { resolveExportMediaChoice, hasExportableMedia, getExportFilePaths } from '../utils/sceneMedia'
+import { resolveExportVideos, hasExportableMedia, getExportFilePaths } from '../utils/sceneMedia'
 
 /**
  * Export 미디어를 실제 data/path 와 함께 반환.
@@ -19,17 +19,18 @@ import { resolveExportMediaChoice, hasExportableMedia, getExportFilePaths } from
  * 일관성을 보장한다.
  */
 function resolveExportMedia(scene) {
-  const choice = resolveExportMediaChoice(scene)
-  if (choice === 'i2v')
-    return { type: 'video', data: scene.videoI2V, path: scene.videoI2VPath }
-  if (choice === 't2v')
-    return { type: 'video', data: scene.videoT2V, path: scene.videoT2VPath }
+  const videos = resolveExportVideos(scene)
+  if (videos.length > 0) {
+    const v = videos[0]
+    return { type: 'video', data: v.data, path: v.path }
+  }
   return { type: 'image', data: scene.image, path: scene.imagePath }
 }
 
 export function useExport({
   settings,
   scenes,
+  srtTrack = [],
   videoScenes = [],
   framePairs = [],
   openSettings,
@@ -90,7 +91,7 @@ export function useExport({
   }
 
   // Handle export confirm from modal
-  const handleExportConfirm = async ({ capcutProjectNumber, scaleMode, kenBurns, kenBurnsMode, kenBurnsCycle, kenBurnsScaleMin, kenBurnsScaleMax, subtitleOption, subtitleFontSize }) => {
+  const handleExportConfirm = async ({ capcutProjectNumber, scaleMode, kenBurns, kenBurnsMode, kenBurnsCycle, kenBurnsScaleMin, kenBurnsScaleMax, subtitleOption, subtitleFontSize, audioPackage: overrideAudioPackage }) => {
     const validScenes = scenes;
 
     // 디스크 read 권한이 필요한 파일 경로가 하나라도 있으면 사전에 권한 확인.
@@ -149,7 +150,10 @@ export function useExport({
             subtitle_ko: s.subtitle || '',
             subtitle_en: s.subtitle_en || '',
             subtitle: s.subtitle || '',
-            title: s.title || ''
+            title: s.title || '',
+            // ── 스토리 및 오디오 세그먼트 보존 ──
+            storyId: s.storyId || null,
+            segments: s.segments || null
           }
         }),
         videos: [
@@ -173,7 +177,8 @@ export function useExport({
               prompt: p.prompt || '',
               source: 'i2v',
             })),
-        ]
+        ],
+        srtTrack: srtTrack || []
       }
 
       console.log('[Export] settings.aspectRatio:', settings.aspectRatio, '→ format:', project.format)
@@ -185,6 +190,7 @@ export function useExport({
         imageFallbackLength: project.scenes[0]?.image_fallback?.length || 0
       })
 
+      const finalAudioPackage = overrideAudioPackage || audioPackage
       // Desktop: exportCapcut은 파일 시스템에 직접 기록하고 { success, targetPath }를 반환
       const result = await exportCapcut(project, {
         scaleMode,
@@ -196,7 +202,9 @@ export function useExport({
         kenBurnsScaleMax,
         subtitleOption,
         subtitleFontSize,
-        audioPackage
+        audioPackage: finalAudioPackage,
+        srtTrack: srtTrack || [],
+        srtEntries: finalAudioPackage?.srtEntries || null
       })
 
       if (!result.success) {

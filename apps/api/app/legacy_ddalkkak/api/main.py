@@ -5153,8 +5153,10 @@ async def subtitle_upload(
     background_tasks: BackgroundTasks,
     video: UploadFile = File(...),
     original_urls: str = Form(default=""),  # \n 또는 , 구분
-    style: str = Form(default="shorts"),  # shorts / emotion
+    style: str = Form(default="shorts"),  # shorts / emotion / humor / mystery / knowledge / drama / custom
+    target_lang: str = Form(default="ko"),
     song_title: str = Form(default=""),  # 감성 스타일 — 사용자 입력 노래 제목
+    custom_prompt: str = Form(default=""),
     tts_config: str = Form(default=""),
     current=Depends(auth.require_feature("subtitle")),
 ):
@@ -5179,12 +5181,12 @@ async def subtitle_upload(
     data = await video.read()
     save_path.write_bytes(data)
     db.update_subtitle_job(job_id, video_path=str(save_path),
-                            style=style, progress_message="업로드 받음")
+                            style=style, target_lang=target_lang, progress_message="업로드 받음")
 
-    # 백그라운드에서 5중 분석 + srt 생성 (style + 노래제목 적용)
+    # 백그라운드에서 5중 분석 + srt 생성 (style + 노래제목 + target_lang 적용)
     from workers.auto_subtitle import run_auto_subtitle
     background_tasks.add_task(
-        run_auto_subtitle, job_id, save_path, urls, None, style, song_title,
+        run_auto_subtitle, job_id, save_path, urls, None, style, song_title, custom_prompt or None, target_lang
     )
     return {"job_id": job_id, "status": "pending",
             "message": "분석 시작. /api/subtitle/{job_id}/status로 진행률 확인"}
@@ -5338,11 +5340,35 @@ async def subtitle_capcut_data(job_id: int, current=Depends(auth.require_feature
     if not job:
         raise HTTPException(404, "job not found")
         
-    out_dir = SUBTITLES_DIR / f"job_{job_id}"
-    if not out_dir.exists():
-        raise HTTPException(404, "Job output directory not found")
+    # out_dir 탐색 (여러 후보 경로 검사)
+    candidate_dirs = [
+        SUBTITLES_DIR / f"job_{job_id}",
+        Path(__file__).parent.parent / "data" / "subtitles" / f"job_{job_id}",
+        _BB_DATA / "subtitles" / f"job_{job_id}"
+    ]
+    
+    out_dir = None
+    for d in candidate_dirs:
+        if d.exists() and (list(d.glob("*.srt")) or list(d.glob("*.txt")) or list(d.glob("*.mp3"))):
+            out_dir = d
+            break
+    if not out_dir:
+        for d in candidate_dirs:
+            if d.exists():
+                out_dir = d
+                break
+    if not out_dir:
+        out_dir = SUBTITLES_DIR / f"job_{job_id}"
     
     video_path = job.get("video_path")
+    if not video_path or not Path(video_path).exists():
+        for d in candidate_dirs:
+            for mp4 in d.glob("*.mp4"):
+                video_path = str(mp4)
+                break
+            if video_path and Path(video_path).exists():
+                break
+
     if not video_path or not Path(video_path).exists():
         raise HTTPException(400, "Original video file is missing on disk")
     
@@ -5350,16 +5376,22 @@ async def subtitle_capcut_data(job_id: int, current=Depends(auth.require_feature
     if duration == 0:
         duration = 60.0
     
-    # 오디오 파일 찾기
+    # 오디오(효과음 믹스 / BGM) 파일 찾기
     audio_path = None
-    for f in out_dir.glob("*.mp3"):
-        if "mix" in f.name.lower():
-            audio_path = str(f)
-            break
+    for d in candidate_dirs:
+        if not d.exists(): continue
+        for f in d.glob("*.mp3"):
+            if "mix" in f.name.lower() or "bgm" in f.name.lower() or "효과음" in f.name:
+                audio_path = str(f)
+                break
+        if audio_path: break
     if not audio_path:
-        for f in out_dir.glob("*.mp3"):
-            audio_path = str(f)
-            break
+        for d in candidate_dirs:
+            if not d.exists(): continue
+            for f in d.glob("*.mp3"):
+                audio_path = str(f)
+                break
+            if audio_path: break
     
     # SRT 파일 읽기 (타임스탬프 포함)
     def parse_srt(srt_path):
@@ -5382,11 +5414,12 @@ async def subtitle_capcut_data(job_id: int, current=Depends(auth.require_feature
                             start_sec = ts2sec(times[0])
                             end_sec = ts2sec(times[1])
                             text = "\n".join(lines[2:]).strip()
-                            segments.append({
-                                "start": start_sec,
-                                "end": end_sec,
-                                "text": text
-                            })
+                            if text:
+                                segments.append({
+                                    "start": start_sec,
+                                    "end": end_sec,
+                                    "text": text
+                                })
                         except Exception:
                             pass
         except Exception as e:
@@ -5394,24 +5427,104 @@ async def subtitle_capcut_data(job_id: int, current=Depends(auth.require_feature
         return segments
     
     subtitles = []
-    sit_srt = out_dir / "01_상황설명.srt"
-    if sit_srt.exists():
+    # 1. 상황설명 자막
+    sit_srt = None
+    for d in candidate_dirs:
+        for p in [d / "01_상황설명.srt", d / "01_상황.srt"]:
+            if p.exists():
+                sit_srt = p
+                break
+        if not sit_srt:
+            for p in d.glob("01_*.srt"):
+                sit_srt = p
+                break
+        if sit_srt: break
+
+    if sit_srt and sit_srt.exists():
         for seg in parse_srt(str(sit_srt)):
             seg["track"] = "situation"
             subtitles.append(seg)
     
-    jjap_srt = out_dir / "02_쨉쨉이.srt"
-    if jjap_srt.exists():
+    # 2. 쨉쨉이 자막
+    jjap_srt = None
+    for d in candidate_dirs:
+        for p in [d / "02_쨉쨉이.srt", d / "02_쨉쨉.srt"]:
+            if p.exists():
+                jjap_srt = p
+                break
+        if not jjap_srt:
+            for p in d.glob("02_*.srt"):
+                jjap_srt = p
+                break
+        if jjap_srt: break
+
+    if jjap_srt and jjap_srt.exists():
         for seg in parse_srt(str(jjap_srt)):
             seg["track"] = "jjapjjap"
             subtitles.append(seg)
     
-    # 타이틀 읽기
+    # 3. 대사번역 / 가사 자막 (있을 경우)
+    for d in candidate_dirs:
+        for p in [d / "03_대사번역.srt", d / "05_가사.srt"]:
+            if p.exists():
+                for seg in parse_srt(str(p)):
+                    seg["track"] = "dialogue"
+                    subtitles.append(seg)
+
+    # 4. 만약 디스크에서 자막을 찾지 못했다면 DB gemini_results에서 완벽 복원
+    if not subtitles:
+        gr = job.get("gemini_results")
+        if isinstance(gr, str):
+            try: gr = json.loads(gr)
+            except: gr = {}
+        if isinstance(gr, dict):
+            primary = gr.get("primary", {})
+            for seg in primary.get("situation_subtitles", []):
+                subtitles.append({
+                    "start": float(seg.get("start", 0)),
+                    "end": float(seg.get("end", 0)),
+                    "text": seg.get("text", ""),
+                    "track": "situation"
+                })
+            for seg in primary.get("jjap_jjap_i_subtitles", []):
+                subtitles.append({
+                    "start": float(seg.get("start", 0)),
+                    "end": float(seg.get("end", 0)),
+                    "text": seg.get("text", ""),
+                    "track": "jjapjjap"
+                })
+            for seg in primary.get("dialogue_subtitles", []):
+                subtitles.append({
+                    "start": float(seg.get("start", 0)),
+                    "end": float(seg.get("end", 0)),
+                    "text": seg.get("korean") or seg.get("text", ""),
+                    "track": "dialogue"
+                })
+            for seg in primary.get("lyrics_subtitles", []):
+                subtitles.append({
+                    "start": float(seg.get("start", 0)),
+                    "end": float(seg.get("end", 0)),
+                    "text": seg.get("text", ""),
+                    "track": "lyrics"
+                })
+
+    # 4. 상단 고정 타이틀 읽기
     title_text = None
-    title_file = out_dir / "04_제목후보.txt"
-    if title_file.exists():
+    import re
+    title_file = None
+    for d in candidate_dirs:
+        for p in [d / "04_제목후보.txt", d / "04_제목.txt"]:
+            if p.exists():
+                title_file = p
+                break
+        if not title_file:
+            for p in d.glob("04_*.txt"):
+                title_file = p
+                break
+        if title_file: break
+
+    if title_file and title_file.exists():
         try:
-            import re
             lines = title_file.read_text(encoding="utf-8").splitlines()
             for line in lines:
                 line = line.strip()
@@ -5427,14 +5540,32 @@ async def subtitle_capcut_data(job_id: int, current=Depends(auth.require_feature
         except Exception as e:
             print(f"Title read error: {e}")
     
+    # 만약 파일에 제목이 없으면 DB 레코드에서 추출
+    if not title_text:
+        db_titles = job.get("title_candidates") or job.get("youtube_upload_title_candidates") or []
+        if isinstance(db_titles, str):
+            try: db_titles = json.loads(db_titles)
+            except: db_titles = [db_titles]
+        if isinstance(db_titles, list) and len(db_titles) > 0 and db_titles[0]:
+            title_text = re.sub(r'^\d+\.\s*', '', str(db_titles[0])).strip()
+    
+    if not title_text and job.get("title"):
+        title_text = re.sub(r'^\d+\.\s*', '', str(job.get("title"))).strip()
+
     # 미디어 파일 목록 (복사 대상)
     media_files = [
         {"src": str(video_path).replace("\\", "/"), "name": Path(video_path).name}
     ]
     if audio_path:
         media_files.append({"src": audio_path.replace("\\", "/"), "name": Path(audio_path).name})
-    
-    project_name = f"Ddalkkak_subtitle_{job_id}"
+
+    from datetime import datetime
+    date_str = datetime.now().strftime("%y%m%d")
+    lang_code = (job.get("target_lang") or job.get("language") or "KO").upper()
+    clean_title = re.sub(r'[^\w\s가-힣]', '', str(title_text or Path(video_path).stem)).replace(' ', '')[:20]
+    if not clean_title:
+        clean_title = Path(video_path).stem[:20]
+    project_name = f"{date_str}_{lang_code}_{clean_title}"
     
     return {
         "ok": True,
@@ -6704,7 +6835,13 @@ async def tts_dub_capcut_data(job_id: int, current=Depends(auth.require_feature(
     if tts_path and Path(tts_path).exists():
         media_files.append({"src": str(tts_path).replace("\\", "/"), "name": Path(tts_path).name})
         
-    project_name = f"Ddalkkak_TTSDub_{job_id}"
+    from datetime import datetime
+    date_str = datetime.now().strftime("%y%m%d")
+    lang_code = (job.get("target_lang") or job.get("language") or "KO").upper()
+    clean_title = re.sub(r'[^\w\s가-힣]', '', str(title_text or Path(video_path).stem)).replace(' ', '')[:20]
+    if not clean_title:
+        clean_title = Path(video_path).stem[:20]
+    project_name = f"{date_str}_{lang_code}_{clean_title}"
     return {
         "ok": True,
         "project_name": project_name,

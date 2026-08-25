@@ -1190,6 +1190,9 @@ const CreativeStudio = () => {
                     image_duration: sceneDurationSec,
                     media_path: seg.media_path,
                     video_path: seg.video_path,
+                    media_url: seg.media_url,
+                    image_url: seg.media_url,
+                    imageUrl: seg.media_url,
                     subtitle_ko: seg.script,
                     subtitle_en: seg.script,
                     subtitle: seg.script,
@@ -1245,7 +1248,7 @@ const CreativeStudio = () => {
             let srtContent = null;
             let srtFilename = null;
             if (settings.subtitleOption !== 'none') {
-                srtContent = generateSRT(projectData, settings.subtitleOption || 'ko');
+                srtContent = generateSRT(projectData, settings.subtitleOption || 'ko', generatorOptions);
                 srtFilename = `subtitles_${settings.subtitleOption || 'ko'}.srt`;
             }
 

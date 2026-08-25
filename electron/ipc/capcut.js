@@ -221,9 +221,10 @@ export function registerCapcutIPC(ipcMain) {
   // draft_meta_info.json, media files, and SRT files.
   // ----------------------------------------------------------
   ipcMain.handle('capcut:write-project', async (_event, {
-    targetPath, draftInfo, draftMetaInfo, timelineLayout, extraFiles = {}, mediaFiles = [], srtContent = null, srtFilename = 'subtitles.srt'
+    targetPath, draftInfo, draftContent, draftMetaInfo, timelineLayout, extraFiles = {}, mediaFiles = [], srtContent = null, srtFilename = 'subtitles.srt'
   }) => {
     try {
+      const finalDraftInfo = draftInfo || draftContent;
       // Create project directory and standard subfolders
       console.log(`[CapCut IPC] Creating project structure at: ${targetPath}`);
       await fs.mkdir(targetPath, { recursive: true });
@@ -274,11 +275,11 @@ export function registerCapcutIPC(ipcMain) {
 
         if (realPlatform) {
           console.log(`[CapCut IPC] Cloning local platform metadata: ${realPlatform.app_version}, version: ${realVersion}, new_version: ${realNewVersion}`);
-          if (draftInfo && typeof draftInfo === 'object') {
-            draftInfo.platform = realPlatform;
-            draftInfo.last_modified_platform = realLastModified;
-            if (realVersion) draftInfo.version = realVersion;
-            if (realNewVersion) draftInfo.new_version = realNewVersion;
+          if (finalDraftInfo && typeof finalDraftInfo === 'object') {
+            finalDraftInfo.platform = realPlatform;
+            finalDraftInfo.last_modified_platform = realLastModified;
+            if (realVersion) finalDraftInfo.version = realVersion;
+            if (realNewVersion) finalDraftInfo.new_version = realNewVersion;
           }
           if (extraFiles) {
             if (extraFiles['template-2.tmp'] && typeof extraFiles['template-2.tmp'] === 'object') {
@@ -301,9 +302,9 @@ export function registerCapcutIPC(ipcMain) {
 
       // Write draft_content.json (main project data)
       console.log(`[CapCut IPC] Writing draft_content.json`);
-      const draftInfoContent = typeof draftInfo === 'string'
-        ? draftInfo
-        : JSON.stringify(draftInfo, null, 2)
+      const draftInfoContent = typeof finalDraftInfo === 'string'
+        ? finalDraftInfo
+        : JSON.stringify(finalDraftInfo, null, 2)
       await fs.writeFile(path.join(targetPath, 'draft_content.json'), draftInfoContent, 'utf-8')
 
       // Write draft_meta_info.json (metadata)
@@ -415,13 +416,14 @@ export function registerCapcutIPC(ipcMain) {
         for (const media of mediaFiles) {
           try {
             const destPath = path.join(targetPath, media.targetName)
+            const isFirstSceneImage = media.targetName.startsWith('Resources/media_scene_1.') && !media.targetName.includes('_video');
             if (media.isBase64 && media.source) {
               console.log(`[CapCut IPC] Saving base64 image as: ${media.targetName}`);
               const base64Data = media.source.replace(/^data:image\/[^;]+;base64,/, '')
               await fs.writeFile(destPath, Buffer.from(base64Data, 'base64'))
               
               // Also create a draft_cover.jpg from the first image
-              if (media.targetName.includes('_1.')) {
+              if (isFirstSceneImage) {
                 console.log(`[CapCut IPC] Saving draft_cover.jpg`);
                 await fs.writeFile(path.join(targetPath, 'draft_cover.jpg'), Buffer.from(base64Data, 'base64'))
               }
@@ -430,7 +432,7 @@ export function registerCapcutIPC(ipcMain) {
               await fs.copyFile(media.source, destPath)
 
               // Also create a draft_cover.jpg from the first image
-              if (media.targetName.includes('_1.')) {
+              if (isFirstSceneImage) {
                 console.log(`[CapCut IPC] Copying draft_cover.jpg`);
                 await fs.copyFile(media.source, path.join(targetPath, 'draft_cover.jpg'))
               }
@@ -481,10 +483,9 @@ export function registerCapcutIPC(ipcMain) {
   // macOS: Uses `open -a` command
   // Windows: Searches typical install locations
   // ----------------------------------------------------------
-  ipcMain.handle('capcut:open-app', async (_event, params = {}) => {
+  ipcMain.handle('capcut:open-app', async () => {
     try {
       const platform = process.platform
-      const projectPath = params?.projectPath || ''
 
       if (platform === 'darwin') {
         // macOS: Try known CapCut app names
@@ -510,11 +511,7 @@ export function registerCapcutIPC(ipcMain) {
 
           for (const appPath of appPaths) {
             if (await pathExists(appPath)) {
-              if (projectPath) {
-                await execPromise(`open -a "${appPath}" "${projectPath}"`)
-              } else {
-                await execPromise(`open "${appPath}"`)
-              }
+              await execPromise(`open "${appPath}"`)
               launched = true
               break
             }
@@ -540,36 +537,25 @@ export function registerCapcutIPC(ipcMain) {
           path.join(programFilesX86, 'CapCut', 'CapCut.exe'),
         ]
 
-        // 1. Perform deep dynamic scan inside LOCALAPPDATA/CapCut/Apps/ for versioned folders (e.g. Apps/3.8.0.x/CapCut.exe)
-        // We do this FIRST because the versioned executable correctly accepts the projectPath argument,
-        // whereas the static stub launcher often drops it.
+        // 1. Check typical static locations
+        for (const exePath of exePaths) {
+          if (await pathExists(exePath)) {
+            exec(`start "" "${exePath}"`)
+            return { success: true }
+          }
+        }
+
+        // 2. Perform deep dynamic scan inside LOCALAPPDATA/CapCut/Apps/ for versioned folders (e.g. Apps/3.8.0.x/CapCut.exe)
         try {
           const appsDir = path.join(localAppData, 'CapCut', 'Apps')
           if (await pathExists(appsDir)) {
             const entries = await fs.readdir(appsDir, { withFileTypes: true })
-            // Sort entries in descending order to get the highest version first
-            entries.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }))
-            
             for (const entry of entries) {
               if (entry.isDirectory()) {
                 const nestedExe = path.join(appsDir, entry.name, 'CapCut.exe')
                 if (await pathExists(nestedExe)) {
                   console.log(`[CapCut IPC] Found CapCut inside version subfolder: ${entry.name}`);
-                  
-                  // Kill existing CapCut instances to ensure it processes the CLI argument and opens the project directly
-                  try {
-                    await execPromise('taskkill /IM CapCut.exe /F');
-                    // Wait a brief moment for processes to clear
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                  } catch (e) {
-                    // Ignore error if CapCut is not running
-                  }
-
-                  if (projectPath) {
-                    exec(`start "" "${nestedExe}" "${projectPath}"`)
-                  } else {
-                    exec(`start "" "${nestedExe}"`)
-                  }
+                  exec(`start "" "${nestedExe}"`)
                   return { success: true }
                 }
               }
@@ -577,24 +563,6 @@ export function registerCapcutIPC(ipcMain) {
           }
         } catch (scanError) {
           console.warn('[CapCut IPC] Dynamic version lookup search failed:', scanError.message)
-        }
-
-        // 2. Check typical static locations (fallback, might drop arguments if it is the stub launcher)
-        for (const exePath of exePaths) {
-          if (await pathExists(exePath)) {
-            // Kill existing instances here as well for fallback paths
-            try {
-              await execPromise('taskkill /IM CapCut.exe /F');
-              await new Promise(resolve => setTimeout(resolve, 500));
-            } catch (e) {}
-
-            if (projectPath) {
-              exec(`start "" "${exePath}" "${projectPath}"`)
-            } else {
-              exec(`start "" "${exePath}"`)
-            }
-            return { success: true }
-          }
         }
 
         return { success: false, error: 'CapCut application not found on this PC' }

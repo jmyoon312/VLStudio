@@ -1366,13 +1366,15 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
                               review_note: str | None = None,
                               style: str = "shorts",
                               song_title: str | None = None,
-                              prompt_override: str | None = None) -> None:
+                              prompt_override: str | None = None,
+                              target_lang: str = "ko") -> None:
     """2중 검증 (Pro=3.1 메인 + Flash=3.5 검증) + srt 3개 + 제목 후보 자동 생성. 자료에 결과 저장.
     review_note: 사람 검수 정정 메모 (있으면 prompt에 inject)
     song_title: 감성 스타일에서 사용자가 직접 입력한 노래 제목 (있으면 오디오 식별 대신 이걸 신뢰)
     prompt_override: 자막 메뉴의 SUBTITLE_STYLES 무시하고 외부에서 직접 prompt 전달.
                      쇼츠메이커 등 다른 메뉴가 자체 prompt로 자막 생성 시 사용
                      ([[menu-prompt-separation]] 룰). 학습 inject도 생략 (호출자가 직접 관리).
+    target_lang: 타겟 언어 (ko, en, ja, zh-tw, es 등)
     """
     SUBTITLES_DIR = Path(__file__).parent.parent / "data" / "subtitles"
     out_dir = SUBTITLES_DIR / f"job_{job_id}"
@@ -1394,14 +1396,35 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
         base_prompt = style_def["prompt"]
         learning = get_learning_inject(mannerism_only=True) if style_def.get("use_learning") else ""   # 🔴3.1-pro는 표현풀 족쇄 → 매너리즘 자제만(대표님 0606)
 
+    # 타겟 언어 프롬프트 주입
+    lang_name_map = {
+        'ko': '한국어 (Korean)',
+        'en': '미국 영어 (English - US Shorts style)',
+        'ja': '일본어 (Japanese - YouTube Shorts style)',
+        'zh-tw': '대만 번체 (Traditional Chinese - Taiwan Shorts style)',
+        'es': '스페인어 (Spanish - Latin American Shorts style)'
+    }
+    lang_label = lang_name_map.get((target_lang or 'ko').lower(), target_lang)
+    lang_inject = ""
+    if target_lang and target_lang.lower() != 'ko':
+        lang_inject = (
+            f"\n\n═══════════════════════════════════════\n"
+            f"🌍 [TARGET LANGUAGE MANDATE: {lang_label}]\n"
+            f"═══════════════════════════════════════\n"
+            f"⚠️ You MUST produce ALL subtitles (situation_subtitles, jjap_jjap_i_subtitles, dialogue_subtitles), "
+            f"titles (title_candidates, youtube_upload_title), youtube_description, and hashtags in **{lang_label}**.\n"
+            f"Ensure native tone, viral punchiness, slang, and cultural context for {lang_label} YouTube Shorts viewers!\n"
+            f"═══════════════════════════════════════\n\n"
+        )
+
     # 정정 메모를 prompt 맨 앞에 박기 (있으면)
-    main_prompt = base_prompt + learning + BANNED_WORDS_RULE
+    main_prompt = lang_inject + base_prompt + learning + BANNED_WORDS_RULE
     if review_note and review_note.strip():
         review_inject = (
             f"⚠️ 사람 검수 정정 메모 (반드시 반영):\n{review_note.strip()}\n\n"
             f"이전 분석에서 위 내용이 잘못 분석됐음. 위 메모를 핵심 사실로 두고 다시 분석.\n\n"
         )
-        main_prompt = review_inject + base_prompt + learning + BANNED_WORDS_RULE
+        main_prompt = review_inject + lang_inject + base_prompt + learning + BANNED_WORDS_RULE
 
     # 감성 — 사용자가 노래 제목 직접 입력 시 오디오 식별 대신 100% 신뢰 (오인식 방지)
     if style == "emotion" and song_title and song_title.strip():
@@ -1741,6 +1764,19 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
                       flush=True)
         except Exception as e:
             print(f"  ⚠️ BGM 믹스 실패 (자막 잡 OK): {e}", flush=True)
+
+        # 영속 데이터 디렉토리와 상호 동기화
+        try:
+            local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+            if local_app:
+                persistent_job_dir = Path(local_app) / "ViraLoop Studio" / "data" / "subtitles" / f"job_{job_id}"
+                persistent_job_dir.mkdir(parents=True, exist_ok=True)
+                import shutil
+                for item in out_dir.glob("*"):
+                    if item.is_file():
+                        shutil.copy2(item, persistent_job_dir / item.name)
+        except Exception as sync_err:
+            print(f"  ⚠️ 디렉토리 동기화 실패: {sync_err}", flush=True)
     except Exception as e:
         import traceback
         traceback.print_exc()

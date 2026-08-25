@@ -4,7 +4,17 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  
+  <!-- PWA & Mobile Web App Meta -->
+  <meta name="theme-color" content="#2563EB" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ViraLoop" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  
   <title>ViraLoop - AI Video Studio</title>
   <meta name="description" content="Create viral shorts and long-form videos with AI automation." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +27,16 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/wanted-sans@1.0.3/fonts/webfonts/variable/split/WantedSansVariable.css" />
 </head>
 
-<body class="bg-[#F8F9FC]">
+<body class="bg-[#F8F9FC] select-none touch-manipulation">
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+  <script>
+    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => {
+          console.warn('[PWA] SW register skipped:', err);
+        });
+      });
+    }
+  </script>
 </body>

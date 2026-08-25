@@ -26,6 +26,7 @@ __pycache__/
 # Backups & Temp files
 * - 복사본/
 *_backup/
+backup_*/
 *.tmp*
 *.bak
 *.swp

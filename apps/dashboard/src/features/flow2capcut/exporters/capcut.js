@@ -20,17 +20,72 @@ export async function exportCapcut(project, options = {}) {
   return exportCapcutPackageCloud(project, options);
 }
 
+import { buildStorySrtEntries } from '../utils/storyAudioPackage';
+import { srtTrackToEntries } from '../utils/srtTrack';
+
 /**
  * SRT 자막 파일 생성
  * @param {Object} project - 프로젝트 데이터
  * @param {string} lang - 'ko' | 'en'
+ * @param {Object} options - 옵션 (srtTrack, srtEntries, audioPackage 등)
  * @returns {string} SRT 포맷 문자열
  */
-export function generateSRT(project, lang = 'ko') {
+export function generateSRT(project, lang = 'ko', options = {}) {
   const scenes = project.scenes || [];
-  const videos = project.videos || [];
+  
+  // 1. 고정밀 자막 엔트리 추출 우선순위 (Story 세그먼트 / srtEntries / srtTrack / Ddalkkak)
+  let entries = options.srtEntries || project.srtEntries;
+  if (!entries || entries.length === 0) {
+    if (project._ddalkkak?.subtitles?.length > 0) {
+      entries = project._ddalkkak.subtitles.map(s => {
+        const startMs = s.startMs ?? s.start_ms ?? (s.startTime != null ? s.startTime * 1000 : (s.start != null ? s.start * 1000 : 0));
+        const endMs = s.endMs ?? s.end_ms ?? (s.endTime != null ? s.endTime * 1000 : (s.end != null ? s.end * 1000 : 0));
+        const durMs = s.durationMs ?? s.duration_ms ?? (s.duration != null ? s.duration * 1000 : (endMs - startMs));
+        return {
+          text: s.text || s.content || '',
+          startMs: startMs || 0,
+          endMs: endMs || (startMs + durMs),
+          durationMs: durMs || 3000
+        };
+      });
+    } else if (options.srtTrack && options.srtTrack.length > 0) {
+      entries = srtTrackToEntries(options.srtTrack);
+    } else if (project.srtTrack && project.srtTrack.length > 0) {
+      entries = srtTrackToEntries(project.srtTrack);
+    } else {
+      const storyEntries = buildStorySrtEntries(scenes);
+      if (storyEntries && storyEntries.length > 0) {
+        entries = storyEntries;
+      }
+    }
+  }
 
-  // 비디오가 커버하는 씬 매핑
+  // 고정밀 자막 엔트리가 있는 경우: 음성 및 세그먼트와 1:1 완벽 일치하는 SRT 생성
+  if (entries && entries.length > 0) {
+    let srtContent = '';
+    let index = 1;
+    for (const entry of entries) {
+      const text = entry.text || '';
+      if (!text.trim()) continue;
+      const startMs = (entry.startMs != null ? entry.startMs : (entry.startTime * 1000)) || 0;
+      const endMs = (entry.endMs != null ? entry.endMs : ((entry.endTime * 1000) || (startMs + (entry.durationMs || 3000)))) || 0;
+      if (endMs <= startMs) continue;
+
+      const startTime = formatSRTTime(startMs);
+      const endTime = formatSRTTime(endMs);
+
+      srtContent += `${index}\n`;
+      srtContent += `${startTime} --> ${endTime}\n`;
+      srtContent += `${text.trim()}\n\n`;
+      index++;
+    }
+    if (srtContent.trim()) {
+      return srtContent.trim();
+    }
+  }
+
+  // 2. 레거시 씬 기반 자막 폴백
+  const videos = project.videos || [];
   const videoMap = {};
   videos.forEach(video => {
     if (video.video_path && video.from_scene) {
@@ -54,11 +109,10 @@ export function generateSRT(project, lang = 'ko') {
 
     // 자막이 없으면 스킵
     if (!subtitle || !subtitle.trim()) {
-      // duration만 더하고 넘어감
       const video = videoMap[scene.id];
       const durationMs = video
         ? (video.duration || 5) * 1000
-        : (scene.image_duration || 3) * 1000;
+        : (scene.image_duration || scene.duration || 3) * 1000;
       currentTimeMs += durationMs;
       continue;
     }
@@ -66,31 +120,16 @@ export function generateSRT(project, lang = 'ko') {
     const video = videoMap[scene.id];
     const durationMs = video
       ? (video.duration || 5) * 1000
-      : (scene.image_duration || 3) * 1000;
+      : (scene.image_duration || scene.duration || 3) * 1000;
 
-    // AI Semantic Subtitle Segmentation: Split by `//` or `\n`
-    // If none exist, we just output the full subtitle as one chunk
-    let chunks = subtitle.split(/\/\/|\n/).map(c => c.trim()).filter(c => c.length > 0);
-    if (chunks.length === 0) {
-      currentTimeMs += durationMs;
-      continue;
-    }
-    
-    const chunkDuration = durationMs / chunks.length;
-    let currentChunkStart = currentTimeMs;
+    const startTime = formatSRTTime(currentTimeMs);
+    const endTime = formatSRTTime(currentTimeMs + durationMs);
 
-    for (const chunk of chunks) {
-      const startTime = formatSRTTime(currentChunkStart);
-      const endTime = formatSRTTime(currentChunkStart + chunkDuration);
+    srtContent += `${index}\n`;
+    srtContent += `${startTime} --> ${endTime}\n`;
+    srtContent += `${subtitle.trim()}\n\n`;
 
-      srtContent += `${index}\n`;
-      srtContent += `${startTime} --> ${endTime}\n`;
-      srtContent += `${chunk}\n\n`;
-
-      index++;
-      currentChunkStart += chunkDuration;
-    }
-    
+    index++;
     currentTimeMs += durationMs;
   }
 

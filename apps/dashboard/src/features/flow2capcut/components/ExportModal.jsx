@@ -84,8 +84,8 @@ export const ExportModal = ({ isOpen, onClose, onExport, projectName, loading, e
           if (pathResult.success && pathResult.basePath) {
             setDetectedBasePath(pathResult.basePath)
 
-            // 3. 다음 프로젝트 번호 자동 계산
-            if (window.electronAPI?.getNextProjectNumber) {
+            // 3. projectName이 없을 때만 다음 프로젝트 번호 자동 계산
+            if (!projectName && window.electronAPI?.getNextProjectNumber) {
               const numResult = await window.electronAPI.getNextProjectNumber({ basePath: pathResult.basePath })
               if (numResult.success && numResult.folderName) {
                 setProjectNumber(numResult.folderName)
@@ -98,8 +98,13 @@ export const ExportModal = ({ isOpen, onClose, onExport, projectName, loading, e
       }
     }
 
+    // projectName이 전달되면 프로젝트 폴더/이름으로 우선 적용
+    if (projectName) {
+      setProjectNumber(projectName)
+    }
+
     autoDetect()
-  }, [isOpen])
+  }, [isOpen, projectName])
 
   // 전체 경로 자동 생성: detectedBasePath 기반 또는 프리셋 기반
   const generatePath = () => {

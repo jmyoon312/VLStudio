@@ -23,6 +23,7 @@
 import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
+import os from 'os'
 import { execFile, execSync } from 'child_process'
 import { app, dialog, BrowserWindow } from 'electron'
 import { parseSfxList } from '../../apps/dashboard/src/features/flow2capcut/utils/parseSfxList.js'
@@ -319,9 +320,21 @@ function getConfigPath() {
   return path.join(app.getPath('userData'), 'work-folder-config.json')
 }
 
-// 강제로 새로운 통합 미디어 폴더 경로를 반환합니다.
+// 통합 미디어 폴더 경로를 안전하게 반환합니다.
 function getUnifiedMediaFolder() {
-  return path.join(app.getPath('localAppData'), 'ViraLoop Studio', 'media')
+  let localAppData = process.env.LOCALAPPDATA
+  if (!localAppData) {
+    try {
+      localAppData = path.join(os.homedir(), 'AppData', 'Local')
+    } catch {
+      try {
+        localAppData = app.getPath('userData')
+      } catch {
+        localAppData = os.tmpdir()
+      }
+    }
+  }
+  return path.join(localAppData, 'ViraLoop Studio', 'media')
 }
 
 async function readWorkFolderConfig() {

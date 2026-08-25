@@ -37,8 +37,56 @@ interface VoicePresetListProps {
 
 const STORAGE_KEY = 'tts_voice_presets';
 
+export const DEFAULT_SYSTEM_PRESETS: VoicePreset[] = [
+    {
+        id: 'system_piljae_shorts',
+        label: '⭐ [기본] 필재 - 쇼츠 사이다/실화',
+        engine: 'typecast',
+        language: 'ko',
+        voice_id: 'tc_68257f68bc6e3c161ab5078d',
+        speed: 1.4,
+        pitch: 1
+    },
+    {
+        id: 'system_jihoon_meme',
+        label: '🤣 [유머/MZ] 지훈 - 빠른 템포 & 밈',
+        engine: 'typecast',
+        language: 'ko',
+        voice_id: 'tc_68257f68bc6e3c161ab5078d',
+        speed: 1.35,
+        pitch: 2
+    },
+    {
+        id: 'system_minjun_mystery',
+        label: '😱 [미스터리/다큐] 민준 - 저음 몰입형',
+        engine: 'typecast',
+        language: 'ko',
+        voice_id: 'tc_68257f68bc6e3c161ab5078d',
+        speed: 1.15,
+        pitch: -1
+    },
+    {
+        id: 'system_adam_en',
+        label: '🇺🇸 [글로벌 영어] Adam - High CPM',
+        engine: 'kokoro',
+        language: 'en',
+        voice_id: 'am_adam',
+        speed: 1.25,
+        pitch: 0
+    },
+    {
+        id: 'system_yuki_ja',
+        label: '🇯🇵 [글로벌 일본어] Yuki - 츳코미 쇼츠',
+        engine: 'kokoro',
+        language: 'ja',
+        voice_id: 'jf_alpha',
+        speed: 1.20,
+        pitch: 1
+    }
+];
+
 export const VoicePresetList: React.FC<VoicePresetListProps> = ({ currentConfig, onSelect }) => {
-    const [presets, setPresets] = useState<VoicePreset[]>([]);
+    const [presets, setPresets] = useState<VoicePreset[]>(DEFAULT_SYSTEM_PRESETS);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newLabel, setNewLabel] = useState("");
 
@@ -47,16 +95,24 @@ export const VoicePresetList: React.FC<VoicePresetListProps> = ({ currentConfig,
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             try {
-                setPresets(JSON.parse(saved));
+                const userPresets: VoicePreset[] = JSON.parse(saved);
+                // Merge system presets with user presets (avoiding duplicates)
+                const userOnly = userPresets.filter(up => !DEFAULT_SYSTEM_PRESETS.some(sp => sp.id === up.id));
+                setPresets([...DEFAULT_SYSTEM_PRESETS, ...userOnly]);
             } catch (e) {
                 console.error("Failed to parse presets", e);
+                setPresets(DEFAULT_SYSTEM_PRESETS);
             }
+        } else {
+            setPresets(DEFAULT_SYSTEM_PRESETS);
         }
     }, []);
 
     const savePresets = (newPresets: VoicePreset[]) => {
         setPresets(newPresets);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newPresets));
+        // Only save user presets to localStorage
+        const userOnly = newPresets.filter(p => !p.id.startsWith('system_'));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(userOnly));
     };
 
     const handleAddPreset = () => {

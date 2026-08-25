@@ -2,7 +2,9 @@
  * capcutLocalGenerator - CapCut 프로젝트 폴더 구조 및 JSON 생성 (V6 Platinum Pro Max 버전)
  */
 
-import { resolveImageSrc } from '../utils/formatters';
+import { resolveImageSrc } from '../utils/formatters.js';
+import { buildStoryAudioPackage, buildStorySrtEntries } from '../utils/storyAudioPackage.js';
+import { srtTrackToEntries } from '../utils/srtTrack.js';
 
 function generateId() {
   try {
@@ -61,10 +63,21 @@ export async function generateCapcutProject(project, options = {}) {
 
   const scenes = project.scenes || [];
   
-  const audioPackage = options.audioPackage;
+  let audioPackage = options.audioPackage;
+  if (!audioPackage || ((!audioPackage.voices || audioPackage.voices.length === 0) && (!audioPackage.sfx || audioPackage.sfx.length === 0))) {
+    const derived = buildStoryAudioPackage(scenes);
+    if (derived && ((derived.voices && derived.voices.length > 0) || (derived.sfx && derived.sfx.length > 0))) {
+      console.log('[CapCut Local Generator] Auto-derived audioPackage from story scenes:', derived);
+      audioPackage = derived;
+    }
+  }
 
-  const videoTrack = { id: generateId(), type: 'video', segments: [] };
-  const textTrack = { id: generateId(), type: 'text', segments: [] };
+  const videoTrack = { id: generateId(), type: 'video', flag: 0, segments: [] };
+  const overlayTrack = { id: generateId(), type: 'video', flag: 0, segments: [] };
+  const topTitleTrack = { id: generateId(), type: 'text', flag: 0, name: 'Top Title', segments: [] };
+  const situationTrack = { id: generateId(), type: 'text', flag: 0, name: 'Situation Subtitles', segments: [] };
+  const jjapjjapTrack = { id: generateId(), type: 'text', flag: 0, name: 'Reaction Subtitles', segments: [] };
+  const textTrack = { id: generateId(), type: 'text', flag: 2, name: 'Main Subtitles', segments: [] };
   const globalVideoKeyframes = [];
   
   // 1순위: 나레이터 전용 동적 멀티트랙 배열
@@ -74,6 +87,8 @@ export async function generateCapcutProject(project, options = {}) {
       narratorTracks[index] = {
         id: generateId(),
         type: 'audio',
+        flag: 0,
+        attribute: 0,
         name: index === 0 ? 'Voice - NARRATOR' : `Voice - NARRATOR (${index + 1})`,
         segments: []
       };
@@ -88,6 +103,8 @@ export async function generateCapcutProject(project, options = {}) {
       characterTracks[index] = {
         id: generateId(),
         type: 'audio',
+        flag: 0,
+        attribute: 0,
         name: index === 0 ? 'Voice - CHARACTERS' : `Voice - CHARACTERS (${index + 1})`,
         segments: []
       };
@@ -102,6 +119,8 @@ export async function generateCapcutProject(project, options = {}) {
       sfxTracksList[index] = {
         id: generateId(),
         type: 'audio',
+        flag: 0,
+        attribute: 0,
         name: index === 0 ? 'SFX - GENERAL' : `SFX - GENERAL (${index + 1})`,
         segments: []
       };
@@ -188,27 +207,26 @@ export async function generateCapcutProject(project, options = {}) {
   for (let index = 0; index < sortedScenes.length; index++) {
     const scene = sortedScenes[index];
     const duration = scene.image_duration || scene.duration || 3;
-    let mediaSource = scene.video_path || scene.video || scene.media_path || scene.image_path || scene.imagePath || scene.image || scene.image_fallback; 
-    const isVideo = !!(scene.video_path || scene.video || (mediaSource && mediaSource.match(/\.(mp4|mov|avi|webm)$/i)));
+    let imageSource = scene.media_path || scene.image_path || scene.imagePath || scene.image || scene.image_fallback; 
     
-    if (mediaSource) {
+    if (imageSource) {
       const materialId = generateId();
       const segmentId = generateId();
 
-      const isBase64 = mediaSource.startsWith('data:');
-      let ext = isVideo ? 'mp4' : 'jpg';
+      const isBase64 = imageSource.startsWith('data:');
+      let ext = 'jpg';
       if (isBase64) {
-        const match = mediaSource.match(/^data:image\/(\w+);base64,/);
+        const match = imageSource.match(/^data:image\/(\w+);base64,/);
         ext = match ? (match[1] === 'jpeg' ? 'jpg' : match[1]) : 'jpg';
-      } else if (!isVideo) {
-        ext = mediaSource.match(/\.(png|jpg|jpeg|webp|gif)$/i)?.[1] || 'jpg';
+      } else {
+        ext = imageSource.match(/\.(png|jpg|jpeg|webp|gif)$/i)?.[1] || 'jpg';
       }
       
       const targetName = `Resources/media_scene_${index + 1}.${ext}`;
       const absoluteTargetFilePath = `${targetPath}/${targetName}`.replace(/\\/g, '/');
 
       mediaFilesToCopy.push({
-        source: mediaSource,
+        source: imageSource,
         isBase64: isBase64,
         targetName: targetName
       });
@@ -225,9 +243,9 @@ export async function generateCapcutProject(project, options = {}) {
       } else if (scene.width && scene.height) {
         imgWidth = scene.width;
         imgHeight = scene.height;
-      } else if (mediaSource && !isVideo) {
+      } else if (imageSource) {
         try {
-          const resolvedSrc = resolveImageSrc({ imagePath: scene.media_path || scene.image_path || scene.imagePath, image: scene.image || scene.image_fallback }) || mediaSource;
+          const resolvedSrc = resolveImageSrc({ imagePath: scene.media_path || scene.image_path || scene.imagePath, image: scene.image || scene.image_fallback }) || imageSource;
           const loadedSize = await new Promise((resolve) => {
             const img = new Image();
             img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
@@ -242,30 +260,13 @@ export async function generateCapcutProject(project, options = {}) {
         } catch (e) {
           console.warn(`[CapCut Local Generator] Failed to load image size for scene ${index + 1}, using canvas fallback.`);
         }
-      } else if (mediaSource && isVideo) {
-        try {
-          const resolvedSrc = resolveImageSrc({ imagePath: scene.media_path || scene.image_path || scene.imagePath, image: scene.video || scene.video_path }) || mediaSource;
-          const loadedSize = await new Promise((resolve) => {
-            const vid = document.createElement('video');
-            vid.onloadedmetadata = () => resolve({ width: vid.videoWidth, height: vid.videoHeight });
-            vid.onerror = () => resolve(null);
-            vid.src = resolvedSrc;
-          });
-          if (loadedSize && loadedSize.width && loadedSize.height) {
-            imgWidth = loadedSize.width;
-            imgHeight = loadedSize.height;
-            console.log(`[CapCut Local Generator] Extracted video size for scene ${index + 1}: ${imgWidth}x${imgHeight}`);
-          }
-        } catch (e) {
-          console.warn(`[CapCut Local Generator] Failed to load video size for scene ${index + 1}, using canvas fallback.`);
-        }
       }
 
       // materials.videos (Golden Template Applied)
       materials.videos.push({
         id: materialId,
         path: absoluteTargetFilePath,
-        type: isVideo ? "video" : "photo",
+        type: "photo", // Images should be "photo"
         duration: toMicros(duration),
         width: imgWidth,
         height: imgHeight,
@@ -293,7 +294,7 @@ export async function generateCapcutProject(project, options = {}) {
         baseScale = 1.0 / minFitScale;
       }
 
-      const kenBurnsEnabled = !isVideo && (options.kenBurns ?? true);
+      const kenBurnsEnabled = options.kenBurns ?? true;
       const kenBurnsMode = options.kenBurnsMode || 'random';
       const kenBurnsCycle = options.kenBurnsCycle || 5;
       const kenBurnsScaleMin = parseFloat(options.kenBurnsScaleMin) || 1.0;
@@ -311,7 +312,7 @@ export async function generateCapcutProject(project, options = {}) {
         // 1. Ken Burns가 활성화된 경우, 캔버스 전체를 꽉 채우는 비율(Fill 기준: maxFitScale / minFitScale)을 최소 baseScale로 강제하여 종횡비 차이로 인한 레터박스/필러박스를 원천 제거합니다.
         const fillBaseScale = Math.max(baseScale, maxFitScale / minFitScale);
 
-        // 2. 사용자가 지적한 "너무 좌에서 우로 움직하다보니까 빈공백이 생기고 테두리에 까만색이 만들어져" 문제를 방어하기 위해 패닝 최대 범위를 3%(-0.03 ~ 0.03)로 제한하고, 패닝 버퍼(1.06배)를 확보합니다.
+        // 2. 사용자가 지적한 "너무 좌에서 우로 움직이다보니까 빈공백이 생기고 테두리에 까만색이 만들어져" 문제를 방어하기 위해 패닝 최대 범위를 3%(-0.03 ~ 0.03)로 제한하고, 패닝 버퍼(1.06배)를 확보합니다.
         const maxPan = 0.03; 
         const panBuffer = 1.0 + (2.0 * maxPan);
         let safeBaseScale = fillBaseScale * panBuffer;
@@ -500,172 +501,209 @@ export async function generateCapcutProject(project, options = {}) {
         extra_material_refs: [materialId]
       });
     } else {
-      // 이미지가 없는 씬도 비디오 트랙에 빈 투명 갭(Transparent Gap) 세그먼트를 반드시 배치하여
-      // 비디오 트랙의 총 연장 길이를 자막/오디오 트랙과 100% 일치시켜 캡컷 로딩 프리징을 원천 예방합니다!
-      const segmentId = generateId();
-      videoTrack.segments.push({
-        id: segmentId,
-        material_id: "", // 빈 머티리얼로 투명 처리
-        source_timerange: null,
-        target_timerange: { start: toMicros(cumulativeTime), duration: toMicros(duration) },
-        render_index: 10000 + index,
+      // 이미지가 없는 씬: 영상이 있으면 메인 비디오 트랙에 직접 배치, 없으면 빈 투명 갭 배치
+      const videoPath = scene.video_path || scene.videoPath;
+      const videoDurationSec = scene.video_duration || duration || 0;
+
+      if (videoPath && videoDurationSec > 0) {
+        const videoMaterialId = generateId();
+        const videoSegmentId = generateId();
+
+        const isBase64Video = videoPath.startsWith('data:');
+        let vExt = 'mp4';
+        if (isBase64Video) {
+          const match = videoPath.match(/^data:video\/(\w+);base64,/);
+          vExt = match ? match[1] : 'mp4';
+        } else {
+          vExt = videoPath.match(/\.(mp4|webm|mov|avi)$/i)?.[1] || 'mp4';
+        }
+
+        const vTargetName = `Resources/media_scene_${index + 1}_video.${vExt}`;
+        const vAbsoluteTargetFilePath = `${targetPath}/${vTargetName}`.replace(/\\/g, '/');
+
+        mediaFilesToCopy.push({
+          source: videoPath,
+          isBase64: isBase64Video,
+          targetName: vTargetName
+        });
+
+        materials.videos.push({
+          id: videoMaterialId,
+          path: vAbsoluteTargetFilePath,
+          type: "video",
+          duration: toMicros(videoDurationSec),
+          width: canvasWidth,
+          height: canvasHeight,
+          import_time: Math.floor(Date.now() / 1000),
+          source_platform: 0,
+          category_name: "local",
+          category_id: "local",
+          check_flag: 63487,
+          material_name: `media_scene_${index + 1}_video.${vExt}`
+        });
+
+        const clipDurationSec = Math.max(videoDurationSec, duration);
+
+        videoTrack.segments.push({
+          id: videoSegmentId,
+          material_id: videoMaterialId,
+          source_timerange: { start: 0, duration: toMicros(clipDurationSec) },
+          target_timerange: { start: toMicros(cumulativeTime), duration: toMicros(clipDurationSec) },
+          render_index: 10000 + index,
+          clip: {
+            scale: { x: 1.0, y: 1.0 },
+            transform: { x: 0, y: 0 }
+          },
+          extra_material_refs: [videoMaterialId]
+        });
+      } else {
+        const segmentId = generateId();
+        videoTrack.segments.push({
+          id: segmentId,
+          material_id: "",
+          source_timerange: null,
+          target_timerange: { start: toMicros(cumulativeTime), duration: toMicros(duration) },
+          render_index: 10000 + index,
+          clip: {
+            scale: { x: 1.0, y: 1.0 },
+            transform: { x: 0, y: 0 }
+          },
+          extra_material_refs: []
+        });
+      }
+    }
+
+    // [영상 오버레이 처리] (이미지가 있고 생성된 비디오도 함께 있는 경우)
+    const videoPath = scene.video_path || scene.videoPath;
+    const videoDurationSec = scene.video_duration || 0;
+    if (imageSource && videoPath && videoDurationSec > 0) {
+      const videoMaterialId = generateId();
+      const videoSegmentId = generateId();
+
+      const isBase64Video = videoPath.startsWith('data:');
+      let vExt = 'mp4';
+      if (isBase64Video) {
+        const match = videoPath.match(/^data:video\/(\w+);base64,/);
+        vExt = match ? match[1] : 'mp4';
+      } else {
+        vExt = videoPath.match(/\.(mp4|webm|mov|avi)$/i)?.[1] || 'mp4';
+      }
+
+      const vTargetName = `Resources/media_scene_${index + 1}_video.${vExt}`;
+      const vAbsoluteTargetFilePath = `${targetPath}/${vTargetName}`.replace(/\\/g, '/');
+
+      mediaFilesToCopy.push({
+        source: videoPath,
+        isBase64: isBase64Video,
+        targetName: vTargetName
+      });
+
+      materials.videos.push({
+        id: videoMaterialId,
+        path: vAbsoluteTargetFilePath,
+        type: "video",
+        duration: toMicros(videoDurationSec),
+        width: canvasWidth,
+        height: canvasHeight,
+        import_time: Math.floor(Date.now() / 1000),
+        source_platform: 0,
+        category_name: "local",
+        category_id: "local",
+        check_flag: 63487,
+        material_name: `media_scene_${index + 1}_video.${vExt}`
+      });
+
+      const clipDurationSec = Math.min(videoDurationSec, duration);
+      const videoStartMs = videoDurationSec < duration
+        ? (cumulativeTime * 1000) + ((duration - videoDurationSec) * 1000)
+        : (cumulativeTime * 1000);
+
+      overlayTrack.segments.push({
+        id: videoSegmentId,
+        material_id: videoMaterialId,
+        source_timerange: { start: 0, duration: toMicros(clipDurationSec) },
+        target_timerange: { start: videoStartMs * 1000, duration: toMicros(clipDurationSec) },
+        render_index: 11000 + index,
         clip: {
           scale: { x: 1.0, y: 1.0 },
           transform: { x: 0, y: 0 }
         },
-        extra_material_refs: []
+        extra_material_refs: [videoMaterialId]
       });
     }
 
-    // Extract subtitle (defaulting to Korean, or options.subtitleOption || 'ko')
-    const subtitleLang = options.subtitleOption || 'ko';
-    const subtitleText = subtitleLang === 'ko' ? (scene.subtitle_ko || scene.subtitle) : (scene.subtitle_en || scene.subtitle);
+    cumulativeTime += duration;
+  }
 
-    if (subtitleText && subtitleText.trim()) {
-      // 1. Semantic Chunking based on AI or User markers (// or \n)
-      let chunks = subtitleText.split(/\/\/|\n/).map(c => c.trim()).filter(c => c.length > 0);
-      
-      const subConfig = options.subtitleConfig || {};
-      const splitLimit = parseInt(subConfig.splitLimit || 20, 10);
-      
-      // Auto-chunking for long text if no manual markers exist
-      if (chunks.length === 1 && chunks[0].length > splitLimit * 1.5) {
-          const newChunks = [];
-          const words = chunks[0].split(/\s+/);
-          let currentChunk = "";
-          for (const word of words) {
-            if ((currentChunk + word).length > splitLimit) {
-              if (currentChunk.trim()) newChunks.push(currentChunk.trim());
-              currentChunk = word + " ";
-            } else {
-              currentChunk += word + " ";
-            }
-          }
-          if (currentChunk.trim()) newChunks.push(currentChunk.trim());
-          chunks = newChunks;
-      }
-      
-      if (chunks.length > 0) {
-        
-        const subtitleDuration = duration;
-        const chunkDuration = subtitleDuration / chunks.length;
-
-        // Configuration setup
-        
-        const hexToRgbFloat = (hex) => {
-          if (!hex) return [1.0, 1.0, 1.0];
-          const clean = hex.replace('#', '');
-          if (clean.length === 6) {
-            return [
-              parseInt(clean.substr(0, 2), 16) / 255.0,
-              parseInt(clean.substr(2, 2), 16) / 255.0,
-              parseInt(clean.substr(4, 2), 16) / 255.0
-            ];
-          }
-          return [1.0, 1.0, 1.0];
-        };
-
-        const textColorHex = subConfig.textColor || "#FFFFFF";
-        const textColorRgb = hexToRgbFloat(textColorHex);
-        const isBold = subConfig.isBold !== undefined ? subConfig.isBold : true;
-        const isItalic = subConfig.isItalic !== undefined ? subConfig.isItalic : false;
-        
-        const hasShadow = subConfig.shadowSize && subConfig.shadowSize > 0;
-        const shadowColor = subConfig.shadowColor || "#000000";
-        const shadowDist = (subConfig.shadowSize || 0) * 0.8;
-        
-        const hasOutline = subConfig.outlineSize && subConfig.outlineSize > 0;
-        const outlineColor = subConfig.outlineColor || "#000000";
-        const outlineWidth = (subConfig.outlineSize || 0) * 0.02;
-        
-        const useBox = subConfig.useBox || false;
-        const boxColor = subConfig.boxColor || "#000000";
-        const boxAlpha = useBox ? (subConfig.boxOpacity || 50) / 100.0 : 0.0;
-        
-        let alignment = 1;
-        if (subConfig.textAlign === 'left') alignment = 0;
-        else if (subConfig.textAlign === 'right') alignment = 2;
-
-        const fontSize = parseFloat(subConfig.fontSize || 10);
-        const baseMarginY = parseFloat(subConfig.marginV || 50) / 1000.0;
-        let transformY = isPortrait ? -0.65 : -0.85;
-        const pos = subConfig.position || 'bottom';
-        if (pos === 'top') {
-          transformY = (isPortrait ? 0.65 : 0.85) - baseMarginY;
-        } else if (pos === 'middle') {
-          transformY = 0.0 + baseMarginY;
-        } else if (pos === 'bottom') {
-          transformY = (isPortrait ? -0.65 : -0.85) + baseMarginY;
-        } else if (pos === 'custom') {
-          transformY = 0.0 + baseMarginY;
-        }
-
-        // Font selection
-        let fontPath = "";
-        let fontName = subConfig.font || "맑은 고딕";
-        const isWin = typeof process !== 'undefined' ? process.platform === 'win32' : /Win/.test(navigator.userAgent);
-        if (isWin) {
-          fontPath = "C:/Windows/Fonts/malgun.ttf";
-        } else {
-          fontPath = "/System/Library/Fonts/AppleSDGothicNeo.ttc";
-          fontName = "Apple SD 산돌고딕 Neo";
-        }
-
-        // Loop over semantic chunks
-        for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
-          const rawChunk = chunks[cIdx];
-          const chunkStart = cumulativeTime + (cIdx * chunkDuration);
-          
-          let cleanText = rawChunk.replace(/<[^>]*>/g, '').trim();
-
-          // 2. Line Breaking within chunk
-          const splitLimit = parseInt(subConfig.splitLimit || 20, 10);
-          let splitText = "";
-          let currentLine = "";
-          const words = cleanText.split(/\s+/);
-          
-          for (const word of words) {
-            if ((currentLine + word).length > splitLimit) {
-              splitText += (splitText ? "\n" : "") + currentLine.trim();
-              currentLine = word + " ";
-            } else {
-              currentLine += word + " ";
-            }
-          }
-          if (currentLine.trim()) {
-            splitText += (splitText ? "\n" : "") + currentLine.trim();
-          }
-          cleanText = splitText || cleanText;
-
-          const textMaterialId = generateId();
-          const textSegmentId = generateId();
-
-      // Detect OS to use premium, beautiful Korean fonts that are guaranteed to exist locally
-      let fontPath = "";
-      let fontName = subConfig.font || "맑은 고딕";
-      
-      const isWin = typeof process !== 'undefined' ? process.platform === 'win32' : /Win/.test(navigator.userAgent);
-      
-      const winFontPaths = {
-        "맑은 고딕": "C:/Windows/Fonts/malgun.ttf",
-        "Arial": "C:/Windows/Fonts/arial.ttf",
-        "Gmarket Sans": "C:/Windows/Fonts/GmarketSansTTFMedium.ttf",
-        "Noto Sans KR": "C:/Windows/Fonts/NotoSansKR-Regular.otf",
-        "배달의민족 도현": "C:/Windows/Fonts/BMDOHYEON_ttf.ttf"
-      };
-
-      if (isWin) {
-        fontPath = winFontPaths[fontName] || "C:/Windows/Fonts/malgun.ttf";
+  // ── 자막 트랙 생성 (고정밀 srtEntries / srtTrack / Story 세그먼트 / Ddalkkak 기반 음성 완벽 싱크) ──
+  const subtitleOption = options.subtitleOption || 'ko';
+  if (subtitleOption !== 'none') {
+    let resolvedSrtEntries = options.srtEntries || project.srtEntries;
+    if (!resolvedSrtEntries || resolvedSrtEntries.length === 0) {
+      if (project._ddalkkak?.subtitles?.length > 0) {
+        resolvedSrtEntries = project._ddalkkak.subtitles.map(s => {
+          const startMs = s.startMs ?? s.start_ms ?? (s.startTime != null ? s.startTime * 1000 : (s.start != null ? s.start * 1000 : 0));
+          const endMs = s.endMs ?? s.end_ms ?? (s.endTime != null ? s.endTime * 1000 : (s.end != null ? s.end * 1000 : 0));
+          const durMs = s.durationMs ?? s.duration_ms ?? (s.duration != null ? s.duration * 1000 : (endMs - startMs));
+          return {
+            text: s.text || s.content || '',
+            startMs: startMs || 0,
+            endMs: endMs || (startMs + durMs),
+            durationMs: durMs || 3000,
+            track: s.track || 'main'
+          };
+        });
+      } else if (options.srtTrack && options.srtTrack.length > 0) {
+        resolvedSrtEntries = srtTrackToEntries(options.srtTrack);
+      } else if (project.srtTrack && project.srtTrack.length > 0) {
+        resolvedSrtEntries = srtTrackToEntries(project.srtTrack);
       } else {
-        fontPath = "/System/Library/Fonts/AppleSDGothicNeo.ttc";
-        fontName = subConfig.font || "Apple SD 산돌고딕 Neo";
+        const storyEntries = buildStorySrtEntries(scenes);
+        if (storyEntries && storyEntries.length > 0) {
+          resolvedSrtEntries = storyEntries;
+        }
+      }
+    }
+
+    const baseFontSize = parseFloat(options.subtitleFontSize) || 6.0;
+    const fontSize = isPortrait ? baseFontSize * 0.9 : baseFontSize;
+
+    let fontPath = "";
+    let fontName = "SystemFont";
+    const isWin = typeof process !== 'undefined' ? process.platform === 'win32' : /Win/.test(navigator.userAgent);
+    if (isWin) {
+      fontPath = "C:/Windows/Fonts/malgun.ttf";
+      fontName = "맑은 고딕";
+    } else {
+      fontPath = "/System/Library/Fonts/AppleSDGothicNeo.ttc";
+      fontName = "Apple SD 산돌고딕 Neo";
+    }
+
+    const pushSubtitle = (cleanText, startMicros, durationMicros, renderIdx, trackType = 'main') => {
+      const textMaterialId = generateId();
+      const textSegmentId = generateId();
+
+      let targetTrack = textTrack;
+      let posY = isPortrait ? -0.65 : -0.75;
+      let textColor = [1.0, 0.92, 0.23];
+      let subFontSize = fontSize;
+
+      if (trackType === 'situation') {
+        targetTrack = situationTrack;
+        posY = isPortrait ? -0.15 : -0.25; // 상황설명은 중앙 상단
+        textColor = [1.0, 1.0, 1.0]; // 깨끗한 백색
+        subFontSize = isPortrait ? fontSize * 0.92 : fontSize;
+      } else if (trackType === 'jjapjjap') {
+        targetTrack = jjapjjapTrack;
+        posY = isPortrait ? -0.65 : -0.75; // 쨉쨉이는 하단 강조
+        textColor = [1.0, 0.92, 0.23]; // 노란 강조색
+        subFontSize = isPortrait ? fontSize * 1.05 : fontSize;
       }
 
-      // materials.texts configuration
       materials.texts.push({
         recognize_task_id: "",
         id: textMaterialId,
-        name: "",
+        name: trackType === 'situation' ? 'Situation' : (trackType === 'jjapjjap' ? 'Reaction' : 'Subtitle'),
         recognize_text: "",
         recognize_model: "",
         punc_model: "",
@@ -678,47 +716,26 @@ export async function generateCapcutProject(project, options = {}) {
                 content: {
                   render_type: "solid",
                   solid: {
-                    color: textColorRgb
+                    color: textColor
                   }
                 }
               },
-              size: fontSize,
-              bold: isBold,
-              italic: isItalic,
+              size: subFontSize,
+              bold: true,
               useLetterColor: true,
               range: [0, cleanText.length]
             }
           ]
         }),
         base_content: "",
-        words: {
-          start_time: [],
-          end_time: [],
-          text: []
-        },
-        current_words: {
-          start_time: [],
-          end_time: [],
-          text: []
-        },
         global_alpha: 1.0,
-        combo_info: {
-          text_templates: []
-        },
+        combo_info: { text_templates: [] },
         caption_template_info: {
-          resource_id: "",
-          third_resource_id: "",
-          resource_name: "",
-          category_id: "",
-          category_name: "",
-          effect_id: "",
-          request_id: "",
-          path: "",
-          is_new: false,
-          source_platform: 0
+          resource_id: "", third_resource_id: "", resource_name: "", category_id: "", category_name: "",
+          effect_id: "", request_id: "", path: "", is_new: false, source_platform: 0
         },
         layer_weight: 1,
-        letter_spacing: 0.03, // Slight letter spacing for premium look
+        letter_spacing: 0.03,
         text_curve: null,
         text_loop_on_path: false,
         offset_on_path: 0,
@@ -727,66 +744,54 @@ export async function generateCapcutProject(project, options = {}) {
         text_typesetting_paths: null,
         text_typesetting_paths_file: "",
         text_typesetting_path_index: 0,
-        line_spacing: 0.05, // Better line spacing
-        has_shadow: !!hasShadow,
-        shadow_color: shadowColor,
-        shadow_alpha: hasShadow ? 0.8999999761581421 : 0.0,
+        line_spacing: 0.05,
+        has_shadow: true,
+        shadow_color: "#000000",
+        shadow_alpha: 0.8999999761581421,
         shadow_smoothing: 0.45000001788139343,
-        shadow_distance: shadowDist,
-        shadow_point: {
-          x: 0.6363961030678928,
-          y: -0.6363961030678928
-        },
+        shadow_distance: 5,
+        shadow_point: { x: 0.6363961030678928, y: -0.6363961030678928 },
         shadow_angle: -45,
         shadow_thickness_projection_enable: false,
         shadow_thickness_projection_angle: 0,
         shadow_thickness_projection_distance: 0,
-        border_alpha: hasOutline ? 1.0 : 0.0,
-        border_color: outlineColor,
-        border_width: hasOutline ? outlineWidth : 0.0,
+        border_alpha: 1.0,
+        border_color: "#000000",
+        border_width: 0.1,
         border_mode: 0,
         style_name: "",
-        text_color: textColorHex,
+        text_color: textColor[0] === 1.0 && textColor[1] === 1.0 ? "#ffffff" : "#ffeb3b",
         text_alpha: 1.0,
         font_name: fontName,
         font_title: fontName,
-        font_size: fontSize,
+        font_size: subFontSize,
         font_path: fontPath,
         font_id: "",
         font_resource_id: "",
         initial_scale: 1.0,
         font_url: "",
         typesetting: 0,
-        alignment: alignment,
+        alignment: 1,
         line_feed: 1,
         use_effect_default_color: true,
         is_rich_text: false,
         shape_clip_x: false,
         shape_clip_y: false,
-        ktv_color: "",
-        text_to_audio_ids: [],
-        bold_width: 0.008,
-        italic_degree: 0,
-        underline: false,
-        underline_width: 0.05,
-        underline_offset: 0.22,
-        sub_type: 0,
-        check_flag: 47,
         text_size: 30,
         font_category_name: "",
         font_source_platform: 1,
         font_third_resource_id: "",
         font_category_id: "",
-        add_type: 2, // Subtitle
+        add_type: 0,
         operation_type: 0,
         recognize_type: 0,
         fonts: [],
-        background_color: boxColor,
-        background_alpha: boxAlpha,
-        background_style: useBox ? 1 : 0,
-        background_round_radius: 0.15, // Smooth rounded corners
-        background_width: 0.15, // Well-padded width
-        background_height: 0.15, // Well-padded height
+        background_color: "",
+        background_alpha: 1.0,
+        background_style: 0,
+        background_round_radius: 0,
+        background_width: 0.14,
+        background_height: 0.14,
         background_vertical_offset: 0,
         background_horizontal_offset: 0,
         background_fill: "",
@@ -825,14 +830,7 @@ export async function generateCapcutProject(project, options = {}) {
         is_lyric_effect: false,
         lyric_group_id: "",
         lyrics_template: {
-          resource_id: "",
-          resource_name: "",
-          panel: "",
-          effect_id: "",
-          path: "",
-          category_id: "",
-          category_name: "",
-          request_id: ""
+          resource_id: "", resource_name: "", panel: "", effect_id: "", path: "", category_id: "", category_name: "", request_id: ""
         },
         is_batch_replace: false,
         is_words_linear: false,
@@ -842,18 +840,14 @@ export async function generateCapcutProject(project, options = {}) {
         translate_original_text: ""
       });
 
-      // textTrack segment configuration
-          textTrack.segments.push({
-            id: textSegmentId,
-            source_timerange: null,
-            target_timerange: {
-              start: toMicros(chunkStart),
-              duration: toMicros(chunkDuration)
-            },
-        render_timerange: {
-          start: 0,
-          duration: 0
+      targetTrack.segments.push({
+        id: textSegmentId,
+        source_timerange: null,
+        target_timerange: {
+          start: startMicros,
+          duration: durationMicros
         },
+        render_timerange: { start: 0, duration: 0 },
         desc: "",
         state: 0,
         speed: 1,
@@ -865,19 +859,13 @@ export async function generateCapcutProject(project, options = {}) {
         volume: 1.0,
         last_nonzero_volume: 1.0,
         clip: {
-          scale: {
-            x: 1.0,
-            y: 1.0
-          },
+          scale: { x: 1.0, y: 1.0 },
           rotation: 0.0,
           transform: {
             x: 0.0,
-            y: transformY
+            y: posY
           },
-          flip: {
-            vertical: false,
-            horizontal: false
-          },
+          flip: { vertical: false, horizontal: false },
           alpha: 1.0
         },
         uniform_scale: {
@@ -886,7 +874,7 @@ export async function generateCapcutProject(project, options = {}) {
         },
         material_id: textMaterialId,
         extra_material_refs: [],
-        render_index: 14000 + index + cIdx,
+        render_index: (trackType === 'situation' ? 13000 : 14000) + renderIdx,
         keyframe_refs: [],
         enable_lut: false,
         enable_adjust: false,
@@ -925,11 +913,49 @@ export async function generateCapcutProject(project, options = {}) {
         enable_mask_shadow: false,
         enable_color_adjust_pro: false
       });
-        } // end for loop over chunks
-      } // end if chunks > 0
-    } // end if subtitleText
+    };
 
-    cumulativeTime += duration;
+    if (resolvedSrtEntries && resolvedSrtEntries.length > 0) {
+      console.log(`[CapCut Local Generator] Generating ${resolvedSrtEntries.length} synchronized subtitles from high-precision srtEntries...`);
+      for (let sIdx = 0; sIdx < resolvedSrtEntries.length; sIdx++) {
+        const entry = resolvedSrtEntries[sIdx];
+        const cleanText = (entry.text || '').trim();
+        if (!cleanText) continue;
+
+        const startMs = (entry.startMs != null ? entry.startMs : (entry.startTime * 1000)) || 0;
+        const endMs = (entry.endMs != null ? entry.endMs : ((entry.endTime * 1000) || (startMs + (entry.durationMs || 3000)))) || 0;
+        const durMs = Math.max(200, endMs - startMs);
+
+        pushSubtitle(cleanText, startMs * 1000, durMs * 1000, sIdx, entry.track || 'main');
+      }
+    } else {
+      // 레거시 씬 기반 자막 폴백
+      let sCumulativeTime = 0;
+      for (let index = 0; index < sortedScenes.length; index++) {
+        const scene = sortedScenes[index];
+        const sceneDur = scene.image_duration || scene.duration || 3;
+        const subtitleText = subtitleOption === 'ko' ? (scene.subtitle_ko || scene.subtitle) : (scene.subtitle_en || scene.subtitle);
+        if (subtitleText && subtitleText.trim()) {
+          pushSubtitle(subtitleText.trim(), toMicros(sCumulativeTime), toMicros(sceneDur), index);
+        }
+        sCumulativeTime += sceneDur;
+      }
+    }
+  }
+
+  // Ddalkkak 오디오 패키지 자동 변환
+  if ((!audioPackage || !audioPackage.voices?.length) && project._ddalkkak?.audio_path) {
+    audioPackage = {
+      voices: [{
+        character: 'narrator',
+        files: [{
+          path: project._ddalkkak.audio_path,
+          filename: project._ddalkkak.audio_path.split(/[/\\]/).pop() || 'ddalkkak_audio.mp3',
+          timecodeMs: 0,
+          durationMs: (project._ddalkkak.duration_sec || 0) * 1000 || 5000
+        }]
+      }]
+    };
   }
 
   // ── 오디오 패키지 (성우 대사, 풀 나레이션, SFX) 타임라인 조립 및 트랙 빌드 ──
@@ -967,13 +993,24 @@ export async function generateCapcutProject(project, options = {}) {
         materials.audios.push({
           id: materialId,
           path: absoluteTargetFilePath,
-          type: "music",
+          type: "extract_music",
+          name: filename,
           duration: durationMs * 1000,
           import_time: Math.floor(Date.now() / 1000),
           source_platform: 0,
           category_name: "local",
           category_id: "local",
-          material_name: filename
+          material_name: filename,
+          app_id: 0,
+          is_text_edit_overdub: false,
+          is_ugc: false,
+          is_ai_clone_tone: false,
+          is_ai_clone_tone_post: false,
+          music_source: "",
+          music_id: "",
+          tone_type: "",
+          wave_points: [],
+          video_id: ""
         });
 
         const segment = {
@@ -981,6 +1018,10 @@ export async function generateCapcutProject(project, options = {}) {
           material_id: materialId,
           source_timerange: { start: 0, duration: durationMs * 1000 },
           target_timerange: { start: timecodeMs * 1000, duration: durationMs * 1000 },
+          speed: 1.0,
+          clip_type: 0,
+          is_loop: false,
+          is_tone_modify: false,
           render_index: 22000 + voiceIndex,
           volume: 1.0,
           last_nonzero_volume: 1.0,
@@ -1067,13 +1108,24 @@ export async function generateCapcutProject(project, options = {}) {
         materials.audios.push({
           id: materialId,
           path: absoluteTargetFilePath,
-          type: "music",
+          type: "extract_music",
+          name: filename,
           duration: durationMs * 1000,
           import_time: Math.floor(Date.now() / 1000),
           source_platform: 0,
           category_name: "local",
           category_id: "local",
-          material_name: filename
+          material_name: filename,
+          app_id: 0,
+          is_text_edit_overdub: false,
+          is_ugc: false,
+          is_ai_clone_tone: false,
+          is_ai_clone_tone_post: false,
+          music_source: "",
+          music_id: "",
+          tone_type: "",
+          wave_points: [],
+          video_id: ""
         });
 
         const segment = {
@@ -1081,6 +1133,10 @@ export async function generateCapcutProject(project, options = {}) {
           material_id: materialId,
           source_timerange: { start: 0, duration: durationMs * 1000 },
           target_timerange: { start: timecodeMs * 1000, duration: durationMs * 1000 },
+          speed: 1.0,
+          clip_type: 0,
+          is_loop: false,
+          is_tone_modify: false,
           render_index: 25000 + sfxIndex,
           volume: 1.0,
           last_nonzero_volume: 1.0,
@@ -1115,12 +1171,251 @@ export async function generateCapcutProject(project, options = {}) {
     console.log('[CapCut Local Generator] Mapped SFX count:', sfxIndex);
   }
 
+  // 전체 프로젝트 재생 시간 (비디오 누적 시간과 모든 오디오 트랙의 끝점 중 최대값으로 안전 산출)
+  let totalProjectDurationMicros = toMicros(cumulativeTime);
+  const allAudioTracks = [...narratorTracks, ...characterTracks, ...sfxTracksList];
+  for (const track of allAudioTracks) {
+    for (const seg of (track?.segments || [])) {
+      if (seg.target_timerange) {
+        const segEnd = seg.target_timerange.start + seg.target_timerange.duration;
+        if (segEnd > totalProjectDurationMicros) {
+          totalProjectDurationMicros = segEnd;
+        }
+      }
+    }
+  }
+
+  // ── 상단 고정 타이틀 트랙 생성 (플레이시간 전체 길이로 상단 배치) ──
+  const rawTopTitle = project._ddalkkak?.title || options.topTitle || project.topTitle || null;
+  if (rawTopTitle && typeof rawTopTitle === 'string' && rawTopTitle.trim()) {
+    const cleanTopTitle = rawTopTitle.trim();
+    const titleMaterialId = generateId();
+    const titleSegmentId = generateId();
+    const titleFontSize = isPortrait ? 7.5 : 6.0;
+
+    let fontPath = "";
+    let fontName = "SystemFont";
+    const isWin = typeof process !== 'undefined' ? process.platform === 'win32' : /Win/.test(navigator.userAgent);
+    if (isWin) {
+      fontPath = "C:/Windows/Fonts/malgun.ttf";
+      fontName = "맑은 고딕";
+    } else {
+      fontPath = "/System/Library/Fonts/AppleSDGothicNeo.ttc";
+      fontName = "Apple SD 산돌고딕 Neo";
+    }
+
+    materials.texts.push({
+      recognize_task_id: "",
+      id: titleMaterialId,
+      name: "TopTitle",
+      recognize_text: "",
+      recognize_model: "",
+      punc_model: "",
+      type: "text",
+      content: JSON.stringify({
+        text: cleanTopTitle,
+        styles: [
+          {
+            fill: {
+              content: {
+                render_type: "solid",
+                solid: {
+                  color: [1.0, 1.0, 1.0] // 백색 타이틀 (#ffffff)
+                }
+              }
+            },
+            size: titleFontSize,
+            bold: true,
+            useLetterColor: true,
+            range: [0, cleanTopTitle.length]
+          }
+        ]
+      }),
+      base_content: "",
+      global_alpha: 1.0,
+      combo_info: { text_templates: [] },
+      caption_template_info: {
+        resource_id: "", third_resource_id: "", resource_name: "", category_id: "", category_name: "",
+        effect_id: "", request_id: "", path: "", is_new: false, source_platform: 0
+      },
+      layer_weight: 1,
+      letter_spacing: 0.04,
+      text_curve: null,
+      text_loop_on_path: false,
+      offset_on_path: 0,
+      enable_path_typesetting: false,
+      text_exceeds_path_process_type: 0,
+      text_typesetting_paths: null,
+      text_typesetting_paths_file: "",
+      text_typesetting_path_index: 0,
+      line_spacing: 0.08,
+      has_shadow: true,
+      shadow_color: "#000000",
+      shadow_alpha: 0.8999999761581421,
+      shadow_smoothing: 0.45000001788139343,
+      shadow_distance: 5,
+      shadow_point: { x: 0.6363961030678928, y: -0.6363961030678928 },
+      shadow_angle: -45,
+      shadow_thickness_projection_enable: false,
+      shadow_thickness_projection_angle: 0,
+      shadow_thickness_projection_distance: 0,
+      border_alpha: 1.0,
+      border_color: "#000000",
+      border_width: 0.08,
+      border_mode: 0,
+      style_name: "",
+      text_color: "#ffffff",
+      text_alpha: 1.0,
+      font_name: fontName,
+      font_title: fontName,
+      font_size: titleFontSize,
+      font_path: fontPath,
+      font_id: "",
+      font_resource_id: "",
+      initial_scale: 1.0,
+      font_url: "",
+      typesetting: 0,
+      alignment: 1,
+      line_feed: 1,
+      use_effect_default_color: true,
+      is_rich_text: false,
+      shape_clip_x: false,
+      shape_clip_y: false,
+      text_size: 36,
+      font_category_name: "",
+      font_source_platform: 1,
+      font_third_resource_id: "",
+      font_category_id: "",
+      add_type: 0,
+      operation_type: 0,
+      recognize_type: 0,
+      fonts: [],
+      background_color: "#111827",
+      background_alpha: 0.75, // 고급스러운 반투명 블랙 라운드 배경바
+      background_style: 1,
+      background_round_radius: 0.2,
+      background_width: 0.25,
+      background_height: 0.2,
+      background_vertical_offset: 0,
+      background_horizontal_offset: 0,
+      background_fill: "",
+      single_char_bg_enable: false,
+      single_char_bg_color: "",
+      single_char_bg_alpha: 1.0,
+      single_char_bg_round_radius: 0.3,
+      single_char_bg_width: 0,
+      single_char_bg_height: 0,
+      single_char_bg_vertical_offset: 0,
+      single_char_bg_horizontal_offset: 0,
+      font_team_id: "",
+      tts_auto_update: false,
+      text_preset_resource_id: "",
+      group_id: `import_${Math.floor(Date.now() / 1000)}`,
+      preset_id: "",
+      preset_name: "",
+      preset_category: "",
+      preset_category_id: "",
+      preset_index: 0,
+      preset_has_set_alignment: false,
+      force_apply_line_max_width: false,
+      language: "",
+      relevance_segment: [],
+      original_size: [],
+      fixed_width: -1,
+      fixed_height: -1,
+      line_max_width: 0.88,
+      oneline_cutoff: false,
+      cutoff_postfix: "",
+      subtitle_template_original_fontsize: 0,
+      subtitle_keywords: null,
+      inner_padding: -1,
+      multi_language_current: "none",
+      source_from: "",
+      is_lyric_effect: false,
+      lyric_group_id: "",
+      lyrics_template: {
+        resource_id: "", resource_name: "", panel: "", effect_id: "", path: "", category_id: "", category_name: "", request_id: ""
+      },
+      is_batch_replace: false,
+      is_words_linear: false,
+      ssml_content: "",
+      subtitle_keywords_config: null,
+      sub_template_id: -1,
+      translate_original_text: ""
+    });
+
+    topTitleTrack.segments.push({
+      id: titleSegmentId,
+      source_timerange: null,
+      target_timerange: {
+        start: 0,
+        duration: totalProjectDurationMicros
+      },
+      render_timerange: { start: 0, duration: 0 },
+      desc: "",
+      state: 0,
+      speed: 1,
+      is_loop: false,
+      is_tone_modify: false,
+      reverse: false,
+      intensifies_audio: false,
+      cartoon: false,
+      volume: 1.0,
+      last_nonzero_volume: 1.0,
+      clip: {
+        scale: { x: 1.0, y: 1.0 },
+        rotation: 0.0,
+        transform: {
+          x: 0.0,
+          y: isPortrait ? 0.72 : 0.78 // 화면 최상단 고정 배치 (+0.72 ~ +0.78)
+        },
+        flip: { vertical: false, horizontal: false },
+        alpha: 1.0
+      },
+      uniform_scale: { on: true, value: 1.0 },
+      material_id: titleMaterialId,
+      extra_material_refs: [],
+      render_index: 15000,
+      keyframe_refs: [],
+      enable_lut: false,
+      enable_adjust: false,
+      enable_hsl: false,
+      visible: true,
+      group_id: "",
+      enable_color_curves: true,
+      enable_hsl_curves: true,
+      track_render_index: 2,
+      hdr_settings: null,
+      enable_color_wheels: true,
+      track_attribute: 0,
+      is_placeholder: false,
+      template_id: "",
+      enable_smart_color_adjust: false,
+      template_scene: "default",
+      common_keyframes: [],
+      caption_info: null,
+      responsive_layout: { enable: false, target_follow: "", size_layout: 0, horizontal_pos_layout: 0, vertical_pos_layout: 0 },
+      enable_color_match_adjust: false,
+      enable_color_correct_adjust: false,
+      enable_adjust_mask: false,
+      raw_segment_id: "",
+      lyric_keyframes: null,
+      enable_video_mask: true,
+      digital_human_template_group_id: "",
+      color_correct_alg_result: "",
+      source: "segmentsourcenormal",
+      enable_mask_stroke: false,
+      enable_mask_shadow: false,
+      enable_color_adjust_pro: false
+    });
+  }
+
   const draftContent = {
     id: projectId,
     version: 360000,
     new_version: "167.0.0",
     name: "",
-    duration: toMicros(cumulativeTime),
+    duration: totalProjectDurationMicros,
     create_time: 0,
     update_time: 0,
     fps: 30.0,
@@ -1161,8 +1456,12 @@ export async function generateCapcutProject(project, options = {}) {
       background: null
     },
     tracks: [
-      videoTrack.segments.length > 0 ? videoTrack : null,
+      topTitleTrack.segments.length > 0 ? topTitleTrack : null,
+      situationTrack.segments.length > 0 ? situationTrack : null,
+      jjapjjapTrack.segments.length > 0 ? jjapjjapTrack : null,
       textTrack.segments.length > 0 ? textTrack : null,
+      videoTrack.segments.length > 0 ? videoTrack : null,
+      overlayTrack.segments.length > 0 ? overlayTrack : null,
       // 1순위 오디오: 나레이션 전용 트랙들 (겹치지 않으면 1개만 노출)
       ...narratorTracks.filter(t => t.segments.length > 0),
       // 2순위 오디오: 일반 캐릭터들의 동적 분할 트랙들
@@ -1346,8 +1645,62 @@ cloud_last_modify_platform=windows
           width: v.width
         }))
       },
-      { type: 1, value: [] },
-      { type: 2, value: [] },
+      {
+        type: 1,
+        value: materials.audios.map((a) => ({
+          ai_group_type: "",
+          create_time: 0,
+          duration: a.duration,
+          enter_from: 0,
+          extra_info: a.material_name,
+          file_Path: a.path,
+          height: 0,
+          id: a.id,
+          import_time: a.import_time,
+          import_time_ms: -1,
+          item_source: 1,
+          md5: "",
+          metetype: "extract_music",
+          roughcut_time_range: {
+            duration: a.duration,
+            start: 0
+          },
+          sub_time_range: {
+            duration: -1,
+            start: -1
+          },
+          type: 1,
+          width: 0
+        }))
+      },
+      {
+        type: 2,
+        value: materials.texts.map((t) => ({
+          ai_group_type: "",
+          create_time: 0,
+          duration: 0,
+          enter_from: 0,
+          extra_info: "",
+          file_Path: "",
+          height: 0,
+          id: t.id,
+          import_time: Math.floor(Date.now() / 1000),
+          import_time_ms: -1,
+          item_source: 0,
+          md5: "",
+          metetype: "text",
+          roughcut_time_range: {
+            duration: -1,
+            start: -1
+          },
+          sub_time_range: {
+            duration: -1,
+            start: -1
+          },
+          type: 2,
+          width: 0
+        }))
+      },
       { type: 3, value: [] },
       { type: 6, value: [] },
       { type: 7, value: [] },
@@ -1372,7 +1725,7 @@ cloud_last_modify_platform=windows
     tm_draft_create: Date.now() * 1000,
     tm_draft_modified: Date.now() * 1000,
     tm_draft_removed: 0,
-    tm_duration: toMicros(cumulativeTime)
+    tm_duration: totalProjectDurationMicros
   };
 
   const timelineLayout = {

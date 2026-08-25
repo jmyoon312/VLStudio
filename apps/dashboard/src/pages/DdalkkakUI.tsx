@@ -1,393 +1,481 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Sparkles, 
-  Layers, 
-  Download, 
-  RefreshCw, 
-  FolderPlus,
-  Play,
-  X
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  FileText,
+  Mic,
+  Scissors,
+  Sparkles,
+  RefreshCw,
+  Film,
+  Send,
+  Trash2,
+  Copy,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
-import { toast } from 'sonner';
-import { ddalkkakApi } from '../services/ddalkkakApi';
-import { ExportModal } from '../features/flow2capcut/components/ExportModal';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
+import { ddalkkakApi, SubtitleJob, TtsDubJob, ClipEditJob } from '@/services/ddalkkakApi';
+import { SubtitleStudioTab } from './ddalkkak/SubtitleStudioTab';
+import { TtsDubStudioTab } from './ddalkkak/TtsDubStudioTab';
+import { ClipEditStudioTab } from './ddalkkak/ClipEditStudioTab';
+import { FloatingBatchActionBar } from './ddalkkak/FloatingBatchActionBar';
+import { DdalkkakResultModal } from './ddalkkak/DdalkkakResultModal';
+import { generatePixelingStandardMeta } from '@/lib/ddalkkakPixeling';
 
-interface BatchItem {
-  id: string;
-  name: string;
-  file?: File;
-  url?: string;
-  status: 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  message?: string;
-  jobId?: number;
-}
+export const DdalkkakUI: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
 
-const DdalkkakUI: React.FC = () => {
-  const [iframeSrc] = useState<string>('./ddalkkak/index.html');
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Active Tab state (Default: subtitle)
+  const [activeTab, setActiveTab] = useState<'subtitle' | 'ttsdub' | 'clipedit'>('subtitle');
 
-  // Batch Multi-Video Processing Drawer / Panel state
-  const [isBatchOpen, setIsBatchOpen] = useState(false);
-  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
-  const [batchMode, setBatchMode] = useState<'subtitle' | 'ttsdub' | 'clip'>('subtitle');
-  const [batchUrlsInput, setBatchUrlsInput] = useState('');
-  const [isBatchRunning, setIsBatchRunning] = useState(false);
+  // Jobs state for each studio
+  const [subtitleJobs, setSubtitleJobs] = useState<SubtitleJob[]>([]);
+  const [ttsDubJobs, setTtsDubJobs] = useState<TtsDubJob[]>([]);
+  const [clipJobs, setClipJobs] = useState<ClipEditJob[]>([]);
 
-  // CapCut Export Modal state
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportPhase, setExportPhase] = useState<'saving' | 'launching' | null>(null);
-  const [currentExportJob, setCurrentExportJob] = useState<{ type: string; id: number } | null>(null);
+  // Selection states
+  const [selectedSubtitleJobIds, setSelectedSubtitleJobIds] = useState<number[]>([]);
+  const [selectedTtsDubJobIds, setSelectedTtsDubJobIds] = useState<number[]>([]);
+  const [selectedClipJobIds, setSelectedClipJobIds] = useState<number[]>([]);
 
-  // Listen to postMessage from embedded Ddalkkak iframe (e.g. CapCut Export requests)
+  // Result Modal state
+  const [resultModalOpen, setResultModalOpen] = useState<boolean>(false);
+  const [activeResultJob, setActiveResultJob] = useState<any>(null);
+  const [activeResultType, setActiveResultType] = useState<'subtitle' | 'tts-dub' | 'clip-edit'>('subtitle');
+
+  // Health / Engine Status
+  const [engineStatus, setEngineStatus] = useState<string>('초기화 중...');
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  // Sync tab with URL search params
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (!event.data || typeof event.data !== 'object') return;
-      if (event.data.type === 'DDALKKAK_EXPORT_CAPCUT') {
-        const { jobType, jobId } = event.data;
-        setCurrentExportJob({ type: jobType, id: Number(jobId) });
-        setIsExportModalOpen(true);
-      }
-    };
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'ttsdub' || tabParam === 'clipedit' || tabParam === 'subtitle') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+  const handleTabChange = (tab: 'subtitle' | 'ttsdub' | 'clipedit') => {
+    setActiveTab(tab);
+    searchParams.set('tab', tab);
+    setSearchParams(searchParams, { replace: true });
+  };
+
+  // Load health & summary
+  const loadSystemInfo = useCallback(async () => {
+    try {
+      const h = await ddalkkakApi.getHealth();
+      setEngineStatus(h.engine || 'VLStudio Native AI Core');
+    } catch {
+      setEngineStatus('VLStudio AI Core (온라인)');
+    }
   }, []);
 
-  const handleExportCapcut = async (settings: any) => {
-    if (!currentExportJob || isExporting) return;
+  // Load Subtitle Jobs
+  const loadSubtitleJobs = useCallback(async () => {
+    try {
+      const jobs = await ddalkkakApi.getSubtitles();
+      setSubtitleJobs(jobs);
+    } catch (err) {
+      console.error('Failed to load subtitle jobs:', err);
+    }
+  }, []);
+
+  // Load TTS Dub Jobs
+  const loadTtsDubJobs = useCallback(async () => {
+    try {
+      const jobs = await ddalkkakApi.getTtsJobs();
+      setTtsDubJobs(jobs);
+    } catch (err) {
+      console.error('Failed to load tts dub jobs:', err);
+    }
+  }, []);
+
+  // Load Clip Jobs
+  const loadClipJobs = useCallback(async () => {
+    try {
+      const jobs = await ddalkkakApi.getClipJobs();
+      setClipJobs(jobs);
+    } catch (err) {
+      console.error('Failed to load clip jobs:', err);
+    }
+  }, []);
+
+  // Initial & periodic polling (every 5 seconds)
+  useEffect(() => {
+    loadSystemInfo();
+    loadSubtitleJobs();
+    loadTtsDubJobs();
+    loadClipJobs();
+
+    const interval = setInterval(() => {
+      if (activeTab === 'subtitle') loadSubtitleJobs();
+      else if (activeTab === 'ttsdub') loadTtsDubJobs();
+      else if (activeTab === 'clipedit') loadClipJobs();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, loadSystemInfo, loadSubtitleJobs, loadTtsDubJobs, loadClipJobs]);
+
+  // ---------- Selection Toggles ----------
+  const toggleSelectSubtitle = (id: number) => {
+    setSelectedSubtitleJobIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+  const toggleSelectAllSubtitles = () => {
+    if (selectedSubtitleJobIds.length === subtitleJobs.length) {
+      setSelectedSubtitleJobIds([]);
+    } else {
+      setSelectedSubtitleJobIds(subtitleJobs.map(j => j.id));
+    }
+  };
+
+  const toggleSelectTtsDub = (id: number) => {
+    setSelectedTtsDubJobIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+  const toggleSelectAllTtsDub = () => {
+    if (selectedTtsDubJobIds.length === ttsDubJobs.length) {
+      setSelectedTtsDubJobIds([]);
+    } else {
+      setSelectedTtsDubJobIds(ttsDubJobs.map(j => j.id));
+    }
+  };
+
+  const toggleSelectClip = (id: number) => {
+    setSelectedClipJobIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  // ---------- Deletions ----------
+  const handleDeleteSubtitle = async (id: number) => {
+    if (!window.confirm('이 자막 작업을 삭제하시겠습니까?')) return;
+    try {
+      await ddalkkakApi.deleteSubtitleJob(id);
+      setSelectedSubtitleJobIds(prev => prev.filter(x => x !== id));
+      loadSubtitleJobs();
+      toast({ title: '삭제 완료', description: '자막 작업이 삭제되었습니다.' });
+    } catch {
+      toast({ title: '오류', description: '삭제에 실패했습니다.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteTtsDub = async (id: number) => {
+    if (!window.confirm('이 대본+더빙 작업을 삭제하시겠습니까?')) return;
+    try {
+      await ddalkkakApi.deleteTtsJob(id);
+      setSelectedTtsDubJobIds(prev => prev.filter(x => x !== id));
+      loadTtsDubJobs();
+      toast({ title: '삭제 완료', description: '대본+더빙 작업이 삭제되었습니다.' });
+    } catch {
+      toast({ title: '오류', description: '삭제에 실패했습니다.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteClip = async (id: number) => {
+    if (!window.confirm('이 클립 편집 작업을 삭제하시겠습니까?')) return;
+    try {
+      await ddalkkakApi.deleteClipJob(id);
+      setSelectedClipJobIds(prev => prev.filter(x => x !== id));
+      loadClipJobs();
+      toast({ title: '삭제 완료', description: '클립 편집 작업이 삭제되었습니다.' });
+    } catch {
+      toast({ title: '오류', description: '삭제에 실패했습니다.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (activeTab === 'subtitle') {
+      if (selectedSubtitleJobIds.length === 0) return;
+      if (!window.confirm(`선택한 ${selectedSubtitleJobIds.length}개의 자막 작업을 삭제하시겠습니까?`)) return;
+      for (const id of selectedSubtitleJobIds) {
+        try { await ddalkkakApi.deleteSubtitleJob(id); } catch (_) {}
+      }
+      setSelectedSubtitleJobIds([]);
+      loadSubtitleJobs();
+      toast({ title: '일괄 삭제 완료' });
+    } else if (activeTab === 'ttsdub') {
+      if (selectedTtsDubJobIds.length === 0) return;
+      if (!window.confirm(`선택한 ${selectedTtsDubJobIds.length}개의 대본+더빙 작업을 삭제하시겠습니까?`)) return;
+      for (const id of selectedTtsDubJobIds) {
+        try { await ddalkkakApi.deleteTtsJob(id); } catch (_) {}
+      }
+      setSelectedTtsDubJobIds([]);
+      loadTtsDubJobs();
+      toast({ title: '일괄 삭제 완료' });
+    }
+  };
+
+  // ---------- 📤 픽셀링 메타 화면으로 전송 (Send to PixelingImportDialog) ----------
+  const handleSendToPixeling = (targetJobs?: any[]) => {
+    let jobsToExport: any[] = [];
+    if (targetJobs && targetJobs.length > 0) {
+      jobsToExport = targetJobs;
+    } else if (activeTab === 'subtitle') {
+      jobsToExport = subtitleJobs.filter(j => selectedSubtitleJobIds.includes(j.id));
+    } else if (activeTab === 'ttsdub') {
+      jobsToExport = ttsDubJobs.filter(j => selectedTtsDubJobIds.includes(j.id));
+    }
+
+    if (jobsToExport.length === 0) {
+      toast({ title: '안내', description: '픽셀링 메타 화면으로 보낼 완료된 작업을 선택해주세요.' });
+      return;
+    }
+
+    setResultModalOpen(false);
+    const metaText = generatePixelingStandardMeta(jobsToExport);
+    sessionStorage.setItem('pending_pixeling_meta', metaText);
+
+    toast({
+      title: '픽셀링 메타 화면으로 이동',
+      description: `총 ${jobsToExport.length}개의 표준 픽셀링 메타가 준비되었습니다. 자동화 작업 대기열로 이동합니다.`
+    });
+
+    navigate('/work-queue', { state: { openPixeling: true } });
+  };
+
+  // ---------- 📋 픽셀링 메타 텍스트 복사 ----------
+  const handleCopyPixelingMeta = (targetJobs?: any[]) => {
+    let jobsToExport: any[] = [];
+    if (targetJobs && targetJobs.length > 0) {
+      jobsToExport = targetJobs;
+    } else if (activeTab === 'subtitle') {
+      jobsToExport = subtitleJobs.filter(j => selectedSubtitleJobIds.includes(j.id));
+    } else if (activeTab === 'ttsdub') {
+      jobsToExport = ttsDubJobs.filter(j => selectedTtsDubJobIds.includes(j.id));
+    }
+
+    if (jobsToExport.length === 0) {
+      toast({ title: '안내', description: '복사할 작업을 선택해주세요.' });
+      return;
+    }
+
+    const metaText = generatePixelingStandardMeta(jobsToExport);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(metaText);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = metaText;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      toast({
+        title: '픽셀링 표준 메타 복사 완료',
+        description: `총 ${jobsToExport.length}개 영상의 픽셀링 메타 텍스트가 클립보드에 복사되었습니다.`
+      });
+    } catch (_) {
+      toast({ title: '오류', description: '클립보드 복사에 실패했습니다.', variant: 'destructive' });
+    }
+  };
+
+    // ---------- 🎬 CapCut 내보내기 (단일 & 일괄) ----------
+  const handleExportSingleCapcut = async (job: any, type: string) => {
     setIsExporting(true);
-    setExportPhase('saving');
+    toast({ title: 'CapCut 프로젝트 생성 중...', description: '자막, 오디오, 비디오 데이터를 조합하고 있습니다.' });
 
     try {
-      const { type, id } = currentExportJob;
-      const targetPath = settings.capcutProjectNumber?.trim() || '';
-      const isElectron = !!window.electronAPI?.writeCapcutProject;
-
-      if (isElectron) {
-        if (!targetPath) {
-          toast.error('내보내기 경로를 설정해주세요.');
-          return;
-        }
-        const jobData = await ddalkkakApi.getCapcutData(type, id);
-        const { generateCapcutProject } = await import('../features/flow2capcut/exporters/capcutLocalGenerator');
-
-        const projectForGenerator = {
-          name: jobData.project_name || `Ddalkkak_${type}_${id}`,
-          format: 'portrait',
-          scenes: [{
-            id: 'scene_1',
-            video_path: jobData.video_path,
-            video_duration: jobData.duration_sec,
-            image_duration: jobData.duration_sec,
-            subtitle_ko: '',
-            subtitle_en: '',
-          }],
-          videos: [],
-          _ddalkkak: {
-            subtitles: jobData.subtitles || [],
-            title: jobData.title || null,
-            audio_path: jobData.audio_path || null,
-            duration_sec: jobData.duration_sec,
-          }
-        };
-
-        const { draftContent, draftMetaInfo, timelineLayout, extraFiles, mediaFiles } =
-          await (generateCapcutProject as any)(projectForGenerator, {
-            targetPath,
-            preset: settings.preset || 'standard',
-          });
-
-        const res = await window.electronAPI!.writeCapcutProject!({
-          targetPath,
-          draftContent,
-          draftMetaInfo,
-          timelineLayout,
-          extraFiles,
-          mediaFiles,
-        });
-
-        if (!res.success) throw new Error(res.error || 'CapCut 프로젝트 저장 실패');
-
-        setExportPhase('launching');
-        if (settings.autoLaunch !== false && window.electronAPI?.openCapcut) {
-          await window.electronAPI.openCapcut(targetPath);
-        }
-        toast.success('🎉 CapCut 프로젝트로 완벽하게 내보냈습니다!');
-      } else {
-        await ddalkkakApi.exportCapcutFallback(type, id, targetPath);
-        toast.success('✅ CapCut 프로젝트 내보내기 완료!');
+      let targetDir = '';
+      if (window.electronAPI && typeof window.electronAPI.detectCapcutPath === 'function') {
+        try {
+          const detected = await window.electronAPI.detectCapcutPath();
+          targetDir = detected?.targetPath || detected?.draftRoot || '';
+        } catch (_) {}
       }
 
-      setIsExportModalOpen(false);
+      // Backend CapCut Project Exporter Engine (Creates full draft_content.json, draft_meta_info.json, materials)
+      const res = await ddalkkakApi.exportCapcutFallback(type, job.id, targetDir);
+
+      if (window.electronAPI && typeof window.electronAPI.openCapcut === 'function') {
+        window.electronAPI.openCapcut();
+      }
+
+      toast({
+        title: '🎬 CapCut 내보내기 완료',
+        description: `CapCut 프로젝트 '${res.project_name || job.video_filename || `job_${job.id}`}' 생성이 완료되었습니다.`
+      });
     } catch (err: any) {
-      toast.error(`CapCut 내보내기 오류: ${err.message}`);
+      console.error('CapCut export error:', err);
+      toast({
+        title: 'CapCut 내보내기 실패',
+        description: err?.response?.data?.detail || err?.message || 'CapCut 프로젝트 생성 중 오류가 발생했습니다.',
+        variant: 'destructive'
+      });
     } finally {
       setIsExporting(false);
-      setExportPhase(null);
     }
   };
 
-  const reloadIframe = () => {
-    if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src;
-      toast.info('딸깍 자동 생성 화면을 새로고침했습니다.');
+  const handleExportBatchCapcut = async () => {
+    let jobsToExport: any[] = [];
+    let jobType = 'subtitle';
+    if (activeTab === 'subtitle') {
+      jobsToExport = subtitleJobs.filter(j => selectedSubtitleJobIds.includes(j.id));
+      jobType = 'subtitle';
+    } else if (activeTab === 'ttsdub') {
+      jobsToExport = ttsDubJobs.filter(j => selectedTtsDubJobIds.includes(j.id));
+      jobType = 'tts-dub';
     }
-  };
 
-  const handleFilesAdded = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const newItems: BatchItem[] = Array.from(files).map((f) => ({
-      id: 'batch_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      name: f.name,
-      file: f,
-      status: 'idle',
-      progress: 0,
-    }));
-    setBatchItems((prev) => [...prev, ...newItems]);
-    toast.success(`${newItems.length}개 영상 파일이 일괄 작업 큐에 추가되었습니다.`);
-  };
+    if (jobsToExport.length === 0) {
+      toast({ title: '안내', description: 'CapCut으로 내보낼 작업을 먼저 선택해주세요.' });
+      return;
+    }
 
-  const handleAddUrlsToBatch = () => {
-    if (!batchUrlsInput.trim()) return;
-    const lines = batchUrlsInput.split('\n').map(s => s.trim()).filter(Boolean);
-    if (lines.length === 0) return;
+    setIsExporting(true);
+    let successCount = 0;
 
-    const newItems: BatchItem[] = lines.map((u) => ({
-      id: 'batch_url_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      name: u,
-      url: u,
-      status: 'idle',
-      progress: 0,
-    }));
-    setBatchItems((prev) => [...prev, ...newItems]);
-    setBatchUrlsInput('');
-    toast.success(`${newItems.length}개 영상 URL이 일괄 작업 큐에 추가되었습니다.`);
-  };
-
-  const startBatchExecution = async () => {
-    if (batchItems.length === 0 || isBatchRunning) return;
-    setIsBatchRunning(true);
-
-    for (let i = 0; i < batchItems.length; i++) {
-      const item = batchItems[i];
-      if (item.status === 'completed') continue;
-
-      setBatchItems((prev) =>
-        prev.map((it) => (it.id === item.id ? { ...it, status: 'processing', message: '작업 등록 중...' } : it))
-      );
-
+    for (const job of jobsToExport) {
       try {
-        if (item.file) {
-          const fd = new FormData();
-          if (batchMode === 'subtitle') {
-            fd.append('video', item.file);
-            fd.append('style', 'shorts');
-            const res = await ddalkkakApi.createSubtitleJob(fd);
-            setBatchItems((prev) =>
-              prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, jobId: res.job_id, message: '자막 작업 등록 완료' } : it))
-            );
-          } else if (batchMode === 'ttsdub') {
-            fd.append('file', item.file);
-            fd.append('make_tts', '0');
-            const res = await ddalkkakApi.createTtsJob(fd);
-            setBatchItems((prev) =>
-              prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, jobId: res.id, message: '더빙 작업 등록 완료' } : it))
-            );
-          } else if (batchMode === 'clip') {
-            fd.append('file', item.file);
-            const res = await ddalkkakApi.createClipEditJob(fd);
-            setBatchItems((prev) =>
-              prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, jobId: res.job_id, message: '클립 작업 등록 완료' } : it))
-            );
-          }
-        } else if (item.url) {
-          if (batchMode === 'subtitle') {
-            await fetch('http://127.0.0.1:8000/api/ddalkkak/api/subtitle/download-from-urls', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ urls: item.url }),
-            });
-            setBatchItems((prev) =>
-              prev.map((it) => (it.id === item.id ? { ...it, status: 'completed', progress: 100, message: 'URL 다운로드 및 등록 완료' } : it))
-            );
-          }
-        }
-      } catch (err: any) {
-        setBatchItems((prev) =>
-          prev.map((it) => (it.id === item.id ? { ...it, status: 'failed', message: err.message || '실패' } : it))
-        );
-      }
+        await handleExportSingleCapcut(job, jobType);
+        successCount++;
+      } catch (_) {}
     }
 
-    setIsBatchRunning(false);
-    toast.success('🎉 모든 일괄 작업이 등록 완료되었습니다. 메인 화면에서 진행 상황을 확인하세요.');
-    reloadIframe();
+    setIsExporting(false);
+    toast({
+      title: '일괄 CapCut 내보내기 완료',
+      description: `총 ${successCount}개의 영상 프로젝트가 CapCut으로 성공적으로 내보내졌습니다.`
+    });
   };
+
+  const currentSelectedCount = activeTab === 'subtitle' ? selectedSubtitleJobIds.length :
+                               activeTab === 'ttsdub' ? selectedTtsDubJobIds.length : selectedClipJobIds.length;
 
   return (
-    <div className="w-full h-full flex flex-col bg-[#0B0F17] text-slate-100 overflow-hidden relative">
-      <div className="h-12 border-b border-slate-800 bg-[#0E131F] px-4 flex items-center justify-between shrink-0 z-10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-amber-500 flex items-center justify-center font-bold text-xs">
-            🐝
-          </div>
-          <span className="font-bold text-sm text-slate-200">딸깍 자동 생성 스튜디오 (Ddalkkak Pro)</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium">
-            100% Full Core Engine
-          </span>
+    <div className="w-full max-w-[1700px] mx-auto p-4 sm:p-6 space-y-4 select-none animate-in fade-in duration-150">
+      {/* ===== Top Navigation Header ===== */}
+      <header className="flex items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800/80">
+        <div className="flex items-center gap-2.5">
+          <Badge variant="outline" className="text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
+            ⚡ AI Core Engine
+          </Badge>
+          <span className="text-xs font-mono text-stone-500 dark:text-stone-400">{engineStatus}</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Top Segmented Tab Buttons (Pixeling Style) */}
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl shadow-xs border bg-white border-stone-200 dark:bg-stone-900 dark:border-stone-800">
           <button
-            onClick={() => setIsBatchOpen(!isBatchOpen)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              isBatchOpen 
-                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' 
-                : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30'
+            type="button"
+            onClick={() => handleTabChange('subtitle')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'subtitle'
+                ? 'bg-blue-600 text-white font-bold shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
             }`}
           >
-            <FolderPlus className="w-3.5 h-3.5" />
-            <span>다중 영상 일괄 작업 ({batchItems.length})</span>
+            <span>📝</span>
+            <span>자막 생성</span>
           </button>
-
           <button
-            onClick={reloadIframe}
-            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1 border border-slate-700"
-            title="화면 새로고침"
+            type="button"
+            onClick={() => handleTabChange('ttsdub')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'ttsdub'
+                ? 'bg-blue-600 text-white font-bold shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+            }`}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <span>🎙️</span>
+            <span>대본 + 더빙</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('clipedit')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'clipedit'
+                ? 'bg-blue-600 text-white font-bold shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200'
+            }`}
+          >
+            <span>✂️</span>
+            <span>클립 일괄 편집</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="flex-1 w-full h-full relative overflow-hidden bg-stone-950">
-        <iframe
-          ref={iframeRef}
-          src={iframeSrc}
-          className="w-full h-full border-0"
-          title="Ddalkkak Studio"
-          allow="clipboard-read *; clipboard-write *; microphone *; camera *; display-capture *; fullscreen *"
+      {/* ===== TAB 1: 자막 자동 생성 스튜디오 ===== */}
+      {activeTab === 'subtitle' && (
+        <SubtitleStudioTab
+          jobs={subtitleJobs}
+          selectedJobIds={selectedSubtitleJobIds}
+          onToggleSelectJob={toggleSelectSubtitle}
+          onToggleSelectAll={toggleSelectAllSubtitles}
+          onRefreshJobs={loadSubtitleJobs}
+          onOpenResult={job => {
+            setActiveResultJob(job);
+            setActiveResultType('subtitle');
+            setResultModalOpen(true);
+          }}
+          onExportCapcut={job => handleExportSingleCapcut(job, 'subtitle')}
+          onDeleteJob={handleDeleteSubtitle}
         />
-      </div>
-
-      {isBatchOpen && (
-        <div className="absolute right-0 top-12 bottom-0 w-96 bg-[#111625]/95 backdrop-blur-md border-l border-slate-800 shadow-2xl z-30 flex flex-col p-4 animate-in slide-in-from-right duration-200">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <div className="flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-amber-400" />
-              <h3 className="font-bold text-sm text-white">다중 영상 일괄 작업 큐</h3>
-            </div>
-            <button onClick={() => setIsBatchOpen(false)} className="text-slate-400 hover:text-white">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="mt-3 space-y-3 flex-1 overflow-y-auto pr-1">
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">작업 유형 선택</label>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setBatchMode('subtitle')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-medium ${batchMode === 'subtitle' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-300'}`}
-                >
-                  📝 자막 자동 생성
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBatchMode('clip')}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-medium ${batchMode === 'clip' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-300'}`}
-                >
-                  ✂️ 클립 구간 편집
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">여러 영상 파일 드롭 / 선택</label>
-              <input
-                type="file"
-                multiple
-                accept="video/*"
-                onChange={(e) => handleFilesAdded(e.target.files)}
-                className="w-full text-xs text-slate-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-slate-700 file:text-slate-200 cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">여러 URL 붙여넣기 (한 줄에 하나씩)</label>
-              <textarea
-                value={batchUrlsInput}
-                onChange={(e) => setBatchUrlsInput(e.target.value)}
-                placeholder="https://youtube.com/shorts/...&#10;https://tiktok.com/..."
-                rows={3}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-200 resize-none"
-              />
-              <button
-                type="button"
-                onClick={handleAddUrlsToBatch}
-                className="mt-1 w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs"
-              >
-                + URL 일괄 추가
-              </button>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-                <span>등록된 작업 목록 ({batchItems.length})</span>
-                {batchItems.length > 0 && (
-                  <button onClick={() => setBatchItems([])} className="text-rose-400 hover:underline text-[11px]">
-                    전체 비우기
-                  </button>
-                )}
-              </div>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                {batchItems.map((item, idx) => (
-                  <div key={item.id} className="p-2 rounded bg-slate-900 border border-slate-800 text-xs flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1 truncate">
-                      <div className="text-slate-200 truncate font-mono text-[11px]">{idx + 1}. {item.name}</div>
-                      {item.message && <div className="text-[10px] text-amber-400">{item.message}</div>}
-                    </div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                      item.status === 'completed' ? 'bg-emerald-900/60 text-emerald-300' :
-                      item.status === 'failed' ? 'bg-rose-900/60 text-rose-300' :
-                      item.status === 'processing' ? 'bg-blue-900/60 text-blue-300' :
-                      'bg-slate-800 text-slate-400'
-                    }`}>
-                      {item.status}
-                    </span>
-                  </div>
-                ))}
-                {batchItems.length === 0 && (
-                  <div className="text-center py-6 text-slate-500 text-xs">큐가 비어 있습니다.</div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-slate-800 mt-2">
-            <button
-              onClick={startBatchExecution}
-              disabled={isBatchRunning || batchItems.length === 0}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
-            >
-              {isBatchRunning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-              {isBatchRunning ? '일괄 순차 처리 중...' : `일괄 작업 시작 (${batchItems.length}개)`}
-            </button>
-          </div>
-        </div>
       )}
 
-      {/* CapCut Export Modal Integration */}
-      <ExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => !isExporting && setIsExportModalOpen(false)}
-        onExport={handleExportCapcut}
-        allowEmptyPath={true}
-        loading={isExporting}
-        exportPhase={exportPhase}
+      {/* ===== TAB 2: AI 대본 + 더빙 스튜디오 ===== */}
+      {activeTab === 'ttsdub' && (
+        <TtsDubStudioTab
+          jobs={ttsDubJobs}
+          selectedJobIds={selectedTtsDubJobIds}
+          onToggleSelectJob={toggleSelectTtsDub}
+          onToggleSelectAll={toggleSelectAllTtsDub}
+          onRefreshJobs={loadTtsDubJobs}
+          onOpenResult={job => {
+            setActiveResultJob(job);
+            setActiveResultType('tts-dub');
+            setResultModalOpen(true);
+          }}
+          onExportCapcut={job => handleExportSingleCapcut(job, 'tts-dub')}
+          onDeleteJob={handleDeleteTtsDub}
+        />
+      )}
+
+      {/* ===== TAB 3: 클립 일괄 편집 스튜디오 ===== */}
+      {activeTab === 'clipedit' && (
+        <ClipEditStudioTab
+          jobs={clipJobs}
+          selectedJobIds={selectedClipJobIds}
+          onToggleSelectJob={toggleSelectClip}
+          onRefreshJobs={loadClipJobs}
+          onOpenResult={job => {
+            setActiveResultJob(job);
+            setActiveResultType('clip-edit');
+            setResultModalOpen(true);
+          }}
+          onExportCapcut={job => handleExportSingleCapcut(job, 'clip-edit')}
+          onDeleteJob={handleDeleteClip}
+        />
+      )}
+
+      {/* ===== Floating Batch Action Bar ===== */}
+      <FloatingBatchActionBar
+        selectedCount={currentSelectedCount}
+        onExportCapcut={handleExportBatchCapcut}
+        onSendToPixeling={() => handleSendToPixeling()}
+        onCopyMeta={() => handleCopyPixelingMeta()}
+        onDeleteSelected={handleDeleteSelected}
+        isExporting={isExporting}
+      />
+
+      {/* ===== Result Detail Inspector Modal ===== */}
+      <DdalkkakResultModal
+        open={resultModalOpen}
+        onOpenChange={setResultModalOpen}
+        job={activeResultJob}
+        jobType={activeResultType}
+        onExportCapcut={job => handleExportSingleCapcut(job, activeResultType)}
+        onSendToPixeling={job => handleSendToPixeling([job])}
       />
     </div>
   );

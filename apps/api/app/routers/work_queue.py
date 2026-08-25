@@ -1,7 +1,7 @@
 """
 작업 대기열 API 엔드포인트
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -133,6 +133,7 @@ class DraftItemCreate(BaseModel):
     description: Optional[str] = None
     hashtags: Optional[List[str]] = None
     tags: Optional[List[str]] = None
+    video_file_path: Optional[str] = None
     source_type: Optional[str] = "BULK_IMPORT"
     upload_method: Optional[str] = "BROWSER_AUTO"
     target_platforms: Optional[List[str]] = ["youtube"]
@@ -188,6 +189,27 @@ def extract_shopping_keyword_api(
         raise HTTPException(500, f"Keyword extraction failed: {str(e)}")
 
 
+from sqlalchemy import or_
+
+@router.get("/batches")
+def get_batch_groups(db: Session = Depends(get_db)):
+    """대기열에 존재하는 고유한 가져오기 배치/프로젝트 그룹 목록 조회"""
+    results = db.query(
+        models.WorkQueueItem.source_batch_id,
+        models.WorkQueueItem.source_type
+    ).filter(models.WorkQueueItem.source_batch_id.isnot(None)).distinct().all()
+    
+    batches = []
+    for batch_id, source_type in results:
+        if batch_id:
+            count = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.source_batch_id == batch_id).count()
+            batches.append({
+                "batch_id": batch_id,
+                "source_type": source_type or "MANUAL",
+                "count": count
+            })
+    return batches
+
 @router.get("/items", response_model=List[WorkQueueItemResponse])
 def get_queue_items(
     status: Optional[str] = None,
@@ -195,24 +217,40 @@ def get_queue_items(
     date_filter: Optional[str] = None, # "today", "week", "month", "all"
     source_batch_id: Optional[str] = None,
     source_external_id: Optional[str] = None,
+    search: Optional[str] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 200,
     db: Session = Depends(get_db)
 ):
-    """작업 대기열 목록 조회"""
+    """작업 대기열 목록 조회 (스마트 통합 검색 지원)"""
     query = db.query(models.WorkQueueItem)
     
-    if status:
-        query = query.filter(models.WorkQueueItem.status == status)
+    if status and status != "ALL":
+        if status == "QUEUED":
+            query = query.filter(models.WorkQueueItem.status.in_(["QUEUED", "SCHEDULED_UPLOAD"]))
+        else:
+            query = query.filter(models.WorkQueueItem.status == status)
     
-    if approval_status:
+    if approval_status and approval_status != "ALL":
         query = query.filter(models.WorkQueueItem.approval_status == approval_status)
     
-    if source_batch_id:
+    if source_batch_id and source_batch_id != "all":
         query = query.filter(models.WorkQueueItem.source_batch_id == source_batch_id)
     
     if source_external_id:
         query = query.filter(models.WorkQueueItem.source_external_id == source_external_id)
+
+    if search:
+        search_term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                models.WorkQueueItem.title.ilike(search_term),
+                models.WorkQueueItem.description.ilike(search_term),
+                models.WorkQueueItem.source_external_id.ilike(search_term),
+                models.WorkQueueItem.source_batch_id.ilike(search_term),
+                models.WorkQueueItem.video_file_path.ilike(search_term)
+            )
+        )
         
     if date_filter and date_filter != "all":
         now = datetime.now()
@@ -234,6 +272,7 @@ def get_queue_items(
     ).offset(skip).limit(limit).all()
     
     return items
+
 
 
 # ... imports ...
@@ -470,41 +509,22 @@ def batch_apply_shield(
     db: Session = Depends(get_db)
 ):
     from sqlalchemy.orm.attributes import flag_modified
-    items = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id.in_(req.item_ids)).all()
-    count = 0
-    for item in items:
-        configs = item.platform_configs or {}
-        if 'youtube' not in configs:
-            configs['youtube'] = {}
-            
-        configs['youtube']['anti_association'] = req.shield_configs.get('anti_association', {})
-        if 'headless_mode' in req.shield_configs:
-            configs['youtube']['headless_mode'] = req.shield_configs['headless_mode']
-            
-        item.platform_configs = configs
-        flag_modified(item, "platform_configs")
-        count += 1
-    
-    db.commit()
-    return {"status": "success", "updated": count}
-
-# ============================================
-# Draft & Bulk Import AK Endpoints
-# ============================================
-
 @router.post("/items/draft", response_model=WorkQueueItemResponse)
 def create_draft_item(
     item_data: DraftItemCreate,
     db: Session = Depends(get_db)
 ):
-    """임시 등록 (Draft) - 제목+메타데이터만 저장, 영상은 나중에 첨부"""
+    """임시 등록 (Draft) - 기본 정보만 저장 (제목, 설명, 태그) -- 영상은 나중에 첨부"""
     import uuid
+    
+    video_path = item_data.video_file_path or (item_data.source_metadata.get("video_file_path") if item_data.source_metadata else None)
     
     queue_item = models.WorkQueueItem(
         title=item_data.title,
         description=item_data.description,
         hashtags=item_data.hashtags,
         tags=item_data.tags,
+        video_file_path=video_path,
         source_type=item_data.source_type or "BULK_IMPORT",
         upload_method=item_data.upload_method or "BROWSER_AUTO",
         target_platforms=item_data.target_platforms or ["youtube"],
@@ -513,7 +533,7 @@ def create_draft_item(
         source_batch_id=item_data.source_batch_id or str(uuid.uuid4()),
         source_external_id=item_data.source_external_id,
         source_metadata=item_data.source_metadata or {},
-        status="DRAFT",
+        status="DRAFT" if not video_path else "PENDING",
         approval_status="PENDING",
         upload_progress=0,
         created_at=datetime.now()
@@ -535,11 +555,14 @@ def bulk_import(
     created = []
     
     for item_data in data.items:
+        video_path = item_data.video_file_path or (item_data.source_metadata.get("video_file_path") if item_data.source_metadata else None)
+        
         queue_item = models.WorkQueueItem(
             title=item_data.title,
             description=item_data.description,
             hashtags=item_data.hashtags,
             tags=item_data.tags,
+            video_file_path=video_path,
             source_type=item_data.source_type or "BULK_IMPORT",
             upload_method=item_data.upload_method or "BROWSER_AUTO",
             target_platforms=item_data.target_platforms or ["youtube"],
@@ -548,7 +571,7 @@ def bulk_import(
             source_batch_id=batch_id,
             source_external_id=item_data.source_external_id,
             source_metadata=item_data.source_metadata or {},
-            status="DRAFT",
+            status="DRAFT" if not video_path else "PENDING",
             approval_status="PENDING",
             upload_progress=0,
             created_at=datetime.now()
@@ -662,13 +685,13 @@ def batch_attach_videos(
             continue
         draft = db.query(models.WorkQueueItem).filter(
             models.WorkQueueItem.source_external_id == item_data.source_external_id,
-            models.WorkQueueItem.status == "DRAFT"
+            models.WorkQueueItem.status.in_(["DRAFT", "PENDING"])
         ).first()
         if not draft:
             results.append({"external_id": item_data.source_external_id, "status": "not_found"})
             continue
-        video_path = item_data.source_metadata.get("video_file_path") if item_data.source_metadata else None
-        if not video_path or not os.path.exists(video_path):
+        video_path = item_data.video_file_path or (item_data.source_metadata.get("video_file_path") if item_data.source_metadata else None)
+        if not video_path:
             results.append({"external_id": item_data.source_external_id, "status": "no_video", "item_id": draft.id})
             continue
         draft.video_file_path = video_path
@@ -678,6 +701,7 @@ def batch_attach_videos(
 
     db.commit()
     return {"results": results}
+
 
 
 @router.post("/batch/finalize", response_model=dict)
@@ -926,7 +950,10 @@ def get_queue_stats(db: Session = Depends(get_db)):
     draft = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "DRAFT").count()
     pending = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "PENDING").count()
     total = db.query(models.WorkQueueItem).count()
-    queued = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "QUEUED").count()
+    queued = db.query(models.WorkQueueItem).filter(
+        models.WorkQueueItem.status.in_(["QUEUED", "SCHEDULED_UPLOAD"])
+    ).count()
+    scheduled_upload = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "SCHEDULED_UPLOAD").count()
     uploading = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "UPLOADING").count()
     completed = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "COMPLETED").count()
     failed = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "FAILED").count()
@@ -942,6 +969,7 @@ def get_queue_stats(db: Session = Depends(get_db)):
         "draft": draft,
         "pending": pending,
         "queued": queued,
+        "scheduled_upload": scheduled_upload,
         "uploading": uploading,
         "completed": completed,
         "failed": failed,
@@ -949,6 +977,7 @@ def get_queue_stats(db: Session = Depends(get_db)):
         "failed_review": failed_review,
         "pending_approval": pending_approval
     }
+
 
 # === WebSocket for Real-time Progress ===
 
@@ -1361,16 +1390,111 @@ def generate_metadata(
         raise HTTPException(500, f"Failed to generate metadata: {str(e)}")
 
 
-# === Video Streaming ===
+# === Video Streaming with HTTP Range Support ===
 
 @router.get("/stream")
-def stream_video(path: str):
+def stream_video(path: str, request: Request):
     """
-    Local Video Streaming for Work Queue
-    Allows playing files from absolute paths (e.g. F:/...)
+    Local Video Streaming with full HTTP 206 Partial Content (Range requests) support.
+    Allows seamless seek and in-browser playback for HTML5 <video> tags.
     """
-    if not os.path.exists(path):
-        raise HTTPException(404, "File not found")
+    import urllib.parse
+    import mimetypes
+    from fastapi.responses import StreamingResponse
+    
+    cleaned_path = urllib.parse.unquote(path).strip("\"'")
+    cleaned_path = os.path.normpath(cleaned_path)
+    
+    if not os.path.exists(cleaned_path):
+        raw_path = path.strip("\"'")
+        raw_path = os.path.normpath(raw_path)
+        if os.path.exists(raw_path):
+            cleaned_path = raw_path
+        else:
+            # Fallback: 파일명만 넘어왔을 때 Downloads, Videos, Desktop 및 작업 경로에서 자동 탐색
+            filename = os.path.basename(cleaned_path)
+            candidate_dirs = [
+                os.path.expanduser("~/Downloads"),
+                os.path.expanduser("~/Videos"),
+                os.path.expanduser("~/Desktop"),
+                "C:\\Users\\jmyoo\\Downloads",
+                "C:\\Users\\jmyoo\\Videos",
+                "C:\\Users\\jmyoo\\Desktop",
+                os.getcwd(),
+            ]
+            found = False
+            for cdir in candidate_dirs:
+                cpath = os.path.normpath(os.path.join(cdir, filename))
+                if os.path.exists(cpath):
+                    cleaned_path = cpath
+                    found = True
+                    break
+            
+            if not found:
+                logger.error(f"Stream 404 - Video file not found: {cleaned_path} (raw: {path})")
+                raise HTTPException(404, f"Video file not found: {cleaned_path}")
+            
+    file_size = os.path.getsize(cleaned_path)
+    media_type, _ = mimetypes.guess_type(cleaned_path)
+    if not media_type:
+        media_type = "video/mp4"
+
+    range_header = request.headers.get("range")
+    if not range_header:
+        def full_iter():
+            with open(cleaned_path, "rb") as f:
+                while chunk := f.read(1024 * 512):
+                    yield chunk
+        return StreamingResponse(
+            full_iter(),
+            media_type=media_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(file_size),
+            }
+        )
+
+    # Parse Range: bytes=start-end
+    try:
+        range_val = range_header.replace("bytes=", "").strip()
+        parts = range_val.split("-")
+        start = int(parts[0]) if parts[0] else 0
+        end = int(parts[1]) if len(parts) > 1 and parts[1] else file_size - 1
         
-    from fastapi.responses import FileResponse
-    return FileResponse(path, media_type="video/mp4")
+        if start >= file_size or end >= file_size or start > end:
+            raise HTTPException(416, f"Requested Range Not Satisfiable")
+            
+        content_length = (end - start) + 1
+        
+        def range_iter():
+            with open(cleaned_path, "rb") as f:
+                f.seek(start)
+                remaining = content_length
+                while remaining > 0:
+                    read_bytes = min(1024 * 512, remaining)
+                    data = f.read(read_bytes)
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+                    
+        return StreamingResponse(
+            range_iter(),
+            status_code=206,
+            media_type=media_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Content-Length": str(content_length),
+            }
+        )
+    except Exception as e:
+        logger.warning(f"Error serving range request for {cleaned_path}: {e}")
+        # Fallback to full file
+        def fallback_iter():
+            with open(cleaned_path, "rb") as f:
+                while chunk := f.read(1024 * 512):
+                    yield chunk
+        return StreamingResponse(fallback_iter(), media_type=media_type, headers={"Accept-Ranges": "bytes", "Content-Length": str(file_size)})
+
+

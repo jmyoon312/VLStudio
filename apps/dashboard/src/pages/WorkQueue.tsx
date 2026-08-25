@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom';
+import { useToast } from "@/components/ui/use-toast";
 import { fetchWithRetry, uint8ArrayToBase64 } from "@/lib/utils";
-import { PixelingImportDialog } from "@/components/PixelingImportDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,19 +14,46 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useToast } from "@/components/ui/use-toast";
+import { PixelingImportDialog } from "@/components/PixelingImportDialog";
 import {
-    Upload, FileVideo, Workflow, CheckCircle, XCircle, Clock,
-    Play, Pause, Trash2, Edit, Eye, PlaySquare, Send, Settings, RotateCcw, AlertTriangle,
-    Shield, Clock4, Hash, Paperclip, FileCheck, Files, Filter, Search, ArrowUpDown, FolderOpen, Save, Rocket,
-    FileSpreadsheet, Layers, ArrowRight, Table, Columns2
+    Plus, Upload, RefreshCw, Trash2, Edit, CheckCircle, XCircle, Clock,
+    AlertTriangle, Shield, Play, FileText, ArrowRight, FolderOpen,
+    Eye, EyeOff, Paperclip, Rocket, RotateCcw, FileVideo, Layers, Clock4,
+    FileCheck, Hash, Files, Filter, ChevronDown, ChevronUp, Copy, Film,
+    Save, FileSpreadsheet, Send, Search, ArrowUpDown, Workflow, Pause,
+    PlaySquare, Settings, Table, Columns2, Volume2, VolumeX
 } from 'lucide-react';
 
+const getStreamUrl = (filePath: string) => {
+    if (!filePath) return '';
+    // Electron 데스크톱 앱(file:// 또는 커스텀 프로토콜)에서는 FastAPI 백엔드 주소를 명시해야 net::ERR_FILE_NOT_FOUND 방지
+    const isDevHttp = typeof window !== 'undefined' && window.location.protocol.startsWith('http') && window.location.port !== '8000';
+    const baseUrl = isDevHttp ? '' : 'http://127.0.0.1:8000';
+    return `${baseUrl}/api/work-queue/stream?path=${encodeURIComponent(filePath)}`;
+};
+
+
+
+
 const WorkQueue = () => {
+    const [searchParams, setSearchParams] = useSearchParams();
+
+                const location = useLocation();
+    const navigate = useNavigate();
+    const hasHandledOpenRef = useRef(false);
+
+    useEffect(() => {
+        const shouldOpen = (location.state as any)?.openPixeling || searchParams.get('openPixeling') === 'true';
+        if (shouldOpen && !hasHandledOpenRef.current) {
+            hasHandledOpenRef.current = true;
+            setIsPixelingOpen(true);
+            navigate('/work-queue', { replace: true, state: {} });
+        }
+    }, []);
     const { toast } = useToast();
     const [queueItems, setQueueItems] = useState<any[]>([]);
     const [stats, setStats] = useState<any>({});
-    const [activeTab, setActiveTab] = useState('draft');
+    const [activeTab, setActiveTab] = useState('all');
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isPixelingOpen, setIsPixelingOpen] = useState(false);
@@ -35,9 +63,10 @@ const WorkQueue = () => {
     const [showBulkImport, setShowBulkImport] = useState(false);
     const [wsConnections, setWsConnections] = useState<Map<number, WebSocket>>(new Map());
     const [dateFilter, setDateFilter] = useState('all');
-    const [limit, setLimit] = useState(20);
-    const [searchExternalId, setSearchExternalId] = useState('');
-    const [batchId, setBatchId] = useState('');
+    const [limit, setLimit] = useState(100);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedBatch, setSelectedBatch] = useState('all');
+    const [batchGroups, setBatchGroups] = useState<any[]>([]);
     const [channels, setChannels] = useState<any[]>([]);
     const [tiktokChannels, setTiktokChannels] = useState<any[]>([]);
     const [instagramChannels, setInstagramChannels] = useState<any[]>([]);
@@ -46,21 +75,10 @@ const WorkQueue = () => {
         loadQueueItems();
         loadStats();
         loadAllChannels();
-        const interval = setInterval(() => { loadQueueItems(); loadStats(); }, 5000);
+        loadBatchGroups();
+        const interval = setInterval(() => { loadQueueItems(); loadStats(); loadBatchGroups(); }, 10000);
         return () => clearInterval(interval);
-    }, [activeTab, dateFilter, limit, searchExternalId, batchId]);
-
-    useEffect(() => {
-        const uploadingItems = queueItems.filter(item => item.status === 'UPLOADING');
-        uploadingItems.forEach(item => {
-            if (!wsConnections.has(item.id)) connectWebSocket(item.id);
-        });
-        wsConnections.forEach((ws, itemId) => {
-            const item = queueItems.find(i => i.id === itemId);
-            if (!item || item.status !== 'UPLOADING') { ws.close(); wsConnections.delete(itemId); }
-        });
-        return () => { wsConnections.forEach(ws => ws.close()); };
-    }, [queueItems]);
+    }, [activeTab, dateFilter, limit, searchQuery, selectedBatch]);
 
     const connectWebSocket = (itemId: number) => {
         const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/work-queue/ws/progress/${itemId}`);
@@ -75,11 +93,19 @@ const WorkQueue = () => {
     };
 
     const buildUrl = () => {
-        const statusFilter = activeTab === 'draft' ? 'DRAFT' : activeTab === 'pending' ? 'PENDING' : activeTab === 'queued' ? 'QUEUED' : activeTab === 'uploading' ? 'UPLOADING' : activeTab === 'verifying' ? 'VERIFYING' : activeTab === 'completed' ? 'COMPLETED' : activeTab === 'failed_review' ? 'FAILED_REVIEW' : null;
+        const statusFilter = activeTab === 'all' ? null
+            : activeTab === 'draft' ? 'DRAFT'
+            : activeTab === 'pending' ? 'PENDING'
+            : activeTab === 'queued' ? 'QUEUED'
+            : activeTab === 'uploading' ? 'UPLOADING'
+            : activeTab === 'verifying' ? 'VERIFYING'
+            : activeTab === 'completed' ? 'COMPLETED'
+            : activeTab === 'failed_review' ? 'FAILED_REVIEW' : null;
+
         let url = `/api/work-queue/items?limit=${limit}&date_filter=${dateFilter}`;
         if (statusFilter) url += `&status=${statusFilter}`;
-        if (searchExternalId) url += `&source_external_id=${encodeURIComponent(searchExternalId)}`;
-        if (batchId) url += `&source_batch_id=${encodeURIComponent(batchId)}`;
+        if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
+        if (selectedBatch && selectedBatch !== 'all') url += `&source_batch_id=${encodeURIComponent(selectedBatch)}`;
         return url;
     };
 
@@ -89,6 +115,15 @@ const WorkQueue = () => {
             const data = await response.json();
             setQueueItems(Array.isArray(data) ? data : []);
         } catch (_) { setQueueItems([]); }
+    };
+
+    const loadBatchGroups = async () => {
+        try {
+            const response = await fetchWithRetry('/api/work-queue/batches');
+            if (response.ok) {
+                setBatchGroups(await response.json());
+            }
+        } catch (_) { }
     };
 
     const loadStats = async () => {
@@ -105,10 +140,7 @@ const WorkQueue = () => {
                 fetchWithRetry('/api/tiktok-channels/'),
                 fetchWithRetry('/api/instagram-channels/'),
             ]);
-            if (r1.ok) {
-                const data = await r1.json();
-                setChannels(Array.isArray(data) ? data : []);
-            }
+            if (r1.ok) setChannels(await r1.json());
             if (r2.ok) setTiktokChannels(await r2.json());
             if (r3.ok) setInstagramChannels(await r3.json());
         } catch (_) { }
@@ -122,12 +154,10 @@ const WorkQueue = () => {
             'UPLOADING': { className: 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 border-violet-200', icon: Upload, text: '업로드 중' },
             'VERIFYING': { className: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200', icon: Clock4, text: '검증 중' },
             'COMPLETED': { className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200', icon: CheckCircle, text: '완료' },
-            'FAILED': { className: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200', icon: XCircle, text: '실패' },
             'FAILED_REVIEW': { className: 'bg-pink-50 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400 border-pink-200', icon: Shield, text: '실패 검토' },
-            'SCHEDULED_UPLOAD': { className: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 border-cyan-200', icon: Clock4, text: '예약됨' },
         };
         const c = variants[status] || variants['QUEUED'];
-        return <Badge variant="outline" className={`flex items-center gap-1 text-xs ${c.className}`}><c.icon className="w-3 h-3" />{c.text}</Badge>;
+        return <Badge variant="outline" className={`flex items-center gap-1 text-[11px] font-medium py-0.5 px-2 ${c.className}`}><c.icon className="w-3 h-3" />{c.text}</Badge>;
     };
 
     const getApprovalBadge = (approvalStatus: string) => {
@@ -135,44 +165,42 @@ const WorkQueue = () => {
             'PENDING': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
             'APPROVED': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
             'REJECTED': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-            'AUTO_APPROVED': 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300'
         };
-        return <Badge className={`text-xs ${v[approvalStatus] || ''}`}>{approvalStatus}</Badge>;
+        return <Badge className={`text-[10px] py-0 px-1.5 ${v[approvalStatus] || ''}`}>{approvalStatus}</Badge>;
     };
 
     const handleApprove = async (itemId: number) => {
         try {
             await fetchWithRetry('/api/work-queue/batch/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: [itemId], approved_by: 'user' }) });
-            toast({ title: "승인됨", description: "업로드 대기열로 이동됨" });
-            loadQueueItems();
-        } catch (_) { toast({ variant: "destructive", title: "오류", description: "승인 실패" }); }
+            toast({ title: "승인됨" });
+            loadQueueItems(); loadStats();
+        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
     const handleReject = async (itemId: number, reason: string) => {
         try {
             await fetchWithRetry('/api/work-queue/batch/reject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: [itemId], reason }) });
             toast({ title: "반려됨" });
-            loadQueueItems();
-        } catch (_) { toast({ variant: "destructive", title: "오류", description: "반려 실패" }); }
+            loadQueueItems(); loadStats();
+        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
     const handleDelete = async (itemId: number) => {
-        if (!confirm('삭제하시겠습니까?')) return;
+        if (!confirm('정말 삭제하시겠습니까?')) return;
         try {
             await fetchWithRetry(`/api/work-queue/items/${itemId}`, { method: 'DELETE' });
             toast({ title: "삭제됨" });
-            loadQueueItems();
+            loadQueueItems(); loadStats();
         } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
     const handleBatchApprove = async () => {
         if (!selectedItems.length) return;
         try {
-            const res = await fetchWithRetry('/api/work-queue/batch/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: selectedItems, approved_by: 'user' }) });
-            const result = await res.json();
-            toast({ title: "일괄 승인", description: `${result.approved}건 승인, ${result.failed}건 실패` });
-            setSelectedItems([]); loadQueueItems();
-        } catch (_) { toast({ variant: "destructive", title: "일괄 승인 실패" }); }
+            await fetchWithRetry('/api/work-queue/batch/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: selectedItems, approved_by: 'user' }) });
+            toast({ title: "일괄 승인 완료" });
+            setSelectedItems([]); loadQueueItems(); loadStats();
+        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
     const handleBatchReject = async () => {
@@ -181,46 +209,41 @@ const WorkQueue = () => {
         if (!reason) return;
         try {
             await fetchWithRetry('/api/work-queue/batch/reject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: selectedItems, reason }) });
-            toast({ title: "일괄 반려" });
-            setSelectedItems([]); loadQueueItems();
-        } catch (_) { toast({ variant: "destructive", title: "일괄 반려 실패" }); }
+            toast({ title: "일괄 반려 완료" });
+            setSelectedItems([]); loadQueueItems(); loadStats();
+        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
     const handleBatchDelete = async () => {
-        if (!selectedItems.length || !confirm(`${selectedItems.length}개 항목을 삭제하시겠습니까?`)) return;
+        if (!selectedItems.length || !confirm(`${selectedItems.length}개 삭제?`)) return;
         try {
             await fetchWithRetry('/api/work-queue/batch/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: selectedItems }) });
-            toast({ title: "일괄 삭제" });
-            setSelectedItems([]); loadQueueItems();
-        } catch (_) { toast({ variant: "destructive", title: "일괄 삭제 실패" }); }
+            toast({ title: "일괄 삭제 완료" });
+            setSelectedItems([]); loadQueueItems(); loadStats();
+        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
     const handleBatchReset = async () => {
         if (!selectedItems.length) return;
         try {
             await fetchWithRetry('/api/work-queue/batch/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: selectedItems }) });
-            toast({ title: "초기화", description: "항목이 대기열로 이동됨" });
-            setSelectedItems([]); loadQueueItems();
-        } catch (_) { toast({ variant: "destructive", title: "초기화 실패" }); }
+            toast({ title: "초기화 완료" });
+            setSelectedItems([]); loadQueueItems(); loadStats();
+        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
     const handleBatchFinalize = async () => {
         if (!selectedItems.length) return;
-        const items = selectedItems.map(id => ({ id, source_external_id: queueItems.find(q => q.id === id)?.source_external_id }));
         try {
-            const res = await fetchWithRetry('/api/work-queue/batch/finalize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: items.map(i => ({ source_external_id: i.source_external_id })) }) });
-            const result = await res.json();
-            toast({ title: "일괄 즉시 등록", description: `${result.count}개 항목이 대기열로 이동됨` });
-            setSelectedItems([]); loadQueueItems();
-        } catch (_) { toast({ variant: "destructive", title: "일괄 등록 실패" }); }
+            await fetchWithRetry('/api/work-queue/batch/finalize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: selectedItems.map(id => ({ id })) }) });
+            toast({ title: "일괄 등록 완료" });
+            setSelectedItems([]); loadQueueItems(); loadStats();
+        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
     const handleAttachVideo = async (itemId: number) => {
         const item = queueItems.find(q => q.id === itemId);
-        if (!item || item.status !== 'DRAFT') {
-            toast({ variant: "destructive", title: "첨부 불가", description: "DRAFT 상태의 항목만 영상 첨부가 가능합니다" });
-            return;
-        }
+        if (!item) return;
         setEditingItem(item);
         setIsAddDialogOpen(true);
     };
@@ -232,158 +255,293 @@ const WorkQueue = () => {
             return;
         }
         try {
-            const res = await fetchWithRetry(`/api/work-queue/items/${itemId}/finalize`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approval_required: false }) });
-            if (res.ok) { const d = await res.json(); toast({ title: "즉시 등록", description: d.upload_queued ? "대기열 등록됨" : "승인 대기" }); loadQueueItems(); }
-            else throw await res.json();
-        } catch (e: any) { toast({ variant: "destructive", title: "등록 실패", description: e?.detail || '서버 오류' }); }
+            const res = await fetchWithRetry(`/api/work-queue/items/${itemId}/finalize`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ approval_required: false })
+            });
+            if (res.ok) {
+                const d = await res.json();
+                toast({ title: "즉시 등록 완료", description: d.upload_queued ? "대기열 등록 완료" : "승인 대기 등록" });
+                loadQueueItems();
+                loadStats();
+            } else throw await res.json();
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "등록 실패", description: e?.detail || '서버 오류' });
+        }
     };
+
 
     const handleUpdateItem = async (itemId: number, updates: any) => {
         try {
-            const res = await fetchWithRetry(`/api/work-queue/items/${itemId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
-            if (res.ok) { toast({ title: "업데이트 완료" }); loadQueueItems(); }
-            else throw await res.json();
-        } catch (e: any) { toast({ variant: "destructive", title: "업데이트 실패", description: e?.detail || '서버 오류' }); }
+            await fetchWithRetry(`/api/work-queue/items/${itemId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+            loadQueueItems();
+        } catch (_) { }
     };
 
-    const handleUpdateUploadMethod = (itemId: number, method: string) => {
-        handleUpdateItem(itemId, { upload_method: method });
-    };
+    const handleUpdateUploadMethod = (itemId: number, method: string) => handleUpdateItem(itemId, { upload_method: method });
 
-    const handleUpdateChannel = (itemId: number, platform: string, channelId: string) => {
+    const handleUpdateChannel = (itemId: number, platform: string, value: string) => {
         const item = queueItems.find(q => q.id === itemId);
-        const currentConfigs = item?.platform_configs || {};
+        if (!item) return;
+        const currentConfigs = item.platform_configs || {};
         const key = platform === 'youtube' ? 'channel_id' : 'account_id';
-        handleUpdateItem(itemId, {
-            platform_configs: {
-                ...currentConfigs,
-                [platform]: { ...(currentConfigs[platform] || {}), [key]: channelId }
-            }
-        });
+        handleUpdateItem(itemId, { platform_configs: { ...currentConfigs, [platform]: { ...(currentConfigs[platform] || {}), [key]: value } } });
     };
 
-    const toggleItemSelection = (itemId: number) => setSelectedItems(prev => prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]);
-    const toggleAllSelection = () => setSelectedItems(selectedItems.length === queueItems.length ? [] : queueItems.map(item => item.id));
+    const toggleItemSelection = (id: number) => setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    const toggleAllSelection = () => setSelectedItems(selectedItems.length === queueItems.length ? [] : queueItems.map(i => i.id));
+    const clearFilters = () => { setSearchQuery(''); setSelectedBatch('all'); setDateFilter('all'); };
 
-    const clearFilters = () => { setSearchExternalId(''); setBatchId(''); };
+    const totalCount = (stats.total ?? 0);
+    const draftCount = (stats.draft ?? 0);
+    const pendingCount = (stats.pending ?? 0);
+    const queuedCount = (stats.queued ?? 0);
+    const uploadingCount = (stats.uploading ?? 0);
+    const completedCount = (stats.completed ?? 0);
+    const failedCount = (stats.failed ?? 0);
 
     return (
-        <div className="p-6 space-y-6 bg-background text-foreground min-h-screen">
-            <div className="flex justify-between items-center">
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 w-full min-h-screen pb-24 md:pb-8">
+
+            {/* 1. 상단 타이틀 및 액션 버튼 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">자동화 작업 대기열</h1>
-                    <p className="text-sm text-muted-foreground mt-0.5">HITL 승인 및 업로드 오케스트레이션</p>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
+                        <Layers className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-600" />
+                        자동화 작업 대기열
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        다중 플랫폼(YouTube / TikTok / Instagram) 원클릭 및 스텔스 브라우저 업로드 오케스트레이션
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                        onClick={() => { setEditingItem(null); setIsAddDialogOpen(true); }}>
-                        <Edit className="w-4 h-4 mr-2" /> 수동 등록
+
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Button onClick={() => setIsPixelingOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs">
+                        <Layers className="w-3.5 h-3.5 mr-1.5" /> 픽셀링 메타 가져오기
                     </Button>
-                    <Button
-                        variant="outline"
-                        className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-950"
-                        onClick={() => { setIsPixelingOpen(true); }}>
-                        <Layers className="w-4 h-4 mr-2" /> 픽셀링 메타
+                    <Button onClick={() => { setEditingItem(null); setIsAddDialogOpen(true); }} variant="outline" className="text-xs border-border font-medium">
+                        <Plus className="w-3.5 h-3.5 mr-1.5" /> 수동 등록
                     </Button>
-                    <Button
-                        variant="outline"
-                        className="border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-950"
-                        onClick={() => { setShowBulkImport(true); }}>
-                        <FileSpreadsheet className="w-4 h-4 mr-2" /> 일괄 등록
+                    <Button onClick={() => setShowBulkImport(true)} variant="outline" className="text-xs border-border font-medium">
+                        <Upload className="w-3.5 h-3.5 mr-1.5" /> 엑셀/CSV 일괄 등록
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => { loadQueueItems(); loadStats(); loadBatchGroups(); }} className="text-muted-foreground hover:text-foreground h-8 w-8" title="새로고침">
+                        <RefreshCw className="w-4 h-4" />
                     </Button>
                 </div>
             </div>
 
-            {queueItems.some(item => item.approval_status === 'PENDING') && (
-                <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="relative"><AlertTriangle className="w-5 h-5 text-orange-600" /><div className="absolute top-0 right-0 w-2 h-2 bg-orange-500 rounded-full animate-ping" /></div>
+            {/* 2. 대기열 상태 통계 요약 카드 (7개 상태 완벽 동기화) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 w-full">
+                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-indigo-400 transition-colors" onClick={() => setActiveTab('all')}>
+                    <CardContent className="p-3.5 flex items-center justify-between">
                         <div>
-                            <h3 className="font-semibold text-orange-600 dark:text-orange-400">HITL 승인 필요</h3>
-                            <p className="text-sm text-muted-foreground">에이전트가 업로드 전 사람의 승인을 기다리는 중입니다.</p>
+                            <p className="text-[11px] font-medium text-muted-foreground">전체</p>
+                            <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">{totalCount}</h3>
                         </div>
-                    </div>
-                    <Button onClick={() => setActiveTab('pending')} className="bg-orange-500 hover:bg-orange-600 text-white">승인 대기 검토</Button>
-                </div>
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                {[{ label: '전체', value: stats.total ?? 0, icon: FileVideo, color: 'slate' },
-                { label: '임시 보관', value: stats.draft ?? 0, icon: Edit, color: 'slate' },
-                { label: '승인 대기', value: stats.pending ?? 0, icon: Clock, color: 'amber' },
-                { label: '업로드 중', value: stats.uploading ?? 0, icon: Upload, color: 'violet' },
-                { label: '검증 중', value: stats.verifying ?? 0, icon: Clock4, color: 'orange' },
-                { label: '완료', value: stats.completed ?? 0, icon: CheckCircle, color: 'emerald' },
-                { label: '실패', value: stats.failed ?? 0, icon: XCircle, color: 'red' },
-                ].map(s => (
-                    <Card key={s.label} className="border-border"><CardContent className="p-4"><div className="flex items-center justify-between"><div><p className="text-xs text-muted-foreground">{s.label}</p><p className="text-xl font-bold mt-0.5">{s.value}</p></div><div className={`p-2 rounded-md ${s.color === 'amber' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : s.color === 'violet' ? 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' : s.color === 'orange' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' : s.color === 'emerald' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' : s.color === 'red' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-muted text-muted-foreground'}`}><s.icon className="w-4 h-4" /></div></div></CardContent></Card>
-                ))}
-            </div>
-
-            {selectedItems.length > 0 && (
-                <Card className="bg-blue-500/10 border-blue-500/20">
-                    <CardContent className="p-3">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                            <div className="flex items-center gap-2">
-                                <Checkbox checked={selectedItems.length === queueItems.length} onCheckedChange={toggleAllSelection} />
-                                <span className="font-semibold text-blue-600 dark:text-blue-400">{selectedItems.length}개 선택됨</span>
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <Button size="sm" onClick={handleBatchApprove} className="bg-emerald-600 hover:bg-emerald-700 text-white"><CheckCircle className="w-3.5 h-3.5 mr-1" /> 승인</Button>
-                                <Button size="sm" onClick={handleBatchReject} variant="destructive"><XCircle className="w-3.5 h-3.5 mr-1" /> 반려</Button>
-                                <Button size="sm" onClick={handleBatchFinalize} className="bg-indigo-600 hover:bg-indigo-700 text-white"><FileCheck className="w-3.5 h-3.5 mr-1" /> 즉시 등록</Button>
-                                <Button size="sm" onClick={handleBatchReset} variant="secondary"><RotateCcw className="w-3.5 h-3.5 mr-1" /> 초기화</Button>
-                                <Button size="sm" onClick={handleBatchDelete} variant="outline" className="border-red-200 text-red-600 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5 mr-1" /> 삭제</Button>
-                                <Button size="sm" variant="ghost" onClick={() => setSelectedItems([])}>취소</Button>
-                            </div>
+                        <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                            <FileText className="w-4 h-4" />
                         </div>
                     </CardContent>
                 </Card>
+
+                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-slate-400 transition-colors" onClick={() => setActiveTab('draft')}>
+                    <CardContent className="p-3.5 flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] font-medium text-muted-foreground">임시 보관</p>
+                            <h3 className="text-xl font-bold tracking-tight text-foreground mt-0.5">{draftCount}</h3>
+                        </div>
+                        <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            <Edit className="w-4 h-4" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-amber-400 transition-colors" onClick={() => setActiveTab('pending')}>
+                    <CardContent className="p-3.5 flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] font-medium text-muted-foreground">승인 대기</p>
+                            <h3 className="text-xl font-bold tracking-tight text-amber-600 dark:text-amber-400 mt-0.5">{pendingCount}</h3>
+                        </div>
+                        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+                            <Clock className="w-4 h-4" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-blue-400 transition-colors" onClick={() => setActiveTab('queued')}>
+                    <CardContent className="p-3.5 flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] font-medium text-muted-foreground">대기열</p>
+                            <h3 className="text-xl font-bold tracking-tight text-blue-600 dark:text-blue-400 mt-0.5">{queuedCount}</h3>
+                        </div>
+                        <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+                            <Rocket className="w-4 h-4" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-violet-400 transition-colors" onClick={() => setActiveTab('uploading')}>
+                    <CardContent className="p-3.5 flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] font-medium text-muted-foreground">업로드 중</p>
+                            <h3 className="text-xl font-bold tracking-tight text-violet-600 dark:text-violet-400 mt-0.5">{uploadingCount}</h3>
+                        </div>
+                        <div className="p-2 rounded-lg bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400">
+                            <Upload className="w-4 h-4" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-emerald-400 transition-colors" onClick={() => setActiveTab('completed')}>
+                    <CardContent className="p-3.5 flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] font-medium text-muted-foreground">완료</p>
+                            <h3 className="text-xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 mt-0.5">{completedCount}</h3>
+                        </div>
+                        <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle className="w-4 h-4" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-border bg-card shadow-2xs cursor-pointer hover:border-red-400 transition-colors" onClick={() => setActiveTab('failed_review')}>
+                    <CardContent className="p-3.5 flex items-center justify-between">
+                        <div>
+                            <p className="text-[11px] font-medium text-muted-foreground">실패</p>
+                            <h3 className="text-xl font-bold tracking-tight text-red-600 dark:text-red-400 mt-0.5">{failedCount}</h3>
+                        </div>
+                        <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+                            <AlertTriangle className="w-4 h-4" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* 3. 일괄 작업 액션 바 */}
+            {selectedItems.length > 0 && (
+                <div className="bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 p-3 rounded-lg flex items-center justify-between flex-wrap gap-2 w-full animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                        <Badge className="bg-indigo-600 text-white text-xs">{selectedItems.length}개 항목 선택됨</Badge>
+                        <Button size="sm" variant="ghost" onClick={() => setSelectedItems([])} className="h-7 text-xs text-muted-foreground hover:text-foreground">선택 해제</Button>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <Button size="sm" onClick={handleBatchApprove} className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
+                            <CheckCircle className="w-3 h-3 mr-1" /> 일괄 승인
+                        </Button>
+                        <Button size="sm" onClick={handleBatchFinalize} className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
+                            <Rocket className="w-3 h-3 mr-1" /> 일괄 대기열 등록
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={handleBatchDelete} className="h-7 text-xs font-medium">
+                            <Trash2 className="w-3 h-3 mr-1" /> 일괄 삭제
+                        </Button>
+                    </div>
+                </div>
             )}
 
             <VideoPlayerDialog isOpen={isPlayerOpen} setIsOpen={setIsPlayerOpen} item={playingItem} />
-            <AddVideoDialog isOpen={isAddDialogOpen} setIsOpen={setIsAddDialogOpen} onSuccess={() => { loadQueueItems(); setEditingItem(null); }} initialData={editingItem} />
-            <BulkImportDialog isOpen={showBulkImport} setIsOpen={setShowBulkImport} onSuccess={() => loadQueueItems()} />
-            <PixelingImportDialog isOpen={isPixelingOpen} setIsOpen={setIsPixelingOpen} onSuccess={() => { loadQueueItems(); loadStats(); }} />
+            <AddVideoDialog isOpen={isAddDialogOpen} setIsOpen={setIsAddDialogOpen} onSuccess={() => { loadQueueItems(); loadStats(); setIsAddDialogOpen(false); }} initialData={editingItem} />
+            <BulkImportDialog isOpen={showBulkImport} setIsOpen={setShowBulkImport} onSuccess={() => { loadQueueItems(); loadStats(); }} />
+            {isPixelingOpen && (
+                <PixelingImportDialog isOpen={isPixelingOpen} setIsOpen={setIsPixelingOpen} onSuccess={() => { loadQueueItems(); loadStats(); }} />
+            )}
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                    <TabsList className="bg-muted border border-border flex-wrap h-auto p-1 gap-0.5">
-                        {(['draft', 'pending', 'queued', 'uploading', 'verifying', 'completed', 'failed_review'] as const).map(t => (
-                            <TabsTrigger key={t} value={t} className="text-xs px-3 py-1.5">
-                                {t === 'draft' ? '임시 보관' : t === 'pending' ? '승인 대기' : t === 'queued' ? '대기열' : t === 'uploading' ? '업로드 중' : t === 'verifying' ? '검증 중' : t === 'completed' ? '완료' : '실패 검토'}
-                            </TabsTrigger>
-                        ))}
+            {/* 5. 탭 및 스마트 필터 툴바 */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 w-full">
+                    <TabsList className="bg-muted border border-border flex-wrap h-auto p-1 gap-1">
+                        <TabsTrigger value="all" className="text-xs px-3 py-1.5 font-medium">전체 ({totalCount})</TabsTrigger>
+                        <TabsTrigger value="draft" className="text-xs px-3 py-1.5 font-medium">임시 보관 ({draftCount})</TabsTrigger>
+                        <TabsTrigger value="pending" className="text-xs px-3 py-1.5 font-medium">승인 대기 ({pendingCount})</TabsTrigger>
+                        <TabsTrigger value="queued" className="text-xs px-3 py-1.5 font-medium">대기열 ({queuedCount})</TabsTrigger>
+                        <TabsTrigger value="uploading" className="text-xs px-3 py-1.5 font-medium">업로드 중 ({uploadingCount})</TabsTrigger>
+                        <TabsTrigger value="completed" className="text-xs px-3 py-1.5 font-medium">완료 ({completedCount})</TabsTrigger>
+                        <TabsTrigger value="failed_review" className="text-xs px-3 py-1.5 font-medium">실패 ({failedCount})</TabsTrigger>
                     </TabsList>
+                    
+                    {/* 스마트 통합 검색 및 프로젝트 그룹 필터 */}
                     <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                            <Hash className="w-3.5 h-3.5 text-muted-foreground" />
-                            <Input placeholder="외부 ID" value={searchExternalId} onChange={e => setSearchExternalId(e.target.value)} className="w-32 h-8 text-xs bg-background border-border" />
+                        <div className="flex items-center gap-1.5 relative">
+                            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2 pointer-events-none" />
+                            <Input 
+                                placeholder="제목, 파일명, ID 검색..." 
+                                value={searchQuery} 
+                                onChange={e => setSearchQuery(e.target.value)} 
+                                className="w-48 h-8 text-xs bg-background border-border pl-7" 
+                            />
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <Files className="w-3.5 h-3.5 text-muted-foreground" />
-                            <Input placeholder="배치 ID" value={batchId} onChange={e => setBatchId(e.target.value)} className="w-36 h-8 text-xs bg-background border-border" />
+                        
+                        <div className="flex items-center gap-1">
+                            <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                            <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+                                <SelectTrigger className="w-36 h-8 text-xs bg-background">
+                                    <SelectValue placeholder="프로젝트 그룹" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">전체 프로젝트 그룹</SelectItem>
+                                    {batchGroups.map((b: any) => (
+                                        <SelectItem key={b.batch_id} value={b.batch_id}>
+                                            {b.source_type === 'PIXELING' ? '🎨 픽셀링' : b.source_type === 'EXCEL' ? '📊 엑셀' : '📁'}: {b.batch_id} ({b.count}건)
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
+
                         <Select value={dateFilter} onValueChange={setDateFilter}>
-                            <SelectTrigger className="w-28 h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
-                            <SelectContent><SelectItem value="today">오늘</SelectItem><SelectItem value="week">7일</SelectItem><SelectItem value="month">30일</SelectItem><SelectItem value="all">전체</SelectItem></SelectContent>
+                            <SelectTrigger className="w-24 h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="today">오늘</SelectItem>
+                                <SelectItem value="week">7일</SelectItem>
+                                <SelectItem value="month">30일</SelectItem>
+                                <SelectItem value="all">전체 기간</SelectItem>
+                            </SelectContent>
                         </Select>
-                        {(searchExternalId || batchId) && <Button size="sm" variant="ghost" onClick={clearFilters} className="h-8 text-xs"><Filter className="w-3 h-3 mr-1" /> 초기화</Button>}
+
+                        {(searchQuery || selectedBatch !== 'all' || dateFilter !== 'all') && (
+                            <Button size="sm" variant="ghost" onClick={clearFilters} className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground">
+                                <Filter className="w-3 h-3 mr-1" /> 초기화
+                            </Button>
+                        )}
                     </div>
                 </div>
 
-                <TabsContent value={activeTab} className="mt-4">
+                {/* 6. 고밀도 대기열 리스트 뷰 */}
+                <TabsContent value={activeTab} className="mt-3 w-full">
                     {queueItems.length === 0 ? (
-                        <Card className="border-dashed border-2 border-border"><CardContent className="p-16 text-center"><FileVideo className="w-12 h-12 mx-auto text-muted-foreground mb-3" /><h3 className="text-lg font-semibold text-muted-foreground mb-1">대기열이 비어있음</h3><p className="text-sm text-muted-foreground">새 항목을 추가하거나 일괄 등록으로 시작하세요</p></CardContent></Card>
+                        <Card className="border-dashed border-2 border-border w-full">
+                            <CardContent className="p-14 text-center">
+                                <FileVideo className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
+                                <h3 className="text-base font-semibold text-muted-foreground mb-0.5">대기열에 항목이 없습니다</h3>
+                                <p className="text-xs text-muted-foreground">상단의 [픽셀링 메타 가져오기] 또는 [수동 등록]으로 영상을 추가해 보세요</p>
+                            </CardContent>
+                        </Card>
                     ) : (
-                        <div className="grid gap-3">
-                            {queueItems.map(item => (
-                                <QueueItemCard key={item.id} item={item} onApprove={handleApprove} onReject={handleReject} onDelete={handleDelete} onEdit={(i: any) => { setEditingItem(i); setIsAddDialogOpen(true); }} onPlay={(i: any) => { setPlayingItem(i); setIsPlayerOpen(true); }} onAttach={handleAttachVideo} onFinalize={handleFinalize} onUpdateUploadMethod={handleUpdateUploadMethod} onUpdateChannel={handleUpdateChannel} channels={channels} tiktokChannels={tiktokChannels} instagramChannels={instagramChannels} getStatusBadge={getStatusBadge} getApprovalBadge={getApprovalBadge} selectedItems={selectedItems} toggleItemSelection={toggleItemSelection} />
+                        <div className="space-y-2 w-full">
+                            {queueItems.map((item, idx) => (
+                                <QueueItemCompactCard
+                                    key={item.id}
+                                    index={idx + 1}
+                                    item={item}
+                                    onApprove={handleApprove}
+                                    onReject={handleReject}
+                                    onDelete={handleDelete}
+                                    onEdit={(i: any) => { setEditingItem(i); setIsAddDialogOpen(true); }}
+                                    onPlay={(i: any) => { setPlayingItem(i); setIsPlayerOpen(true); }}
+                                    onAttach={handleAttachVideo}
+                                    onFinalize={handleFinalize}
+                                    onUpdateUploadMethod={handleUpdateUploadMethod}
+                                    onUpdateChannel={handleUpdateChannel}
+                                    channels={channels}
+                                    tiktokChannels={tiktokChannels}
+                                    instagramChannels={instagramChannels}
+                                    getStatusBadge={getStatusBadge}
+                                    getApprovalBadge={getApprovalBadge}
+                                    selectedItems={selectedItems}
+                                    toggleItemSelection={toggleItemSelection}
+                                />
                             ))}
-                            {queueItems.length >= limit && (
-                                <Button variant="outline" className="w-full mt-2" onClick={() => setLimit(prev => prev + 20)}>더 불러오기 ({queueItems.length})</Button>
-                            )}
                         </div>
                     )}
                 </TabsContent>
@@ -392,7 +550,499 @@ const WorkQueue = () => {
     );
 };
 
+const QueueItemCompactCard = ({
+    index, item, onApprove, onReject, onDelete, onEdit, onPlay,
+    onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel,
+    channels, tiktokChannels, instagramChannels,
+    getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection
+}: any) => {
+    const { toast } = useToast();
+    const [expanded, setExpanded] = useState(false);
+    const [isMuted, setIsMuted] = useState(true);
+    const [isPlaying, setIsPlaying] = useState(true);
+    const [videoInfo, setVideoInfo] = useState<{ width: number; height: number; duration: number; isVertical: boolean } | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const hasVideo = !!item.video_file_path;
+
+    const copyText = (t: string, msg: string) => {
+        if (!t) return;
+        navigator.clipboard.writeText(t);
+        toast({ title: "복사됨", description: msg });
+    };
+
+    const handleOpenInSystem = async (path: string) => {
+        if ((window as any).electronAPI?.openPath && path) {
+            await (window as any).electronAPI.openPath(path);
+            toast({ title: "외부 플레이어 실행", description: "시스템 기본 플레이어로 열었습니다." });
+        } else {
+            toast({ variant: "destructive", title: "실행 불가", description: "Electron 환경에서 지원됩니다." });
+        }
+    };
+
+    const togglePlayPause = () => {
+        if (!videoRef.current) return;
+        if (videoRef.current.paused) {
+            videoRef.current.play();
+            setIsPlaying(true);
+        } else {
+            videoRef.current.pause();
+            setIsPlaying(false);
+        }
+    };
+
+    const toggleMute = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!videoRef.current) return;
+        videoRef.current.muted = !isMuted;
+        setIsMuted(!isMuted);
+    };
+
+    const getPlatformSummary = () => {
+        const plats = item.target_platforms || [];
+        if (!plats.length) return <span className="text-muted-foreground">플랫폼 미지정</span>;
+        const configs = item.platform_configs || {};
+
+        return (
+            <div className="flex flex-wrap items-center gap-1.5">
+                {plats.includes('youtube') && (
+                    <span className="inline-flex items-center text-[10px] font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5">
+                        🎬 YT: {channels.find((c: any) => c.channel_id === configs.youtube?.channel_id)?.channel_name || configs.youtube?.channel_id || '채널 미선택'}
+                    </span>
+                )}
+                {plats.includes('tiktok') && (
+                    <span className="inline-flex items-center text-[10px] font-medium bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300 border border-pink-200 dark:border-pink-800 rounded px-1.5 py-0.5">
+                        🎵 TT: {tiktokChannels.find((c: any) => c.id === configs.tiktok?.account_id)?.nickname || configs.tiktok?.account_id || '계정 미선택'}
+                    </span>
+                )}
+                {plats.includes('instagram') && (
+                    <span className="inline-flex items-center text-[10px] font-medium bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded px-1.5 py-0.5">
+                        📸 IG: {instagramChannels.find((c: any) => c.id === configs.instagram?.account_id)?.nickname || configs.instagram?.account_id || '계정 미선택'}
+                    </span>
+                )}
+            </div>
+        );
+    };
+
+    const streamUrl = getStreamUrl(item.video_file_path);
+
+    const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+        const v = e.currentTarget;
+        const isVert = v.videoHeight >= v.videoWidth;
+        setVideoInfo({
+            width: v.videoWidth,
+            height: v.videoHeight,
+            duration: v.duration,
+            isVertical: isVert
+        });
+    };
+
+    const formatDuration = (sec: number) => {
+        if (!sec || isNaN(sec)) return '';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
+    return (
+        <Card className={`w-full overflow-hidden border transition-all ${selectedItems.includes(item.id) ? 'border-indigo-500 bg-indigo-50/15 dark:bg-indigo-950/20 shadow-xs' : 'border-border/80 bg-card hover:border-border'}`}>
+            <CardContent className="p-3 w-full min-w-0">
+                {/* 1. 기본 컴팩트 행 (Row) */}
+                <div className="flex items-center gap-3 w-full min-w-0">
+                    {/* 선택 체크박스 & 순번 */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <Checkbox checked={selectedItems.includes(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="border-border" />
+                        <span className="text-[11px] font-mono text-muted-foreground w-5 text-right">{index}</span>
+                    </div>
+
+                    {/* 상태 배지 & 승인 배지 */}
+                    <div className="flex flex-col gap-1 shrink-0 w-24">
+                        {getStatusBadge(item.status)}
+                        {item.approval_status && item.approval_status !== 'AUTO_APPROVED' && (
+                            <div className="text-[10px]">{getApprovalBadge(item.approval_status)}</div>
+                        )}
+                    </div>
+
+                    {/* 미니 썸네일 / 비디오 미리보기 박스 */}
+                    <div 
+                        onClick={() => setExpanded(!expanded)}
+                        className="w-12 h-12 rounded-md bg-muted/80 border border-border/80 shrink-0 overflow-hidden flex items-center justify-center cursor-pointer relative group hover:border-indigo-500 shadow-xs"
+                        title={hasVideo ? "클릭하여 영상 미리보기 및 상세 확인" : "영상 미첨부"}
+                    >
+                        {item.thumbnail_url ? (
+                            <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        ) : hasVideo ? (
+                            <>
+                                <video 
+                                    src={streamUrl} 
+                                    muted 
+                                    preload="metadata" 
+                                    className="w-full h-full object-cover pointer-events-none"
+                                />
+                                <div className="absolute inset-0 bg-black/25 group-hover:bg-black/10 flex items-center justify-center transition-all">
+                                    <Play className="w-3.5 h-3.5 text-white drop-shadow-sm" />
+                                </div>
+                            </>
+                        ) : (
+                            <FileVideo className="w-4 h-4 text-muted-foreground" />
+                        )}
+                    </div>
+
+                    {/* 제목, 외부 ID, 플랫폼 채널 정보 */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <h4 className="font-semibold text-xs sm:text-sm text-foreground truncate cursor-pointer hover:text-indigo-600 max-w-md" onClick={() => setExpanded(!expanded)}>
+                                {item.title || '(제목 없음)'}
+                            </h4>
+                            {item.source_type === 'PIXELING' ? (
+                                <Badge variant="outline" className="text-[10px] font-medium py-0 bg-pink-50/60 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800 shrink-0">
+                                    🎨 픽셀링
+                                </Badge>
+                            ) : item.source_type === 'EXCEL' ? (
+                                <Badge variant="outline" className="text-[10px] font-medium py-0 bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 shrink-0">
+                                    📊 엑셀
+                                </Badge>
+                            ) : (
+                                <Badge variant="outline" className="text-[10px] font-medium py-0 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 shrink-0">
+                                    ✏️ 수동
+                                </Badge>
+                            )}
+                            {item.source_batch_id && (
+                                <Badge variant="outline" className="text-[9px] font-mono py-0 bg-muted/60 text-muted-foreground border-border truncate max-w-32 shrink-0" title={`프로젝트 그룹: ${item.source_batch_id}`}>
+                                    📁 {item.source_batch_id}
+                                </Badge>
+                            )}
+
+                        </div>
+
+                        {/* 플랫폼 요약 & 예약 일시 & 파일 연결 상태 */}
+                        <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
+                            {getPlatformSummary()}
+                            <span className="text-muted-foreground/60">·</span>
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
+                                <Clock4 className="w-3 h-3 text-indigo-500" />
+                                {item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '즉시 등록'}
+                            </span>
+                            <span className="text-muted-foreground/60">·</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                                {item.upload_method === 'BROWSER_AUTO' ? '스텔스 자동' : item.upload_method === 'API' ? 'API' : '수동'}
+                            </span>
+                            <span className="text-muted-foreground/60">·</span>
+                            {hasVideo ? (
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 cursor-pointer hover:underline shrink-0" onClick={() => setExpanded(!expanded)}>
+                                    <Play className="w-3 h-3" /> 영상 연결됨
+                                </span>
+                            ) : (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 shrink-0">
+                                    <FileVideo className="w-3 h-3" /> 영상 미첨부
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 우측 원클릭 액션 버튼 바 */}
+                    <div className="flex items-center gap-1 shrink-0 ml-auto">
+                        {(item.status === 'DRAFT' || !item.video_file_path) && (
+                            <>
+                                <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} className="h-7 text-xs px-2 border-border">
+                                    <Paperclip className="w-3 h-3 mr-1" /> 영상 첨부
+                                </Button>
+                                <Button size="sm" onClick={() => onFinalize(item.id)} className="h-7 text-xs px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
+                                    <Rocket className="w-3 h-3 mr-1" /> 즉시 등록
+                                </Button>
+                            </>
+                        )}
+                        {item.approval_status === 'PENDING' && item.video_file_path && (
+                            <>
+                                <Button size="sm" onClick={() => onApprove(item.id)} className="h-7 text-xs px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
+                                    <CheckCircle className="w-3 h-3 mr-1" /> 승인
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => onReject(item.id, '품질 문제')} className="h-7 text-xs px-2">
+                                    <XCircle className="w-3 h-3 mr-1" /> 반려
+                                </Button>
+                            </>
+                        )}
+                        <Button size="icon" variant="ghost" onClick={() => setExpanded(!expanded)} className={`h-7 w-7 ${expanded ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40' : 'text-muted-foreground'}`} title="자세히 보기">
+                            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => onEdit(item)} className="h-7 w-7 text-muted-foreground hover:text-foreground" title="수정">
+                            <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => onDelete(item.id)} className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40" title="삭제">
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                </div>
+
+                {/* 2. 자세히 보기 펼침 패널 (좌: 9:16 모바일 폰 숏폼 뷰어 / 우: 메타 60% + 배포 40% 최적 레이아웃) */}
+                {expanded && (
+                    <div className="mt-3 pt-3 border-t border-border/80 space-y-3 w-full min-w-0">
+                        <div className="flex flex-col md:flex-row items-stretch gap-4 text-xs w-full min-w-0">
+                            
+                            {/* [좌측] 📱 9:16 모바일 폰 숏폼 프리뷰어 (고정 폭 170px) */}
+                            <div className="w-full md:w-[170px] shrink-0 flex flex-col items-center justify-between p-2.5 rounded-xl border border-border bg-muted/30 space-y-2 shadow-xs">
+                                <div className="w-full flex items-center justify-between text-[11px] font-bold text-foreground">
+                                    <span className="flex items-center gap-1">
+                                        <Play className="w-3 h-3 text-indigo-500" /> 숏폼 뷰
+                                    </span>
+                                    {hasVideo && (
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-4 text-[9px] px-1 text-indigo-600 hover:text-indigo-700" 
+                                            onClick={() => handleOpenInSystem(item.video_file_path)}
+                                            title="시스템 기본 플레이어로 열기"
+                                        >
+                                            열기 ↗
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* 9:16 모바일 폰 프레임 */}
+                                {hasVideo || item.thumbnail_url ? (
+                                    <div 
+                                        onClick={togglePlayPause}
+                                        className="relative w-[150px] h-[266px] rounded-lg overflow-hidden bg-black border-2 border-slate-700/80 shadow-md group cursor-pointer flex items-center justify-center"
+                                    >
+                                        <video 
+                                            ref={videoRef}
+                                            src={streamUrl} 
+                                            poster={item.thumbnail_url}
+                                            autoPlay 
+                                            muted={isMuted}
+                                            loop 
+                                            playsInline
+                                            onLoadedMetadata={handleLoadedMetadata}
+                                            className="w-full h-full object-cover bg-black"
+                                        />
+                                        {item.thumbnail_url && !isPlaying && (
+                                            <img src={item.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                                        )}
+
+                                        {/* 재생/정지 오버레이 인디케이터 */}
+                                        {!isPlaying && (
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none">
+                                                <div className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-xs flex items-center justify-center text-white">
+                                                    <Play className="w-5 h-5 ml-0.5 fill-white" />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* 우하단 음소거 토글 버튼 */}
+                                        <button
+                                            onClick={toggleMute}
+                                            className="absolute bottom-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-black/90 text-white backdrop-blur-xs transition-all z-10"
+                                            title={isMuted ? "소리 켜기" : "음소거"}
+                                        >
+                                            {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-indigo-400" />}
+                                        </button>
+
+                                        {/* 상단 숏폼 해상도/길이 배지 */}
+                                        {videoInfo && (
+                                            <div className="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-xs text-[8px] font-mono text-white/90 px-1 py-0.5 rounded">
+                                                {videoInfo.width}×{videoInfo.height} {videoInfo.duration > 0 && `· ${formatDuration(videoInfo.duration)}`}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div 
+                                        onClick={() => onAttach(item.id)}
+                                        className="w-[150px] h-[266px] rounded-lg border-2 border-dashed border-border/80 bg-background/50 flex flex-col items-center justify-center p-3 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+                                    >
+                                        <FileVideo className="w-7 h-7 text-muted-foreground/60 mb-1" />
+                                        <p className="text-[11px] font-semibold text-muted-foreground">영상 미첨부</p>
+                                        <p className="text-[9px] text-muted-foreground/70 mt-0.5">클릭하여 연결</p>
+                                        <Button size="sm" variant="outline" className="h-5 text-[9px] mt-2 border-border px-1.5">
+                                            <Paperclip className="w-2.5 h-2.5 mr-0.5" /> 영상 첨부
+                                        </Button>
+                                    </div>
+                                )}
+
+                                <p className="text-[9px] text-muted-foreground/80 text-center">
+                                    {hasVideo ? "화면 클릭 시 재생/정지" : "9:16 쇼츠 지원"}
+                                </p>
+                            </div>
+
+                            {/* [우측] 📝 콘텐츠 메타 (60%) + ⚙️ 배포/채널 설정 (40%) */}
+                            <div className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+                                
+                                {/* 1) 콘텐츠 메타 (7칸 - 약 58%) */}
+                                <div className="lg:col-span-7 rounded-xl border border-border bg-muted/20 p-3.5 space-y-2.5 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <div className="space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-bold text-foreground flex items-center gap-1.5 text-xs">
+                                                <FileText className="w-3.5 h-3.5 text-indigo-500" /> 콘텐츠 메타데이터
+                                            </span>
+                                            <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1" onClick={() => copyText(item.title, '제목 복사됨')}>
+                                                <Copy className="w-2.5 h-2.5 mr-1" /> 제목 복사
+                                            </Button>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-muted-foreground font-medium">제목</span>
+                                            <p className="font-semibold text-xs leading-snug mt-0.5 break-words bg-background/80 p-2 rounded-lg border border-border">
+                                                {item.title || '--'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] text-muted-foreground font-medium">설명</span>
+                                                <Button variant="ghost" size="sm" className="h-5 text-[10px] px-1" onClick={() => copyText(item.description, '설명 복사됨')}>
+                                                    <Copy className="w-2.5 h-2.5 mr-1" /> 설명 복사
+                                                </Button>
+                                            </div>
+                                            <div className="text-[11px] text-muted-foreground whitespace-pre-wrap max-h-24 overflow-y-auto bg-background/80 p-2 rounded-lg border border-border mt-0.5 break-words">
+                                                {item.description || '(설명 없음)'}
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="min-w-0">
+                                                <span className="text-[10px] text-muted-foreground font-medium">태그</span>
+                                                <p className="text-[11px] truncate bg-background/80 p-1.5 rounded-lg border border-border mt-0.5">{item.tags?.length ? item.tags.join(', ') : '--'}</p>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <span className="text-[10px] text-muted-foreground font-medium">해시태그</span>
+                                                <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium truncate bg-background/80 p-1.5 rounded-lg border border-border mt-0.5">{item.hashtags?.length ? item.hashtags.join(' ') : '--'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 파일 경로 박스 */}
+                                    <div className="pt-2 border-t border-border/50">
+                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                                            <span>영상 파일 경로</span>
+                                            {hasVideo && (
+                                                <Button variant="ghost" size="sm" className="h-4 text-[9px] px-1" onClick={() => copyText(item.video_file_path, '경로 복사됨')}>
+                                                    <Copy className="w-2.5 h-2.5 mr-0.5" /> 복사
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <p className="font-mono text-[10px] text-muted-foreground break-all bg-background/80 p-1.5 rounded-lg border border-border">
+                                            {item.video_file_path || '미첨부'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* 2) 배포 & 채널 설정 (5칸 - 약 42%) */}
+                                <div className="lg:col-span-5 rounded-xl border border-border bg-muted/20 p-3.5 space-y-2.5 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <div className="space-y-2.5">
+                                        <span className="font-bold text-foreground flex items-center gap-1.5 text-xs">
+                                            <Rocket className="w-3.5 h-3.5 text-indigo-500" /> 플랫폼 채널 및 스케줄
+                                        </span>
+                                        
+                                        <div className="space-y-1.5">
+                                            {item.target_platforms?.includes('youtube') && (
+                                                <div className="p-1.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 flex items-center justify-between gap-2">
+                                                    <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 shrink-0">🎬 YT</span>
+                                                    <Select
+                                                        value={(item.platform_configs?.youtube?.channel_id) || ''}
+                                                        onValueChange={(v) => onUpdateChannel(item.id, 'youtube', v)}
+                                                    >
+                                                        <SelectTrigger className="h-6 text-[10px] bg-background border-border flex-1">
+                                                            <SelectValue placeholder="채널 선택" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {channels.map((ch: any) => (
+                                                                <SelectItem key={ch.channel_id} value={ch.channel_id}>
+                                                                    {ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            )}
+                                            {item.target_platforms?.includes('tiktok') && (
+                                                <div className="p-1.5 rounded-lg bg-pink-50/50 dark:bg-pink-950/20 border border-pink-200 dark:border-pink-900/40 flex items-center justify-between gap-2">
+                                                    <span className="text-[11px] font-bold text-pink-700 dark:text-pink-300 shrink-0">🎵 TT</span>
+                                                    <Select
+                                                        value={(item.platform_configs?.tiktok?.account_id) || ''}
+                                                        onValueChange={(v) => onUpdateChannel(item.id, 'tiktok', v)}
+                                                    >
+                                                        <SelectTrigger className="h-6 text-[10px] bg-background border-border flex-1">
+                                                            <SelectValue placeholder="계정 선택" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {tiktokChannels.map((c: any) => (
+                                                                <SelectItem key={c.id} value={c.id}>
+                                                                    {c.nickname || c.id}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            )}
+                                            {item.target_platforms?.includes('instagram') && (
+                                                <div className="p-1.5 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/40 flex items-center justify-between gap-2">
+                                                    <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300 shrink-0">📸 IG</span>
+                                                    <Select
+                                                        value={(item.platform_configs?.instagram?.account_id) || ''}
+                                                        onValueChange={(v) => onUpdateChannel(item.id, 'instagram', v)}
+                                                    >
+                                                        <SelectTrigger className="h-6 text-[10px] bg-background border-border flex-1">
+                                                            <SelectValue placeholder="계정 선택" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {instagramChannels.map((c: any) => (
+                                                                <SelectItem key={c.id} value={c.id}>
+                                                                    {c.nickname || c.id}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
+                                            <div>
+                                                <span className="text-[10px] text-muted-foreground font-medium">업로드 방식</span>
+                                                <Select value={item.upload_method || 'BROWSER_AUTO'} onValueChange={(v) => onUpdateUploadMethod(item.id, v)}>
+                                                    <SelectTrigger className="h-6 text-[10px] bg-background border-border mt-0.5">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="BROWSER_AUTO">스텔스 자동화</SelectItem>
+                                                        <SelectItem value="API">Google API</SelectItem>
+                                                        <SelectItem value="MANUAL">수동</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] text-muted-foreground font-medium">예약 시각</span>
+                                                <p className="font-semibold text-[11px] mt-1 bg-background/80 p-1 rounded border border-border truncate">
+                                                    {item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '즉시 등록'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5 pt-2 border-t border-border/50">
+                                        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+                                            <div><span>외부ID:</span> <span className="font-mono">{item.source_external_id || '--'}</span></div>
+                                            <div><span>Batch:</span> <span className="font-mono">{item.source_batch_id ? item.source_batch_id.slice(0, 10) : '--'}</span></div>
+                                        </div>
+                                        {item.failure_reason && (
+                                            <div className="p-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded text-[11px]">
+                                                <p className="text-red-600 dark:text-red-400 font-bold">⚠️ 실패 사유</p>
+                                                <p className="text-red-500 mt-0.5">{item.failure_reason}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {item.upload_method === 'MANUAL' && (
+                            <ManualUploadAssist item={item} />
+                        )}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
+
+
 const ManualUploadAssist = ({ item }: { item: any }) => {
+
     const { toast } = useToast();
     const [currentStep, setCurrentStep] = useState(0);
 
@@ -432,265 +1082,90 @@ const ManualUploadAssist = ({ item }: { item: any }) => {
     if (steps.length === 0) return null;
 
     return (
-        <div className="mt-4 p-4 border border-indigo-200 bg-indigo-50/50 dark:bg-indigo-950/20 dark:border-indigo-900 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-indigo-600" />
-                    <h4 className="font-semibold text-sm text-indigo-900 dark:text-indigo-300">수동 업로드 어시스턴트</h4>
+        <div className="mt-2 p-3 border border-indigo-200 bg-indigo-50/50 dark:bg-indigo-950/20 dark:border-indigo-900 rounded-lg text-xs w-full">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 font-semibold text-indigo-900 dark:text-indigo-300">
+                    <Layers className="w-3.5 h-3.5 text-indigo-600" /> 수동 업로드 어시스턴트
                 </div>
-                <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">Step {currentStep + 1} / {steps.length}</Badge>
+                <Badge variant="secondary" className="text-[10px] py-0 bg-indigo-100 text-indigo-700">Step {currentStep + 1} / {steps.length}</Badge>
             </div>
-            
-            <p className="text-xs text-muted-foreground mb-3">스텔스 브라우저의 입력창을 <b>마우스로 한 번 클릭</b>한 뒤 아래 버튼을 누르면 내용이 자동 입력됩니다.</p>
-            
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-1.5 mb-2">
                 {steps.map((step, idx) => (
                     <Button 
                         key={step.key} 
                         variant={currentStep === idx ? "default" : "outline"}
                         size="sm"
-                        className={currentStep === idx ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "border-indigo-200 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-900"}
-                        onClick={() => {
-                            setCurrentStep(idx);
-                            handleInjectText(step.value, idx, step.key);
-                        }}
+                        className={`h-6 text-[11px] px-2 ${currentStep === idx ? "bg-indigo-600 text-white" : "border-indigo-200 text-indigo-700"}`}
+                        onClick={() => { setCurrentStep(idx); handleInjectText(step.value, idx, step.key); }}
                     >
                         {step.label} 입력
                     </Button>
                 ))}
             </div>
-
-            <div className="bg-white dark:bg-background border rounded p-2 text-xs font-mono text-muted-foreground break-all h-20 overflow-y-auto">
+            <div className="bg-background border rounded p-1.5 text-[11px] font-mono text-muted-foreground break-all max-h-14 overflow-y-auto">
                 {steps[currentStep]?.value || '내용 없음'}
-            </div>
-            
-            <div className="mt-3 flex justify-end">
-                <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 dark:text-indigo-400"
-                    onClick={() => {
-                        const next = (currentStep + 1) % steps.length;
-                        setCurrentStep(next);
-                    }}
-                >
-                    다음 단계 스킵 <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
             </div>
         </div>
     );
 };
 
-const QueueItemCard = ({ item, onApprove, onReject, onDelete, onEdit, onPlay, onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel, channels, tiktokChannels, instagramChannels, getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection }: any) => {
-    const [expanded, setExpanded] = useState(false);
+const VideoPlayerDialog = ({ isOpen, setIsOpen, item }: any) => {
+    const { toast } = useToast();
+    const [hasError, setHasError] = useState(false);
+    if (!item) return null;
+
+    const streamUrl = getStreamUrl(item.video_file_path);
+
+    const handleOpenInSystem = async () => {
+        if ((window as any).electronAPI?.openPath && item.video_file_path) {
+            await (window as any).electronAPI.openPath(item.video_file_path);
+            toast({ title: "외부 플레이어 실행", description: "시스템 기본 플레이어로 열었습니다." });
+        } else {
+            toast({ variant: "destructive", title: "실행 불가", description: "Electron 환경에서 지원됩니다." });
+        }
+    };
+
     return (
-        <Card className="hover:shadow-md transition-shadow bg-card border-border select-none" onMouseEnter={e => { if (e.buttons === 1 && !selectedItems.includes(item.id)) toggleItemSelection(item.id); }}>
-            <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                    <Checkbox checked={selectedItems.includes(item.id)} onCheckedChange={() => toggleItemSelection(item.id)} className="mt-0.5 border-border" />
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                            <h3 className="font-semibold text-foreground truncate max-w-md">{item.title || '제목 없음'}</h3>
-                            {getStatusBadge(item.status)}
-                            {getApprovalBadge(item.approval_status)}
-                            {item.source_external_id && (
-                                <TooltipProvider><Tooltip><TooltipTrigger asChild><Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"><Hash className="w-3 h-3 mr-0.5" />{item.source_external_id}</Badge></TooltipTrigger><TooltipContent>외부 ID</TooltipContent></Tooltip></TooltipProvider>
-                            )}
-                            {item.source_batch_id && (
-                                <TooltipProvider><Tooltip><TooltipTrigger asChild><Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400 font-mono max-w-[120px] truncate">{item.source_batch_id.substring(0, 8)}...</Badge></TooltipTrigger><TooltipContent>{item.source_batch_id}</TooltipContent></Tooltip></TooltipProvider>
-                            )}
+        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) setHasError(false); }}>
+            <DialogContent className="max-w-3xl bg-card p-0 border border-border overflow-hidden">
+                <DialogHeader className="p-3 border-b border-border bg-muted/40">
+                    <DialogTitle className="text-sm font-semibold truncate flex items-center justify-between">
+                        <span className="truncate">{item.title || '영상 미리보기'}</span>
+                        <Button size="sm" variant="outline" className="h-6 text-[11px] ml-2" onClick={handleOpenInSystem}>
+                            기본 플레이어로 열기
+                        </Button>
+                    </DialogTitle>
+                </DialogHeader>
+                <div className="bg-black relative aspect-video flex items-center justify-center">
+                    {hasError ? (
+                        <div className="text-center p-6 text-slate-400 space-y-2">
+                            <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
+                            <p className="text-xs text-slate-300">내장 플레이어에서 영상을 로드할 수 없습니다.</p>
+                            <p className="text-[10px] font-mono text-slate-500 break-all">{item.video_file_path}</p>
+                            <Button size="sm" variant="secondary" className="text-xs mt-2" onClick={handleOpenInSystem}>
+                                외부 기본 플레이어로 재생
+                            </Button>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                            <span className="flex items-center gap-1"><FileVideo className="w-3.5 h-3.5" /> {item.source_type || 'MANUAL'}</span>
-                            {item.video_file_path && (
-                                <span className="cursor-pointer hover:text-blue-600 flex items-center gap-1" onClick={() => onPlay(item)}><Play className="w-3 h-3" /> 미리보기</span>
-                            )}
-                            <span>{new Date(item.created_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                            {item.target_platforms?.map((p: string) => <Badge key={p} variant="outline" className="text-[10px] px-1.5 py-0">{p}</Badge>)}
-                        </div>
-                        {item.status === 'UPLOADING' && (
-                            <div className="mt-3">
-                                <div className="flex justify-between text-xs mb-1 text-muted-foreground"><span>업로드 진행률</span><span className="font-medium">{item.upload_progress}%</span></div>
-                                <div className="w-full bg-muted rounded-full h-1.5"><div className="bg-indigo-600 h-1.5 rounded-full transition-all" style={{ width: `${item.upload_progress}%` }} /></div>
-                            </div>
-                        )}
-                        {expanded && (
-                            <div className="mt-4 bg-card rounded-xl border shadow-sm overflow-hidden text-sm">
-                                <div className="p-4 space-y-6">
-                                    {/* Content Info */}
-                                    <div>
-                                        <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">콘텐츠 정보</h5>
-                                        <div className="bg-muted/30 rounded-lg p-3 space-y-3 border border-border/50">
-                                            <div>
-                                                <span className="text-[11px] text-muted-foreground">제목</span>
-                                                <p className="font-medium mt-0.5">{item.title || '--'}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-[11px] text-muted-foreground">설명</span>
-                                                <div className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto bg-background/50 p-2 rounded border border-border/50">
-                                                    {item.description || '--'}
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-wrap gap-x-6 gap-y-3 pt-1">
-                                                <div>
-                                                    <span className="text-[11px] text-muted-foreground">태그</span>
-                                                    <p className="mt-0.5 text-xs">{item.tags?.length ? item.tags.join(', ') : '--'}</p>
-                                                </div>
-                                                <div>
-                                                    <span className="text-[11px] text-muted-foreground">해시태그</span>
-                                                    <p className="mt-0.5 text-xs text-blue-500 font-medium">{item.hashtags?.length ? item.hashtags.join(' ') : '--'}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* System & Upload Info */}
-                                    <div>
-                                        <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">시스템 및 업로드 설정</h5>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            <div className="bg-muted/30 p-2.5 rounded-lg border border-border/50">
-                                                <span className="text-[11px] text-muted-foreground block mb-0.5">상태</span>
-                                                <Badge variant="outline" className="font-normal bg-background">{item.status}</Badge>
-                                            </div>
-                                            <div className="bg-muted/30 p-2.5 rounded-lg border border-border/50">
-                                                <span className="text-[11px] text-muted-foreground block mb-0.5">업로드 방식</span>
-                                                <span className="font-medium text-xs text-foreground">{item.upload_method || 'API'}</span>
-                                            </div>
-                                            <div className="bg-muted/30 p-2.5 rounded-lg border border-border/50">
-                                                <span className="text-[11px] text-muted-foreground block mb-0.5">예약 시간</span>
-                                                <span className="font-medium text-xs text-foreground">{item.scheduled_upload_time ? new Date(item.scheduled_upload_time).toLocaleString('ko-KR') : '즉시'}</span>
-                                            </div>
-                                            <div className="bg-muted/30 p-2.5 rounded-lg border border-border/50 col-span-2 md:col-span-3">
-                                                <span className="text-[11px] text-muted-foreground block mb-0.5">파일 경로</span>
-                                                <span className="font-mono text-[11px] text-muted-foreground break-all">{item.video_file_path || '--'}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Platform Configs */}
-                                    {item.platform_configs && (
-                                        <div>
-                                            <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">플랫폼 타겟팅</h5>
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                                {item.platform_configs.youtube && (
-                                                    <div className="flex items-center justify-between p-2 rounded-lg border border-red-100 bg-red-50/30 dark:bg-red-950/20 dark:border-red-900">
-                                                        <span className="text-red-600 dark:text-red-400 font-medium text-xs">YouTube</span>
-                                                        <span className="text-[10px] text-muted-foreground">{item.platform_configs.youtube.privacy || 'public'}</span>
-                                                    </div>
-                                                )}
-                                                {item.platform_configs.tiktok && (
-                                                    <div className="flex items-center justify-between p-2 rounded-lg border border-pink-100 bg-pink-50/30 dark:bg-pink-950/20 dark:border-pink-900">
-                                                        <span className="text-pink-600 dark:text-pink-400 font-medium text-xs">TikTok</span>
-                                                        <span className="text-[10px] text-muted-foreground">{item.platform_configs.tiktok.privacy || 'public'}</span>
-                                                    </div>
-                                                )}
-                                                {item.platform_configs.instagram && (
-                                                    <div className="flex items-center justify-between p-2 rounded-lg border border-purple-100 bg-purple-50/30 dark:bg-purple-950/20 dark:border-purple-900">
-                                                        <span className="text-purple-600 dark:text-purple-400 font-medium text-xs">Instagram</span>
-                                                        <span className="text-[10px] text-muted-foreground">피드: {String(item.platform_configs.instagram.share_to_feed || false)}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                    
-                                    {/* Meta / IDs */}
-                                    <div className="flex flex-wrap gap-4 text-[10px] text-muted-foreground pt-4 border-t border-border/50">
-                                        <div><span className="font-medium">External ID:</span> <span className="font-mono">{item.source_external_id || '--'}</span></div>
-                                        <div><span className="font-medium">Batch ID:</span> <span className="font-mono">{item.source_batch_id || '--'}</span></div>
-                                        <div><span className="font-medium">우선순위:</span> {item.upload_priority ?? 0}</div>
-                                        <div><span className="font-medium">소스:</span> {item.source_type || 'MANUAL'}</div>
-                                    </div>
-
-                                    {item.failure_reason && (
-                                        <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg">
-                                            <p className="text-red-600 dark:text-red-400 text-xs font-medium">⚠️ 실패 사유</p>
-                                            <p className="text-red-500 text-xs mt-1">{item.failure_reason}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                        {item.upload_method === 'MANUAL' && expanded && (
-                            <ManualUploadAssist item={item} />
-                        )}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        {(item.status === 'DRAFT' || !item.video_file_path) && (
-                            <>
-                                <Select value={item.upload_method || 'BROWSER_AUTO'} onValueChange={(v) => onUpdateUploadMethod(item.id, v)}>
-                                    <SelectTrigger className="h-8 w-[110px] text-[11px] bg-background border-border">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="API">Google API</SelectItem>
-                                        <SelectItem value="BROWSER_AUTO">브라우저 자동</SelectItem>
-                                        <SelectItem value="MANUAL">수동</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} className="h-8 text-xs border-border"><Paperclip className="w-3.5 h-3.5 mr-1" />영상 첨부</Button>
-                                <Button size="sm" variant="outline" onClick={() => onFinalize(item.id)} className="h-8 text-xs border-orange-200 text-orange-600 hover:bg-orange-50"><Rocket className="w-3.5 h-3.5 mr-1" />즉시 등록</Button>
-                            </>
-                        )}
-                        {item.approval_status === 'PENDING' && item.video_file_path && (
-                            <>
-                                <Button size="sm" onClick={() => onApprove(item.id)} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"><CheckCircle className="w-3.5 h-3.5 mr-1" />승인</Button>
-                                <Button size="sm" variant="destructive" onClick={() => onReject(item.id, '품질 문제')} className="h-8 text-xs"><XCircle className="w-3.5 h-3.5 mr-1" />반려</Button>
-                            </>
-                        )}
-                        <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)} className="h-8 w-8 p-0"><Eye className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => onEdit(item)} className="h-8 w-8 p-0"><Edit className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => onDelete(item.id)} className="h-8 w-8 p-0 text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></Button>
-                    </div>
-            </div>
-            {expanded && item.target_platforms?.length > 0 && (
-                <div className="mt-2 ml-8 p-2 bg-muted/40 rounded-lg border border-border grid grid-cols-3 gap-2 text-xs">
-                    {item.target_platforms.includes('youtube') && (
-                        <div>
-                            <span className="text-blue-600 dark:text-blue-400 font-medium text-[10px]">YouTube 채널</span>
-                            <Select value={(item.platform_configs?.youtube?.channel_id) || ''} onValueChange={(v) => onUpdateChannel(item.id, 'youtube', v)}>
-                                <SelectTrigger className="h-7 text-[10px] mt-0.5 bg-background"><SelectValue placeholder="채널 선택" /></SelectTrigger>
-                                <SelectContent>{channels.map((ch: any) => <SelectItem key={ch.channel_id} value={ch.channel_id}>{ch.channel_name || ch.title} ({ch.subscriber_count?.toLocaleString()}명)</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                    {item.target_platforms.includes('tiktok') && (
-                        <div>
-                            <span className="text-pink-600 dark:text-pink-400 font-medium text-[10px]">TikTok 계정</span>
-                            <Select value={(item.platform_configs?.tiktok?.account_id) || ''} onValueChange={(v) => onUpdateChannel(item.id, 'tiktok', v)}>
-                                <SelectTrigger className="h-7 text-[10px] mt-0.5 bg-background"><SelectValue placeholder="계정 선택" /></SelectTrigger>
-                                <SelectContent>{tiktokChannels.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                    {item.target_platforms.includes('instagram') && (
-                        <div>
-                            <span className="text-purple-600 dark:text-purple-400 font-medium text-[10px]">Instagram 계정</span>
-                            <Select value={(item.platform_configs?.instagram?.account_id) || ''} onValueChange={(v) => onUpdateChannel(item.id, 'instagram', v)}>
-                                <SelectTrigger className="h-7 text-[10px] mt-1 bg-background"><SelectValue placeholder="계정 선택" /></SelectTrigger>
-                                <SelectContent>{instagramChannels.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.nickname || c.id}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
+                    ) : (
+                        <video
+                            src={streamUrl}
+                            controls
+                            autoPlay
+                            className="w-full h-full max-h-[60vh] object-contain"
+                            onError={() => setHasError(true)}
+                        />
                     )}
                 </div>
-            )}
-            </CardContent>
-        </Card>
-    );
-};
-
-const VideoPlayerDialog = ({ isOpen, setIsOpen, item }: any) => {
-    if (!item) return null;
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-3xl bg-black p-1 border-border">
-                <DialogHeader className="sr-only"><DialogTitle>{item.title}</DialogTitle></DialogHeader>
-                <video src={`/api/work-queue/stream?path=${encodeURIComponent(item.video_file_path)}`} controls autoPlay className="w-full aspect-video" />
-                <div className="p-3 bg-card text-foreground"><h3 className="font-semibold">{item.title}</h3><p className="text-xs text-muted-foreground truncate">{item.video_file_path}</p></div>
+                <div className="p-3 bg-card border-t border-border text-xs">
+                    <p className="font-semibold text-foreground truncate">{item.title}</p>
+                    <p className="text-[11px] font-mono text-muted-foreground break-all mt-0.5">{item.video_file_path || '영상 경로 없음'}</p>
+                </div>
             </DialogContent>
         </Dialog>
     );
 };
+
+
 
 const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
     const { toast } = useToast();

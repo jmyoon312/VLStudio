@@ -9,7 +9,7 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { fileSystemAPI } from '../hooks/useFileSystem';
 import { cleanBase64 as stripBase64Prefix } from '../utils/urls';
-import { APP_ID } from '@/firebase/config';
+import { APP_ID } from '../../../firebase/config';
 
 /**
  * base64 데이터에서 이미지 크기 추출
@@ -135,22 +135,26 @@ async function prepareCloudRequest(project, options = {}) {
     let imageSize = scene.upscaled_size || scene.image_size;
     const sceneDuration = scene.image_duration || 3;
 
-    // 이미지 (항상 존재)
-    const imagePath = scene.image_path || scene.media_path || scene.image;
-    const fallback = scene.image_fallback || scene.image;
+    let finalImagePath = imagePath;
+    let finalFallback = fallback;
 
-    if (!imagePath && !fallback) { cumulativeTime += sceneDuration * 1000; continue; }
+    if (!finalImagePath && !finalFallback) {
+      // 이미지가 없는 드래프트 씬인 경우, 타임라인 시간 점유 및 자막/오디오 결합을 위해
+      // 검은색 1920x1080 더미 이미지 fallback을 이식하여 타임라인 영역을 확보해 줍니다!
+      finalFallback = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABkAAAAOECAAAAABd5930AAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAAmJLR0QA/4ePzL8AAAAHdElNRQfmBgcTCSk1VjLwAAAADUlEQVR42u3BAQ0AAADCoPdPbQ8HFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/gz76AABiM9DqwAAAABJRU5ErkJggg==';
+      console.log(`[CapCut Cloud] Scene "${sceneId}" has no image. Injecting 1920x1080 dummy black placeholder for subtitle/audio timeline alignment.`);
+    }
 
-    const imageFilename = getFilename(imagePath, sceneId, 'image');
+    const imageFilename = getFilename(finalImagePath || 'dummy.png', sceneId, 'image');
 
      // image_size가 없으면 실제 이미지 파일에서 크기 추출
-    if (!imageSize && imagePath) {
+    if (!imageSize && finalImagePath) {
       try {
         imageSize = await new Promise((resolve) => {
           const img = new Image();
           img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
           img.onerror = () => resolve(null);
-          img.src = imagePath.startsWith('/') ? `file://${imagePath}` : imagePath;
+          img.src = finalImagePath.startsWith('/') ? `file://${finalImagePath}` : finalImagePath;
         });
         if (imageSize) {
           console.log(`[CapCut Cloud] Image size from file: ${imageSize.width}x${imageSize.height} (${sceneId})`);
@@ -158,8 +162,8 @@ async function prepareCloudRequest(project, options = {}) {
       } catch (e) { /* ignore */ }
     }
     // fallback: base64에서 추출
-    if (!imageSize && fallback) {
-      imageSize = await getImageSizeFromBase64(fallback);
+    if (!imageSize && finalFallback) {
+      imageSize = await getImageSizeFromBase64(finalFallback);
       if (imageSize) {
         console.log(`[CapCut Cloud] Extracted size from base64: ${imageSize.width}x${imageSize.height}`);
       }
@@ -182,8 +186,8 @@ async function prepareCloudRequest(project, options = {}) {
       sceneId,
       type: 'image',
       filename: imageFilename,
-      path: imagePath,
-      fallback
+      path: finalImagePath,
+      fallback: finalFallback
     });
 
     // 영상 오버레이 (있으면 배치: 영상이 짧으면 씬 뒤쪽, 영상이 길면 처음부터 씬 길이만큼 자름)
@@ -341,10 +345,10 @@ async function prepareCloudRequest(project, options = {}) {
       },
       subtitleOption,
       subtitleFontSize,
-      srtEntries: audioPackage?.srtEntries || null,
-      audioDurationSec: audioPackage?.media?.video?.durationMs
-        ? audioPackage.media.video.durationMs / 1000
-        : null,
+      srtEntries: storyAudio?.manifest?.subtitles?.segment_data ??
+        (audioPackage?.srtEntries || null),
+      audioDurationSec: storyAudio?.manifest?.metadata?.total_duration ??
+        (audioPackage?.media?.video?.durationMs / 1000),
       scenes: cloudScenes,
       videoOverlays: cloudVideoOverlays.length > 0 ? cloudVideoOverlays : null,
       sfxItems: cloudSfxItems,
@@ -383,6 +387,8 @@ export async function exportCapcutPackageCloud(project, options = {}) {
       subtitleOption: options.subtitleOption || 'ko',
       subtitleFontSize: options.subtitleFontSize || 6.0,
       audioPackage: options.audioPackage,
+      srtTrack: options.srtTrack || project.srtTrack,
+      srtEntries: options.srtEntries || project.srtEntries,
       scaleMode: options.scaleMode || 'fill',
       kenBurns: options.kenBurns ?? true,
       kenBurnsMode: options.kenBurnsMode || 'random',
@@ -396,7 +402,11 @@ export async function exportCapcutPackageCloud(project, options = {}) {
     let srtFilename = null;
     if (options.subtitleOption !== 'none') {
       const { generateSRT } = await import('./capcut');
-      srtContent = generateSRT(project, options.subtitleOption || 'ko');
+      srtContent = generateSRT(project, options.subtitleOption || 'ko', {
+        srtTrack: options.srtTrack || project.srtTrack,
+        srtEntries: options.srtEntries || project.srtEntries,
+        audioPackage: options.audioPackage
+      });
       srtFilename = `subtitles_${options.subtitleOption || 'ko'}.srt`;
     }
 
