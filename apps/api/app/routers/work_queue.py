@@ -1,11 +1,14 @@
 """
 작업 대기열 API 엔드포인트
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 import os
+import shutil
+import uuid
+import re
 import asyncio
 import json
 import logging
@@ -627,6 +630,99 @@ def attach_video(
     item.updated_at = datetime.now()
     db.commit()
     db.refresh(item)
+    return item
+
+
+def _get_upload_dir() -> str:
+    """작업 대기열 업로드 디렉토리 반환 (미존재 시 자동 생성)"""
+    date_str = datetime.now().strftime("%Y%m%d")
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    upload_dir = os.path.join(base_dir, "media", "uploads", "work_queue", date_str)
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
+
+
+def _save_uploaded_video_stream(upload_file: UploadFile) -> str:
+    """대용량 영상 청크 스트리밍 디스크 저장 (64KB chunks)"""
+    upload_dir = _get_upload_dir()
+    clean_name = re.sub(r'[^a-zA-Z0-9_\-\.\uac00-\ud7a3]', '_', upload_file.filename or 'video.mp4')
+    unique_filename = f"{uuid.uuid4().hex[:8]}_{clean_name}"
+    target_path = os.path.join(upload_dir, unique_filename)
+    
+    with open(target_path, "wb") as buffer:
+        shutil.copyfileobj(upload_file.file, buffer, length=64 * 1024)
+    
+    return os.path.abspath(target_path)
+
+
+@router.post("/upload")
+async def upload_work_queue_video(
+    file: UploadFile = File(...)
+):
+    """외부 웹 브라우저에서 대기열용 영상 파일 단일 업로드"""
+    try:
+        saved_path = _save_uploaded_video_stream(file)
+        file_size = os.path.getsize(saved_path)
+        logger.info(f"WorkQueue video uploaded successfully: {saved_path} ({file_size} bytes)")
+        return {
+            "success": True,
+            "server_file_path": saved_path,
+            "file_name": file.filename,
+            "file_size": file_size
+        }
+    except Exception as e:
+        logger.error(f"Failed to upload video: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"영상 업로드 실패: {str(e)}")
+
+
+@router.post("/upload-batch")
+async def upload_work_queue_videos_batch(
+    files: List[UploadFile] = File(...)
+):
+    """픽셀링 매칭 등 복수 영상 파일 일괄 업로드"""
+    results = []
+    for file in files:
+        try:
+            saved_path = _save_uploaded_video_stream(file)
+            file_size = os.path.getsize(saved_path)
+            results.append({
+                "original_name": file.filename,
+                "server_file_path": saved_path,
+                "file_size": file_size,
+                "success": True
+            })
+        except Exception as e:
+            logger.error(f"Failed to upload {file.filename}: {str(e)}")
+            results.append({
+                "original_name": file.filename,
+                "server_file_path": None,
+                "error": str(e),
+                "success": False
+            })
+    return {"results": results, "total": len(files), "succeeded": sum(1 for r in results if r["success"])}
+
+
+@router.post("/items/{item_id}/upload-attach", response_model=WorkQueueItemResponse)
+async def upload_and_attach_video(
+    item_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """외부 브라우저에서 기존 Draft 항목에 영상을 직접 업로드하고 PENDING으로 전환"""
+    item = db.query(models.WorkQueueItem).filter(
+        models.WorkQueueItem.id == item_id,
+        models.WorkQueueItem.status.in_(["DRAFT", "PENDING"])
+    ).first()
+    if not item:
+        raise HTTPException(404, "Draft 항목을 찾을 수 없습니다.")
+
+    saved_path = _save_uploaded_video_stream(file)
+    item.video_file_path = saved_path
+    item.status = "PENDING"
+    item.updated_at = datetime.now()
+    db.commit()
+    db.refresh(item)
+    logger.info(f"Direct video upload & attach completed for item #{item_id}: {saved_path}")
     return item
 
 @router.patch("/items/{item_id}/finalize", response_model=dict)

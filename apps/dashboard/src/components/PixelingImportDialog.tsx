@@ -708,12 +708,43 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
         }
     };
 
-    const handleRegisterSingle = async (source: PixelingSource, lang: string) => {
-        const payload = buildItemPayload(source, lang);
-        if (!payload) return;
+    const ensureVideoUploaded = async (vid: PoolVideo): Promise<string> => {
+        if (vid.path && vid.path.trim()) return vid.path;
+        if (!vid.file) return '';
 
-        setSendingKey(payload.key);
+        const formData = new FormData();
+        formData.append('file', vid.file);
+
+        const res = await fetchWithRetry('/api/work-queue/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            vid.path = data.server_file_path;
+            setVideoPool(prev => prev.map(v => v.id === vid.id ? { ...v, path: data.server_file_path } : v));
+            return data.server_file_path;
+        } else {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || '영상 서버 업로드 실패');
+        }
+    };
+
+    const handleRegisterSingle = async (source: PixelingSource, lang: string) => {
+        const k = vkey(source.index, lang);
+        const match = matchMap[k];
+        const vid = match?.manualVideoId ? poolMap[match.manualVideoId] : (match?.autoVideoId ? poolMap[match.autoVideoId] : undefined);
+
+        setSendingKey(k);
         try {
+            if (vid && !vid.path && vid.file) {
+                await ensureVideoUploaded(vid);
+            }
+
+            const payload = buildItemPayload(source, lang);
+            if (!payload) return;
+
             await sendPayloadToQueue(payload);
             setSentKeys(prev => ({ ...prev, [payload.key]: true }));
             toast({ title: `[${lang}] 대기열 등록 완료`, description: payload.title });
@@ -728,55 +759,82 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
         if (!parsed?.sources?.length) return;
         setRegistering(true);
 
-        const itemsToRegister: any[] = [];
-        langs.forEach(lang => {
-            const seq = getOrder(lang);
-            seq.forEach(srcIdx => {
-                const k = vkey(srcIdx, lang);
-                if (hidden[k] || sentKeys[k]) return;
-                const src = srcByIdx[srcIdx];
-                if (!src) return;
-                const p = buildItemPayload(src, lang);
-                if (p) itemsToRegister.push(p);
+        try {
+            // 1. 필요한 모든 미업로드 영상을 먼저 서버로 업로드
+            const neededVideos: PoolVideo[] = [];
+            langs.forEach(lang => {
+                const seq = getOrder(lang);
+                seq.forEach(srcIdx => {
+                    const k = vkey(srcIdx, lang);
+                    if (hidden[k] || sentKeys[k]) return;
+                    const match = matchMap[k];
+                    const vid = match?.manualVideoId ? poolMap[match.manualVideoId] : (match?.autoVideoId ? poolMap[match.autoVideoId] : undefined);
+                    if (vid && !vid.path && vid.file && !neededVideos.some(v => v.id === vid.id)) {
+                        neededVideos.push(vid);
+                    }
+                });
             });
-        });
 
-        if (itemsToRegister.length === 0) {
-            toast({ title: "등록할 대상이 없습니다" });
-            setRegistering(false);
-            return;
-        }
-
-        let successCount = 0;
-        let failCount = 0;
-        let lastError = '';
-
-        for (const item of itemsToRegister) {
-            try {
-                await sendPayloadToQueue(item);
-                setSentKeys(prev => ({ ...prev, [item.key]: true }));
-                successCount++;
-            } catch (e: any) {
-                failCount++;
-                lastError = e?.message || '등록 오류';
+            for (const v of neededVideos) {
+                await ensureVideoUploaded(v);
             }
-        }
 
-        setRegistering(false);
-
-        if (successCount > 0) {
-            toast({
-                title: "전체 대기열 일괄 등록 완료",
-                description: `총 ${successCount}개의 항목이 자동화 대기열로 등록되었습니다.${failCount > 0 ? ` (${failCount}개 실패: ${lastError})` : ''}`
+            // 2. 항목 페이로드 구성 및 전송
+            const itemsToRegister: any[] = [];
+            langs.forEach(lang => {
+                const seq = getOrder(lang);
+                seq.forEach(srcIdx => {
+                    const k = vkey(srcIdx, lang);
+                    if (hidden[k] || sentKeys[k]) return;
+                    const src = srcByIdx[srcIdx];
+                    if (!src) return;
+                    const p = buildItemPayload(src, lang);
+                    if (p) itemsToRegister.push(p);
+                });
             });
-            onSuccess?.();
-            setIsOpen(false);
-        } else {
+
+            if (itemsToRegister.length === 0) {
+                toast({ title: "등록할 대상이 없습니다" });
+                setRegistering(false);
+                return;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+            let lastError = '';
+
+            for (const item of itemsToRegister) {
+                try {
+                    await sendPayloadToQueue(item);
+                    setSentKeys(prev => ({ ...prev, [item.key]: true }));
+                    successCount++;
+                } catch (e: any) {
+                    failCount++;
+                    lastError = e?.message || '등록 오류';
+                }
+            }
+
+            if (successCount > 0) {
+                toast({
+                    title: "전체 대기열 일괄 등록 완료",
+                    description: `총 ${successCount}개의 항목이 자동화 대기열로 등록되었습니다.${failCount > 0 ? ` (${failCount}개 실패: ${lastError})` : ''}`
+                });
+                onSuccess?.();
+            } else if (failCount > 0) {
+                toast({
+                    variant: "destructive",
+                    title: "일괄 등록 실패",
+                    description: lastError || "대기열 등록 중 오류가 발생했습니다."
+                });
+            }
+        } catch (err: any) {
             toast({
                 variant: "destructive",
-                title: "대기열 등록 실패",
-                description: lastError || "서버 오류로 등록하지 못했습니다."
+                title: "영상 업로드 오류",
+                description: err.message || "서버로 영상 전송 중 오류가 발생했습니다."
             });
+        } finally {
+            setRegistering(false);
         }
     };
 

@@ -243,11 +243,47 @@ const WorkQueue = () => {
         } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
+    const [uploadingItemId, setUploadingItemId] = useState<number | null>(null);
+    const directFileInputRef = useRef<HTMLInputElement>(null);
+    const targetAttachItemIdRef = useRef<number | null>(null);
+
     const handleAttachVideo = async (itemId: number) => {
-        const item = queueItems.find(q => q.id === itemId);
-        if (!item) return;
-        setEditingItem(item);
-        setIsAddDialogOpen(true);
+        // 웹 브라우저 환경에서는 즉시 파일 선택창을 열어 업로드 진행
+        targetAttachItemIdRef.current = itemId;
+        directFileInputRef.current?.click();
+    };
+
+    const handleDirectFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        const itemId = targetAttachItemIdRef.current;
+        if (!file || !itemId) return;
+
+        e.target.value = '';
+        setUploadingItemId(itemId);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetchWithRetry(`/api/work-queue/items/${itemId}/upload-attach`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (res.ok) {
+                toast({ title: "영상 첨부 완료", description: `서버에 업로드되어 대기열 항목 #${itemId}에 연결되었습니다.` });
+                loadQueueItems();
+                loadStats();
+            } else {
+                const err = await res.json();
+                throw new Error(err.detail || '업로드 실패');
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "영상 첨부 실패", description: err.message || '서버 오류' });
+        } finally {
+            setUploadingItemId(null);
+            targetAttachItemIdRef.current = null;
+        }
     };
 
     const handleFinalize = async (itemId: number) => {
@@ -544,12 +580,14 @@ const WorkQueue = () => {
                                     getApprovalBadge={getApprovalBadge}
                                     selectedItems={selectedItems}
                                     toggleItemSelection={toggleItemSelection}
+                                    isUploadingAttach={uploadingItemId === item.id}
                                 />
                             ))}
                         </div>
                     )}
                 </TabsContent>
             </Tabs>
+            <input ref={directFileInputRef} type="file" accept="video/*" className="hidden" onChange={handleDirectFileSelected} />
         </div>
     );
 };
@@ -558,7 +596,8 @@ const QueueItemCompactCard = ({
     index, item, onApprove, onReject, onDelete, onEdit, onPlay,
     onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel,
     channels, tiktokChannels, instagramChannels,
-    getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection
+    getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection,
+    isUploadingAttach
 }: any) => {
     const { toast } = useToast();
     const [expanded, setExpanded] = useState(false);
@@ -771,8 +810,9 @@ const QueueItemCompactCard = ({
                     <div className="hidden sm:flex items-center gap-1 shrink-0 ml-auto">
                         {(item.status === 'DRAFT' || !item.video_file_path) && (
                             <>
-                                <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} className="h-7 text-xs px-2 border-border">
-                                    <Paperclip className="w-3 h-3 mr-1" /> 영상 첨부
+                                <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} disabled={isUploadingAttach} className="h-7 text-xs px-2 border-border">
+                                    {isUploadingAttach ? <Loader2 className="w-3 h-3 mr-1 animate-spin text-primary" /> : <Paperclip className="w-3 h-3 mr-1" />}
+                                    {isUploadingAttach ? '업로드 중...' : '영상 첨부'}
                                 </Button>
                                 <Button size="sm" onClick={() => onFinalize(item.id)} className="h-7 text-xs px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
                                     <Rocket className="w-3 h-3 mr-1" /> 즉시 등록
@@ -805,8 +845,9 @@ const QueueItemCompactCard = ({
                 <div className="sm:hidden flex items-center gap-1.5 w-full pt-1.5 border-t border-border/40 justify-end">
                     {(item.status === 'DRAFT' || !item.video_file_path) && (
                         <>
-                            <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} className="h-7 text-xs px-2.5 border-border flex-1">
-                                <Paperclip className="w-3 h-3 mr-1" /> 영상 첨부
+                            <Button size="sm" variant="outline" onClick={() => onAttach(item.id)} disabled={isUploadingAttach} className="h-7 text-xs px-2.5 border-border flex-1">
+                                {isUploadingAttach ? <Loader2 className="w-3 h-3 mr-1 animate-spin text-primary" /> : <Paperclip className="w-3 h-3 mr-1" />}
+                                {isUploadingAttach ? '업로드 중...' : '영상 첨부'}
                             </Button>
                             <Button size="sm" onClick={() => onFinalize(item.id)} className="h-7 text-xs px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium flex-1">
                                 <Rocket className="w-3 h-3 mr-1" /> 즉시 등록
@@ -1291,6 +1332,9 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
         } catch (_) { setChannels([]); }
     };
 
+    const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+    const [uploadPercent, setUploadPercent] = useState(0);
+
     const handleBrowseVideo = async () => {
         if ((window as any).electronAPI?.selectVideoFile) {
             const r = await (window as any).electronAPI.selectVideoFile();
@@ -1302,11 +1346,53 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
         fileInputRef.current?.click();
     };
 
-    const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        setForm({ ...form, video_file_path: file.name });
-        toast({ title: "파일 선택됨", description: file.name });
+
+        // 브라우저 환경: 서버로 multipart 업로드
+        setIsUploadingVideo(true);
+        setUploadPercent(0);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/work-queue/upload');
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    setUploadPercent(percent);
+                }
+            };
+
+            const uploadPromise = new Promise<{ server_file_path: string; file_name: string }>((resolve, reject) => {
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            resolve(data);
+                        } catch (err) {
+                            reject(err);
+                        }
+                    } else {
+                        reject(new Error(xhr.responseText || '업로드 실패'));
+                    }
+                };
+                xhr.onerror = () => reject(new Error('네트워크 오류로 업로드 실패'));
+            });
+
+            xhr.send(formData);
+            const data = await uploadPromise;
+
+            setForm({ ...form, video_file_path: data.server_file_path });
+            toast({ title: "영상 업로드 완료", description: `서버에 안전하게 저장되었습니다: ${file.name}` });
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "업로드 실패", description: err.message || '서버 오류' });
+        } finally {
+            setIsUploadingVideo(false);
+        }
     };
 
     const handleDraftSave = async () => {
@@ -1440,11 +1526,20 @@ const AddVideoDialog = ({ isOpen, setIsOpen, onSuccess, initialData }: any) => {
                                     <Label>영상 파일 *</Label>
                                     <div className="flex gap-2 mt-1">
                                         <Input value={form.video_file_path} onChange={e => setForm({ ...form, video_file_path: e.target.value })} placeholder="파일을 선택하거나 경로를 입력하세요" className="bg-background border-border flex-1" />
-                                        <Button type="button" variant="outline" onClick={handleBrowseVideo} className="shrink-0">
-                                            <FolderOpen className="w-4 h-4 mr-1" /> 찾아보기
+                                        <Button type="button" variant="outline" onClick={handleBrowseVideo} disabled={isUploadingVideo} className="shrink-0 font-medium">
+                                            {isUploadingVideo ? <Loader2 className="w-4 h-4 mr-1 animate-spin text-primary" /> : <FolderOpen className="w-4 h-4 mr-1" />}
+                                            {isUploadingVideo ? `${uploadPercent}% 업로드 중` : '찾아보기'}
                                         </Button>
                                         <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleFileSelected} />
                                     </div>
+                                    {isUploadingVideo && (
+                                        <div className="mt-2 space-y-1">
+                                            <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                                                <div className="bg-primary h-1.5 rounded-full transition-all duration-150" style={{ width: `${uploadPercent}%` }} />
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground">서버로 영상 전송 중... {uploadPercent}%</p>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div><Label>외부 ID</Label><Input value={form.source_external_id} onChange={e => setForm({ ...form, source_external_id: e.target.value })} placeholder="예: CSV 행 ID" className="bg-background border-border" /></div>
