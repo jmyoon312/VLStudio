@@ -30,27 +30,53 @@ async function loadBundledThumbnails(existingIds = []) {
 }
 
 /**
- * filePath → file:// URL 변환 (표시용)
+ * filePath → file:// 또는 웹 자산 URL 변환 (표시용)
  */
 export function toFileUrl(pathOrUrl) {
   if (!pathOrUrl) return null
-  // 이미 URL이면 그대로 (blob:, data:, local-resource://)
-  if (pathOrUrl.startsWith('blob:') || pathOrUrl.startsWith('data:') || pathOrUrl.startsWith('local-resource://')) {
+  // 1) 이미 웹 URL이거나 blob/data/http/https 이면 그대로 반환
+  if (
+    pathOrUrl.startsWith('http://') ||
+    pathOrUrl.startsWith('https://') ||
+    pathOrUrl.startsWith('blob:') ||
+    pathOrUrl.startsWith('data:')
+  ) {
     return pathOrUrl
   }
-  // file:// 경로를 local-resource:// 로 변환
+  // 2) 웹 상대 경로 또는 public 자산 (/style-thumbnails/... 등)은 웹 URL 그대로 반환
+  if (pathOrUrl.startsWith('/style-thumbnails/') || pathOrUrl.startsWith('style-thumbnails/')) {
+    return pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`
+  }
+  // 3) Electron 환경 여부 확인
+  const isElectron = typeof window !== 'undefined' && Boolean(window.electronAPI || (window.process && window.process.type === 'renderer'))
+
+  // 4) local-resource:// 스킴인 경우 Electron이 아니면 웹 경로로 복원
+  if (pathOrUrl.startsWith('local-resource://')) {
+    if (!isElectron) {
+      const clean = pathOrUrl.replace(/^local-resource:\/\//, '').split('?')[0]
+      return clean.startsWith('/') ? clean : `/${clean}`
+    }
+    return pathOrUrl
+  }
+
+  // 5) file:// 경로
   if (pathOrUrl.startsWith('file://')) {
+    if (!isElectron) return pathOrUrl
     let cleanPath = pathOrUrl.replace('file:///', '').replace('file://', '')
     return `local-resource://${cleanPath}?t=${Date.now()}`
   }
-  // 절대 경로 → local-resource:// (캐시 방지용 timestamp)
-  if (pathOrUrl.startsWith('/')) {
-    return `local-resource://${pathOrUrl}?t=${Date.now()}`
-  }
-  // Windows 경로
-  if (/^[A-Z]:\\/i.test(pathOrUrl)) {
+
+  // 6) Windows 절대 경로 (C:\..., D:\...)
+  if (/^[A-Z]:[\\/]/i.test(pathOrUrl)) {
+    if (!isElectron) return pathOrUrl
     return `local-resource:///${pathOrUrl.replace(/\\/g, '/')}?t=${Date.now()}`
   }
+
+  // 7) 일반 루트 상대 경로 (/...)
+  if (pathOrUrl.startsWith('/')) {
+    return pathOrUrl
+  }
+
   return pathOrUrl
 }
 
