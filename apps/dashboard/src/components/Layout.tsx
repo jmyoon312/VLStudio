@@ -570,12 +570,12 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     "flex-1 flex flex-col custom-scrollbar min-h-0",
                     location.pathname.startsWith('/agent-studio') ? "overflow-hidden" : "overflow-y-auto"
                 )}>
-                    <div className="flex-grow flex flex-col min-h-0 p-3 sm:p-6 max-w-[1600px] w-full mx-auto pb-32 md:pb-6">
+                    <div className="flex-grow flex flex-col min-h-0 p-3 sm:p-6 max-w-[1600px] w-full mx-auto pb-36 md:pb-16">
                         {children}
                     </div>
                     <Footer className={cn(location.pathname === '/' ? "px-12" : "px-4 sm:px-6")} />
-                    {/* Explicit Mobile Bottom Navigation Clearance Spacer (Guarantees bottom actions are never covered) */}
-                    <div className="h-32 md:hidden shrink-0 pointer-events-none" aria-hidden="true" />
+                    {/* Explicit Mobile/Desktop Bottom Navigation Clearance Spacer */}
+                    <div className="h-36 md:h-12 shrink-0 pointer-events-none" aria-hidden="true" />
                 </div>
             </main>
 

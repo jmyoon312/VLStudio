@@ -570,7 +570,7 @@ const Home = () => {
 
 
     return (
-        <div className="animate-in fade-in duration-500 pb-36 md:pb-12 px-3 sm:px-6 pt-2.5 sm:pt-4 space-y-4 sm:space-y-5 bg-background text-foreground min-h-screen relative">
+        <div className="animate-in fade-in duration-500 pb-48 md:pb-28 px-3 sm:px-6 pt-2.5 sm:pt-4 space-y-4 sm:space-y-5 bg-background text-foreground min-h-screen relative">
 
             {/* 1. 상단 공지 띠 배너 (모바일/데스크톱 완벽 반응형) */}
             {showNotice && (
