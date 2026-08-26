@@ -49,13 +49,13 @@ webFrame.executeJavaScript(`
       }
     } catch(e) {}
 
-    // 3. Spoof userAgentData to remove "Electron"
+    // 3. Spoof userAgentData to remove "Electron" & mask webdriver
     try {
       if (Navigator.prototype.userAgentData) {
         const mockUserAgentData = {
           brands: [
-            { brand: 'Chromium', version: '124' },
-            { brand: 'Google Chrome', version: '124' },
+            { brand: 'Chromium', version: '136' },
+            { brand: 'Google Chrome', version: '136' },
             { brand: 'Not-A.Brand', version: '99' }
           ],
           mobile: false,
@@ -63,20 +63,20 @@ webFrame.executeJavaScript(`
           getHighEntropyValues: function(hints) {
             return Promise.resolve({
               brands: [
-                { brand: 'Chromium', version: '124.0.0.0' },
-                { brand: 'Google Chrome', version: '124.0.0.0' },
+                { brand: 'Chromium', version: '136.0.0.0' },
+                { brand: 'Google Chrome', version: '136.0.0.0' },
                 { brand: 'Not-A.Brand', version: '99.0.0.0' }
               ],
               mobile: false,
               platform: 'Windows',
-              platformVersion: '10.0.0',
+              platformVersion: '15.0.0',
               architecture: 'x86',
               bitness: '64',
               model: '',
-              uaFullVersion: '124.0.0.0',
+              uaFullVersion: '136.0.0.0',
               fullVersionList: [
-                { brand: 'Chromium', version: '124.0.0.0' },
-                { brand: 'Google Chrome', version: '124.0.0.0' },
+                { brand: 'Chromium', version: '136.0.0.0' },
+                { brand: 'Google Chrome', version: '136.0.0.0' },
                 { brand: 'Not-A.Brand', version: '99.0.0.0' }
               ]
             });
@@ -90,6 +90,12 @@ webFrame.executeJavaScript(`
           configurable: true
         });
       }
+
+      // Hide webdriver completely
+      Object.defineProperty(Navigator.prototype, 'webdriver', {
+        get: makeNativeGetter(undefined, 'webdriver'),
+        configurable: true
+      });
     } catch(e) {}
 
     // 4. window.chrome spoofing

@@ -33,13 +33,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 app.setName('ViraLoop Studio')
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// [Fix] Prevent SQLite / Quota / GPU Cache lock crashes in Development
+// [Fix] Persistent Storage for Google Flow & Profile Sessions
 // ═══════════════════════════════════════════════════════════════════════════════
 app.disableHardwareAcceleration()
-if (!app.isPackaged) {
-  const devDataDir = path.join(os.tmpdir(), 'viral-loop-dev-data-' + Date.now().toString())
-  app.setPath('userData', devDataDir)
-}
+const persistentDataDir = path.join(app.getPath('appData'), 'ViraLoopStudio')
+try {
+  fsSync.mkdirSync(persistentDataDir, { recursive: true })
+} catch (e) {}
+app.setPath('userData', persistentDataDir)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -227,9 +228,9 @@ function createWindow() {
       }
     }
 
-    console.log(`[Google Login Window] Launching pure login window for profile: ${profileId}, URL: ${url}`);
+    console.log(`[Google Login Window] Launching stealth login window for profile: ${profileId}, URL: ${url}`);
 
-    // No legacy login preload injection needed
+    const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 
     const loginWin = new BrowserWindow({
       width: 550,
@@ -239,6 +240,7 @@ function createWindow() {
       modal: true,
       webPreferences: {
         partition: `persist:flow_profile_${profileId}`, // 세션 파티션 동일하게 공유
+        preload: path.join(__dirname, 'login_preload.js'),
         contextIsolation: true,
         nodeIntegration: false
       }
@@ -246,9 +248,20 @@ function createWindow() {
 
     global.activeLoginWindows.set(profileId, loginWin);
 
-    // 깨끗한 최신 Chrome User-Agent 주입
-    const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
     loginWin.webContents.setUserAgent(modernChromeUA);
+    loginWin.webContents.session.setUserAgent(modernChromeUA);
+
+    // Google 차단 방지용 Sec-CH-UA 및 클라이언트 힌트 헤더 보정
+    loginWin.webContents.session.webRequest.onBeforeSendHeaders(
+      { urls: ['https://accounts.google.com/*', 'https://*.google.com/*'] },
+      (details, callback) => {
+        details.requestHeaders['User-Agent'] = modernChromeUA;
+        details.requestHeaders['Sec-Ch-Ua'] = '"Chromium";v="136", "Google Chrome";v="136", "Not-A.Brand";v="99"';
+        details.requestHeaders['Sec-Ch-Ua-Mobile'] = '?0';
+        details.requestHeaders['Sec-Ch-Ua-Platform'] = '"Windows"';
+        callback({ cancel: false, requestHeaders: details.requestHeaders });
+      }
+    );
 
     loginWin.loadURL(url);
 
