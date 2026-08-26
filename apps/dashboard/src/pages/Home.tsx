@@ -1195,7 +1195,7 @@ const Home = () => {
                         </button>
                         <Link 
                             to="/reports"
-                            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-xs"
+                            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-xs"
                         >
                             <Activity className="w-3.5 h-3.5" />
                             📊 일일 BI 리포트 관제 ➔
@@ -1204,6 +1204,9 @@ const Home = () => {
                 </div>
 
             </div>
+
+            {/* 🎯 하단 안전 스페이서 (모바일 바텀 네비게이션 바 및 홈 인디케이터 완전 회피) */}
+            <div className="h-44 md:h-20 w-full shrink-0 pointer-events-none" aria-hidden="true" />
 
             {/* 5. 🎯 하단 플로팅 액션 바 (Pixeling Style Floating Action Bar for Batch Ddalkkak) */}
             {selectedVideoIds.size > 0 && (

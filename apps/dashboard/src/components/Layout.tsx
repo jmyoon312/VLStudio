@@ -308,7 +308,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     }, [activeMode]);
 
     return (
-        <div className="relative flex h-screen bg-background text-foreground font-sans antialiased overflow-hidden transition-all duration-300">
+        <div className="relative flex h-[100dvh] min-h-[100dvh] bg-background text-foreground font-sans antialiased overflow-hidden transition-all duration-300">
 
             {/* Mobile Drawer Backdrop */}
             <div 
