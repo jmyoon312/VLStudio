@@ -54,6 +54,7 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined' && typeof (window as any).electronAPI === 'undefined') {
   console.log('[Polyfill] window.electronAPI mock registered for non-Electron development environments.');
   (window as any).electronAPI = {
+    isMock: true,
     loadProfiles: async () => {
       try {
         const res = await fetch('/api/browser-profiles/');

@@ -383,3 +383,55 @@ async def validate_assets(request: ValidateAssetsRequest):
             invalid_paths.append(path)
             
     return {"status": "success", "invalid_paths": invalid_paths}
+
+
+# ─── Remote Flow AI Orchestration (Mobile to Electron Bridge) ────────────────
+
+@router.get("/flow-status")
+async def get_remote_flow_status():
+    """
+    Checks if Electron's Flow View #1 is active and authenticated.
+    """
+    import urllib.request
+    import json
+    try:
+        req = urllib.request.Request("http://127.0.0.1:3210/api/flow/status")
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            return data
+    except Exception as e:
+        logger.warning(f"[Remote Flow] Failed to query local Electron MCP: {e}")
+        return {
+            "success": False,
+            "isOpen": False,
+            "loggedIn": False,
+            "message": "서버 컴퓨터에서 ViraLoop Studio Electron 데스크톱 앱이 실행 중인지 확인해 주세요."
+        }
+
+
+@router.post("/flow-ensure-ready")
+async def ensure_remote_flow_ready():
+    """
+    Automatically creates/launches Flow View #1 in Electron and verifies Google login.
+    """
+    import urllib.request
+    import json
+    try:
+        req = urllib.request.Request(
+            "http://127.0.0.1:3210/api/flow/ensure-ready",
+            data=b"{}",
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=8.0) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            return data
+    except Exception as e:
+        logger.error(f"[Remote Flow] Failed to trigger ensure-ready on Electron: {e}")
+        return {
+            "success": False,
+            "isOpen": False,
+            "loggedIn": False,
+            "error": str(e),
+            "message": "서버 컴퓨터의 Electron 인스턴스를 찾을 수 없습니다. 데스크톱 앱을 실행해 주세요."
+        }
+

@@ -696,6 +696,22 @@ function App() {
     const folderCheck = await checkFolderPermission(settings, openSettings, t)
     if (!folderCheck.ok) return
 
+    // [모바일 / 원격 자동 오케스트레이션] 1번 Flow 창 자동 기동 및 구글 로그인 상태 사전 점검
+    try {
+      const isMobileWeb = typeof window !== 'undefined' && (!window.electronAPI || !window.electronAPI.extractToken || window.electronAPI.isMock);
+      if (isMobileWeb) {
+        const checkRes = await api.post('/editor/flow-ensure-ready');
+        if (checkRes.data && !checkRes.data.loggedIn) {
+          toast.warning('서버 컴퓨터의 1번 Flow 창이 실행되었으나 Google 로그인이 필요합니다. PC 화면에서 로그인 후 다시 눌러주세요.', { duration: 6000 });
+        }
+      } else if (window.electronAPI?.createFlowView) {
+        // 데스크톱 환경: 1번 창 자동 기동
+        await window.electronAPI.createFlowView({ profileId: 'default' });
+      }
+    } catch (e) {
+      console.warn('[Remote Orchestrator] Flow ensure-ready check:', e);
+    }
+
     // tab이면 split으로 전환 (Flow UI가 보여야 함)
     try {
       const current = JSON.parse(localStorage.getItem('layoutSettings') || '{}')

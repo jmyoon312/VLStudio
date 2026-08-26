@@ -1358,6 +1358,63 @@ function startMcpHttpServer(port) {
           return
         }
 
+        // GET /api/flow/status — Flow 1번 창 상태 및 구글 로그인 여부 조회
+        if (req.method === 'GET' && pathname === '/api/flow/status') {
+          const profileId = 'default'
+          const view = global.flowViews?.get(profileId)
+          const isOpen = Boolean(view && !view.webContents?.isDestroyed?.())
+          const currentUrl = isOpen ? (view.webContents?.getURL?.() || '') : ''
+          const isLoggedIn = isOpen && (currentUrl.includes('labs.google/fx') || Boolean(capturedProjectId))
+
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({
+            success: true,
+            isOpen,
+            loggedIn: isLoggedIn,
+            url: currentUrl,
+            profileId,
+            projectId: capturedProjectId || null
+          }))
+          return
+        }
+
+        // POST /api/flow/ensure-ready — 1번 Flow 창 자동 기동 및 로그인 상태 점검
+        if (req.method === 'POST' && pathname === '/api/flow/ensure-ready') {
+          try {
+            const profileId = 'default'
+            let view = global.flowViews?.get(profileId)
+            let wasCreated = false
+
+            if (!view || view.webContents?.isDestroyed?.()) {
+              console.log(`[Auto-Orchestrator] Remote request received: Automatically launching Flow View (profile: ${profileId})...`)
+              view = global.createOrGetFlowView(profileId)
+              wasCreated = true
+              if (typeof updateBounds === 'function' && mainWindow) {
+                updateBounds(mainWindow, view)
+              }
+            }
+
+            const currentUrl = view.webContents?.getURL?.() || ''
+            const isLoggedIn = currentUrl.includes('labs.google/fx') || Boolean(capturedProjectId)
+
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({
+              success: true,
+              wasCreated,
+              isOpen: true,
+              loggedIn: isLoggedIn,
+              url: currentUrl,
+              profileId,
+              projectId: capturedProjectId || null,
+              message: isLoggedIn ? 'Flow 1번 창이 준비되었습니다.' : 'Flow 1번 창이 열렸으나 Google 로그인이 필요합니다.'
+            }))
+          } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ success: false, error: err.message }))
+          }
+          return
+        }
+
         // POST /api/export-capcut — CapCut 프로젝트 내보내기
         if (req.method === 'POST' && pathname === '/api/export-capcut') {
           if (mainWindow) {
