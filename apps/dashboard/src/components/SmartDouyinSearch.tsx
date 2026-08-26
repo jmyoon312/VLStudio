@@ -534,19 +534,19 @@ export default function SmartDouyinSearch() {
           <div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
               <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-sm text-white shrink-0">
-                <Scissors className="w-5 h-5 sm:w-6 sm:h-6" />
+                <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <span>Douyin Studio Pro</span>
-              <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-full relative -top-2 left-0.5 tracking-widest">BATCH</span>
+              <span>더우인 쇼츠 수집</span>
+              <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-full relative -top-2 left-0.5 tracking-widest">PRO</span>
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-muted-foreground font-medium tracking-wide">
-              수백 개의 숏폼 영상을 동시 다발적으로 분석/편집하는 멀티모달 AI 팩토리
+              키워드별 트렌드 탐색 및 스텔스 브라우저 기반 대량 숏폼 자동 수집·AI 분석
             </p>
           </div>
           <div className="flex gap-2 sm:gap-3">
              <button onClick={handleOpenFolder} className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-card border border-border shadow-2xs text-foreground text-xs sm:text-sm font-semibold rounded-xl hover:bg-muted transition-all">
                <FolderOpen size={16} />
-               로컬 팩토리 폴더 열기
+               수집 보관 폴더 열기
              </button>
           </div>
         </div>
@@ -630,7 +630,7 @@ export default function SmartDouyinSearch() {
                         <div className="flex items-center gap-3 pb-3 sm:pb-4 border-b border-border">
                             <Globe className="text-primary" size={24} />
                             <div>
-                                <h3 className="font-bold text-foreground text-base sm:text-lg">Douyin 네트워크 수집</h3>
+                                <h3 className="font-bold text-foreground text-base sm:text-lg">더우인 키워드 실시간 수집</h3>
                                 <p className="text-xs sm:text-sm text-muted-foreground">프로필을 선택하고 키워드로 영상을 수집합니다.</p>
                             </div>
                         </div>
