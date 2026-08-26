@@ -357,6 +357,18 @@ main {
     justify-content: center !important;
     padding: 0 !important;
   }
+  
+  .user-account-box {
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    padding: 8px 4px !important;
+  }
+  
+  .user-account-box button {
+    margin: 0 !important;
+  }
 }
 
 /* Scrollbar Utility for smooth stage menus */

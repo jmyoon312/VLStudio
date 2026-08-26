@@ -444,13 +444,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 </nav>
 
                 {/* Sidebar Bottom: User Profile Card & Theme Toggle (Pixeling Style) */}
-                <div className="p-3 border-t border-sidebar-border shrink-0 space-y-2 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+                <div className="p-2 border-t border-sidebar-border shrink-0 pb-[calc(env(safe-area-inset-bottom)+12px)]">
                     {/* User Account Info Box */}
-                    <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-primary/50 transition-all">
+                    <div className="user-account-box flex items-center justify-between p-2 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-primary/50 transition-all gap-2.5">
                         <button
                             type="button"
                             onClick={() => setProfileManagerOpen(true)}
-                            className="flex items-center gap-2.5 min-w-0 text-left flex-1 group"
+                            className="flex items-center gap-3 min-w-0 text-left flex-1 group"
                             title="계정 및 PIN 번호 관리"
                         >
                             <div className="w-8 h-8 rounded-full bg-primary/15 text-base flex items-center justify-center shrink-0 border border-primary/30 group-hover:scale-105 transition-transform">
@@ -472,7 +472,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         </button>
                         <button
                             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 ml-1"
                             title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
                         >
                             {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
