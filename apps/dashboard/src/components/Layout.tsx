@@ -344,10 +344,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     </button>
                 </div>
 
-                <div className="px-4 py-4 shrink-0">
-                    <div className="bg-muted p-1 rounded-xl border border-border grid grid-cols-2 gap-1 sidebar-mode-grid">
+                <div className="px-3.5 pt-3 pb-2 shrink-0">
+                    <div className="bg-[#f0f3f8] dark:bg-muted/50 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 sidebar-mode-grid">
                         {[
-                            { id: 'DISCOVERY', name: '트렌드 분석', sub: '분석', icon: Search },
+                            { id: 'DISCOVERY', name: '트렌드 분석', sub: '탐색', icon: Search },
                             { id: 'CREATION', name: '콘텐츠 제작', sub: '제작', icon: Palette },
                             { id: 'OPERATION', name: '채널 운영', sub: '운영', icon: Settings2 },
                             { id: 'EDUCATION', name: '시스템 설정', sub: '설정', icon: GraduationCap },
@@ -359,18 +359,18 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                                     key={mode.id}
                                     onClick={() => setActiveMode(mode.id)}
                                     className={cn(
-                                        "flex items-center justify-center gap-1.5 py-2 rounded-lg transition-all duration-300 border shrink-0",
+                                        "flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all duration-200 shrink-0 text-left",
                                         isActive
-                                            ? "bg-card border-border shadow-sm text-primary"
-                                            : "bg-transparent border-transparent text-foreground/80 hover:text-foreground hover:bg-card/40"
+                                            ? "bg-white dark:bg-card text-primary font-bold shadow-xs border border-border/30"
+                                            : "bg-transparent border border-transparent text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-card/40"
                                     )}
                                 >
-                                    <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary" : "text-foreground/60")} strokeWidth={isActive ? 2.5 : 2} />
-                                    <div className="flex flex-col items-start leading-tight hide-on-slim">
-                                        <span className={cn("text-[10px] font-extrabold tracking-tight", isActive ? "text-primary" : "text-foreground/80")}>
+                                    <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
+                                    <div className="flex items-baseline gap-1 min-w-0 hide-on-slim truncate">
+                                        <span className={cn("text-[11.5px] tracking-tight truncate", isActive ? "font-bold text-foreground" : "font-medium")}>
                                             {mode.name}
                                         </span>
-                                        <span className="text-[7px] font-bold opacity-40 uppercase tracking-tighter">
+                                        <span className="text-[9.5px] text-muted-foreground/60 font-normal shrink-0">
                                             {mode.sub}
                                         </span>
                                     </div>
@@ -380,19 +380,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     </div>
                 </div>
 
-                <nav className="p-4 flex-1 overflow-y-auto dashboard-scroll-area pb-28 md:pb-4">
-                    <div className="mb-4">
+                <nav className="px-3 py-2 flex-1 overflow-y-auto dashboard-scroll-area pb-28 md:pb-4 space-y-3">
+                    <div>
                         <Link
                             to="/"
                             onClick={() => setMobileMenuOpen(false)}
                             className={cn(
-                                "flex items-center gap-3 px-4 py-1.5 rounded-lg text-[13.5px] font-bold tracking-tight transition-all duration-200 group border border-transparent hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm",
+                                "flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] tracking-tight transition-all duration-150 group",
                                 location.pathname === '/'
-                                    ? "bg-card text-primary shadow-sm border border-border font-extrabold"
-                                    : "text-foreground/80 hover:text-foreground hover:bg-card/30"
+                                    ? "bg-primary/10 text-primary font-bold"
+                                    : "text-foreground/75 hover:text-foreground hover:bg-muted/60 font-medium"
                             )}
                         >
-                            <LayoutDashboard className={cn("w-4 h-4 transition-colors shrink-0", location.pathname === '/' ? "text-primary" : "text-foreground/60 group-hover:text-foreground")} strokeWidth={location.pathname === '/' ? 2.5 : 2} />
+                            <LayoutDashboard className={cn("w-4 h-4 transition-colors shrink-0", location.pathname === '/' ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} strokeWidth={1.8} />
                             <span className="flex-1 text-left hide-on-slim truncate">대시보드 홈</span>
                         </Link>
                     </div>
@@ -400,10 +400,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     {filteredGroups.map((group, i) => {
                         const isExpanded = expandedGroups[group.title] !== false;
                         return (
-                            <div key={i} className="mb-4 last:mb-0 border-b border-border/5 pb-4 last:border-0 last:pb-0">
+                            <div key={i} className="space-y-1">
                                 <button
                                     onClick={() => toggleGroup(group.title)}
-                                    className="flex items-center justify-between w-full px-4 mb-2.5 text-[11px] font-bold text-foreground/60 uppercase tracking-wider hide-on-slim hover:text-foreground transition-colors text-left"
+                                    className="flex items-center justify-between w-full px-3 py-1 text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider hide-on-slim hover:text-foreground transition-colors text-left"
                                 >
                                     <span>{group.title}</span>
                                     {isExpanded ? (
@@ -413,7 +413,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                                     )}
                                 </button>
                                 {isExpanded && (
-                                    <div className="space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <div className="space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
                                         {group.items.map((item) => {
                                             const Icon = item.icon;
                                             const isActive = item.path.startsWith('/captain')
@@ -425,13 +425,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                                                     to={item.path}
                                                     onClick={() => setMobileMenuOpen(false)}
                                                     className={cn(
-                                                        "flex items-center gap-3 px-4 py-1.5 rounded-lg text-[13.5px] font-bold tracking-tight transition-all duration-200 group border border-transparent hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm",
+                                                        "flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] tracking-tight transition-all duration-150 group",
                                                         isActive
-                                                            ? "bg-card text-primary shadow-sm border border-border font-extrabold"
-                                                            : "text-foreground/80 hover:text-foreground hover:bg-card/30"
+                                                            ? "bg-primary/10 text-primary font-bold"
+                                                            : "text-foreground/75 hover:text-foreground hover:bg-muted/60 font-medium"
                                                     )}
                                                 >
-                                                    <Icon className={cn("w-4 h-4 transition-colors shrink-0", isActive ? "text-primary" : "text-foreground/60 group-hover:text-foreground")} strokeWidth={isActive ? 2.5 : 2} />
+                                                    <Icon className={cn("w-4 h-4 transition-colors shrink-0", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} strokeWidth={1.8} />
                                                     <span className="flex-1 text-left hide-on-slim truncate">{item.name}</span>
                                                 </Link>
                                             );
