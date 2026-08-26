@@ -606,7 +606,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     )}
                 >
                     <Layers className="w-5 h-5" strokeWidth={location.pathname === '/work-queue' ? 2.5 : 2} />
-                    <span>대기열</span>
+                    <span>배포관리</span>
                 </button>
                 <button 
                     onClick={() => { navigate('/incubator'); setMobileMenuOpen(false); }} 

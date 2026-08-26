@@ -93,7 +93,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "OPERATION",
         defaultExpanded: true,
         items: [
-            { name: '자동화 작업 대기열', path: '/work-queue', icon: Activity, highlight: true },
+            { name: '쇼츠 자동 배포 관리', path: '/work-queue', icon: Activity, highlight: true },
             { name: '통합 계정 & 육성 관리', path: '/incubator', icon: Users, highlight: true },
         ]
     },

@@ -38,7 +38,7 @@ export default {
     frameToVideo: '이미지 연동',
     refToVideo: 'R→V',
     list: '씬목록',
-    import: '가져오기',
+    import: '불러오기',
     references: '레퍼런스',
     audio: '오디오',
   },

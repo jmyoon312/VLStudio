@@ -347,7 +347,7 @@ const WorkQueue = () => {
                 <div>
                     <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
                         <Layers className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
-                        자동화 작업 대기열
+                        쇼츠 자동 배포 관리
                     </h1>
                     <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
                         다중 플랫폼(YouTube / TikTok / Instagram) 원클릭 및 스텔스 브라우저 업로드 오케스트레이션
@@ -356,13 +356,13 @@ const WorkQueue = () => {
 
                 <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
                     <Button onClick={() => setIsPixelingOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs flex-1 sm:flex-initial">
-                        <Layers className="w-3.5 h-3.5 mr-1.5" /> 픽셀링 메타 가져오기
+                        <Layers className="w-3.5 h-3.5 mr-1.5" /> 픽셀링 제작물 등록
                     </Button>
                     <Button onClick={() => { setEditingItem(null); setIsAddDialogOpen(true); }} variant="outline" className="text-xs border-border font-medium flex-1 sm:flex-initial">
-                        <Plus className="w-3.5 h-3.5 mr-1.5" /> 수동 등록
+                        <Plus className="w-3.5 h-3.5 mr-1.5" /> 개별 영상 등록
                     </Button>
                     <Button onClick={() => setShowBulkImport(true)} variant="outline" className="text-xs border-border font-medium flex-1 sm:flex-initial">
-                        <Upload className="w-3.5 h-3.5 mr-1.5" /> 엑셀/CSV 일괄
+                        <Upload className="w-3.5 h-3.5 mr-1.5" /> 엑셀 일괄 등록
                     </Button>
                     <Button size="icon" variant="ghost" onClick={() => { loadQueueItems(); loadStats(); loadBatchGroups(); }} className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0" title="새로고침">
                         <RefreshCw className="w-4 h-4" />
@@ -554,7 +554,7 @@ const WorkQueue = () => {
                             <CardContent className="p-14 text-center">
                                 <FileVideo className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
                                 <h3 className="text-base font-semibold text-muted-foreground mb-0.5">대기열에 항목이 없습니다</h3>
-                                <p className="text-xs text-muted-foreground">상단의 [픽셀링 메타 가져오기] 또는 [수동 등록]으로 영상을 추가해 보세요</p>
+                                <p className="text-xs text-muted-foreground">상단의 [픽셀링 제작물 등록] 또는 [개별 영상 등록]으로 영상을 추가해 보세요</p>
                             </CardContent>
                         </Card>
                     ) : (
