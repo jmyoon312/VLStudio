@@ -363,12 +363,17 @@ const RemoverEditor = () => {
         <div className="flex flex-col lg:flex-row h-full min-h-screen lg:h-[calc(100vh-theme(spacing.16))] bg-background text-foreground border-t border-border overflow-y-auto lg:overflow-hidden">
             {/* Sidebar */}
             <aside className="w-full lg:w-80 bg-card border-b lg:border-b-0 lg:border-r border-border flex flex-col shadow-2xs z-10 shrink-0">
-                <div className="p-3.5 sm:p-4 border-b border-border flex items-center justify-between">
-                    <Badge variant="outline" className="text-[10px] font-black uppercase border-primary/30 text-primary bg-primary/10">Object Removal System</Badge>
-                    <div className="flex gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                        <div className="w-1.5 h-1.5 rounded-full bg-border" />
+                <div className="p-3.5 sm:p-4 border-b border-border space-y-1">
+                    <div className="flex items-center justify-between">
+                        <h1 className="text-sm sm:text-base font-extrabold text-foreground flex items-center gap-2">
+                            <Eraser className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                            <span>AI 배경 및 개체 제거</span>
+                        </h1>
+                        <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary bg-primary/10">Inpaint</Badge>
                     </div>
+                    <p className="text-[10px] text-muted-foreground">
+                        워터마크, 로고, 불필요한 개체를 AI로 깔끔하게 지우기
+                    </p>
                 </div>
 
                 <div className="flex-1 p-3.5 sm:p-4 space-y-5 sm:space-y-6 overflow-y-auto">

@@ -61,12 +61,12 @@ const MENU_GROUPS = [
     {
         title: '창작 스튜디오',
         items: [
-            { name: '대본 생성 및 편집',  path: '/script-writer',  icon: FileText },
-            { name: '미디어 일괄 생성',   path: '/creative-studio',icon: Clapperboard },
-            { name: '다국어 목소리 합성', path: '/multi-tts',      icon: Mic },
-            { name: '자막 생성 및 번역',  path: '/subtitle-tool',  icon: Languages },
-            { name: '무음 구간 일괄 제거', path: '/silence-remover',icon: Scissors },
-            { name: '개체 및 배경 제거',  path: '/remover',        icon: Eraser },
+            { name: 'AI 대본 각색 및 생성', path: '/script-writer',  icon: FileText },
+            { name: 'AI 미디어 일괄 생성',  path: '/creative-studio',icon: Clapperboard },
+            { name: 'AI 다국어 목소리 합성', path: '/multi-tts',      icon: Mic },
+            { name: 'AI 자막 생성 및 번역', path: '/subtitle-tool',  icon: Languages },
+            { name: '무음 구간 자동 컷팅',  path: '/silence-remover',icon: Scissors },
+            { name: 'AI 배경 및 개체 제거', path: '/remover',        icon: Eraser },
         ],
     },
     {

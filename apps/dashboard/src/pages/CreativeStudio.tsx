@@ -1395,8 +1395,17 @@ const CreativeStudio = () => {
 
     return (
         <div className="min-h-screen flex flex-col gap-4 sm:gap-6 p-3 sm:p-6 pb-28 md:pb-8 overflow-y-auto bg-background text-foreground">
-            <div className="flex items-center justify-between shrink-0">
-                <div />
+            {/* 1. 상단 타이틀 헤더 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Clapperboard className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>AI 미디어 일괄 생성</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        프롬프트와 대본을 기반으로 이미지, 비디오 씬, 음성을 일괄 렌더링하고 완성본으로 통합
+                    </p>
+                </div>
             </div>
 
             {/* Zone 1: Style Presets (Collapsible) */}

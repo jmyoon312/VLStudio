@@ -318,7 +318,19 @@ const ScriptWriter = () => {
     const [showMobileConfig, setShowMobileConfig] = useState(false);
 
     return (
-        <div className="flex-1 flex flex-col gap-3 sm:gap-4 min-h-0 pb-12 sm:pb-4">
+        <div className="flex-1 flex flex-col gap-3 sm:gap-4 min-h-0 pb-12 sm:pb-4 p-3 sm:p-6 bg-background text-foreground">
+            {/* 1. 상단 타이틀 헤더 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Edit className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>AI 대본 각색 및 생성</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        수집된 자막이나 아이디어를 기반으로 후킹 구조와 최적의 쇼츠 대본을 AI로 재창작 및 각색
+                    </p>
+                </div>
+            </div>
 
             {/* Zone 1: Control Bar */}
             <Card className="flex-shrink-0 border-border bg-card">

@@ -330,6 +330,19 @@ export default function SilenceRemover() {
 
     return (
         <div className="p-3 sm:p-6 pb-36 md:pb-8 space-y-3 sm:space-y-6 max-w-6xl mx-auto min-h-screen bg-background text-foreground">
+            {/* 1. 상단 타이틀 헤더 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Scissors className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>무음 구간 자동 컷팅</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        오디오의 불필요한 호흡 및 무음 구간을 50ms 단위로 초정밀 자동 컷팅하여 오디오 밀도 극대화
+                    </p>
+                </div>
+            </div>
+
             {/* Zone 1: Top Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-card p-3 sm:p-4 rounded-xl border border-border shadow-2xs gap-2.5">
                 <div className="flex flex-wrap gap-2">

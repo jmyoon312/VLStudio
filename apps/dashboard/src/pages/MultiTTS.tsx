@@ -504,6 +504,18 @@ const MultiTTS = () => {
 
     return (
         <div className="max-w-[1800px] mx-auto space-y-4 sm:space-y-6 p-3 sm:p-6 pb-40 md:pb-12 font-sans text-foreground min-h-screen bg-background">
+            {/* 1. 상단 타이틀 헤더 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Mic className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>AI 다국어 목소리 합성</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        일레븐랩스, Supertone, Edge-TTS 등 고품질 AI 음성 엔진으로 글로벌 다국어 나레이션 생성
+                    </p>
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
                 {/* Step 1: TTS Generation (Main Stage - Wider) */}

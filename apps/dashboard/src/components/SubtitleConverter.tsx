@@ -310,6 +310,19 @@ const SubtitleConverter = () => {
 
     return (
         <div className="flex flex-col h-full space-y-4 p-3 sm:p-6 pb-36 md:pb-10 bg-background text-foreground overflow-y-auto font-sans">
+            {/* 1. 상단 타이틀 헤더 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <FileText className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>AI 자막 생성 및 번역</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        음성/비디오 파일에서 Whisper 기반으로 정확한 SRT 자막을 추출하고 다국어 번역 및 타임라인 자동 정렬
+                    </p>
+                </div>
+            </div>
+
             {/* Header: File Drop Zone */}
             <div className="shrink-0">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 sm:p-3.5 bg-muted/40 border border-dashed border-border rounded-2xl shadow-2xs">
