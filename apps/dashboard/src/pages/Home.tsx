@@ -621,7 +621,7 @@ const Home = () => {
                         소재 소싱부터 대본 추출, <strong>AI 다중 영상 일괄 생성</strong>, 최종 완성본 작업 대기열 배포까지 단계별로 진행합니다.
                     </p>
 
-                    {/* 빠른 진입 필터 태그 버튼들 */}
+                    {/* 빠른 진입 필터 태그 버튼들 (모바일/데스크톱 퀵 내비게이션) */}
                     <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 pt-0.5">
                         <button 
                             onClick={() => navigate('/download')}
@@ -630,10 +630,16 @@ const Home = () => {
                             <Download className="w-3.5 h-3.5" /> 레퍼런스 수집
                         </button>
                         <button 
+                            onClick={() => navigate('/reports')}
+                            className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-500/30 transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5"
+                        >
+                            <Activity className="w-3.5 h-3.5 text-indigo-400" /> 📊 BI 리포트 관제
+                        </button>
+                        <button 
                             onClick={() => navigate('/gallery')}
                             className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5"
                         >
-                            <FolderOpen className="w-3.5 h-3.5 text-amber-500" /> 보관함 (갤러리) ({stats.total_videos}개)
+                            <FolderOpen className="w-3.5 h-3.5 text-amber-500" /> 보관함 ({stats.total_videos}개)
                         </button>
                         <button 
                             onClick={() => navigate('/creative-studio')}
@@ -645,7 +651,7 @@ const Home = () => {
                             onClick={() => navigate('/script-lab')}
                             className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5"
                         >
-                            <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> 대본 추출 & 각색
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> 대본 각색
                         </button>
                         <button 
                             onClick={() => navigate('/work-queue')}
@@ -676,38 +682,36 @@ const Home = () => {
 
             {/* [NEW] 2.5 AI 데일리 인텔리전스 브리핑 & 4대 파이프라인 펄스 (모바일/데스크톱 최적화) */}
             <div className="space-y-3">
-                {/* AI 데일리 브리핑 스마트 배너 */}
-                {latestReport && (
-                    <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-sky-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-start sm:items-center gap-3 min-w-0">
-                            <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl shrink-0 mt-0.5 sm:mt-0">
-                                <Sparkles className="w-4 h-4 animate-pulse" />
-                            </div>
-                            <div className="space-y-0.5 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-[11px] font-extrabold text-indigo-400 bg-indigo-500/15 px-2 py-0.5 rounded-md">
-                                        🤖 AI 데일리 브리핑
-                                    </span>
-                                    <span className="text-[10px] text-muted-foreground font-medium">
-                                        오늘의 생산·배포 자율 관제 요약
-                                    </span>
-                                </div>
-                                <p className="text-xs text-foreground font-semibold line-clamp-2 sm:line-clamp-1 leading-relaxed">
-                                    {getAiBriefingSnippet(latestReport?.summary_markdown)}
-                                </p>
-                            </div>
+                {/* AI 데일리 브리핑 스마트 배너 (항상 접근 가능) */}
+                <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-sky-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl shrink-0 mt-0.5 sm:mt-0">
+                            <Sparkles className="w-4 h-4 animate-pulse" />
                         </div>
-
-                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                            <button
-                                onClick={() => navigate('/reports')}
-                                className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1"
-                            >
-                                리포트 전체보기 <ArrowRight className="w-3 h-3" />
-                            </button>
+                        <div className="space-y-0.5 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[11px] font-extrabold text-indigo-400 bg-indigo-500/15 px-2 py-0.5 rounded-md">
+                                    🤖 AI 데일리 브리핑 & BI 관제
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-medium">
+                                    오늘의 생산·배포 자율 관제 및 성과 분석
+                                </span>
+                            </div>
+                            <p className="text-xs text-foreground font-semibold line-clamp-2 sm:line-clamp-1 leading-relaxed">
+                                {latestReport ? getAiBriefingSnippet(latestReport?.summary_markdown) : '오늘의 쇼츠 제작, AI 렌더링, 채널 배포 현황 및 성과 분석 리포트를 확인하세요.'}
+                            </p>
                         </div>
                     </div>
-                )}
+
+                    <div className="flex items-center gap-2 self-stretch sm:self-center shrink-0">
+                        <button
+                            onClick={() => navigate('/reports')}
+                            className="w-full sm:w-auto text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3.5 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                        >
+                            <Activity className="w-3.5 h-3.5" /> 일일 BI 리포트 관제 바로가기 <ArrowRight className="w-3 h-3" />
+                        </button>
+                    </div>
+                </div>
 
                 {/* 4대 파이프라인 실시간 KPI 미니 펄스 (모바일: 2x2 그리드, 데스크톱: 4x1 그리드) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -1191,10 +1195,10 @@ const Home = () => {
                         </button>
                         <Link 
                             to="/reports"
-                            className="w-full py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 border border-indigo-500/20 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-xs"
                         >
-                            <Activity className="w-3.5 h-3.5 text-indigo-400" />
-                            일일 BI 리포트 관제 ➔
+                            <Activity className="w-3.5 h-3.5" />
+                            📊 일일 BI 리포트 관제 ➔
                         </Link>
                     </div>
                 </div>
