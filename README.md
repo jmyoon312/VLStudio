@@ -1,330 +1,131 @@
-# ViraLoop Studio (Flow2CapCut Desktop)
+# ViraLoop Studio (VLStudio Desktop)
 
 <kbd>🇺🇸 English</kbd> <kbd>[🇰🇷 한국어](README.ko.md)</kbd>
 
-A premium desktop app that **mass-generates** images and videos with Google Flow AI and exports them to CapCut projects in one click.
+> **"From Viral Sourcing and AI Mass Generation to Multi-Channel Auto-Distribution and 24/7 Automated Live Streaming."**  
+> The premier **All-in-One Enterprise Content Automation OS** built for AI short-form creators, media networks, and automated video empires.
 
 [![Release](https://img.shields.io/github/v/release/jmyoon312/VLStudio)](https://github.com/jmyoon312/VLStudio/releases)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue)](LICENSE)
-
-## Overview
-
-Still building AI videos one shot at a time?
-
-ViraLoop Studio automates the entire AI video production pipeline. Generate images and videos with Google Flow AI (labs.google/fx), then convert them into ready-to-edit CapCut projects. Import your script, generate visuals, pick the best media per scene, and export in a single click.
-
-## Features
-
-### AI Image / Video Generation
-- **Batch image generation** — Generate 100+ AI images in a single batch via Google Flow AI, with automatic retry on errors.
-- **T2V (Text-to-Video)** — Generate video clips from text prompts (Veo 3.1).
-- **I2V (Image-to-Video)** — Convert generated images into videos.
-- **Image upscaling** — 2K / 4K upscale support.
-- **Per-scene media selection** — Automatically pick the best media among Image / T2V / I2V (priority: I2V > T2V > Image).
-
-### Reference System
-- **Character / background / style references** — Tag-based auto-matching keeps 200+ scenes visually consistent.
-- **87 style presets** — Animation, photography, film, and 8 more categories.
-- **Auto-injected style prompts** — Reference styles are automatically merged into generation prompts.
-
-### CapCut Export
-- **One-click export** — Complete project with timeline, media, subtitles, and Ken Burns animation.
-- **Direct CapCut project folder write** — No ZIP download required.
-- **Auto-launch CapCut** — The CapCut app opens automatically after export.
-- **SRT subtitles** — Multilingual subtitles included in export.
-
-### Audio / SFX Integration
-- **Audio package import** — Automatic detection of narration, voice, and SFX files.
-- **SRT timecode matching** — Audio placement aligned to subtitle timing.
-- **Multi-track timeline** — Image / subtitle / narration / voice / SFX tracks with horizontal zoom, scrub, and playhead.
-- **Expandable groups** — Voice / SFX collapse by character / category; expand sub-tracks to see individual file rows.
-- **File row mini-markers** — Each file row shows a colored bar at its clip's position so timing context is preserved when scrolling.
-- **Drag-to-adjust timecode** — Drag any voice / SFX clip to nudge its timing; persisted to `.audio_overrides.json` without touching original files.
-- **Resizable lanes** — Per-track height and label-column width are draggable, persisted to localStorage.
-- **Preview panel** — Current playhead position shows the matched scene image + SRT subtitle.
-- **Keyboard shortcuts** — `Space` play/pause, `Esc` stop and rewind.
-- **Audio review system** — Flag unsuitable audio with reason and bulk-clean tracks.
-
-### MCP Server (Claude Code integration)
-- **Built-in MCP server** — Edit scenes / references / prompts directly from Claude Code.
-- **HTTP API bridge** — Integrate with external tools (port 3210).
-- **Skill system** — Install and manage Claude Code skills; auto-installed on the app's first run.
-- **Story Engine v2** — End-to-end 9-wave pipeline from script to CapCut export.
-  - `/story-new` → Initialize an episode + discuss the topic.
-  - `/story-execute` → Run W1–W9 automatically (sub-agents + review loops, two user gates at W3/W7).
-  - `/story-step` → Run the next single wave only and exit. Manual mode — no in-wave prompts; the user reviews each wave's deliverables and re-invokes for the next.
-  - `/story-next` → Resume after interruption (delegates to `/story-execute`).
-  - `/story-rewrite` → Improve an existing episode (engagement-gap diagnosis → fork → partial wave re-run).
-
-### Sovereign Swarm Agent Network & Pluggable Brain Core
-- **Sovereign Swarm Network** — Leverages a decentralized multi-agent network (Swarm Hub) to orchestrate complex generation and editing tasks.
-- **Pluggable Cognitive Brains** — Out-of-the-box support for **OpenClaude**, **OpenHands**, and **Hermes Core** as interchangeable reasoning engines.
-- **Dynamic Model Selection** — Configure and toggle active swarm brains via the AI settings panel in real-time.
-
-### Enterprise-Grade Infrastructure Orchestration
-- **Self-Healing Backend Lifecycle** — Electron main process dynamically spawns and manages the local Python FastAPI backend server.
-- **Active Port Conflict Resolution** — Automatically detects and terminates zombie processes occupying port 8000 on startup, with safe socket recovery timing.
-- **Zero-Config Database** — Self-healing SQLite standalone storage with automatic schema synchronization, matching isolated user directory paths.
-
-### Miscellaneous
-- **Dual-view layouts** — Tab / horizontal-split / vertical-split modes.
-- **Multilingual UI** — Korean, English.
-- **Project management** — Manage multiple projects independently, backed by `project.json`.
-- **Flexible input formats** — Import TXT, CSV, and SRT files.
-
-## Tech Stack
-
-| Category | Technology |
-|----------|-----------|
-| **Frontend** | React 18 + Vite 6 |
-| **Desktop** | Electron 36 |
-| **AI Engine** | Google Flow AI (labs.google/fx) |
-| **Backend** | Firebase (Auth, Firestore, Cloud Functions) |
-| **MCP** | @modelcontextprotocol/sdk |
-| **Payments** | Lemon Squeezy |
-| **Build** | electron-builder (DMG, ZIP, NSIS, APPX) |
-| **Testing** | Vitest |
-
-## Architecture
-
-```
-Electron BrowserWindow
-├── [Layout Mode] — Tab / horizontal-split / vertical-split (Shell.jsx)
-│
-├── [App View] — React (BrowserWindow webContents)
-│   ├── Header — project picker, Export, Settings
-│   ├── PromptInput — prompt entry
-│   ├── SceneList — scene list (image / video / subtitle)
-│   ├── ReferencePanel — reference management
-│   ├── AudioPanel — audio / SFX import
-│   └── StatusBar — generation progress
-│
-├── [Flow View] — WebContentsView (labs.google/fx/tools/whisk)
-│   └── Google login + Flow AI embedded browser
-│
-└── [MCP Server] — stdio + HTTP (port 3210)
-    └── Scene / reference / style / audio management tools
-```
-
-### IPC Namespaces
-
-| Namespace | Role | File |
-|-----------|------|------|
-| `fs:*` | File I/O | `electron/ipc/filesystem.js` |
-| `flow:*` | Flow API (token, image / video generation) | `electron/ipc/flow-api.js` |
-| `flow:dom-*` | DOM automation (prompt injection, generation triggers) | `electron/ipc/dom.js` |
-| `flow:video-*` | Video generation (T2V, I2V, upscale) | `electron/ipc/video.js` |
-| `capcut:*` | CapCut path detection, project write, app launch | `electron/ipc/capcut.js` |
-| `auth:*` | Google OAuth | `electron/ipc/auth.js` |
-
-### Video Generation Pipeline (3-Phase Async)
-
-```
-Phase 1: Submit     → Submit video requests sequentially (7–15s interval)
-Phase 2: Poll       → Poll all generationIds in parallel (up to 20 min)
-Phase 3: Download   → Download + save completed videos sequentially
-```
-
-## Project Structure
-
-```
-VLStudio/
-├── electron/                    # Electron main process
-│   ├── main.js                 # Main process + WebContentsView management
-│   ├── preload.js              # Context bridge (window.electronAPI)
-│   └── ipc/                    # IPC handlers
-│       ├── filesystem.js       # File I/O
-│       ├── flow-api.js         # Flow API (image / video generation)
-│       ├── dom.js              # DOM automation (prompt injection, generation)
-│       ├── video.js            # Video (T2V, I2V, upscale)
-│       ├── capcut.js           # CapCut path detection, project write
-│       ├── auth.js             # Google OAuth
-│       └── shared.js           # Shared utilities
-│
-├── apps/                        # Monorepo Workspace Applications
-│   ├── dashboard/              # React dashboard (frontend control UI)
-│   ├── api/                    # Python FastAPI local server (auth, Fernet, uvicorn spawns)
-│   └── swarm/                  # Sovereign agent swarm (cleaned up to 21 active files)
-│
-├── docs/                       # Documentation (schemas, store descriptions, ...)
-├── tests/                      # Vitest unit + integration tests (mirrors src/)
-├── scripts/                    # Build helpers (electron name patch, build-number bump, ...)
-├── assets/                     # App icons (icon.icns, icon.png)
-├── public/                     # Static assets (style thumbnails)
-├── vite.config.js
-└── package.json
-```
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm
-- Google account (for Flow AI access)
-- CapCut desktop app
-
-### Install
-
-```bash
-git clone https://github.com/jmyoon312/VLStudio.git
-cd VLStudio
-npm install
-```
-
-### Develop
-
-```bash
-# Dev mode (test environment — uses _test GCF)
-npm run dev
-
-# Dev mode (prod environment — uses _prod GCF)
-npm run dev:prod
-```
-
-### Build
-
-```bash
-# macOS distribution (DMG + ZIP, code-signed + notarized)
-npm run dist:mac
-
-# Windows distribution (NSIS + ZIP + APPX, Certum OV code-signed)
-npm run dist:win
-
-# Windows individual targets
-npm run dist:win:nsis    # For website download (.exe, code-signed)
-npm run dist:win:appx    # For MS Store (.appx)
-
-# Linux distribution (AppImage + deb)
-npm run dist:linux
-
-# Test-environment distribution
-npm run dist:test:mac
-npm run dist:test:win
-
-# Packaging test (no installers)
-npm run pack
-```
-
-> **Windows code signing**: If SimplySign Desktop is connected during build, the binary is signed automatically (Certum OV certificate).
-
-Build artifacts are written to the `release/` directory.
-
-### Test
-
-```bash
-npm test              # Watch mode
-npm run test:run      # One-shot run
-npm run test:coverage # Coverage report
-```
-
-Tests live in `tests/` and mirror the `src/` directory layout (Vitest + jsdom + @testing-library/react).
-
-### Environment Separation (test / prod)
-
-Cloud Functions are deployed with `_test` / `_prod` suffixes.
-
-| Script | Environment | GCF suffix |
-|--------|-------------|------------|
-| `npm run dev` | test | `_test` |
-| `npm run dev:prod` | prod | `_prod` |
-| `npm run dist:mac` / `dist:win` | prod | `_prod` |
-| `npm run dist:test:mac` / `dist:test:win` | test | `_test` |
-
-## How to Use
-
-1. Launch the app and sign in to Google from the **Flow tab**.
-2. Switch to the **App tab**.
-3. Enter prompts (type directly, or import from TXT / CSV / SRT).
-4. Configure reference images (character, background, style tags).
-5. Click **Generate Images** to start batch generation.
-6. (Optional) **Generate videos** via T2V or I2V.
-7. Click **Export** — the CapCut project is written to disk and CapCut launches automatically.
-
-## MCP Server
-
-Edit ViraLoop Studio scenes / references / prompts directly from Claude Code.
-
-### Key Tools
-
-| Tool | Description |
-|------|-------------|
-| `load_csv` | Load a CSV file + images |
-| `list_scenes` / `get_scene` | Query scenes |
-| `update_prompt` / `batch_update_prompts` | Edit prompts |
-| `list_references` / `update_reference_prompt` | Manage references |
-| `list_problem_scenes` | Filter problem scenes |
-| `list_styles` | Browse style presets |
-| `export_capcut` | Export to CapCut |
-| `install_skill` / `list_skills` | Manage skills |
-| `get_progress` | Read `W_progress.json` (sub-agents write it directly via file I/O) |
-| `app_generate_scene` / `app_start_scene_batch` | App-integrated generation |
-
-### HTTP API
-
-When the HTTP server is enabled in settings (default port 3210):
-
-```
-GET  /api/current-project  — Current project state
-POST /api/scenes           — Query scenes
-POST /api/references       — Query references
-POST /api/generate         — Trigger image generation
-```
-
-## Quick Start & One-Click Setup
-
-No need to manually install dependencies (Node.js, Python, etc.) on clean Windows machines. Everything is handled automatically.
-
-### 📥 1. Download
-- **Via Git**:
-  ```bash
-  git clone https://github.com/jmyoon312/VLStudio.git
-  cd VLStudio
-  ```
-- **Direct Download**: Click **`Code` → `Download ZIP`** on GitHub and extract to any directory.
-
-### ⚙️ 2. One-Click Environment Setup (First time only)
-- Right-click **`setup_install.bat`** in the extracted directory and choose **[Run as administrator]**.
-- Node.js LTS, Python 3.11, backend libraries, and firewall rules will be automatically installed in silent mode, and a **"ViraLoop Studio" desktop shortcut** will be created.
-
-### 🚀 3. Run & Update
-- **Launch**: Double-click the **`ViraLoop Studio`** desktop shortcut (or `ViraLoop Studio.bat`).
-- **Instant Update**: Double-click **`Update.bat`** to pull and sync the latest updates in 1 second.
+[![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078d4)](https://microsoft.com/windows)
+[![AI Engines](https://img.shields.io/badge/AI-Google%20Flow%20%7C%20Veo%203.1%20%7C%20Claude%20%7C%20Gemini-orange)](#)
 
 ---
 
-## Web Browser & LAN Access
+## 🚀 30-Second Zero-Config Automated Installation
 
-When the app is running, access the dashboard from Chrome or your local network:
-- **Local Web**: `http://localhost:5183`
-- **LAN Access**: `http://192.168.45.228:5183`
-- **Nginx Proxy Manager**: Supports external domain routing (e.g. `viraloop.gogloo.gleeze.com`)
+No prior setup required. Even on a freshly installed Windows 11 machine without Git, Node.js, or Python, you can deploy ViraLoop Studio with **a single terminal command**.
 
-## Downloads
+### Option 1. One-Line PowerShell Command (Fastest ⚡)
+**Right-click Start Button → Open [Terminal] or [PowerShell]**, paste the following command, and press Enter:
+```powershell
+irm https://raw.githubusercontent.com/jmyoon312/VLStudio/main/install.ps1 | iex
+```
 
-- **Source & Smart Launcher**: [github.com/jmyoon312/VLStudio](https://github.com/jmyoon312/VLStudio)
-- **Archived Installers**: [GitHub Releases](https://github.com/jmyoon312/VLStudio/releases)
+### Option 2. One-Click Batch Installer 💾
+1. Download [`OneClick_Install.bat`](https://raw.githubusercontent.com/jmyoon312/VLStudio/main/OneClick_Install.bat) from this repository.
+2. Double-click `OneClick_Install.bat` (Run as Administrator).
 
-## Links
-
-- **Repository**: [github.com/jmyoon312/VLStudio](https://github.com/jmyoon312/VLStudio)
-- **Developer**: ViraLoopMedia
-
-## License
-
-Copyright (C) 2026 ViraLoopMedia
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the **GNU Affero General Public License v3** as published by the
-Free Software Foundation. See [LICENSE](LICENSE) for the full text.
-
-> **What this means**: you are free to use, modify, and self-host ViraLoop Studio.
-> If you distribute a modified version — including running it as a hosted
-> network service — your changes must also be released under AGPL v3.
-
-Contributions are accepted under the same AGPL v3 license — see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+> 💡 **What is automatically provisioned**:
+> - Git source synchronization & zero-downtime updates
+> - Node.js LTS & Python 3.11 silent installation
+> - Pre-bundled FFmpeg 6.0+, yt-dlp, and Android ADB tooling
+> - Port conflict auto-resolution, Windows Firewall rules, and desktop shortcut generation.
 
 ---
 
-*Disclaimer: ViraLoop Studio is an independent product developed by ViraLoopMedia and is not affiliated with, endorsed by, or sponsored by Google or ByteDance (CapCut).*
+## 💎 The 4 Core End-to-End Pipelines
+
+ViraLoop Studio is not just a video editor. It seamlessly unifies **Trend Sourcing ➔ AI Batch Creation ➔ Multi-Channel Growth & Stealth Distribution ➔ 24/7 Virtual Live Streaming** into a single, high-performance desktop workstation.
+
+```mermaid
+flowchart LR
+    subgraph SOURCING ["1. 📊 Trend Sourcing & Intelligence"]
+        A1["Target Channel Watcher"] --> A2["Douyin Shorts Scraper"]
+        A2 --> A3["Viral Video Vault"]
+        A3 --> A4["Script Intelligence Lab"]
+    end
+
+    subgraph CREATION ["2. 🎬 AI Creative Studio"]
+        B1["Flow AI Video Renderer"] --> B2["AI Script Writer & Re-Hook"]
+        B2 --> B3["10s One-Click Shorts Engine"]
+        B3 --> B4["Swarm Agent Studio"]
+    end
+
+    subgraph OPERATION ["3. 📈 Channel Growth & Automation"]
+        C1["Shorts Auto-Distribution"] --> C2["Stealth Account Warmup"]
+        C2 --> C3["Daily BI Intelligence"]
+    end
+
+    subgraph LIVE ["4. 📡 Virtual Live Center"]
+        D1["Live Scene Designer"] --> D2["24/7 Autonomous Streamer (Portable OBS)"]
+    end
+
+    SOURCING --> CREATION --> OPERATION --> LIVE
+```
+
+---
+
+### 1. 📊 Trend Sourcing & Intelligence Pipeline
+Track viral anomalies in real-time and extract high-engagement blueprints.
+
+* **Target Channel Auto-Collection (`/channels`)**: 24/7 automated monitoring of global benchmark YouTube/TikTok channels with instant media/script ingestion.
+* **Douyin Shorts Scraper (`/douyin-search`)**: Automated seed keyword expansion scraping hundreds of trending Chinese short-form videos with instant subtitle mapping.
+* **Direct URL Downloader (`/download`)**: Lossless high-speed batch downloads from 15+ video platforms (YouTube, Reels, TikTok, Douyin, Kuaishou).
+* **Viral Video Vault (`/gallery`)**: Velocity/EV Score ranking, S/A/B classification, and interactive viral growth curve analytics.
+* **Script Intelligence Lab (`/script-lab`)**: Whisper AI speech-to-text extraction, 3-second hook decomposition, and AI sentiment analysis.
+
+---
+
+### 2. 🎬 AI Creative Studio Pipeline
+Transform raw ideas and viral blueprints into broadcast-quality short-form videos.
+
+* **Flow AI Video Renderer (`/flow2capcut`)**: Mass-generate 100+ AI images/videos via Google Flow AI (Veo 3.1) and **export directly into native CapCut project files** with Ken Burns animations and subtitles.
+* **AI Script Writer & Re-Hook (`/script-writer`)**: Multi-LLM engine (Claude, Gemini, Groq, Llama) rewriting raw scripts into high-retention short-form scripts.
+* **10s One-Click Shorts Engine (`/ddalkkak`)**: Instant subtitle transcription, AI voice dubbing, and clip trimming in under 10 seconds.
+* **Swarm Agent Studio (`/agent-studio`)**: Autonomous multi-agent network (Planners, Screenwriters, Visual Directors) collaboratively generating full video episodes.
+* **Smart Scene Cutter (`/scene-cutter-pro`)**: Rapid timeline-based scene partitioning for long-form video repurposing.
+* **AI Multilingual Voice Synth (`/multi-tts`)**: ElevenLabs, Supertone, and Edge-TTS voice cloning and multilingual narration.
+* **Smart Silence Remover (`/silence-remover`)**: 50ms-precision breath and silence auto-trimming for maximum audio density.
+* **AI Object & Watermark Remover (`/remover`)**: AI-powered inpainting to erase logos, watermarks, and unwanted elements.
+
+---
+
+### 3. 📈 Channel Growth & Stealth Automation
+Scale hundreds of channels without fear of shadowbans or chain suspensions.
+
+* **Shorts Auto-Distribution (`/work-queue`)**: Pixeling metadata parser scheduling and publishing videos to YouTube Shorts, TikTok, and Instagram Reels.
+* **Stealth Account Warmup & Incubator (`/incubator`)**: 
+  * Isolated browser profiles paired with dual LTE clean proxies to **prevent multi-account correlation bans**.
+  * 7-stage humanized warmup activity (viewing, scrolling, commenting) boosting channel trust scores.
+* **Daily BI Intelligence Reports (`/reports`)**: Unified enterprise reporting covering sourcing volumes, rendering queues, distribution velocity, and subscriber gains.
+
+---
+
+### 4. 📡 Virtual Live Center (24/7 Autonomous Live Streaming)
+Run non-stop 24/7 automated YouTube and TikTok live streams without keeping heavy desktop GUIs open.
+
+* **Live Scene Designer (`/live-studio`)**: Multi-layer canvas editor for Lofi video loops, widgets, real-time clocks, and AI ticker overlays.
+* **24/7 Autonomous Live Streamer (`/station-manager`)**:
+  * **Portable OBS Multi-Instance Isolation** (`C:\ViraLoopMedia\OBS Program\OBS_Channel_...`).
+  * **OBS-WebSocket v5 Remote Orchestration**: One-click stream starts/stops, real-time FPS/bitrate/CPU telemetry.
+  * **Auto-Healing Watchdog Engine**: Recovers crashed processes or lost connections within 5 seconds for 365-day uninterrupted uptime.
+
+---
+
+## 🛠️ Technical Architecture
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Frontend UI** | React 18, Vite 6, Tailwind CSS, Radix UI, Lucide Icons, Recharts |
+| **Desktop Shell** | Electron 36, Node.js LTS, Native IPC Bridge |
+| **Backend Core** | Python 3.11, FastAPI, Celery, SQLite (Zero-Config Self-Healing) |
+| **AI & Video Engines** | Google Flow AI (Veo 3.1), Whisper AI, FFmpeg 6.0+, PyTorch, OpenCV |
+| **Automation & Stealth** | Patchright, CloakBrowser Profiles, LTE Dual Proxy Router, OBS-WebSocket v5 |
+| **Protocols & LLM** | Model Context Protocol (MCP), Anthropic Claude, Google Gemini, Groq |
+
+---
+
+## 📖 License
+
+This project is licensed under the [AGPL-3.0 License](LICENSE).
