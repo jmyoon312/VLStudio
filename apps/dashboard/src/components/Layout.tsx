@@ -54,6 +54,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCachedAvatar } from '../features/flow2capcut/hooks/useCachedAvatar';
 import { createPortalSession } from '@/firebase/functions';
 import MultiWindowController from './MultiWindowController';
+import { ProfileManagerModal } from './Account/ProfileManagerModal';
 
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
@@ -103,10 +104,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         syncViewsAndProfiles();
     }, []);
 
-    const { user, subscription, logout } = useAuth();
+    const { user, subscription, logout, activeProfile } = useAuth();
     const { avatarSrc: cachedAvatarSrc } = useCachedAvatar(user?.photoURL);
     const [avatarFetchFailed, setAvatarFetchFailed] = React.useState(false);
     const [accountOpen, setAccountOpen] = React.useState(false);
+    const [profileManagerOpen, setProfileManagerOpen] = React.useState(false);
     const [portalLoading, setPortalLoading] = React.useState(false);
 
     const handleAvatarError = () => {
@@ -440,25 +442,30 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 {/* Sidebar Bottom: User Profile Card & Theme Toggle (Pixeling Style) */}
                 <div className="p-3 border-t border-sidebar-border shrink-0 space-y-2 pb-[calc(env(safe-area-inset-bottom)+12px)]">
                     {/* User Account Info Box */}
-                    <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-border/80 shadow-2xs">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-primary/20 text-primary font-extrabold text-xs flex items-center justify-center shrink-0 border border-primary/30">
-                                {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'G'}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-primary/50 transition-all">
+                        <button
+                            type="button"
+                            onClick={() => setProfileManagerOpen(true)}
+                            className="flex items-center gap-2.5 min-w-0 text-left flex-1 group"
+                            title="계정 및 PIN 번호 관리"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-primary/15 text-base flex items-center justify-center shrink-0 border border-primary/30 group-hover:scale-105 transition-transform">
+                                {activeProfile?.avatar || '👤'}
                             </div>
                             <div className="min-w-0 flex-1 hide-on-slim">
                                 <div className="flex items-center gap-1.5">
-                                    <p className="text-xs font-bold text-foreground truncate">
-                                        {user?.displayName || 'GoGlobal'}
+                                    <p className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
+                                        {activeProfile?.name || user?.displayName || 'GoGlobal'}
                                     </p>
-                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
+                                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-primary/15 text-primary">
                                         PRO
                                     </span>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground truncate">
-                                    {user?.email || 'go-global@naver.com'}
+                                <p className="text-[10px] text-muted-foreground truncate font-mono">
+                                    {activeProfile?.role === 'admin' ? '마스터 관리자' : activeProfile?.role === 'creator' ? '숏폼 기획팀' : '배포 에이전트'}
                                 </p>
                             </div>
-                        </div>
+                        </button>
                         <button
                             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
@@ -469,6 +476,12 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     </div>
                 </div>
             </aside>
+
+            {/* Profile & PIN Management Dialog */}
+            <ProfileManagerModal
+                open={profileManagerOpen}
+                onOpenChange={setProfileManagerOpen}
+            />
 
 
             {/* Main Content Area */}

@@ -1,281 +1,267 @@
 /**
- * Authentication Context
- *
- * Firebase 인증 상태를 앱 전체에서 사용할 수 있도록 제공
+ * ViraLoop Universal Authentication & Profile Context
+ * 
+ * 1. ViraLoop 자체 간편 프로필 & PIN 관리 (스마트폰 & PC 완벽 호환)
+ * 2. Flow AI 비디오 렌더러 (flow2capcut) 원본 인터페이스 100% 호환 브릿징
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
-import {
-  signInWithGoogle,
-  signOut,
-  onAuthChange,
-  initializeUser
-} from '../firebase'
-import {
-  getAppDoc,
-  calculateTrialStatus
-} from '../firebase/firestore'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 
-const IS_DEV = import.meta.env.DEV
-// Bypass auth in all deployment contexts for seamless self-hosted and mobile operation
-const IS_ELECTRON = typeof window !== 'undefined' && !!window.electronAPI
-const VITE_DEV_BYPASS_AUTH = true
+const PROFILES_STORAGE_KEY = 'viraloop_auth_profiles_v1'
+const SESSION_STORAGE_KEY = 'viraloop_active_session_v1'
 
-const DEV_MOCK_USER = Object.freeze({
-  uid: 'dev-bypass-user',
-  email: 'dev@viraloop.local',
-  displayName: 'Dev User',
-  photoURL: '',
-  emailVerified: true,
-  isAnonymous: false,
-  getIdToken: async () => 'dev-mock-token',
-  toJSON: () => ({ uid: 'dev-bypass-user' }),
-})
+const DEFAULT_PROFILES = [
+  {
+    id: 'master',
+    name: '윤대표 (Master)',
+    role: 'admin',
+    pin: '1234',
+    avatar: '👑',
+    email: 'master@viraloop.local',
+    description: '전체 시스템 및 파이프라인 총괄 관리',
+    isPro: true,
+    requirePin: true
+  },
+  {
+    id: 'creator',
+    name: '숏폼 기획팀',
+    role: 'creator',
+    pin: '1234',
+    avatar: '🎬',
+    email: 'creator@viraloop.local',
+    description: '소재 발굴, 대본 및 AI 영상 제작',
+    isPro: true,
+    requirePin: true
+  },
+  {
+    id: 'agent',
+    name: '자동 배포 에이전트',
+    role: 'agent',
+    pin: '',
+    avatar: '🤖',
+    email: 'agent@viraloop.local',
+    description: '다채널 스텔스 업로드 및 성과 관제',
+    isPro: true,
+    requirePin: false // 원클릭 무패스워드 입장
+  }
+]
 
-const DUMMY_USER_DATA = Object.freeze({
-  id: 'viraloop',
-  createdAt: new Date().toISOString(),
-})
-
-const DEV_SUBSCRIPTION = Object.freeze({
+const PRO_SUBSCRIPTION = Object.freeze({
   isActive: true,
   canExport: true,
   exportsRemaining: Infinity,
   daysRemaining: Infinity,
   isExpired: false,
-  status: 'active',
+  status: 'active'
 })
 
 const AuthContext = createContext(null)
 
-// 사용자 미인증/사인아웃 상태
-const SUBSCRIPTION_NONE = Object.freeze({
-  isActive: false,
-  canExport: false,
-  exportsRemaining: 0,
-  daysRemaining: 0,
-  isExpired: true,
-  status: 'none'
-})
-
-// 사용자가 막 바뀌어 Firestore 응답을 기다리는 상태.
-// canExport: false 로 강제하여 이전 사용자의 권한이 새 사용자에게 새지 않도록 한다.
-// (status='none'으로 두지 않는 이유: UI가 '만료'처럼 보이게 만들지 않기 위함)
-const SUBSCRIPTION_LOADING = Object.freeze({
-  isActive: false,
-  canExport: false,
-  exportsRemaining: 0,
-  daysRemaining: 0,
-  isExpired: false,
-  status: 'loading'
-})
-
-// Firestore 조회 실패 — terminal 상태.
-// loading 에 영구 고정되면 useExport 가 silent return 해서 사용자가 dead-end 에 갇힌다.
-// catch 분기에서 이 상태로 전환하여 호출자가 재시도 / 에러 UI 를 띄울 기회를 준다.
-// (isExpired: true — 'error' 분기를 모르는 옛 UI 가 만료처럼 보이게 해 export 차단은 유지)
-const SUBSCRIPTION_ERROR = Object.freeze({
-  isActive: false,
-  canExport: false,
-  exportsRemaining: 0,
-  daysRemaining: 0,
-  isExpired: true,
-  status: 'error'
-})
-
-/**
- * AuthProvider - 인증 상태 관리 Provider
- */
 export function AuthProvider({ children }) {
-  // 인증 상태
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [profiles, setProfiles] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PROFILES_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch (e) {
+      console.warn('[AuthContext] Failed to load saved profiles, using defaults:', e)
+    }
+    return DEFAULT_PROFILES
+  })
+
+  const [activeProfile, setActiveProfile] = useState(() => {
+    try {
+      const savedSession = localStorage.getItem(SESSION_STORAGE_KEY) || sessionStorage.getItem(SESSION_STORAGE_KEY)
+      if (savedSession) {
+        const session = JSON.parse(savedSession)
+        if (session && session.profileId) {
+          const savedProfiles = JSON.parse(localStorage.getItem(PROFILES_STORAGE_KEY) || 'null') || DEFAULT_PROFILES
+          const matched = savedProfiles.find(p => p.id === session.profileId)
+          if (matched) return matched
+        }
+      }
+    } catch (e) {
+      console.warn('[AuthContext] Session restore error:', e)
+    }
+    // 기본적으로 첫 접속 시 master 프로필 자동 세션 부여 (원터치)
+    return DEFAULT_PROFILES[0]
+  })
+
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const loginInProgressRef = useRef(false)  // 로그인 진행 중 플래그 (onAuthChange에서 loading 리셋 방지)
 
-  // 사용자 데이터 (Firestore)
-  const [userData, setUserData] = useState(null)
-  const [subscription, setSubscription] = useState(SUBSCRIPTION_NONE)
-
-  // 진행 중인 fetch 의 stale 응답을 가려내기 위한 토큰.
-  // 모든 auth 변경(sign-in/out/switch) 즉시 ++ 되어 in-flight 응답을 무효화한다.
-  // 추가로 fetchUserData 진입 시점에도 ++ 하여 동일 사용자의 동시 refresh 를 가린다.
-  const fetchTokenRef = useRef(0)
-
-  // 현재 사용자의 uid — fetchUserData 응답이 도착했을 때 여전히 같은 사용자인지 확인용.
-  // token 만으로도 충분하지만, 동일 token 라이프타임 내 race 를 방어하는 belt-and-suspenders.
-  const currentUidRef = useRef(null)
-
-  // Firebase Auth 상태 변화 감지
-  useEffect(() => {
-    if (VITE_DEV_BYPASS_AUTH) {
-      console.log('[AuthContext] DEV_BYPASS_AUTH: injecting mock user')
-      setUser(DEV_MOCK_USER)
-      setUserData(DUMMY_USER_DATA)
-      setSubscription(DEV_SUBSCRIPTION)
-      setLoading(false)
-      return
-    }
-
-    const unsubscribe = onAuthChange((firebaseUser) => {
-      console.log('[AuthContext] Auth state changed:', firebaseUser?.email)
-
-      fetchTokenRef.current += 1
-      currentUidRef.current = firebaseUser?.uid ?? null
-
-      setUser(firebaseUser)
-
-      if (!loginInProgressRef.current) {
-        setLoading(false)
-      }
-
-      if (!firebaseUser) {
-        setUserData(null)
-        setSubscription(SUBSCRIPTION_NONE)
-      }
-    })
-
-    return () => unsubscribe()
-  }, [])
-
-  // Firestore 1회 fetch — 실시간 리스너 X (read 비용 절감).
-  // 변경이 필요한 시점(결제, export 후)엔 refreshSubscription()으로 명시적 재조회.
-  //
-  // source semantics:
-  //   - 'default' (mount/login): 일반 조회 — online 이면 server, offline 이면 cache.
-  //   - 'server'  (refresh):     server 강제 조회. export 직후 GCF 가 트랜잭션으로
-  //                              갱신한 quota/exportCount 를 정확히 받아오기 위함.
-  //                              offline 시 throw 하므로 호출자가 catch 책임.
-  const fetchUserData = useCallback(async (uid, { source = 'default' } = {}) => {
-    const myToken = ++fetchTokenRef.current
+  // 프로필 목록 로컬스토리지 저장
+  const persistProfiles = useCallback((newProfiles) => {
+    setProfiles(newProfiles)
     try {
-      const data = await getAppDoc(uid, { source })
-      // Stale 응답 폐기 조건 — 둘 중 하나라도 깨지면 무시:
-      //   1) auth 변경 / 다른 fetch 시작으로 token 이 바뀌었거나
-      //   2) 동일 token 라이프타임 내라도 현재 사용자의 uid 가 바뀌었거나
-      if (myToken !== fetchTokenRef.current) return null
-      if (uid !== currentUidRef.current) return null
-      setUserData(data)
-      setSubscription(calculateTrialStatus(data))
-      // 이전 fetch 가 실패해 setError 가 살아있을 수 있다 — 성공 시 자동 클리어.
-      // (clearError() 가 호출되기 전까지 stale error 가 UI 에 남는 회귀 방지)
-      setError(null)
-      return data
-    } catch (err) {
-      if (myToken !== fetchTokenRef.current) return null
-      if (uid !== currentUidRef.current) return null
-      console.error('[AuthContext] Firestore error:', err)
-      setError(err.message)
-      // SUBSCRIPTION_LOADING 에 영구 고정되면 useExport 가 silent return 해서 dead-end 가 된다.
-      // terminal 상태(SUBSCRIPTION_ERROR)로 전환해 호출자(useExport 등)가 재시도/에러 UI 띄울 수 있게 함.
-      setSubscription(SUBSCRIPTION_ERROR)
-      throw err
+      localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(newProfiles))
+    } catch (e) {
+      console.error('[AuthContext] Failed to persist profiles:', e)
     }
   }, [])
 
-  useEffect(() => {
-    if (!user?.uid) return
+  // Flow2CapCut 호환 가상 User 객체
+  const user = activeProfile ? {
+    uid: activeProfile.id,
+    email: activeProfile.email,
+    displayName: activeProfile.name,
+    photoURL: '',
+    emailVerified: true,
+    isAnonymous: false,
+    getIdToken: async () => `viraloop-token-${activeProfile.id}`,
+    toJSON: () => ({ uid: activeProfile.id, email: activeProfile.email, displayName: activeProfile.name })
+  } : null
 
-    if (user.uid === 'dev-bypass-user') return
+  const isAuthenticated = !!activeProfile
 
-    setUserData(null)
-    setSubscription(SUBSCRIPTION_LOADING)
+  // 로그인 (프로필 + PIN 검증)
+  const loginWithProfile = useCallback(async (profileId, enteredPin = '', rememberMe = true) => {
+    setLoading(true)
+    setError(null)
 
-    fetchUserData(user.uid).catch(() => {
-    })
-
-  }, [user?.uid, fetchUserData])
-
-  // Google 로그인
-  const login = useCallback(async () => {
     try {
-      loginInProgressRef.current = true
-      setLoading(true)
-      setError(null)
+      const target = profiles.find(p => p.id === profileId)
+      if (!target) {
+        throw new Error('선택한 프로필을 찾을 수 없습니다.')
+      }
 
-      const result = await signInWithGoogle()
+      if (target.requirePin && target.pin) {
+        if (target.pin !== enteredPin) {
+          throw new Error('PIN 번호가 일치하지 않습니다.')
+        }
+      }
 
-      // 사용자 초기화 (첫 로그인 시 Firestore 문서 생성)
-      await initializeUser()
+      setActiveProfile(target)
 
-      return result
+      if (rememberMe) {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+          profileId: target.id,
+          loginAt: new Date().toISOString()
+        }))
+      } else {
+        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+          profileId: target.id,
+          loginAt: new Date().toISOString()
+        }))
+      }
+
+      return target
     } catch (err) {
-      console.error('[AuthContext] Login error:', err)
       setError(err.message)
       throw err
     } finally {
-      loginInProgressRef.current = false
       setLoading(false)
     }
-  }, [])
+  }, [profiles])
 
   // 로그아웃
   const logout = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      await signOut()
-    } catch (err) {
-      console.error('[AuthContext] Logout error:', err)
-      setError(err.message)
-      throw err
-    } finally {
-      setLoading(false)
-    }
+    setActiveProfile(null)
+    localStorage.removeItem(SESSION_STORAGE_KEY)
+    sessionStorage.removeItem(SESSION_STORAGE_KEY)
   }, [])
 
-  // 에러 클리어
-  const clearError = useCallback(() => {
-    setError(null)
-  }, [])
+  // PIN 번호 변경
+  const changePin = useCallback((profileId, oldPin, newPin) => {
+    const target = profiles.find(p => p.id === profileId)
+    if (!target) throw new Error('프로필을 찾을 수 없습니다.')
 
-  // 구독 정보 새로고침 — server 강제 조회로 export 직후 GCF 갱신값을 정확히 반영.
-  // (cache fallback 가능성을 차단하기 위해 source: 'server')
-  // await 하면 최신 상태가 반영된 시점이 보장된다.
-  const refreshSubscription = useCallback(async () => {
-    if (user?.uid) {
-      return await fetchUserData(user.uid, { source: 'server' })
+    if (target.requirePin && target.pin && target.pin !== oldPin) {
+      throw new Error('기존 PIN 번호가 올바르지 않습니다.')
     }
-    return null
-  }, [user?.uid, fetchUserData])
 
-  // 외부 결제/환불/포털 작업 후 앱 복귀 시 자동으로 subscription 재조회.
-  // PaywallModal handleUpgrade → window.open(checkout URL, '_blank') → 사용자가 브라우저에서 결제
-  // → Lemon Squeezy webhook → Firestore 업데이트 → 사용자 앱 복귀.
-  // 이전엔 앱이 fetch를 안 해 stale 상태였음(체험판 뱃지 그대로). focus 이벤트로 자동 fetch.
-  // 5초 미만 blur는 alt-tab 등 무의미 — 5초 이상 unfocused 후 복귀 시에만 refresh (read 비용 절감).
-  useEffect(() => {
-    if (!user?.uid) return
-    let lastBlur = 0
-    const onBlur = () => { lastBlur = Date.now() }
-    const onFocus = () => {
-      if (Date.now() - lastBlur > 5000) {
-        refreshSubscription().catch(err => console.warn('[AuthContext] focus refresh failed:', err?.message))
+    if (newPin && newPin.length < 4) {
+      throw new Error('PIN 번호는 최소 4자리 이상이어야 합니다.')
+    }
+
+    const updated = profiles.map(p => {
+      if (p.id === profileId) {
+        return {
+          ...p,
+          pin: newPin,
+          requirePin: !!newPin
+        }
       }
+      return p
+    })
+
+    persistProfiles(updated)
+    if (activeProfile?.id === profileId) {
+      setActiveProfile(prev => ({ ...prev, pin: newPin, requirePin: !!newPin }))
     }
-    window.addEventListener('blur', onBlur)
-    window.addEventListener('focus', onFocus)
-    return () => {
-      window.removeEventListener('blur', onBlur)
-      window.removeEventListener('focus', onFocus)
+    return true
+  }, [profiles, activeProfile, persistProfiles])
+
+  // 새 프로필 추가
+  const addProfile = useCallback((profileData) => {
+    const newId = `profile_${Date.now()}`
+    const newProfile = {
+      id: newId,
+      name: profileData.name || '새 작업자',
+      role: profileData.role || 'creator',
+      pin: profileData.pin || '',
+      avatar: profileData.avatar || '👤',
+      email: `${newId}@viraloop.local`,
+      description: profileData.description || 'ViraLoop 사용자',
+      isPro: true,
+      requirePin: !!profileData.pin
     }
-  }, [user?.uid, refreshSubscription])
+
+    const updated = [...profiles, newProfile]
+    persistProfiles(updated)
+    return newProfile
+  }, [profiles, persistProfiles])
+
+  // 프로필 삭제
+  const deleteProfile = useCallback((profileId) => {
+    if (profiles.length <= 1) {
+      throw new Error('최소 1개의 관리자 프로필은 유지되어야 합니다.')
+    }
+
+    const updated = profiles.filter(p => p.id !== profileId)
+    persistProfiles(updated)
+
+    if (activeProfile?.id === profileId) {
+      setActiveProfile(updated[0])
+    }
+  }, [profiles, activeProfile, persistProfiles])
+
+  // Flow2CapCut 호환 구독 새로고침
+  const refreshSubscription = useCallback(async () => {
+    return PRO_SUBSCRIPTION
+  }, [])
+
+  // Flow2CapCut 호환 기본 로그인 (첫 번째 프로필 또는 master로 즉시 연결)
+  const login = useCallback(async () => {
+    if (profiles.length > 0) {
+      return loginWithProfile(profiles[0].id, profiles[0].pin || '')
+    }
+  }, [profiles, loginWithProfile])
+
+  const clearError = useCallback(() => setError(null), [])
 
   const value = {
-    // 상태
+    // ViraLoop 프로필 체계
+    profiles,
+    activeProfile,
+    loginWithProfile,
+    changePin,
+    addProfile,
+    deleteProfile,
+
+    // Flow2CapCut & 상위 앱 호환 인터페이스
     user,
-    userData,
-    subscription,
+    isAuthenticated,
+    subscription: PRO_SUBSCRIPTION,
     loading,
     error,
-    isAuthenticated: !!user,
-
-    // 액션
     login,
     logout,
+    refreshSubscription,
     clearError,
-    refreshSubscription
+    userData: { id: activeProfile?.id || 'viraloop', name: activeProfile?.name }
   }
 
   return (
@@ -285,16 +271,11 @@ export function AuthProvider({ children }) {
   )
 }
 
-/**
- * useAuth Hook - AuthContext 사용
- */
 export function useAuth() {
   const context = useContext(AuthContext)
-
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider')
   }
-
   return context
 }
 
