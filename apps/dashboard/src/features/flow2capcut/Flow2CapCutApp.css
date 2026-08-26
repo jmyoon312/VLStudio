@@ -1860,41 +1860,74 @@ html, body {
     font-size: 0.7rem !important;
   }
   .main-panel {
-    padding-bottom: 80px !important;
+    padding-bottom: 20px !important;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
   .tab-content {
-    padding-bottom: 60px !important;
+    padding-bottom: 10px !important;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .prompt-input-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .prompt-textarea {
+    width: 100% !important;
+    height: 300px !important;
+    min-height: 260px !important;
+    font-size: 0.95rem !important;
+    padding: 10px !important;
+    line-height: 1.5 !important;
   }
   .style-selection-bar {
     width: 100%;
-    padding: 10px 14px;
-    margin-bottom: 8px;
-    gap: 8px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    gap: 6px;
   }
   .ss-title {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
   .ss-value-button {
-    height: 38px;
-    padding: 6px 12px;
-    font-size: 0.85rem;
+    height: 34px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
   }
   .action-buttons {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 6px 0 10px;
+    gap: 6px;
+    padding: 4px 0 6px;
   }
   .action-buttons button,
   .btn-primary, .btn-secondary, .btn-danger, .btn-warning, .btn-success, .btn-upgrade {
     width: 100% !important;
-    height: 48px;
-    font-size: 0.95rem;
+    height: 42px !important;
+    font-size: 0.9rem !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
+    border-radius: 10px;
+  }
+  .bottom-panel {
+    min-height: 70px !important;
+    max-height: 140px !important;
+  }
+  .status-bar {
+    padding: 8px 10px !important;
+  }
+  .status-progress {
+    gap: 8px !important;
+    margin-bottom: 4px !important;
   }
 }
 
