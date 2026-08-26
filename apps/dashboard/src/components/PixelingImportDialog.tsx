@@ -531,7 +531,7 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
             const pv: PoolVideo = {
                 id,
                 name: file.name,
-                path: (file as any).path || file.name,
+                path: (file as any).path || '',
                 blobUrl,
                 file,
                 ocrByCode: {},
@@ -625,10 +625,8 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
         const rawTags = getTagKeywords(meta.tags);
         const hashTagsList = rawTags.map(t => `#${t}`);
         const fullDesc = getCombinedDescription(meta.description || '', meta.tags);
-        let videoPath = (vid?.file as any)?.path || vid?.path || vid?.file?.name || '';
-        if (videoPath && !videoPath.includes('\\') && !videoPath.includes('/')) {
-            videoPath = `C:\\Users\\jmyoo\\Downloads\\${videoPath}`;
-        }
+        
+        let videoPath = vid?.path || (vid?.file as any)?.path || '';
 
         let scheduledTimeStr: string | null = null;
         if (when) {
@@ -709,8 +707,11 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
     };
 
     const ensureVideoUploaded = async (vid: PoolVideo): Promise<string> => {
-        if (vid.path && vid.path.trim()) return vid.path;
-        if (!vid.file) return '';
+        // 이미 서버에 업로드된 경로인지 확인
+        if (vid.path && (vid.path.includes('uploads') || vid.path.includes('work_queue') || (window as any).electronAPI)) {
+            return vid.path;
+        }
+        if (!vid.file) return vid.path || '';
 
         const formData = new FormData();
         formData.append('file', vid.file);
@@ -723,7 +724,11 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
         if (res.ok) {
             const data = await res.json();
             vid.path = data.server_file_path;
-            setVideoPool(prev => prev.map(v => v.id === vid.id ? { ...v, path: data.server_file_path } : v));
+            setPool(prev => ({
+                ...prev,
+                [vid.id]: { ...prev[vid.id], path: data.server_file_path }
+            }));
+            poolRef.current[vid.id] = { ...poolRef.current[vid.id], path: data.server_file_path };
             return data.server_file_path;
         } else {
             const err = await res.json().catch(() => ({}));
@@ -733,22 +738,26 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
 
     const handleRegisterSingle = async (source: PixelingSource, lang: string) => {
         const k = vkey(source.index, lang);
-        const match = matchMap[k];
-        const vid = match?.manualVideoId ? poolMap[match.manualVideoId] : (match?.autoVideoId ? poolMap[match.autoVideoId] : undefined);
+        const vidId = attachments[k];
+        const vid = vidId ? pool[vidId] : null;
 
         setSendingKey(k);
         try {
-            if (vid && !vid.path && vid.file) {
+            if (vid && vid.file) {
                 await ensureVideoUploaded(vid);
             }
 
             const payload = buildItemPayload(source, lang);
-            if (!payload) return;
+            if (!payload) {
+                toast({ variant: "destructive", title: "메타 정보를 찾을 수 없습니다" });
+                return;
+            }
 
             await sendPayloadToQueue(payload);
             setSentKeys(prev => ({ ...prev, [payload.key]: true }));
             toast({ title: `[${lang}] 대기열 등록 완료`, description: payload.title });
         } catch (e: any) {
+            console.error("Register single error:", e);
             toast({ variant: "destructive", title: "등록 실패", description: e?.message || "서버 오류" });
         } finally {
             setSendingKey('');
@@ -767,9 +776,9 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                 seq.forEach(srcIdx => {
                     const k = vkey(srcIdx, lang);
                     if (hidden[k] || sentKeys[k]) return;
-                    const match = matchMap[k];
-                    const vid = match?.manualVideoId ? poolMap[match.manualVideoId] : (match?.autoVideoId ? poolMap[match.autoVideoId] : undefined);
-                    if (vid && !vid.path && vid.file && !neededVideos.some(v => v.id === vid.id)) {
+                    const vidId = attachments[k];
+                    const vid = vidId ? pool[vidId] : null;
+                    if (vid && vid.file && !neededVideos.some(v => v.id === vid.id)) {
                         neededVideos.push(vid);
                     }
                 });
@@ -828,6 +837,7 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
                 });
             }
         } catch (err: any) {
+            console.error("Register all error:", err);
             toast({
                 variant: "destructive",
                 title: "영상 업로드 오류",
