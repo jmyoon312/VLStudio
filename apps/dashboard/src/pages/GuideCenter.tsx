@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     BookOpen,
     Search,
@@ -360,37 +360,40 @@ export default function GuideCenter() {
     };
 
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const topRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const handleScroll = () => {
-            const windowScroll = window.scrollY || document.documentElement.scrollTop;
-            const mainEl = document.querySelector('main');
-            const mainScroll = mainEl ? mainEl.scrollTop : 0;
-            const scrollPos = Math.max(windowScroll, mainScroll);
+        const handleScroll = (e?: any) => {
+            const winScroll = window.scrollY || document.documentElement.scrollTop || 0;
+            const targetScroll = e?.target?.scrollTop || 0;
+            const scrollContainers = document.querySelectorAll('.overflow-y-auto, main');
+            let maxInternalScroll = 0;
+            scrollContainers.forEach(el => {
+                if (el.scrollTop > maxInternalScroll) maxInternalScroll = el.scrollTop;
+            });
 
-            setShowScrollTop(scrollPos > 300);
+            const currentScroll = Math.max(winScroll, targetScroll, maxInternalScroll);
+            setShowScrollTop(currentScroll > 150);
         };
 
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        const mainEl = document.querySelector('main');
-        if (mainEl) {
-            mainEl.addEventListener('scroll', handleScroll, { passive: true });
-        }
+        // Capture phase to catch scroll from any inner div
+        window.addEventListener('scroll', handleScroll, true);
+        document.addEventListener('scroll', handleScroll, true);
 
         return () => {
-            window.removeEventListener('scroll', handleScroll);
-            if (mainEl) {
-                mainEl.removeEventListener('scroll', handleScroll);
-            }
+            window.removeEventListener('scroll', handleScroll, true);
+            document.removeEventListener('scroll', handleScroll, true);
         };
     }, []);
 
     const scrollToTop = () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        const mainEl = document.querySelector('main');
-        if (mainEl) {
-            mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+        if (topRef.current) {
+            topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.querySelectorAll('.overflow-y-auto, main').forEach(el => {
+            el.scrollTo({ top: 0, behavior: 'smooth' });
+        });
     };
 
     const filteredGuides = Object.entries(detailedGuides).filter(([key, content]) => {
@@ -404,7 +407,9 @@ export default function GuideCenter() {
     });
 
     return (
-        <div className="container mx-auto p-3 sm:p-6 md:p-8 pb-44 md:pb-16 max-w-6xl animate-in fade-in duration-300 min-h-screen bg-background text-foreground space-y-4 sm:space-y-6">
+        <div className="container mx-auto p-3 sm:p-6 md:p-8 pb-44 md:pb-16 max-w-6xl animate-in fade-in duration-300 min-h-screen bg-background text-foreground space-y-4 sm:space-y-6 relative">
+            {/* Top Anchor */}
+            <div ref={topRef} className="h-0 w-0 pointer-events-none" aria-hidden="true" />
             
             {/* Header Title */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
@@ -544,6 +549,18 @@ export default function GuideCenter() {
                                                 </div>
                                             ))}
                                         </div>
+
+                                        {/* Card Footer Top Button */}
+                                        <div className="pt-2 flex justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={scrollToTop}
+                                                className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors py-1 px-2 rounded-lg hover:bg-muted"
+                                            >
+                                                <ArrowUp className="w-3.5 h-3.5" />
+                                                <span>맨 위로 이동</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -567,11 +584,11 @@ export default function GuideCenter() {
             {showScrollTop && (
                 <button
                     onClick={scrollToTop}
-                    className="fixed bottom-20 sm:bottom-8 right-4 sm:right-8 z-50 p-3 sm:px-4 sm:py-3 bg-primary text-primary-foreground font-bold text-xs rounded-full sm:rounded-2xl shadow-xl hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-1.5 backdrop-blur-md border border-primary/20 animate-in fade-in zoom-in"
+                    className="fixed bottom-24 sm:bottom-8 right-5 sm:right-8 z-[99999] p-3.5 sm:px-4 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-full sm:rounded-2xl shadow-2xl hover:scale-110 active:scale-95 transition-all duration-200 flex items-center gap-1.5 border-2 border-white/20 ring-4 ring-indigo-500/30 cursor-pointer animate-in fade-in zoom-in"
                     title="맨 위로 이동"
                     aria-label="맨 위로 이동"
                 >
-                    <ChevronUp className="w-5 h-5" />
+                    <ChevronUp className="w-5 h-5 stroke-[2.5]" />
                     <span className="hidden sm:inline">맨 위로</span>
                 </button>
             )}
