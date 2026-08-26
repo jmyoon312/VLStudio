@@ -1821,36 +1821,43 @@ html, body {
 @media (max-width: 640px) {
   .tabs-header {
     display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    flex-direction: column;
+    width: 100%;
     gap: 6px;
-    padding: 4px 2px 8px;
+    padding: 0 0 6px 0;
     margin-bottom: 8px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    overflow-x: hidden;
   }
-  .tabs-header::-webkit-scrollbar {
-    display: none;
+  .tabs-left {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 100%;
+    gap: 4px;
   }
-  .tabs-left, .tabs-right {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0;
+  .tabs-right {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+    gap: 4px;
   }
   .tab {
-    padding: 6px 11px !important;
-    font-size: 0.82rem !important;
-    border-radius: 10px;
+    width: 100% !important;
+    padding: 7px 2px !important;
+    font-size: 0.76rem !important;
+    border-radius: 8px;
     white-space: nowrap !important;
-    flex-shrink: 0 !important;
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    gap: 3px;
+    box-sizing: border-box;
   }
   .tab-label {
     display: inline !important;
-    font-size: 0.82rem !important;
+    font-size: 0.76rem !important;
+  }
+  .tab-count {
+    font-size: 0.7rem !important;
   }
   .main-panel {
     padding-bottom: 80px !important;
