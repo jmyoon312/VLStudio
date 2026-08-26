@@ -154,13 +154,22 @@ function App() {
   const { scenes, references, parseFromText, parseFromCSV, parseFromSRT, parseReferencesFromCSV, updateReferences, setScenes, setReferences } = scenesHook
   const { isRunning, isPaused, isStopping, progress, status, statusMessage, start, togglePause, stop, retryErrors } = automation
 
-  // 씬이 복원되어 WelcomeScreen이 스킵될 때도 자동으로 인증 체크
+  // 마운트 시 및 씬 복원 시 즉시 인증 상태 확인 및 authReady 복원
   useEffect(() => {
-    if (scenes.length > 0 && !authReady) {
-      flowAPI.getAccessToken(false, true).then(token => {
-        if (token) setAuthReady(true)
-      }).catch(() => {})
+    // 1. localStorage 캐시 토큰이 유효하면 즉시 authReady 활성화
+    const storedToken = localStorage.getItem('flowAccessToken')
+    const storedExp = localStorage.getItem('flowTokenExp')
+    if (storedToken && storedExp) {
+      const exp = parseInt(storedExp, 10)
+      if (exp - Date.now() > 60000) {
+        setAuthReady(true)
+      }
     }
+
+    // 2. Electron 백그라운드 토큰 즉시 조회
+    flowAPI.getAccessToken(false, true).then(token => {
+      if (token) setAuthReady(true)
+    }).catch(() => {})
   }, [scenes.length, authReady])
 
   // 자동화가 끝나면 Stop 버튼용 running snapshot 정리.

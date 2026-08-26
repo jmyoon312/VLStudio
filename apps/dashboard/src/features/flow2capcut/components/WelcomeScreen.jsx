@@ -17,6 +17,7 @@ export default function WelcomeScreen({ getAccessToken, onReady }) {
 
   useEffect(() => {
     checkAuth(true) // quickCheck 모드
+    startPolling()  // 마운트 즉시 백그라운드 Flow 세션 자동 감지 시작
 
     // Flow 지역 제한 감지
     const handleFlowStatus = (data) => {
@@ -29,7 +30,7 @@ export default function WelcomeScreen({ getAccessToken, onReady }) {
         stopPolling()
         setTimeout(() => {
           window.electronAPI?.switchTab?.('app')
-        }, 1000)
+        }, 300)
         onReady?.()
       }
     }

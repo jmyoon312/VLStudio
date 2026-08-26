@@ -1642,9 +1642,20 @@ ipcMain.handle('mcp:stop-http', () => {
   return { success: true }
 })
 
+// Helper to always resolve the active or default WebContentsView dynamically
+const getCurrentFlowView = () => {
+  if (global.flowViews && global.flowViews.size > 0) {
+    const activeId = global.activeFlowProfileId || 'default'
+    if (global.flowViews.has(activeId)) return global.flowViews.get(activeId)
+    const first = Array.from(global.flowViews.values())[0]
+    if (first) return first
+  }
+  return flowView
+}
+
 // === Flow API IPC (image generation, media fetch, token, reference upload) ===
 const flowAPIDeps = {
-  getFlowView: () => flowView,
+  getFlowView: getCurrentFlowView,
   getMainWindow: () => mainWindow,
   trustedClickOnFlowView,
   sessionFetch,
@@ -1675,7 +1686,7 @@ registerFlowAPIIPC(ipcMain, flowAPIDeps)
 
 // === Video Generation IPC (T2V, I2V, status polling) ===
 const videoDeps = {
-  getFlowView: () => flowView,
+  getFlowView: getCurrentFlowView,
   getMainWindow: () => mainWindow,
   trustedClickOnFlowView,
   sessionFetch,
@@ -1698,7 +1709,7 @@ registerVideoIPC(ipcMain, videoDeps)
 
 // === DOM Mode IPC (navigation, script execution, prompt injection, scanning) ===
 const domDeps = {
-  getFlowView: () => flowView,
+  getFlowView: getCurrentFlowView,
   getMainWindow: () => mainWindow,
   trustedClickOnFlowView,
   FLOW_URL,
