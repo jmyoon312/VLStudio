@@ -18,7 +18,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 // 이 블록은 반드시 다른 모든 패치보다 먼저 실행되어야 합니다.
 // ─────────────────────────────────────────────────────────────────────────────
 (function () {
-  if (window.location.hostname === 'accounts.google.com') {
+  const host = window.location.hostname || '';
+  if (host.includes('accounts.google') || host.includes('google.com/auth') || host.includes('myaccount.google')) {
     return;
   }
   'use strict';
@@ -77,8 +78,9 @@ try {
 // Core fingerprint patches
 // ─────────────────────────────────────────────────────────────────────────────
 (function() {
-  if (window.location.hostname === 'accounts.google.com') {
-    console.log('[Stealth Preload] Disabling all stealth overrides on accounts.google.com for login safety.');
+  const host = window.location.hostname || '';
+  if (host.includes('accounts.google') || host.includes('google.com/auth') || host.includes('myaccount.google')) {
+    console.log('[Stealth Preload] Disabling all stealth overrides on Google Auth for clean login.');
     return;
   }
 

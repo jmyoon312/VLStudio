@@ -653,8 +653,6 @@ function createWindow() {
       preloadPath = path.join(__dirname, 'stealth_preload.mjs');
     }
 
-    const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
-
     const newView = new WebContentsView({
       webPreferences: {
         partition: partitionName,
@@ -663,9 +661,6 @@ function createWindow() {
         preload: preloadPath
       }
     });
-
-    newView.webContents.setUserAgent(modernChromeUA);
-    newView.webContents.session.setUserAgent(modernChromeUA);
 
     if (proxyPort) {
       newView.webContents.session.setProxy({ proxyRules: `socks5://127.0.0.1:${proxyPort}` }).then(() => {
