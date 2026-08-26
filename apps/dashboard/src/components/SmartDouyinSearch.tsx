@@ -530,22 +530,19 @@ export default function SmartDouyinSearch() {
       <div className="max-w-[1400px] mx-auto space-y-4 sm:space-y-6">
         
         {/* HEADER */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full">
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
-              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-sm text-white shrink-0">
-                <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
+            <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+              <Globe className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
               <span>더우인 쇼츠 수집</span>
-              <span className="text-[10px] font-black bg-primary text-white px-2 py-0.5 rounded-full relative -top-2 left-0.5 tracking-widest">PRO</span>
             </h1>
-            <p className="mt-1 text-xs sm:text-sm text-muted-foreground font-medium tracking-wide">
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
               키워드별 트렌드 탐색 및 스텔스 브라우저 기반 대량 숏폼 자동 수집·AI 분석
             </p>
           </div>
-          <div className="flex gap-2 sm:gap-3">
-             <button onClick={handleOpenFolder} className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-card border border-border shadow-2xs text-foreground text-xs sm:text-sm font-semibold rounded-xl hover:bg-muted transition-all">
-               <FolderOpen size={16} />
+          <div className="flex items-center gap-2">
+             <button onClick={handleOpenFolder} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border shadow-2xs text-foreground text-xs font-semibold rounded-xl hover:bg-muted transition-all">
+               <FolderOpen size={14} />
                수집 보관 폴더 열기
              </button>
           </div>
