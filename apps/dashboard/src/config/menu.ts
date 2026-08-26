@@ -102,8 +102,8 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "OPERATION",
         defaultExpanded: true,
         items: [
-            { name: '가상 라이브 스튜디오', path: '/live-studio', icon: Wand2 },
-            { name: '24시간 스트리밍 송출', path: '/station-manager', icon: Radio },
+            { name: '라이브 씬 디자인', path: '/live-studio', icon: Wand2 },
+            { name: '24시 무인 라이브 송출', path: '/station-manager', icon: Radio },
         ]
     },
 

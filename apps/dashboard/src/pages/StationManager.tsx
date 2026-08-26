@@ -241,8 +241,16 @@ export default function StationManager() {
 
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6 bg-background text-foreground min-h-screen">
-            <header className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                <div />
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Radio className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>24시 무인 라이브 송출</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        포터블 OBS 및 백엔드 엔진 기반으로 유튜브·틱톡 등에 24시간 실시간 무인 라이브 방송을 송출하고 관제
+                    </p>
+                </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                     <button
                         onClick={fetchStations}

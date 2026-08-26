@@ -74,7 +74,7 @@ const MENU_GROUPS = [
         items: [
             { name: '작업 대기열',        path: '/work-queue',     icon: Rocket },
             { name: '채널 계정 & 웜업 육성',   path: '/incubator',      icon: Shield },
-            { name: '스테이션 관리자',    path: '/station-manager',icon: Radio },
+            { name: '24시 무인 라이브 송출', path: '/station-manager', icon: Radio },
             { name: '일일 리포트',        path: '/reports',        icon: BarChart3 },
         ],
     },
