@@ -614,10 +614,10 @@ const Home = () => {
                     <div className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
                         <Compass className="w-3 h-3" /> DISCOVERY & CREATIVE HUB
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+                    <h2 className="text-[17px] sm:text-2xl font-extrabold tracking-tight text-foreground break-keep-all leading-snug sm:leading-tight">
                         오늘 어디서부터 볼지 먼저 정하고 들어가는 홈
                     </h2>
-                    <p className="text-xs text-muted-foreground leading-normal">
+                    <p className="text-xs text-muted-foreground leading-relaxed break-keep-all">
                         소재 소싱부터 대본 추출, <strong>AI 다중 영상 일괄 생성</strong>, 최종 완성본 작업 대기열 배포까지 단계별로 진행합니다.
                     </p>
 
