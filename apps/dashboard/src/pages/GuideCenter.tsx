@@ -368,20 +368,18 @@ export default function GuideCenter() {
     });
 
     return (
-        <div className="container mx-auto p-3 sm:p-6 md:p-8 pb-44 md:pb-16 max-w-6xl animate-in fade-in duration-300 min-h-screen bg-background text-foreground">
+        <div className="container mx-auto p-3 sm:p-6 md:p-8 pb-44 md:pb-16 max-w-6xl animate-in fade-in duration-300 min-h-screen bg-background text-foreground space-y-4 sm:space-y-6">
             
             {/* Header Title */}
-            <div className="mb-4 sm:mb-8 space-y-1">
-                <div className="flex items-center gap-2.5">
-                    <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                        <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </div>
-                    <div>
-                        <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">사용자 공식 안내서</h1>
-                        <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-0.5">
-                            ViraLoop Studio의 모든 최신 기능과 작업 흐름을 한눈에 배우고 활용하세요.
-                        </p>
-                    </div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>사용자 공식 안내서</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        ViraLoop Studio의 모든 최신 기능과 작업 흐름을 한눈에 배우고 활용하세요.
+                    </p>
                 </div>
             </div>
 

@@ -598,12 +598,13 @@ export function DailyReportList() {
             )}
 
             {/* Header Title & Actions */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-border">
                 <div>
-                    <h2 className="text-[17px] sm:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2 break-keep-all leading-snug sm:leading-tight">
-                        <Rocket className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> ViraLoop 통합 운영 & BI 인텔리전스 리포트
-                    </h2>
-                    <p className="text-xs text-muted-foreground break-keep-all mt-0.5">영상 수집 ➔ AI 대량 제작 ➔ 다채널 자동 업로드 ➔ 채널 성과 전 주기 통합 관제</p>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2 break-keep-all leading-snug sm:leading-tight">
+                        <FileText className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                        <span>일일 리포트 & BI 인텔리전스</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground break-keep-all mt-0.5">영상 수집 ➔ AI 대량 제작 ➔ 다채널 자동 업로드 ➔ 채널 성과 전 주기 통합 관제</p>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                     {selectedIds.size > 0 && (

@@ -551,10 +551,16 @@ const Settings = () => {
 
     return (
         <div className="space-y-4 sm:space-y-6 max-w-4xl w-full mx-auto pb-44 md:pb-12 bg-background text-foreground min-h-screen font-sans min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                <div className="space-y-1">
-                    <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">설정</h1>
-                    <p className="text-xs sm:text-sm text-muted-foreground font-medium">애플리케이션의 전역 설정을 관리합니다.</p>
+            {/* 1. 상단 타이틀 헤더 바 */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-3 border-b border-border">
+                <div className="space-y-0.5">
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>작업 환경 설정</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground">
+                        AI 모델 API 키, 다운로드 경로, 자동화 스케줄 및 전역 시스템 환경 관리
+                    </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 w-full sm:w-auto shrink-0">
                     <Button variant="outline" size="sm" onClick={handleBackup} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
