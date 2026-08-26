@@ -403,9 +403,9 @@ export const LiveStudio: React.FC = () => {
                         <ArrowLeft className="w-4 h-4" />
                     </Button>
                     <div className="min-w-0">
-                        <h1 className="text-xs sm:text-sm font-bold text-foreground truncate">라이브 디자인 스튜디오</h1>
+                        <h1 className="text-xs sm:text-sm font-extrabold text-foreground truncate">라이브 씬 디자인</h1>
                         <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                            {editingStation ? `Editing: ${editingStation.name}` : '새 디자인 작업 중'}
+                            {editingStation ? `${editingStation.name} 씬 편집 중` : '새 씬 디자인 작업 중'}
                         </p>
                     </div>
                 </div>
