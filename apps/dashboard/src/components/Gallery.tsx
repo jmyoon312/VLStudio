@@ -438,7 +438,7 @@ const Gallery = () => {
 
     return (
         <div 
-            className="space-y-4 sm:space-y-5 p-3 sm:p-6 pb-28 md:pb-16 bg-background text-foreground min-h-screen relative select-none"
+            className="space-y-4 sm:space-y-5 p-3 sm:p-6 pb-40 md:pb-16 bg-background text-foreground min-h-screen relative select-none"
             onMouseDown={handleMouseDown}
         >
             {/* 드래그 다중 선택 박스 오버레이 (Marquee Selection) */}
@@ -1052,6 +1052,9 @@ const Gallery = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Mobile Bottom Navigation Clearance Spacer */}
+            <div className="h-28 md:hidden shrink-0 pointer-events-none" aria-hidden="true" />
 
         </div>
     );
