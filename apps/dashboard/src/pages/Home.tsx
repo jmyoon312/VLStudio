@@ -251,6 +251,7 @@ const Home = () => {
         downloaded_today: 0
     });
     
+    const [latestReport, setLatestReport] = useState<any | null>(null);
     const [netStatus, setNetStatus] = useState<NetworkStatus | null>(null);
     const [isNetFetched, setIsNetFetched] = useState(false);
     const [isRotating, setIsRotating] = useState(false);
@@ -277,6 +278,14 @@ const Home = () => {
     // 단일 영상 상세 및 뷰어 팝업 모달 상태
     const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
     const navigate = useNavigate();
+
+    const getAiBriefingSnippet = (markdown?: string) => {
+        if (!markdown) return "전체 바이럴루프 자동화 파이프라인이 정상 가동 중입니다.";
+        const lines = markdown.split('\n').map(l => l.replace(/^[#*`\- >]+/g, '').trim()).filter(Boolean);
+        const meaningful = lines.find(l => l.length > 15 && !l.includes('리포트') && !l.includes('종합'));
+        if (meaningful) return meaningful;
+        return lines.join(' ').slice(0, 120);
+    };
 
     const fetchNetworkStatus = async (force = false) => {
         try {
@@ -318,7 +327,7 @@ const Home = () => {
 
     const fetchData = async () => {
         try {
-            const [statsRes, channelsRes, categoriesRes, queueStatsRes, queueItemsRes, videosRes, settingsRes] = await Promise.all([
+            const [statsRes, channelsRes, categoriesRes, queueStatsRes, queueItemsRes, videosRes, settingsRes, reportRes] = await Promise.all([
                 api.get('/dashboard/stats').catch(() => null),
                 api.get('/channels/').catch(() => null),
                 api.get('/categories/').catch(() => null),
@@ -326,9 +335,11 @@ const Home = () => {
                 api.get('/work-queue/items?limit=5').catch(() => null),
                 api.get('/videos/?mode=video').catch(() => null),
                 api.get('/settings/').catch(() => null),
+                api.get('/reports/latest').catch(() => null),
             ]);
 
             if (statsRes?.data) setStats(statsRes.data);
+            if (reportRes?.data) setLatestReport(reportRes.data);
             if (channelsRes?.data) setChannelsList(channelsRes.data);
             if (categoriesRes?.data && Array.isArray(categoriesRes.data)) setCategoriesList(categoriesRes.data);
             if (queueStatsRes?.data) setQueueStats(queueStatsRes.data);
@@ -641,6 +652,123 @@ const Home = () => {
 
                 <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
             </div>
+
+            {/* [NEW] 2.5 AI 데일리 인텔리전스 브리핑 & 4대 파이프라인 펄스 (모바일/데스크톱 최적화) */}
+            {latestReport && (
+                <div className="space-y-3">
+                    {/* AI 데일리 브리핑 스마트 배너 */}
+                    <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-sky-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                            <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl shrink-0 mt-0.5 sm:mt-0">
+                                <Sparkles className="w-4 h-4 animate-pulse" />
+                            </div>
+                            <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[11px] font-extrabold text-indigo-400 bg-indigo-500/15 px-2 py-0.5 rounded-md">
+                                        🤖 AI 데일리 브리핑
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground font-medium">
+                                        오늘의 생산·배포 자율 관제 요약
+                                    </span>
+                                </div>
+                                <p className="text-xs text-foreground font-semibold line-clamp-2 sm:line-clamp-1 leading-relaxed">
+                                    {getAiBriefingSnippet(latestReport.summary_markdown)}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                            <button
+                                onClick={() => navigate('/reports')}
+                                className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1"
+                            >
+                                리포트 전체보기 <ArrowRight className="w-3 h-3" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 4대 파이프라인 실시간 KPI 미니 펄스 (모바일: 2x2 그리드, 데스크톱: 4x1 그리드) */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                        {/* 1. 수집 펄스 */}
+                        <div 
+                            onClick={() => navigate('/gallery')}
+                            className="bg-card/80 border border-border/80 hover:border-sky-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
+                        >
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                                <span className="flex items-center gap-1.5"><Video className="w-3.5 h-3.5 text-sky-400" /> 수집 보관</span>
+                                <span className="text-[10px] text-sky-400 font-bold">Sourcing</span>
+                            </div>
+                            <div className="text-lg sm:text-xl font-extrabold text-foreground">
+                                {stats.total_videos}
+                                <span className="text-[10px] font-normal text-muted-foreground ml-1">개</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
+                                <span>오늘 유입</span>
+                                <strong className="text-sky-400 font-bold">+{stats.downloaded_today || 0}개</strong>
+                            </div>
+                        </div>
+
+                        {/* 2. 제작 펄스 */}
+                        <div 
+                            onClick={() => navigate('/creative-studio')}
+                            className="bg-card/80 border border-border/80 hover:border-purple-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
+                        >
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                                <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-purple-400" /> AI 제작 큐</span>
+                                <span className="text-[10px] text-purple-400 font-bold">Creation</span>
+                            </div>
+                            <div className="text-lg sm:text-xl font-extrabold text-foreground">
+                                {queueStats.total}
+                                <span className="text-[10px] font-normal text-muted-foreground ml-1">건 등록</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
+                                <span>대기/생성 중</span>
+                                <strong className="text-purple-400 font-bold">{queueStats.queued}건</strong>
+                            </div>
+                        </div>
+
+                        {/* 3. 배포 펄스 */}
+                        <div 
+                            onClick={() => navigate('/work-queue')}
+                            className="bg-card/80 border border-border/80 hover:border-emerald-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
+                        >
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                                <span className="flex items-center gap-1.5"><Send className="w-3.5 h-3.5 text-emerald-400" /> 업로드 배포</span>
+                                <span className="text-[10px] text-emerald-400 font-bold">Distribution</span>
+                            </div>
+                            <div className="text-lg sm:text-xl font-extrabold text-foreground flex items-baseline justify-between">
+                                <span>{queueStats.completed} <span className="text-[10px] font-normal text-muted-foreground">완료</span></span>
+                                <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                                    {queueStats.completed + queueStats.failed > 0 ? `${Math.round((queueStats.completed / (queueStats.completed + queueStats.failed)) * 100)}%` : '100%'}
+                                </span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
+                                <span>실패 오류</span>
+                                <strong className={queueStats.failed > 0 ? "text-rose-400 font-bold" : "text-emerald-400 font-bold"}>{queueStats.failed}건</strong>
+                            </div>
+                        </div>
+
+                        {/* 4. 채널 성장 펄스 */}
+                        <div 
+                            onClick={() => navigate('/account-manager')}
+                            className="bg-card/80 border border-border/80 hover:border-amber-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
+                        >
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                                <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-amber-400" /> 브랜드 채널</span>
+                                <span className="text-[10px] text-amber-400 font-bold">Growth</span>
+                            </div>
+                            <div className="text-lg sm:text-xl font-extrabold text-foreground">
+                                {stats.total_channels}
+                                <span className="text-[10px] font-normal text-muted-foreground ml-1">개 채널</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
+                                <span>활성 운영 중</span>
+                                <strong className="text-emerald-400 font-bold">{stats.active_channels}개 정상</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 3. 🔥 실시간 수집 숏폼 & 레퍼런스 갤러리 캐러셀 (카테고리 + 날짜 필터 & 다중 선택) */}
             <div className="space-y-2.5">
@@ -1029,14 +1157,23 @@ const Home = () => {
                             </div>
                         </div>
                     </div>
-                    <button 
-                        onClick={handleRotateIp}
-                        disabled={isRotating}
-                        className="mt-3 py-2 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
-                    >
-                        <RefreshCw className={cn("w-3.5 h-3.5 text-indigo-500", isRotating && "animate-spin")} />
-                        LTE IP 강제 로테이션
-                    </button>
+                    <div className="space-y-1.5 mt-2.5">
+                        <button 
+                            onClick={handleRotateIp}
+                            disabled={isRotating}
+                            className="w-full py-1.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                        >
+                            <RefreshCw className={cn("w-3.5 h-3.5 text-indigo-500", isRotating && "animate-spin")} />
+                            LTE IP 강제 로테이션
+                        </button>
+                        <Link 
+                            to="/reports"
+                            className="w-full py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 border border-indigo-500/20 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                        >
+                            <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                            일일 BI 리포트 관제 ➔
+                        </Link>
+                    </div>
                 </div>
 
             </div>
