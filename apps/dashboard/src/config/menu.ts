@@ -77,7 +77,6 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
             { name: 'Flow AI 비디오 렌더러', path: '/flow2capcut', icon: Wand2, highlight: true },
             { name: 'AI 대본 각색 및 생성', path: '/script-writer', icon: Edit, highlight: true },
             { name: 'AI 원클릭 쇼츠 제작', path: '/ddalkkak', icon: Zap, highlight: true },
-            { name: 'AI 에이전트 스튜디오', path: '/agent-studio', icon: BrainCircuit, highlight: true },
             { name: '스마트 씬 분할 컷터', path: '/scene-cutter-pro', icon: Scissors },
             { name: 'AI 미디어 일괄 생성', path: '/creative-studio', icon: Clapperboard },
             { name: 'AI 다국어 목소리 합성', path: '/multi-tts', icon: Mic },
