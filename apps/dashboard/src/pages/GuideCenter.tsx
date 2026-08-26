@@ -134,13 +134,13 @@ export default function GuideCenter() {
             badge: "PRO",
             icon: Shield,
             iconBg: "from-emerald-600 to-teal-600",
-            titleOverride: "채널 계정 & 웜업 육성 (Incubator & Stealth Proxy)",
-            overview: "유튜브 브랜드 계정의 영구적인 안전 운영을 위해 CloakBrowser 및 ixBrowser 듀얼 스텔스 엔진을 지원하며, 안드로이드 스마트폰의 LTE Clean IP(Every Proxy SOCKS5)와 7단계 자동 웜업으로 다계정 정지 위험을 원천 차단합니다.",
+            titleOverride: "채널 계정 & 웜업 육성 (하이브리드 프록시 & 스텔스)",
+            overview: "유튜브 브랜드 계정의 영구적인 안전 운영을 위해 CloakBrowser 및 ixBrowser 듀얼 스텔스 엔진을 지원하며, 안드로이드 스마트폰의 LTE Clean IP(Every Proxy SOCKS5)와 채널별 1:1 ISP 전용 고정 IP 바인딩, 7단계 자동 웜업으로 다계정 정지 위험을 원천 차단합니다.",
             features: [
                 {
                     icon: Shield,
-                    title: "스마트폰 LTE Clean IP & SOCKS5 프록시 연동",
-                    desc: "스마트폰에 Every Proxy 앱(SOCKS5 포트 10808)을 켜고 USB 디버깅으로 연결하면, 통신사 4G/5G Clean IP를 공급하며 비행기 모드로 IP를 자동 회전합니다."
+                    title: "하이브리드 IP 인프라 (LTE 동적 + ISP 전용 고정 IP)",
+                    desc: "신규 채널 육성 시에는 스마트폰 LTE Clean IP(비행기모드 자동 리셋)를, 메인 브랜드 채널에는 1:1 전용 ISP 고정 IP(ip:port:user:pass)를 영구 매핑합니다."
                 },
                 {
                     icon: Sparkles,
@@ -154,9 +154,9 @@ export default function GuideCenter() {
                 }
             ],
             steps: [
-                "스마트폰 설정에서 [개발자 옵션] ➔ [USB 디버깅]을 켜고 PC와 USB로 연결합니다.",
-                "스마트폰에 'Every Proxy' 앱을 설치하고 'SOCKS5' 스위치를 켭니다 (기본 포트 10808).",
-                "사이드바에서 '채널 계정 & 웜업 육성'으로 이동하여 새 채널 계정을 등록합니다.",
+                "LTE 동적 IP 사용 시: 스마트폰 [USB 디버깅] 켜고 'Every Proxy' SOCKS5(포트 10808) 활성화 후 PC 연결.",
+                "ISP 고정 IP 사용 시: 채널 등록 모달에서 전용 프록시 정보(ip:port:user:pass)를 1:1로 직접 입력.",
+                "사이드바에서 '채널 계정 & 웜업 육성'으로 이동하여 계정 목록을 확인합니다.",
                 "필요 시 [작업 환경 설정]에서 ixBrowser 또는 내장 CloakBrowser 엔진을 선택합니다.",
                 "'일괄 웜업 육성 제어' 탭에서 '전체 시작'을 눌러 웜업 및 채널 보호를 가동합니다."
             ]

@@ -47,52 +47,43 @@ irm https://raw.githubusercontent.com/jmyoon312/VLStudio/main/install.ps1 | iex
 
 ---
 
-## 📱 스마트폰 LTE Clean IP 프록시 연동 인프라
+## 🌐 하이브리드 네트워크 프록시 인프라 (LTE 동적 + ISP 전용 고정 IP)
 
-ViraLoop Studio는 고가의 유료 프록시 없이도 **안드로이드 스마트폰(공기계)의 통신사 LTE/5G망을 PC로 연결하여 100% 무정지 Clean IP를 무제한 공급**하는 하드웨어 테더링 프록시 아키텍처를 내장하고 있습니다.
+ViraLoop Studio는 유튜브/틱톡의 다계정 연좌제 밴을 완벽히 차단하기 위해 **2가지 네트워크 격리 전략**을 동시에 지원합니다:
 
 ```
-[안드로이드 스마트폰] (Every Proxy SOCKS5)
-        │ USB 케이블 연결 (USB 디버깅 ON)
-        ▼
-[ViraLoop Studio ADB Engine] ──▶ (Port Forwarding 10808) ──▶ [다계정 스텔스 브라우저 배포 & 웜업]
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    ViraLoop 하이브리드 IP 인프라 전략                    │
+├───────────────────────────────────┬─────────────────────────────────────┤
+│ 📱 [1] 모바일 LTE/5G 동적 Clean IP │ 🏢 [2] 채널별 1:1 ISP 전용 고정 IP  │
+├───────────────────────────────────┼─────────────────────────────────────┤
+│ • 신규 계정 대량 생성 및 7단계 웜업│ • 성장한 메인 브랜드 채널 장기 운영  │
+│ • 비행기 모드 자동 토글로 IP 리셋 │ • 채널당 고유 통신사 고정 IP 영구 매핑│
+│ • 연좌제 밴 방지 및 탐색 활동     │ • 로그인 지역/IP 변경 없는 최고 신뢰도│
+└───────────────────────────────────┴─────────────────────────────────────┘
 ```
 
-### 📲 스마트폰 설정 단계:
-1. **USB 디버깅 활성화**:
-   * 스마트폰 [설정] ➔ [휴대전화 정보] ➔ [소프트웨어 정보] ➔ **[빌드 번호]를 7번 연속 탭**하여 개발자 모드 활성화.
-   * [설정] ➔ [개발자 옵션] ➔ **[USB 디버깅] 활성화**.
-2. **Every Proxy 앱 설치 및 SOCKS5 활성화**:
-   * Google Play 스토어에서 **`Every Proxy`** 앱 검색 및 설치.
-   * 앱 실행 후 **`SOCKS5` 스위치를 ON** (기본 포트: `10808`).
-3. **PC와 USB 케이블 연결**:
-   * PC와 폰을 USB로 연결하고 화면에 나타나는 "USB 디버깅을 항상 허용" 팝업에 체크 및 확인.
-   * ViraLoop Studio의 `채널 계정 & 웜업 육성 (/incubator)`에서 자동으로 모바일 IP를 인식하며, **비행기 모드 자동 토글로 IP 리셋**을 지원합니다.
+### 📱 1. 스마트폰 LTE Clean IP 하드웨어 테더링
+고가의 유료 프록시 없이 안드로이드 스마트폰(공기계)의 통신사 4G/5G Clean IP를 PC로 공급합니다.
+1. **스마트폰 USB 디버깅 ON**: [설정] ➔ [휴대전화 정보] ➔ [소프트웨어 정보] ➔ [빌드 번호 7번 탭] ➔ [개발자 옵션] ➔ [USB 디버깅] 활성화.
+2. **Every Proxy 앱**: Google Play 설치 후 **`SOCKS5` 활성화 (기본 포트: `10808`)**.
+3. **PC USB 연결**: ViraLoop Studio의 `채널 계정 & 웜업 육성 (/incubator)`에서 자동 인식 및 **비행기 모드 토글로 IP 자동 회전**.
+
+### 🏢 2. 채널별 1:1 ISP 전용 고정 IP (Dedicated Residential Proxy)
+* 채널 프로필별로 `HTTP / HTTPS / SOCKS5` 프로토콜 기반의 **`ip:port:user:pass`**를 1:1 영구 바인딩.
+* 브라우저 실행 시 해당 채널에 할당된 ISP 고정 IP로만 통신하도록 네트워크를 완벽 격리하여 최고 수준의 채널 신뢰도를 유지.
 
 ---
 
 ## 🛡️ 보안 브라우징 듀얼 엔진 (CloakBrowser & ixBrowser)
 
-유튜브/틱톡의 엄격한 다계정 탐지를 완벽히 우회하기 위해 2가지 전문 안티디텍트 브라우저 엔진을 지원합니다:
-
 ### 1. CloakBrowser (내장형 경량 스텔스 엔진)
-* **특징**: 별도 상용 프로그램 설치 없이 ViraLoop Studio 내에 기본 내장된 자체 개발 스텔스 엔진.
-* **기능**: Patchright 기반의 WebGL, Canvas, AudioContext 노이즈 주입, `navigator.webdriver = false`, 하드웨어 핑거프린트 분리, WebRTC 실제 IP 누출 원천 차단.
+* 별도 프로그램 설치 없이 기본 내장된 자체 개발 스텔스 엔진.
+* Patchright 기반 WebGL/Canvas/AudioContext 노이즈 주입, `navigator.webdriver = false`, 하드웨어 핑거프린트 분리, WebRTC 실제 IP 누출 원천 차단.
 
 ### 2. ixBrowser (엔터프라이즈 멀티 계정 안티디텍트 브라우저)
-* **특징**: 수십~수백 개의 구글/유튜브 브랜드 채널을 기업 단위로 운영할 때 사용하는 전문 안티디텍트 브라우저.
-* **설치 및 연동 방법**:
-  1. [ixBrowser 공식 홈페이지](https://www.ixbrowser.com/)에서 클라이언트 다운로드 및 설치.
-  2. ixBrowser 실행 후 [설정] ➔ **[Local API] 활성화** (기본 포트: `53200`).
-  3. ViraLoop Studio `작업 환경 설정 (/settings)` ➔ `브라우저` 탭에서 **ixBrowser 모드 선택**.
-
----
-
-## 🌐 로컬 웹 & 모바일/LAN 외부 접속 환경
-
-* **로컬 웹 대시보드**: `http://localhost:5183`
-* **사내/홈 LAN 접속**: `http://192.168.x.x:5183` (모바일 브라우저로 대용량 영상 즉시 업로드 지원)
-* **Nginx Proxy Manager / 도메인 연동**: 공인 도메인(예: `https://viraloop.yourdomain.com`)을 통한 외부 원격 관제 지원
+* 수십~수백 개의 구글/유튜브 브랜드 채널을 기업 단위로 운영할 때 사용하는 전문 안티디텍트 브라우저.
+* [ixBrowser 공식 홈페이지](https://www.ixbrowser.com/) 클라이언트 설치 후 **Local API(기본 포트: `53200`)** 활성화 연동.
 
 ---
 
@@ -136,7 +127,10 @@ flowchart LR
 ---
 
 ### 2. 🎬 인공지능 창작 스튜디오 (Creation Pipeline)
-* **Flow AI 비디오 렌더러 (`/flow2capcut`)**: Google Flow AI(Veo 3.1) 모델 기반 **100장 이상의 고화질 AI 이미지/비디오 배치 대량 생성**, 87개 스타일 프리셋 자동 주입, **CapCut 프로젝트 원클릭 직접 출력**.
+* **Flow AI 비디오 렌더러 (`/flow2capcut`)**:
+  * Google Flow AI(Veo 3.1) 모델 기반 **100장 이상의 고화질 AI 이미지/비디오 배치 대량 생성**.
+  * 캐릭터/스타일 87개 프리셋 자동 주입으로 씬 간 일관성 유지.
+  * **CapCut 데스크톱 프로젝트 다이렉트 파일시스템 조립 (No-ZIP)**: ZIP 다운로드 없이 로컬 CapCut 설치 경로의 프로젝트 파일(`draft_content.json`)에 비디오, 멀티트랙 오디오, 자막(SRT), Ken Burns 줌 효과를 100% 직접 조립하여 CapCut 자동 실행.
 * **AI 대본 각색 및 생성 (`/script-writer`)**: 다중 LLM(Claude, Gemini, Groq, Llama)을 활용하여 원본 대본을 쇼츠 전용 후킹 대본으로 자동 리라이팅.
 * **AI 원클릭 쇼츠 제작 (`/ddalkkak`)**: 자막 자동 생성, 대본+더빙(TTS) 합성, 클립 다중 편집을 **원클릭 10초 만에 일괄 렌더링**.
 * **스웜 에이전트 스튜디오 (`/agent-studio`)**: 기획자, 작가, 비주얼 디렉터로 구성된 자율 AI 에이전트 네트워크(OpenClaude, OpenHands, Hermes Core)가 협업하여 숏폼 에피소드 완벽 기획.
@@ -148,9 +142,11 @@ flowchart LR
 ---
 
 ### 3. 📈 채널 성장 및 자동화 (Operation & Growth)
-* **쇼츠 자동 배포 관리 (`/work-queue`)**: 픽셀링(Pixeling) 메타 데이터 파싱 기반으로 YouTube Shorts, TikTok, Instagram Reels에 예약/즉시 자동 업로드.
+* **쇼츠 자동 배포 관리 (`/work-queue`)**: 
+  * **픽셀링(Pixeling) 메타 자동 파싱**: 픽셀링 분석 텍스트를 붙여넣기만 하면 제목, 해시태그, 설명, 보이스 설정이 0.1초 만에 자동 구조화.
+  * YouTube Shorts, TikTok, Instagram Reels에 예약/즉시 자동 업로드.
 * **채널 계정 & 웜업 육성 (`/incubator`)**: 
-  * 계정별 독립 브라우저 프로필 및 듀얼 프록시(LTE/Clean IP) 격리로 **다계정 연좌제 밴 원천 차단**.
+  * LTE 동적 IP 및 1:1 ISP 고정 IP 하이브리드 바인딩.
   * 7단계 인간 행동 모사(Human-like Viewing, 탐색, 댓글)로 신규 계정 신뢰도 극대화.
 * **일일 리포트 & BI 인텔리전스 (`/reports`)**: 소싱 ➔ 제작 ➔ 배포 ➔ 채널 성장 전 주기를 한눈에 관제하는 통합 BI 대시보드.
 
@@ -165,17 +161,16 @@ flowchart LR
 
 ---
 
-## 🤖 MCP Server & Claude Code 통합 연동
+## ⚡ 엔터프라이즈 특화 핵심 기능 (Core Advantages)
 
-| Tool | 역할 및 기능 |
-|:---|:---|
-| `load_csv` | CSV 대본 및 이미지 데이터 로드 |
-| `list_scenes` / `get_scene` | 프로젝트 내 씬 목록 및 세부 프롬프트 조회 |
-| `update_prompt` / `batch_update_prompts` | 단일 및 전체 씬 프롬프트 일괄 수정 |
-| `list_references` / `update_reference_prompt` | 캐릭터/스타일 레퍼런스 관리 |
-| `list_styles` | 87개 스타일 프리셋 카탈로그 조회 |
-| `export_capcut` | CapCut 프로젝트 자동 컴파일 및 내보내기 |
-| `app_generate_scene` / `app_start_scene_batch` | 앱 내 비동기 씬 렌더링 트리거 |
+1. **🔄 다중 AI API 키 자동 순환 (Round-Robin & Auto-Fallback)**:
+   * Gemini, Claude, Groq, OpenAI 등 동일 모델의 API 키를 다중 등록 시 자동 순환하여 `429 Rate Limit` 에러를 원천 차단.
+2. **🎬 CapCut 무압축 다이렉트 프로젝트 생성 (No-ZIP Workflow)**:
+   * 압축 해제 없이 로컬 CapCut 작업 폴더에 직접 완성본 프로젝트를 기록하고 1초 만에 CapCut 자동 실행.
+3. **⚡ 픽셀링(Pixeling) 원클릭 대기열 메타 파싱**:
+   * 영상 기획 메타 텍스트를 복사-붙여넣기하는 즉시 모든 배포 파라미터를 자동 완성.
+4. **🤖 내장 MCP (Model Context Protocol) 서버**:
+   * Claude Code CLI에서 씬 생성, 프롬프트 일괄 수정, 레퍼런스 주입을 완벽 원격 제어.
 
 ---
 

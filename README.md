@@ -48,52 +48,43 @@ If corporate firewalls or air-gapped networks block automated downloads, downloa
 
 ---
 
-## 📱 Mobile LTE Clean IP Hardware Proxy Architecture
+## 🌐 Hybrid Proxy Infrastructure (Mobile LTE Dynamic + Dedicated ISP Static IP)
 
-Eliminate expensive residential proxy fees. ViraLoop Studio features a built-in hardware tethering engine that connects **real Android smartphones to route 100% genuine carrier 4G/5G Clean IPs directly to your desktop**.
+To eliminate platform correlation bans and shadowbans, ViraLoop Studio provides a **dual network isolation strategy**:
 
 ```
-[Android Smartphone] (Every Proxy SOCKS5)
-        │ USB Cable (USB Debugging ON)
-        ▼
-[ViraLoop Studio ADB Engine] ──▶ (Port Forwarding 10808) ──▶ [Multi-Account Stealth Browsers]
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    ViraLoop Hybrid IP Architecture                      │
+├───────────────────────────────────┬─────────────────────────────────────┤
+│ 📱 [1] Mobile LTE/5G Dynamic IP    │ 🏢 [2] 1:1 Dedicated ISP Static IP  │
+├───────────────────────────────────┼─────────────────────────────────────┤
+│ • Mass account creation & warmup  │ • Long-term main brand channel ops  │
+│ • Automated Airplane Mode resets  │ • 1:1 Permanent residential binding │
+│ • Prevents cross-account bans     │ • Zero geo-hops for maximum trust   │
+└───────────────────────────────────┴─────────────────────────────────────┘
 ```
 
-### 📲 Smartphone Setup Steps:
-1. **Enable USB Debugging**:
-   * Open [Settings] ➔ [About phone] ➔ [Software information] ➔ **Tap [Build number] 7 times**.
-   * Open [Settings] ➔ [Developer options] ➔ **Toggle [USB debugging] ON**.
-2. **Install Every Proxy App & Enable SOCKS5**:
-   * Search for **`Every Proxy`** on the Google Play Store and install.
-   * Open the app and **turn ON the `SOCKS5` switch** (Default port: `10808`).
-3. **Connect to PC via USB**:
-   * Plug the phone into your PC via USB and accept the "Always allow from this computer" prompt.
-   * ViraLoop Studio’s `Incubator (/incubator)` auto-detects the device and provides **automated Airplane Mode IP rotations**.
+### 📱 1. Mobile LTE Clean IP Hardware Tethering
+Connect real Android smartphones to route genuine carrier 4G/5G Clean IPs directly to your desktop without paying proxy subscriptions:
+1. **Enable USB Debugging**: [Settings] ➔ [About phone] ➔ [Software info] ➔ Tap [Build number] 7 times ➔ [Developer options] ➔ Enable [USB Debugging].
+2. **Every Proxy App**: Install from Play Store and **turn ON `SOCKS5` (Port: `10808`)**.
+3. **USB Connection**: ViraLoop Studio's `Incubator (/incubator)` auto-detects the device and provides **automated Airplane Mode IP rotation**.
+
+### 🏢 2. 1:1 Dedicated ISP Static Proxies (Residential)
+* Bind permanent `HTTP / HTTPS / SOCKS5` credentials (`ip:port:user:pass`) directly to individual channel profiles.
+* Isolates channel traffic strictly to its designated residential ISP address, preserving highest platform authority.
 
 ---
 
 ## 🛡️ Dual Anti-Detect Stealth Engines (CloakBrowser & ixBrowser)
 
-To protect your channel empire against platform correlation bans and shadowbans, ViraLoop Studio supports two specialized anti-detect engines:
-
 ### 1. CloakBrowser (Built-in Lightweight Stealth Engine)
-* **Design**: Zero external software installation required; native Python Patchright + Chromium WebContentsView.
-* **Capabilities**: WebGL, Canvas, and AudioContext noise masking, `navigator.webdriver = false`, hardware fingerprint isolation, WebRTC local IP leak protection.
+* Zero external software required; native Python Patchright + Chromium WebContentsView.
+* WebGL, Canvas, and AudioContext noise masking, `navigator.webdriver = false`, hardware fingerprint isolation, WebRTC local IP leak protection.
 
 ### 2. ixBrowser (Enterprise Multi-Account Anti-Detect Engine)
-* **Design**: Built for enterprise networks managing dozens to hundreds of Google/YouTube brand channels.
-* **Setup**:
-  1. Download and install [ixBrowser Client](https://www.ixbrowser.com/).
-  2. Open ixBrowser Settings and **Enable [Local API]** (Default port: `53200`).
-  3. In ViraLoop Studio `Settings (/settings)` ➔ `Browser` tab, select **ixBrowser Engine**.
-
----
-
-## 🌐 Local Web & Mobile/LAN Remote Access
-
-* **Local Web Dashboard**: `http://localhost:5183`
-* **LAN Access**: `http://192.168.x.x:5183` (Direct high-speed media upload from mobile phones)
-* **Nginx Proxy Manager / Reverse Proxy**: Full support for custom domain routing (e.g. `https://viraloop.yourdomain.com`).
+* Built for enterprise media networks managing dozens to hundreds of brand channels.
+* Install [ixBrowser Client](https://www.ixbrowser.com/), enable **Local API (Port: `53200`)**, and select ixBrowser mode in ViraLoop Studio settings.
 
 ---
 
@@ -137,7 +128,9 @@ flowchart LR
 ---
 
 ### 2. 🎬 AI Creative Studio Pipeline
-* **Flow AI Video Renderer (`/flow2capcut`)**: Mass-generate 100+ AI images/videos via Google Flow AI (Veo 3.1), 87 style/character presets, and direct one-click export into **native CapCut project files**.
+* **Flow AI Video Renderer (`/flow2capcut`)**:
+  * Mass-generate 100+ AI images/videos via Google Flow AI (Veo 3.1) with 87 style/character presets.
+  * **Direct Native CapCut Project Assembly (No-ZIP)**: Compiles multi-track audio, Ken Burns zoom animations, and SRT subtitles directly into local CapCut `draft_content.json` files and launches the desktop app in 1 second.
 * **AI Script Writer & Re-Hook (`/script-writer`)**: Multi-LLM engine (Claude, Gemini, Groq, Llama) rewriting raw scripts into high-retention short-form scripts.
 * **10s One-Click Shorts Engine (`/ddalkkak`)**: Instant subtitle transcription, AI voice dubbing, and clip trimming in under 10 seconds.
 * **Swarm Agent Studio (`/agent-studio`)**: Autonomous multi-agent network (OpenClaude, OpenHands, Hermes Core) collaboratively generating full video episodes.
@@ -149,9 +142,11 @@ flowchart LR
 ---
 
 ### 3. 📈 Channel Growth & Stealth Automation
-* **Shorts Auto-Distribution (`/work-queue`)**: Pixeling metadata parser scheduling and publishing videos to YouTube Shorts, TikTok, and Instagram Reels.
+* **Shorts Auto-Distribution (`/work-queue`)**: 
+  * **Pixeling Metadata Parser**: Paste structured analysis text to instantly populate title, tags, description, and voice parameters.
+  * Scheduled/instant auto-publishing to YouTube Shorts, TikTok, and Instagram Reels.
 * **Stealth Account Warmup & Incubator (`/incubator`)**: 
-  * Isolated browser profiles paired with dual LTE clean proxies to **prevent multi-account correlation bans**.
+  * LTE dynamic & 1:1 ISP static hybrid proxy binding.
   * 7-stage humanized warmup activity (viewing, scrolling, commenting) boosting channel trust scores.
 * **Daily BI Intelligence Reports (`/reports`)**: Unified enterprise reporting covering sourcing volumes, rendering queues, distribution velocity, and subscriber gains.
 
@@ -166,17 +161,16 @@ flowchart LR
 
 ---
 
-## 🤖 MCP Server & Claude Code Integration
+## ⚡ Enterprise Advantages
 
-| Tool | Description |
-|:---|:---|
-| `load_csv` | Load CSV script and image assets |
-| `list_scenes` / `get_scene` | Query project scenes and prompt metadata |
-| `update_prompt` / `batch_update_prompts` | Edit single or batch scene generation prompts |
-| `list_references` / `update_reference_prompt` | Manage character, style, and background references |
-| `list_styles` | Browse 87 curated style presets |
-| `export_capcut` | Compile and write native CapCut project files |
-| `app_generate_scene` / `app_start_scene_batch` | Trigger asynchronous in-app rendering pipelines |
+1. **🔄 Multi-LLM API Key Round-Robin**:
+   * Auto-rotates multiple Gemini, Claude, Groq, and OpenAI keys to eliminate `429 Rate Limit` errors during batch generation.
+2. **🎬 Zero-ZIP Native CapCut Assembly**:
+   * No archive downloads required; writes directly to local CapCut project folders.
+3. **⚡ Instant Pixeling Metadata Parsing**:
+   * Converts raw video briefs into fully configured distribution queue items in 0.1 seconds.
+4. **🤖 Model Context Protocol (MCP) Server**:
+   * Full remote orchestration directly from Claude Code CLI.
 
 ---
 
