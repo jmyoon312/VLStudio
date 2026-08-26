@@ -21,21 +21,14 @@ import { useTheme } from './theme-provider';
 // 페이지 컴포넌트 — lazy 로딩으로 번들 분할
 const Home               = lazy(() => import('../pages/Home'));
 const WorkQueue          = lazy(() => import('../pages/WorkQueue'));
-const WorkflowDashboard  = lazy(() => import('../pages/WorkflowDashboard'));
-const OperationsDashboard = lazy(() => import('../pages/OperationsDashboard'));
 const ScriptWriter       = lazy(() => import('./ScriptWriter'));
 const CreativeStudio     = lazy(() => import('../pages/CreativeStudio'));
 const MultiTTS           = lazy(() => import('../pages/MultiTTS'));
 const SubtitleConverter  = lazy(() => import('./SubtitleConverter'));
-const RemasterLab        = lazy(() => import('../pages/RemasterLab'));
-const SovereignShieldLab = lazy(() => import('../pages/SovereignShieldLab'));
-const CutEditor          = lazy(() => import('../pages/CutEditor'));
 const SilenceRemover     = lazy(() => import('./SilenceRemover'));
 const RemoverEditor      = lazy(() => import('../pages/RemoverEditor'));
 const CustomMenu         = lazy(() => import('../pages/CustomMenu'));
-const KeywordExplorer    = lazy(() => import('../pages/KeywordExplorer'));
 const ReportsPage        = lazy(() => import('../pages/ReportsPage').then(m => ({ default: m.ReportsPage ?? m.default })));
-const AccountManager     = lazy(() => import('../pages/AccountManager'));
 const StationManager     = lazy(() => import('../pages/StationManager'));
 const AICoPilotStudio    = lazy(() => import('../pages/AICoPilotStudio'));
 const ScriptLab          = lazy(() => import('../pages/ScriptLab'));
@@ -45,63 +38,52 @@ const CaptainQuarters    = lazy(() => import('../pages/CaptainQuarters'));
 const ResourceGuidePage  = lazy(() => import('../pages/ResourceGuidePage'));
 const VirtualStudio      = lazy(() => import('../pages/VirtualStudio'));
 const Gallery            = lazy(() => import('./Gallery'));
-const Discovery          = lazy(() => import('./Discovery'));
-const DiscoveryChannelDetail = lazy(() => import('./DiscoveryChannelDetail'));
-const HotVideos          = lazy(() => import('./HotVideos'));
-const Rookies            = lazy(() => import('./Rookies'));
-const Watchlist          = lazy(() => import('./Watchlist'));
 const SettingsPage       = lazy(() => import('./Settings'));
 const DirectDownload     = lazy(() => import('./DirectDownload'));
-const ChannelExplorer    = lazy(() => import('../pages/ChannelExplorer'));
-const TrendingCategories = lazy(() => import('../pages/TrendingCategories'));
-const ShortsBgmExplorer  = lazy(() => import('../pages/ShortsBgmExplorer'));
+const ChannelManager     = lazy(() => import('./ChannelManager'));
+const SmartDouyinSearch  = lazy(() => import('./SmartDouyinSearch'));
 
 // ───────────────────────────────────────────────
-// 메뉴 구조 (Layout.tsx와 동일)
+// 메뉴 구조
 // ───────────────────────────────────────────────
 const MENU_GROUPS = [
     {
-        title: '생산 코어',
+        title: '수집 & 보관',
         items: [
-            { name: '대시보드 홈',        path: '/',                    icon: LayoutDashboard },
-            { name: '미션 컨트롤',        path: '/work-queue',          icon: Rocket },
-            { name: '워크플로우 빌더',    path: '/workflows',           icon: Share2 },
-            { name: '자동 업로드 배포',   path: '/distribution-network',icon: UploadCloud },
+            { name: '대시보드 홈',        path: '/',               icon: LayoutDashboard },
+            { name: '참조 채널 분석',    path: '/channels',        icon: Users },
+            { name: '더우인 쇼츠 수집',  path: '/douyin-search',   icon: Globe },
+            { name: '미디어 고속 다운로드', path: '/download',     icon: UploadCloud },
+            { name: '미디어 보관함',      path: '/gallery',        icon: Zap },
+            { name: '대본 추출 및 분석',  path: '/script-lab',     icon: FileText },
         ],
     },
     {
-        title: '전문가 툴킷',
+        title: '창작 스튜디오',
         items: [
-            { name: '시나리오 에디터',      path: '/script-writer',   icon: FileText },
-            { name: '비주얼 스튜디오',      path: '/creative-studio', icon: Clapperboard },
-            { name: '오디오 마스터',        path: '/multi-tts',       icon: Mic },
-            { name: '자막 변환기',          path: '/subtitle-tool',   icon: Languages },
-            { name: '연좌제 방어 변조',     path: '/sovereign-shield', icon: Shield },
-            { name: '컷/무음 편집',         path: '/cut-editor',      icon: Scissors },
-            { name: 'AI 리무버',            path: '/remover',         icon: Eraser },
-            { name: '즐겨찾기 스트림',      path: '/custom-menu',     icon: Globe },
+            { name: '대본 생성 및 편집',  path: '/script-writer',  icon: FileText },
+            { name: '미디어 일괄 생성',   path: '/creative-studio',icon: Clapperboard },
+            { name: '다국어 목소리 합성', path: '/multi-tts',      icon: Mic },
+            { name: '자막 생성 및 번역',  path: '/subtitle-tool',  icon: Languages },
+            { name: '무음 구간 일괄 제거', path: '/silence-remover',icon: Scissors },
+            { name: '개체 및 배경 제거',  path: '/remover',        icon: Eraser },
         ],
     },
     {
-        title: '접속 & 성장',
+        title: '운영 및 자동화',
         items: [
-            { name: '키워드 탐색기',  path: '/keyword-explorer',     icon: Search },
-            { name: '채널 디스커버리', path: '/channel-explorer',    icon: Users },
-            { name: '트렌딩 카테고리', path: '/trending-categories', icon: Tag },
-            { name: '쇼츠 BGM 차트',     path: '/shorts-bgm',           icon: Music2 },
-            { name: '리포트',         path: '/reports',              icon: BarChart3 },
-            { name: '계정 관리자',    path: '/account-manager',      icon: Shield },
-            { name: '채널 관리자',    path: '/channels',             icon: Users },
-            { name: '스테이션 관리자',path: '/station-manager',      icon: Radio },
+            { name: '작업 대기열',        path: '/work-queue',     icon: Rocket },
+            { name: '계정 & 육성 관리',   path: '/incubator',      icon: Shield },
+            { name: '스테이션 관리자',    path: '/station-manager',icon: Radio },
+            { name: '일일 리포트',        path: '/reports',        icon: BarChart3 },
         ],
     },
     {
         title: '시스템',
         items: [
-            { name: '설정',         path: '/settings',       icon: Settings },
-            { name: '가이드 센터',  path: '/guide-center',   icon: GraduationCap },
-            { name: '인큐베이터',   path: '/incubator',      icon: Activity },
-            { name: '리소스 가이드',path: '/resource-guide', icon: FileText },
+            { name: '작업 환경 설정',    path: '/settings',       icon: Settings },
+            { name: '사용자 안내서',      path: '/guide-center',   icon: GraduationCap },
+            { name: '외부 웹사이트 연결', path: '/custom-menu',    icon: Globe },
         ],
     },
 ];
@@ -202,43 +184,29 @@ function EmbeddedRoutes() {
             <Suspense fallback={<PageLoader />}>
                 <Routes>
                     <Route path="/"                    element={<Home />} />
-                    <Route path="/work-queue"          element={<WorkQueue />} />
-                    <Route path="/workflows"           element={<WorkflowDashboard />} />
-                    <Route path="/distribution-network" element={<OperationsDashboard />} />
+                    <Route path="/channels"            element={<ChannelManager />} />
+                    <Route path="/douyin-search"       element={<SmartDouyinSearch />} />
+                    <Route path="/download"            element={<DirectDownload />} />
+                    <Route path="/gallery"             element={<Gallery />} />
+                    <Route path="/script-lab"          element={<ScriptLab />} />
                     <Route path="/script-writer"       element={<ScriptWriter />} />
                     <Route path="/creative-studio"     element={<CreativeStudio />} />
                     <Route path="/multi-tts"           element={<MultiTTS />} />
                     <Route path="/subtitle-tool"       element={<SubtitleConverter />} />
-                    <Route path="/remaster-lab"        element={<RemasterLab />} />
-                    <Route path="/sovereign-shield"    element={<SovereignShieldLab />} />
-                    <Route path="/cut-editor"          element={<CutEditor />} />
                     <Route path="/silence-remover"     element={<SilenceRemover />} />
                     <Route path="/remover"             element={<RemoverEditor />} />
-                    <Route path="/custom-menu"         element={<CustomMenu />} />
-                    <Route path="/keyword-explorer"    element={<KeywordExplorer />} />
-                    <Route path="/channel-explorer"    element={<ChannelExplorer />} />
-                    <Route path="/trending-categories" element={<TrendingCategories />} />
-                    <Route path="/shorts-bgm"          element={<ShortsBgmExplorer />} />
-                    <Route path="/reports"             element={<ReportsPage />} />
-                    <Route path="/account-manager"     element={<AccountManager />} />
-                    <Route path="/channels"            element={<AccountManager />} />
-                    <Route path="/station-manager"     element={<StationManager />} />
-                    <Route path="/ai-copilot"          element={<AICoPilotStudio />} />
-                    <Route path="/script-lab"          element={<ScriptLab />} />
-                    <Route path="/guide-center"        element={<GuideCenter />} />
+                    <Route path="/work-queue"          element={<WorkQueue />} />
                     <Route path="/incubator"           element={<Incubator />} />
+                    <Route path="/station-manager"     element={<StationManager />} />
+                    <Route path="/reports"             element={<ReportsPage />} />
+                    <Route path="/settings"            element={<SettingsPage />} />
+                    <Route path="/guide-center"        element={<GuideCenter />} />
                     <Route path="/captain"             element={<CaptainQuarters />} />
                     <Route path="/captain/:id"         element={<CaptainQuarters />} />
                     <Route path="/resource-guide"      element={<ResourceGuidePage />} />
                     <Route path="/virtual-studio"      element={<VirtualStudio />} />
-                    <Route path="/gallery"             element={<Gallery />} />
-                    <Route path="/discovery"           element={<Discovery />} />
-                    <Route path="/discovery/:channelId" element={<DiscoveryChannelDetail />} />
-
-                    <Route path="/rookies"             element={<Rookies />} />
-                    <Route path="/watchlist"           element={<Watchlist />} />
-                    <Route path="/settings"            element={<SettingsPage />} />
-                    <Route path="/download"            element={<DirectDownload />} />
+                    <Route path="/ai-copilot"          element={<AICoPilotStudio />} />
+                    <Route path="/custom-menu"         element={<CustomMenu />} />
                     {/* 매칭 없으면 홈 */}
                     <Route path="*"                    element={<Home />} />
                 </Routes>

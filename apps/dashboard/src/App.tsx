@@ -35,7 +35,6 @@ import LoginPage from './pages/LoginPage';
 
 
 import ScriptLab from './pages/ScriptLab';
-import OperationsDashboard from './pages/OperationsDashboard';
 import WorkQueue from './pages/WorkQueue';  // [NEW] Work Queue
 import DdalkkakUI from './pages/DdalkkakUI';
 import SceneCutter from './pages/SceneCutter';
@@ -145,13 +144,11 @@ function MainAppContent() {
                     <Route path="/download" element={<DirectDownload />} />
 
                     {/* Fallback Missing Routes */}
-                    <Route path="/stealth" element={<Navigate to="/account-manager" replace />} />
-                    <Route path="/scissors" element={<Navigate to="/cut-editor" replace />} />
+                    <Route path="/stealth" element={<Navigate to="/incubator" replace />} />
+                    <Route path="/scissors" element={<Navigate to="/scene-cutter-pro" replace />} />
+                    <Route path="/distribution-network" element={<Navigate to="/work-queue" replace />} />
 
                     <Route path="/channels" element={<ChannelManager />} />
-
-                    {/* [FIX: Distribution Network = Upload Queue, not Workflows] */}
-                    <Route path="/distribution-network" element={<OperationsDashboard />} />
 
                     {/* [NEW] Captain Management */}
                     <Route path="/captain/dashboard" element={<CaptainQuarters />} />
