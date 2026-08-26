@@ -30,8 +30,10 @@ class WorkQueueItemCreate(BaseModel):
     description: Optional[str] = None
     hashtags: Optional[List[str]] = None
     tags: Optional[List[str]] = None
-    video_file_path: str
+    video_file_path: Optional[str] = None
     source_type: Optional[str] = "MANUAL"
+    source_batch_id: Optional[str] = None
+    source_external_id: Optional[str] = None
     approval_required: bool = False
     upload_method: Optional[str] = "API"
     target_platforms: Optional[List[str]] = ["youtube"]
@@ -292,8 +294,10 @@ def create_queue_item(
     
     # DISCOVERY 타입은 YouTube URL을 직접 경로로 사용 (로컬 파일 없음)
     is_discovery = (item_data.source_type or '').upper() == 'DISCOVERY'
+    has_video = bool(item_data.video_file_path and item_data.video_file_path.strip())
+    safe_file_path = item_data.video_file_path
     
-    if not is_discovery:
+    if has_video and not is_discovery:
         # 파일 존재 확인 (로컬 파일인 경우만)
         if not os.path.exists(item_data.video_file_path):
             raise HTTPException(404, f"Video file not found: {item_data.video_file_path}")
@@ -316,16 +320,19 @@ def create_queue_item(
         except Exception as e:
             logger.error(f"Failed to copy video file: {e}")
             safe_file_path = item_data.video_file_path
-    else:
+    elif is_discovery:
         # DISCOVERY: YouTube URL을 그대로 경로로 저장
         safe_file_path = item_data.video_file_path
         logger.info(f"[SEARCH] Discovery item, using URL as path: {safe_file_path}")
     
-    # Determine initial status based on approval_required
-    initial_status = "QUEUED"
-    if item_data.scheduled_upload_time and item_data.scheduled_upload_time > datetime.now():
+    # Determine initial status based on approval_required & video existence
+    if not has_video:
+        initial_status = "DRAFT"
+    elif item_data.scheduled_upload_time and item_data.scheduled_upload_time > datetime.now():
         initial_status = "SCHEDULED_UPLOAD"
         logger.info(f"📅 Item scheduled for {item_data.scheduled_upload_time}")
+    else:
+        initial_status = "QUEUED"
     
     if item_data.approval_required:
         initial_approval = "PENDING"
@@ -339,15 +346,17 @@ def create_queue_item(
         description=item_data.description,
         hashtags=item_data.hashtags,
         tags=item_data.tags,
-        video_file_path=safe_file_path, # [UPDATED] Use safe copy
+        video_file_path=safe_file_path,
         source_type=item_data.source_type,
+        source_batch_id=item_data.source_batch_id,
+        source_external_id=item_data.source_external_id,
         approval_required=item_data.approval_required,
         approval_status=initial_approval,
         # Upload Config
         upload_method=item_data.upload_method,
         target_platforms=item_data.target_platforms,
         platform_configs=item_data.platform_configs or {},
-        scheduled_upload_time=item_data.scheduled_upload_time, # [NEW]
+        scheduled_upload_time=item_data.scheduled_upload_time,
         enable_shopping_tag=item_data.enable_shopping_tag,
         shopping_tag_keyword=item_data.shopping_tag_keyword,
         # Initial State

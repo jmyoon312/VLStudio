@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from 'sonner';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -263,7 +263,19 @@ const VideoPreviewBox = ({ vid, lang }: { vid?: PoolVideo; lang: string }) => {
 };
 
 export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) => {
-    const { toast } = useToast();
+    const showToast = (opts: { title?: string; description?: string; variant?: string } | string) => {
+        if (typeof opts === 'string') {
+            toast(opts);
+            return;
+        }
+        if (opts.variant === 'destructive') {
+            toast.error(opts.title || '오류가 발생했습니다', { description: opts.description });
+        } else {
+            toast.success(opts.title || '완료되었습니다', { description: opts.description });
+        }
+    };
+    const toast = showToast;
+
     const textFileRef = useRef<HTMLInputElement>(null);
     const videoFileRef = useRef<HTMLInputElement>(null);
     const cardVideoFileRef = useRef<{ [key: string]: HTMLInputElement | null }>({});
@@ -716,24 +728,39 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
         const formData = new FormData();
         formData.append('file', vid.file);
 
-        const res = await fetchWithRetry('/api/work-queue/upload', {
-            method: 'POST',
-            body: formData
+        const uploadPromise = new Promise<{ server_file_path: string; file_name: string }>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/work-queue/upload');
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        resolve(data);
+                    } catch (err) {
+                        reject(err);
+                    }
+                } else {
+                    let msg = `서버 응답 오류 (${xhr.status})`;
+                    try {
+                        const errObj = JSON.parse(xhr.responseText);
+                        msg = errObj.detail || msg;
+                    } catch (_) {}
+                    reject(new Error(msg));
+                }
+            };
+            xhr.onerror = () => reject(new Error('네트워크 연결 끊김으로 영상 서버 전송 실패'));
+            xhr.send(formData);
         });
 
-        if (res.ok) {
-            const data = await res.json();
-            vid.path = data.server_file_path;
-            setPool(prev => ({
-                ...prev,
-                [vid.id]: { ...prev[vid.id], path: data.server_file_path }
-            }));
-            poolRef.current[vid.id] = { ...poolRef.current[vid.id], path: data.server_file_path };
-            return data.server_file_path;
-        } else {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || '영상 서버 업로드 실패');
-        }
+        const data = await uploadPromise;
+        vid.path = data.server_file_path;
+        setPool(prev => ({
+            ...prev,
+            [vid.id]: { ...prev[vid.id], path: data.server_file_path }
+        }));
+        poolRef.current[vid.id] = { ...poolRef.current[vid.id], path: data.server_file_path };
+        return data.server_file_path;
     };
 
     const handleRegisterSingle = async (source: PixelingSource, lang: string) => {
