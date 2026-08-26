@@ -233,6 +233,8 @@ def get_queue_items(
     if status and status != "ALL":
         if status == "QUEUED":
             query = query.filter(models.WorkQueueItem.status.in_(["QUEUED", "SCHEDULED_UPLOAD"]))
+        elif status in ["FAILED", "FAILED_REVIEW"]:
+            query = query.filter(models.WorkQueueItem.status.in_(["FAILED", "FAILED_REVIEW"]))
         else:
             query = query.filter(models.WorkQueueItem.status == status)
     

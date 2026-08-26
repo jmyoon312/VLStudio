@@ -102,7 +102,7 @@ const WorkQueue = () => {
             : activeTab === 'uploading' ? 'UPLOADING'
             : activeTab === 'verifying' ? 'VERIFYING'
             : activeTab === 'completed' ? 'COMPLETED'
-            : activeTab === 'failed_review' ? 'FAILED_REVIEW' : null;
+            : (activeTab === 'failed_review' || activeTab === 'failed') ? 'FAILED' : null;
 
         let url = `/api/work-queue/items?limit=${limit}&date_filter=${dateFilter}`;
         if (statusFilter) url += `&status=${statusFilter}`;
@@ -337,7 +337,7 @@ const WorkQueue = () => {
     const queuedCount = (stats.queued ?? 0);
     const uploadingCount = (stats.uploading ?? 0);
     const completedCount = (stats.completed ?? 0);
-    const failedCount = (stats.failed ?? 0);
+    const failedCount = (stats.failed ?? 0) + (stats.failed_review ?? 0);
 
     return (
         <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 w-full min-h-screen pb-36 md:pb-8">
