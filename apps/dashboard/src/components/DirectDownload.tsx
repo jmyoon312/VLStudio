@@ -24,25 +24,25 @@ interface QueueItem {
 // Official Platform Links
 const SUPPORTED_PLATFORMS = [
     // Global
-    { name: 'YouTube', url: 'https://www.youtube.com', color: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300' },
-    { name: 'TikTok', url: 'https://www.tiktok.com', color: 'bg-black text-white border-slate-200 dark:bg-white dark:text-black' },
-    { name: 'Instagram', url: 'https://www.instagram.com', color: 'bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300' },
+    { name: 'YouTube', url: 'https://www.youtube.com', color: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800' },
+    { name: 'TikTok', url: 'https://www.tiktok.com', color: 'bg-black text-white border-slate-700 dark:bg-zinc-800 dark:text-white dark:border-zinc-700' },
+    { name: 'Instagram', url: 'https://www.instagram.com', color: 'bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-800' },
 
     // Chinese Platforms (Direct Links)
-    { name: 'Douyin', url: 'https://www.douyin.com', color: 'bg-slate-100 text-slate-800 border-slate-200' },
-    { name: 'Kuaishou', url: 'https://www.kuaishou.com', color: 'bg-orange-100 text-orange-700 border-orange-200' },
-    { name: 'Xiaohongshu', url: 'https://www.xiaohongshu.com', color: 'bg-red-50 text-red-600 border-red-200' },
-    { name: 'Bilibili', url: 'https://www.bilibili.com', color: 'bg-blue-50 text-blue-600 border-blue-200' },
-    { name: 'Weibo', url: 'https://weibo.com', color: 'bg-yellow-50 text-yellow-600 border-yellow-200' },
-    { name: 'Haokan', url: 'https://haokan.baidu.com', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+    { name: 'Douyin', url: 'https://www.douyin.com', color: 'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700' },
+    { name: 'Kuaishou', url: 'https://www.kuaishou.com', color: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800' },
+    { name: 'Xiaohongshu', url: 'https://www.xiaohongshu.com', color: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800' },
+    { name: 'Bilibili', url: 'https://www.bilibili.com', color: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800' },
+    { name: 'Weibo', url: 'https://weibo.com', color: 'bg-yellow-50 text-yellow-600 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-800' },
+    { name: 'Haokan', url: 'https://haokan.baidu.com', color: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' },
 
     // Others
-    { name: 'Xigua Video', url: 'https://www.ixigua.com', color: 'bg-red-100 text-red-700 border-red-200' },
-    { name: 'Pipixia', url: 'https://pipix.com', color: 'bg-pink-50 text-pink-600 border-pink-200' },
-    { name: 'AcFun', url: 'https://www.acfun.cn', color: 'bg-orange-50 text-orange-600 border-orange-200' },
-    { name: 'Toutiao', url: 'https://www.toutiao.com', color: 'bg-red-50 text-red-700 border-red-200' },
-    { name: 'Huya', url: 'https://www.huya.com', color: 'bg-orange-100 text-orange-800 border-orange-200' },
-    { name: 'Weishi', url: 'https://weishi.qq.com', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+    { name: 'Xigua Video', url: 'https://www.ixigua.com', color: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800' },
+    { name: 'Pipixia', url: 'https://pipix.com', color: 'bg-pink-50 text-pink-600 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-800' },
+    { name: 'AcFun', url: 'https://www.acfun.cn', color: 'bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800' },
+    { name: 'Toutiao', url: 'https://www.toutiao.com', color: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800' },
+    { name: 'Huya', url: 'https://www.huya.com', color: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800' },
+    { name: 'Weishi', url: 'https://weishi.qq.com', color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800' },
 ];
 
 const DirectDownload = () => {
@@ -285,6 +285,19 @@ const DirectDownload = () => {
 
     return (
         <div className="space-y-4 sm:space-y-6 w-full max-w-4xl mx-auto p-3 sm:p-6 py-4 sm:py-8 pb-36 md:pb-12 min-h-screen bg-background text-foreground overflow-x-hidden">
+
+            {/* 1. 상단 타이틀 및 설명 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Download className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        URL 영상 직접 수집
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        YouTube, TikTok, Instagram, Douyin 등 15개 이상 글로벌 플랫폼 영상 링크를 복사하여 직접/일괄 고속 수집
+                    </p>
+                </div>
+            </div>
 
             {batchSource && (
                 <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 animate-in fade-in slide-in-from-top-2">

@@ -53,7 +53,7 @@ const MENU_GROUPS = [
             { name: '대시보드 홈',        path: '/',               icon: LayoutDashboard },
             { name: '타겟 채널 자동 수집', path: '/channels',        icon: Users },
             { name: '더우인 쇼츠 수집',  path: '/douyin-search',   icon: Globe },
-            { name: '미디어 고속 다운로드', path: '/download',     icon: UploadCloud },
+            { name: 'URL 영상 직접 수집', path: '/download',     icon: UploadCloud },
             { name: '미디어 보관함',      path: '/gallery',        icon: Zap },
             { name: '대본 추출 및 분석',  path: '/script-lab',     icon: FileText },
         ],
