@@ -34,7 +34,9 @@ import {
     Download,
     Image,
     FolderOpen,
-    Edit3
+    Edit3,
+    Video,
+    Send
 } from 'lucide-react';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
