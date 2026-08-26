@@ -550,7 +550,7 @@ const Settings = () => {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="space-y-4 sm:space-y-6 max-w-4xl w-full mx-auto pb-36 md:pb-12 bg-background text-foreground min-h-screen font-sans min-w-0">
+        <div className="space-y-4 sm:space-y-6 max-w-4xl w-full mx-auto pb-44 md:pb-12 bg-background text-foreground min-h-screen font-sans min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="space-y-1">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">설정</h1>
@@ -787,9 +787,11 @@ const Settings = () => {
                                         </p>
                                     </div>
 
-                                    <Button type="submit" disabled={isSaving} className="w-full md:w-auto">
-                                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 저장
-                                    </Button>
+                                    <div className="pt-2">
+                                        <Button type="submit" disabled={isSaving} className="w-full md:w-auto h-11 px-8 text-xs sm:text-sm font-bold shadow-xs">
+                                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 설정 저장
+                                        </Button>
+                                    </div>
                                 </form>
                             </CardContent>
                         </Card>
@@ -1679,6 +1681,9 @@ const Settings = () => {
                     </TabsContent>
                 </Tabs>
             </div>
+
+            {/* Explicit Mobile Bottom Navigation Clearance Spacer */}
+            <div className="h-28 md:hidden shrink-0 pointer-events-none" aria-hidden="true" />
 
             {/* Logs Dialog (Kept Global) */}
             <Dialog open={isLogOpen} onOpenChange={setIsLogOpen}>
