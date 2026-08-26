@@ -138,10 +138,21 @@ function dispatch(action: Action) {
     })
 }
 
-type Toast = Omit<ToasterToast, "id">
+import { toast as sonnerToast } from "sonner";
 
 function toast({ ...props }: Toast) {
     const id = genId()
+
+    // Bridge to sonner so UI toast is always visible
+    try {
+        const titleStr = typeof props.title === 'string' ? props.title : props.title ? String(props.title) : '';
+        const descStr = typeof props.description === 'string' ? props.description : props.description ? String(props.description) : undefined;
+        if (props.variant === 'destructive') {
+            sonnerToast.error(titleStr || '오류 발생', { description: descStr });
+        } else {
+            sonnerToast.success(titleStr || '알림', { description: descStr });
+        }
+    } catch (_) {}
 
     const update = (props: ToasterToast) =>
         dispatch({

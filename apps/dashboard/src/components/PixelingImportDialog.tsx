@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
+import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -263,18 +263,7 @@ const VideoPreviewBox = ({ vid, lang }: { vid?: PoolVideo; lang: string }) => {
 };
 
 export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) => {
-    const showToast = (opts: { title?: string; description?: string; variant?: string } | string) => {
-        if (typeof opts === 'string') {
-            toast(opts);
-            return;
-        }
-        if (opts.variant === 'destructive') {
-            toast.error(opts.title || '오류가 발생했습니다', { description: opts.description });
-        } else {
-            toast.success(opts.title || '완료되었습니다', { description: opts.description });
-        }
-    };
-    const toast = showToast;
+    const { toast } = useToast();
 
     const textFileRef = useRef<HTMLInputElement>(null);
     const videoFileRef = useRef<HTMLInputElement>(null);
