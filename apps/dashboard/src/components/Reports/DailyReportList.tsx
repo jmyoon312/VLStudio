@@ -400,8 +400,12 @@ function SystemHealthDashboard() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <Badge variant="outline" className={`text-[10px] font-bold ${metrics.api_status?.openai ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>OpenAI</Badge>
-                        <Badge variant="outline" className={`text-[10px] font-bold ${metrics.api_status?.gemini ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>Gemini</Badge>
+                        <Badge variant="outline" className={`text-[10px] font-bold ${metrics.api_status?.openai ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                            {metrics.api_status?.openai ? 'OpenAI ● 연동됨' : 'OpenAI ○ 미설정'}
+                        </Badge>
+                        <Badge variant="outline" className={`text-[10px] font-bold ${metrics.api_status?.gemini ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                            {metrics.api_status?.gemini ? 'Gemini ● 연동됨' : 'Gemini ○ 미설정'}
+                        </Badge>
                     </div>
                 </div>
             </CardContent>
@@ -423,19 +427,40 @@ export function DailyReportList() {
         }
     });
 
-    const { data: overview } = useQuery({
-        queryKey: ['dashboard-overview'],
-        queryFn: async () => {
-            try {
-                const res = await api.get('/reports/dashboard-overview');
-                return res.data;
-            } catch (e) {
-                return null;
-            }
-        },
-        retry: false,
-        refetchInterval: 30000
-    });
+    // 리포트 목록으로부터 실시간 통합 KPI 및 7일 추이를 즉시 계산 (네트워크 404 원천 차단)
+    const finalOverview = useMemo(() => {
+        if (!reports || reports.length === 0) return null;
+        const latest = reports[0];
+        const stats = latest.raw_stats_json || {};
+        const historyTrend = [...reports].slice(0, 7).reverse().map(r => {
+            const st = r.raw_stats_json || {};
+            const d = new Date(r.report_date);
+            const month = d.getMonth() + 1;
+            const day = d.getDate();
+            return {
+                date: isNaN(month) ? '' : `${month}/${day}`,
+                sourcing: st.sourcing?.videos_collected || st.videos_collected || 0,
+                scripts: st.sourcing?.scripts_collected || st.scripts_collected || 0,
+                creation: st.creation?.today_created_items || 0,
+                uploaded: st.distribution?.uploaded_today || 0,
+                views_increase: st.growth?.total_daily_views_increase || 0
+            };
+        });
+
+        return {
+            kpis: {
+                total_vault_videos: stats.sourcing?.total_videos || stats.videos_collected || 0,
+                recent_sourced_7d: stats.sourcing?.recent_sourced_7d || stats.sourcing?.videos_collected || 0,
+                total_queue_items: stats.creation?.total_queue_items || 0,
+                completed_uploads: stats.distribution?.completed_uploads || 0,
+                failed_uploads: stats.distribution?.failed_uploads || 0,
+                pending_queue: stats.creation?.pending_queue || 0,
+                total_channels: stats.growth?.monitored_channels || 1,
+                overall_success_rate: stats.distribution?.success_rate || 100.0
+            },
+            history_trend: historyTrend
+        };
+    }, [reports]);
 
     const generateMutation = useMutation({
         mutationFn: async () => {
@@ -619,7 +644,7 @@ export function DailyReportList() {
             </div>
 
             {/* 1. Top 4 Funnel KPI Cards */}
-            <PipelineKpiOverview overview={overview} />
+            <PipelineKpiOverview overview={finalOverview} />
 
             {/* 2. Realtime System Health & Auto Diagnostics */}
             <SystemHealthDashboard />
@@ -863,9 +888,9 @@ export function DailyReportList() {
                                 <CardDescription className="text-xs">수집 ➔ 제작 ➔ 업로드 배포 흐름</CardDescription>
                             </CardHeader>
                             <CardContent className="p-4 h-[280px]">
-                                {overview?.history_trend && overview.history_trend.length > 0 ? (
+                                {finalOverview?.history_trend && finalOverview.history_trend.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={overview.history_trend}>
+                                        <BarChart data={finalOverview.history_trend}>
                                             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                             <XAxis dataKey="date" fontSize={11} />
                                             <YAxis fontSize={11} />
@@ -893,9 +918,9 @@ export function DailyReportList() {
                                 <CardDescription className="text-xs">업로드된 숏폼의 24시간 트래픽 증가량</CardDescription>
                             </CardHeader>
                             <CardContent className="p-4 h-[280px]">
-                                {overview?.history_trend && overview.history_trend.length > 0 ? (
+                                {finalOverview?.history_trend && finalOverview.history_trend.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={overview.history_trend}>
+                                        <AreaChart data={finalOverview.history_trend}>
                                             <defs>
                                                 <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
                                                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
