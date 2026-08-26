@@ -196,6 +196,33 @@ class SystemMaintenance:
             await asyncio.to_thread(channel_cleanup_task)
         except Exception as e:
             print(f"Daily cleanup failed: {e}")
+
+    async def auto_zombie_cleanup_wrapper(self):
+        """
+        Periodically resets stuck/zombie tasks (>2 hours old) to failed state.
+        """
+        try:
+            def _clean():
+                db = SessionLocal()
+                try:
+                    from . import models
+                    zombie_cutoff = datetime.now() - timedelta(hours=2)
+                    stuck_videos = db.query(models.Video).filter(
+                        models.Video.status == "downloading",
+                        models.Video.downloaded_at < zombie_cutoff
+                    ).all()
+                    
+                    if stuck_videos:
+                        for v in stuck_videos:
+                            v.status = "failed"
+                        db.commit()
+                        print(f"[Self-Healing] Automatically cleaned {len(stuck_videos)} zombie download tasks.")
+                finally:
+                    db.close()
+
+            await asyncio.to_thread(_clean)
+        except Exception as e:
+            print(f"[Self-Healing] Auto zombie cleanup error: {e}")
     
     def start_scheduler(self):
         """Start the maintenance scheduler"""
@@ -221,14 +248,22 @@ class SystemMaintenance:
             name='yt-dlp Startup Check'
         )
         
-        # [NEW] Add daily cleanup job (매일 새벽 3시)
-        from apscheduler.triggers.cron import CronTrigger
+        # [NEW] Add auto zombie cleanup job (매 30분마다 2시간 경과 고아 다운로드 자동 정리)
         self.scheduler.add_job(
-            self.daily_cleanup_wrapper,
-            trigger=CronTrigger(hour=3, minute=0),  # 매일 03:00
-            id='daily_cleanup',
-            name='Daily Video Cleanup (10 days old)',
+            self.auto_zombie_cleanup_wrapper,
+            trigger=IntervalTrigger(minutes=30),
+            id='auto_zombie_cleanup',
+            name='Auto Zombie Task Janitor',
             replace_existing=True
+        )
+
+        # Run initial zombie cleanup 30 seconds after startup
+        self.scheduler.add_job(
+            self.auto_zombie_cleanup_wrapper,
+            trigger='date',
+            run_date=datetime.now() + timedelta(seconds=30),
+            id='startup_zombie_cleanup',
+            name='Startup Zombie Task Cleanup'
         )
         
         self.scheduler.start()

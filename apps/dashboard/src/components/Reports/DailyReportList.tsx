@@ -426,9 +426,14 @@ export function DailyReportList() {
     const { data: overview } = useQuery({
         queryKey: ['dashboard-overview'],
         queryFn: async () => {
-            const res = await api.get('/reports/dashboard-overview');
-            return res.data;
+            try {
+                const res = await api.get('/reports/dashboard-overview');
+                return res.data;
+            } catch (e) {
+                return null;
+            }
         },
+        retry: false,
         refetchInterval: 30000
     });
 
