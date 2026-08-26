@@ -842,17 +842,19 @@ html, body {
    Responsive Main Panel - Container Queries
    ============================================ */
 
-/* < 550px: 중간 탭 아이콘만 표시 */
+/* < 550px: 탭 라벨 유지 및 모바일 최적화 */
 @container main-panel (max-width: 549px) {
   .tab {
-    padding: 6px 10px;
-    font-size: 0.8rem;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .tab-label {
-    display: none;
+    display: inline;
   }
   .tab.tab-icon {
-    padding: 6px 10px;
+    padding: 6px 12px;
   }
   .col-image { width: 110px; }
   .col-refs { width: 180px; }
@@ -1818,16 +1820,43 @@ html, body {
 /* 📱 Mobile Responsive Enhancements (< 640px) */
 @media (max-width: 640px) {
   .tabs-header {
+    display: flex;
+    flex-wrap: nowrap;
     overflow-x: auto;
-    padding-bottom: 4px;
+    gap: 6px;
+    padding: 4px 2px 8px;
+    margin-bottom: 8px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    -ms-overflow-style: none;
   }
   .tabs-header::-webkit-scrollbar {
     display: none;
   }
   .tabs-left, .tabs-right {
+    display: flex;
+    gap: 6px;
     flex-shrink: 0;
+  }
+  .tab {
+    padding: 6px 11px !important;
+    font-size: 0.82rem !important;
+    border-radius: 10px;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .tab-label {
+    display: inline !important;
+    font-size: 0.82rem !important;
+  }
+  .main-panel {
+    padding-bottom: 80px !important;
+  }
+  .tab-content {
+    padding-bottom: 60px !important;
   }
   .style-selection-bar {
     width: 100%;

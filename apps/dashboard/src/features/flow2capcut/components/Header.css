@@ -1054,3 +1054,27 @@ span.lang-flag {
   padding-top: 8px;
   text-align: center;
 }
+
+/* 📱 Mobile Header Optimization */
+@media (max-width: 640px) {
+  .header {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .header-left {
+    gap: 6px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .header-actions .btn {
+    padding: 6px 8px;
+    font-size: 0.78rem;
+    height: 34px;
+  }
+  .header-actions .btn-label {
+    display: none;
+  }
+}
