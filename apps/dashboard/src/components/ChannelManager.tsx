@@ -175,7 +175,7 @@ const ChannelManager = () => {
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8 pb-28 sm:pb-8">
 
 
             {/* Category Management */}
@@ -297,7 +297,139 @@ const ChannelManager = () => {
                     </button>
                 )}
             </div>
-            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
+
+            {/* Mobile Responsive Channel Card List (sm:hidden) */}
+            <div className="sm:hidden space-y-3">
+                {isLoading ? (
+                    <div className="p-6 text-center text-sm text-muted-foreground bg-card rounded-xl border border-border">로딩 중...</div>
+                ) : channels?.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-muted-foreground bg-card rounded-xl border border-border">등록된 채널이 없습니다.</div>
+                ) : (
+                    channels?.map((channel) => (
+                        <div key={channel.id} className="bg-card border border-border rounded-xl p-3.5 space-y-3 shadow-2xs">
+                            {/* 카드 상단: 체크박스 + 프로필 + 이름 + 상태 */}
+                            <div className="flex items-center justify-between gap-2.5">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <input 
+                                        type="checkbox" 
+                                        className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                                        checked={selectedChannels.has(channel.id)}
+                                        onChange={() => toggleChannel(channel.id)}
+                                    />
+                                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0 overflow-hidden relative">
+                                        <span className="absolute inset-0 flex items-center justify-center text-sm">
+                                            {channel.name?.[0] || '?'}
+                                        </span>
+                                        {channel.thumbnail_path && (
+                                            <img
+                                                src={getMediaUrl(channel.thumbnail_path, settings?.root_download_path)}
+                                                alt={channel.name}
+                                                className="w-full h-full object-cover relative z-10"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h4 className="font-bold text-sm text-foreground truncate">{channel.name}</h4>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <span className="text-[11px] text-muted-foreground font-medium">{getPlatformDisplay(channel.platform)}</span>
+                                            {categories?.find(c => c.id === channel.category_id)?.name && (
+                                                <span className="inline-flex items-center rounded-full border px-2 py-0.2 text-[10px] font-semibold border-border bg-secondary text-secondary-foreground">
+                                                    {categories.find(c => c.id === channel.category_id)?.name}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <span className={cn(
+                                    "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0",
+                                    channel.status === 'active' ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-muted text-muted-foreground border border-border"
+                                )}>
+                                    {channel.status === 'active' ? '활성' : '일시정지'}
+                                </span>
+                            </div>
+
+                            {/* 카드 중단: URL */}
+                            <div className="bg-muted/40 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground truncate border border-border/50">
+                                <a
+                                    href={channel.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:underline hover:text-primary transition-colors truncate block"
+                                >
+                                    {channel.url}
+                                </a>
+                            </div>
+
+                            {/* 카드 하단: 토글 스위치 및 액션 버튼들 */}
+                            <div className="flex items-center justify-between pt-2 border-t border-border/40 gap-2">
+                                <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                                        <button
+                                            type="button"
+                                            onClick={() => updateMutation.mutate({ id: channel.id, data: { auto_download: !channel.auto_download } })}
+                                            className={cn(
+                                                "w-8 h-5 rounded-full transition-colors relative",
+                                                channel.auto_download ? "bg-primary" : "bg-input"
+                                            )}
+                                        >
+                                            <span className={cn(
+                                                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                                                channel.auto_download ? "translate-x-3" : "translate-x-0"
+                                            )} />
+                                        </button>
+                                        <span className="text-[11px]">자동다운</span>
+                                    </label>
+
+                                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                                        <button
+                                            type="button"
+                                            onClick={() => updateMutation.mutate({ id: channel.id, data: { default_script_only: !channel.default_script_only } })}
+                                            className={cn(
+                                                "w-8 h-5 rounded-full transition-colors relative",
+                                                channel.default_script_only ? "bg-primary" : "bg-input"
+                                            )}
+                                        >
+                                            <span className={cn(
+                                                "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                                                channel.default_script_only ? "translate-x-3" : "translate-x-0"
+                                            )} />
+                                        </button>
+                                        <span className="text-[11px]">스크립트</span>
+                                    </label>
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => scanMutation.mutate(channel.id)}
+                                        disabled={scanMutation.isPending}
+                                        title="즉시 스캔"
+                                        className="inline-flex items-center justify-center rounded-lg text-xs font-medium border border-input bg-background hover:bg-accent h-8 w-8 shrink-0"
+                                    >
+                                        <RefreshCw className={cn("w-3.5 h-3.5", scanMutation.isPending && "animate-spin")} />
+                                    </button>
+                                    <button
+                                        onClick={() => updateMutation.mutate({ id: channel.id, data: { status: channel.status === 'active' ? 'paused' : 'active' } })}
+                                        className="inline-flex items-center justify-center rounded-lg text-xs font-medium border border-input bg-background hover:bg-accent h-8 w-8 shrink-0"
+                                    >
+                                        {channel.status === 'active' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                                    </button>
+                                    <button
+                                        onClick={() => { if (confirm('정말 삭제하시겠습니까?')) deleteMutation.mutate(channel.id); }}
+                                        disabled={deleteMutation.isPending}
+                                        className="inline-flex items-center justify-center rounded-lg text-xs font-medium border border-input bg-background hover:bg-destructive hover:text-destructive-foreground h-8 w-8 shrink-0"
+                                    >
+                                        <Trash2 className={cn("w-3.5 h-3.5 text-red-500", deleteMutation.isPending && "animate-pulse")} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* Desktop Table View (hidden sm:block) */}
+            <div className="hidden sm:block rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
                 <div className="relative w-full overflow-x-auto">
                     <table className="w-full min-w-[700px] caption-bottom text-xs sm:text-sm">
                         <thead className="[&_tr]:border-b bg-muted/40">
@@ -327,7 +459,7 @@ const ChannelManager = () => {
                                 <tr key={channel.id} className="border-b transition-colors hover:bg-muted/30">
                                     <td className="p-3 sm:p-4 align-middle">
                                         <input 
-                                            type="checkbox"
+                                            type="checkbox" 
                                             className="rounded border-border text-primary focus:ring-primary"
                                             checked={selectedChannels.has(channel.id)}
                                             onChange={() => toggleChannel(channel.id)}
