@@ -4,7 +4,6 @@ import { UniversalVideo, UniversalVideoSchema } from './compositions/UniversalVi
 import { DynamicShortsTemplate, DynamicShortsSchema } from './compositions/DynamicShortsTemplate';
 import { AIMovie, AIMovieSchema } from './compositions/AIMovie';
 import { SovereignShorts, SovereignShortsSchema } from './compositions/SovereignShorts';
-import { EliteSequence, EliteSequenceSchema } from './compositions/EliteSequence';
 
 // Mock Data for Universal Video
 const defaultProps = {
@@ -76,16 +75,6 @@ const sovereignShortsDefaultProps = {
 export const RemotionRoot: React.FC = () => {
     return (
         <>
-            <Composition
-                id="EliteSequence"
-                component={EliteSequence}
-                durationInFrames={900} // Default 30s
-                fps={30}
-                width={1080}
-                height={1920}
-                schema={EliteSequenceSchema}
-                defaultProps={{ beats: [], audio_src: '', bgm_src: '', aspect_ratio: '9:16' } as any}
-            />
             <Composition
                 id="UniversalVideo"
                 component={UniversalVideo}

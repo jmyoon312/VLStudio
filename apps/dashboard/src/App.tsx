@@ -46,7 +46,6 @@ import CaptainQuarters from './pages/CaptainQuarters';  // [NEW] Phase 4.1
 import Incubator from './pages/Incubator';
 import GuideCenter from './pages/GuideCenter';
 import Home from './pages/Home';
-import EliteCommandStudio from './pages/EliteCommandStudio'; // [Elite] Command Studio
 
 import ResearchBrief from './pages/ResearchBrief';
 
@@ -195,10 +194,6 @@ function MainAppContent() {
                     <Route path="/guide-center" element={<GuideCenter />} />  {/* [NEW] Guide Center */}
                     <Route path="/incubator" element={<Incubator />} />  {/* [NEW] Incubator */}
                     <Route path="/settings" element={<Settings />} />
-
-                    {/* [Elite] Command Studio ??Beats Editor */}
-                    <Route path="/elite-studio" element={<EliteCommandStudio />} />
-                    <Route path="/elite-studio/:videoId" element={<EliteCommandStudio />} />
                     <Route path="/research-brief" element={<ResearchBrief />} />
                 </Routes>
             </Layout>

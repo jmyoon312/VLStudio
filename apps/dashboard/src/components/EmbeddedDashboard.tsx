@@ -23,7 +23,6 @@ const Home               = lazy(() => import('../pages/Home'));
 const WorkQueue          = lazy(() => import('../pages/WorkQueue'));
 const WorkflowDashboard  = lazy(() => import('../pages/WorkflowDashboard'));
 const OperationsDashboard = lazy(() => import('../pages/OperationsDashboard'));
-const EliteCommandStudio = lazy(() => import('../pages/EliteCommandStudio'));
 const ScriptWriter       = lazy(() => import('./ScriptWriter'));
 const CreativeStudio     = lazy(() => import('../pages/CreativeStudio'));
 const MultiTTS           = lazy(() => import('../pages/MultiTTS'));
@@ -206,8 +205,6 @@ function EmbeddedRoutes() {
                     <Route path="/work-queue"          element={<WorkQueue />} />
                     <Route path="/workflows"           element={<WorkflowDashboard />} />
                     <Route path="/distribution-network" element={<OperationsDashboard />} />
-                    <Route path="/elite-studio"        element={<EliteCommandStudio />} />
-                    <Route path="/elite-studio/:id"    element={<EliteCommandStudio />} />
                     <Route path="/script-writer"       element={<ScriptWriter />} />
                     <Route path="/creative-studio"     element={<CreativeStudio />} />
                     <Route path="/multi-tts"           element={<MultiTTS />} />
