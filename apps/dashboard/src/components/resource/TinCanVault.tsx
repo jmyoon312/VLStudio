@@ -419,15 +419,15 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                     <div>
                         <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground">
                             <ShieldCheck className="w-5 h-5 text-indigo-500" />
-                            구글 계정 관리 (Google Accounts)
+                            구글/유튜브 채널 계정 목록
                         </CardTitle>
                         <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                            안전하게 격리된 브라우저 프로필을 생성하고 관리합니다. (Import & Setup)
+                            스텔스 브라우저로 핑거프린트가 완벽히 격리된 안전 프로필 생성 및 관리
                         </CardDescription>
                     </div>
                     <div className="flex gap-2 items-center self-end sm:self-auto">
                         <Button onClick={() => { setDraftData(null); setIsWizardOpen(true); }} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-8 text-xs shadow-2xs">
-                            <Plus className="w-3.5 h-3.5 mr-1.5" /> 새 계정 가져오기
+                            <Plus className="w-3.5 h-3.5 mr-1.5" /> 새 계정 등록
                         </Button>
                     </div>
                 </CardHeader>

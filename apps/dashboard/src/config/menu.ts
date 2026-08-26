@@ -94,7 +94,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         defaultExpanded: true,
         items: [
             { name: '쇼츠 자동 배포 관리', path: '/work-queue', icon: Activity, highlight: true },
-            { name: '통합 계정 & 육성 관리', path: '/incubator', icon: Users, highlight: true },
+            { name: '채널 계정 & 웜업 육성', path: '/incubator', icon: Users, highlight: true },
         ]
     },
     {

@@ -486,11 +486,11 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                     <DialogHeader>
                         <div className="flex justify-between items-center pr-6">
                             <div>
-                                <DialogTitle className="flex items-center gap-2 text-xl">
-                                    <ShieldCheck className="w-6 h-6 text-indigo-600" />
-                                    Import & Setup Wizard
+                                <DialogTitle className="flex items-center gap-2 text-xl font-extrabold text-foreground">
+                                    <ShieldCheck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                                    구글 계정 안전 등록 마법사
                                 </DialogTitle>
-                                <DialogDescription>
+                                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                                     모바일 생성 계정을 PC로 안전하게 이관하고 설정을 완료합니다.
                                 </DialogDescription>
                             </div>
@@ -498,7 +498,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => setShowGuideModal(true)}
-                                className="text-xs gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                className="text-xs gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
                             >
                                 📖 설정 & 검토 가이드
                             </Button>
@@ -507,19 +507,19 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
 
                     {/* Progress UI */}
                     <div className="flex justify-between my-6 px-4 relative">
-                        <div className="absolute top-4 left-0 right-0 h-0.5 bg-slate-100 -z-10" />
+                        <div className="absolute top-4 left-0 right-0 h-0.5 bg-muted -z-10" />
                         {steps.map((s, idx) => {
                             const stepNum = idx + 1;
                             const isActive = step === stepNum;
                             const isCompleted = step > stepNum;
                             return (
-                                <div key={idx} className="flex flex-col items-center gap-2 bg-white px-2">
+                                <div key={idx} className="flex flex-col items-center gap-2 bg-card px-2">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all
-                                    ${isActive ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' : isCompleted ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-500'}
+                                    ${isActive ? 'bg-indigo-600 text-white ring-4 ring-indigo-500/20' : isCompleted ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground'}
                                 `}>
                                         {isCompleted ? <Check className="w-4 h-4" /> : stepNum}
                                     </div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isActive ? 'text-indigo-600' : 'text-slate-600'}`}>{s.title}</span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-tighter ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'}`}>{s.title}</span>
                                 </div>
                             )
                         })}
@@ -529,10 +529,10 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                     <div className="min-h-[220px] py-2">
                         {step === 1 && (
                             <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                                <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg text-xs text-blue-800 flex gap-3">
-                                    <AlertTriangle className="w-5 h-5 shrink-0" />
+                                <div className="bg-blue-50/80 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-800/40 p-4 rounded-xl text-xs text-blue-900 dark:text-blue-200 flex gap-3">
+                                    <AlertTriangle className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400" />
                                     <div>
-                                        <p className="font-bold mb-1">Import Mode</p>
+                                        <p className="font-bold mb-1">계정 안전 등록 안내</p>
                                         이미 모바일(LTE) 환경에서 생성된 구글 계정 정보를 입력하세요.<br />
                                         PC에서는 추가적인 생성 행위 없이 <strong>로그인 및 설정</strong>만 진행합니다.
                                     </div>
@@ -960,7 +960,7 @@ const TinCanWizard: React.FC<TinCanWizardProps> = ({ isOpen, onClose, onComplete
                     <DialogFooter className="gap-2">
                         {step > 1 && step <= 6 && <Button variant="ghost" onClick={() => setStep(step - 1)} disabled={isLoading || isVerifying}>이전</Button>}
 
-                        {step === 1 && <Button onClick={handleImportAccount} disabled={isLoading} className="w-full">계정 가져오기 <ChevronRight className="w-4 h-4 ml-1" /></Button>}
+                        {step === 1 && <Button onClick={handleImportAccount} disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold">계정 등록 및 다음 단계 <ChevronRight className="w-4 h-4 ml-1" /></Button>}
                         {step === 2 && <Button onClick={handleSaveEngine} className="w-full bg-indigo-600" disabled={isLoading}>엔진 구성 및 다음 <ChevronRight className="w-4 h-4 ml-1" /></Button>}
                         {step === 3 && <Button onClick={handleSaveNetwork} className="w-full bg-indigo-600" disabled={isLoading}>네트워크 저장 및 다음 <ChevronRight className="w-4 h-4 ml-1" /></Button>}
                         {step === 4 && <Button onClick={() => setStep(5)} className="w-full bg-indigo-600" disabled={isLoading || isVerifying}>다음 (키 등록) <ChevronRight className="w-4 h-4 ml-1" /></Button>}

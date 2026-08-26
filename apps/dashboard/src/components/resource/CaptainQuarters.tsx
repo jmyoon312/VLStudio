@@ -120,7 +120,7 @@ export const BulkWarmupPanel = () => {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-foreground">
                             <Flame className="w-5 h-5 text-orange-500" />
-                            <h3 className="font-semibold text-base">일괄 웜업 제어 (Bulk Warmup)</h3>
+                            <h3 className="font-semibold text-base">일괄 웜업 육성 제어</h3>
                         </div>
                         <Button
                             onClick={() => setGuideOpen(true)}

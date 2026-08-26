@@ -108,12 +108,20 @@ const Incubator = () => {
         <div className="p-3 sm:p-6 pb-52 sm:pb-40 md:pb-16 space-y-3 sm:space-y-4 bg-background min-h-screen text-foreground font-sans">
 
 
-            {/* Compact Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-2.5 sm:pb-3 border-b border-border">
-                <div />
+            {/* 1. 상단 타이틀 헤더 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-2.5 sm:pb-3 border-b border-border">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Shield className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>채널 계정 & 웜업 육성</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        구글/소셜 채널 계정을 스텔스 안티디텍트 환경에 등록하고 안전하게 알고리즘 웜업 및 육성 제어
+                    </p>
+                </div>
 
-                <div className="flex items-center gap-2 sm:gap-3 mt-2 md:mt-0 w-full md:w-auto justify-end">
-                    <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full text-[10px] font-bold text-muted-foreground">
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full text-[10px] font-bold text-muted-foreground shadow-2xs">
                         <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-muted'}`} />
                         {isConnected ? `CONNECTED: ${networkStatus.current_ip}` : 'OFFLINE'}
                     </div>
@@ -124,9 +132,9 @@ const Incubator = () => {
             {/* 3대 통합 탭 (모바일 3등분 반응형 그리드) */}
             <div className="grid grid-cols-3 gap-1 bg-muted/90 p-1 rounded-xl w-full sm:w-fit sm:flex sm:space-x-1">
                 {[
-                    { id: 'vault', label: '통합 계정 & 육성 관리', shortLabel: '계정/육성', icon: Shield },
-                    { id: 'social', label: '멀티 플랫폼 (Social)', shortLabel: '멀티플랫폼', icon: Globe },
-                    { id: 'network', label: '네트워크 대시보드', shortLabel: '네트워크', icon: Activity }
+                    { id: 'vault', label: '구글/유튜브 계정 & 웜업', shortLabel: '구글 계정', icon: Shield },
+                    { id: 'social', label: '틱톡·인스타 SNS 연동', shortLabel: 'SNS 연동', icon: Globe },
+                    { id: 'network', label: '프록시 & 네트워크 관제', shortLabel: '네트워크', icon: Activity }
                 ].map((tab: any) => (
                     <button
                         key={tab.id}
