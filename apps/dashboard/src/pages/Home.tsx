@@ -656,9 +656,9 @@ const Home = () => {
             </div>
 
             {/* [NEW] 2.5 AI 데일리 인텔리전스 브리핑 & 4대 파이프라인 펄스 (모바일/데스크톱 최적화) */}
-            {latestReport && (
-                <div className="space-y-3">
-                    {/* AI 데일리 브리핑 스마트 배너 */}
+            <div className="space-y-3">
+                {/* AI 데일리 브리핑 스마트 배너 */}
+                {latestReport && (
                     <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-sky-500/10 border border-indigo-500/20 dark:border-indigo-500/30 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-start sm:items-center gap-3 min-w-0">
                             <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl shrink-0 mt-0.5 sm:mt-0">
@@ -674,7 +674,7 @@ const Home = () => {
                                     </span>
                                 </div>
                                 <p className="text-xs text-foreground font-semibold line-clamp-2 sm:line-clamp-1 leading-relaxed">
-                                    {getAiBriefingSnippet(latestReport.summary_markdown)}
+                                    {getAiBriefingSnippet(latestReport?.summary_markdown)}
                                 </p>
                             </div>
                         </div>
@@ -688,89 +688,91 @@ const Home = () => {
                             </button>
                         </div>
                     </div>
+                )}
 
-                    {/* 4대 파이프라인 실시간 KPI 미니 펄스 (모바일: 2x2 그리드, 데스크톱: 4x1 그리드) */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-                        {/* 1. 수집 펄스 */}
-                        <div 
-                            onClick={() => navigate('/gallery')}
-                            className="bg-card/80 border border-border/80 hover:border-sky-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
-                        >
-                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                                <span className="flex items-center gap-1.5"><Video className="w-3.5 h-3.5 text-sky-400" /> 수집 보관</span>
-                                <span className="text-[10px] text-sky-400 font-bold">Sourcing</span>
-                            </div>
-                            <div className="text-lg sm:text-xl font-extrabold text-foreground">
-                                {stats.total_videos}
-                                <span className="text-[10px] font-normal text-muted-foreground ml-1">개</span>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
-                                <span>오늘 유입</span>
-                                <strong className="text-sky-400 font-bold">+{stats.downloaded_today || 0}개</strong>
-                            </div>
+                {/* 4대 파이프라인 실시간 KPI 미니 펄스 (모바일: 2x2 그리드, 데스크톱: 4x1 그리드) */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    {/* 1. 수집 펄스 */}
+                    <div 
+                        onClick={() => navigate('/gallery')}
+                        className="bg-card/80 border border-border/80 hover:border-sky-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
+                    >
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5"><Video className="w-3.5 h-3.5 text-sky-400" /> 수집 보관</span>
+                            <span className="text-[10px] text-sky-400 font-bold">Sourcing</span>
                         </div>
-
-                        {/* 2. 제작 펄스 */}
-                        <div 
-                            onClick={() => navigate('/creative-studio')}
-                            className="bg-card/80 border border-border/80 hover:border-purple-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
-                        >
-                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                                <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-purple-400" /> AI 제작 큐</span>
-                                <span className="text-[10px] text-purple-400 font-bold">Creation</span>
-                            </div>
-                            <div className="text-lg sm:text-xl font-extrabold text-foreground">
-                                {queueStats.total}
-                                <span className="text-[10px] font-normal text-muted-foreground ml-1">건 등록</span>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
-                                <span>대기/생성 중</span>
-                                <strong className="text-purple-400 font-bold">{queueStats.queued}건</strong>
-                            </div>
+                        <div className="text-lg sm:text-xl font-extrabold text-foreground">
+                            {stats?.total_videos ?? 0}
+                            <span className="text-[10px] font-normal text-muted-foreground ml-1">개</span>
                         </div>
-
-                        {/* 3. 배포 펄스 */}
-                        <div 
-                            onClick={() => navigate('/work-queue')}
-                            className="bg-card/80 border border-border/80 hover:border-emerald-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
-                        >
-                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                                <span className="flex items-center gap-1.5"><Send className="w-3.5 h-3.5 text-emerald-400" /> 업로드 배포</span>
-                                <span className="text-[10px] text-emerald-400 font-bold">Distribution</span>
-                            </div>
-                            <div className="text-lg sm:text-xl font-extrabold text-foreground flex items-baseline justify-between">
-                                <span>{queueStats.completed} <span className="text-[10px] font-normal text-muted-foreground">완료</span></span>
-                                <span className="text-[10px] text-emerald-400 font-mono font-bold">
-                                    {queueStats.completed + queueStats.failed > 0 ? `${Math.round((queueStats.completed / (queueStats.completed + queueStats.failed)) * 100)}%` : '100%'}
-                                </span>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
-                                <span>실패 오류</span>
-                                <strong className={queueStats.failed > 0 ? "text-rose-400 font-bold" : "text-emerald-400 font-bold"}>{queueStats.failed}건</strong>
-                            </div>
+                        <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
+                            <span>오늘 유입</span>
+                            <strong className="text-sky-400 font-bold">+{stats?.downloaded_today ?? 0}개</strong>
                         </div>
+                    </div>
 
-                        {/* 4. 채널 성장 펄스 */}
-                        <div 
-                            onClick={() => navigate('/account-manager')}
-                            className="bg-card/80 border border-border/80 hover:border-amber-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
-                        >
-                            <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-                                <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-amber-400" /> 브랜드 채널</span>
-                                <span className="text-[10px] text-amber-400 font-bold">Growth</span>
-                            </div>
-                            <div className="text-lg sm:text-xl font-extrabold text-foreground">
-                                {stats.total_channels}
-                                <span className="text-[10px] font-normal text-muted-foreground ml-1">개 채널</span>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
-                                <span>활성 운영 중</span>
-                                <strong className="text-emerald-400 font-bold">{stats.active_channels}개 정상</strong>
-                            </div>
+                    {/* 2. 제작 펄스 */}
+                    <div 
+                        onClick={() => navigate('/creative-studio')}
+                        className="bg-card/80 border border-border/80 hover:border-purple-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
+                    >
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-purple-400" /> AI 제작 큐</span>
+                            <span className="text-[10px] text-purple-400 font-bold">Creation</span>
+                        </div>
+                        <div className="text-lg sm:text-xl font-extrabold text-foreground">
+                            {queueStats?.total ?? 0}
+                            <span className="text-[10px] font-normal text-muted-foreground ml-1">건 등록</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
+                            <span>대기/생성 중</span>
+                            <strong className="text-purple-400 font-bold">{queueStats?.queued ?? 0}건</strong>
+                        </div>
+                    </div>
+
+                    {/* 3. 배포 펄스 */}
+                    <div 
+                        onClick={() => navigate('/work-queue')}
+                        className="bg-card/80 border border-border/80 hover:border-emerald-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
+                    >
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5"><Send className="w-3.5 h-3.5 text-emerald-400" /> 업로드 배포</span>
+                            <span className="text-[10px] text-emerald-400 font-bold">Distribution</span>
+                        </div>
+                        <div className="text-lg sm:text-xl font-extrabold text-foreground flex items-baseline justify-between">
+                            <span>{queueStats?.completed ?? 0} <span className="text-[10px] font-normal text-muted-foreground">완료</span></span>
+                            <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                                {((queueStats?.completed ?? 0) + (queueStats?.failed ?? 0)) > 0 
+                                    ? `${Math.round(((queueStats?.completed ?? 0) / ((queueStats?.completed ?? 0) + (queueStats?.failed ?? 0))) * 100)}%` 
+                                    : '100%'}
+                            </span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
+                            <span>실패 오류</span>
+                            <strong className={(queueStats?.failed ?? 0) > 0 ? "text-rose-400 font-bold" : "text-emerald-400 font-bold"}>{queueStats?.failed ?? 0}건</strong>
+                        </div>
+                    </div>
+
+                    {/* 4. 채널 성장 펄스 */}
+                    <div 
+                        onClick={() => navigate('/account-manager')}
+                        className="bg-card/80 border border-border/80 hover:border-amber-500/40 p-3 rounded-xl shadow-2xs transition-all cursor-pointer space-y-1"
+                    >
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
+                            <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-amber-400" /> 브랜드 채널</span>
+                            <span className="text-[10px] text-amber-400 font-bold">Growth</span>
+                        </div>
+                        <div className="text-lg sm:text-xl font-extrabold text-foreground">
+                            {stats?.total_channels ?? 0}
+                            <span className="text-[10px] font-normal text-muted-foreground ml-1">개 채널</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground flex justify-between pt-0.5 border-t border-border/50">
+                            <span>활성 운영 중</span>
+                            <strong className="text-emerald-400 font-bold">{stats?.active_channels ?? 0}개 정상</strong>
                         </div>
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* 3. 🔥 실시간 수집 숏폼 & 레퍼런스 갤러리 캐러셀 (카테고리 + 날짜 필터 & 다중 선택) */}
             <div className="space-y-2.5">

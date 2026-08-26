@@ -122,7 +122,7 @@ function MainAppContent() {
         <GlobalShellWrapper>
             <Layout>
                 <Routes>
-                    <Route path="/" element={<Home />} />
+                    <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
                     <Route path="/douyin-search" element={<SmartDouyinSearch />} />
                     <Route path="/ddalkkak" element={<DdalkkakUI />} />
                     <Route path="/scene-cutter-pro" element={<SceneCutter />} />
