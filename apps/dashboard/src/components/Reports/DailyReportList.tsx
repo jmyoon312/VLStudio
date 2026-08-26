@@ -949,48 +949,106 @@ export function DailyReportList() {
             {activeTab === 'growth' && (
                 <div className="space-y-6">
                     <Card className="border-border bg-card shadow-xs rounded-2xl overflow-hidden">
-                        <CardHeader className="py-3 px-5 bg-muted/20 border-b border-border">
-                            <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-                                <Flame className="w-4 h-4 text-rose-400" /> 브랜드 채널 인큐베이팅 & 육성 현황
+                        <CardHeader className="py-3.5 px-4 sm:px-5 bg-muted/20 border-b border-border">
+                            <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2 break-keep-all">
+                                <Flame className="w-4 h-4 text-rose-400 shrink-0" /> 브랜드 채널 인큐베이팅 & 육성 현황
                             </CardTitle>
-                            <CardDescription className="text-xs">채널별 실시간 상태, 웜업 단계 및 트러스트 스코어</CardDescription>
+                            <CardDescription className="text-xs break-keep-all">채널별 실시간 상태, 웜업 단계 및 트러스트 스코어</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            {reports && reports.length > 0 && reports[0].raw_stats_json?.growth?.channels_detail ? (
-                                <Table>
-                                    <TableHeader className="bg-muted/20">
-                                        <TableRow>
-                                            <TableHead>채널 식별자</TableHead>
-                                            <TableHead>운영 상태</TableHead>
-                                            <TableHead>웜업 육성 단계</TableHead>
-                                            <TableHead className="text-right">누적 영상</TableHead>
-                                            <TableHead className="text-right">일일 순증 조회수</TableHead>
-                                            <TableHead className="text-right">일일 순증 구독자</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {reports[0].raw_stats_json.growth.channels_detail.map((chan, i) => (
-                                            <TableRow key={i}>
-                                                <TableCell className="font-bold text-foreground text-xs sm:text-sm">
-                                                    {chan.handle}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge className={chan.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}>
-                                                        {chan.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="text-xs font-mono">
-                                                        {chan.warmup_status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">{chan.videos}개</TableCell>
-                                                <TableCell className="text-right font-mono text-xs text-emerald-400 font-bold">+{chan.view_increase.toLocaleString()}회</TableCell>
-                                                <TableCell className="text-right font-mono text-xs text-sky-400 font-bold">+{chan.sub_increase.toLocaleString()}명</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                            {reports && reports.length > 0 && reports[0].raw_stats_json?.growth?.channels_detail?.length ? (
+                                <>
+                                    {/* Mobile Cards (md:hidden) */}
+                                    <div className="md:hidden divide-y divide-border p-3 space-y-3">
+                                        {reports[0].raw_stats_json.growth.channels_detail.map((chan: any, i: number) => {
+                                            const cleanHandle = (chan.handle || 'Channel')
+                                                .replace(/[\uFFFD\uD800-\uDFFF\uFFFE\uFFFF]/g, '')
+                                                .trim() || chan.handle;
+
+                                            return (
+                                                <div key={i} className="p-4 rounded-2xl border border-border/80 bg-muted/10 space-y-3">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <div className="w-7 h-7 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+                                                                #{i + 1}
+                                                            </div>
+                                                            <div className="font-bold text-foreground text-sm truncate" title={cleanHandle}>
+                                                                {cleanHandle}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            <Badge className={chan.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]' : 'bg-rose-500/10 text-rose-400 border-rose-500/20 text-[10px]'}>
+                                                                {chan.status}
+                                                            </Badge>
+                                                            <Badge variant="outline" className="text-[10px] font-mono">
+                                                                {chan.warmup_status}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-3 gap-2 pt-1">
+                                                        <div className="bg-background/80 p-2 rounded-xl border border-border/60 text-center">
+                                                            <div className="text-[10px] text-muted-foreground font-semibold">누적 영상</div>
+                                                            <div className="text-xs font-mono font-bold text-foreground mt-0.5">{chan.videos || 0}개</div>
+                                                        </div>
+                                                        <div className="bg-background/80 p-2 rounded-xl border border-border/60 text-center">
+                                                            <div className="text-[10px] text-muted-foreground font-semibold">일일 조회수</div>
+                                                            <div className="text-xs font-mono font-bold text-emerald-400 mt-0.5">+{(chan.view_increase || 0).toLocaleString()}회</div>
+                                                        </div>
+                                                        <div className="bg-background/80 p-2 rounded-xl border border-border/60 text-center">
+                                                            <div className="text-[10px] text-muted-foreground font-semibold">일일 구독자</div>
+                                                            <div className="text-xs font-mono font-bold text-sky-400 mt-0.5">+{(chan.sub_increase || 0).toLocaleString()}명</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Desktop Table (hidden md:block) */}
+                                    <div className="hidden md:block overflow-x-auto">
+                                        <Table>
+                                            <TableHeader className="bg-muted/20">
+                                                <TableRow>
+                                                    <TableHead className="whitespace-nowrap">채널 식별자</TableHead>
+                                                    <TableHead className="whitespace-nowrap">운영 상태</TableHead>
+                                                    <TableHead className="whitespace-nowrap">웜업 육성 단계</TableHead>
+                                                    <TableHead className="text-right whitespace-nowrap">누적 영상</TableHead>
+                                                    <TableHead className="text-right whitespace-nowrap">일일 순증 조회수</TableHead>
+                                                    <TableHead className="text-right whitespace-nowrap">일일 순증 구독자</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {reports[0].raw_stats_json.growth.channels_detail.map((chan: any, i: number) => {
+                                                    const cleanHandle = (chan.handle || 'Channel')
+                                                        .replace(/[\uFFFD\uD800-\uDFFF\uFFFE\uFFFF]/g, '')
+                                                        .trim() || chan.handle;
+
+                                                    return (
+                                                        <TableRow key={i}>
+                                                            <TableCell className="font-bold text-foreground text-xs sm:text-sm whitespace-nowrap">
+                                                                {cleanHandle}
+                                                            </TableCell>
+                                                            <TableCell className="whitespace-nowrap">
+                                                                <Badge className={chan.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}>
+                                                                    {chan.status}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell className="whitespace-nowrap">
+                                                                <Badge variant="outline" className="text-xs font-mono">
+                                                                    {chan.warmup_status}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-right font-mono text-xs whitespace-nowrap">{chan.videos || 0}개</TableCell>
+                                                            <TableCell className="text-right font-mono text-xs text-emerald-400 font-bold whitespace-nowrap">+{(chan.view_increase || 0).toLocaleString()}회</TableCell>
+                                                            <TableCell className="text-right font-mono text-xs text-sky-400 font-bold whitespace-nowrap">+{(chan.sub_increase || 0).toLocaleString()}명</TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </>
                             ) : (
                                 <div className="p-8 text-center text-xs text-muted-foreground">
                                     연결된 브랜드 채널 정보가 없습니다. [통합 계정 & 육성 관리]에서 채널을 등록하세요.
