@@ -444,8 +444,18 @@ except Exception as e:
     print(f"⚠️ Failed to mount legacy Ddalkkak: {e}")
 
 # --- Web Frontend Serve ---
-frontend_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "dashboard", "dist")
+root_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "..", "dist")
+app_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "dashboard", "dist")
+
+if os.path.exists(root_dist) and os.path.exists(os.path.join(root_dist, "index.html")):
+    frontend_dist = os.path.abspath(root_dist)
+elif os.path.exists(app_dist) and os.path.exists(os.path.join(app_dist, "index.html")):
+    frontend_dist = os.path.abspath(app_dist)
+else:
+    frontend_dist = os.path.abspath(root_dist)
+
 if os.path.exists(frontend_dist):
+    print(f"🚀 Mounting Web Frontend from: {frontend_dist}")
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 else:
     @app.get("/")
