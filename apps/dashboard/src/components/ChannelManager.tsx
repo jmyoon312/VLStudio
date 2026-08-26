@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { Channel, Category, Settings } from '../lib/api';
-import { Plus, Trash2, RefreshCw, Pause, Play, FolderPlus, X, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Pause, Play, FolderPlus, X, AlertTriangle, ListVideo } from 'lucide-react';
 import { cn, getMediaUrl } from '../lib/utils';
 
 const ChannelManager = () => {
@@ -177,13 +177,25 @@ const ChannelManager = () => {
     return (
         <div className="space-y-6 sm:space-y-8 pb-28 sm:pb-8">
 
+            {/* 1. 상단 타이틀 및 설명 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <ListVideo className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        타겟 채널 자동 수집
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        벤치마킹할 글로벌 유튜브/쇼츠 채널을 등록하고 신규 인기 영상을 24시간 자동 감시 및 수집
+                    </p>
+                </div>
+            </div>
 
             {/* Category Management */}
             <div className="bg-card border border-border rounded-xl p-3.5 sm:p-6 space-y-3 sm:space-y-4">
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                        <Plus className="w-3.5 h-3.5" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Category Management</span>
+                        <FolderPlus className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">카테고리 관리</span>
                     </div>
                     <button
                         onClick={() => setShowCategoryInput(!showCategoryInput)}
