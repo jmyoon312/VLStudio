@@ -13,26 +13,37 @@ interface SubtitleViewerProps {
     videoId: number | null;
     title: string;
     description?: string | null;
+    extractedText?: string | null;
 }
 
-const SubtitleViewer = ({ open, onOpenChange, videoId, title, description }: SubtitleViewerProps) => {
+const SubtitleViewer = ({ open, onOpenChange, videoId, title, description, extractedText }: SubtitleViewerProps) => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [isCopied, setIsCopied] = useState(false);
     const [generateMessage, setGenerateMessage] = useState<string | null>(null);
 
-    const { data: subtitleContent, isLoading, refetch } = useQuery({
+    const { data: subtitleContent, isLoading, isError, refetch } = useQuery({
         queryKey: ['subtitles', videoId],
         queryFn: async () => {
             if (!videoId) return null;
-            return (await api.get(`/videos/${videoId}/subtitles`)).data;
+            try {
+                const res = await api.get(`/videos/${videoId}/subtitles`);
+                return res.data;
+            } catch (_) {
+                if (extractedText) return { content: extractedText };
+                if (description) return { content: description };
+                return { content: "No subtitles found." };
+            }
         },
-        enabled: !!videoId && open
+        enabled: !!videoId && open,
+        initialData: extractedText ? { content: extractedText } : undefined
     });
 
-    const hasSubtitle = !!subtitleContent?.content &&
-        subtitleContent.content !== "No subtitles found." &&
-        subtitleContent.content !== "Directory not found.";
+    const activeContent = subtitleContent?.content || extractedText || '';
+
+    const hasSubtitle = !!activeContent &&
+        activeContent !== "No subtitles found." &&
+        activeContent !== "Directory not found.";
 
     const generateMutation = useMutation({
         mutationFn: async () => {
@@ -163,7 +174,7 @@ const SubtitleViewer = ({ open, onOpenChange, videoId, title, description }: Sub
                         </div>
                     ) : hasSubtitle ? (
                         <div className="text-sm text-foreground/80 p-2 space-y-1">
-                            {subtitleContent.content
+                            {activeContent
                                 .split(/\r?\n/)
                                 .map((line: string) => line.trim())
                                 .filter((line: string) => line.length > 0)

@@ -332,7 +332,7 @@ export default function GuideCenter() {
             title: '콘텐츠 수집 & 보관',
             icon: Download,
             guides: [
-                { id: 'gallery', title: '미디어 보관함 (Viral Gallery)', time: '3분', key: 'gallery' },
+                { id: 'gallery', title: '수집 영상 보관함 (Viral Gallery)', time: '3분', key: 'gallery' },
                 { id: 'channels', title: '타겟 채널 자동 수집 (Target Channels)', time: '3분', key: 'channels' },
                 { id: 'direct_download', title: 'URL 영상 직접 수집 (Direct Downloader)', time: '2분', key: 'direct_download' },
                 { id: 'douyin_studio', title: '더우인 쇼츠 수집 (Studio Pro)', time: '5분', key: 'douyin_studio' }

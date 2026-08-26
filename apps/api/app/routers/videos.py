@@ -844,16 +844,26 @@ def get_video_subtitles(video_id: int, db: Session = Depends(database.get_db)):
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
     
+    # 1. DB에 이미 추출/저장된 텍스트가 있는 경우 우선 반환
+    if video.extracted_text and video.extracted_text.strip():
+        return {"content": video.extracted_text.strip()}
+        
     if not video.file_path:
-        raise HTTPException(status_code=404, detail="Video file path not found")
+        # DB metadata 설명이라도 반환
+        meta_desc = (video.metadata_json or {}).get('description', '')
+        if meta_desc:
+            return {"content": meta_desc}
+        return {"content": "No subtitles found."}
 
     # [FIX] Use get_absolute_path to handle 'downloads/' prefix correctly
     abs_file_path = get_absolute_path(video.file_path)
     directory = os.path.dirname(abs_file_path)
 
     if not os.path.exists(directory):
-         print(f"DEBUG: Subtitle directory not found: {directory}")
-         return {"content": "Directory not found."}
+         meta_desc = (video.metadata_json or {}).get('description', '')
+         if meta_desc:
+             return {"content": meta_desc}
+         return {"content": "No subtitles found."}
 
     # Get video filename without extension (use absolute path for consistency)
     video_basename = os.path.splitext(os.path.basename(abs_file_path))[0]
