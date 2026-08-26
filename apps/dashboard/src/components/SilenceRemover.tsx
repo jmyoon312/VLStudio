@@ -13,7 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { FolderOpen, Trash2, Play, FileAudio } from 'lucide-react';
+import { FolderOpen, Trash2, Play, FileAudio, Scissors } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';

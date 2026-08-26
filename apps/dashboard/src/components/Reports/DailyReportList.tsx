@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import {
     Loader2, RefreshCw, Eye, Copy,
     TrendingUp, Video, Scroll, Activity, CheckCircle2,
-    Sparkles, Send, Users, BarChart3, Flame, Layers, Rocket
+    Sparkles, Send, Users, BarChart3, Flame, Layers, Rocket, FileText
 } from "lucide-react";
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
