@@ -460,11 +460,10 @@ export default function SmartDouyinSearch() {
     }
   };
   
-  const handleDrop = (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragActive(false);
-      
-      const files = e.dataTransfer.files;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadFiles = (fileList: FileList | File[]) => {
+      const files = Array.from(fileList);
       if (!files || files.length === 0) return;
       
       const formData = new FormData();
@@ -497,6 +496,14 @@ export default function SmartDouyinSearch() {
           setJobStatus('error');
           setProcessMsg("업로드 에러: " + err.message);
       });
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragActive(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleUploadFiles(e.dataTransfer.files);
+      }
   };
 
   const isWorking = jobStatus === 'searching' || (jobStatus && jobStatus.includes('downloading')) || jobStatus === 'editing';
@@ -631,7 +638,11 @@ export default function SmartDouyinSearch() {
                         <div className="space-y-5">
                             <div>
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">더우인 연동 프로필 선택</label>
-                                <select value={selectedProfileId} onChange={e => setSelectedProfileId(e.target.value)} className="w-full bg-muted/40 border border-border text-foreground text-xs sm:text-sm rounded-xl p-3 focus:outline-none focus:border-primary">
+                                <select 
+                                    value={selectedProfileId} 
+                                    onChange={e => setSelectedProfileId(e.target.value)} 
+                                    className="w-full bg-background border border-border text-foreground text-xs sm:text-sm rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-primary shadow-2xs appearance-none cursor-pointer"
+                                >
                                     <option value="">-- 쿠키 없는 기본 스텔스 봇 --</option>
                                     {profiles.map(p => (
                                     <option key={p.id} value={p.id}>{p.name} (연동: {p.douyin_count || 0})</option>
@@ -644,7 +655,7 @@ export default function SmartDouyinSearch() {
                                 <div className="flex flex-wrap gap-2">
                                     {CATEGORIES.map(c => (
                                     <button key={c.id} onClick={() => setSelected(prev => prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id])}
-                                        className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all border ${selected.includes(c.id) ? 'bg-primary text-primary-foreground border-primary font-bold shadow-xs' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'}`}>
+                                        className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${selected.includes(c.id) ? 'bg-primary text-primary-foreground border-primary font-bold shadow-xs' : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground'}`}>
                                         {c.name}
                                     </button>
                                     ))}
@@ -669,7 +680,12 @@ export default function SmartDouyinSearch() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">수집 수량</label>
-                                    <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} className="w-full bg-muted/40 border border-border rounded-xl px-3.5 py-2 text-xs sm:text-sm text-foreground focus:outline-none focus:border-primary" />
+                                    <input 
+                                        type="number" 
+                                        value={count} 
+                                        onChange={e => setCount(Number(e.target.value))} 
+                                        className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-2xs appearance-none" 
+                                    />
                                 </div>
                             </div>
 
@@ -687,22 +703,35 @@ export default function SmartDouyinSearch() {
                             <UploadCloud className="text-primary" size={24} />
                             <div>
                                 <h3 className="font-bold text-foreground text-base sm:text-lg">로컬 영상 다중 업로드</h3>
-                                <p className="text-xs sm:text-sm text-muted-foreground">PC에 저장된 수십 개의 영상을 한 번에 업로드합니다.</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">PC 또는 모바일에 저장된 수십 개의 영상을 한 번에 업로드합니다.</p>
                             </div>
                         </div>
 
                         <div 
+                            onClick={() => fileInputRef.current?.click()}
                             onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
                             onDragLeave={() => setDragActive(false)}
                             onDrop={handleDrop}
-                            className={`h-[220px] sm:h-[360px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-4 transition-colors ${dragActive ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'}`}
+                            className={`h-[220px] sm:h-[360px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-4 transition-all cursor-pointer hover:border-primary/60 hover:bg-primary/5 active:scale-[0.99] select-none ${dragActive ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'}`}
                         >
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-card border border-border rounded-full shadow-2xs flex items-center justify-center mb-3">
-                                <UploadCloud size={24} className={dragActive ? 'text-primary' : 'text-muted-foreground'} />
+                            <input 
+                                ref={fileInputRef} 
+                                type="file" 
+                                multiple 
+                                accept="video/*" 
+                                className="hidden" 
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                        handleUploadFiles(e.target.files);
+                                    }
+                                }} 
+                            />
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-card border border-border rounded-full shadow-2xs flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                <UploadCloud size={24} className={dragActive ? 'text-primary' : 'text-primary/80'} />
                             </div>
-                            <h3 className="text-sm sm:text-base font-bold text-foreground text-center">여기로 영상 파일 드래그 앤 드롭</h3>
+                            <h3 className="text-sm sm:text-base font-bold text-foreground text-center">여기를 터치하거나 영상 파일 드래그 앤 드롭</h3>
                             <p className="text-xs sm:text-sm text-muted-foreground mt-1 text-center max-w-xs">
-                                MP4, MOV 파일을 여러 개 선택하여 한 번에 끌어다 놓으세요.
+                                MP4, MOV 파일을 여러 개 선택하여 한 번에 업로드하세요.
                             </p>
                         </div>
                     </div>
