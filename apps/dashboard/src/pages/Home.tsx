@@ -44,6 +44,8 @@ import api from '@/lib/api';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+// @ts-ignore
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DashboardStats {
     total_channels: number;
@@ -246,6 +248,7 @@ const fallbackScriptInsights = [
 ];
 
 const Home = () => {
+    const { activeProfile, user } = useAuth();
     const [stats, setStats] = useState<DashboardStats>({
         total_channels: 0,
         active_channels: 0,
@@ -569,24 +572,36 @@ const Home = () => {
     return (
         <div className="animate-in fade-in duration-500 pb-36 md:pb-12 px-3 sm:px-6 pt-2.5 sm:pt-4 space-y-4 sm:space-y-5 bg-background text-foreground min-h-screen relative">
 
-            {/* 1. 상단 공지 띠 배너 (컴팩트 슬림형) */}
+            {/* 1. 상단 공지 띠 배너 (모바일/데스크톱 완벽 반응형) */}
             {showNotice && (
-                <div className="bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded-xl px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-blue-900 dark:text-blue-200 shadow-2xs">
-                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 overflow-x-auto">
-                        <span className="bg-blue-600 text-white font-bold text-[9px] px-1.5 py-0.5 rounded shrink-0">파이프라인</span>
-                        <div className="flex items-center gap-1 font-medium text-[11px] sm:text-xs shrink-0">
+                <div className="bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded-xl px-3 py-2 flex items-center justify-between gap-2 text-xs text-blue-900 dark:text-blue-200 shadow-2xs">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-hidden">
+                        <span className="bg-blue-600 text-white font-bold text-[9px] px-1.5 py-0.5 rounded shrink-0">STEP</span>
+                        {/* 모바일 화면용 컴팩트 텍스트 */}
+                        <div className="flex sm:hidden items-center gap-1 text-[11px] font-semibold truncate">
+                            <span>소재</span>
+                            <span className="text-blue-400">➔</span>
+                            <span>각색</span>
+                            <span className="text-blue-400">➔</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">⚡AI생성</span>
+                            <span className="text-blue-400">➔</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">대기열</span>
+                        </div>
+                        {/* 태블릿/데스크톱용 풀 텍스트 */}
+                        <div className="hidden sm:flex items-center gap-1.5 font-medium text-xs truncate">
                             <span>1. 소재 소싱</span>
-                            <span>➔</span>
+                            <span className="text-blue-400">➔</span>
                             <span>2. 대본 각색</span>
-                            <span>➔</span>
+                            <span className="text-blue-400">➔</span>
                             <span className="text-amber-600 dark:text-amber-400 font-bold">3. ⚡ AI 렌더링</span>
-                            <span>➔</span>
+                            <span className="text-blue-400">➔</span>
                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">4. 작업 대기열</span>
                         </div>
                     </div>
                     <button 
                         onClick={() => setShowNotice(false)} 
-                        className="text-blue-700/60 hover:text-blue-900 dark:hover:text-blue-100 p-1 text-xs shrink-0 font-bold"
+                        className="text-blue-700/60 hover:text-blue-900 dark:hover:text-blue-100 p-1 text-xs shrink-0 font-bold ml-1"
+                        title="닫기"
                     >
                         ✕
                     </button>
@@ -641,14 +656,18 @@ const Home = () => {
                     </div>
                 </div>
 
-                {/* 우측 웰컴 박스 (컴팩트형) */}
-                <div className="w-full lg:w-64 bg-muted/40 border border-border/70 rounded-xl p-3 flex items-center gap-3 z-10 shrink-0">
-                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0 text-primary">
-                        <Sparkles className="w-4 h-4" />
+                {/* 우측 웰컴 박스 (현재 접속 계정 동적 표시) */}
+                <div className="w-full lg:w-72 bg-muted/40 border border-border/70 rounded-xl p-3 flex items-center gap-3 z-10 shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 text-xl border border-primary/20">
+                        {activeProfile?.avatar || '👑'}
                     </div>
-                    <div className="space-y-0.5">
-                        <p className="text-xs font-bold text-foreground">GoGlobal [PRO] 님 환영합니다</p>
-                        <p className="text-[10px] text-muted-foreground">스마트 숏폼 제작을 시작하세요.</p>
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                        <p className="text-xs font-bold text-foreground truncate">
+                            {activeProfile?.name || user?.displayName || 'GoGlobal'} <span className="text-[9px] text-primary bg-primary/10 px-1 py-0.2 rounded font-bold">PRO</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                            {activeProfile?.description || '스마트 숏폼 제작을 시작하세요.'}
+                        </p>
                     </div>
                 </div>
 
