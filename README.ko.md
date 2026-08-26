@@ -33,17 +33,28 @@ irm https://raw.githubusercontent.com/jmyoon312/VLStudio/main/install.ps1 | iex
 
 ---
 
-## ⚙️ 필수 도구 수동 설치 & 폴더 배치 매뉴얼 (네트워크 차단/수동 구성 시)
+## 📱 원격 워크스테이션 & 스마트폰 모바일 워크플로우
 
-사내 보안망이나 방화벽으로 인해 자동 설치가 차단된 경우, 아래 공식 링크에서 다운로드 후 지정된 폴더에 넣어주시면 즉시 인식됩니다:
+ViraLoop Studio는 호스트 메인 PC뿐만 아니라, **스마트폰(모바일 브라우저)이나 외부 노트북 크롬에서도 메인 PC의 고성능 엔진을 원격 제어**할 수 있는 원격 워크스테이션 아키텍처를 지원합니다.
 
-| 도구 | 필수 용도 | 공식 다운로드 링크 | 📂 수동 배치 경로 |
-| :--- | :--- | :--- | :--- |
-| **Node.js LTS** | 대시보드 및 Electron 구동 | [nodejs.org](https://nodejs.org) (v20.x MSI) | 기본 경로에 설치 |
-| **Python 3.11** | AI 백엔드 및 미디어 처리 코어 | [python.org](https://www.python.org/downloads/) (3.11.x) | *Add Python to PATH* 체크 후 설치 |
-| **Android ADB** | 모바일 프록시 & 자동 웜업 제어 | [Google Platform-Tools](https://dl.google.com/android/repository/platform-tools-latest-windows.zip) | `VLStudio\runtime\adb\adb.exe` |
-| **yt-dlp** | 15개 플랫폼 영상 고속 다운로드 | [yt-dlp Releases](https://github.com/yt-dlp/yt-dlp/releases) | `VLStudio\runtime\ytdlp\yt-dlp.exe` |
-| **FFmpeg 6.0+** | 영상 씬 분할, 인코딩, 오디오 믹싱 | [gyan.dev FFmpeg](https://www.gyan.dev/ffmpeg/builds/) | `C:\ffmpeg\bin` (또는 PATH 등록) |
+```
+[📱 스마트폰 / 외부 노트북 (원격 웹)]
+  │
+  │ • 이동 중 픽셀링 메타 등록, 대본 각색, AI 미디어 생성 지시
+  │ • [CapCut 내보내기] 클릭 ➔ 메인 서버 PC로 프로젝트 데이터 전송
+  ▼
+[🖥️ 메인 워크스테이션 (서버 PC)]
+  │
+  │ • 서버 PC C드라이브 CapCut 프로젝트 폴더에 무압축 즉시 조립 생성!
+  │ • (옵션) 백그라운드에서 CapCut 데스크톱 앱 자동 실행
+  ▼
+[🏠 집/사무실 복귀 시]
+  • 메인 PC CapCut 첫 화면에 스마트폰에서 작업한 프로젝트가 완성된 상태로 즉시 대기!
+```
+
+* **로컬 웹 대시보드**: `http://localhost:5183`
+* **사내/홈 LAN 접속**: `http://192.168.x.x:5183` (스마트폰에서 대용량 영상 즉시 업로드 & 원격 제어)
+* **Nginx Proxy Manager / 도메인 연동**: 공인 도메인(예: `https://viraloop.yourdomain.com`)을 통한 외부 원격 관제 지원
 
 ---
 
@@ -131,6 +142,7 @@ flowchart LR
   * Google Flow AI(Veo 3.1) 모델 기반 **100장 이상의 고화질 AI 이미지/비디오 배치 대량 생성**.
   * 캐릭터/스타일 87개 프리셋 자동 주입으로 씬 간 일관성 유지.
   * **CapCut 데스크톱 프로젝트 다이렉트 파일시스템 조립 (No-ZIP)**: ZIP 다운로드 없이 로컬 CapCut 설치 경로의 프로젝트 파일(`draft_content.json`)에 비디오, 멀티트랙 오디오, 자막(SRT), Ken Burns 줌 효과를 100% 직접 조립하여 CapCut 자동 실행.
+  * **스마트폰/외부 브라우저 원격 내보내기 지원**: 모바일 웹에서도 터치 한 번으로 서버 컴퓨터의 CapCut 프로젝트로 즉시 전송 및 생성.
 * **AI 대본 각색 및 생성 (`/script-writer`)**: 다중 LLM(Claude, Gemini, Groq, Llama)을 활용하여 원본 대본을 쇼츠 전용 후킹 대본으로 자동 리라이팅.
 * **AI 원클릭 쇼츠 제작 (`/ddalkkak`)**: 자막 자동 생성, 대본+더빙(TTS) 합성, 클립 다중 편집을 **원클릭 10초 만에 일괄 렌더링**.
 * **스웜 에이전트 스튜디오 (`/agent-studio`)**: 기획자, 작가, 비주얼 디렉터로 구성된 자율 AI 에이전트 네트워크(OpenClaude, OpenHands, Hermes Core)가 협업하여 숏폼 에피소드 완벽 기획.
@@ -144,6 +156,7 @@ flowchart LR
 ### 3. 📈 채널 성장 및 자동화 (Operation & Growth)
 * **쇼츠 자동 배포 관리 (`/work-queue`)**: 
   * **픽셀링(Pixeling) 메타 자동 파싱**: 픽셀링 분석 텍스트를 붙여넣기만 하면 제목, 해시태그, 설명, 보이스 설정이 0.1초 만에 자동 구조화.
+  * **표준 네이밍 룰 1:1 연동**: 픽셀링 메타 제목이 CapCut 프로젝트명 및 폴더명으로 일치되어 대량 일괄 작업 시 혼선 완전 차단.
   * YouTube Shorts, TikTok, Instagram Reels에 예약/즉시 자동 업로드.
 * **채널 계정 & 웜업 육성 (`/incubator`)**: 
   * LTE 동적 IP 및 1:1 ISP 고정 IP 하이브리드 바인딩.
@@ -167,10 +180,24 @@ flowchart LR
    * Gemini, Claude, Groq, OpenAI 등 동일 모델의 API 키를 다중 등록 시 자동 순환하여 `429 Rate Limit` 에러를 원천 차단.
 2. **🎬 CapCut 무압축 다이렉트 프로젝트 생성 (No-ZIP Workflow)**:
    * 압축 해제 없이 로컬 CapCut 작업 폴더에 직접 완성본 프로젝트를 기록하고 1초 만에 CapCut 자동 실행.
-3. **⚡ 픽셀링(Pixeling) 원클릭 대기열 메타 파싱**:
-   * 영상 기획 메타 텍스트를 복사-붙여넣기하는 즉시 모든 배포 파라미터를 자동 완성.
-4. **🤖 내장 MCP (Model Context Protocol) 서버**:
+3. **📱 원격 CapCut 프로젝트 생성 브리지 (Remote Workstation)**:
+   * 핸드폰이나 외부 노트북 브라우저에서도 메인 서버 PC의 CapCut 폴더로 프로젝트를 원격 생성 및 열기 지원.
+4. **⚡ 픽셀링(Pixeling) 원클릭 대기열 메타 파싱**:
+   * 영상 기획 메타 텍스트를 복사-붙여넣기하는 즉시 모든 배포 파라미터 및 CapCut 프로젝트 네이밍 자동 완성.
+5. **🤖 내장 MCP (Model Context Protocol) 서버**:
    * Claude Code CLI에서 씬 생성, 프롬프트 일괄 수정, 레퍼런스 주입을 완벽 원격 제어.
+
+---
+
+## ⚙️ 필수 도구 수동 설치 & 폴더 배치 매뉴얼 (네트워크 차단/수동 구성 시)
+
+| 도구 | 필수 용도 | 공식 다운로드 링크 | 📂 수동 배치 경로 |
+| :--- | :--- | :--- | :--- |
+| **Node.js LTS** | 대시보드 및 Electron 구동 | [nodejs.org](https://nodejs.org) (v20.x MSI) | 기본 경로에 설치 |
+| **Python 3.11** | AI 백엔드 및 미디어 처리 코어 | [python.org](https://www.python.org/downloads/) (3.11.x) | *Add Python to PATH* 체크 후 설치 |
+| **Android ADB** | 모바일 프록시 & 자동 웜업 제어 | [Google Platform-Tools](https://dl.google.com/android/repository/platform-tools-latest-windows.zip) | `VLStudio\runtime\adb\adb.exe` |
+| **yt-dlp** | 15개 플랫폼 영상 고속 다운로드 | [yt-dlp Releases](https://github.com/yt-dlp/yt-dlp/releases) | `VLStudio\runtime\ytdlp\yt-dlp.exe` |
+| **FFmpeg 6.0+** | 영상 씬 분할, 인코딩, 오디오 믹싱 | [gyan.dev FFmpeg](https://www.gyan.dev/ffmpeg/builds/) | `C:\ffmpeg\bin` (또는 PATH 등록) |
 
 ---
 
