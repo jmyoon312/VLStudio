@@ -40,7 +40,8 @@ import {
     Menu,
     X,
     Layers,
-    Users
+    Users,
+    Plus
 } from 'lucide-react';
 
 import { cn } from '../lib/utils';
@@ -178,15 +179,16 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         }));
     };
 
-    // === Multi-Tab Session Persistence ===
-    interface TabMetadata {
+    // === Pixeling-Style Multi-Tab State Architecture ===
+    interface TabItem {
+        id: string;
         path: string;
         name: string;
     }
 
-    const [openTabs, setOpenTabs] = React.useState<TabMetadata[]>(() => {
+    const [tabs, setTabs] = React.useState<TabItem[]>(() => {
         try {
-            const saved = localStorage.getItem('viral_loop_open_tabs');
+            const saved = localStorage.getItem('viral_loop_multi_tabs');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -194,84 +196,86 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         } catch (e) {
             console.error("Failed to load saved tabs:", e);
         }
-        return [];
+        return [{ id: 'tab-main', path: '/', name: '대시보드 홈' }];
     });
 
-    const [tabCache, setTabCache] = React.useState<{ [path: string]: React.ReactNode }>({});
+    const [activeTabId, setActiveTabId] = React.useState<string>(() => {
+        try {
+            const savedActive = localStorage.getItem('viral_loop_active_tab_id');
+            if (savedActive) return savedActive;
+        } catch (e) {}
+        return 'tab-main';
+    });
 
     const getTabNameAndIcon = React.useCallback((path: string) => {
-        if (path === '/') return { name: '포털 홈', icon: LayoutDashboard };
+        if (path === '/') return { name: '대시보드 홈', icon: LayoutDashboard };
         for (const group of menuGroups) {
             const item = group.items.find(it => it.path === path);
             if (item) return { name: item.name, icon: item.icon };
         }
-        const cleanName = path.split('/').pop()?.replace(/-/g, ' ') || 'Page';
+        const cleanName = path.split('/').pop()?.replace(/-/g, ' ') || '페이지';
         return { name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1), icon: FileText };
     }, [menuGroups]);
 
+    // Save tabs to localStorage
     React.useEffect(() => {
         try {
-            localStorage.setItem('viral_loop_open_tabs', JSON.stringify(openTabs));
+            localStorage.setItem('viral_loop_multi_tabs', JSON.stringify(tabs));
+            localStorage.setItem('viral_loop_active_tab_id', activeTabId);
         } catch (e) {
             console.error("Failed to save tabs:", e);
         }
-    }, [openTabs]);
+    }, [tabs, activeTabId]);
 
+    // When navigating, update the CURRENT active tab instead of creating endless new tabs
     React.useEffect(() => {
         setMobileMenuOpen(false);
         const { name } = getTabNameAndIcon(location.pathname);
 
-        setTabCache(prev => {
-            if (!children) return prev;
-            return {
-                ...prev,
-                [location.pathname]: children
-            };
-        });
-
-        setOpenTabs(prev => {
-            const exists = prev.some(t => t.path === location.pathname);
-            if (!exists) {
-                return [...prev, { path: location.pathname, name }];
+        setTabs(prev => {
+            if (prev.length === 0) {
+                return [{ id: 'tab-main', path: location.pathname, name }];
             }
-            return prev.map(t => t.path === location.pathname ? { ...t, name } : t);
+            return prev.map(t => t.id === activeTabId ? { ...t, path: location.pathname, name } : t);
         });
-    }, [location.pathname, children, getTabNameAndIcon]);
+    }, [location.pathname, activeTabId, getTabNameAndIcon]);
 
-    const closeTab = (e: React.MouseEvent, targetPath: string) => {
-        e.stopPropagation();
-        const tabIndex = openTabs.findIndex(t => t.path === targetPath);
-        const newTabs = openTabs.filter(t => t.path !== targetPath);
-
-        setTabCache(prev => {
-            const next = { ...prev };
-            delete next[targetPath];
-            return next;
-        });
-
-        setOpenTabs(newTabs);
-
-        if (location.pathname === targetPath) {
-            if (newTabs.length > 0) {
-                const nextIndex = Math.max(0, tabIndex - 1);
-                navigate(newTabs[nextIndex].path);
-            } else {
-                navigate('/');
-            }
-        }
+    // Create a new independent tab (Pixeling [+] button)
+    const addNewTab = () => {
+        const newId = `tab-${Date.now()}`;
+        const newTab: TabItem = { id: newId, path: '/', name: '대시보드 홈' };
+        setTabs(prev => [...prev, newTab]);
+        setActiveTabId(newId);
+        navigate('/');
     };
 
-    const resetTabs = () => {
-        if (openTabs.length <= 1) return;
-        const firstTab = openTabs[0];
-        setOpenTabs([firstTab]);
-        setTabCache(prev => {
-            const next: { [path: string]: React.ReactNode } = {};
-            if (prev[firstTab.path]) next[firstTab.path] = prev[firstTab.path];
-            return next;
-        });
-        if (location.pathname !== firstTab.path) {
-            navigate(firstTab.path);
+    // Switch active tab
+    const selectTab = (tab: TabItem) => {
+        setActiveTabId(tab.id);
+        navigate(tab.path);
+    };
+
+    // Close specific tab
+    const closeTab = (e: React.MouseEvent, tabId: string) => {
+        e.stopPropagation();
+        const tabIndex = tabs.findIndex(t => t.id === tabId);
+        const newTabs = tabs.filter(t => t.id !== tabId);
+
+        if (newTabs.length === 0) {
+            const fallbackTab: TabItem = { id: `tab-${Date.now()}`, path: '/', name: '대시보드 홈' };
+            setTabs([fallbackTab]);
+            setActiveTabId(fallbackTab.id);
+            navigate('/');
+            return;
+        }
+
+        setTabs(newTabs);
+
+        if (activeTabId === tabId) {
+            const nextIndex = Math.max(0, tabIndex - 1);
+            const nextTab = newTabs[nextIndex];
+            setActiveTabId(nextTab.id);
+            navigate(nextTab.path);
         }
     };
 
@@ -500,7 +504,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                             <span className="text-border font-light text-xs hidden sm:inline">|</span>
                             <h1 className="text-[13px] font-bold text-foreground tracking-tight truncate">
                                 {(() => {
-                                    if (location.pathname === '/') return 'Home Portal';
+                                    if (location.pathname === '/') return '대시보드 홈';
                                     for (const group of menuGroups) {
                                         const item = group.items.find(it => it.path === location.pathname);
                                         if (item) return item.name;
@@ -518,46 +522,47 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     </div>
                 </header>
 
-                {/* Professional Scrollable Tab Bar (Desktop only, clean on mobile) */}
-                <div className="hidden sm:flex items-center gap-1 px-4 md:px-8 pt-2 bg-muted/40 border-b border-border overflow-x-auto dashboard-scroll-area shrink-0 select-none h-11">
-                    {openTabs.length > 1 && (
-                        <button
-                            onClick={resetTabs}
-                            className="p-1 mr-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/30 text-muted-foreground hover:text-rose-600 transition-all flex items-center justify-center shrink-0 border border-transparent hover:border-rose-100 dark:hover:border-rose-900/40 active:scale-95"
-                            title="가장 왼쪽 탭만 남기고 모두 닫기"
-                        >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
-                    )}
-
-                    {openTabs.map((tab) => {
+                {/* Pixeling-Style Modern Tab Bar (Desktop Only, Plus Button Multi-Tabs) */}
+                <div className="hidden sm:flex items-center gap-1 px-4 md:px-8 pt-2 bg-muted/30 border-b border-border overflow-x-auto dashboard-scroll-area shrink-0 select-none h-11">
+                    {tabs.map((tab) => {
                         const { icon: TabIcon } = getTabNameAndIcon(tab.path);
-                        const isTabActive = location.pathname === tab.path;
+                        const isTabActive = tab.id === activeTabId;
                         return (
                             <div
-                                key={tab.path}
-                                onClick={() => navigate(tab.path)}
+                                key={tab.id}
+                                onClick={() => selectTab(tab)}
                                 className={cn(
-                                    "relative flex items-center gap-2 px-4 py-1.5 rounded-t-lg text-xs font-bold border border-transparent transition-all duration-150 cursor-pointer group shrink-0 -mb-[1px] select-none",
+                                    "relative flex items-center gap-2 px-3.5 py-1.5 rounded-t-xl text-xs font-bold border border-transparent transition-all duration-150 cursor-pointer group shrink-0 -mb-[1px] select-none",
                                     isTabActive
-                                        ? "bg-background border-border border-b-transparent text-primary font-extrabold z-10 shadow-[0_-2px_6px_rgba(0,0,0,0.03)]"
-                                        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                                        ? "bg-background border-border border-b-transparent text-primary font-extrabold z-10 shadow-[0_-2px_6px_rgba(0,0,0,0.02)]"
+                                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                 )}
                             >
                                 <TabIcon className={cn("w-3.5 h-3.5", isTabActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                                <span className="max-w-[120px] truncate">{tab.name}</span>
-                                <button
-                                    onClick={(e) => closeTab(e, tab.path)}
-                                    className="p-0.5 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors opacity-60 hover:opacity-100"
-                                    title="탭 닫기"
-                                >
-                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
+                                <span className="max-w-[130px] truncate">{tab.name}</span>
+                                {tabs.length > 1 && (
+                                    <button
+                                        onClick={(e) => closeTab(e, tab.id)}
+                                        className="p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-40 hover:opacity-100"
+                                        title="탭 닫기"
+                                    >
+                                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                )}
                             </div>
                         );
                     })}
+
+                    {/* Pixeling-Style [+] Add New Tab Button */}
+                    <button
+                        onClick={addNewTab}
+                        className="p-1.5 ml-1 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all flex items-center justify-center shrink-0 border border-transparent hover:border-primary/20 active:scale-95"
+                        title="새 탭 추가 (멀티태스킹)"
+                    >
+                        <Plus className="w-3.5 h-3.5" />
+                    </button>
                 </div>
 
                 {/* Direct Page Router View Panel */}

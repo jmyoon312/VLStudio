@@ -185,7 +185,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 768,
-    title: `ViraLoop Studio v${app.getVersion()}`,
+    title: `ViraLoop Studio v${app.getVersion()} - AI 기반 바이럴 숏폼 제작 & 다채널 자동화 솔루션`,
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
