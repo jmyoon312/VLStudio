@@ -503,8 +503,7 @@ const MultiTTS = () => {
     };
 
     return (
-        <div className="max-w-[1800px] mx-auto space-y-4 sm:space-y-6 p-3 sm:p-6 pb-28 md:pb-8 font-sans text-foreground min-h-screen bg-background">
-            <div />
+        <div className="max-w-[1800px] mx-auto space-y-4 sm:space-y-6 p-3 sm:p-6 pb-40 md:pb-12 font-sans text-foreground min-h-screen bg-background">
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
                 {/* Step 1: TTS Generation (Main Stage - Wider) */}
@@ -1222,6 +1221,9 @@ const MultiTTS = () => {
                     </Card >
                 </div >
             </div >
+
+            {/* Mobile Bottom Navigation Clearance Spacer */}
+            <div className="h-28 md:hidden shrink-0 pointer-events-none" aria-hidden="true" />
         </div >
     );
 };
