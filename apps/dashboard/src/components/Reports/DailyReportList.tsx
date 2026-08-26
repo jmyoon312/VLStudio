@@ -15,45 +15,78 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import {
-    Loader2, FileText, RefreshCw, Eye, Copy,
-    TrendingUp, AlertTriangle, Video, Scroll, Activity, CheckCircle2,
-    HardDrive, Database, Terminal, ShieldCheck, Sparkles
+    Loader2, RefreshCw, Eye, Copy,
+    TrendingUp, Video, Scroll, Activity, CheckCircle2,
+    Sparkles, Send, Users, BarChart3, Flame, Layers, Rocket
 } from "lucide-react";
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell
+    PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
 
-interface ReportStats {
-    videos_collected: number;
-    scripts_collected: number;
-    failed_downloads: number;
-    channels: {
-        total: number;
-        active: number;
-        failing: number;
+interface PipelineTelemetry {
+    sourcing?: {
+        videos_collected: number;
+        scripts_collected: number;
+        failed_downloads: number;
+        total_vault_videos: number;
+        trends_cached: number;
     };
-    trends_cached: number;
-    logs: any;
+    creation?: {
+        today_created_items: number;
+        source_type_distribution: Record<string, number>;
+        queue_total: number;
+    };
+    distribution?: {
+        uploaded_today: number;
+        failed_today: number;
+        upload_success_rate: number;
+        queue_status: Record<string, number>;
+        recent_failures: string[];
+    };
+    growth?: {
+        total_channels: number;
+        active_channels: number;
+        warmup_channels: number;
+        failing_channels: number;
+        total_daily_views_increase: number;
+        total_daily_subs_increase: number;
+        channels_detail: Array<{
+            handle: string;
+            subscribers: number;
+            views: number;
+            videos: number;
+            sub_increase: number;
+            view_increase: number;
+            status: string;
+            warmup_status: string;
+            trust_score: number;
+        }>;
+        top_videos: Array<{
+            title: string;
+            uploaded: string;
+            views: number;
+            likes: number;
+            comments: number;
+            like_ratio: number;
+        }>;
+    };
     system_health?: {
-        storage: { percent: number; free_gb: number };
+        storage: { percent: number; free_gb: number; total_gb?: number; used_gb?: number };
         db_size_mb: number;
         zombie_tasks: number;
     };
-    operational_metrics?: {
-        search: {
-            searxng: { success: number; fail: number; latency: number[] };
-            tavily: { success: number; fail: number; latency: number[] };
-        };
-        llm: {
-            requests: number;
-            errors: number;
-            rate_limits: number;
-            tokens: number;
-        };
+    videos_collected?: number;
+    scripts_collected?: number;
+    failed_downloads?: number;
+    trends_cached?: number;
+    channels?: {
+        total: number;
+        active: number;
+        failing: number;
     };
 }
 
@@ -61,15 +94,15 @@ interface DailyReport {
     id: number;
     report_date: string;
     summary_markdown: string;
-    raw_stats_json: ReportStats;
+    raw_stats_json: PipelineTelemetry;
     is_read: boolean;
     created_at: string;
     auto_fix_log?: any[];
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#f97316', '#ef4444'];
+const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#f97316', '#ef4444'];
 
-// Custom Markdown Components for Styling
+// Custom Markdown Components
 const markdownComponents = {
     h1: ({ node, ...props }: any) => <h1 className="text-lg sm:text-xl font-extrabold mt-6 mb-4 pb-2 border-b border-border text-foreground flex items-center gap-2" {...props} />,
     h2: ({ node, ...props }: any) => <h2 className="text-base sm:text-lg font-bold mt-6 mb-3 flex items-center gap-2 text-foreground" {...props} />,
@@ -98,6 +131,109 @@ const markdownComponents = {
     a: ({ node, ...props }: any) => <a className="text-primary hover:underline font-bold" {...props} />,
 };
 
+// Top 4 Funnel KPI Summary Cards Component
+function PipelineKpiOverview({ overview }: { overview: any }) {
+    if (!overview?.kpis) return null;
+    const kpis = overview.kpis;
+
+    return (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-6">
+            {/* 1. Sourcing KPI */}
+            <Card className="border-border bg-gradient-to-br from-sky-500/10 via-card to-card shadow-xs rounded-2xl overflow-hidden">
+                <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                            <Video className="w-4 h-4 text-sky-400" /> 수집 파이프라인
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-mono text-sky-400 border-sky-500/30 bg-sky-500/10">Sourcing</Badge>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+                            {kpis.total_vault_videos}
+                            <span className="text-xs font-normal text-muted-foreground ml-1">개 보관</span>
+                        </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground font-medium flex items-center justify-between pt-1 border-t border-border/60">
+                        <span>최근 7일 유입</span>
+                        <strong className="text-sky-400 font-bold">+{kpis.recent_sourced_7d}개</strong>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* 2. Creation KPI */}
+            <Card className="border-border bg-gradient-to-br from-purple-500/10 via-card to-card shadow-xs rounded-2xl overflow-hidden">
+                <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                            <Layers className="w-4 h-4 text-purple-400" /> 제작 & 대기열
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-mono text-purple-400 border-purple-500/30 bg-purple-500/10">Creation</Badge>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+                            {kpis.total_queue_items}
+                            <span className="text-xs font-normal text-muted-foreground ml-1">개 등록</span>
+                        </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground font-medium flex items-center justify-between pt-1 border-t border-border/60">
+                        <span>발행 대기 중</span>
+                        <strong className="text-purple-400 font-bold">{kpis.pending_queue}개</strong>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* 3. Distribution KPI */}
+            <Card className="border-border bg-gradient-to-br from-emerald-500/10 via-card to-card shadow-xs rounded-2xl overflow-hidden">
+                <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                            <Send className="w-4 h-4 text-emerald-400" /> 배포 & 업로드
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-mono text-emerald-400 border-emerald-500/30 bg-emerald-500/10">Distribution</Badge>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+                            {kpis.completed_uploads}
+                            <span className="text-xs font-normal text-muted-foreground ml-1">개 완료</span>
+                        </div>
+                        <Badge className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-[10px] font-bold">
+                            {kpis.overall_success_rate}% 성공
+                        </Badge>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground font-medium flex items-center justify-between pt-1 border-t border-border/60">
+                        <span>업로드 실패</span>
+                        <strong className={kpis.failed_uploads > 0 ? "text-rose-400 font-bold" : "text-emerald-400 font-bold"}>
+                            {kpis.failed_uploads}건
+                        </strong>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* 4. Growth KPI */}
+            <Card className="border-border bg-gradient-to-br from-amber-500/10 via-card to-card shadow-xs rounded-2xl overflow-hidden">
+                <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+                            <Users className="w-4 h-4 text-amber-400" /> 브랜드 채널 육성
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-mono text-amber-400 border-amber-500/30 bg-amber-500/10">Growth</Badge>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
+                            {kpis.total_channels}
+                            <span className="text-xs font-normal text-muted-foreground ml-1">개 채널</span>
+                        </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground font-medium flex items-center justify-between pt-1 border-t border-border/60">
+                        <span>전체 채널 상태</span>
+                        <strong className="text-emerald-400 font-bold">정상 가동 중</strong>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
 // System Health Dashboard Component
 function SystemHealthDashboard() {
     const queryClient = useQueryClient();
@@ -117,6 +253,7 @@ function SystemHealthDashboard() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['daily-reports'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
             queryClient.invalidateQueries({ queryKey: ['system-metrics'] });
             toast.success("즉시 시스템 점검 및 리포트 생성이 완료되었습니다.");
         },
@@ -153,7 +290,7 @@ function SystemHealthDashboard() {
                         <div>
                             <div className="flex items-center gap-2">
                                 <CardTitle className="text-sm sm:text-base font-bold text-foreground">
-                                    실시간 시스템 상태 & 자율 진단
+                                    실시간 시스템 상태 & 자율 점검
                                 </CardTitle>
                                 <Badge variant="outline" className={`text-[10px] font-bold ${isAllHealthy ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
                                     {isAllHealthy ? '🟢 전 시스템 정상 가동' : '🟡 주의 요망'}
@@ -259,13 +396,23 @@ export function DailyReportList() {
     const queryClient = useQueryClient();
     const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [activeTab, setActiveTab] = useState<'reports' | 'funnel' | 'growth'>('reports');
 
-    const { data: reports, isLoading, refetch } = useQuery<DailyReport[]>({
+    const { data: reports, isLoading } = useQuery<DailyReport[]>({
         queryKey: ['daily-reports'],
         queryFn: async () => {
             const res = await api.get('/reports/');
             return res.data;
         }
+    });
+
+    const { data: overview } = useQuery({
+        queryKey: ['dashboard-overview'],
+        queryFn: async () => {
+            const res = await api.get('/reports/dashboard-overview');
+            return res.data;
+        },
+        refetchInterval: 30000
     });
 
     const generateMutation = useMutation({
@@ -274,6 +421,7 @@ export function DailyReportList() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['daily-reports'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
             queryClient.invalidateQueries({ queryKey: ['system-metrics'] });
             toast.success("일일 리포트 생성이 완료되었습니다.");
         },
@@ -302,6 +450,7 @@ export function DailyReportList() {
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['daily-reports'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
             setSelectedIds(new Set());
             toast.success(`${data.deleted || 0}개의 리포트가 삭제되었습니다.`);
         },
@@ -334,21 +483,23 @@ export function DailyReportList() {
         }
     };
 
-    const getChartData = (stats: ReportStats) => {
+    const getChartData = (stats: PipelineTelemetry) => {
         const contentData = [
-            { name: '영상', value: stats?.videos_collected || 0, fill: '#3b82f6' },
-            { name: '대본', value: stats?.scripts_collected || 0, fill: '#8b5cf6' },
-            { name: '실패', value: stats?.failed_downloads || 0, fill: '#ef4444' },
+            { name: '수집 영상', value: stats?.sourcing?.videos_collected ?? stats?.videos_collected ?? 0, fill: '#3b82f6' },
+            { name: '추출 대본', value: stats?.sourcing?.scripts_collected ?? stats?.scripts_collected ?? 0, fill: '#8b5cf6' },
+            { name: '제작 큐', value: stats?.creation?.today_created_items ?? 0, fill: '#10b981' },
+            { name: '업로드 완료', value: stats?.distribution?.uploaded_today ?? 0, fill: '#f59e0b' },
+            { name: '다운 오류', value: stats?.sourcing?.failed_downloads ?? stats?.failed_downloads ?? 0, fill: '#ef4444' },
         ];
 
-        const activeChan = stats?.channels?.active || 0;
-        const failChan = stats?.channels?.failing || 0;
-        const totalChan = stats?.channels?.total || 0;
+        const activeChan = stats?.growth?.active_channels ?? stats?.channels?.active ?? 0;
+        const warmupChan = stats?.growth?.warmup_channels ?? 0;
+        const failChan = stats?.growth?.failing_channels ?? stats?.channels?.failing ?? 0;
 
         const channelData = [
-            { name: '활성', value: activeChan },
-            { name: '오류/중지', value: failChan },
-            { name: '기타/대기', value: Math.max(0, totalChan - activeChan - failChan) },
+            { name: '활성 운영', value: activeChan },
+            { name: '웜업 육성', value: warmupChan },
+            { name: '점검/정지', value: failChan },
         ];
 
         return { contentData, channelData };
@@ -359,7 +510,6 @@ export function DailyReportList() {
         if (markdown.includes("ERROR:")) {
             return "운영 통계 및 채널 성과 데이터가 정상 집계되었습니다. 상세 보기를 눌러 확인하세요.";
         }
-        // Markdown headers나 bullet point 제거 후 첫 줄 요약 추출
         const lines = markdown.split('\n').map(l => l.replace(/^[#*`\- >]+/g, '').trim()).filter(Boolean);
         const meaningful = lines.find(l => l.length > 10 && !l.includes('리포트') && !l.includes('종합'));
         if (meaningful) return meaningful.slice(0, 120);
@@ -400,12 +550,13 @@ export function DailyReportList() {
                 />
             )}
 
+            {/* Header Title & Actions */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                     <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-                        <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> 일일 시스템 리포트
+                        <Rocket className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> ViraLoop 통합 운영 & BI 인텔리전스 리포트
                     </h2>
-                    <p className="text-xs text-muted-foreground">매일 오전 09:00 자동 점검 및 실시간 데이터 집계 보고서</p>
+                    <p className="text-xs text-muted-foreground">영상 수집 ➔ AI 대량 제작 ➔ 다채널 자동 업로드 ➔ 채널 성과 전 주기 통합 관제</p>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                     {selectedIds.size > 0 && (
@@ -433,7 +584,7 @@ export function DailyReportList() {
                         {generateMutation.isPending ? (
                             <>
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                리포트 생성 중...
+                                종합 리포트 생성 중...
                             </>
                         ) : (
                             <>
@@ -445,197 +596,363 @@ export function DailyReportList() {
                 </div>
             </div>
 
+            {/* 1. Top 4 Funnel KPI Cards */}
+            <PipelineKpiOverview overview={overview} />
+
+            {/* 2. Realtime System Health & Auto Diagnostics */}
             <SystemHealthDashboard />
 
-            <Card className="border-border shadow-xs rounded-2xl overflow-hidden bg-card">
-                <CardContent className="p-0">
-                    {/* 모바일 전용 카드 리스트 */}
-                    <div className="md:hidden divide-y divide-border p-3 space-y-3">
-                        {isLoading ? (
-                            <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
-                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                <span className="text-xs">데이터 로딩 중...</span>
-                            </div>
-                        ) : reports?.length === 0 ? (
-                            <div className="text-center py-12 text-xs text-muted-foreground">
-                                생성된 리포트가 없습니다. [지금 수동 생성] 버튼을 눌러 점검을 시작하세요.
-                            </div>
-                        ) : (
-                            reports?.map((report, idx) => {
-                                const stats = report.raw_stats_json;
-                                const isLatest = idx === 0;
-                                return (
-                                    <div
-                                        key={report.id}
-                                        className={`report-row p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 bg-card ${selectedIds.has(report.id) ? 'border-primary bg-primary/5 shadow-xs' : isLatest ? 'border-primary/40 bg-primary/5 hover:border-primary/60' : 'border-border hover:border-muted-foreground/30'}`}
-                                        onClick={() => handleViewReport(report)}
-                                        data-id={report.id}
-                                    >
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <div
-                                                    className="no-drag p-1 -m-1"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedIds(prev => {
-                                                            const next = new Set(prev);
-                                                            if (next.has(report.id)) next.delete(report.id);
-                                                            else next.add(report.id);
-                                                            return next;
-                                                        });
-                                                    }}
-                                                >
-                                                    <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-border bg-background'}`}>
-                                                        {selectedIds.has(report.id) && <CheckCircle2 className="w-3.5 h-3.5 text-white p-0.5" />}
-                                                    </div>
-                                                </div>
-                                                <span className="font-bold text-foreground text-xs truncate">
-                                                    {format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}
-                                                </span>
-                                                {isLatest && (
-                                                    <Badge className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-[9px] px-1.5 py-0">최신</Badge>
-                                                )}
-                                                {!report.is_read ? (
-                                                    <Badge className="bg-sky-500 hover:bg-sky-600 text-white font-bold text-[9px] px-1.5 py-0">신규</Badge>
-                                                ) : (
-                                                    <Badge variant="secondary" className="text-muted-foreground bg-muted font-bold text-[9px] px-1.5 py-0">읽음</Badge>
-                                                )}
-                                            </div>
+            {/* 3. Navigation Tabs */}
+            <div className="flex items-center gap-1.5 p-1 bg-muted/40 border border-border rounded-xl w-fit">
+                <button
+                    onClick={() => setActiveTab('reports')}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'reports' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                    📋 일일 리포트 & AI 브리핑
+                </button>
+                <button
+                    onClick={() => setActiveTab('funnel')}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'funnel' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                    📊 생산 & 배포 퍼널 추이
+                </button>
+                <button
+                    onClick={() => setActiveTab('growth')}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'growth' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                    🔥 채널 육성 & 바이럴 반응
+                </button>
+            </div>
 
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-primary hover:bg-primary/10 rounded-lg shrink-0" onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleViewReport(report);
-                                            }}>
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-
-                                        {/* 핵심 지표 칩 바 */}
-                                        <div className="flex flex-wrap gap-1.5 pt-0.5">
-                                            <span className="inline-flex items-center gap-1 text-[10px] bg-muted/50 border border-border/80 px-2 py-0.5 rounded-md font-medium text-foreground">
-                                                🎬 영상 <strong className="text-primary">{stats?.videos_collected ?? 0}</strong>
-                                            </span>
-                                            <span className="inline-flex items-center gap-1 text-[10px] bg-muted/50 border border-border/80 px-2 py-0.5 rounded-md font-medium text-foreground">
-                                                📜 대본 <strong className="text-purple-400">{stats?.scripts_collected ?? 0}</strong>
-                                            </span>
-                                            <span className="inline-flex items-center gap-1 text-[10px] bg-muted/50 border border-border/80 px-2 py-0.5 rounded-md font-medium text-foreground">
-                                                📺 채널 <strong className="text-emerald-400">{stats?.channels?.active ?? 0}</strong>
-                                            </span>
-                                            {(stats?.failed_downloads ?? 0) > 0 && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md font-medium text-rose-400">
-                                                    ⚠️ 오류 {stats?.failed_downloads}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                                            {cleanSummaryText(report.summary_markdown)}
-                                        </p>
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
-
-                    {/* 데스크톱 전용 테이블 */}
-                    <div className="hidden md:block overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-muted/30">
-                                <TableRow>
-                                    <TableHead className="w-[50px] text-center">선택</TableHead>
-                                    <TableHead className="w-[180px]">리포트 날짜</TableHead>
-                                    <TableHead className="w-[100px]">상태</TableHead>
-                                    <TableHead className="w-[260px]">주요 통계 지표</TableHead>
-                                    <TableHead>AI 핵심 브리핑 (Executive Summary)</TableHead>
-                                    <TableHead className="text-right w-[90px]">상세</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isLoading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-32 text-center">
-                                            <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                                <span className="text-xs">데이터 로딩 중...</span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : reports?.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground text-xs">
-                                            생성된 일일 리포트가 없습니다. [지금 수동 생성]을 클릭해 첫 리포트를 생성하세요.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : reports?.map((report, idx) => {
+            {/* TAB 1: Daily Reports & AI Briefings */}
+            {activeTab === 'reports' && (
+                <Card className="border-border shadow-xs rounded-2xl overflow-hidden bg-card">
+                    <CardContent className="p-0">
+                        {/* Mobile Card View */}
+                        <div className="md:hidden divide-y divide-border p-3 space-y-3">
+                            {isLoading ? (
+                                <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
+                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                    <span className="text-xs">데이터 로딩 중...</span>
+                                </div>
+                            ) : reports?.length === 0 ? (
+                                <div className="text-center py-12 text-xs text-muted-foreground">
+                                    생성된 리포트가 없습니다. [지금 수동 생성] 버튼을 눌러 점검을 시작하세요.
+                                </div>
+                            ) : (
+                                reports?.map((report, idx) => {
                                     const stats = report.raw_stats_json;
                                     const isLatest = idx === 0;
+                                    const sourcingCount = stats?.sourcing?.videos_collected ?? stats?.videos_collected ?? 0;
+                                    const scriptCount = stats?.sourcing?.scripts_collected ?? stats?.scripts_collected ?? 0;
+                                    const queueCount = stats?.creation?.today_created_items ?? 0;
+                                    const uploadCount = stats?.distribution?.uploaded_today ?? 0;
+
                                     return (
-                                        <TableRow
+                                        <div
                                             key={report.id}
-                                            className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-primary/10 hover:bg-primary/15' : isLatest ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/30'}`}
+                                            className={`report-row p-4 rounded-2xl border transition-all cursor-pointer space-y-2.5 bg-card ${selectedIds.has(report.id) ? 'border-primary bg-primary/5 shadow-xs' : isLatest ? 'border-primary/40 bg-primary/5 hover:border-primary/60' : 'border-border hover:border-muted-foreground/30'}`}
                                             onClick={() => handleViewReport(report)}
                                             data-id={report.id}
                                         >
-                                            <TableCell className="text-center no-drag" onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedIds(prev => {
-                                                    const next = new Set(prev);
-                                                    if (next.has(report.id)) next.delete(report.id);
-                                                    else next.add(report.id);
-                                                    return next;
-                                                });
-                                            }}>
-                                                <div className="flex items-center justify-center">
-                                                    <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-border bg-background'}`}>
-                                                        {selectedIds.has(report.id) && <CheckCircle2 className="w-4 h-4 text-white p-0.5" />}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div
+                                                        className="no-drag p-1 -m-1"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedIds(prev => {
+                                                                const next = new Set(prev);
+                                                                if (next.has(report.id)) next.delete(report.id);
+                                                                else next.add(report.id);
+                                                                return next;
+                                                            });
+                                                        }}
+                                                    >
+                                                        <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-border bg-background'}`}>
+                                                            {selectedIds.has(report.id) && <CheckCircle2 className="w-3.5 h-3.5 text-white p-0.5" />}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="font-bold text-foreground text-xs sm:text-sm">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span>{format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}</span>
-                                                    {isLatest && <Badge className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-[9px] px-1 py-0">최신</Badge>}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {!report.is_read ? (
-                                                    <Badge className="bg-sky-500 hover:bg-sky-600 text-white font-bold text-[10px]">신규</Badge>
-                                                ) : (
-                                                    <Badge variant="secondary" className="text-muted-foreground bg-muted font-bold text-[10px]">읽음</Badge>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    <span className="inline-flex items-center gap-1 text-[11px] bg-muted/60 border border-border px-2 py-0.5 rounded-md font-medium text-foreground">
-                                                        영상 <strong className="text-primary">{stats?.videos_collected ?? 0}</strong>
+                                                    <span className="font-bold text-foreground text-xs truncate">
+                                                        {format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}
                                                     </span>
-                                                    <span className="inline-flex items-center gap-1 text-[11px] bg-muted/60 border border-border px-2 py-0.5 rounded-md font-medium text-foreground">
-                                                        대본 <strong className="text-purple-400">{stats?.scripts_collected ?? 0}</strong>
-                                                    </span>
-                                                    <span className="inline-flex items-center gap-1 text-[11px] bg-muted/60 border border-border px-2 py-0.5 rounded-md font-medium text-foreground">
-                        채널 <strong className="text-emerald-400">{stats?.channels?.active ?? 0}</strong>
-                                                    </span>
+                                                    {isLatest && (
+                                                        <Badge className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-[9px] px-1.5 py-0">최신</Badge>
+                                                    )}
+                                                    {!report.is_read ? (
+                                                        <Badge className="bg-sky-500 hover:bg-sky-600 text-white font-bold text-[9px] px-1.5 py-0">신규</Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary" className="text-muted-foreground bg-muted font-bold text-[9px] px-1.5 py-0">읽음</Badge>
+                                                    )}
                                                 </div>
-                                            </TableCell>
-                                            <TableCell className="max-w-[450px] truncate text-muted-foreground text-xs font-medium">
-                                                {cleanSummaryText(report.summary_markdown)}
-                                            </TableCell>
-                                            <TableCell className="text-right no-drag">
-                                                <Button size="icon" variant="ghost" className="hover:bg-primary/10 rounded-xl" onClick={(e) => {
+
+                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-primary hover:bg-primary/10 rounded-lg shrink-0" onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleViewReport(report);
                                                 }}>
-                                                    <Eye className="h-4 w-4 text-primary" />
+                                                    <Eye className="h-4 w-4" />
                                                 </Button>
+                                            </div>
+
+                                            {/* Full-Lifecycle Badge Bar */}
+                                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                                <span className="inline-flex items-center gap-1 text-[10px] bg-muted/50 border border-border/80 px-2 py-0.5 rounded-md font-medium text-foreground">
+                                                    📥 수집 <strong className="text-sky-400">{sourcingCount}</strong>
+                                                </span>
+                                                <span className="inline-flex items-center gap-1 text-[10px] bg-muted/50 border border-border/80 px-2 py-0.5 rounded-md font-medium text-foreground">
+                                                    📜 대본 <strong className="text-purple-400">{scriptCount}</strong>
+                                                </span>
+                                                <span className="inline-flex items-center gap-1 text-[10px] bg-muted/50 border border-border/80 px-2 py-0.5 rounded-md font-medium text-foreground">
+                                                    ⚡ 제작 <strong className="text-emerald-400">{queueCount}</strong>
+                                                </span>
+                                                <span className="inline-flex items-center gap-1 text-[10px] bg-muted/50 border border-border/80 px-2 py-0.5 rounded-md font-medium text-foreground">
+                                                    🚀 배포 <strong className="text-amber-400">{uploadCount}</strong>
+                                                </span>
+                                            </div>
+
+                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                                {cleanSummaryText(report.summary_markdown)}
+                                            </p>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <Table>
+                                <TableHeader className="bg-muted/30">
+                                    <TableRow>
+                                        <TableHead className="w-[50px] text-center">선택</TableHead>
+                                        <TableHead className="w-[180px]">리포트 일자</TableHead>
+                                        <TableHead className="w-[90px]">상태</TableHead>
+                                        <TableHead className="w-[300px]">파이프라인 실적 (수집/대본/제작/배포)</TableHead>
+                                        <TableHead>AI 핵심 브리핑 (Executive Summary)</TableHead>
+                                        <TableHead className="text-right w-[90px]">상세</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-32 text-center">
+                                                <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                                    <span className="text-xs">데이터 로딩 중...</span>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
+                                    ) : reports?.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-32 text-center text-muted-foreground text-xs">
+                                                생성된 일일 리포트가 없습니다. [지금 수동 생성]을 클릭해 첫 리포트를 생성하세요.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : reports?.map((report, idx) => {
+                                        const stats = report.raw_stats_json;
+                                        const isLatest = idx === 0;
+                                        const sourcingCount = stats?.sourcing?.videos_collected ?? stats?.videos_collected ?? 0;
+                                        const scriptCount = stats?.sourcing?.scripts_collected ?? stats?.scripts_collected ?? 0;
+                                        const queueCount = stats?.creation?.today_created_items ?? 0;
+                                        const uploadCount = stats?.distribution?.uploaded_today ?? 0;
+
+                                        return (
+                                            <TableRow
+                                                key={report.id}
+                                                className={`report-row cursor-pointer transition-colors ${selectedIds.has(report.id) ? 'bg-primary/10 hover:bg-primary/15' : isLatest ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/30'}`}
+                                                onClick={() => handleViewReport(report)}
+                                                data-id={report.id}
+                                            >
+                                                <TableCell className="text-center no-drag" onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedIds(prev => {
+                                                        const next = new Set(prev);
+                                                        if (next.has(report.id)) next.delete(report.id);
+                                                        else next.add(report.id);
+                                                        return next;
+                                                    });
+                                                }}>
+                                                    <div className="flex items-center justify-center">
+                                                        <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${selectedIds.has(report.id) ? 'bg-primary border-primary' : 'border-border bg-background'}`}>
+                                                            {selectedIds.has(report.id) && <CheckCircle2 className="w-4 h-4 text-white p-0.5" />}
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="font-bold text-foreground text-xs sm:text-sm">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span>{format(new Date(report.report_date), 'yyyy. MM. dd (eee)', { locale: ko })}</span>
+                                                        {isLatest && <Badge className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-[9px] px-1 py-0">최신</Badge>}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {!report.is_read ? (
+                                                        <Badge className="bg-sky-500 hover:bg-sky-600 text-white font-bold text-[10px]">신규</Badge>
+                                                    ) : (
+                                                        <Badge variant="secondary" className="text-muted-foreground bg-muted font-bold text-[10px]">읽음</Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        <span className="inline-flex items-center gap-1 text-[11px] bg-muted/60 border border-border px-2 py-0.5 rounded-md font-medium text-foreground">
+                                                            📥 수집 <strong className="text-sky-400">{sourcingCount}</strong>
+                                                        </span>
+                                                        <span className="inline-flex items-center gap-1 text-[11px] bg-muted/60 border border-border px-2 py-0.5 rounded-md font-medium text-foreground">
+                                                            📜 대본 <strong className="text-purple-400">{scriptCount}</strong>
+                                                        </span>
+                                                        <span className="inline-flex items-center gap-1 text-[11px] bg-muted/60 border border-border px-2 py-0.5 rounded-md font-medium text-foreground">
+                                                            ⚡ 제작 <strong className="text-emerald-400">{queueCount}</strong>
+                                                        </span>
+                                                        <span className="inline-flex items-center gap-1 text-[11px] bg-muted/60 border border-border px-2 py-0.5 rounded-md font-medium text-foreground">
+                                                            🚀 배포 <strong className="text-amber-400">{uploadCount}</strong>
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="max-w-[420px] truncate text-muted-foreground text-xs font-medium">
+                                                    {cleanSummaryText(report.summary_markdown)}
+                                                </TableCell>
+                                                <TableCell className="text-right no-drag">
+                                                    <Button size="icon" variant="ghost" className="hover:bg-primary/10 rounded-xl" onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleViewReport(report);
+                                                    }}>
+                                                        <Eye className="h-4 w-4 text-primary" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* TAB 2: Production & Distribution Funnel Trend */}
+            {activeTab === 'funnel' && (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* 7-Day Funnel History Chart */}
+                        <Card className="border-border bg-card shadow-xs rounded-2xl overflow-hidden">
+                            <CardHeader className="py-3 px-5 bg-muted/20 border-b border-border">
+                                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                                    <BarChart3 className="w-4 h-4 text-primary" /> 7일간 생산 & 배포 전환 추이
+                                </CardTitle>
+                                <CardDescription className="text-xs">수집 ➔ 제작 ➔ 업로드 배포 흐름</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 h-[280px]">
+                                {overview?.history_trend && overview.history_trend.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={overview.history_trend}>
+                                            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                                            <XAxis dataKey="date" fontSize={11} />
+                                            <YAxis fontSize={11} />
+                                            <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px', color: 'hsl(var(--foreground))' }} />
+                                            <Legend wrapperStyle={{ fontSize: '11px' }} />
+                                            <Bar dataKey="sourcing" name="수집 영상" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="creation" name="제작 생성" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="uploaded" name="업로드 배포" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                                        집계된 시계열 데이터가 없습니다.
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Daily Views Growth Trend */}
+                        <Card className="border-border bg-card shadow-xs rounded-2xl overflow-hidden">
+                            <CardHeader className="py-3 px-5 bg-muted/20 border-b border-border">
+                                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4 text-emerald-400" /> 일일 채널 조회수 순증 추이
+                                </CardTitle>
+                                <CardDescription className="text-xs">업로드된 숏폼의 24시간 트래픽 증가량</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 h-[280px]">
+                                {overview?.history_trend && overview.history_trend.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={overview.history_trend}>
+                                            <defs>
+                                                <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                                            <XAxis dataKey="date" fontSize={11} />
+                                            <YAxis fontSize={11} />
+                                            <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px', color: 'hsl(var(--foreground))' }} />
+                                            <Area type="monotone" dataKey="views_increase" name="순증 조회수" stroke="#10b981" fillOpacity={1} fill="url(#viewsGrad)" strokeWidth={2} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                                        집계된 트래픽 데이터가 없습니다.
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            )}
+
+            {/* TAB 3: Channel Growth & Outlier Rankings */}
+            {activeTab === 'growth' && (
+                <div className="space-y-6">
+                    <Card className="border-border bg-card shadow-xs rounded-2xl overflow-hidden">
+                        <CardHeader className="py-3 px-5 bg-muted/20 border-b border-border">
+                            <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                                <Flame className="w-4 h-4 text-rose-400" /> 브랜드 채널 인큐베이팅 & 육성 현황
+                            </CardTitle>
+                            <CardDescription className="text-xs">채널별 실시간 상태, 웜업 단계 및 트러스트 스코어</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {reports && reports.length > 0 && reports[0].raw_stats_json?.growth?.channels_detail ? (
+                                <Table>
+                                    <TableHeader className="bg-muted/20">
+                                        <TableRow>
+                                            <TableHead>채널 식별자</TableHead>
+                                            <TableHead>운영 상태</TableHead>
+                                            <TableHead>웜업 육성 단계</TableHead>
+                                            <TableHead className="text-right">누적 영상</TableHead>
+                                            <TableHead className="text-right">일일 순증 조회수</TableHead>
+                                            <TableHead className="text-right">일일 순증 구독자</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {reports[0].raw_stats_json.growth.channels_detail.map((chan, i) => (
+                                            <TableRow key={i}>
+                                                <TableCell className="font-bold text-foreground text-xs sm:text-sm">
+                                                    {chan.handle}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge className={chan.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}>
+                                                        {chan.status}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" className="text-xs font-mono">
+                                                        {chan.warmup_status}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">{chan.videos}개</TableCell>
+                                                <TableCell className="text-right font-mono text-xs text-emerald-400 font-bold">+{chan.view_increase.toLocaleString()}회</TableCell>
+                                                <TableCell className="text-right font-mono text-xs text-sky-400 font-bold">+{chan.sub_increase.toLocaleString()}명</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <div className="p-8 text-center text-xs text-muted-foreground">
+                                    연결된 브랜드 채널 정보가 없습니다. [통합 계정 & 육성 관리]에서 채널을 등록하세요.
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {/* Rich Report Dialog */}
             <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
@@ -715,7 +1032,7 @@ ${JSON.stringify(selectedReport.auto_fix_log || [], null, 2)}
                                                 <Video className="h-4 w-4 text-sky-400" />
                                             </div>
                                             <div className="text-2xl font-extrabold text-sky-400">
-                                                {selectedReport.raw_stats_json?.videos_collected || 0}
+                                                {selectedReport.raw_stats_json?.sourcing?.videos_collected ?? selectedReport.raw_stats_json?.videos_collected ?? 0}
                                             </div>
                                             <div className="text-[11px] text-muted-foreground font-bold">수집 영상</div>
                                         </CardContent>
@@ -727,83 +1044,36 @@ ${JSON.stringify(selectedReport.auto_fix_log || [], null, 2)}
                                                 <Scroll className="h-4 w-4 text-purple-400" />
                                             </div>
                                             <div className="text-2xl font-extrabold text-purple-400">
-                                                {selectedReport.raw_stats_json?.scripts_collected || 0}
+                                                {selectedReport.raw_stats_json?.sourcing?.scripts_collected ?? selectedReport.raw_stats_json?.scripts_collected ?? 0}
                                             </div>
                                             <div className="text-[11px] text-muted-foreground font-bold">수집 스크립트</div>
                                         </CardContent>
                                     </Card>
 
-                                    <Card className={(selectedReport.raw_stats_json?.failed_downloads || 0) > 0
-                                        ? "bg-rose-500/10 border-rose-500/20 text-foreground rounded-2xl shadow-xs"
-                                        : "bg-emerald-500/10 border-emerald-500/20 text-foreground rounded-2xl shadow-xs"
-                                    }>
+                                    <Card className="bg-emerald-500/10 border-emerald-500/20 text-foreground rounded-2xl shadow-xs">
                                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                                            <div className={(selectedReport.raw_stats_json?.failed_downloads || 0) > 0
-                                                ? "mb-2 p-2 bg-rose-500/20 rounded-xl"
-                                                : "mb-2 p-2 bg-emerald-500/20 rounded-xl"
-                                            }>
-                                                {(selectedReport.raw_stats_json?.failed_downloads || 0) > 0
-                                                    ? <AlertTriangle className="h-4 w-4 text-rose-400 animate-pulse" />
-                                                    : <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                                                }
+                                            <div className="mb-2 p-2 bg-emerald-500/20 rounded-xl">
+                                                <Layers className="h-4 w-4 text-emerald-400" />
                                             </div>
-                                            <div className={(selectedReport.raw_stats_json?.failed_downloads || 0) > 0
-                                                ? "text-2xl font-extrabold text-rose-400"
-                                                : "text-2xl font-extrabold text-emerald-400"
-                                            }>
-                                                {selectedReport.raw_stats_json?.failed_downloads || 0}
+                                            <div className="text-2xl font-extrabold text-emerald-400">
+                                                {selectedReport.raw_stats_json?.creation?.today_created_items ?? 0}
                                             </div>
-                                            <div className="text-[11px] text-muted-foreground font-bold">실패 오류</div>
+                                            <div className="text-[11px] text-muted-foreground font-bold">제작 생성 큐</div>
                                         </CardContent>
                                     </Card>
 
-                                    <Card className="bg-muted/30 border-border text-foreground rounded-2xl shadow-xs">
+                                    <Card className="bg-amber-500/10 border-amber-500/20 text-foreground rounded-2xl shadow-xs">
                                         <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                                            <div className="mb-2 p-2 bg-muted rounded-xl">
-                                                <TrendingUp className="h-4 w-4 text-primary" />
+                                            <div className="mb-2 p-2 bg-amber-500/20 rounded-xl">
+                                                <Send className="h-4 w-4 text-amber-400" />
                                             </div>
-                                            <div className="text-2xl font-extrabold text-foreground">
-                                                {selectedReport.raw_stats_json?.trends_cached || 0}
+                                            <div className="text-2xl font-extrabold text-amber-400">
+                                                {selectedReport.raw_stats_json?.distribution?.uploaded_today ?? 0}
                                             </div>
-                                            <div className="text-[11px] text-muted-foreground font-bold">트렌드 갱신</div>
+                                            <div className="text-[11px] text-muted-foreground font-bold">업로드 배포</div>
                                         </CardContent>
                                     </Card>
                                 </div>
-
-                                {/* System Infrastructure Card */}
-                                {selectedReport.raw_stats_json?.system_health && (
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                        <Card className="bg-card border-border rounded-2xl shadow-xs">
-                                            <CardContent className="p-3.5 flex flex-col items-center justify-center text-center">
-                                                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                                    <HardDrive className="w-3.5 h-3.5 text-sky-400" /> 저장소 ({selectedReport.raw_stats_json.system_health.storage?.free_gb}GB Free)
-                                                </div>
-                                                <div className="w-full bg-muted rounded-full h-1.5 mt-2 overflow-hidden">
-                                                    <div className="bg-sky-400 h-full rounded-full" style={{ width: `${selectedReport.raw_stats_json.system_health.storage?.percent}%` }} />
-                                                </div>
-                                                <div className="text-[10px] text-muted-foreground mt-1 font-mono font-bold">{selectedReport.raw_stats_json.system_health.storage?.percent}% 사용 중</div>
-                                            </CardContent>
-                                        </Card>
-                                        <Card className="bg-card border-border rounded-2xl shadow-xs">
-                                            <CardContent className="p-3.5 flex flex-col items-center justify-center text-center">
-                                                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                                    <Database className="w-3.5 h-3.5 text-purple-400" /> DB 크기
-                                                </div>
-                                                <div className="text-lg font-mono font-extrabold text-purple-400 mt-1">{selectedReport.raw_stats_json.system_health.db_size_mb} MB</div>
-                                            </CardContent>
-                                        </Card>
-                                        <Card className="bg-card border-border rounded-2xl shadow-xs">
-                                            <CardContent className="p-3.5 flex flex-col items-center justify-center text-center">
-                                                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 좀비 태스크
-                                                </div>
-                                                <div className={`text-lg font-mono font-extrabold mt-1 ${selectedReport.raw_stats_json.system_health.zombie_tasks > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                    {selectedReport.raw_stats_json.system_health.zombie_tasks}개
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                )}
 
                                 {/* Visual Charts */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -855,24 +1125,6 @@ ${JSON.stringify(selectedReport.auto_fix_log || [], null, 2)}
                                         </CardContent>
                                     </Card>
                                 </div>
-
-                                {/* Auto-Fix Logs Section */}
-                                {(selectedReport.auto_fix_log && selectedReport.auto_fix_log.length > 0) && (
-                                    <div className="p-4 bg-background/80 rounded-2xl border border-border space-y-2">
-                                        <h4 className="text-xs font-bold flex items-center gap-1.5 text-foreground">
-                                            <Terminal className="h-4 w-4 text-sky-400" />
-                                            자율 조치 로그 (Self-Healing Process)
-                                        </h4>
-                                        <div className="space-y-1 font-mono text-[11px] max-h-36 overflow-y-auto">
-                                            {selectedReport.auto_fix_log.map((log: any, idx: number) => (
-                                                <div key={idx} className={`flex gap-2 ${log.level === 'error' ? 'text-rose-400' : log.level === 'success' ? 'text-emerald-400 font-bold' : 'text-muted-foreground'}`}>
-                                                    <span className="opacity-40">[{format(new Date(log.timestamp), 'HH:mm:ss')}]</span>
-                                                    <span>{log.message}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
 
                                 {/* AI Analysis Report */}
                                 <div className="space-y-3">

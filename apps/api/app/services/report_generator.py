@@ -62,35 +62,79 @@ def generate_daily_report(db: Session) -> bool:
         start = today.replace(hour=0, minute=0, second=0, microsecond=0)
         end = start + timedelta(days=1)
         
-        # 2. Query Statistics
-        # Videos Sourced (is_script_only = False)
+        # 2. Sourcing Telemetry
         videos_collected = db.query(models.Video).filter(
             models.Video.is_script_only == False,
             models.Video.downloaded_at >= start,
             models.Video.downloaded_at < end
         ).count()
         
-        # Scripts Sourced (is_script_only = True)
         scripts_collected = db.query(models.Video).filter(
             models.Video.is_script_only == True,
             models.Video.downloaded_at >= start,
             models.Video.downloaded_at < end
         ).count()
         
-        # Failed downloads
         failed_downloads = db.query(models.Video).filter(
             models.Video.status == 'failed',
             models.Video.downloaded_at >= start,
             models.Video.downloaded_at < end
         ).count()
         
+        total_vault_videos = db.query(models.Video).count()
+        
         # Trends cached
         try:
             trends_cached = db.query(models.ResearchTopic).count()
         except Exception:
             trends_cached = 0
+            
+        # 3. Creation & Work Queue Telemetry (생산 & 제작 지표)
+        today_created_items = 0
+        queue_status_distribution = {
+            "DRAFT": 0, "PENDING": 0, "QUEUED": 0,
+            "UPLOADING": 0, "COMPLETED": 0, "FAILED": 0
+        }
+        source_type_distribution = {}
+        uploaded_today_count = 0
+        failed_upload_today_count = 0
+        recent_failure_reasons = []
         
-        # 3. Brand Channels Performance
+        try:
+            # Today's created work queue items
+            today_queue_query = db.query(models.WorkQueueItem).filter(
+                models.WorkQueueItem.created_at >= start,
+                models.WorkQueueItem.created_at < end
+            ).all()
+            today_created_items = len(today_queue_query)
+            
+            for item in today_queue_query:
+                st = item.source_type or "MANUAL"
+                source_type_distribution[st] = source_type_distribution.get(st, 0) + 1
+                
+            # Current overall WorkQueue status
+            all_queue_items = db.query(models.WorkQueueItem).all()
+            for item in all_queue_items:
+                s = (item.status or "DRAFT").upper()
+                if s in queue_status_distribution:
+                    queue_status_distribution[s] += 1
+                else:
+                    queue_status_distribution[s] = queue_status_distribution.get(s, 0) + 1
+                    
+                # Uploaded today
+                if item.upload_completed_at and item.upload_completed_at >= start and item.upload_completed_at < end:
+                    uploaded_today_count += 1
+                if item.status == "FAILED" and item.updated_at and item.updated_at >= start and item.updated_at < end:
+                    failed_upload_today_count += 1
+                    if item.failure_reason and len(recent_failure_reasons) < 5:
+                        recent_failure_reasons.append(item.failure_reason)
+        except Exception as e_q:
+            logger.warning(f"Failed to query WorkQueue metrics: {e_q}")
+            
+        total_upload_attempts = uploaded_today_count + failed_upload_today_count
+        upload_success_rate = round((uploaded_today_count / total_upload_attempts) * 100, 1) if total_upload_attempts > 0 else 100.0
+        
+        # 4. Brand Channels & Growth Performance (채널 성과 & 성장 지표)
         channels = []
         try:
             channels = db.query(models.YouTubeChannel).all()
@@ -101,15 +145,22 @@ def generate_daily_report(db: Session) -> bool:
                 channels = []
                 
         active_channels_count = 0
+        warmup_channels_count = 0
         failing_channels_count = 0
         channel_details = []
+        total_daily_views_increase = 0
+        total_daily_subs_increase = 0
         
         for chan in channels:
-            chan_status = str(getattr(chan, "status", "ACTIVE") or "ACTIVE")
-            chan_auth = str(getattr(chan, "auth_status", "COMPLETED") or "COMPLETED")
-            if "ACTIVE" in chan_status.upper():
+            chan_status = str(getattr(chan, "status", "ACTIVE") or "ACTIVE").upper()
+            chan_auth = str(getattr(chan, "auth_status", "COMPLETED") or "COMPLETED").upper()
+            warmup_st = str(getattr(chan, "warmup_status", "IDLE") or "IDLE").upper()
+            
+            if "ACTIVE" in chan_status:
                 active_channels_count += 1
-            elif "SUSPENDED" in chan_status.upper() or chan_auth == "FAILED":
+            if warmup_st == "RUNNING":
+                warmup_channels_count += 1
+            if "SUSPENDED" in chan_status or chan_auth == "FAILED":
                 failing_channels_count += 1
                 
             chan_id = getattr(chan, "channel_id", None) or getattr(chan, "id", "")
@@ -124,6 +175,8 @@ def generate_daily_report(db: Session) -> bool:
                 if stats:
                     view_increase = getattr(stats, "daily_view_increase", 0) or 0
                     sub_increase = getattr(stats, "daily_subscriber_increase", 0) or 0
+                    total_daily_views_increase += view_increase
+                    total_daily_subs_increase += sub_increase
             except Exception:
                 pass
                 
@@ -135,16 +188,17 @@ def generate_daily_report(db: Session) -> bool:
                 "sub_increase": sub_increase,
                 "view_increase": view_increase,
                 "status": chan_status,
+                "warmup_status": warmup_st,
                 "trust_score": getattr(chan, "stealth_trust_score", 100) or 100
             })
             
-        # 4. Uploaded Video Performance (Last 7 Days)
+        # Top Performing / Recent Uploaded Videos
         video_details = []
         try:
             recent_cutoff = today - timedelta(days=7)
             recent_uploads = db.query(models.VideoMetadataCache).filter(
                 models.VideoMetadataCache.upload_date >= recent_cutoff
-            ).order_by(models.VideoMetadataCache.upload_date.desc()).limit(10).all()
+            ).order_by(models.VideoMetadataCache.view_count.desc()).limit(10).all()
             
             for vid in recent_uploads:
                 vc = getattr(vid, "view_count", 0) or 0
@@ -162,8 +216,7 @@ def generate_daily_report(db: Session) -> bool:
         except Exception as e_vid:
             logger.warning(f"Failed to fetch recent uploads: {e_vid}")
             
-        # 5. System Health
-        # Database size
+        # 5. Infrastructure & System Health
         from app.config import settings as settings_conf
         db_path = "viral_loop.db"
         if settings_conf.DATABASE_URL.startswith("sqlite:///"):
@@ -172,7 +225,6 @@ def generate_daily_report(db: Session) -> bool:
         if os.path.exists(db_path):
             db_size_mb = round(os.path.getsize(db_path) / (1024**2), 2)
             
-        # Storage usage
         settings = crud.get_settings(db)
         root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
         if not os.path.isabs(root_path):
@@ -189,15 +241,49 @@ def generate_daily_report(db: Session) -> bool:
                 "percent": round((used / total) * 100, 1)
             }
             
-        # Zombie tasks
         zombie_cutoff = datetime.now() - timedelta(hours=2)
         zombies = db.query(models.Video).filter(
             models.Video.status == "downloading",
             models.Video.downloaded_at < zombie_cutoff
         ).count()
         
-        # 6. Assemble Stats Payload
+        # 6. Assemble Full-Lifecycle Telemetry Payload
         raw_stats = {
+            "sourcing": {
+                "videos_collected": videos_collected,
+                "scripts_collected": scripts_collected,
+                "failed_downloads": failed_downloads,
+                "total_vault_videos": total_vault_videos,
+                "trends_cached": trends_cached
+            },
+            "creation": {
+                "today_created_items": today_created_items,
+                "source_type_distribution": source_type_distribution,
+                "queue_total": len(all_queue_items) if 'all_queue_items' in locals() else 0
+            },
+            "distribution": {
+                "uploaded_today": uploaded_today_count,
+                "failed_today": failed_upload_today_count,
+                "upload_success_rate": upload_success_rate,
+                "queue_status": queue_status_distribution,
+                "recent_failures": recent_failure_reasons
+            },
+            "growth": {
+                "total_channels": len(channels),
+                "active_channels": active_channels_count,
+                "warmup_channels": warmup_channels_count,
+                "failing_channels": failing_channels_count,
+                "total_daily_views_increase": total_daily_views_increase,
+                "total_daily_subs_increase": total_daily_subs_increase,
+                "channels_detail": channel_details,
+                "top_videos": video_details
+            },
+            "system_health": {
+                "storage": storage_info,
+                "db_size_mb": db_size_mb,
+                "zombie_tasks": zombies
+            },
+            # Backward compatibility aliases for existing UI components
             "videos_collected": videos_collected,
             "scripts_collected": scripts_collected,
             "failed_downloads": failed_downloads,
@@ -206,32 +292,6 @@ def generate_daily_report(db: Session) -> bool:
                 "total": len(channels),
                 "active": active_channels_count,
                 "failing": failing_channels_count
-            },
-            "system_health": {
-                "storage": storage_info,
-                "db_size_mb": db_size_mb,
-                "zombie_tasks": zombies
-            },
-            "operational_metrics": {
-                "search": {
-                    "searxng": {"success": 10, "fail": 0, "latency": []},
-                    "tavily": {"success": 0, "fail": 0, "latency": []}
-                },
-                "llm": {
-                    "requests": 15,
-                    "errors": 0,
-                    "rate_limits": 0,
-                    "tokens": 0
-                }
-            },
-            "diagnostics": {
-                "zero_view_count": db.query(models.Video).filter(
-                    models.Video.view_count == 0,
-                    models.Video.status == 'completed'
-                ).count(),
-                "missing_thumbnails": db.query(models.Video).filter(
-                    (models.Video.thumbnail_path == None) | (models.Video.thumbnail_path == "")
-                ).count()
             }
         }
         
@@ -240,34 +300,39 @@ def generate_daily_report(db: Session) -> bool:
         try:
             llm = get_llm_client()
             prompt = f"""
-            너는 ViraLoop Studio의 최고 분석 에이전트(Sovereign Analyst)야.
-            오늘 하루의 수집, 제작, 채널 통계를 종합하여 세부적이고 전문적이며 디테일한 비즈니스 분석 보고서(Daily System Report)를 작성해줘.
+            너는 ViraLoop Studio의 최고 비즈니스 분석 및 자율 운영 에이전트(Sovereign Growth Analyst)야.
+            오늘 하루 동안 시스템에서 수행된 [1. 레퍼런스 수집], [2. AI 영상 제작], [3. 다채널 업로드 배포], [4. 채널 성장 성과] 전 주기의 데이터를 종합 분석하여
+            운영자가 즉시 의사결정을 내릴 수 있는 최고 수준의 비즈니스 인텔리전스 일일 리포트(Executive BI Daily Report)를 한국어로 작성해줘.
             
-            [오늘의 통계 데이터]
-            - 오늘 수집된 레퍼런스 비디오 수: {videos_collected}개
-            - 오늘 수집된 스크립트(자막) 수: {scripts_collected}개
-            - 다운로드 실패 비디오 수: {failed_downloads}개
-            - 백그라운드 갱신된 트렌드 수: {trends_cached}개
+            [오늘의 풀-라이프사이클 데이터]
+            ■ 1. 수집 파이프라인 (Sourcing):
+            - 금일 수집 비디오: {videos_collected}개 / 대본: {scripts_collected}개 / 다운로드 실패: {failed_downloads}건
+            - 보관함 총 레퍼런스 비디오: {total_vault_videos}개 / 캐시된 트렌드 시그널: {trends_cached}개
             
-            [브랜드 채널 현황]
-            {json.dumps(channel_details, indent=2, ensure_ascii=False)}
+            ■ 2. 제작 파이프라인 (Creation):
+            - 금일 신규 생성 대기열 아이템: {today_created_items}개
+            - 생성 유입 경로 분포: {json.dumps(source_type_distribution, ensure_ascii=False)}
             
-            [최근 7일 업로드 비디오 성과]
-            {json.dumps(video_details, indent=2, ensure_ascii=False)}
+            ■ 3. 배포 & 업로드 (Distribution):
+            - 금일 업로드 완료: {uploaded_today_count}개 / 업로드 실패: {failed_upload_today_count}개 (성공률: {upload_success_rate}%)
+            - 대기열 전체 상태: {json.dumps(queue_status_distribution, ensure_ascii=False)}
             
-            [시스템 상태]
-            - 디스크 사용률: {storage_info['percent']}% ({storage_info['free_gb']}GB Free)
-            - SQLite DB 크기: {db_size_mb}MB
-            - 좀비 프로세스 감지: {zombies}개
+            ■ 4. 채널 성장 & 반응 (Growth & Performance):
+            - 총 모니터링 채널: {len(channels)}개 (정상 활성: {active_channels_count}개, 웜업 육성 중: {warmup_channels_count}개, 이상: {failing_channels_count}개)
+            - 일일 전체 채널 순증 조회수: +{total_daily_views_increase:,}회 / 순증 구독자: +{total_daily_subs_increase:,}명
+            - 상위 성과 영상: {json.dumps(video_details[:3], ensure_ascii=False)}
             
-            보고서 작성 양식 및 구조 가이드라인 (한국어로 전문적이고 신뢰감 있게 작성):
-            1. **# 종합 진단 및 한 줄 논평** - 오늘의 성과와 시스템 안정성에 대해 명확하고 분석적인 한 줄 브리핑 제공.
-            2. **## 1. 영상 수집 및 생산성 분석** - 수집 성공률과 실패율에 대한 디테일한 설명 및 실패 원인 진단.
-            3. **## 2. 브랜드 채널 성장 & 비디오 성과 분석** - 구독자/조회수 변화가 두드러지는 성장 채널을 포착하고, 최근 업로드된 비디오 중 바이럴 조짐(평균 대비 150% 빠른 성장)을 보이는 아웃라이어 영상 포착 분석.
-            4. **## 3. 글로벌 트렌드 및 타겟 훅(Hook) 기획** - 갱신된 트렌드를 토대로 제작 에이전트가 바로 사용하기 좋은 구체적인 숏폼 훅 제안.
-            5. **## 4. 시스템 진단 및 자율 조치 조율** - 좀비 태스크 정리 상태 및 데이터 정합성(썸네일/조회수 동기화) 상태 서술.
+            ■ 5. 인프라 건전성:
+            - 스토리지: {storage_info['percent']}% 사용 ({storage_info['free_gb']}GB 잔여), DB: {db_size_mb}MB, 좀비: {zombies}개
             
-            마크다운 문법을 사용하여 깔끔하게 작성해줘.
+            [보고서 작성 가이드라인]
+            1. **# 🚀 ViraLoop 데일리 종합 관제 리포트**
+            2. **## 💡 종합 총평 및 핵심 브리핑 (Executive Briefing)**: 오늘 시스템의 생산성과 배포 흐름, 채널 반응에 대한 날카로운 2~3줄 요약.
+            3. **## 1. 📥 영상 수집 & 소재 인덱싱**: 수집 원활성 및 자막 인덱싱 성과 평가.
+            4. **## 2. ⚡ AI 대량 생산 & 제작 효율성**: 딸깍/Flow2CapCut 생성 처리량 및 파이프라인 속도 분석.
+            5. **## 3. 🚀 다채널 자동 업로드 & 대기열 배포 현황**: 업로드 성공률과 대기열 병목(Pending/Queued) 분석 및 실패 원인 조치.
+            6. **## 4. 📈 채널 성장 성과 & 바이럴 반응 분석**: 조회수/구독자 성장률이 높은 채널과 상위 바이럴 영상 훅(Hook) 분석.
+            7. **## 🎯 내일 집중 실행해야 할 3대 전략 액션**: 생산량 증대, 블루오션 키워드 타겟팅, 채널 웜업 등 구체적 지침 제시.
             """
             res = llm.generate(prompt)
             if res and not str(res).strip().startswith("ERROR:"):
@@ -276,40 +341,46 @@ def generate_daily_report(db: Session) -> bool:
             logger.warning(f"LLM synthesis fallback used: {e_llm}")
 
         if not summary_markdown or summary_markdown.startswith("ERROR:"):
-            # Professional Fallback Analytical Template
-            status_comment = "안정적" if failed_downloads == 0 else "일부 다운로드 재시도 필요"
-            summary_markdown = f"""# 📊 ViraLoop 일일 종합 운영 리포트
+            # Rich Fallback Analytical Template
+            status_comment = "최적 안정" if failed_downloads == 0 and failed_upload_today_count == 0 else "일부 파이프라인 점검 필요"
+            summary_markdown = f"""# 🚀 ViraLoop 데일리 종합 관제 리포트
 
-## 💡 종합 진단 및 핵심 브리핑
-* **운영 상태**: 시스템 파이프라인이 정상적으로 가동 중이며, 전반적인 데이터 무결성 및 인프라 지표는 **{status_comment}** 상태입니다.
-* **주요 액션**: 수집 완료된 **{videos_collected}개**의 레퍼런스 영상과 **{scripts_collected}개**의 스크립트를 기반으로 AI 숏폼 씬 커터 및 자막 번역 파이프라인 가동이 권장됩니다.
-
----
-
-## 1. 🎬 영상 수집 및 소싱 파이프라인 분석
-* **레퍼런스 영상 소싱**: 금일 총 **{videos_collected}개**의 고화질 비디오가 로컬 저장소에 정상 보관되었습니다.
-* **대본 및 자막 추출**: 총 **{scripts_collected}개**의 멀티랭귀지 SRT/대본이 성공적으로 인덱싱되었습니다.
-* **다운로드 실패/오류**: **{failed_downloads}건**의 소싱 예외가 감지되었으며, 자동 복구 워커가 재시도를 스케줄링했습니다.
+## 💡 종합 총평 및 핵심 브리핑 (Executive Briefing)
+* **운영 상태**: 전체 바이럴루프 자동화 파이프라인이 정상 가동 중이며, 전반적인 생산-배포 안정성은 **{status_comment}** 상태입니다.
+* **핵심 지표**: 오늘 총 **{videos_collected}개**의 레퍼런스를 수집하고 **{today_created_items}개**의 제작 아이템이 생성되었으며, **{uploaded_today_count}개**의 숏폼이 채널로 안전하게 업로드 배포되었습니다 (성공률: **{upload_success_rate}%**).
+* **채널 반응**: 전체 브랜드 채널에서 금일 **+{total_daily_views_increase:,}회**의 순증 조회수와 **+{total_daily_subs_increase:,}명**의 신규 구독자가 유입되었습니다.
 
 ---
 
-## 2. 📈 브랜드 채널 현황 및 성과 지표
-* **모니터링 대상 채널**: 총 **{len(channels)}개**의 브랜드 채널 중 **{active_channels_count}개**가 정상 활성 상태입니다.
-* **채널 안정성**: 계정 차단 또는 인증 이상 채널은 **{failing_channels_count}개**로 확인되었습니다.
-* **영상 반응도**: 최근 업로드된 비디오의 조회수 및 인터랙션 지표가 실시간으로 집계되고 있습니다.
+## 1. 📥 영상 수집 & 소재 인덱싱 (Sourcing)
+* **레퍼런스 영상 확보**: 금일 신규 다운로드 완료 **{videos_collected}개** (보관함 누적 총 **{total_vault_videos}개**).
+* **다국어 대본 추출**: **{scripts_collected}개**의 음성/자막이 즉시 재가공 가능한 형태로 인덱싱되었습니다.
+* **수집 오류 및 복구**: 다운로드 예외 **{failed_downloads}건**이 감지되어 자율 재시도 큐에 등록되었습니다.
 
 ---
 
-## 3. 🔥 실시간 트렌드 및 타겟 훅 기획
-* **트렌드 키워드 캐싱**: 오늘 새롭게 분석 갱신된 블루오션 시그널은 총 **{trends_cached}개**입니다.
-* **기획 가이드**: 급상승 검색어와 시청자 이탈 방지용 인트로 훅을 결합하여 숏폼 대본을 작성하십시오.
+## 2. ⚡ AI 대량 생산 & 제작 효율성 (Creation)
+* **신규 제작 큐 등록**: 오늘 딸깍/Flow 파이프라인을 통해 **{today_created_items}개**의 영상 제작 작업이 등록되었습니다.
+* **대기열 적재 현황**: 현재 대기 중인 작업은 **{queue_status_distribution.get('QUEUED', 0) + queue_status_distribution.get('PENDING', 0)}개**로 안정적인 생산 파이프라인을 유지하고 있습니다.
 
 ---
 
-## 4. 🛠️ 인프라 및 시스템 건전성 진단
-* **스토리지 여유 공간**: 잔여 저장 공간은 **{storage_info['free_gb']} GB** (사용률 {storage_info['percent']}%)로 충분한 용량을 유지하고 있습니다.
-* **데이터베이스 크기**: 메타데이터 SQLite DB 용량은 **{db_size_mb} MB**입니다.
-* **좀비 프로세스**: 비정상 지연 태스크 **{zombies}개**가 감지되어 자율 조치 시스템(Auto-Fixer)에 의해 정리 대기 중입니다.
+## 3. 🚀 다채널 자동 업로드 & 대기열 배포 현황 (Distribution)
+* **업로드 성공률**: 오늘 배포 시도 건 중 **{upload_success_rate}%**가 유튜브 쇼츠 및 타겟 플랫폼에 성공적으로 발행되었습니다.
+* **완료/대기 상태**: 누적 완료 **{queue_status_distribution.get('COMPLETED', 0)}건**, 업로드 진행 중 **{queue_status_distribution.get('UPLOADING', 0)}건**, 오류 실패 **{queue_status_distribution.get('FAILED', 0)}건**.
+
+---
+
+## 4. 📈 채널 성장 성과 & 바이럴 반응 분석 (Growth)
+* **채널 인큐베이팅**: 총 **{len(channels)}개** 채널 중 정상 활성 **{active_channels_count}개**, 웜업 육성 중 **{warmup_channels_count}개**, 계정 점검 요망 **{failing_channels_count}개**.
+* **트래픽 성장세**: 24시간 동안 집계된 순증 조회수는 **+{total_daily_views_increase:,}회**, 구독자 증가는 **+{total_daily_subs_increase:,}명**입니다.
+
+---
+
+## 🎯 내일 집중 실행해야 할 3대 전략 액션
+1. **소재 수집 다변화**: 급상승 트렌드 키워드 기반으로 더우인/유튜브 레퍼런스 수집량을 일일 20건 이상으로 확대하십시오.
+2. **대량 생성 배치 가동**: 확보된 자막 대본을 기반으로 딸깍 UI 일괄 씬 커팅 및 다국어 TTS 합성 배치를 실행하십시오.
+3. **업로드 스케줄 최적화**: 시청자 유입 피크 타임(오후 6시~10시)에 맞춰 대기열 예약 발행 일정을 분산 배치하십시오.
 """
 
         # 8. Save to DB

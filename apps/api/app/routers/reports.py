@@ -23,6 +23,58 @@ def get_latest_report(db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No reports found")
     return report
 
+@router.get("/dashboard-overview")
+def get_dashboard_overview(db: Session = Depends(get_db)):
+    """Get 7-day aggregated pipeline telemetry and KPI summary for BI Dashboard."""
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    seven_days_ago = now - timedelta(days=7)
+    
+    # Total Sourcing
+    total_videos = db.query(models.Video).count()
+    recent_videos = db.query(models.Video).filter(models.Video.downloaded_at >= seven_days_ago).count()
+    
+    # Total Queue / Creation
+    total_queue = db.query(models.WorkQueueItem).count()
+    completed_uploads = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "COMPLETED").count()
+    failed_uploads = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status == "FAILED").count()
+    pending_queue = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.status.in_(["QUEUED", "PENDING", "DRAFT", "SCHEDULED_UPLOAD"])).count()
+    
+    # Total Channels
+    total_channels = 0
+    try:
+        total_channels = db.query(models.YouTubeChannel).count()
+    except Exception:
+        pass
+        
+    # 7-Day History Trend
+    history_reports = db.query(models.DailyReport).order_by(models.DailyReport.report_date.desc()).limit(7).all()
+    history_trend = []
+    for r in reversed(history_reports):
+        st = r.raw_stats_json or {}
+        history_trend.append({
+            "date": r.report_date.strftime("%m/%d") if r.report_date else "",
+            "sourcing": st.get("sourcing", {}).get("videos_collected", st.get("videos_collected", 0)),
+            "scripts": st.get("sourcing", {}).get("scripts_collected", st.get("scripts_collected", 0)),
+            "creation": st.get("creation", {}).get("today_created_items", 0),
+            "uploaded": st.get("distribution", {}).get("uploaded_today", 0),
+            "views_increase": st.get("growth", {}).get("total_daily_views_increase", 0)
+        })
+        
+    return {
+        "kpis": {
+            "total_vault_videos": total_videos,
+            "recent_sourced_7d": recent_videos,
+            "total_queue_items": total_queue,
+            "completed_uploads": completed_uploads,
+            "failed_uploads": failed_uploads,
+            "pending_queue": pending_queue,
+            "total_channels": total_channels,
+            "overall_success_rate": round((completed_uploads / (completed_uploads + failed_uploads)) * 100, 1) if (completed_uploads + failed_uploads) > 0 else 100.0
+        },
+        "history_trend": history_trend
+    }
+
 @router.post("/generate")
 def generate_report_manually(db: Session = Depends(get_db)):
     """Manually trigger today's report generation."""
