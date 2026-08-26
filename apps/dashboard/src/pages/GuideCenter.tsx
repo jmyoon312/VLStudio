@@ -134,23 +134,30 @@ export default function GuideCenter() {
             badge: "PRO",
             icon: Shield,
             iconBg: "from-emerald-600 to-teal-600",
-            titleOverride: "채널 계정 & 웜업 육성 (Incubator)",
-            overview: "유튜브 브랜드 계정의 영구적인 안전 운영을 위해 격리된 브라우저 프로필과 듀얼 프록시 격리 시스템을 제공하며, 다계정 자동 웜업 프로세스로 채널 신뢰도를 극대화합니다.",
+            titleOverride: "채널 계정 & 웜업 육성 (Incubator & Stealth Proxy)",
+            overview: "유튜브 브랜드 계정의 영구적인 안전 운영을 위해 CloakBrowser 및 ixBrowser 듀얼 스텔스 엔진을 지원하며, 안드로이드 스마트폰의 LTE Clean IP(Every Proxy SOCKS5)와 7단계 자동 웜업으로 다계정 정지 위험을 원천 차단합니다.",
             features: [
                 {
                     icon: Shield,
-                    title: "스텔스 보안 접속 & 핑거프린트 격리",
-                    desc: "유튜브 스튜디오에 계정별 독립 IP와 핑거프린트로 안전하게 접속하여 다계정 운영 시 정지 위험을 원천 차단합니다."
+                    title: "스마트폰 LTE Clean IP & SOCKS5 프록시 연동",
+                    desc: "스마트폰에 Every Proxy 앱(SOCKS5 포트 10808)을 켜고 USB 디버깅으로 연결하면, 통신사 4G/5G Clean IP를 공급하며 비행기 모드로 IP를 자동 회전합니다."
                 },
                 {
                     icon: Sparkles,
-                    title: "일괄 웜업 육성 제어 & 스케줄러",
+                    title: "듀얼 안티디텍트 엔진 (CloakBrowser & ixBrowser)",
+                    desc: "내장 스텔스 브라우저(CloakBrowser)와 상용 기업용 ixBrowser(Local API 53200)를 모두 지원하여 브라우저 지문과 세션을 완벽 격리합니다."
+                },
+                {
+                    icon: Activity,
+                    title: "7단계 인간 행동 모사 일괄 웜업",
                     desc: "신규 채널의 신뢰도를 높이기 위해 인간적인 영상 시청, 탐색, 댓글 활동을 백그라운드에서 자동 실행합니다."
                 }
             ],
             steps: [
-                "사이드바에서 '채널 계정 & 웜업 육성'을 선택합니다.",
-                "새 구글 계정을 안전하게 등록하거나 채널 정보를 연동합니다.",
+                "스마트폰 설정에서 [개발자 옵션] ➔ [USB 디버깅]을 켜고 PC와 USB로 연결합니다.",
+                "스마트폰에 'Every Proxy' 앱을 설치하고 'SOCKS5' 스위치를 켭니다 (기본 포트 10808).",
+                "사이드바에서 '채널 계정 & 웜업 육성'으로 이동하여 새 채널 계정을 등록합니다.",
+                "필요 시 [작업 환경 설정]에서 ixBrowser 또는 내장 CloakBrowser 엔진을 선택합니다.",
                 "'일괄 웜업 육성 제어' 탭에서 '전체 시작'을 눌러 웜업 및 채널 보호를 가동합니다."
             ]
         },

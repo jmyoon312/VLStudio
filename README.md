@@ -34,9 +34,62 @@ irm https://raw.githubusercontent.com/jmyoon312/VLStudio/main/install.ps1 | iex
 
 ---
 
-## 🌐 Local Web & Mobile/LAN Remote Access
+## ⚙️ Manual Tool Setup & Binary Placement Guide
 
-ViraLoop Studio is not limited to your desktop window. Access and control the entire workstation from smartphones, tablets, or external browsers across your local network.
+If corporate firewalls or air-gapped networks block automated downloads, download the required binaries from official sources and place them into the following directories:
+
+| Tool | Purpose | Official Download Link | 📂 Manual Target Path |
+| :--- | :--- | :--- | :--- |
+| **Node.js LTS** | Dashboard & Electron Runtime | [nodejs.org](https://nodejs.org) (v20.x MSI) | Standard installation |
+| **Python 3.11** | Backend AI & Processing Core | [python.org](https://www.python.org/downloads/) (3.11.x) | Check *Add Python to PATH* |
+| **Android ADB** | Mobile Proxy & Warmup Controller | [Google Platform-Tools](https://dl.google.com/android/repository/platform-tools-latest-windows.zip) | `VLStudio\runtime\adb\adb.exe` |
+| **yt-dlp** | 15+ Platform Video Downloader | [yt-dlp Releases](https://github.com/yt-dlp/yt-dlp/releases) | `VLStudio\runtime\ytdlp\yt-dlp.exe` |
+| **FFmpeg 6.0+** | Video Splitting & Audio Mixing | [gyan.dev FFmpeg](https://www.gyan.dev/ffmpeg/builds/) | `C:\ffmpeg\bin` (or System PATH) |
+
+---
+
+## 📱 Mobile LTE Clean IP Hardware Proxy Architecture
+
+Eliminate expensive residential proxy fees. ViraLoop Studio features a built-in hardware tethering engine that connects **real Android smartphones to route 100% genuine carrier 4G/5G Clean IPs directly to your desktop**.
+
+```
+[Android Smartphone] (Every Proxy SOCKS5)
+        │ USB Cable (USB Debugging ON)
+        ▼
+[ViraLoop Studio ADB Engine] ──▶ (Port Forwarding 10808) ──▶ [Multi-Account Stealth Browsers]
+```
+
+### 📲 Smartphone Setup Steps:
+1. **Enable USB Debugging**:
+   * Open [Settings] ➔ [About phone] ➔ [Software information] ➔ **Tap [Build number] 7 times**.
+   * Open [Settings] ➔ [Developer options] ➔ **Toggle [USB debugging] ON**.
+2. **Install Every Proxy App & Enable SOCKS5**:
+   * Search for **`Every Proxy`** on the Google Play Store and install.
+   * Open the app and **turn ON the `SOCKS5` switch** (Default port: `10808`).
+3. **Connect to PC via USB**:
+   * Plug the phone into your PC via USB and accept the "Always allow from this computer" prompt.
+   * ViraLoop Studio’s `Incubator (/incubator)` auto-detects the device and provides **automated Airplane Mode IP rotations**.
+
+---
+
+## 🛡️ Dual Anti-Detect Stealth Engines (CloakBrowser & ixBrowser)
+
+To protect your channel empire against platform correlation bans and shadowbans, ViraLoop Studio supports two specialized anti-detect engines:
+
+### 1. CloakBrowser (Built-in Lightweight Stealth Engine)
+* **Design**: Zero external software installation required; native Python Patchright + Chromium WebContentsView.
+* **Capabilities**: WebGL, Canvas, and AudioContext noise masking, `navigator.webdriver = false`, hardware fingerprint isolation, WebRTC local IP leak protection.
+
+### 2. ixBrowser (Enterprise Multi-Account Anti-Detect Engine)
+* **Design**: Built for enterprise networks managing dozens to hundreds of Google/YouTube brand channels.
+* **Setup**:
+  1. Download and install [ixBrowser Client](https://www.ixbrowser.com/).
+  2. Open ixBrowser Settings and **Enable [Local API]** (Default port: `53200`).
+  3. In ViraLoop Studio `Settings (/settings)` ➔ `Browser` tab, select **ixBrowser Engine**.
+
+---
+
+## 🌐 Local Web & Mobile/LAN Remote Access
 
 * **Local Web Dashboard**: `http://localhost:5183`
 * **LAN Access**: `http://192.168.x.x:5183` (Direct high-speed media upload from mobile phones)
@@ -45,8 +98,6 @@ ViraLoop Studio is not limited to your desktop window. Access and control the en
 ---
 
 ## 💎 The 4 Core End-to-End Pipelines
-
-ViraLoop Studio seamlessly unifies **Trend Sourcing ➔ AI Batch Creation ➔ Multi-Channel Growth & Stealth Distribution ➔ 24/7 Virtual Live Streaming** into a single, high-performance desktop workstation.
 
 ```mermaid
 flowchart LR
@@ -77,8 +128,6 @@ flowchart LR
 ---
 
 ### 1. 📊 Trend Sourcing & Intelligence Pipeline
-Track viral anomalies in real-time and extract high-engagement blueprints.
-
 * **Target Channel Auto-Collection (`/channels`)**: 24/7 automated monitoring of global benchmark YouTube/TikTok channels with instant media/script ingestion.
 * **Douyin Shorts Scraper (`/douyin-search`)**: Automated seed keyword expansion scraping hundreds of trending Chinese short-form videos with instant subtitle mapping.
 * **Direct URL Downloader (`/download`)**: Lossless high-speed batch downloads from 15+ video platforms (YouTube, Reels, TikTok, Douyin, Kuaishou).
@@ -88,12 +137,7 @@ Track viral anomalies in real-time and extract high-engagement blueprints.
 ---
 
 ### 2. 🎬 AI Creative Studio Pipeline
-Transform raw ideas and viral blueprints into broadcast-quality short-form videos.
-
-* **Flow AI Video Renderer (`/flow2capcut`)**:
-  * Mass-generate 100+ AI images/videos via Google Flow AI (Veo 3.1).
-  * Auto-inject 87 style/character reference presets to maintain visual consistency across 200+ scenes.
-  * Direct one-click export into **ready-to-edit native CapCut project files** (with timeline, multi-track audio, Ken Burns animation, and SRT subtitles).
+* **Flow AI Video Renderer (`/flow2capcut`)**: Mass-generate 100+ AI images/videos via Google Flow AI (Veo 3.1), 87 style/character presets, and direct one-click export into **native CapCut project files**.
 * **AI Script Writer & Re-Hook (`/script-writer`)**: Multi-LLM engine (Claude, Gemini, Groq, Llama) rewriting raw scripts into high-retention short-form scripts.
 * **10s One-Click Shorts Engine (`/ddalkkak`)**: Instant subtitle transcription, AI voice dubbing, and clip trimming in under 10 seconds.
 * **Swarm Agent Studio (`/agent-studio`)**: Autonomous multi-agent network (OpenClaude, OpenHands, Hermes Core) collaboratively generating full video episodes.
@@ -105,8 +149,6 @@ Transform raw ideas and viral blueprints into broadcast-quality short-form video
 ---
 
 ### 3. 📈 Channel Growth & Stealth Automation
-Scale hundreds of channels without fear of shadowbans or chain suspensions.
-
 * **Shorts Auto-Distribution (`/work-queue`)**: Pixeling metadata parser scheduling and publishing videos to YouTube Shorts, TikTok, and Instagram Reels.
 * **Stealth Account Warmup & Incubator (`/incubator`)**: 
   * Isolated browser profiles paired with dual LTE clean proxies to **prevent multi-account correlation bans**.
@@ -116,8 +158,6 @@ Scale hundreds of channels without fear of shadowbans or chain suspensions.
 ---
 
 ### 4. 📡 Virtual Live Center (24/7 Autonomous Live Streaming)
-Run non-stop 24/7 automated YouTube and TikTok live streams without keeping heavy desktop GUIs open.
-
 * **Live Scene Designer (`/live-studio`)**: Multi-layer canvas editor for Lofi video loops, widgets, real-time clocks, and AI ticker overlays.
 * **24/7 Autonomous Live Streamer (`/station-manager`)**:
   * **Portable OBS Multi-Instance Isolation** (`C:\ViraLoopMedia\OBS Program\OBS_Channel_...`).
@@ -128,10 +168,6 @@ Run non-stop 24/7 automated YouTube and TikTok live streams without keeping heav
 
 ## 🤖 MCP Server & Claude Code Integration
 
-ViraLoop Studio comes with a built-in Model Context Protocol (MCP) server, allowing you to control scenes, references, prompts, and rendering pipelines directly from Claude Code CLI.
-
-### Key MCP Tools
-
 | Tool | Description |
 |:---|:---|
 | `load_csv` | Load CSV script and image assets |
@@ -141,12 +177,6 @@ ViraLoop Studio comes with a built-in Model Context Protocol (MCP) server, allow
 | `list_styles` | Browse 87 curated style presets |
 | `export_capcut` | Compile and write native CapCut project files |
 | `app_generate_scene` / `app_start_scene_batch` | Trigger asynchronous in-app rendering pipelines |
-
-### Story Engine v2 Workflow Commands
-* `/story-new`: Initialize episode and discuss premise
-* `/story-execute`: Fully autonomous execution from W1 to W9
-* `/story-step`: Single-wave execution with manual review gates
-* `/story-rewrite`: Diagnose retention drops and re-generate weak scenes
 
 ---
 
@@ -164,22 +194,15 @@ VLStudio/
 │   ├── api/                    # Python FastAPI local backend (SQLite DB, Fernet encryption)
 │   └── swarm/                  # Autonomous swarm agent core
 │
+├── runtime/                     # Portable binary runtime directory
+│   ├── adb/                    # Android Platform Tools (adb.exe)
+│   └── ytdlp/                  # yt-dlp binary (yt-dlp.exe)
+│
 ├── docs/                       # Technical specs, architecture guides, schemas
 ├── install.ps1                 # Automated PowerShell installer
 ├── OneClick_Install.bat        # Windows one-click installer
 └── package.json
 ```
-
-### IPC Bridge Namespaces
-
-| Namespace | Responsibility | Target File |
-|:---|:---|:---|
-| `fs:*` | File I/O and local project persistence | `electron/ipc/filesystem.js` |
-| `flow:*` | Flow API session tokens and generation | `electron/ipc/flow-api.js` |
-| `flow:dom-*` | DOM automation & prompt injection | `electron/ipc/dom.js` |
-| `flow:video-*` | Video pipeline (T2V, I2V, Upscale) | `electron/ipc/video.js` |
-| `capcut:*` | CapCut path detection & project writer | `electron/ipc/capcut.js` |
-| `auth:*` | Google OAuth and session management | `electron/ipc/auth.js` |
 
 ---
 

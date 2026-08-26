@@ -33,19 +33,70 @@ irm https://raw.githubusercontent.com/jmyoon312/VLStudio/main/install.ps1 | iex
 
 ---
 
+## ⚙️ 필수 도구 수동 설치 & 폴더 배치 매뉴얼 (네트워크 차단/수동 구성 시)
+
+사내 보안망이나 방화벽으로 인해 자동 설치가 차단된 경우, 아래 공식 링크에서 다운로드 후 지정된 폴더에 넣어주시면 즉시 인식됩니다:
+
+| 도구 | 필수 용도 | 공식 다운로드 링크 | 📂 수동 배치 경로 |
+| :--- | :--- | :--- | :--- |
+| **Node.js LTS** | 대시보드 및 Electron 구동 | [nodejs.org](https://nodejs.org) (v20.x MSI) | 기본 경로에 설치 |
+| **Python 3.11** | AI 백엔드 및 미디어 처리 코어 | [python.org](https://www.python.org/downloads/) (3.11.x) | *Add Python to PATH* 체크 후 설치 |
+| **Android ADB** | 모바일 프록시 & 자동 웜업 제어 | [Google Platform-Tools](https://dl.google.com/android/repository/platform-tools-latest-windows.zip) | `VLStudio\runtime\adb\adb.exe` |
+| **yt-dlp** | 15개 플랫폼 영상 고속 다운로드 | [yt-dlp Releases](https://github.com/yt-dlp/yt-dlp/releases) | `VLStudio\runtime\ytdlp\yt-dlp.exe` |
+| **FFmpeg 6.0+** | 영상 씬 분할, 인코딩, 오디오 믹싱 | [gyan.dev FFmpeg](https://www.gyan.dev/ffmpeg/builds/) | `C:\ffmpeg\bin` (또는 PATH 등록) |
+
+---
+
+## 📱 스마트폰 LTE Clean IP 프록시 연동 인프라
+
+ViraLoop Studio는 고가의 유료 프록시 없이도 **안드로이드 스마트폰(공기계)의 통신사 LTE/5G망을 PC로 연결하여 100% 무정지 Clean IP를 무제한 공급**하는 하드웨어 테더링 프록시 아키텍처를 내장하고 있습니다.
+
+```
+[안드로이드 스마트폰] (Every Proxy SOCKS5)
+        │ USB 케이블 연결 (USB 디버깅 ON)
+        ▼
+[ViraLoop Studio ADB Engine] ──▶ (Port Forwarding 10808) ──▶ [다계정 스텔스 브라우저 배포 & 웜업]
+```
+
+### 📲 스마트폰 설정 단계:
+1. **USB 디버깅 활성화**:
+   * 스마트폰 [설정] ➔ [휴대전화 정보] ➔ [소프트웨어 정보] ➔ **[빌드 번호]를 7번 연속 탭**하여 개발자 모드 활성화.
+   * [설정] ➔ [개발자 옵션] ➔ **[USB 디버깅] 활성화**.
+2. **Every Proxy 앱 설치 및 SOCKS5 활성화**:
+   * Google Play 스토어에서 **`Every Proxy`** 앱 검색 및 설치.
+   * 앱 실행 후 **`SOCKS5` 스위치를 ON** (기본 포트: `10808`).
+3. **PC와 USB 케이블 연결**:
+   * PC와 폰을 USB로 연결하고 화면에 나타나는 "USB 디버깅을 항상 허용" 팝업에 체크 및 확인.
+   * ViraLoop Studio의 `채널 계정 & 웜업 육성 (/incubator)`에서 자동으로 모바일 IP를 인식하며, **비행기 모드 자동 토글로 IP 리셋**을 지원합니다.
+
+---
+
+## 🛡️ 보안 브라우징 듀얼 엔진 (CloakBrowser & ixBrowser)
+
+유튜브/틱톡의 엄격한 다계정 탐지를 완벽히 우회하기 위해 2가지 전문 안티디텍트 브라우저 엔진을 지원합니다:
+
+### 1. CloakBrowser (내장형 경량 스텔스 엔진)
+* **특징**: 별도 상용 프로그램 설치 없이 ViraLoop Studio 내에 기본 내장된 자체 개발 스텔스 엔진.
+* **기능**: Patchright 기반의 WebGL, Canvas, AudioContext 노이즈 주입, `navigator.webdriver = false`, 하드웨어 핑거프린트 분리, WebRTC 실제 IP 누출 원천 차단.
+
+### 2. ixBrowser (엔터프라이즈 멀티 계정 안티디텍트 브라우저)
+* **특징**: 수십~수백 개의 구글/유튜브 브랜드 채널을 기업 단위로 운영할 때 사용하는 전문 안티디텍트 브라우저.
+* **설치 및 연동 방법**:
+  1. [ixBrowser 공식 홈페이지](https://www.ixbrowser.com/)에서 클라이언트 다운로드 및 설치.
+  2. ixBrowser 실행 후 [설정] ➔ **[Local API] 활성화** (기본 포트: `53200`).
+  3. ViraLoop Studio `작업 환경 설정 (/settings)` ➔ `브라우저` 탭에서 **ixBrowser 모드 선택**.
+
+---
+
 ## 🌐 로컬 웹 & 모바일/LAN 외부 접속 환경
 
-ViraLoop Studio는 데스크톱 앱 내부뿐만 아니라 동일 네트워크의 스마트폰, 태블릿, 외부 브라우저에서도 완벽하게 접속하여 대시보드와 대기열을 제어할 수 있습니다.
-
-* **로컬 웹**: `http://localhost:5183`
+* **로컬 웹 대시보드**: `http://localhost:5183`
 * **사내/홈 LAN 접속**: `http://192.168.x.x:5183` (모바일 브라우저로 대용량 영상 즉시 업로드 지원)
-* **Nginx Proxy Manager / 도메인 연동**: 공인 도메인(예: `https://viraloop.yourdomain.com`)을 통한 원격 관제 지원
+* **Nginx Proxy Manager / 도메인 연동**: 공인 도메인(예: `https://viraloop.yourdomain.com`)을 통한 외부 원격 관제 지원
 
 ---
 
 ## 💎 ViraLoop Studio 4대 엔드-투-엔드 파이프라인
-
-ViraLoop Studio는 단순한 영상 편집기가 아닙니다. **트렌드 소싱 ➔ AI 대량 제작 ➔ 채널 육성 및 자동 배포 ➔ 24시간 무인 라이브 송출**까지 콘텐츠 비즈니스의 전 과정을 단 하나의 워크스테이션으로 통합합니다.
 
 ```mermaid
 flowchart LR
@@ -76,8 +127,6 @@ flowchart LR
 ---
 
 ### 1. 📊 트렌드 분석 및 소싱 (Sourcing Pipeline)
-알고리즘 떡상 영상을 실시간으로 추적하고 바이럴 요소를 정밀 추출합니다.
-
 * **타겟 채널 자동 수집 (`/channels`)**: 벤치마킹할 글로벌 유튜브/틱톡 채널을 24시간 자동 감시하여 신규 인기 영상을 즉시 수집.
 * **더우인 쇼츠 수집 (`/douyin-search`)**: AI 시드 키워드 자동 확장으로 수백 개의 중국 인기 숏폼을 일괄 스크래핑 및 자막 자동 매핑.
 * **URL 영상 직접 수집 (`/download`)**: 유튜브, 인스타 릴스, 틱톡 등 15개 이상 플랫폼 링크에서 최고 화질 무손실 다운로드.
@@ -87,12 +136,7 @@ flowchart LR
 ---
 
 ### 2. 🎬 인공지능 창작 스튜디오 (Creation Pipeline)
-수집된 데이터와 AI 엔진을 결합하여 고품질 숏폼 콘텐츠를 대량 렌더링합니다.
-
-* **Flow AI 비디오 렌더러 (`/flow2capcut`)**:
-  * Google Flow AI(Veo 3.1) 모델 기반 **100장 이상의 고화질 AI 이미지/비디오 배치 대량 생성**.
-  * 캐릭터/배경/스타일 87개 프리셋 레퍼런스 태그 자동 주입으로 씬 간 일관성 유지.
-  * 멀티트랙 타임라인, SRT 자막, Ken Burns 애니메이션을 포함한 **CapCut 프로젝트 원클릭 직접 출력**.
+* **Flow AI 비디오 렌더러 (`/flow2capcut`)**: Google Flow AI(Veo 3.1) 모델 기반 **100장 이상의 고화질 AI 이미지/비디오 배치 대량 생성**, 87개 스타일 프리셋 자동 주입, **CapCut 프로젝트 원클릭 직접 출력**.
 * **AI 대본 각색 및 생성 (`/script-writer`)**: 다중 LLM(Claude, Gemini, Groq, Llama)을 활용하여 원본 대본을 쇼츠 전용 후킹 대본으로 자동 리라이팅.
 * **AI 원클릭 쇼츠 제작 (`/ddalkkak`)**: 자막 자동 생성, 대본+더빙(TTS) 합성, 클립 다중 편집을 **원클릭 10초 만에 일괄 렌더링**.
 * **스웜 에이전트 스튜디오 (`/agent-studio`)**: 기획자, 작가, 비주얼 디렉터로 구성된 자율 AI 에이전트 네트워크(OpenClaude, OpenHands, Hermes Core)가 협업하여 숏폼 에피소드 완벽 기획.
@@ -104,8 +148,6 @@ flowchart LR
 ---
 
 ### 3. 📈 채널 성장 및 자동화 (Operation & Growth)
-계정 정지 위험 없는 스텔스 멀티 채널 운영 및 자동 배포 인프라를 제공합니다.
-
 * **쇼츠 자동 배포 관리 (`/work-queue`)**: 픽셀링(Pixeling) 메타 데이터 파싱 기반으로 YouTube Shorts, TikTok, Instagram Reels에 예약/즉시 자동 업로드.
 * **채널 계정 & 웜업 육성 (`/incubator`)**: 
   * 계정별 독립 브라우저 프로필 및 듀얼 프록시(LTE/Clean IP) 격리로 **다계정 연좌제 밴 원천 차단**.
@@ -115,8 +157,6 @@ flowchart LR
 ---
 
 ### 4. 📡 가상 라이브 센터 (24/7 Virtual Live Streaming)
-PC만 켜두면 365일 무중단으로 방송되는 유튜브/틱톡 무인 라이브 시스템입니다.
-
 * **라이브 씬 디자인 (`/live-studio`)**: Lofi 배경 영상 루프, 실시간 시계, 공지 배너, AI 자막 등 멀티 레이어 라이브 화면을 Canva/OBS 스타일로 디자인.
 * **24시 무인 라이브 송출 (`/station-manager`)**:
   * **채널별 포터블 OBS 격리 아키텍처**(`C:\ViraLoopMedia\OBS Program\OBS_Channel_...`) 구동.
@@ -127,10 +167,6 @@ PC만 켜두면 365일 무중단으로 방송되는 유튜브/틱톡 무인 라�
 
 ## 🤖 MCP Server & Claude Code 통합 연동
 
-Claude Code CLI 환경에서 ViraLoop Studio의 씬, 레퍼런스, 프롬프트, 렌더링 작업을 직접 제어할 수 있는 표준 Model Context Protocol (MCP) 서버를 내장하고 있습니다.
-
-### 주요 MCP 도구 (Key MCP Tools)
-
 | Tool | 역할 및 기능 |
 |:---|:---|
 | `load_csv` | CSV 대본 및 이미지 데이터 로드 |
@@ -140,12 +176,6 @@ Claude Code CLI 환경에서 ViraLoop Studio의 씬, 레퍼런스, 프롬프트,
 | `list_styles` | 87개 스타일 프리셋 카탈로그 조회 |
 | `export_capcut` | CapCut 프로젝트 자동 컴파일 및 내보내기 |
 | `app_generate_scene` / `app_start_scene_batch` | 앱 내 비동기 씬 렌더링 트리거 |
-
-### Story Engine v2 커맨드라인 워크플로우
-* `/story-new`: 에피소드 초기화 및 주제 기획 브리핑
-* `/story-execute`: W1–W9 전체 생성 파이프라인 전자동 실행
-* `/story-step`: 1단계 단위 수동 검수 및 진행
-* `/story-rewrite`: 시청 지속시간 저조 구간 진단 및 부분 리라이팅
 
 ---
 
@@ -163,22 +193,15 @@ VLStudio/
 │   ├── api/                    # Python FastAPI 백엔드 (SQLite DB, Fernet 보안 암호화)
 │   └── swarm/                  # 자율 AI 스웜 에이전트 코어
 │
+├── runtime/                     # 포터블 바이너리 런타임 폴더
+│   ├── adb/                    # Android Platform Tools (adb.exe)
+│   └── ytdlp/                  # yt-dlp 바이너리 (yt-dlp.exe)
+│
 ├── docs/                       # 기술 명세서, 데이터 스키마 및 아키텍처 문서
 ├── install.ps1                 # 무인 자동 설치 파워쉘 스크립트
 ├── OneClick_Install.bat        # 원클릭 윈도우 인스톨러
 └── package.json
 ```
-
-### IPC 네임스페이스 (Electron IPC Bridge)
-
-| 네임스페이스 | 담당 역할 | 파일 위치 |
-|:---|:---|:---|
-| `fs:*` | 파일 시스템 입출력 및 프로젝트 저장 | `electron/ipc/filesystem.js` |
-| `flow:*` | Google Flow AI 세션 토큰 및 생성 요청 | `electron/ipc/flow-api.js` |
-| `flow:dom-*` | Flow 웹 DOM 자동화 및 프롬프트 주입 | `electron/ipc/dom.js` |
-| `flow:video-*` | 비디오 생성 파이프라인 (T2V, I2V, 업스케일) | `electron/ipc/video.js` |
-| `capcut:*` | CapCut 경로 감지, 프로젝트 생성 및 앱 실행 | `electron/ipc/capcut.js` |
-| `auth:*` | 구글 OAuth 및 세션 관리 | `electron/ipc/auth.js` |
 
 ---
 
