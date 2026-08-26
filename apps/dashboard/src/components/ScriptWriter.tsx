@@ -539,9 +539,9 @@ const ScriptWriter = () => {
                             </Button>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-0 flex-1 flex flex-col">
+                    <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                         <Textarea
-                            className="w-full min-h-[140px] sm:min-h-[220px] md:min-h-[280px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground"
+                            className="w-full flex-1 min-h-[320px] sm:min-h-[420px] md:min-h-[480px] h-full resize-y border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm placeholder:text-muted-foreground leading-relaxed"
                             placeholder="번역 및 변환할 원본 텍스트를 여기에 입력하거나 붙여넣으세요..."
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
@@ -591,7 +591,7 @@ const ScriptWriter = () => {
                     </CardHeader>
                     <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                         <Textarea
-                            className="w-full min-h-[140px] sm:min-h-[220px] md:min-h-[280px] resize-none border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm font-medium leading-relaxed placeholder:text-muted-foreground"
+                            className="w-full flex-1 min-h-[320px] sm:min-h-[420px] md:min-h-[480px] h-full resize-y border-0 focus-visible:ring-0 p-3 sm:p-4 rounded-none bg-background text-foreground text-xs sm:text-sm font-medium leading-relaxed placeholder:text-muted-foreground"
                             placeholder="AI가 생성한 대본이 여기에 표시됩니다..."
                             value={resultText}
                             onChange={(e) => setResultText(e.target.value)}

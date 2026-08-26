@@ -345,7 +345,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 </div>
 
                 <div className="px-3.5 pt-3 pb-2 shrink-0">
-                    <div className="bg-[#f0f3f8] dark:bg-muted/50 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 sidebar-mode-grid">
+                    <div className="bg-[#f0f3f8] dark:bg-zinc-900/90 dark:border dark:border-zinc-800/80 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 sidebar-mode-grid">
                         {[
                             { id: 'DISCOVERY', name: '트렌드 분석', sub: '탐색', icon: Search },
                             { id: 'CREATION', name: '콘텐츠 제작', sub: '제작', icon: Palette },
@@ -361,8 +361,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                                     className={cn(
                                         "flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all duration-200 shrink-0 text-left",
                                         isActive
-                                            ? "bg-white dark:bg-card text-primary font-bold shadow-xs border border-border/30"
-                                            : "bg-transparent border border-transparent text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-card/40"
+                                            ? "bg-white dark:bg-zinc-800 text-primary font-bold shadow-xs border border-border/30 dark:border-zinc-700/60"
+                                            : "bg-transparent border border-transparent text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-zinc-800/50"
                                     )}
                                 >
                                     <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
