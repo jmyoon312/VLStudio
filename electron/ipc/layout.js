@@ -32,24 +32,27 @@ export function updateBounds(mainWindow, flowView) {
 
   const { width, height } = mainWindow.getContentBounds()
   const GAP = 3
+  // 왼쪽 고정 사이드바 너비 (288px) — Flow 뷰가 사이드바를 가리지 않도록 x좌표 오프셋 적용
+  const SIDEBAR_W = sidebarOffset > 0 ? sidebarOffset : 288
 
-  // Flow WebContentsView는 항상 x=0부터 시작.
-  // splitRatio는 전체 window 너비 기준. 사이드바(pl-72)는 React 앱 패널 내부 문제이며
-  // 여기서 절대로 고려하지 않는다.
   let containerRect = { x: 0, y: 0, width: 0, height: 0 }
 
   if (layoutMode === 'split-left') {
-    const splitPos = Math.round(width * splitRatio)
-    containerRect = { x: 0, y: 0, width: Math.max(0, splitPos - GAP), height }
+    const usableWidth = Math.max(0, width - SIDEBAR_W)
+    const splitPos = Math.round(usableWidth * splitRatio)
+    containerRect = { x: SIDEBAR_W, y: 0, width: Math.max(0, splitPos - GAP), height }
   } else if (layoutMode === 'split-right') {
-    const splitPos = Math.round(width * splitRatio)
-    containerRect = { x: Math.min(width, width - splitPos + GAP), y: 0, width: Math.max(0, splitPos - GAP), height }
+    const usableWidth = Math.max(0, width - SIDEBAR_W)
+    const splitPos = Math.round(usableWidth * splitRatio)
+    containerRect = { x: SIDEBAR_W + Math.min(usableWidth, usableWidth - splitPos + GAP), y: 0, width: Math.max(0, splitPos - GAP), height }
   } else if (layoutMode === 'split-top') {
+    const usableWidth = Math.max(0, width - SIDEBAR_W)
     const splitPos = Math.round(height * splitRatio)
-    containerRect = { x: 0, y: 0, width, height: Math.max(0, splitPos - GAP) }
+    containerRect = { x: SIDEBAR_W, y: 0, width: usableWidth, height: Math.max(0, splitPos - GAP) }
   } else if (layoutMode === 'split-bottom') {
+    const usableWidth = Math.max(0, width - SIDEBAR_W)
     const splitPos = Math.round(height * splitRatio)
-    containerRect = { x: 0, y: Math.min(height, height - splitPos + GAP), width, height: Math.max(0, splitPos - GAP) }
+    containerRect = { x: SIDEBAR_W, y: Math.min(height, height - splitPos + GAP), width: usableWidth, height: Math.max(0, splitPos - GAP) }
   }
 
   global.lastContainerRect = containerRect
