@@ -263,3 +263,26 @@ def get_system_metrics(db: Session = Depends(database.get_db)):
         logger.error(f"Metrics failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/cleanup-zombies")
+def cleanup_zombies(db: Session = Depends(database.get_db)):
+    """Reset or clean stuck zombie downloading tasks (>2 hours old)."""
+    try:
+        from datetime import datetime, timedelta
+        zombie_cutoff = datetime.now() - timedelta(hours=2)
+        zombie_videos = db.query(models.Video).filter(
+            models.Video.status == "downloading",
+            models.Video.downloaded_at < zombie_cutoff
+        ).all()
+        
+        count = 0
+        for v in zombie_videos:
+            v.status = "failed"
+            count += 1
+            
+        db.commit()
+        return {"status": "success", "cleaned_count": count}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Zombie cleanup failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

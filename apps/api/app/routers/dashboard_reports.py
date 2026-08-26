@@ -107,6 +107,17 @@ async def get_monthly_report(year: Optional[int] = None, month: Optional[int] = 
     report = await report_gen.generate_monthly_report(year, month)
     return report
 
+@router.get("/reports/dashboard-overview")
+def get_dashboard_overview_compat():
+    """Fallback compatibility route for dashboard-overview"""
+    from app.database import SessionLocal
+    from app.routers.reports import get_dashboard_overview
+    db = SessionLocal()
+    try:
+        return get_dashboard_overview(db)
+    finally:
+        db.close()
+
 @router.get("/reports")
 async def get_report_list(limit: int = 10):
     """Get report list"""

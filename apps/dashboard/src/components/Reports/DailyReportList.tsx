@@ -377,9 +377,26 @@ function SystemHealthDashboard() {
                 <div className="mt-3.5 pt-3 border-t border-border flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
                     <div className="flex items-center gap-4 text-[11px]">
                         <div><span className="font-semibold text-foreground">DB 용량:</span> <span className="font-mono text-indigo-400 font-bold">{metrics.db_size_mb} MB</span></div>
-                        <div>
+                        <div className="flex items-center gap-1.5">
                             <span className="font-semibold text-foreground">좀비 태스크:</span>{" "}
                             <span className={`font-mono font-bold ${(metrics.zombie_tasks || 0) > 0 ? "text-rose-400" : "text-emerald-400"}`}>{metrics.zombie_tasks || 0}건</span>
+                            {(metrics.zombie_tasks || 0) > 0 && (
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const res = await api.post('/maintenance/cleanup-zombies');
+                                            toast.success(`좀비 태스크 ${res.data?.cleaned_count || 0}건이 정리되었습니다.`);
+                                            refetch();
+                                        } catch (e: any) {
+                                            toast.error(e.message || "정리 실패");
+                                        }
+                                    }}
+                                    className="text-[10px] bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded font-bold border border-rose-500/20 transition-colors"
+                                    title="멈춘 다운로드 작업 즉시 정리"
+                                >
+                                    🧹 정리
+                                </button>
+                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -553,10 +570,10 @@ export function DailyReportList() {
             {/* Header Title & Actions */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-                        <Rocket className="w-5 h-5 sm:w-6 sm:h-6 text-primary" /> ViraLoop 통합 운영 & BI 인텔리전스 리포트
+                    <h2 className="text-[17px] sm:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2 break-keep-all leading-snug sm:leading-tight">
+                        <Rocket className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> ViraLoop 통합 운영 & BI 인텔리전스 리포트
                     </h2>
-                    <p className="text-xs text-muted-foreground">영상 수집 ➔ AI 대량 제작 ➔ 다채널 자동 업로드 ➔ 채널 성과 전 주기 통합 관제</p>
+                    <p className="text-xs text-muted-foreground break-keep-all mt-0.5">영상 수집 ➔ AI 대량 제작 ➔ 다채널 자동 업로드 ➔ 채널 성과 전 주기 통합 관제</p>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                     {selectedIds.size > 0 && (
