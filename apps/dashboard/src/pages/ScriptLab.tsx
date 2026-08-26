@@ -541,9 +541,22 @@ const ScriptLab = () => {
     }, [videoHistory, statsVideo]);
 
     return (
-        <div className="min-h-screen flex flex-col bg-background p-3 sm:p-6 space-y-3 sm:space-y-4 overflow-x-hidden" ref={tableContainerRef}>
+        <div className="min-h-screen flex flex-col bg-background p-3 sm:p-6 space-y-4 sm:space-y-5 overflow-x-hidden" ref={tableContainerRef}>
+            {/* 1. 상단 타이틀 헤더 바 */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full">
+                <div>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                        <span>수집 대본 분석실</span>
+                    </h1>
+                    <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                        수집된 레퍼런스 영상의 자막/대본을 한곳에 모아 바이럴 후킹 구조를 분석하고 AI 재창작으로 연계
+                    </p>
+                </div>
+            </div>
+
             {/* Header Area */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1 border-t border-border/50">
                 <div className="flex items-center justify-between gap-2">
                     <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
                         총 <span className="text-foreground font-bold">{table.getFilteredRowModel().rows.length}</span>개의 대본

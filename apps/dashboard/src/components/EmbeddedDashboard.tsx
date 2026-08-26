@@ -55,7 +55,7 @@ const MENU_GROUPS = [
             { name: '더우인 쇼츠 수집',  path: '/douyin-search',   icon: Globe },
             { name: 'URL 영상 직접 수집', path: '/download',     icon: UploadCloud },
             { name: '수집 영상 보관함',      path: '/gallery',        icon: Zap },
-            { name: '대본 추출 및 분석',  path: '/script-lab',     icon: FileText },
+            { name: '수집 대본 분석실',  path: '/script-lab',     icon: FileText },
         ],
     },
     {
