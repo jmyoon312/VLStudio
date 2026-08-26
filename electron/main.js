@@ -299,31 +299,13 @@ function createWindow() {
     // 1. 오디오 개별 뮤트
     view.webContents.setAudioMuted(true)
 
-    // Google 로그인: Flow 뷰 내에서 이동 시도 시, 깨끗한 독립 팝업(loginWin)으로 가로채어 실행 (AutoFlowCut 원본 로직 복원)
+    // Google 로그인 및 외부 링크 처리 (Flow WebContentsView 내에서 자연스럽게 로그인 수행)
     view.webContents.setWindowOpenHandler(({ url }) => {
-      // 1. 구글 로그인 관련 URL인 경우 커스텀 로그인 팝업으로 가로채기 (팝업 요청 시)
-      if (url && (url.includes('accounts.google.com') || url.includes('/auth/'))) {
-        console.log(`[Flow] Intercepting Google Login (window.open) -> openPureGoogleLoginWindow for ${profileId}`);
-        openPureGoogleLoginWindow(url, profileId);
-        return { action: 'deny' }; // 뷰 내에서의 자체 팝업 차단
-      }
-      
-      // 2. 기타 외부 링크(예: 도움말 등)는 시스템 기본 브라우저로 띄우기
-      if (url && !url.includes('labs.google') && !url.includes('google.com')) {
+      if (url && !url.includes('labs.google') && !url.includes('google.com') && !url.includes('youtube.com')) {
         shell.openExternal(url);
         return { action: 'deny' };
       }
-      
       return { action: 'allow' };
-    });
-
-    // 3. 구글이 최근 window.open 대신 현재 창 이동(location.href)으로 로그인 방식을 변경한 것을 대응
-    view.webContents.on('will-navigate', (event, url) => {
-      if (url && (url.includes('accounts.google.com') || url.includes('/auth/'))) {
-        console.log(`[Flow] Intercepting Google Login (direct navigate) -> openPureGoogleLoginWindow for ${profileId}`);
-        event.preventDefault(); // flowView 내에서의 이동을 강제 차단!
-        openPureGoogleLoginWindow(url, profileId); // 깨끗한 로그인 전용 창 열기
-      }
     });
 
 
@@ -666,13 +648,24 @@ function createWindow() {
       console.warn('[Proxy] Failed to load profile config:', e);
     }
 
+    let preloadPath = path.join(__dirname, 'stealth_preload.js');
+    if (!fsSync.existsSync(preloadPath)) {
+      preloadPath = path.join(__dirname, 'stealth_preload.mjs');
+    }
+
+    const modernChromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
+
     const newView = new WebContentsView({
       webPreferences: {
         partition: partitionName,
         contextIsolation: true,
-        webSecurity: false
+        webSecurity: false,
+        preload: preloadPath
       }
     });
+
+    newView.webContents.setUserAgent(modernChromeUA);
+    newView.webContents.session.setUserAgent(modernChromeUA);
 
     if (proxyPort) {
       newView.webContents.session.setProxy({ proxyRules: `socks5://127.0.0.1:${proxyPort}` }).then(() => {
