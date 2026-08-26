@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     BookOpen,
     Search,
@@ -38,7 +38,9 @@ import {
     Users,
     FolderOpen,
     ExternalLink,
-    Clock
+    Clock,
+    ArrowUp,
+    ChevronUp
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -66,13 +68,13 @@ export default function GuideCenter() {
         features: { icon: any; title: string; desc: string; }[];
         steps: string[];
     }> = {
-        // --- 1. 자동화 및 대기열 ---
+        // --- 1. 쇼츠 자동 배포 관리 ---
         work_queue: {
             category: "핵심 자동화",
             badge: "HOT",
             icon: Layers,
             iconBg: "from-blue-600 to-indigo-600",
-            titleOverride: "자동화 작업 대기열 (Work Queue & Pixeling)",
+            titleOverride: "쇼츠 자동 배포 관리 (Work Queue)",
             overview: "Flow AI 및 픽셀링(Pixeling) 메타 분석 기반으로 제작된 영상의 다채널 배포 스케줄과 백그라운드 렌더링 작업을 관리하는 중앙 대기열입니다. 모바일/외부 웹 브라우저에서도 영상 첨부와 즉시 등록을 완벽 지원합니다.",
             features: [
                 {
@@ -92,7 +94,7 @@ export default function GuideCenter() {
                 }
             ],
             steps: [
-                "하단 네비게이션 탭에서 '대기열'을 선택합니다.",
+                "사이드바 또는 하단 네비게이션 탭에서 '쇼츠 자동 배포 관리'를 선택합니다.",
                 "상단 '픽셀링 메타 등록' 버튼을 눌러 메타 텍스트를 붙여넣고 영상 파일을 첨부합니다.",
                 "'대기열로 보내기'를 누르면 영상이 서버에 자동 업로드되며 배포 대기열에 등록됩니다.",
                 "대기열 카드에서 [승인] 또는 [즉시 등록]을 눌러 다채널 자동 송출을 실행합니다."
@@ -126,14 +128,14 @@ export default function GuideCenter() {
             ]
         },
 
-        // --- 3. 계정 육성 및 보안 관리 ---
+        // --- 3. 채널 계정 & 웜업 육성 ---
         incubator: {
             category: "계정 보안 & 육성",
             badge: "PRO",
             icon: Shield,
             iconBg: "from-emerald-600 to-teal-600",
-            titleOverride: "통합 계정 & 육성 관리 (Incubator & Cloak)",
-            overview: "유튜브 브랜드 계정의 영구적인 안전 운영을 위해 격리된 브라우저 프로필(CloakBrowser)과 듀얼 프록시 격리 시스템을 제공하며, 7단계 자동 웜업 프로세스로 채널 신뢰도를 극대화합니다.",
+            titleOverride: "채널 계정 & 웜업 육성 (Incubator)",
+            overview: "유튜브 브랜드 계정의 영구적인 안전 운영을 위해 격리된 브라우저 프로필과 듀얼 프록시 격리 시스템을 제공하며, 다계정 자동 웜업 프로세스로 채널 신뢰도를 극대화합니다.",
             features: [
                 {
                     icon: Shield,
@@ -142,24 +144,24 @@ export default function GuideCenter() {
                 },
                 {
                     icon: Sparkles,
-                    title: "일괄 웜업 제어 (Bulk Warmup) & 스케줄러",
+                    title: "일괄 웜업 육성 제어 & 스케줄러",
                     desc: "신규 채널의 신뢰도를 높이기 위해 인간적인 영상 시청, 탐색, 댓글 활동을 백그라운드에서 자동 실행합니다."
                 }
             ],
             steps: [
-                "하단 네비게이션에서 '육성관리'를 선택합니다.",
-                "새 구글 계정을 등록하거나 채널 정보를 연동합니다.",
-                "'전체 시작' 또는 '스케줄러 자동 실행'을 눌러 웜업 및 채널 보호를 가동합니다."
+                "사이드바에서 '채널 계정 & 웜업 육성'을 선택합니다.",
+                "새 구글 계정을 안전하게 등록하거나 채널 정보를 연동합니다.",
+                "'일괄 웜업 육성 제어' 탭에서 '전체 시작'을 눌러 웜업 및 채널 보호를 가동합니다."
             ]
         },
 
-        // --- 4. 미디어 보관함 ---
+        // --- 4. 수집 영상 보관함 ---
         gallery: {
             category: "콘텐츠 보관 & 분석",
             badge: "VIRAL",
             icon: ImageIcon,
             iconBg: "from-amber-600 to-orange-600",
-            titleOverride: "미디어 보관함 (Viral Gallery)",
+            titleOverride: "수집 영상 보관함 (Viral Gallery)",
             overview: "수집된 모든 숏폼/롱폼 영상을 바이럴 지수(Velocity/EV Score)와 등급(S/A/B)별로 정렬하여 조회수 폭발 잠재력을 한눈에 파악하고, 원클릭으로 2차 가공을 실행합니다.",
             features: [
                 {
@@ -174,13 +176,13 @@ export default function GuideCenter() {
                 }
             ],
             steps: [
-                "하단 네비게이션에서 '보관함'을 선택합니다.",
+                "사이드바에서 '수집 영상 보관함'을 선택합니다.",
                 "검색창이나 상단 필터를 통해 S등급/A등급 고바이럴 영상을 필터링합니다.",
                 "원하는 영상 카드에서 '⚡ 딸깍' 버튼을 눌러 자막 생성 또는 편집으로 바로 전송합니다."
             ]
         },
 
-        // --- 5. 레퍼런스 채널 관리 ---
+        // --- 5. 타겟 채널 자동 수집 ---
         channels: {
             category: "수집 & 벤치마킹",
             badge: "AUTO",
@@ -207,13 +209,13 @@ export default function GuideCenter() {
             ]
         },
 
-        // --- 6. 미디어 고속 직접 다운로드 ---
+        // --- 6. URL 영상 직접 수집 ---
         direct_download: {
-            category: "고속 다운로드",
+            category: "고속 직접 수집",
             badge: "FAST",
             icon: Download,
             iconBg: "from-blue-600 to-cyan-600",
-            titleOverride: "미디어 고속 다운로드 (Direct Downloader)",
+            titleOverride: "URL 영상 직접 수집 (Direct Download)",
             overview: "유튜브, 틱톡, 인스타그램, 더우인, 콰이쇼우 등 전 세계 15개 이상의 동영상 플랫폼 링크를 붙여넣어 원본 화질로 즉시 일괄 다운로드합니다.",
             features: [
                 {
@@ -228,19 +230,19 @@ export default function GuideCenter() {
                 }
             ],
             steps: [
-                "메뉴에서 '미디어 고속 다운로드'를 선택합니다.",
+                "메뉴에서 'URL 영상 직접 수집'을 선택합니다.",
                 "저장할 카테고리를 선택하고 텍스트 영역에 영상 URL들을 붙여넣습니다.",
                 "[즉시 다운로드] 또는 [다운로드 대기열 추가] 후 [일괄 다운로드 시작]을 누릅니다."
             ]
         },
 
-        // --- 7. 더우인 쇼츠 수집 팩토리 ---
+        // --- 7. 더우인 쇼츠 수집 ---
         douyin_studio: {
             category: "멀티모달 팩토리",
             badge: "AI",
             icon: Scissors,
             iconBg: "from-purple-600 to-indigo-600",
-            titleOverride: "더우인 쇼츠 수집 (Douyin Studio Pro)",
+            titleOverride: "더우인 쇼츠 수집 (Douyin Search)",
             overview: "수백 개의 중국 숏폼 영상을 동시 다발적으로 분석/편집하는 멀티모달 AI 팩토리입니다. 키워드 확장 수집, AI 매핑, 씬 분할 컷편집을 지원합니다.",
             features: [
                 {
@@ -261,13 +263,13 @@ export default function GuideCenter() {
             ]
         },
 
-        // --- 8. 다국어 목소리 합성 ---
+        // --- 8. AI 다국어 목소리 합성 ---
         multi_tts: {
             category: "AI 음성 & 자막",
             badge: "VOICE",
             icon: Mic,
             iconBg: "from-violet-600 to-pink-600",
-            titleOverride: "다국어 목소리 합성 (Multi TTS Studio)",
+            titleOverride: "AI 다국어 목소리 합성 (Multi TTS)",
             overview: "Supertonic Local, Qwen3, ElevenLabs, Edge TTS 등 최첨단 다국어 음성 합성 엔진으로 자연스러운 나레이션을 생성하고, 무음 제거 및 자막(SRT) 추출을 원스톱으로 처리합니다.",
             features: [
                 {
@@ -277,12 +279,12 @@ export default function GuideCenter() {
                 },
                 {
                     icon: FileText,
-                    title: "무음 구간 일괄 제거 & 초정밀 자막(SRT) 추출",
+                    title: "무음 구간 자동 컷팅 & 초정밀 자막(SRT) 추출",
                     desc: "호흡과 무음 구간을 50ms 단위로 자동 컷팅하여 오디오 밀도를 극대화하고 즉시 자막 파일로 변환합니다."
                 }
             ],
             steps: [
-                "메뉴에서 '다국어 목소리 합성'으로 이동합니다.",
+                "메뉴에서 'AI 다국어 목소리 합성'으로 이동합니다.",
                 "텍스트를 입력하고 원하는 음성 엔진과 목소리, 속도, 감정을 선택한 뒤 [음성 생성 시작]을 누릅니다.",
                 "필요 시 2단계에서 [무음 제거 실행]을 거친 뒤, 3단계에서 [자막 추출 및 편집]으로 이동합니다."
             ]
@@ -295,7 +297,7 @@ export default function GuideCenter() {
             icon: SettingsIcon,
             iconBg: "from-slate-700 to-zinc-800",
             titleOverride: "작업 환경 설정 (System Settings)",
-            overview: "AI API 키(Gemini, Groq, Claude, OpenAI), 저장소 다운로드 경로, 자동 다운로드 주기, CloakBrowser 엔진 패치 및 설정 백업/복원을 총괄 관리합니다.",
+            overview: "AI API 키(Gemini, Groq, Claude, OpenAI), 저장소 다운로드 경로, 자동 다운로드 주기, 브라우저 엔진 패치 및 설정 백업/복원을 총괄 관리합니다.",
             features: [
                 {
                     icon: SettingsIcon,
@@ -322,8 +324,8 @@ export default function GuideCenter() {
             title: '핵심 자동화 & 대기열',
             icon: Layers,
             guides: [
-                { id: 'work_queue', title: '자동화 작업 대기열 (Work Queue)', time: '3분', key: 'work_queue' },
-                { id: 'incubator', title: '통합 계정 & 육성 관리', time: '5분', key: 'incubator' },
+                { id: 'work_queue', title: '쇼츠 자동 배포 관리 (Work Queue)', time: '3분', key: 'work_queue' },
+                { id: 'incubator', title: '채널 계정 & 웜업 육성', time: '5분', key: 'incubator' },
                 { id: 'dashboard', title: '통합 관제 대시보드', time: '3분', key: 'dashboard' }
             ]
         },
@@ -334,8 +336,8 @@ export default function GuideCenter() {
             guides: [
                 { id: 'gallery', title: '수집 영상 보관함 (Viral Gallery)', time: '3분', key: 'gallery' },
                 { id: 'channels', title: '타겟 채널 자동 수집 (Target Channels)', time: '3분', key: 'channels' },
-                { id: 'direct_download', title: 'URL 영상 직접 수집 (Direct Downloader)', time: '2분', key: 'direct_download' },
-                { id: 'douyin_studio', title: '더우인 쇼츠 수집 (Studio Pro)', time: '5분', key: 'douyin_studio' }
+                { id: 'direct_download', title: 'URL 영상 직접 수집 (Direct Download)', time: '2분', key: 'direct_download' },
+                { id: 'douyin_studio', title: '더우인 쇼츠 수집 (Douyin Search)', time: '5분', key: 'douyin_studio' }
             ]
         },
         {
@@ -343,7 +345,7 @@ export default function GuideCenter() {
             title: 'AI 음성 & 시스템 설정',
             icon: Sparkles,
             guides: [
-                { id: 'multi_tts', title: '다국어 목소리 합성 (Multi TTS)', time: '5분', key: 'multi_tts' },
+                { id: 'multi_tts', title: 'AI 다국어 목소리 합성 (Multi TTS)', time: '5분', key: 'multi_tts' },
                 { id: 'settings', title: '작업 환경 설정 (Settings)', time: '3분', key: 'settings' }
             ]
         }
@@ -354,6 +356,40 @@ export default function GuideCenter() {
         const element = document.getElementById(key);
         if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    const [showScrollTop, setShowScrollTop] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            const windowScroll = window.scrollY || document.documentElement.scrollTop;
+            const mainEl = document.querySelector('main');
+            const mainScroll = mainEl ? mainEl.scrollTop : 0;
+            const scrollPos = Math.max(windowScroll, mainScroll);
+
+            setShowScrollTop(scrollPos > 300);
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        const mainEl = document.querySelector('main');
+        if (mainEl) {
+            mainEl.addEventListener('scroll', handleScroll, { passive: true });
+        }
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            if (mainEl) {
+                mainEl.removeEventListener('scroll', handleScroll);
+            }
+        };
+    }, []);
+
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const mainEl = document.querySelector('main');
+        if (mainEl) {
+            mainEl.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
@@ -526,6 +562,19 @@ export default function GuideCenter() {
 
             {/* Explicit Mobile Bottom Navigation Clearance Spacer */}
             <div className="h-32 md:hidden shrink-0 pointer-events-none" aria-hidden="true" />
+
+            {/* Floating Back to Top Button */}
+            {showScrollTop && (
+                <button
+                    onClick={scrollToTop}
+                    className="fixed bottom-20 sm:bottom-8 right-4 sm:right-8 z-50 p-3 sm:px-4 sm:py-3 bg-primary text-primary-foreground font-bold text-xs rounded-full sm:rounded-2xl shadow-xl hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-1.5 backdrop-blur-md border border-primary/20 animate-in fade-in zoom-in"
+                    title="맨 위로 이동"
+                    aria-label="맨 위로 이동"
+                >
+                    <ChevronUp className="w-5 h-5" />
+                    <span className="hidden sm:inline">맨 위로</span>
+                </button>
+            )}
         </div>
     );
 }
