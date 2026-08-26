@@ -410,24 +410,47 @@ export async function exportCapcutPackageCloud(project, options = {}) {
       srtFilename = `subtitles_${options.subtitleOption || 'ko'}.srt`;
     }
 
-    // 4. Electron IPC를 통해 파일 쓰기
-    console.log('[CapCut Local Export] Writing files via IPC...');
-    const writeResult = await window.electronAPI.writeCapcutProject({
-      targetPath,
-      draftInfo: draftContent,
-      draftMetaInfo,
-      timelineLayout,
-      extraFiles,
-      mediaFiles,
-      srtContent,
-      srtFilename
-    });
+    // 4. Electron IPC 또는 FastAPI 백엔드를 통한 파일 쓰기
+    console.log('[CapCut Local Export] Writing files...');
+    let writeResult = null;
 
-    if (!writeResult.success) {
-      throw new Error(`Failed to write project files: ${writeResult.error}`);
+    if (window.electronAPI?.writeCapcutProject) {
+      // 데스크톱 Electron 내부
+      writeResult = await window.electronAPI.writeCapcutProject({
+        targetPath,
+        draftInfo: draftContent,
+        draftMetaInfo,
+        timelineLayout,
+        extraFiles,
+        mediaFiles,
+        srtContent,
+        srtFilename
+      });
+    } else {
+      // 외부 크롬 / 모바일 브라우저 환경 (호스트 PC 백엔드로 원격 쓰기 요청)
+      console.log('[CapCut Remote Export] Forwarding project payload to Host PC FastAPI server...');
+      const response = await fetch('/api/capcut/export-remote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetPath,
+          draftInfo: draftContent,
+          draftMetaInfo,
+          timelineLayout,
+          extraFiles,
+          mediaFiles,
+          srtContent,
+          srtFilename
+        })
+      });
+      writeResult = await response.json();
     }
 
-    console.log('[CapCut Local Export] Successfully generated project at:', targetPath);
+    if (!writeResult || !writeResult.success) {
+      throw new Error(`Failed to write project files: ${writeResult?.error || 'Unknown error'}`);
+    }
+
+    console.log('[CapCut Local/Remote Export] Successfully generated project at:', targetPath);
     return { success: true, targetPath };
 
   } catch (error) {

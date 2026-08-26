@@ -92,6 +92,24 @@ export const ExportModal = ({ isOpen, onClose, onExport, projectName, loading, e
               }
             }
           }
+        } else {
+          // 웹 / 모바일 브라우저 환경 (FastAPI 백엔드에서 서버 컴퓨터 CapCut 경로 감지)
+          try {
+            const resp = await fetch('/api/capcut/detect-path');
+            const pathResult = await resp.json();
+            if (pathResult.success && pathResult.basePath) {
+              setDetectedBasePath(pathResult.basePath);
+              if (!projectName) {
+                const numResp = await fetch('/api/capcut/next-number');
+                const numResult = await numResp.json();
+                if (numResult.success && numResult.folderName) {
+                  setProjectNumber(numResult.folderName);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('[ExportModal] Remote detect-path error:', e);
+          }
         }
       } catch (error) {
         console.warn('[ExportModal] Auto-detect failed:', error)

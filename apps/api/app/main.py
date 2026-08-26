@@ -101,7 +101,7 @@ from app.routers import (
     work_queue, youtube_channels, veo_prompt_agent,
     queue_management, processing_verification, dashboard_reports, 
     health_deployment, ml_ab_search, operations, network,
-    douyin_shorts_router
+    douyin_shorts_router, capcut_remote
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -349,6 +349,7 @@ app.include_router(render.router, prefix="/api/render", tags=["creative"])
 app.include_router(creative.router, prefix="/api/creative", tags=["creative"])
 app.include_router(maintenance.router, prefix="/api/maintenance", tags=["ops"])
 app.include_router(system.router, prefix="/api/system", tags=["ops"])
+app.include_router(capcut_remote.router, prefix="/api", tags=["capcut-remote"])
 
 # Dependency Installer Status Endpoint
 from app.services.dependency_installer import dependency_installer
