@@ -186,7 +186,7 @@ export default function GuideCenter() {
             badge: "AUTO",
             icon: ListVideo,
             iconBg: "from-sky-600 to-blue-600",
-            titleOverride: "참조 채널 분석 (Reference Channels)",
+            titleOverride: "타겟 채널 자동 수집 (Target Channels)",
             overview: "벤치마킹할 글로벌 유튜브/쇼츠 채널을 등록하고 24시간 자동 감시하여 신규 인기 영상을 놓치지 않고 수집합니다. 모바일 최적화 카드 뷰를 완벽 지원합니다.",
             features: [
                 {
@@ -201,7 +201,7 @@ export default function GuideCenter() {
                 }
             ],
             steps: [
-                "메뉴에서 '참조 채널 분석'으로 이동합니다.",
+                "메뉴에서 '타겟 채널 자동 수집'으로 이동합니다.",
                 "카테고리를 선택하고 새 채널 URL을 입력한 뒤 [채널 추가]를 누릅니다.",
                 "[즉시 스캔]을 누르거나 자동 다운로드 스위치를 켜두면 신규 영상이 자동 수집됩니다."
             ]
@@ -333,7 +333,7 @@ export default function GuideCenter() {
             icon: Download,
             guides: [
                 { id: 'gallery', title: '미디어 보관함 (Viral Gallery)', time: '3분', key: 'gallery' },
-                { id: 'channels', title: '참조 채널 분석 (Reference)', time: '3분', key: 'channels' },
+                { id: 'channels', title: '타겟 채널 자동 수집 (Target Channels)', time: '3분', key: 'channels' },
                 { id: 'direct_download', title: '미디어 고속 다운로드', time: '2분', key: 'direct_download' },
                 { id: 'douyin_studio', title: '더우인 쇼츠 수집 (Studio Pro)', time: '5분', key: 'douyin_studio' }
             ]

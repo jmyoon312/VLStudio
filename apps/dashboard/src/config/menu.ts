@@ -59,7 +59,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "DISCOVERY",
         defaultExpanded: true,
         items: [
-            { name: '참조 채널 분석', path: '/channels', icon: ListVideo },
+            { name: '타겟 채널 자동 수집', path: '/channels', icon: ListVideo },
             { name: '더우인 쇼츠 수집', path: '/douyin-search', icon: Globe, highlight: true },
             { name: '미디어 고속 다운로드', path: '/download', icon: Download },
             { name: '미디어 보관함', path: '/gallery', icon: Image },
