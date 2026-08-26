@@ -86,14 +86,6 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
             { name: '개체 및 배경 제거', path: '/remover', icon: Eraser },
         ]
     },
-    {
-        title: "🧪 크리에이티브 실험실 (Beta)",
-        mode: "CREATION",
-        defaultExpanded: false,
-        items: [
-            { name: '통합 창작 스튜디오', path: '/elite-studio', icon: Swords },
-        ]
-    },
 
     // 3. OPERATION (채널 운영 및 자동화)
     {

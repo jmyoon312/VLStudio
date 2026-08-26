@@ -73,12 +73,10 @@ const MENU_GROUPS = [
     {
         title: '전문가 툴킷',
         items: [
-            { name: 'Elite Command Studio', path: '/elite-studio',    icon: Swords },
             { name: '시나리오 에디터',      path: '/script-writer',   icon: FileText },
             { name: '비주얼 스튜디오',      path: '/creative-studio', icon: Clapperboard },
             { name: '오디오 마스터',        path: '/multi-tts',       icon: Mic },
             { name: '자막 변환기',          path: '/subtitle-tool',   icon: Languages },
-            { name: '리마스터 랩',          path: '/remaster-lab',    icon: Wand2 },
             { name: '연좌제 방어 변조',     path: '/sovereign-shield', icon: Shield },
             { name: '컷/무음 편집',         path: '/cut-editor',      icon: Scissors },
             { name: 'AI 리무버',            path: '/remover',         icon: Eraser },
