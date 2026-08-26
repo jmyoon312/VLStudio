@@ -284,7 +284,7 @@ const DirectDownload = () => {
     };
 
     return (
-        <div className="space-y-4 sm:space-y-6 w-full max-w-4xl mx-auto p-3 sm:p-6 py-4 sm:py-8 min-h-screen bg-background text-foreground overflow-x-hidden">
+        <div className="space-y-4 sm:space-y-6 w-full max-w-4xl mx-auto p-3 sm:p-6 py-4 sm:py-8 pb-36 md:pb-12 min-h-screen bg-background text-foreground overflow-x-hidden">
 
             {batchSource && (
                 <div className="px-3.5 py-2.5 sm:px-4 sm:py-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 animate-in fade-in slide-in-from-top-2">
@@ -318,7 +318,7 @@ const DirectDownload = () => {
                             <select
                                 value={selectedCategoryId || ''}
                                 onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
-                                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs sm:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs sm:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 appearance-none cursor-pointer"
                                 disabled={isBatchProcessing || status === 'loading'}
                             >
                                 <option value="">카테고리 없음 (임시저장)</option>
@@ -527,7 +527,85 @@ const DirectDownload = () => {
                     </Button>
                 </div>
 
-                <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
+                {/* Mobile Responsive Queue Card List (sm:hidden) */}
+                <div className="sm:hidden space-y-3">
+                    {queue.length === 0 ? (
+                        <div className="p-6 text-center text-xs sm:text-sm text-muted-foreground bg-card rounded-xl border border-border">
+                            대기열이 비어있습니다.
+                        </div>
+                    ) : (
+                        queue.map((item) => (
+                            <div 
+                                key={item.id} 
+                                className={cn(
+                                    "bg-card border border-border rounded-xl p-3.5 space-y-2.5 shadow-2xs transition-colors",
+                                    item.id === currentProcessingId && "border-primary/50 bg-accent/30"
+                                )}
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="inline-flex items-center rounded-full border px-2 py-0.2 text-[10px] font-semibold border-border bg-secondary text-secondary-foreground shrink-0">
+                                            {getCategoryName(item.categoryId)}
+                                        </span>
+                                        {item.useBypass && (
+                                            <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-500/10 px-1.5 py-0.2 rounded border border-orange-500/20">
+                                                우회 ON
+                                            </span>
+                                        )}
+                                        {item.scriptOnly && (
+                                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.2 rounded border border-blue-500/20">
+                                                스크립트 ON
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        {item.status === 'pending' && <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold border-border bg-secondary text-secondary-foreground">대기</span>}
+                                        {item.status === 'processing' && <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold border-transparent bg-blue-500/10 text-blue-500"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> 처리중</span>}
+                                        {item.status === 'success' && <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold border-transparent bg-emerald-500/10 text-emerald-500"><CheckCircle2 className="w-3 h-3 mr-1" /> 완료</span>}
+                                        {item.status === 'error' && <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold border-transparent bg-red-500/10 text-red-500"><AlertCircle className="w-3 h-3 mr-1" /> 실패</span>}
+                                    </div>
+                                </div>
+
+                                <div className="bg-muted/40 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground truncate border border-border/50">
+                                    <a
+                                        href={item.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="hover:underline hover:text-primary transition-colors truncate block"
+                                    >
+                                        {item.url}
+                                    </a>
+                                </div>
+
+                                {item.message && (
+                                    <p className="text-[11px] text-muted-foreground px-1 truncate">{item.message}</p>
+                                )}
+
+                                <div className="flex items-center justify-end pt-1 gap-2">
+                                    {item.status === 'success' && item.filePath ? (
+                                        <Button variant="outline" size="sm" onClick={() => openFolder(item.filePath!)} className="h-8 text-xs font-bold gap-1 border-border">
+                                            <ExternalLink className="w-3.5 h-3.5" /> 폴더 열기
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeFromQueue(item.id)}
+                                            disabled={item.status === 'processing'}
+                                            className="h-8 px-2 text-muted-foreground hover:text-destructive text-xs"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5 mr-1" /> 삭제
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* Desktop Table View (hidden sm:block) */}
+                <div className="hidden sm:block rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
                     <div className="relative w-full overflow-x-auto">
                         <table className="w-full min-w-[650px] caption-bottom text-xs sm:text-sm">
                             <thead className="[&_tr]:border-b bg-muted/40">
