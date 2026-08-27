@@ -39,6 +39,7 @@ import {
     FolderOpen,
     ExternalLink,
     Clock,
+    Lock,
     ArrowUp,
     ChevronUp
 } from 'lucide-react';
@@ -75,33 +76,179 @@ export default function GuideCenter() {
             icon: Layers,
             iconBg: "from-blue-600 to-indigo-600",
             titleOverride: "쇼츠 자동 배포 관리 (Work Queue)",
-            overview: "Flow AI 및 픽셀링(Pixeling) 메타 분석 기반으로 제작된 영상의 다채널 배포 스케줄과 백그라운드 렌더링 작업을 관리하는 중앙 대기열입니다. 모바일/외부 웹 브라우저에서도 영상 첨부와 즉시 등록을 완벽 지원합니다.",
+            overview: "Flow AI 및 픽셀링(Pixeling) 메타 분석 기반으로 제작된 영상의 다채널 배포 스케줄과 백그라운드 렌더링 작업을 관리하는 중앙 대기열입니다. 실시간 다차원 검색, 채널/업로드 방식 세부 필터, 4종 정렬(등록/예약/채널/상태) 및 모바일 반응형 2단 칩 바를 완벽 지원합니다.",
             features: [
                 {
-                    icon: UploadCloud,
-                    title: "모바일 원터치 영상 업로드 & 청크 스트리밍",
-                    desc: "외부 브라우저나 모바일 폰에서도 대용량 영상을 서버로 안전하게 고속 업로드하여 대기열 아이템과 연결합니다."
+                    icon: Search,
+                    title: "🔍 실시간 다차원 통합 검색 & 빠른 지우기(X)",
+                    desc: "제목, 채널명, 설명, 파일명, ID, 프로젝트 그룹명을 입력 즉시 클라이언트 사이드에서 실시간 필터링하며 X 버튼으로 원클릭 초기화됩니다."
                 },
                 {
-                    icon: Zap,
-                    title: "픽셀링 메타 데이터 파싱 & 원클릭 배포",
-                    desc: "픽셀링 분석 메타 텍스트를 붙여넣으면 제목, 프롬프트, 캡션, 보이스 설정이 자동 구조화되어 즉시 대기열에 적재됩니다."
+                    icon: TrendingUp,
+                    title: "🔀 다기능 정렬 컨트롤 & 방향 원클릭 토글",
+                    desc: "등록순, 예약순, 채널순, 상태순 정렬과 오름차순/내림차순(최신순↔과거순) 토글 버튼으로 수많은 배포 항목을 원하는 순서로 즉시 정렬합니다."
                 },
                 {
                     icon: Activity,
-                    title: "다채널 동시 송출 (YouTube / TikTok / Reels)",
-                    desc: "임시보관, 승인대기, 대기열, 완료 상태별로 관리하며 승인 즉시 예약된 채널로 안전하게 자동 송출됩니다."
+                    title: "🎯 정밀 다채널 & 업로드 방식 세부 필터",
+                    desc: "YouTube, TikTok, Instagram 채널별 필터링과 스텔스 자동 / 수동 / 즉시 등록 방식별 필터, 프로젝트 그룹 및 기간 필터를 제공합니다."
+                },
+                {
+                    icon: Zap,
+                    title: "픽셀링 메타 자동 파싱 & 1:1 표준 네이밍 매핑",
+                    desc: "픽셀링 분석 메타 텍스트를 붙여넣으면 제목, 태그, 캡션, 보이스가 자동 구조화되며 CapCut 프로젝트명과 1:1로 일치되어 혼선이 없습니다."
                 }
             ],
             steps: [
-                "사이드바 또는 하단 네비게이션 탭에서 '쇼츠 자동 배포 관리'를 선택합니다.",
-                "상단 '픽셀링 메타 등록' 버튼을 눌러 메타 텍스트를 붙여넣고 영상 파일을 첨부합니다.",
-                "'대기열로 보내기'를 누르면 영상이 서버에 자동 업로드되며 배포 대기열에 등록됩니다.",
-                "대기열 카드에서 [승인] 또는 [즉시 등록]을 눌러 다채널 자동 송출을 실행합니다."
+                "사이드바 또는 하단 네비게이션 탭에서 '배포관리 (쇼츠 자동 배포 관리)'를 선택합니다.",
+                "상단 검색창에 키워드를 입력하거나 채널/방식 필터 및 정렬 버튼으로 원하는 항목을 빠르게 찾습니다.",
+                "상단 '픽셀링 제작물 등록' 또는 '개별 영상 등록'으로 배포할 쇼츠를 대기열에 추가합니다.",
+                "대기열 카드에서 [승인] 또는 [즉시 등록]을 눌러 다채널 자동 스케줄 송출을 실행합니다."
             ]
         },
 
-        // --- 2. 통합 대시보드 & 관제 ---
+        // --- 2. 채널 계정 & 웜업 육성 ---
+        incubator: {
+            category: "계정 보안 & 육성",
+            badge: "PRO",
+            icon: Shield,
+            iconBg: "from-emerald-600 to-teal-600",
+            titleOverride: "채널 계정 & 웜업 육성 (Incubator & Vault)",
+            overview: "유튜브 브랜드 계정의 영구적인 안전 운영을 위해 CloakBrowser 및 ixBrowser 듀얼 스텔스 엔진을 지원하며, 안드로이드 스마트폰의 LTE Clean IP와 채널별 1:1 ISP 전용 고정 IP 바인딩, 6대 핵심 지표 미니멀 KPI 카드 및 모바일 전용 3단 계정 카드로 안전하게 육성합니다.",
+            features: [
+                {
+                    icon: Activity,
+                    title: "📊 6대 핵심 지표 미니멀 KPI 카드 관제",
+                    desc: "전체 채널, 진행 중, 완료됨, 오류 발생, 일시정지, 대기 중 6개 상태를 간결하고 직관적인 미니멀 카드로 실시간 모니터링합니다."
+                },
+                {
+                    icon: Shield,
+                    title: "📱 모바일 프리미엄 계정 카드 & 스택형 웜업 제어",
+                    desc: "이메일 풀 노출, 채널명 인코딩 정제(뚊 등 깨짐 방지), 스택형 웜업 레이아웃으로 작은 모바일 화면에서도 글자 찌그러짐 없이 완벽한 조작감을 제공합니다."
+                },
+                {
+                    icon: Sparkles,
+                    title: "하이브리드 IP 인프라 (LTE 동적 + ISP 전용 고정 IP)",
+                    desc: "신규 채널 육성 시에는 스마트폰 LTE Clean IP(비행기모드 자동 리셋)를, 메인 브랜드 채널에는 1:1 전용 ISP 고정 IP(ip:port:user:pass)를 영구 매핑합니다."
+                },
+                {
+                    icon: Lock,
+                    title: "🛡️ 스텔스 보안 접속 & 7단계 인간 행동 모사 웜업",
+                    desc: "원터치 스텔스 보안 접속으로 관리자 대시보드를 열고, 인간적인 탐색·시청·댓글 알고리즘으로 채널 신뢰도를 극대화합니다."
+                }
+            ],
+            steps: [
+                "하단 네비게이션 또는 메뉴에서 '육성관리 (채널 계정 & 웜업 육성)'로 이동합니다.",
+                "상단 KPI 카드에서 현재 웜업 진행 상태와 전체 계정 현황을 한눈에 파악합니다.",
+                "계정 카드에서 [🛡️ 스텔스 보안 접속]을 눌러 안전하게 유튜브 스튜디오에 접속합니다.",
+                "하단 웜업 제어 영역에서 [⚙️ 전략 설정 마법사]를 열거나 [🔥 웜업 시작]을 눌러 자동 육성을 가동합니다."
+            ]
+        },
+
+        // --- 3. 수집 영상 보관함 ---
+        gallery: {
+            category: "콘텐츠 보관 & 분석",
+            badge: "VIRAL",
+            icon: ImageIcon,
+            iconBg: "from-amber-600 to-orange-600",
+            titleOverride: "수집 영상 보관함 (Viral Gallery)",
+            overview: "수집된 모든 숏폼/롱폼 영상을 1080p Full HD 무손실 품질로 보관하고, 바이럴 지수(Velocity Score)와 등급(S/A/B)별로 정렬하여 분석 및 2차 가공(CapCut/AI)으로 즉시 연결합니다.",
+            features: [
+                {
+                    icon: ExternalLink,
+                    title: "🔗 유튜브 원본 영상 원클릭 바로가기",
+                    desc: "상세 모달 상단의 [🔗 유튜브 원본] 버튼, 카드 호버 툴바의 링크 아이콘을 통해 원본 소스 페이지를 즉시 열어 시청자 반응을 확인합니다."
+                },
+                {
+                    icon: Zap,
+                    title: "⚡ '⚡ AI 제작 가능' 상태 뱃지 & 실시간 분석",
+                    desc: "다운로드 및 분석이 완료된 영상에 직관적인 제작 가능 뱃지를 부여하여 대기 상태를 한눈에 파악합니다."
+                },
+                {
+                    icon: FolderOpen,
+                    title: "📂 하이브리드 스마트 폴더 열기 & 클립보드 복사",
+                    desc: "데스크톱 앱에서는 윈도우 탐색기(explorer.exe)를 즉시 열고, 웹/모바일 브라우저에서는 표준 저장 경로를 클립보드에 0.1초 만에 자동 복사합니다."
+                },
+                {
+                    icon: TrendingUp,
+                    title: "🎬 1080p Full HD 무손실 표준 다운로드",
+                    desc: "수집 시점부터 1080p Full HD(AV1) 최고 화질로 저장되어 별도의 재다운로드 없이 최상의 화질로 제작에 활용됩니다."
+                }
+            ],
+            steps: [
+                "메뉴 또는 하단 탭에서 '보관함 (수집 영상 보관함)'을 선택합니다.",
+                "상단 필터나 검색창으로 S/A등급 고바이럴 영상을 선별합니다.",
+                "카드 클릭 후 모달에서 [🔗 유튜브 원본]을 확인하거나 [폴더 열기]로 파일 경로를 확인합니다.",
+                "[⚡ AI 제작 가능] 영상을 기반으로 AI 원클릭 쇼츠 제작 또는 CapCut 프로젝트로 전송합니다."
+            ]
+        },
+
+        // --- 4. 수집 대본 분석실 ---
+        script_lab: {
+            category: "대본 분석 & 추출",
+            badge: "NEW",
+            icon: FileText,
+            iconBg: "from-rose-600 to-red-600",
+            titleOverride: "수집 대본 분석실 (Script Lab)",
+            overview: "수집된 영상의 음성을 Whisper AI로 정밀 추출하고, 3초 후킹 구간/본문/CTA를 구조화 분석하여 AI 리라이팅 및 각색의 기초 데이터를 제공합니다.",
+            features: [
+                {
+                    icon: ExternalLink,
+                    title: "🔗 유튜브 원본 영상 대조 링크",
+                    desc: "분석 중 원본 영상 링크로 바로 이동하여 실제 영상의 자막 싱크와 연출 톤을 대조 분석할 수 있습니다."
+                },
+                {
+                    icon: Sparkles,
+                    title: "🎯 3초 후킹 & CTA 구간 자동 분할",
+                    desc: "시청 지속 시간을 좌우하는 도입부 3초 후킹 멘트와 핵심 키워드를 AI가 자동으로 태깅합니다."
+                },
+                {
+                    icon: Wand2,
+                    title: "AI 대본 각색실 원클릭 연동",
+                    desc: "추출된 원본 대본을 다중 LLM(Claude, Gemini 등) 각색실로 전달하여 바이럴 쇼츠 대본으로 즉시 재생성합니다."
+                }
+            ],
+            steps: [
+                "메뉴에서 '수집 대본 분석실'을 선택합니다.",
+                "분석할 영상을 선택하고 [대본 추출 시작]을 누릅니다.",
+                "추출된 3초 후킹 구간과 본문 텍스트를 검토하고 필요 시 [AI 대본 각색실로 전송]을 누릅니다."
+            ]
+        },
+
+        // --- 5. Flow AI 비디오 렌더러 ---
+        flow2capcut: {
+            category: "AI 비디오 & CapCut",
+            badge: "AI",
+            icon: Clapperboard,
+            iconBg: "from-violet-600 to-purple-600",
+            titleOverride: "Flow AI 비디오 렌더러 (Flow2CapCut)",
+            overview: "Google Flow AI(Veo 3.1) 모델 기반 이미지/비디오 100장 배치 대량 생성 및 ZIP 다운로드 없는 로컬 CapCut 다이렉트 프로젝트 파일 조립(No-ZIP)을 지원합니다. 스마트폰 원격 내보내기를 완벽 지원합니다.",
+            features: [
+                {
+                    icon: Clapperboard,
+                    title: "🎬 CapCut No-ZIP 다이렉트 파일시스템 조립",
+                    desc: "ZIP 다운로드 및 압축 해제 없이 로컬 CapCut 프로젝트 폴더에 비디오, 멀티트랙 오디오, 자막(SRT), 줌 효과를 직접 조립하여 1초 만에 실행합니다."
+                },
+                {
+                    icon: UploadCloud,
+                    title: "📱 스마트폰/원격 웹 브라우저 원터치 내보내기",
+                    desc: "외부 브라우저나 스마트폰에서 터치 한 번으로 메인 서버 PC의 CapCut 폴더로 프로젝트를 원격 전송 및 자동 생성합니다."
+                },
+                {
+                    icon: Sparkles,
+                    title: "87개 캐릭터 & 스타일 일관성 프리셋",
+                    desc: "씬 간 캐릭터와 화풍이 흔들리지 않도록 일관성 프롬프트를 자동으로 주입하여 고품질 숏폼 비디오를 완성합니다."
+                }
+            ],
+            steps: [
+                "메뉴에서 'Flow AI 비디오 렌더러'로 이동합니다.",
+                "스토리보드에 프롬프트를 입력하고 캐릭터/스타일 프리셋을 선택합니다.",
+                "[일괄 생성 시작]으로 Flow AI 이미지/비디오를 렌더링합니다.",
+                "[CapCut으로 내보내기] 버튼을 누르면 로컬 CapCut 프로젝트가 즉시 완성되어 열립니다."
+            ]
+        },
+
+        // --- 6. 통합 대시보드 & 관제 ---
         dashboard: {
             category: "분석 & 관제",
             badge: "LIVE",
@@ -128,68 +275,7 @@ export default function GuideCenter() {
             ]
         },
 
-        // --- 3. 채널 계정 & 웜업 육성 ---
-        incubator: {
-            category: "계정 보안 & 육성",
-            badge: "PRO",
-            icon: Shield,
-            iconBg: "from-emerald-600 to-teal-600",
-            titleOverride: "채널 계정 & 웜업 육성 (하이브리드 프록시 & 스텔스)",
-            overview: "유튜브 브랜드 계정의 영구적인 안전 운영을 위해 CloakBrowser 및 ixBrowser 듀얼 스텔스 엔진을 지원하며, 안드로이드 스마트폰의 LTE Clean IP(Every Proxy SOCKS5)와 채널별 1:1 ISP 전용 고정 IP 바인딩, 7단계 자동 웜업으로 다계정 정지 위험을 원천 차단합니다.",
-            features: [
-                {
-                    icon: Shield,
-                    title: "하이브리드 IP 인프라 (LTE 동적 + ISP 전용 고정 IP)",
-                    desc: "신규 채널 육성 시에는 스마트폰 LTE Clean IP(비행기모드 자동 리셋)를, 메인 브랜드 채널에는 1:1 전용 ISP 고정 IP(ip:port:user:pass)를 영구 매핑합니다."
-                },
-                {
-                    icon: Sparkles,
-                    title: "듀얼 안티디텍트 엔진 (CloakBrowser & ixBrowser)",
-                    desc: "내장 스텔스 브라우저(CloakBrowser)와 상용 기업용 ixBrowser(Local API 53200)를 모두 지원하여 브라우저 지문과 세션을 완벽 격리합니다."
-                },
-                {
-                    icon: Activity,
-                    title: "7단계 인간 행동 모사 일괄 웜업",
-                    desc: "신규 채널의 신뢰도를 높이기 위해 인간적인 영상 시청, 탐색, 댓글 활동을 백그라운드에서 자동 실행합니다."
-                }
-            ],
-            steps: [
-                "LTE 동적 IP 사용 시: 스마트폰 [USB 디버깅] 켜고 'Every Proxy' SOCKS5(포트 10808) 활성화 후 PC 연결.",
-                "ISP 고정 IP 사용 시: 채널 등록 모달에서 전용 프록시 정보(ip:port:user:pass)를 1:1로 직접 입력.",
-                "사이드바에서 '채널 계정 & 웜업 육성'으로 이동하여 계정 목록을 확인합니다.",
-                "필요 시 [작업 환경 설정]에서 ixBrowser 또는 내장 CloakBrowser 엔진을 선택합니다.",
-                "'일괄 웜업 육성 제어' 탭에서 '전체 시작'을 눌러 웜업 및 채널 보호를 가동합니다."
-            ]
-        },
-
-        // --- 4. 수집 영상 보관함 ---
-        gallery: {
-            category: "콘텐츠 보관 & 분석",
-            badge: "VIRAL",
-            icon: ImageIcon,
-            iconBg: "from-amber-600 to-orange-600",
-            titleOverride: "수집 영상 보관함 (Viral Gallery)",
-            overview: "수집된 모든 숏폼/롱폼 영상을 바이럴 지수(Velocity/EV Score)와 등급(S/A/B)별로 정렬하여 조회수 폭발 잠재력을 한눈에 파악하고, 원클릭으로 2차 가공을 실행합니다.",
-            features: [
-                {
-                    icon: Zap,
-                    title: "원클릭 딸깍 자막 & 쇼츠 파이프라인",
-                    desc: "보관함 영상에서 [⚡ 딸깍 자막 생성] 버튼을 누르면 Whisper AI가 음성을 추출하여 즉시 자막을 완성합니다."
-                },
-                {
-                    icon: TrendingUp,
-                    title: "바이럴 변화 추이 분석 & 시간당 조회수 (Vel)",
-                    desc: "시간대별 조회수 급상승 곡선을 시각화하여 현재 알고리즘을 타고 있는 떡상 영상을 즉시 선별합니다."
-                }
-            ],
-            steps: [
-                "사이드바에서 '수집 영상 보관함'을 선택합니다.",
-                "검색창이나 상단 필터를 통해 S등급/A등급 고바이럴 영상을 필터링합니다.",
-                "원하는 영상 카드에서 '⚡ 딸깍' 버튼을 눌러 자막 생성 또는 편집으로 바로 전송합니다."
-            ]
-        },
-
-        // --- 5. 타겟 채널 자동 수집 ---
+        // --- 7. 타겟 채널 자동 수집 ---
         channels: {
             category: "수집 & 벤치마킹",
             badge: "AUTO",
@@ -216,7 +302,7 @@ export default function GuideCenter() {
             ]
         },
 
-        // --- 6. URL 영상 직접 수집 ---
+        // --- 8. URL 영상 직접 수집 ---
         direct_download: {
             category: "고속 직접 수집",
             badge: "FAST",
@@ -243,7 +329,7 @@ export default function GuideCenter() {
             ]
         },
 
-        // --- 7. 더우인 쇼츠 수집 ---
+        // --- 9. 더우인 쇼츠 수집 ---
         douyin_studio: {
             category: "멀티모달 팩토리",
             badge: "AI",
@@ -270,7 +356,7 @@ export default function GuideCenter() {
             ]
         },
 
-        // --- 8. AI 다국어 목소리 합성 ---
+        // --- 10. AI 다국어 목소리 합성 ---
         multi_tts: {
             category: "AI 음성 & 자막",
             badge: "VOICE",
@@ -297,7 +383,7 @@ export default function GuideCenter() {
             ]
         },
 
-        // --- 9. 작업 환경 설정 ---
+        // --- 11. 작업 환경 설정 ---
         settings: {
             category: "시스템 & 설정",
             badge: "CONFIG",
@@ -337,6 +423,15 @@ export default function GuideCenter() {
             ]
         },
         {
+            id: 'creation',
+            title: 'AI 창작 & 비디오 조립',
+            icon: Clapperboard,
+            guides: [
+                { id: 'flow2capcut', title: 'Flow AI 비디오 렌더러 (Flow2CapCut)', time: '5분', key: 'flow2capcut' },
+                { id: 'script_lab', title: '수집 대본 분석실 (Script Lab)', time: '3분', key: 'script_lab' }
+            ]
+        },
+        {
             id: 'sourcing',
             title: '콘텐츠 수집 & 보관',
             icon: Download,
@@ -357,6 +452,7 @@ export default function GuideCenter() {
             ]
         }
     ];
+
 
     const handleSelectGuide = (key: string) => {
         setSelectedGuideKey(key);
