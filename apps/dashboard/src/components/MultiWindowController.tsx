@@ -157,12 +157,24 @@ export default function MultiWindowController({
         setOpen(false);
     };
 
+    // Electron 데스크톱 앱 환경이 아닌 일반 웹 브라우저(Chrome 등)에서는 숨김 처리
+    const isElectron = typeof window !== 'undefined' && Boolean(
+        (window as any).electron || 
+        (window as any).electronAPI || 
+        navigator.userAgent.toLowerCase().includes('electron')
+    );
+
+    if (!isElectron) {
+        return null;
+    }
+
     return (
         <div ref={ref} className="relative inline-flex items-center">
             <button
                 onClick={() => setOpen(v => !v)}
                 className="flex items-center gap-2 px-3 py-1.5 border border-border rounded-lg bg-card hover:bg-accent text-sm font-semibold transition-all shadow-sm"
             >
+
                 <LayoutGrid className="w-4 h-4 text-primary" />
                 <span>다중창 통합 관리</span>
                 {activeViews.length > 0 && (
