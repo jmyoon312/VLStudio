@@ -133,8 +133,11 @@ flowchart LR
 * **Target Channel Auto-Collection (`/channels`)**: 24/7 automated monitoring of global benchmark YouTube/TikTok channels with instant media/script ingestion.
 * **Douyin Shorts Scraper (`/douyin-search`)**: Automated seed keyword expansion scraping hundreds of trending Chinese short-form videos with instant subtitle mapping.
 * **Direct URL Downloader (`/download`)**: Lossless high-speed batch downloads from 15+ video platforms (YouTube, Reels, TikTok, Douyin, Kuaishou).
-* **Viral Video Vault (`/gallery`)**: Velocity/EV Score ranking, S/A/B classification, and interactive viral growth curve analytics.
-* **Script Intelligence Lab (`/script-lab`)**: Whisper AI speech-to-text extraction, 3-second hook decomposition, and AI sentiment analysis.
+* **Viral Video Vault (`/gallery`)**:
+  * 1080p Full HD lossless standard storage, Velocity Score ranking, S/A/B classification.
+  * **`[🔗 YouTube Original]` direct link button** and **`⚡ AI Ready`** status badge.
+  * Hybrid folder opener (Local Explorer trigger + Web/Mobile auto-clipboard copy).
+* **Script Intelligence Lab (`/script-lab`)**: Whisper AI speech-to-text extraction, 3-second hook decomposition, and direct YouTube source verification.
 
 ---
 
@@ -154,13 +157,17 @@ flowchart LR
 
 ### 3. 📈 Channel Growth & Stealth Automation
 * **Shorts Auto-Distribution (`/work-queue`)**: 
-  * **Pixeling Metadata Parser**: Paste structured analysis text to instantly populate title, tags, description, and voice parameters.
-  * **1:1 Standardized Project Naming**: Automatically synchronizes Pixeling titles with CapCut project names and queue items for collision-free batch workflows.
-  * Scheduled/instant auto-publishing to YouTube Shorts, TikTok, and Instagram Reels.
+  * **Real-Time Multidimensional Search**: Instant filtering by title, channel, description, filename, ID, and batch groups + quick clear (X).
+  * **Granular Channel & Method Filters**: Multi-platform filtering (YouTube/TikTok/Instagram) & upload methods (Stealth Auto / Manual / Immediate).
+  * **Multi-Field Sorting & Direction Toggle**: Sort by creation date, schedule, channel, or status with one-click ASC/DESC toggles.
+  * **Mobile-Responsive 2-Row Scroll Layout**: Touch-optimized chips eliminating text wrapping.
+  * **Pixeling Metadata Parser & 1:1 Standardized Project Naming**.
 * **Stealth Account Warmup & Incubator (`/incubator`)**: 
-  * LTE dynamic & 1:1 ISP static hybrid proxy binding.
-  * 7-stage humanized warmup activity (viewing, scrolling, commenting) boosting channel trust scores.
+  * **Minimal KPI Card Redesign**: Clean overview of 6 key incubation metrics.
+  * **Mobile Account Card UI**: Full email visibility, sanitization of broken channel titles, and stacked warmup control bar.
+  * LTE dynamic & 1:1 ISP static hybrid proxy binding + 7-stage humanized warmup activity.
 * **Daily BI Intelligence Reports (`/reports`)**: Unified enterprise reporting covering sourcing volumes, rendering queues, distribution velocity, and subscriber gains.
+
 
 ---
 
