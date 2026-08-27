@@ -117,8 +117,16 @@ def _get_latest_videos_with_rate_limit_sync(channel_url, limit, timeout, **kwarg
 
 def _get_latest_videos_impl(channel_url, limit, timeout, **kwargs):
     """
-    [CORE] Actual implementation (unchanged)
+    [CORE] Actual implementation with smart YouTube tab traversal
     """
+    clean_url = channel_url.rstrip('/')
+    
+    # [FIX] If URL is a YouTube channel root (e.g. @handle or /channel/UC...), query /shorts first, then /videos
+    target_urls = [clean_url]
+    is_yt_channel = ('youtube.com' in clean_url or 'youtu.be' in clean_url) and not any(clean_url.endswith(t) for t in ['/shorts', '/videos', '/streams', '/featured'])
+    if is_yt_channel:
+        target_urls = [f"{clean_url}/shorts", f"{clean_url}/videos"]
+
     opts = {
         'extract_flat': True, 
         'quiet': True, 
@@ -142,18 +150,30 @@ def _get_latest_videos_impl(channel_url, limit, timeout, **kwargs):
     from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
     
     def _fetch():
+        all_entries = []
+        seen_ids = set()
         with yt_dlp.YoutubeDL(opts) as ydl:
-            try:
-                info = ydl.extract_info(channel_url, download=False)
-                if info and 'entries' in info:
-                    return list(info['entries'])
-                return []
-            except Exception as e:
-                err_msg = str(e)
-                if '429' in err_msg or 'rate limit' in err_msg.lower():
-                    raise
-                logger.error(f"Error fetching videos: {e}")
-                return []
+            for t_url in target_urls:
+                try:
+                    info = ydl.extract_info(t_url, download=False)
+                    if info and 'entries' in info:
+                        for entry in info['entries']:
+                            if not entry: continue
+                            e_id = entry.get('id')
+                            # Skip if entry is just a playlist/tab header without a direct video url
+                            if entry.get('_type') == 'playlist' and not entry.get('url'):
+                                continue
+                            if e_id and e_id not in seen_ids:
+                                seen_ids.add(e_id)
+                                all_entries.append(entry)
+                    if len(all_entries) >= limit:
+                        break
+                except Exception as e:
+                    err_msg = str(e)
+                    if '429' in err_msg or 'rate limit' in err_msg.lower():
+                        raise
+                    logger.warning(f"Error fetching from {t_url}: {e}")
+        return all_entries
                 
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(_fetch)
@@ -168,6 +188,7 @@ def _get_latest_videos_impl(channel_url, limit, timeout, **kwargs):
                  raise
             logger.error(f"get_latest_videos execution failed: {e}")
             return []
+
 
 def get_downloader_strategy(url: str, force_bypass: bool = False):
     """

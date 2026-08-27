@@ -105,15 +105,19 @@ const getViralBadge = (viralScore: number | undefined, velocity: number | undefi
 const ScriptLab = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [sorting, setSorting] = useState<SortingState>([{ id: 'upload_date', desc: true }]); // [FIX] Default to Latest Date
+    const [sorting, setSorting] = useState<SortingState>([{ id: 'upload_date', desc: true }]);
     const [globalFilter, setGlobalFilter] = useState('');
-    const [selectedVideo, setSelectedVideo] = useState<Video | null>(null); // For Script Dialog
-    const [statsVideo, setStatsVideo] = useState<Video | null>(null); // For Graph Popover
+    const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+    const [timeRange, setTimeRange] = useState<'ALL' | '1d' | '3d' | '7d'>('ALL');
+    const [sortOption, setSortOption] = useState<'viral' | 'latest' | 'views'>('viral');
+    const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+    const [statsVideo, setStatsVideo] = useState<Video | null>(null);
 
     // Selection State
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-    const [isDragging, setIsDragging] = useState(false); // Emulate drag select
+    const [isDragging, setIsDragging] = useState(false);
     const tableContainerRef = useRef<HTMLDivElement>(null);
+
 
     // 1. Fetch Data
     const { data: videos = [], isLoading } = useQuery({
@@ -192,12 +196,72 @@ const ScriptLab = () => {
         return map;
     }, [categories]);
 
+    const categoryStats = useMemo(() => {
+        const stats: Record<string, number> = {};
+        videos.forEach(v => {
+            const channel = channelMap[v.channel_id];
+            const catName = channel?.category_id && categoryMap[channel.category_id]
+                ? categoryMap[channel.category_id].name
+                : '미분류';
+            stats[catName] = (stats[catName] || 0) + 1;
+        });
+        return stats;
+    }, [videos, channelMap, categoryMap]);
+
+    // Filter & Sort Videos
+    const filteredVideos = useMemo(() => {
+        return videos.filter(v => {
+            // 1. Category Filter
+            if (selectedCategory !== 'ALL') {
+                const channel = channelMap[v.channel_id];
+                const catName = channel?.category_id && categoryMap[channel.category_id]
+                    ? categoryMap[channel.category_id].name
+                    : '미분류';
+                if (catName !== selectedCategory) return false;
+            }
+
+            // 2. Time Range Filter
+            if (timeRange !== 'ALL') {
+                const videoDate = new Date(v.upload_date || v.downloaded_at);
+                const now = new Date();
+                const diffDays = (now.getTime() - videoDate.getTime()) / (1000 * 3600 * 24);
+                if (timeRange === '1d' && diffDays > 1) return false;
+                if (timeRange === '3d' && diffDays > 3) return false;
+                if (timeRange === '7d' && diffDays > 7) return false;
+            }
+
+            // 3. Search Filter (if globalFilter set)
+            if (globalFilter.trim()) {
+                const q = globalFilter.toLowerCase();
+                const title = (v.title || '').toLowerCase();
+                const chName = (channelMap[v.channel_id]?.name || '').toLowerCase();
+                if (!title.includes(q) && !chName.includes(q)) return false;
+            }
+
+            return true;
+        }).sort((a, b) => {
+            if (sortOption === 'viral') {
+                return (b.viral_score || 0) - (a.viral_score || 0);
+            }
+            if (sortOption === 'latest') {
+                const dateA = new Date(a.upload_date || a.downloaded_at).getTime();
+                const dateB = new Date(b.upload_date || b.downloaded_at).getTime();
+                return dateB - dateA;
+            }
+            if (sortOption === 'views') {
+                return (b.view_count || 0) - (a.view_count || 0);
+            }
+            return 0;
+        });
+    }, [videos, selectedCategory, timeRange, sortOption, globalFilter, channelMap, categoryMap]);
+
     // Fetch History for Stats Graph
     const { data: videoHistory } = useQuery({
         queryKey: ['history', statsVideo?.id],
         queryFn: async () => (await api.get(`/videos/${statsVideo?.id}/history`)).data,
         enabled: !!statsVideo
     });
+
 
     // Fetch Script Content for Dialog
     const { data: subtitleContent, isLoading: isScriptLoading } = useQuery({
@@ -405,17 +469,15 @@ const ScriptLab = () => {
     ], [channelMap, categoryMap]);
 
     const table = useReactTable({
-        data: videos,
+        data: filteredVideos,
         columns,
         state: {
             sorting,
             globalFilter,
-            rowSelection: Object.fromEntries(Array.from(selectedIds).map(id => [id, true])), // Use rowID mapping if row.id was set correctly
+            rowSelection: Object.fromEntries(Array.from(selectedIds).map(id => [id, true])),
         },
         enableRowSelection: true,
         onRowSelectionChange: (updaterOrValue) => {
-            // Tanstack Table's selection state keys are row indices by default unless getRowId is set
-            // We'll set getRowId to video.id to make life easier
             const newRowSelection = typeof updaterOrValue === 'function'
                 ? updaterOrValue(table.getState().rowSelection)
                 : updaterOrValue;
@@ -425,7 +487,7 @@ const ScriptLab = () => {
             });
             setSelectedIds(newSelectedIds);
         },
-        getRowId: row => row.id.toString(), // Important!
+        getRowId: row => row.id.toString(),
         onSortingChange: setSorting,
         onGlobalFilterChange: setGlobalFilter,
         getCoreRowModel: getCoreRowModel(),
@@ -434,41 +496,26 @@ const ScriptLab = () => {
         getPaginationRowModel: getPaginationRowModel(),
     });
 
-    // Sync TanStack Selection back to our state (or just use ours)
-    // Actually, we can just use TanStack's state if we want, but we started with selectedIds.
-    // Let's hook up TanStack's `onRowSelectionChange` to update `selectedIds`.
-
-
-
     // [FIX] Improved Drag Logic with Refs
     const isDraggingRef = useRef(false);
     const dragStartPos = useRef<{ x: number, y: number } | null>(null);
     const isDragMoved = useRef(false);
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        // Only left click
         if (e.button !== 0) return;
         isDraggingRef.current = true;
         dragStartPos.current = { x: e.clientX, y: e.clientY };
         isDragMoved.current = false;
-
-        // If simply clicking, we don't clear selection yet unless logic demands it
-        // But if dragging starts, we might want to clear or append. 
-        // For now, let's keep it simple: Dragging appends/toggles.
     };
 
     const handleMouseUp = () => {
         isDraggingRef.current = false;
         dragStartPos.current = null;
-        // Don't reset isDragMoved immediately here if we need to check it in onClick
-        // But onClick fires *after* mouseup usually.
-        // We will reset isDragMoved in a small timeout or efficiently.
         setTimeout(() => {
             isDragMoved.current = false;
         }, 0);
     };
 
-    // We attach global mouse up to stop dragging state
     useEffect(() => {
         window.addEventListener('mouseup', handleMouseUp);
         return () => window.removeEventListener('mouseup', handleMouseUp);
@@ -486,7 +533,7 @@ const ScriptLab = () => {
         const dy = e.clientY - dragStartPos.current.y;
         if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
             isDragMoved.current = true;
-            setIsDragging(true); // Trigger re-render if needed for visual cues (optional)
+            setIsDragging(true);
         }
     }
 
@@ -495,23 +542,17 @@ const ScriptLab = () => {
         if (!videoHistory || videoHistory.length === 0 || !statsVideo) return [];
         const sorted = [...videoHistory].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-        // Determine calculation mode: Sparse (< 5 points) vs Dense
-        const isSparse = sorted.length < 5;
         const uploadDate = new Date(statsVideo.upload_date).getTime();
 
         return sorted.map((item, i) => {
             let velocity = 0;
             const itemTime = new Date(item.timestamp).getTime();
-
-            // Lifetime Velocity (Safe calculation)
             const hoursSinceUpload = Math.max(0.1, (itemTime - uploadDate) / (1000 * 60 * 60));
             const lifetimeVelocity = item.view_count / hoursSinceUpload;
 
             if (i === 0) {
-                // First point always uses Lifetime to start clean
                 velocity = lifetimeVelocity;
             } else {
-                // Calculate Instant Velocity (Slope from previous point)
                 const prev = sorted[i - 1];
                 const prevTime = new Date(prev.timestamp).getTime();
                 const timeDiff = itemTime - prevTime;
@@ -524,11 +565,8 @@ const ScriptLab = () => {
                 }
 
                 if (instantVelocity > 0) {
-                    // IF we have growth, show the KINK (Actual Change)
                     velocity = instantVelocity;
                 } else {
-                    // IF flat (0 growth), fallback to Lifetime to avoid "Death Drop" to 0
-                    // This keeps the graph looking "Alive" based on overall performance
                     velocity = lifetimeVelocity;
                 }
             }
@@ -548,74 +586,128 @@ const ScriptLab = () => {
                     <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
                         <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
                         <span>수집 대본 분석실</span>
+                        <Badge variant="secondary" className="font-mono text-xs font-bold ml-1">
+                            총 {filteredVideos.length}개
+                        </Badge>
                     </h1>
                     <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
                         수집된 레퍼런스 영상의 자막/대본을 한곳에 모아 바이럴 후킹 구조를 분석하고 AI 재창작으로 연계
                     </p>
                 </div>
+
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleSelectAll(filteredVideos)}
+                        className="h-8 gap-1.5 text-xs font-bold"
+                    >
+                        {selectedIds.size === filteredVideos.length && filteredVideos.length > 0 ? "전체 해제" : "전체 선택"}
+                    </Button>
+                    {selectedIds.size > 0 && (
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleDelete}
+                            className="h-8 gap-1.5 text-xs font-bold animate-in fade-in"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {selectedIds.size}개 삭제
+                        </Button>
+                    )}
+                </div>
             </div>
 
-            {/* Header Area */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1 border-t border-border/50">
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
-                        총 <span className="text-foreground font-bold">{table.getFilteredRowModel().rows.length}</span>개의 대본
-                    </span>
-                    {/* Selection Toggle on Mobile */}
-                    <div className="flex items-center gap-1.5 sm:hidden">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleSelectAll(table.getFilteredRowModel().rows.map(r => r.original))}
-                            className="text-xs h-8 px-2.5 border-border"
-                        >
-                            {selectedIds.size === table.getFilteredRowModel().rows.length && table.getFilteredRowModel().rows.length > 0
-                                ? "전체 해제"
-                                : "전체 선택"}
-                        </Button>
-                        {selectedIds.size > 0 && (
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={handleDelete}
-                                className="h-8 px-2.5 text-xs gap-1 animate-in fade-in"
-                            >
-                                <Trash2 className="w-3 h-3" />
-                                {selectedIds.size}
-                            </Button>
+            {/* 2. 🏷️ 통합 스마트 필터 바 (카테고리 + 기간 + 정렬 + 검색) */}
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 p-2 rounded-2xl bg-card border border-border/80 shadow-2xs">
+                {/* 좌측: 카테고리 탭 */}
+                <div className="flex items-center gap-1 overflow-x-auto dashboard-scroll-area select-none pb-1 lg:pb-0">
+                    <button
+                        onClick={() => setSelectedCategory('ALL')}
+                        className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5",
+                            selectedCategory === 'ALL'
+                                ? "bg-primary text-white shadow-2xs"
+                                : "hover:bg-muted text-muted-foreground hover:text-foreground border border-transparent"
                         )}
-                    </div>
+                    >
+                        <span>전체</span>
+                        <span className={cn(
+                            "px-1.5 py-0.2 rounded-full text-[10px]",
+                            selectedCategory === 'ALL' ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                        )}>
+                            {videos.length}
+                        </span>
+                    </button>
+
+                    {Object.entries(categoryStats).map(([catName, count]) => {
+                        const isCatSelected = selectedCategory === catName;
+                        return (
+                            <button
+                                key={catName}
+                                onClick={() => setSelectedCategory(catName)}
+                                className={cn(
+                                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5",
+                                    isCatSelected
+                                        ? "bg-primary text-white shadow-2xs"
+                                        : "hover:bg-muted text-muted-foreground hover:text-foreground border border-transparent"
+                                )}
+                            >
+                                <span>{catName}</span>
+                                <span className={cn(
+                                    "px-1.5 py-0.2 rounded-full text-[10px]",
+                                    isCatSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                                )}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-end">
-                    {/* Desktop Selection Buttons */}
-                    <div className="hidden sm:flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleSelectAll(table.getFilteredRowModel().rows.map(r => r.original))}
-                            className="text-muted-foreground hover:text-primary text-xs h-9"
-                        >
-                            {selectedIds.size === table.getFilteredRowModel().rows.length && table.getFilteredRowModel().rows.length > 0
-                                ? "전체 해제"
-                                : "전체 선택"}
-                        </Button>
-
-                        {selectedIds.size > 0 && (
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={handleDelete}
-                                className="gap-1.5 animate-in fade-in zoom-in duration-200 text-xs h-9"
+                {/* 우측: 기간 + 정렬 + 검색창 */}
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    {/* 기간 필터 */}
+                    <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground">
+                        <span className="px-1.5 text-[10px] text-muted-foreground/70 hidden sm:inline">📅 기간:</span>
+                        {(['ALL', '1d', '3d', '7d'] as const).map((r) => (
+                            <button
+                                key={r}
+                                onClick={() => setTimeRange(r)}
+                                className={cn(
+                                    "px-2 py-1 rounded-lg transition-all text-xs font-semibold",
+                                    timeRange === r
+                                        ? "bg-card text-foreground shadow-2xs font-bold"
+                                        : "hover:text-foreground"
+                                )}
                             >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                {selectedIds.size}개 삭제
-                            </Button>
-                        )}
+                                {r === 'ALL' ? '전체' : r === '1d' ? '최근 1일' : r === '3d' ? '최근 3일' : '최근 7일'}
+                            </button>
+                        ))}
                     </div>
 
-                    <div className="relative w-full sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    {/* 정렬 옵션 */}
+                    <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground">
+                        <span className="px-1.5 text-[10px] text-muted-foreground/70 hidden sm:inline">⚡ 정렬:</span>
+                        {(['viral', 'latest', 'views'] as const).map((opt) => (
+                            <button
+                                key={opt}
+                                onClick={() => setSortOption(opt)}
+                                className={cn(
+                                    "px-2 py-1 rounded-lg transition-all text-xs font-semibold",
+                                    sortOption === opt
+                                        ? "bg-card text-foreground shadow-2xs font-bold"
+                                        : "hover:text-foreground"
+                                )}
+                            >
+                                {opt === 'viral' ? '바이럴순' : opt === 'latest' ? '최신순' : '조회수순'}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* 실시간 검색창 */}
+                    <div className="relative flex-1 sm:w-48">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                         <Input
                             placeholder="제목, 채널 검색..."
                             className="pl-9 bg-card shadow-2xs text-xs h-9 w-full"

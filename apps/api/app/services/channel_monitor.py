@@ -67,12 +67,12 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
     candidates = [] # List of (url, metadata_date)
 
     try:
-        # [FIX] 24-Hour Window Constraint (Relaxed for manual scans)
-        # User requested: "Scan only 24h window... not all videos"
-        # For manual scans, expand window to 7 days.
-        scan_days = 7 if is_manual else 1
+        # [FIX] Date Window Constraint (Expanded to 30 days for manual user scans)
+        # Background automatic scan stays at 1-2 days for light load
+        scan_days = 30 if is_manual else 1
         yesterday = datetime.now() - timedelta(days=scan_days)
         yesterday_str = yesterday.strftime('%Y%m%d')
+
         
         # 1. Fetch Candidates (URLs)
         if 'douyin' in channel.platform or 'douyin.com' in channel.url:
@@ -324,10 +324,8 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
                 if item.get('date'):
                     try:
                         v_date = datetime.strptime(item['date'], '%Y%m%d')
-                        # [FIX] Relaxed check to 2 days to safely encompass "Yesterday" (which might be > 24h from now)
-                        # Prevents rejecting recent videos due to midnight date boundaries.
-                        # [FIX] Relaxed check to 2 days (7 days for manual scans)
-                        limit_days = 7 if is_manual else 2
+                        # [FIX] Relaxed check to 2 days (30 days for manual user scans)
+                        limit_days = 30 if is_manual else 2
                         if datetime.now() - v_date > timedelta(days=limit_days): 
                             # [OPTIMIZATION] Strict Stop (Relaxed for manual scans)
                             # We only stop if we've seen several old videos in a row to avoid issues with mixed sorting
@@ -340,6 +338,7 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
                                 continue
                         else:
                             consecutive_old_misses = 0
+
                         
                     except Exception as e:
                          logger.warning(f"Date parsing error: {e}")
