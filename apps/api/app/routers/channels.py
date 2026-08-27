@@ -59,60 +59,54 @@ def create_channel(channel: schemas.ChannelCreate, db: Session = Depends(databas
     print(f"DEBUG: Channel info thumbnail: {info.get('thumbnail')}")
     if info.get('thumbnail'):
         try:
-            # Get settings to find root download path
+            # [FIX] Use get_channel_download_path — same function used by video downloader
+            # so thumbnail is always saved in the exact same folder as downloaded videos
             settings = crud.get_settings(db)
-            from ..utils.path_utils import get_standardized_download_path
-            downloads_path = get_standardized_download_path(settings)
-            
-            # Build channel path with category if exists
+            from ..utils.path_utils import get_channel_download_path
+            category_name = None
             if channel.category_id:
                 category = crud.get_category(db, channel.category_id)
                 if category:
-                    cat_folder = category.folder_name or sanitize_folder_name(category.name)
-                    channel_path = os.path.join(downloads_path, cat_folder, channel.folder_name)
-                else:
-                    channel_path = os.path.join(downloads_path, channel.folder_name)
-            else:
-                channel_path = os.path.join(downloads_path, channel.folder_name)
-                
-            os.makedirs(channel_path, exist_ok=True)
-            
+                    category_name = category.folder_name or sanitize_folder_name(category.name)
+
+            channel_path = get_channel_download_path(
+                settings,
+                category_name=category_name,
+                channel_name=channel.folder_name
+            )
+            # get_channel_download_path already calls os.makedirs internally
+
             # Determine extension
-            ext = 'jpg' # default
+            ext = 'jpg'  # default
             if '.png' in info['thumbnail']: ext = 'png'
             elif '.webp' in info['thumbnail']: ext = 'webp'
             elif '.jpeg' in info['thumbnail']: ext = 'jpg'
-            
+
             thumb_filename = f"profile.{ext}"
             thumb_path = os.path.join(channel_path, thumb_filename)
-            
+
             print(f"DEBUG: Downloading thumbnail to {thumb_path}")
             response = requests.get(info['thumbnail'], stream=True)
             if response.status_code == 200:
                 with open(thumb_path, 'wb') as f:
                     response.raw.decode_content = True
                     shutil.copyfileobj(response.raw, f)
-                    
-                # Store relative path from root
-                # [FIX] Always use forward slashes for DB paths (Linux compatibility)
-                if channel.category_id:
-                    category = crud.get_category(db, channel.category_id)
-                    if category:
-                        cat_folder = category.folder_name or sanitize_folder_name(category.name)
-                        thumbnail_path = f"downloads/{cat_folder}/{channel.folder_name}/{thumb_filename}"
-                    else:
-                        thumbnail_path = f"downloads/{channel.folder_name}/{thumb_filename}"
+
+                # Store relative path from root using forward slashes (Linux compatibility)
+                if category_name:
+                    thumbnail_path = f"downloads/{category_name}/{channel.folder_name}/{thumb_filename}"
                 else:
-                    thumbnail_path = f"downloads/{channel.folder_name}/{thumb_filename}"
-                
-                # Double check normalization
+                    thumbnail_path = f"downloads/_temp_storage/{channel.folder_name}/{thumb_filename}"
+
+                # Normalize slashes
                 thumbnail_path = thumbnail_path.replace("\\", "/")
-                    
-                print(f"DEBUG: Thumbnail saved at {thumbnail_path}")
+
+                print(f"DEBUG: Thumbnail saved at {thumb_path} (DB path: {thumbnail_path})")
             else:
                 print(f"DEBUG: Failed to download thumbnail. Status code: {response.status_code}")
         except Exception as e:
             print(f"Failed to download channel thumbnail: {e}")
+
     
     # Create channel with thumbnail_path
     db_channel = models.Channel(
