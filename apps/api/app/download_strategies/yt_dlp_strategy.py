@@ -390,14 +390,14 @@ class YTDLPDownloader:
         # --------------------------------
 
         # 2. Main Download
-        # [DEFAULT HD] Always use HD quality (up to 1080p) for all downloads
         if not script_only:
-            video_format = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+            # Safe format selector: try 1080p mp4 first, fallback to any 1080p stream, fallback to best available
+            video_format = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
             if force_hd:
-                video_format = 'bestvideo[height>=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height>=720]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
+                video_format = 'bestvideo[height>=720]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
                 print("[VIDEO] [MANUAL HD] Using aggressive HD format selector")
             else:
-                print("📹 [DEFAULT] Using HD format (1080p max, mp4 preferred)")
+                print("📹 [DEFAULT] Using HD format (1080p max, mp4 merged)")
         else:
             video_format = None
             print("[FALLBACK] Script-Only Mode: Skipping video format selection.")
@@ -425,6 +425,7 @@ class YTDLPDownloader:
             'sleep_interval': 5,
             'max_sleep_interval': 15,
             'sleep_subtitles': 2,
+            'merge_output_format': 'mp4',
             **base_opts
         }
         
@@ -442,6 +443,7 @@ class YTDLPDownloader:
                 'key': 'FFmpegSubtitlesConvertor',
                 'format': 'srt',
             }]
+
 
 
         ydl_opts = self._get_opts(video_url, dl_opts)

@@ -305,7 +305,7 @@ const ScriptLab = () => {
     const columnHelper = createColumnHelper<Video>();
 
     const columns = useMemo(() => [
-        // Checkbox Column
+        // 1. Checkbox Column
         {
             id: 'select',
             header: ({ table }: any) => (
@@ -325,170 +325,177 @@ const ScriptLab = () => {
                     />
                 </div>
             ),
-            size: 30,
+            size: 36,
             enableSorting: false,
         },
-        // 1. Grade Column (Badge Only)
+        // 2. Performance Grade Badge (S / A / B / C Grade + Viral %)
         columnHelper.accessor('viral_score', {
             id: 'grade',
-            header: '등급',
+            header: '성과 등급',
             cell: info => {
                 const score = info.getValue() ?? 0;
-                if (score >= 300) {
-                    return (
-                        <Badge className="bg-gradient-to-r from-red-500 to-rose-600 text-white w-8 h-8 rounded-full p-0 flex items-center justify-center animate-pulse border-0 shadow-sm ring-1 ring-white/20">
-                            <span className="font-bold">S</span>
-                        </Badge>
-                    );
-                }
-                if (score >= 100) {
-                    return (
-                        <Badge className="bg-orange-500 text-white w-8 h-8 rounded-full p-0 flex items-center justify-center shadow-sm border-orange-400">
-                            <span className="font-bold">A</span>
-                        </Badge>
-                    );
-                }
-                if (score >= 30) {
-                    return (
-                        <Badge className="bg-emerald-500 text-white w-8 h-8 rounded-full p-0 flex items-center justify-center border-emerald-400 shadow-sm">
-                            <span className="font-bold">B</span>
-                        </Badge>
-                    );
-                }
+                const vel = info.row.original.velocity_score ?? 0;
                 return (
-                    <Badge variant="secondary" className="bg-muted text-muted-foreground border-border w-8 h-8 rounded-full p-0 flex items-center justify-center">
-                        C
-                    </Badge>
+                    <div className="flex items-center justify-center">
+                        {getViralBadge(score, undefined)}
+                    </div>
                 );
             },
-            size: 50,
+            size: 110,
         }),
-        // 2. Title
-        // 2. Title
+        // 3. Title & Script Hook Summary (Core Value of Script Lab)
         columnHelper.accessor('title', {
-            header: '제목 (내용)',
-            cell: info => (
-                <div className="flex flex-col w-full max-w-md">
-                    <span
-                        className="font-medium truncate text-foreground cursor-pointer hover:underline hover:text-primary transition-colors"
-                        title={info.getValue()}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (info.row.original.url) window.open(info.row.original.url, '_blank');
-                        }}
-                    >
-                        {info.getValue()}
-                    </span>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                        <PlaySquare className="w-3 h-3 text-red-500" />
-                        <span className="truncate max-w-sm">{info.row.original.content || "PlaySquare Shorts"}</span>
-                    </div>
-                </div>
-            ),
-        }),
-        // 3. Category
-        columnHelper.accessor('channel_id', {
-            id: 'category',
-            header: '카테고리',
+            header: '제목 및 대본 바이럴 훅 (Hook)',
             cell: info => {
-                const chId = info.row.original.channel_id;
+                const rawContent = info.row.original.content || "";
+                const cleanPreview = cleanSrtToText(rawContent);
+                return (
+                    <div className="flex flex-col w-full max-w-lg py-1">
+                        <span
+                            className="font-bold text-foreground text-sm cursor-pointer hover:underline hover:text-primary transition-colors line-clamp-1"
+                            title={info.getValue()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedVideo(info.row.original);
+                            }}
+                        >
+                            {info.getValue()}
+                        </span>
+                        <div className="flex items-start gap-1.5 text-xs text-muted-foreground mt-1">
+                            <FileText className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5 opacity-80" />
+                            <p className="line-clamp-2 text-[12px] text-muted-foreground/90 leading-relaxed font-sans select-text">
+                                {cleanPreview ? `"${cleanPreview}"` : "(대본을 불러오려면 클릭하세요)"}
+                            </p>
+                        </div>
+                    </div>
+                );
+            },
+        }),
+        // 4. Views & Inflow Velocity
+        columnHelper.accessor('view_count', {
+            id: 'views_stats',
+            header: '조회수 / 유입속도',
+            cell: info => {
+                const views = info.row.original.view_count ?? info.row.original.metadata_json?.view_count ?? 0;
+                const vel = info.row.original.velocity_score ?? 0;
+                const isHigh = vel > 1000;
+                return (
+                    <div className="flex flex-col items-end gap-0.5">
+                        <span className="font-mono font-extrabold text-foreground text-xs">
+                            {formatCount(views)}
+                        </span>
+                        {vel > 0 ? (
+                            <button
+                                className={cn(
+                                    "flex items-center gap-0.5 font-mono text-[11px] font-bold px-1.5 py-0.5 rounded transition-all",
+                                    isHigh
+                                        ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20"
+                                        : "bg-muted text-muted-foreground hover:text-foreground"
+                                )}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setStatsVideo(info.row.original);
+                                }}
+                                title="클릭하여 바이럴 추이 그래프 보기"
+                            >
+                                <TrendingUp className="w-3 h-3" />
+                                {formatVelocity(vel)}
+                            </button>
+                        ) : (
+                            <span className="text-[11px] text-muted-foreground/60 font-mono">-</span>
+                        )}
+                    </div>
+                );
+            },
+            size: 120,
+        }),
+        // 5. Channel & Category Context
+        columnHelper.accessor('channel_id', {
+            header: '출처 (채널 / 카테고리)',
+            cell: info => {
+                const chId = info.getValue();
                 const ch = chId ? channelMap[chId] : null;
-                let catName = 'Unknown';
+                let catName = '미분류';
                 if (ch?.category_id && categoryMap[ch.category_id]) {
                     catName = categoryMap[ch.category_id].name;
                 } else if (ch?.folder_name) {
                     catName = ch.folder_name;
                 }
                 return (
-                    <Badge variant="outline" className="text-xs font-normal text-muted-foreground truncate max-w-[100px]">
-                        {catName}
-                    </Badge>
-                )
-            },
-            size: 110,
-        }),
-        // 4. Channel
-        columnHelper.accessor('channel_id', {
-            header: '채널 / 구독자',
-            cell: info => {
-                const chId = info.getValue();
-                const ch = chId ? channelMap[chId] : null;
-                return (
-                    <div className="flex flex-col">
-                        <span className="font-semibold text-foreground truncate max-w-[90px]" title={ch?.name || '-'}>{ch?.name || '-'}</span>
-                        <span className="text-xs text-muted-foreground font-mono">
-                            {ch ? formatCount(ch.subscriber_count) : '-'} subs
+                    <div className="flex flex-col gap-1">
+                        <span className="font-semibold text-foreground truncate max-w-[120px] text-xs" title={ch?.name || '-'}>
+                            {ch?.name || '-'}
                         </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                                {ch?.subscriber_count ? `${formatCount(ch.subscriber_count)}명` : '구독자 정보 없음'}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal text-muted-foreground bg-muted/30">
+                                {catName}
+                            </Badge>
+                        </div>
                     </div>
                 );
             },
-            size: 110,
+            size: 140,
         }),
-        // 5. Viral Score (Numeric)
-        columnHelper.accessor('viral_score', {
-            id: 'viral_val',
-            header: '바이럴 지수',
-            cell: info => {
-                const score = info.getValue() ?? 0;
-                const isHigh = score > 100;
-                return (
-                    <div className={cn("font-mono font-bold text-right", isHigh ? "text-red-600" : "text-muted-foreground")}>
-                        {score.toFixed(0)}%
-                    </div>
-                );
-            },
-            size: 90,
-        }),
-        // 6. Velocity (Numeric)
-        columnHelper.accessor('velocity_score', {
-            header: '급상승 지수', // [CHANGED]
-            cell: info => {
-                const score = info.getValue() ?? 0;
-                if (!score) return <span className="text-foreground">-</span>;
-                const isHigh = score > 1000;
-                return (
-                    <div
-                        className={cn(
-                             "flex items-center justify-end gap-1 font-mono font-bold text-xs cursor-pointer p-1 rounded transition-colors group",
-                             // [CHANGED] Brighter hover color
-                             "hover:bg-primary/10 hover:text-primary",
-                             isHigh ? "text-primary" : "text-muted-foreground"
-                        )}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setStatsVideo(info.row.original);
-                        }}
-                    >
-                        {isHigh && <TrendingUp className="w-3 h-3 group-hover:scale-110 transition-transform" />}
-                        {formatVelocity(score)}
-                    </div>
-                );
-            },
-            size: 100,
-        }),
-        // 7. Views
-        columnHelper.accessor('view_count', {
-            header: '조회수',
-            cell: info => {
-                const val = info.row.original.view_count ?? info.row.original.metadata_json?.view_count;
-                return <div className="font-mono text-muted-foreground text-right font-medium">{formatCount(val)}</div>
-            },
-            size: 80,
-        }),
-        // 8. Upload Date
+        // 6. Upload Date
         columnHelper.accessor('upload_date', {
             header: '업로드',
             cell: info => {
-                const date = info.getValue();
-                if (!date) return '-';
-                const d = new Date(date);
-                return <div className="text-xs text-muted-foreground font-mono text-right">
-                    {d.getFullYear().toString().slice(2)}.{String(d.getMonth() + 1).padStart(2, '0')}.{String(d.getDate()).padStart(2, '0')}
-                </div>;
+                const val = info.getValue();
+                if (!val) return <span className="text-muted-foreground text-xs">-</span>;
+                const d = new Date(val);
+                return (
+                    <div className="text-right text-muted-foreground text-xs font-mono">
+                        {d.toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' })}
+                    </div>
+                );
             },
-            size: 70,
+            size: 80,
         }),
+        // 7. Actions (대본 전문 열람 / AI 재창작)
+        {
+            id: 'actions',
+            header: '작업',
+            cell: ({ row }: any) => {
+                const v = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2.5 text-[11px] gap-1 hover:bg-primary/10 hover:text-primary border-border/80 font-medium"
+                            onClick={() => setSelectedVideo(v)}
+                        >
+                            <FileText className="w-3 h-3" />
+                            대본열람
+                        </Button>
+                        <Button
+                            size="sm"
+                            className="h-7 px-2.5 text-[11px] gap-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-2xs"
+                            onClick={async () => {
+                                try {
+                                    const res = await api.get(`/videos/${v.id}/subtitles`);
+                                    const raw = res.data?.content || "";
+                                    const cleanText = cleanSrtToText(raw);
+                                    navigate('/script-writer', { state: { initialScript: cleanText || v.title } });
+                                } catch (e) {
+                                    navigate('/script-writer', { state: { initialScript: v.title } });
+                                }
+                            }}
+                        >
+                            <Sparkles className="w-3 h-3" />
+                            AI 각색
+                        </Button>
+                    </div>
+                );
+            },
+            size: 160,
+            enableSorting: false,
+        }
     ], [channelMap, categoryMap]);
+
 
     const table = useReactTable({
         data: filteredVideos,
