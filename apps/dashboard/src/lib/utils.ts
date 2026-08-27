@@ -131,15 +131,11 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
     // Clean path separators
     let target = path.replace(/\\/g, '/');
 
-    // Check if root download path is configured
-    if (rootDownloadPath) {
-        const root = rootDownloadPath.replace(/\\/g, '/').replace(/\/$/, '');
-
-        // If path starts with root, remove it to make relative
-        if (target.toLowerCase().startsWith(root.toLowerCase())) {
-            target = target.substring(root.length).replace(/^\/+/, '');
-        }
+    // [Fallback] Automatically convert legacy 'downloads/' prefix to '07_Downloads/'
+    if (target.toLowerCase().startsWith('downloads/')) {
+        target = '07_Downloads/' + target.substring('downloads/'.length);
     }
+
 
     // Ensure no absolute windows paths remain (e.g. C:/...)
     if (target.includes(':')) {
