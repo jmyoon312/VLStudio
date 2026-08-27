@@ -1,7 +1,7 @@
 # ========================================================
 # [SOVEREIGN HUB] UNIFIED MSA BACKEND - API CORE
 # ========================================================
-# Version: 6.5.1
+# Version: 6.5.2
 # Status: Audited & Certified (100% Core Coverage)
 
 from fastapi import FastAPI, Request, APIRouter, HTTPException, Body, Form
@@ -198,7 +198,7 @@ async def lifespan(app: FastAPI):
                 "global_auto_download": True, "enable_trend_scheduling": True, "default_tts_engine": "google",
                 "supertone_local_enabled": False, "ytdlp_auto_update": True, "openclaw_preferred_provider": "auto",
                 "hermes_agent_provider": "groq", "hermes_agent_model": "llama-3.3-70b-versatile", "hermes_wisdom_depth": 3, "hermes_reflection_verbosity": "balanced",
-                "hermes_auto_reflection": True, "hermes_auto_update_enabled": True, "scan_interval_minutes": 60
+                "hermes_auto_reflection": True, "hermes_auto_update_enabled": True, "scan_interval_minutes": 120
             }
             needs_commit = False
             for key, default_val in defaults.items():

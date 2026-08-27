@@ -19,13 +19,25 @@ def read_settings(db: Session = Depends(database.get_db)):
         # Create default
         settings = crud.create_settings(db, schemas.SettingsCreate())
     
-    # [NEW] Expunge from session to modify paths in memory only (dynamic display)
-    db.expunge(settings)
     from app.config import settings as settings_conf
+    local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    
+    app_whisper_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "faster-whisper").replace("\\", "/")
+    app_supertonic_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "supertonic").replace("\\", "/")
+
+    default_whisper_path = app_whisper_path
+    default_supertonic_path = app_supertonic_path
+
     if not settings.root_download_path:
         settings.root_download_path = settings_conf.MEDIA_ROOT
     if not settings.cookies_path:
         settings.cookies_path = os.path.join(settings_conf.MEDIA_ROOT, "04_Profiles", "cookies.txt").replace("\\", "/")
+
+    # Normalize Whisper & Supertonic Model Paths (prevent dev paths or vague relative paths from persisting in UI)
+    if not settings.whisper_model_path or "viraloopmedia" in settings.whisper_model_path.lower().replace("\\", "/") or ".cache/faster_whisper" in settings.whisper_model_path.replace("\\", "/"):
+        settings.whisper_model_path = default_whisper_path
+    if not settings.supertone_model_path or settings.supertone_model_path == "backend/models/supertonic" or ".cache/supertonic3" in settings.supertone_model_path.replace("\\", "/"):
+        settings.supertone_model_path = default_supertonic_path
 
     # Safe FFmpeg Check
     try:
@@ -40,7 +52,7 @@ def read_settings(db: Session = Depends(database.get_db)):
             from app import dependency_manager
             
         ffmpeg_path = dependency_manager.DependencyManager.get_ffmpeg_path()
-        if os.path.exists(ffmpeg_path):
+        if ffmpeg_path and (os.path.exists(ffmpeg_path) or ffmpeg_path == "ffmpeg"):
             settings.ffmpeg_status = ffmpeg_path # Return full path
         else:
             settings.ffmpeg_status = "Missing"

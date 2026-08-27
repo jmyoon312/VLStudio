@@ -28,7 +28,7 @@ def repair_schema():
         
         for column in table.columns:
             if column.name not in existing_columns:
-                print(f"➕ [DB] Found missing column: {table_name}.{column.name}")
+                print(f"[NEW] [DB] Found missing column: {table_name}.{column.name}")
                 
                 # Mapping SQLAlchemy types to SQL strings for ALTER TABLE
                 try:

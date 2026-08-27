@@ -119,23 +119,6 @@ const LoopieTab = () => {
                             시스템 업데이트
                         </Button>
                         <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 border-border bg-card hover:bg-muted text-foreground rounded-xl"
-                            onClick={() => window.open('https://github.com/NousResearch/hermes-agent', '_blank')}
-                        >
-                            <ExternalLink className="w-4 h-4" />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 border-border bg-card hover:bg-muted text-indigo-400 rounded-xl"
-                            onClick={() => window.open(`http://${window.location.hostname}:9119`, '_blank')}
-                            title="Open Hermes Kanban Dashboard"
-                        >
-                            <Home className="w-4 h-4" />
-                        </Button>
-                        <Button
                             variant="default"
                             size="sm"
                             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 h-9 shadow-2xs rounded-xl flex-1 sm:flex-none"

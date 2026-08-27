@@ -108,7 +108,7 @@ class BrowserSessionManager:
         return True
 
 
-def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = True, target_url: str = None, headless: bool = True) -> any:
+    def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = True, target_url: str = None, headless: bool = True) -> any:
         """
         [Multi-Profile] 각 프로필별 독립 브라우저 세션 관리
         - 동일 profile_id면 세션 재사용, 다른 profile_id면 새 세션 생성
@@ -167,7 +167,7 @@ def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = T
         return page
 
     def run_warmup_routine(self, channel_id: str, stage: int = 1, visible: bool = False) -> bool:
-    """
+        """
         [Refactored] TIN_CAN 직접 접근 방식 웜업 루틴
         - BrandChannel.owner_profile_id → TIN_CAN 프로필 → CloakBrowser 직접 실행
         - Captain 위임 구조 불필요
@@ -318,75 +318,75 @@ def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = T
     def _verify_login(self, page, channel_id: str = None, db=None) -> bool:
         """ [Health Check] 로그인 세션 유지 여부 확인 + 자동 재로그인 """
         try:
-        # 아바타 버튼 또는 로그인 버튼 유무 확인 (최대 15초 대기)
-        try:
-        page.wait_for_selector('button#avatar-btn, yt-img-shadow#avatar, #avatar-btn, a[href*="ServiceLogin"], a[href*="accounts.google.com"]', timeout=15000)
-        except Exception:
-        pass
+            # 아바타 버튼 또는 로그인 버튼 유무 확인 (최대 15초 대기)
+            try:
+                page.wait_for_selector('button#avatar-btn, yt-img-shadow#avatar, #avatar-btn, a[href*="ServiceLogin"], a[href*="accounts.google.com"]', timeout=15000)
+            except Exception:
+                pass
             
-        # 로그아웃 상태인지 명확히 확인
-        sign_in_btn = page.locator('a[href*="ServiceLogin"], a[href*="accounts.google.com/signin"]').first
-        if not sign_in_btn.is_visible():
-        return True  # 이미 로그인된 상태
+            # 로그아웃 상태인지 명확히 확인
+            sign_in_btn = page.locator('a[href*="ServiceLogin"], a[href*="accounts.google.com/signin"]').first
+            if not sign_in_btn.is_visible():
+                return True  # 이미 로그인된 상태
                 
-        logger.warning("[WARN] Not logged in — attempting auto-login...")
+            logger.warning("[WARN] Not logged in — attempting auto-login...")
             
-        # 자동 로그인 시도: DB에서 이메일/비밀번호 조회
-        if not channel_id or not db:
-        logger.error("[FAIL] Cannot auto-login: channel_id or db not provided")
-        return False
+            # 자동 로그인 시도: DB에서 이메일/비밀번호 조회
+            if not channel_id or not db:
+                logger.error("[FAIL] Cannot auto-login: channel_id or db not provided")
+                return False
                 
-        import app.models as _models
-        channel = db.query(_models.YouTubeChannel).filter(_models.YouTubeChannel.channel_id == channel_id).first()
-        if not channel or not channel.owner_profile_id:
-        logger.error("[FAIL] Cannot auto-login: no owner_profile_id")
-        return False
+            import app.models as _models
+            channel = db.query(_models.YouTubeChannel).filter(_models.YouTubeChannel.channel_id == channel_id).first()
+            if not channel or not channel.owner_profile_id:
+                logger.error("[FAIL] Cannot auto-login: no owner_profile_id")
+                return False
                 
-        profile = db.query(_models.Profile).filter(_models.Profile.id == channel.owner_profile_id).first()
-        if not profile or not profile.email or not profile.password:
-        logger.error("[FAIL] Cannot auto-login: profile has no credentials")
-        return False
+            profile = db.query(_models.Profile).filter(_models.Profile.id == channel.owner_profile_id).first()
+            if not profile or not profile.email or not profile.password:
+                logger.error("[FAIL] Cannot auto-login: profile has no credentials")
+                return False
             
-        logger.info(f"🔑 Auto-login attempt for {profile.email}")
+            logger.info(f"🔑 Auto-login attempt for {profile.email}")
             
-        # 구글 로그인 페이지로 이동
-        page.goto("https://accounts.google.com/signin/v2/identifier?service=youtube")
-        time.sleep(2)
+            # 구글 로그인 페이지로 이동
+            page.goto("https://accounts.google.com/signin/v2/identifier?service=youtube")
+            time.sleep(2)
             
-        # 이메일 입력
-        email_field = page.locator('input[type="email"]')
-        email_field.wait_for(state='visible', timeout=10000)
-        email_field.fill("")
-        email_field.type(profile.email, delay=random.randint(60, 130))
-        page.keyboard.press('Enter')
-        time.sleep(random.uniform(3, 5))
+            # 이메일 입력
+            email_field = page.locator('input[type="email"]')
+            email_field.wait_for(state='visible', timeout=10000)
+            email_field.fill("")
+            email_field.type(profile.email, delay=random.randint(60, 130))
+            page.keyboard.press('Enter')
+            time.sleep(random.uniform(3, 5))
             
-        # 비밀번호 입력
-        pwd_field = page.locator('input[type="password"]')
-        pwd_field.wait_for(state='visible', timeout=10000)
-        pwd_field.fill("")
-        pwd_field.type(profile.password, delay=random.randint(60, 130))
-        page.keyboard.press('Enter')
-        time.sleep(random.uniform(5, 8))
+            # 비밀번호 입력
+            pwd_field = page.locator('input[type="password"]')
+            pwd_field.wait_for(state='visible', timeout=10000)
+            pwd_field.fill("")
+            pwd_field.type(profile.password, delay=random.randint(60, 130))
+            page.keyboard.press('Enter')
+            time.sleep(random.uniform(5, 8))
             
-        # 로그인 완료 후 유튜브 홈으로
-        page.goto("https://www.youtube.com/")
-        time.sleep(random.uniform(4, 6))
+            # 로그인 완료 후 유튜브 홈으로
+            page.goto("https://www.youtube.com/")
+            time.sleep(random.uniform(4, 6))
             
-        # 다시 로그인 상태 확인
-        try:
-        page.wait_for_selector('button#avatar-btn, yt-img-shadow#avatar, #avatar-btn', timeout=10000)
-        logger.info("[OK] Auto-login successful!")
-        return True
-        except Exception:
-        logger.error("[FAIL] Auto-login failed: avatar not found after login attempt")
-        return False
+            # 다시 로그인 상태 확인
+            try:
+                page.wait_for_selector('button#avatar-btn, yt-img-shadow#avatar, #avatar-btn', timeout=10000)
+                logger.info("[OK] Auto-login successful!")
+                return True
+            except Exception:
+                logger.error("[FAIL] Auto-login failed: avatar not found after login attempt")
+                return False
                 
         except Exception as e:
-        logger.error(f"Login verification failed: {e}")
-        return False
+            logger.error(f"Login verification failed: {e}")
+            return False
             
-        def _active_watch(self, page, duration: int, allow_like: bool = False, allow_comment: bool = False, comment_text: str = ""):
+    def _active_watch(self, page, duration: int, allow_like: bool = False, allow_comment: bool = False, comment_text: str = ""):
         """ 사람처럼 시청 시뮬레이션 (Micro-actions & Entropy) """
         logger.info(f"👀 Active watching for {duration} seconds... (Like: {allow_like}, Comment: {allow_comment})")
         end_time = time.time() + duration
@@ -462,71 +462,71 @@ def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = T
         """[Stage 1: 순수 관찰자] 홈 피드 탐색, 검색 없이 무작위 시청, 상호작용 불가"""
         logger.info(f"[SEARCH] [Stage 1] Passive Observer for {channel_id}")
         try:
-        if not self._verify_login(page, channel_id=channel_id, db=db):
-        logger.error("[FAIL] Session Dropped or Captcha blocked.")
-        raise Exception("AUTH_DROPPED")
+            if not self._verify_login(page, channel_id=channel_id, db=db):
+                logger.error("[FAIL] Session Dropped or Captcha blocked.")
+                raise Exception("AUTH_DROPPED")
                 
-        # 홈 피드 진입
-        page.goto("https://www.youtube.com/")
-        time.sleep(random.uniform(3, 7))
+            # 홈 피드 진입
+            page.goto("https://www.youtube.com/")
+            time.sleep(random.uniform(3, 7))
             
-        # 홈 피드 스크롤 하며 썸네일 탐색
-        for _ in range(random.randint(2, 5)):
-        page.mouse.wheel(0, int(random.gauss(500, 200)))
-        time.sleep(random.uniform(2, 5))
+            # 홈 피드 스크롤 하며 썸네일 탐색
+            for _ in range(random.randint(2, 5)):
+                page.mouse.wheel(0, int(random.gauss(500, 200)))
+                time.sleep(random.uniform(2, 5))
             
-        # 홈 피드에서 영상 클릭 (1~3번째 중 하나)
-        video_card = page.locator('ytd-rich-item-renderer').nth(random.randint(0, 3))
-        try:
-        video_card.wait_for(state='visible', timeout=8000)
-        video_card.scroll_into_view_if_needed()
-        time.sleep(random.uniform(1, 3))
-        video_card.click()
-        logger.info("📺 Selected video from Home Feed.")
+            # 홈 피드에서 영상 클릭 (1~3번째 중 하나)
+            video_card = page.locator('ytd-rich-item-renderer').nth(random.randint(0, 3))
+            try:
+                video_card.wait_for(state='visible', timeout=8000)
+                video_card.scroll_into_view_if_needed()
+                time.sleep(random.uniform(1, 3))
+                video_card.click()
+                logger.info("📺 Selected video from Home Feed.")
                 
-        # 시청 (45 ~ 120초), 상호작용 절대 금지
-        self._active_watch(page, random.randint(45, 120), allow_like=False, allow_comment=False)
-        except Exception as e:
-        logger.warning(f"Could not click video from home feed (Empty feed?): {e}")
-        logger.info("[REFRESH] Fallback: Performing generic search to populate watch history.")
+                # 시청 (45 ~ 120초), 상호작용 절대 금지
+                self._active_watch(page, random.randint(45, 120), allow_like=False, allow_comment=False)
+            except Exception as e:
+                logger.warning(f"Could not click video from home feed (Empty feed?): {e}")
+                logger.info("[REFRESH] Fallback: Performing generic search to populate watch history.")
                 
-        # DNA 기반 검색어 생성 또는 기본 검색어 사용
-        query = "요즘 뜨는 영상"
-        if dna:
-        queries = intel.generate_dna_search_queries(dna)
-        if queries:
-        query = random.choice(queries)
+                # DNA 기반 검색어 생성 또는 기본 검색어 사용
+                query = "요즘 뜨는 영상"
+                if dna:
+                    queries = intel.generate_dna_search_queries(dna)
+                    if queries:
+                        query = random.choice(queries)
                 
-        search_input = page.locator('input#search')
-        if search_input.is_visible():
-        search_input.click()
-        search_input.fill("")
-        search_input.type(query, delay=random.randint(50, 150))
-        page.keyboard.press('Enter')
-        time.sleep(random.uniform(4, 7))
-        else:
-        import urllib.parse
-        encoded_query = urllib.parse.quote(query)
-        page.goto(f"https://www.youtube.com/results?search_query={encoded_query}")
-        time.sleep(random.uniform(3, 5))
+                search_input = page.locator('input#search')
+                if search_input.is_visible():
+                    search_input.click()
+                    search_input.fill("")
+                    search_input.type(query, delay=random.randint(50, 150))
+                    page.keyboard.press('Enter')
+                    time.sleep(random.uniform(4, 7))
+                else:
+                    import urllib.parse
+                    encoded_query = urllib.parse.quote(query)
+                    page.goto(f"https://www.youtube.com/results?search_query={encoded_query}")
+                    time.sleep(random.uniform(3, 5))
                     
-        # 검색 결과에서 영상 클릭
-        search_card = page.locator('ytd-video-renderer').first
-        try:
-        search_card.wait_for(state='visible', timeout=8000)
-        search_card.click()
-        logger.info("📺 Selected video from Fallback Search.")
-        self._active_watch(page, random.randint(45, 120), allow_like=False, allow_comment=False)
-        except Exception as search_err:
-        logger.error(f"[FAIL] Fallback search failed: {search_err}")
+                # 검색 결과에서 영상 클릭
+                search_card = page.locator('ytd-video-renderer').first
+                try:
+                    search_card.wait_for(state='visible', timeout=8000)
+                    search_card.click()
+                    logger.info("📺 Selected video from Fallback Search.")
+                    self._active_watch(page, random.randint(45, 120), allow_like=False, allow_comment=False)
+                except Exception as search_err:
+                    logger.error(f"[FAIL] Fallback search failed: {search_err}")
                 
-        return True
+            return True
         except Exception as e:
-        logger.error(f"[FAIL] Stage 1 Failed: {e}")
-        if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
-        return False
+            logger.error(f"[FAIL] Stage 1 Failed: {e}")
+            if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
+            return False
 
-        def _warmup_day_2_interest(self, page, db, channel_id, stage, dna, intel):
+    def _warmup_day_2_interest(self, page, db, channel_id, stage, dna, intel):
         """[Stage 2: 관심사 좁히기] DNA 검색, Shorts 탐색, 제한적 상호작용"""
         logger.info(f"[SEARCH] [Stage 2] Niche Explorer for {channel_id}")
         try:
@@ -585,69 +585,69 @@ def _launch_orchestrator(self, channel_id: str, db: Session, rotate_ip: bool = T
         """[Stage 3: 커뮤니티 일원화] 롱테일 체류, 구독 및 댓글 작성"""
         logger.info(f"💬 [Stage 3] Active Participant for {channel_id}")
         try:
-        # Stage 2의 검색 로직을 일부 차용하여 영상 진입
-        res = self._warmup_day_2_interest(page, db, channel_id, stage, dna, intel)
-        if res == "AUTH_DROPPED": return res
-            
-        # 추가적으로 한 번 더 영상을 클릭하여 깊은 상호작용 시도
-        queries = intel.generate_dna_search_queries(dna) if dna else ["인기 급상승", "추천 영상"]
-        page.goto(f"https://www.youtube.com/results?search_query={random.choice(queries)}")
-        time.sleep(random.uniform(3, 5))
-            
-        video_card = page.locator('ytd-video-renderer').nth(random.randint(0, 2))
-        try:
-        video_card.wait_for(state='visible', timeout=10000)
-        video_card.scroll_into_view_if_needed()
-        time.sleep(random.uniform(1, 3))
-        video_card.click()
-        time.sleep(random.uniform(3, 5))
-        except Exception:
-        pass
-            
-        title_ele = page.locator('h1.ytd-watch-metadata').first
-        video_title = title_ele.inner_text() if title_ele.is_visible() else "Interesting Video"
-        comment_text = intel.generate_dna_comment(dna, video_title) if dna else "정말 잘 봤습니다! 👍"
-            
-        # 긴 시청 (120 ~ 300초), 좋아요 & 댓글 허용
-        self._active_watch(page, random.randint(120, 300), allow_like=True, allow_comment=True, comment_text=comment_text)
-            
-        # 10% ~ 20% 확률로 구독 클릭
-        if random.random() < 0.2:
-        try:
-        sub_btn = page.locator('#subscribe-button yt-button-shape button').first
-        if sub_btn.is_visible():
-        sub_btn.scroll_into_view_if_needed()
-        time.sleep(random.uniform(1, 2))
-        sub_btn.click()
-        logger.info("🔔 Subscribed to channel.")
-        time.sleep(random.uniform(2, 4))
-        except Exception:
-        pass
-                    
-        return True
+            # Stage 2의 검색 로직을 일부 차용하여 영상 진입
+            res = self._warmup_day_2_interest(page, db, channel_id, stage, dna, intel)
+            if res == "AUTH_DROPPED": return res
+                
+            # 추가적으로 한 번 더 영상을 클릭하여 깊은 상호작용 시도
+            queries = intel.generate_dna_search_queries(dna) if dna else ["인기 급상승", "추천 영상"]
+            page.goto(f"https://www.youtube.com/results?search_query={random.choice(queries)}")
+            time.sleep(random.uniform(3, 5))
+                
+            video_card = page.locator('ytd-video-renderer').nth(random.randint(0, 2))
+            try:
+                video_card.wait_for(state='visible', timeout=10000)
+                video_card.scroll_into_view_if_needed()
+                time.sleep(random.uniform(1, 3))
+                video_card.click()
+                time.sleep(random.uniform(3, 5))
+            except Exception:
+                pass
+                
+            title_ele = page.locator('h1.ytd-watch-metadata').first
+            video_title = title_ele.inner_text() if title_ele.is_visible() else "Interesting Video"
+            comment_text = intel.generate_dna_comment(dna, video_title) if dna else "정말 잘 봤습니다! 👍"
+                
+            # 긴 시청 (120 ~ 300초), 좋아요 & 댓글 허용
+            self._active_watch(page, random.randint(120, 300), allow_like=True, allow_comment=True, comment_text=comment_text)
+                
+            # 10% ~ 20% 확률로 구독 클릭
+            if random.random() < 0.2:
+                try:
+                    sub_btn = page.locator('#subscribe-button yt-button-shape button').first
+                    if sub_btn.is_visible():
+                        sub_btn.scroll_into_view_if_needed()
+                        time.sleep(random.uniform(1, 2))
+                        sub_btn.click()
+                        logger.info("🔔 Subscribed to channel.")
+                        time.sleep(random.uniform(2, 4))
+                except Exception:
+                    pass
+                        
+            return True
         except Exception as e:
-        logger.error(f"[FAIL] Stage 3 Failed: {e}")
-        if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
-        return False
+            logger.error(f"[FAIL] Stage 3 Failed: {e}")
+            if str(e) == "AUTH_DROPPED": return "AUTH_DROPPED"
+            return False
 
-        def launch_tiktok_upload(self, profile_id: str, db: Session, video_path: str, caption: str, hashtags: list, privacy: str) -> dict:
+    def launch_tiktok_upload(self, profile_id: str, db: Session, video_path: str, caption: str, hashtags: list, privacy: str) -> dict:
         logger.info(f"Launching TikTok Upload for profile {profile_id}")
         page = self._create_browser(profile_id=profile_id, engine_mode="standard", headless=False)
         try:
-        from app.services.tiktok_uploader import tiktok_uploader
-        return tiktok_uploader.upload_video(page, video_path, caption, hashtags, privacy)
+            from app.services.tiktok_uploader import tiktok_uploader
+            return tiktok_uploader.upload_video(page, video_path, caption, hashtags, privacy)
         finally:
-        if page and page.context:
-        page.context.close()
+            if page and page.context:
+                page.context.close()
 
-        def launch_instagram_upload(self, profile_id: str, db: Session, video_path: str, caption: str) -> dict:
+    def launch_instagram_upload(self, profile_id: str, db: Session, video_path: str, caption: str) -> dict:
         logger.info(f"Launching Instagram Upload for profile {profile_id}")
         page = self._create_browser(profile_id=profile_id, engine_mode="standard", headless=False)
         try:
-        from app.services.instagram_browser_uploader import instagram_browser_uploader
-        return instagram_browser_uploader.upload_reel(page, video_path, caption)
+            from app.services.instagram_browser_uploader import instagram_browser_uploader
+            return instagram_browser_uploader.upload_reel(page, video_path, caption)
         finally:
-        if page and page.context:
-        page.context.close()
+            if page and page.context:
+                page.context.close()
 
-        session_manager = BrowserSessionManager()
+session_manager = BrowserSessionManager()

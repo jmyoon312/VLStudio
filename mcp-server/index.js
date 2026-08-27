@@ -652,6 +652,62 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {},
       },
     },
+    // ── ViraLoop 바이럴 프로덕션 에이전트 도구 (루피 전용) ──
+    {
+      name: 'pipeline_scout_materials',
+      description: '채널 아이덴티티와 주제를 바탕으로 9router 및 웹 검색을 통해 떡상 가능성이 높은 바이럴 소재와 3초 후킹 포인트를 발굴합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          topic: { type: 'string', description: '탐색할 주제 또는 키워드' },
+          genre: { type: 'string', enum: ['yadam', 'dark-history', 'viral-ranking', 'bespoke'], description: '채널 장르' },
+          target_audience: { type: 'string', description: '타겟 시청자층' },
+        },
+        required: ['topic'],
+      },
+    },
+    {
+      name: 'pipeline_generate_script',
+      description: '9-Wave 바이럴 스토리텔링 기법을 적용하여 씬별 대본, 나레이션 텍스트 및 Flow AI 비주얼 프롬프트를 생성합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          topic: { type: 'string', description: '확정된 영상 주제' },
+          genre: { type: 'string', enum: ['yadam', 'dark-history', 'viral-ranking', 'bespoke'], description: '스토리 장르 (기본: yadam)' },
+          target_duration_sec: { type: 'number', description: '목표 영상 길이 (초 단위, 기본: 60초 쇼츠)' },
+          model: { type: 'string', description: '9router 모델명 (기본: youtube1)' },
+        },
+        required: ['topic'],
+      },
+    },
+    {
+      name: 'pipeline_synthesize_tts',
+      description: '대본의 씬별 나레이션 텍스트를 고음질 AI 보이스(Supertonic Local ONNX 또는 ElevenLabs)로 합성하고 오디오 파일 경로를 반환합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: '음성으로 합성할 나레이션 텍스트' },
+          engine: { type: 'string', enum: ['supertonic', 'elevenlabs', 'typecast', 'edge-tts'], description: 'TTS 엔진 (기본: supertonic)' },
+          voice_id: { type: 'string', description: '보이스 ID 또는 캐릭터' },
+        },
+        required: ['text'],
+      },
+    },
+    {
+      name: 'pipeline_enqueue_workqueue',
+      description: '제작 완료된 쇼츠 비디오 및 메타데이터를 ViraLoop Studio 쇼츠 자동 배포 관리(WorkQueue)에 등록합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          channel_id: { type: 'string', description: '배포할 대상 채널 ID' },
+          title: { type: 'string', description: '영상 제목' },
+          description: { type: 'string', description: '영상 설명 및 태그' },
+          video_path: { type: 'string', description: '완성된 .mp4 영상 파일 경로' },
+          scheduled_time: { type: 'string', description: '예약 업로드 시간 (ISO 포맷)' },
+        },
+        required: ['channel_id', 'title', 'video_path'],
+      },
+    },
     // ── 스킬 관리 도구 ──
     {
       name: 'install_skill',

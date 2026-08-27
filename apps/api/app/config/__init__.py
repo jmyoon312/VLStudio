@@ -25,10 +25,27 @@ def discover_ffmpeg() -> str:
     import shutil
     import os
     
-    # 1. Check system PATH first
-    if shutil.which("ffmpeg"): return "ffmpeg"
+    local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
 
-    # 2. Check static_ffmpeg / imageio_ffmpeg in Python environment
+    # 1. Check User Local AppData media bin folders (Primary Bundled)
+    local_ffmpeg_candidates = [
+        os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg", "bin", "ffmpeg.exe"),
+        os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "bin", "ffmpeg", "bin", "ffmpeg.exe"),
+        os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg.exe"),
+        os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "bin", "ffmpeg.exe")
+    ]
+    for candidate in local_ffmpeg_candidates:
+        if os.path.exists(candidate):
+            return candidate
+
+    # 2. Check App Root runtime/ffmpeg/bin/ffmpeg.exe
+    current_file = os.path.abspath(__file__)
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    rel_ffmpeg = os.path.join(root_dir, "runtime", "ffmpeg", "bin", "ffmpeg.exe")
+    if os.path.exists(rel_ffmpeg):
+        return rel_ffmpeg
+
+    # 3. Check static_ffmpeg / imageio_ffmpeg in Python environment
     try:
         import static_ffmpeg
         ffmpeg_exe, _ = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise()
@@ -37,19 +54,10 @@ def discover_ffmpeg() -> str:
     except Exception:
         pass
 
-    # 3. Check App Root runtime/ffmpeg/bin/ffmpeg.exe
-    current_file = os.path.abspath(__file__)
-    # apps/api/app/config/__init__.py -> root
-    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
-    rel_ffmpeg = os.path.join(root_dir, "runtime", "ffmpeg", "bin", "ffmpeg.exe")
-    if os.path.exists(rel_ffmpeg):
-        return rel_ffmpeg
-
-    # 4. Check User Local AppData media bin folder
-    local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
-    local_ffmpeg_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "bin", "ffmpeg", "bin", "ffmpeg.exe")
-    if os.path.exists(local_ffmpeg_path):
-        return local_ffmpeg_path
+    # 4. Check system PATH as fallback
+    system_ffmpeg = shutil.which("ffmpeg")
+    if system_ffmpeg:
+        return system_ffmpeg
         
     return "ffmpeg"
 

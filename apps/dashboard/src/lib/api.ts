@@ -123,6 +123,8 @@ export interface Settings {
     cookies_path: string | null;
     global_auto_download: boolean;
     scan_interval_minutes: number;
+    auto_delete_mp4_days?: number;
+    cleanup_days?: number;
     auto_hd_viral_threshold?: number;
     auto_hd_velocity_threshold?: number;
     outlier_ev_threshold?: number;
@@ -165,8 +167,6 @@ export interface Settings {
     ytdlp_version: string | null;
     openclaw_preferred_provider: string | null;
     openclaw_model: string | null;
-    paperclip_provider: string | null;
-    paperclip_model: string | null;
     openclaude_provider: string | null;
     openclaude_model: string | null;
     ffmpeg_status?: string;

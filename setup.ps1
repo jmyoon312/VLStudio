@@ -107,17 +107,19 @@ if (-not (Test-Path $adbExe)) {
     Write-Host "[OK] ADB is already installed." -ForegroundColor Green
 }
 
-# 7. Check & Download yt-dlp
-$ytdlpExe = Join-Path $PSScriptRoot "runtime\ytdlp\yt-dlp.exe"
+# 7. Check & Download yt-dlp (Standalone Binary → AppData Standard Path)
+$ytdlpDir = "$env:LOCALAPPDATA\ViraLoop Studio\media\bin\yt-dlp"
+$ytdlpExe = "$ytdlpDir\yt-dlp.exe"
 if (-not (Test-Path $ytdlpExe)) {
-    Write-Host "[*] Downloading official yt-dlp.exe..." -ForegroundColor Cyan
-    $ytdlpDir = Join-Path $PSScriptRoot "runtime\ytdlp"
+    Write-Host "[*] Downloading yt-dlp standalone binary to AppData..." -ForegroundColor Cyan
     if (-not (Test-Path $ytdlpDir)) { New-Item -ItemType Directory -Path $ytdlpDir -Force | Out-Null }
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     (New-Object System.Net.WebClient).DownloadFile("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", $ytdlpExe)
-    Write-Host "[OK] yt-dlp installed to runtime\ytdlp" -ForegroundColor Green
+    $ytdlpVer = & $ytdlpExe --version 2>$null
+    Write-Host "[OK] yt-dlp $ytdlpVer installed to: $ytdlpExe" -ForegroundColor Green
 } else {
-    Write-Host "[OK] yt-dlp is already installed." -ForegroundColor Green
+    $ytdlpVer = & $ytdlpExe --version 2>$null
+    Write-Host "[OK] yt-dlp $ytdlpVer already installed at: $ytdlpExe" -ForegroundColor Green
 }
 
 # 6. Windows Firewall rules

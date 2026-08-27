@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Plus, Trash2, LayoutGrid, MonitorPlay, X, LayoutPanelLeft, LayoutPanelTop, Minus, MoveHorizontal } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -157,12 +157,9 @@ export default function MultiWindowController({
         setOpen(false);
     };
 
-    // Electron 데스크톱 앱 환경이 아닌 일반 웹 브라우저(Chrome 등)에서는 숨김 처리
-    const isElectron = typeof window !== 'undefined' && Boolean(
-        (window as any).electron || 
-        (window as any).electronAPI || 
-        navigator.userAgent.toLowerCase().includes('electron')
-    );
+    // 오직 실제 Electron 데스크톱 네이티브 앱(createFlowView API 지원) 환경에서만 렌더링
+    const isElectron = typeof window !== 'undefined' && 
+        typeof (window as any).electronAPI?.createFlowView === 'function';
 
     if (!isElectron) {
         return null;

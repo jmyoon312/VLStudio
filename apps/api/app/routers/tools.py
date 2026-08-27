@@ -1128,13 +1128,12 @@ def get_system_stats():
 
 @router.get("/tts/supertonic/status")
 def get_supertonic_status(db: Session = Depends(database.get_db)):
+    import datetime
     settings = crud.get_settings(db)
     model_dir = settings.supertone_model_path if settings.supertone_model_path else "backend/models/supertonic"
     
-    # Check for critical files
+    # Check for critical files required by Supertonic 3
     required_files = [
-        "config.json", 
-        "tokenizer.json", 
         "onnx/duration_predictor.onnx", 
         "onnx/text_encoder.onnx", 
         "onnx/vector_estimator.onnx", 
@@ -1151,24 +1150,28 @@ def get_supertonic_status(db: Session = Depends(database.get_db)):
     else:
         target_dir = os.path.join(base_dir, model_dir)
 
-    # PyInstaller packaged environment fallback support: check real workspace root if files missing in bundle temp dir
-    if not os.path.exists(target_dir) or not os.path.exists(os.path.join(target_dir, "config.json")):
-        proj_root = os.getenv("VIRALOOP_PROJECT_ROOT")
-        if proj_root:
-            proj_candidate = os.path.abspath(os.path.join(proj_root, "apps", "api", "backend", "models", "supertonic"))
-            if os.path.exists(os.path.join(proj_candidate, "config.json")):
-                target_dir = proj_candidate
-            else:
-                proj_candidate2 = os.path.abspath(os.path.join(proj_root, "backend", "models", "supertonic"))
-                if os.path.exists(os.path.join(proj_candidate2, "config.json")):
-                    target_dir = proj_candidate2
-        
     for f in required_files:
         if not os.path.exists(os.path.join(target_dir, f)):
             missing.append(f)
+
+    # Read version and last patch date if available
+    version_file = os.path.join(target_dir, ".version")
+    version_sha = ""
+    last_updated = ""
+    if os.path.exists(version_file):
+        try:
+            with open(version_file, "r") as vf:
+                version_sha = vf.read().strip()
+            mtime = os.path.getmtime(version_file)
+            last_updated = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            pass
             
     return {
         "installed": len(missing) == 0,
+        "version": version_sha[:7] if version_sha else None,
+        "full_version": version_sha or None,
+        "last_updated": last_updated or None,
         "missing_files": missing,
         "model_dir": target_dir
     }
@@ -1180,16 +1183,58 @@ async def download_supertonic_models(background_tasks: BackgroundTasks):
     """
     import subprocess
     
+    import sys
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # backend
     script_path = os.path.join(base_dir, "scripts", "download_supertonic.py")
     
     def run_download():
         try:
             logger.info("Starting Supertonic Model Download...")
-            subprocess.run(["python", script_path], check=True, cwd=base_dir)
+            subprocess.run([sys.executable, script_path], check=True, cwd=base_dir)
             logger.info("Supertonic Model Download Completed.")
         except Exception as e:
             logger.error(f"Supertonic Download Failed: {e}")
 
     background_tasks.add_task(run_download)
-    return {"status": "started", "message": "Model download started in background. Check logs for progress."}
+    return {"status": "started", "message": "모델 다운로드 및 최신 버전 확인이 백그라운드에서 시작되었습니다."}
+
+class KokoroTestRequest(pydantic.BaseModel):
+    url: str
+
+@router.post("/tts/test-kokoro")
+async def test_kokoro_connection(req: KokoroTestRequest):
+    import time
+    import requests
+    target_url = req.url.strip().rstrip('/')
+    if not target_url:
+        raise HTTPException(status_code=400, detail="Kokoro 서버 URL이 비어 있습니다.")
+    
+    endpoint = target_url if target_url.endswith("/v1/audio/speech") else f"{target_url}/v1/audio/speech"
+    
+    payload = {
+        "model": "kokoro",
+        "input": "안녕하세요",
+        "voice": "af_sarah",
+        "response_format": "mp3"
+    }
+    
+    try:
+        t0 = time.time()
+        resp = requests.post(endpoint, json=payload, timeout=8)
+        elapsed_ms = int((time.time() - t0) * 1000)
+        
+        if resp.status_code == 200 and len(resp.content) > 0:
+            return {
+                "status": "success",
+                "message": f"Kokoro 서버 연결 성공! (응답 시간: {elapsed_ms}ms, 합성 크기: {len(resp.content):,} bytes)"
+            }
+        else:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Kokoro 서버 응답 오류 ({resp.status_code}): {resp.text[:200]}"
+            )
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Kokoro 서버에 접속할 수 없습니다: {str(e)}"
+        )

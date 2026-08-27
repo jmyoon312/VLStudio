@@ -307,6 +307,10 @@ class SettingsBase(BaseModel):
     openclaude_model: Optional[str] = None
     github_token: Optional[str] = None # [NEW]
 
+    # [NEW] 디스크 용량 및 파일 수명 관리
+    auto_delete_mp4_days: Optional[int] = 7  # 배포 완료/실패 후 MP4 자동 삭제 주기 (0=삭제안함)
+    cleanup_days: Optional[int] = 10  # 보관함 오래된 영상 일괄 정리 기준일
+
 class SettingsCreate(SettingsBase):
     pass
 
@@ -384,6 +388,7 @@ class SettingsUpdate(BaseModel):
     hermes_agent_provider: Optional[str] = None
     hermes_agent_model: Optional[str] = None
     github_token: Optional[str] = None # [NEW]
+
 
 class Settings(SettingsBase):
     id: int

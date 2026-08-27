@@ -1,1743 +1,2866 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import api, { apiLong, Settings as SettingsType } from '../lib/api';
-import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import AIModelSelector from '@/components/shared/AIModelSelector';
-import { SystemSettingsTab } from './SystemSettingsTab';
-import LoopieTab from './LoopieTab';
-
-// Helper Component for Key Lists
-const KeyListInput = ({
-    label,
-    keys,
-    onChange,
-    placeholder = "sk-..."
-}: {
-    label: string,
-    keys: string[],
-    onChange: (keys: string[]) => void,
-    placeholder?: string
-}) => {
-    const [inputVal, setInputVal] = useState("");
-
-    const addKey = () => {
-        if (inputVal.trim()) {
-            onChange([...keys, inputVal.trim()]);
-            setInputVal("");
-        }
-    };
-
-    return (
-        <div className="space-y-2">
-            {label && <Label className="text-xs sm:text-sm font-bold text-foreground">{label}</Label>}
-            <div className="border border-border rounded-xl p-2.5 bg-muted/30 space-y-2 max-h-[140px] overflow-y-auto">
-                {keys.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">키가 등록되지 않았습니다.</p>}
-                {keys.map((k, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                        <Input value={k} readOnly className="h-8 text-xs bg-card text-foreground font-mono border-border rounded-lg" type="password" />
-                        <Button variant="ghost" size="sm" onClick={() => onChange(keys.filter((_, idx) => idx !== i))} className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-4 h-4" /></Button>
-                    </div>
-                ))}
-            </div>
-            <div className="flex gap-2">
-                <Input
-                    value={inputVal}
-                    onChange={e => setInputVal(e.target.value)}
-                    placeholder={placeholder}
-                    className="h-9 text-xs sm:text-sm bg-card border-border rounded-lg"
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addKey())}
-                />
-                <Button variant="secondary" size="sm" onClick={addKey} className="shrink-0 h-9 font-bold px-3.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-lg">추가</Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">여러 키를 등록하면 자동으로 순환하여 사용됩니다.</p>
-        </div>
-    );
-};
-
-const CloakBrowserUpdater = () => {
-    const queryClient = useQueryClient();
-    const { data, isLoading } = useQuery({
-        queryKey: ['cloakbrowser_version'],
-        queryFn: async () => {
-            const res = await api.get('/system/cloakbrowser/version');
-            return res.data;
-        }
-    });
-
-    const updateMutation = useMutation({
-        mutationFn: async () => {
-            const res = await api.post('/system/cloakbrowser/update');
-            return res.data;
-        },
-        onSuccess: (data) => {
-            if (data.success) {
-                toast.success(data.message || "업데이트 성공");
-                queryClient.invalidateQueries({ queryKey: ['cloakbrowser_version'] });
-            } else {
-                toast.error(data.message || "업데이트 실패");
-                console.error(data.logs);
-            }
-        },
-        onError: (err: any) => {
-            toast.error("오류 발생: " + err.message);
-        }
-    });
-
-    return (
-        <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-muted/30 rounded-2xl border border-border">
-                <div className="space-y-1">
-                    <div className="font-bold text-sm text-foreground flex items-center gap-2">
-                        현재 설치된 버전
-                        {isLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                        ) : (
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-mono font-bold">
-                                v{data?.version || 'Unknown'}
-                            </Badge>
-                        )}
-                    </div>
-                    <p className="text-xs text-muted-foreground font-medium">
-                        CloakBrowser는 유튜브/틱톡 업로드 시 봇 탐지를 우회하는 핵심 엔진입니다.
-                    </p>
-                </div>
-                <Button 
-                    onClick={() => updateMutation.mutate()} 
-                    disabled={updateMutation.isPending}
-                    variant={updateMutation.isPending ? "outline" : "default"}
-                    className="min-w-[120px] font-bold shadow-2xs rounded-xl"
-                >
-                    {updateMutation.isPending ? (
-                        <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            업데이트 중...
-                        </>
-                    ) : (
-                        <>
-                            <RefreshCcw className="w-4 h-4 mr-2" />
-                            최신버전 패치
-                        </>
-                    )}
-                </Button>
-            </div>
-            
-            {updateMutation.data && !updateMutation.data.success && updateMutation.data.logs && (
-                <div className="mt-4 p-3 bg-rose-500/10 text-rose-400 text-xs rounded-xl border border-rose-500/30 whitespace-pre-wrap font-mono h-32 overflow-y-auto">
-                    {updateMutation.data.logs}
-                </div>
-            )}
-        </div>
-    );
-};
-
-const Settings = () => {
-    const navigate = useNavigate();
-    const queryClient = useQueryClient();
-    // Default global_auto_download to TRUE
-    const [formData, setFormData] = useState<Partial<SettingsType>>({
-        global_auto_download: true
-    });
-    const [isSaving, setIsSaving] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // Logs State
-    const [isLogOpen, setIsLogOpen] = useState(false);
-    const [logs, setLogs] = useState<string[]>([]);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [isScanning, setIsScanning] = useState(false);
-    const [isUpdatingOpenClaw, setIsUpdatingOpenClaw] = useState(false);
-    const [isSyncingPaperclip, setIsSyncingPaperclip] = useState(false);
-    const [isUpdatingPaperclip, setIsUpdatingPaperclip] = useState(false);
-    const [isSyncingOpenClaude, setIsSyncingOpenClaude] = useState(false);
-    const [isUpdatingOpenClaude, setIsUpdatingOpenClaude] = useState(false);
-    const [isUpdatingYtdlp, setIsUpdatingYtdlp] = useState(false);
-    const [agentVersions, setAgentVersions] = useState<Record<string, any>>({});
-
-    const fetchVersions = async () => {
-        try {
-            const res = await api.get('/settings/versions');
-            setAgentVersions(res.data);
-        } catch (e) {
-            console.error("Failed to fetch versions:", e);
-        }
-    };
-
-    useEffect(() => {
-        fetchVersions();
-    }, []);
-
-    // [NEW] Connectivity Test State
-    const [testResults, setTestResults] = useState<Record<string, { loading: boolean, success?: boolean, message?: string }>>({});
-
-    // [NEW] Quick Chat Test State
-    const [chatInput, setChatInput] = useState("");
-    const [chatResponse, setChatResponse] = useState("");
-    const [isChatLoading, setIsChatLoading] = useState(false);
-
-    const handleTestChat = async () => {
-        if (!chatInput.trim()) return;
-
-        setIsChatLoading(true);
-        setChatResponse("");
-
-        try {
-            const res = await api.post('/creative/test-chat', {
-                message: chatInput,
-                provider: formData.script_analysis_provider || 'opencode',
-                model: formData.script_analysis_model || 'opencode/deepseek-v4-flash-free'
-            });
-
-            setChatResponse(res.data.content || JSON.stringify(res.data, null, 2));
-            toast.success("채팅 테스트 응답 성공");
-        } catch (e: any) {
-            const errorMsg = e.response?.data?.detail || e.message;
-            setChatResponse(`오류 발생: ${errorMsg}`);
-            toast.error(`채팅 테스트 실패: ${errorMsg}`);
-        } finally {
-            setIsChatLoading(false);
-        }
-    };
-
-    const testConnection = async (provider: string, data: any) => {
-        setTestResults(prev => ({ ...prev, [provider]: { loading: true } }));
-        try {
-            const res = await api.post('/settings/test-connection', {
-                provider,
-                base_url: data.base_url,
-                api_key: data.api_key
-            });
-            setTestResults(prev => ({
-                ...prev,
-                [provider]: {
-                    loading: false,
-                    success: res.data.success,
-                    message: res.data.message || (res.data.success ? "연결 성공!" : "연결 실패")
-                }
-            }));
-            if (res.data.success) toast.success(`${provider} 연결 성공!`);
-            else toast.error(`${provider} 연결 실패: ${res.data.message}`);
-        } catch (e: any) {
-            setTestResults(prev => ({
-                ...prev,
-                [provider]: { loading: false, success: false, message: e.message }
-            }));
-            toast.error(`${provider} 테스트 오류: ${e.message}`);
-        }
-    };
-
-    // [NEW] Scheduler Status
-    const [nextRunTime, setNextRunTime] = useState<string | null>(null);
-
-    const [timeLeft, setTimeLeft] = useState<string>("");
-
-    // [NEW] Cleanup State
-    const [cleanupDays, setCleanupDays] = useState<number>(10);
-
-    // [NEW] Fetch Old Videos Count based on cleanupDays
-    const { data: oldVideosData, refetch: refetchOldVideos } = useQuery({
-        queryKey: ['oldVideosCount', cleanupDays],
-        queryFn: async () => (await api.get(`/maintenance/old-videos-count?days=${cleanupDays}`)).data,
-        enabled: true
-    });
-
-    const handleCleanup = async () => {
-        if (!oldVideosData || oldVideosData.count === 0) return;
-
-        if (!confirm(`${cleanupDays}일이 경과한 ${oldVideosData.count}개의 파일을 영구 삭제하시겠습니까?\n\n- 예상 확보 용량: ${oldVideosData.total_size_mb} MB`)) {
-            return;
-        }
-
-        try {
-            const res = await api.post(`/maintenance/cleanup-old-videos?days=${cleanupDays}&dry_run=false`);
-            toast.success(`삭제 완료: ${res.data.deleted_count}개 파일 정리됨`);
-            refetchOldVideos();
-            queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
-        } catch (e: any) {
-            toast.error(`삭제 실패: ${e.message}`);
-        }
-    };
-
-    // Poll logs when dialog is open
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isLogOpen) {
-            fetchLogs(); // Initial fetch
-            fetchSchedulerStatus(); // [NEW] Fetch schedule
-            interval = setInterval(fetchLogs, 2000);
-        }
-        return () => clearInterval(interval);
-    }, [isLogOpen]);
-
-    // [NEW] Countdown Timer
-    useEffect(() => {
-        if (!nextRunTime) {
-            setTimeLeft("");
-            return;
-        }
-
-        const updateTimer = () => {
-            const now = new Date();
-            const target = new Date(nextRunTime);
-            const diff = target.getTime() - now.getTime();
-
-            if (diff <= 0) {
-                setTimeLeft("실행 중...");
-                // Refetch to see next run if it finished
-                if (diff < -5000) fetchSchedulerStatus();
-            } else {
-                const minutes = Math.floor(diff / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
-                setTimeLeft(`${minutes}분 ${seconds}초 후 실행`);
-            }
-        };
-
-        updateTimer();
-        const timer = setInterval(updateTimer, 1000);
-        return () => clearInterval(timer);
-    }, [nextRunTime]);
-
-    const fetchSchedulerStatus = async () => {
-        try {
-            const res = await api.get('/system/scheduler-status');
-            if (res.data.next_run) {
-                setNextRunTime(res.data.next_run);
-            } else {
-                setNextRunTime(null);
-                setTimeLeft("스케줄러 대기 중");
-            }
-        } catch (e) {
-            console.error("Scheduler status error", e);
-        }
-    };
-
-    const fetchLogs = async () => {
-        try {
-            const res = await api.get('/logs/scheduler?lines=500');
-            setLogs(res.data.logs || []);
-        } catch (e) {
-            console.error("Failed to fetch logs", e);
-        }
-    };
-
-    const clearLogs = async () => {
-        if (!confirm("로그 기록을 삭제하시겠습니까?")) return;
-        try {
-            await api.delete('/logs/scheduler');
-            setLogs([]);
-            toast.success("로그가 삭제되었습니다.");
-        } catch (e) {
-            toast.error("로그 삭제 실패");
-        }
-    };
-
-    const triggerScan = async () => {
-        try {
-            setIsScanning(true);
-            await api.post('/logs/scan');
-            toast.success("스캔 요청이 전송되었습니다. 잠시 후 데이터가 갱신됩니다.");
-
-            // [FIX] Aggressive Invalidation to catch Async Backend Updates
-            // The backend scan is backgrounded, so we invalidate repeatedly to catch the completion.
-            const keys = [['videos'], ['channels'], ['dashboard_stats']];
-
-            // Immediate
-            keys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
-
-            // Delayed Refresh Sequence (3s, 8s, 15s)
-            [3000, 8000, 15000].forEach(delay => {
-                setTimeout(() => {
-                    keys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
-                }, delay);
-            });
-
-        } catch (e) {
-            toast.error("스캔 시작 실패");
-        } finally {
-            // Keep spinning for a bit implies "working"
-            setTimeout(() => setIsScanning(false), 3000);
-        }
-    };
-
-    const { data: settings, isLoading } = useQuery<SettingsType>({
-        queryKey: ['settings'],
-        queryFn: async () => (await api.get('/settings/')).data
-    });
-
-    const { data: maintenanceStatus, refetch: refetchMaintenance } = useQuery({
-        queryKey: ['maintenanceStatus'],
-        queryFn: async () => (await api.get('/system/maintenance-status')).data
-    });
-
-    const { data: ytdlpVersion, refetch: refetchVersion } = useQuery({
-        queryKey: ['ytdlpVersion'],
-        queryFn: async () => (await api.get('/system/ytdlp-version')).data
-    });
-
-    // Fetch Available Models for Script AI - Now handled by AIModelSelector component
-
-    useEffect(() => {
-        if (settings) {
-            setFormData({
-                ...settings,
-                kokoro_tts_url: settings.kokoro_tts_url || 'https://tts1.gogloo.gleeze.com'
-            });
-        }
-    }, [settings]);
-
-    const updateMutation = useMutation({
-        mutationFn: (data: Partial<SettingsType>) => api.put('/settings', data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['settings'] });
-            toast.success('설정이 저장되었습니다.');
-            setIsSaving(false);
-        },
-        onError: () => {
-            toast.error('설정 저장 실패');
-            setIsSaving(false);
-        }
-    });
-
-    const restoreMutation = useMutation({
-        mutationFn: (data: Partial<SettingsType>) => api.post('/settings/restore', data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['settings'] });
-            toast.success('설정이 성공적으로 복원되었습니다.');
-        },
-        onError: (e: any) => {
-            toast.error(`복원 실패: ${e.response?.data?.detail || e.message}`);
-        }
-    });
-
-    const handleSave = (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
-        updateMutation.mutate(formData);
-    };
-
-    const handlePickPath = async (field: keyof SettingsType, type: 'folder' | 'file') => {
-        try {
-            const endpoint = type === 'folder' ? '/system/pick-folder' : '/system/pick-file';
-            const res = await api.post(endpoint);
-            if (res.data.path) {
-                setFormData(prev => ({ ...prev, [field]: res.data.path }));
-            }
-        } catch (e) {
-            console.error("Path picker failed", e);
-            toast.error(`${type === 'folder' ? '폴더' : '파일'} 선택 창을 열 수 없습니다.`);
-        }
-    };
-
-    // --- Backup & Restore Logic ---
-    const handleBackup = () => {
-        if (!confirm("주의: 백업 파일에는 API 키가 포함됩니다.\n안전한 곳에 보관하세요.\n\n계속하시겠습니까?")) {
-            return;
-        }
-
-        const backupData = {
-            timestamp: new Date().toISOString(),
-            settings: formData
-        };
-
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `settings_backup_${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        toast.success("설정 백업 파일이 다운로드되었습니다.");
-    };
-
-    const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const json = JSON.parse(event.target?.result as string);
-                if (json.settings) {
-                    if (confirm(`백업 일자: ${json.timestamp}\n\n이 설정으로 복원하시겠습니까?`)) {
-                        restoreMutation.mutate(json.settings);
-                    }
-                } else {
-                    toast.error("올바르지 않은 백업 파일 형식입니다.");
-                }
-            } catch (err) {
-                toast.error("JSON 파싱 오류: 파일이 손상되었거나 올바르지 않습니다.");
-            }
-        };
-        reader.readAsText(file);
-        // Reset input
-        e.target.value = '';
-    };
-
-    const handleOpenClawUpdate = async () => {
-        if (!confirm("OpenClaw 시스템 최신 업데이트를 진행하시겠습니까?\n(git pull & npm install 수행)")) return;
-
-        setIsUpdatingOpenClaw(true);
-        try {
-            const res = await api.post('/settings/openclaw/update');
-            if (res.data.status === 'success') {
-                toast.success(res.data.message || "OpenClaw 업데이트 성공!");
-                fetchVersions();
-                queryClient.invalidateQueries({ queryKey: ['availableModels'] });
-            } else {
-                toast.error(`업데이트 실패: ${res.data.message}`);
-                console.error("Update logs:", res.data);
-            }
-        } catch (e: any) {
-            toast.error(`업데이트 서버 오류: ${e.message}`);
-        } finally {
-            setIsUpdatingOpenClaw(false);
-        }
-    };
-
-    const handlePaperclipSync = () => {
-        queryClient.invalidateQueries({ queryKey: ['availableModels'] });
-        toast.success("최신 모델 리스트를 동기화했습니다.");
-    };
-
-    const handlePaperclipUpdate = async () => {
-        if (!confirm("Paperclip 시스템 업데이트를 진행하시겠습니까?")) return;
-        setIsUpdatingPaperclip(true);
-        try {
-            const res = await api.post('/settings/paperclip/update');
-            toast.success(res.data.message || "Paperclip 업데이트 완료");
-            fetchVersions();
-        } catch (e: any) {
-            toast.error(`업데이트 실패: ${e.response?.data?.detail || e.message}`);
-        } finally {
-            setIsUpdatingPaperclip(false);
-        }
-    };
-
-    const handleOpenClaudeSync = () => {
-        queryClient.invalidateQueries({ queryKey: ['availableModels'] });
-        toast.success("최신 모델 리스트를 동기화했습니다.");
-    };
-
-    const handleOpenClaudeUpdate = async () => {
-        if (!confirm("OpenClaude 시스템 업데이트를 진행하시겠습니까?")) return;
-        setIsUpdatingOpenClaude(true);
-        try {
-            const res = await api.post('/settings/openclaude/update');
-            toast.success(res.data.message || "OpenClaude 업데이트 완료");
-            fetchVersions();
-        } catch (e: any) {
-            toast.error(`업데이트 실패: ${e.response?.data?.detail || e.message}`);
-        } finally {
-            setIsUpdatingOpenClaude(false);
-        }
-    };
-
-    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
-
-    return (
-        <div className="space-y-4 sm:space-y-6 max-w-4xl w-full mx-auto pb-44 md:pb-12 bg-background text-foreground min-h-screen font-sans min-w-0">
-            {/* 1. 상단 타이틀 헤더 바 */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-3 border-b border-border">
-                <div className="space-y-0.5">
-                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-                        <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
-                        <span>작업 환경 설정</span>
-                    </h1>
-                    <p className="text-[11px] sm:text-xs text-muted-foreground">
-                        AI 모델 API 키, 다운로드 경로, 자동화 스케줄 및 전역 시스템 환경 관리
-                    </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 w-full sm:w-auto shrink-0">
-                    <Button variant="outline" size="sm" onClick={handleBackup} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
-                        <Download className="w-3.5 h-3.5 mr-1.5" />
-                        설정 백업 (Export)
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
-                        <Upload className="w-3.5 h-3.5 mr-1.5" />
-                        설정 복원 (Import)
-                    </Button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        accept=".json"
-                        onChange={handleRestore}
-                    />
-                </div>
-            </div>
-
-            <div className="flex-1 w-full min-w-0">
-                <Tabs defaultValue="general" className="w-full min-w-0">
-                    {/* All 9 Tabs Visible on One Screen: 3x3 Grid on Mobile, Flex on Desktop */}
-                    <div className="w-full min-w-0 mb-5">
-                        <TabsList className="bg-muted/80 p-1.5 rounded-2xl border border-border shadow-2xs grid grid-cols-3 sm:flex sm:flex-nowrap gap-1.5 w-full h-auto min-w-0">
-                            <TabsTrigger value="general" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <SettingsIcon className="w-3.5 h-3.5 shrink-0 text-foreground" /> <span className="truncate">일반</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="intelligence" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <BrainCircuit className="w-3.5 h-3.5 shrink-0 text-primary" /> <span className="truncate">AI 지능</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="voice" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <Mic2 className="w-3.5 h-3.5 shrink-0 text-sky-400" /> <span className="truncate">음성</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="subtitles" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <MessageSquare className="w-3.5 h-3.5 shrink-0 text-emerald-400" /> <span className="truncate">자막</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="maintenance" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <Wrench className="w-3.5 h-3.5 shrink-0 text-rose-400" /> <span className="truncate">관리</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="hermes" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <BrainCircuit className="w-3.5 h-3.5 shrink-0 text-indigo-400" /> <span className="truncate">Loopie</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="system" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <SettingsIcon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" /> <span className="truncate">시스템</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="aigrid" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <Zap className="w-3.5 h-3.5 shrink-0 text-amber-400" /> <span className="truncate">AI Grid</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="browser" className="gap-1 px-1 sm:px-3.5 h-9 text-[11px] sm:text-xs font-bold rounded-xl w-full min-w-0">
-                                <Globe className="w-3.5 h-3.5 shrink-0 text-teal-400" /> <span className="truncate">브라우저</span>
-                            </TabsTrigger>
-                        </TabsList>
-                    </div>
-
-                    {/* --- TAB 1: GENERAL --- */}
-                    <TabsContent value="general">
-                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden w-full">
-                            <CardHeader className="bg-muted/30 border-b border-border py-3.5">
-                                <CardTitle className="text-base font-bold text-foreground">다운로드 및 시스템</CardTitle>
-                                <CardDescription className="text-xs">파일 경로와 자동화 설정을 관리합니다.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="pt-5">
-                                <form onSubmit={handleSave} className="space-y-6">
-                                    {/* Download Path */}
-                                    <div className="space-y-2">
-                                        <Label className="text-xs sm:text-sm font-bold text-foreground">기본 다운로드 경로</Label>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1 min-w-0 h-10 px-3.5 flex items-center rounded-xl border border-border bg-card text-foreground font-mono text-xs overflow-hidden select-all shadow-2xs">
-                                                <span className="truncate">{formData.root_download_path || <span className="text-muted-foreground italic">선택된 경로 없음</span>}</span>
-                                            </div>
-                                            <Button type="button" variant="outline" onClick={() => handlePickPath('root_download_path', 'folder')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
-                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {/* Cookies */}
-                                    <div className="space-y-2">
-                                        <Label className="text-xs sm:text-sm font-bold text-foreground">쿠키 파일 경로 (선택)</Label>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1 min-w-0 h-10 px-3.5 flex items-center rounded-xl border border-border bg-card text-foreground font-mono text-xs overflow-hidden select-all shadow-2xs">
-                                                <span className="truncate">{formData.cookies_path || <span className="text-muted-foreground italic">선택된 파일 없음</span>}</span>
-                                            </div>
-                                            <Button type="button" variant="outline" onClick={() => handlePickPath('cookies_path', 'file')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
-                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {/* Auto Download Switch */}
-                                    <div className="flex items-center space-x-3 border border-border p-3.5 rounded-2xl bg-muted/30">
-                                        <Switch id="global_dl" checked={formData.global_auto_download} onCheckedChange={(c) => setFormData({ ...formData, global_auto_download: c })} />
-                                        <Label htmlFor="global_dl" className="cursor-pointer font-bold text-xs sm:text-sm text-foreground">전역 자동 다운로드 활성화</Label>
-                                    </div>
-
-                                    {/* Scan Interval */}
-                                    <div className="space-y-2">
-                                        <Label className="text-xs sm:text-sm font-bold text-foreground">스캔 주기 (분)</Label>
-                                        <div className="flex gap-2 items-center">
-                                            <Input type="number" value={formData.scan_interval_minutes || 60} onChange={(e) => setFormData({ ...formData, scan_interval_minutes: parseInt(e.target.value) })} className="h-10 bg-card border-border rounded-xl text-xs sm:text-sm" />
-                                            <Button type="button" variant="outline" onClick={triggerScan} disabled={isScanning} className="h-10 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0 gap-1.5">
-                                                {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} 즉시 스캔
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {/* Auto Delete Interval */}
-                                    <div className="space-y-2 pt-4 border-t border-border">
-                                        <Label className="text-xs sm:text-sm font-bold text-foreground">완료/실패 영상 파일 자동 삭제 주기 (디스크 용량 확보)</Label>
-                                        <div className="flex gap-2 items-center">
-                                            <Select
-                                                value={(formData as any).auto_delete_mp4_days?.toString() || "7"}
-                                                onValueChange={(val) => setFormData({ ...formData, auto_delete_mp4_days: parseInt(val) } as any)}
-                                            >
-                                                <SelectTrigger className="w-full sm:w-[220px] bg-card border-border rounded-xl text-xs sm:text-sm text-foreground">
-                                                    <SelectValue placeholder="자동 삭제 주기 선택" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="7">7일 후 삭제</SelectItem>
-                                                    <SelectItem value="15">15일 후 삭제</SelectItem>
-                                                    <SelectItem value="30">1개월(30일) 후 삭제</SelectItem>
-                                                    <SelectItem value="60">2개월(60일) 후 삭제</SelectItem>
-                                                    <SelectItem value="90">3개월(90일) 후 삭제</SelectItem>
-                                                    <SelectItem value="0">삭제 안 함 (영구 보관)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground">
-                                            * 업로드 완료 또는 실패 후 설정한 기간이 지나면 PC 로컬의 .mp4 영상 파일만 안전하게 자동 삭제되며, 대기열 기록과 배포 완료 URL은 그대로 유지됩니다.
-                                        </p>
-                                    </div>
-
-                                    {/* [NEW] Outlier Pre-filtering Configuration */}
-                                    <div className="space-y-4 pt-4 border-t border-border">
-                                        <div className="space-y-0.5">
-                                            <Label className="font-bold flex items-center gap-2 text-foreground">
-                                                <TrendingUp className="w-4 h-4 text-primary" />
-                                                수집 기준 (Outlier Thresholds)
-                                            </Label>
-                                            <p className="text-xs text-muted-foreground">
-                                                자동 스캔 시 해당 기준을 넘지 못하는 평범한 영상은 DB에 수집되지 않습니다.
-                                            </p>
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/30 p-4 border border-border rounded-2xl">
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-bold text-muted-foreground">쇼츠 영상 EV 기준 (%)</Label>
-                                                <div className="flex items-center gap-2">
-                                                    <Input
-                                                        type="number"
-                                                        value={formData.outlier_ev_threshold ?? 120}
-                                                        onChange={e => setFormData({ ...formData, outlier_ev_threshold: parseInt(e.target.value) || 0 })}
-                                                        className="bg-card border-border rounded-xl"
-                                                    />
-                                                    <span className="text-sm font-bold text-muted-foreground">%</span>
-                                                </div>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    최근 채널 평균 조회수 대비 목표. (예: 120% = 평균보다 1.2배 높을 때 수집)
-                                                </p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-bold text-muted-foreground">일반 영상 Ratio 기준</Label>
-                                                <div className="flex items-center gap-2">
-                                                    <Input
-                                                        type="number" step="0.1"
-                                                        value={formData.outlier_ratio_threshold ?? 1.5}
-                                                        onChange={e => setFormData({ ...formData, outlier_ratio_threshold: parseFloat(e.target.value) || 0 })}
-                                                        className="bg-card border-border rounded-xl"
-                                                    />
-                                                    <span className="text-sm font-bold text-muted-foreground">x</span>
-                                                </div>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    채널 구독자 수 대비 조회수 비율. (예: 1.5 = 구독자보다 1.5배 많을 때 수집)
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Cleanup Old Videos Section */}
-                                    <div className="space-y-2 pt-4 border-t border-border">
-                                        <Label className="text-xs sm:text-sm font-bold text-foreground">오래된 영상 정리 (Clean up old videos)</Label>
-                                        <div className="flex flex-col sm:flex-row sm:items-end gap-3 p-3.5 bg-muted/30 border border-border rounded-2xl">
-                                            <div className="space-y-1">
-                                                <Label className="text-xs text-muted-foreground font-semibold">보관 기간 (일)</Label>
-                                                <div className="flex items-center gap-1.5">
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="icon"
-                                                        className="h-9 w-9 rounded-xl border-border bg-card text-foreground"
-                                                        onClick={() => setCleanupDays(Math.max(1, cleanupDays - 1))}
-                                                    >
-                                                        -
-                                                    </Button>
-                                                    <Input
-                                                        type="number"
-                                                        value={cleanupDays}
-                                                        onChange={(e) => setCleanupDays(Math.max(1, parseInt(e.target.value) || 1))}
-                                                        className="h-9 w-16 text-center font-bold bg-card border-border rounded-xl"
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="icon"
-                                                        className="h-9 w-9 rounded-xl border-border bg-card text-foreground"
-                                                        onClick={() => setCleanupDays(cleanupDays + 1)}
-                                                    >
-                                                        +
-                                                    </Button>
-                                                </div>
-                                            </div>
-
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                className="h-9 flex-1 font-bold rounded-xl"
-                                                disabled={!oldVideosData || oldVideosData.count === 0}
-                                                onClick={handleCleanup}
-                                            >
-                                                <Trash2 className="w-4 h-4 mr-1.5" />
-                                                {cleanupDays}일 경과 즉시 삭제
-                                                {oldVideosData && oldVideosData.count > 0 && (
-                                                    <span className="ml-1 text-xs opacity-80">
-                                                        ({oldVideosData.count}개, {oldVideosData.total_size_mb} MB)
-                                                    </span>
-                                                )}
-                                            </Button>
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground">
-                                            * 설정한 기간이 지난 원본 영상과 스크립트 파일을 즉시 삭제합니다.
-                                        </p>
-                                    </div>
-
-                                    <div className="pt-2">
-                                        <Button type="submit" disabled={isSaving} className="w-full md:w-auto h-11 px-8 text-xs sm:text-sm font-bold shadow-xs">
-                                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 설정 저장
-                                        </Button>
-                                    </div>
-                                </form>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    {/* --- TAB 2: INTELLIGENCE (LLM + Search) --- */}
-                    <TabsContent value="intelligence">
-                        <div className="space-y-6">
-                            <Alert className="bg-primary/10 border-primary/20 text-foreground">
-                                <BrainCircuit className="h-4 w-4 text-primary" />
-                                <AlertTitle className="text-foreground font-bold">AI 모델 및 검색 설정</AlertTitle>
-                                <AlertDescription className="text-muted-foreground text-xs">
-                                    대본 작성, 분석, 그리고 웹 검색을 위한 API 키를 관리합니다. 여러 키를 입력하면 자동으로 순환하여 사용됩니다.
-                                </AlertDescription>
-                            </Alert>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                                {/* Left Column: LLM Keys */}
-                                <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                    <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                        <CardTitle className="text-base font-bold">LLM API 설정</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6 pt-4">
-                                        <KeyListInput
-                                            label="Groq API Keys (Llama 3 고속 생성)"
-                                            keys={formData.groq_api_keys || []}
-                                            onChange={k => setFormData({ ...formData, groq_api_keys: k })}
-                                            placeholder="gsk_..."
-                                        />
-                                        <KeyListInput
-                                            label="Gemini API Keys"
-                                            keys={formData.gemini_api_keys || []}
-                                            onChange={k => setFormData({ ...formData, gemini_api_keys: k })}
-                                            placeholder="sk-..."
-                                        />
-                                        <KeyListInput
-                                            label="Fal.ai API Keys (Video/Image Gen)"
-                                            keys={formData.fal_api_keys || []}
-                                            onChange={k => setFormData({ ...formData, fal_api_keys: k })}
-                                            placeholder="fal_..."
-                                        />
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between items-center">
-                                                <Label className="text-xs sm:text-sm font-bold text-foreground">OpenRouter API Key</Label>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-7 text-[10px] px-2"
-                                                    onClick={() => testConnection("openrouter", { api_key: formData.openrouter_api_key })}
-                                                    disabled={testResults["openrouter"]?.loading}
-                                                >
-                                                    {testResults["openrouter"]?.loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCcw className="w-3 h-3 mr-1" />}
-                                                    테스트
-                                                </Button>
-                                            </div>
-                                            <Input type="password" value={formData.openrouter_api_key || ''} onChange={e => setFormData({ ...formData, openrouter_api_key: e.target.value })} placeholder="or-..." className="bg-card border-border rounded-xl" />
-                                        </div>
-
-                                        <div className="space-y-2 pt-4 border-t border-border">
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <Zap className="w-4 h-4 text-purple-500" />
-                                                    <Label className="font-bold text-foreground">OpenCode Zen API Keys</Label>
-                                                </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="h-8 gap-1 border-border bg-card rounded-lg font-bold"
-                                                    onClick={() => testConnection("opencode", { api_key: formData.opencode_api_keys?.[0] })}
-                                                    disabled={testResults["opencode"]?.loading}
-                                                >
-                                                    {testResults["opencode"]?.loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCcw className="w-3 h-3 mr-1" />}
-                                                    테스트
-                                                </Button>
-                                            </div>
-                                            <KeyListInput
-                                                label=""
-                                                keys={formData.opencode_api_keys || []}
-                                                onChange={k => setFormData({ ...formData, opencode_api_keys: k })}
-                                                placeholder="sk-..."
-                                            />
-                                            <p className="text-[10px] text-muted-foreground">
-                                                * OpenAI 호환 무료 모델 (DeepSeek V4 Flash, Nemotron 3, Qwen 3.6 등) 지원
-                                            </p>
-                                            {testResults["opencode"] && !testResults["opencode"].loading && (
-                                                <Alert className={cn("py-2", testResults["opencode"].success ? "bg-emerald-500/10 border-emerald-500/30" : "bg-rose-500/10 border-rose-500/30")}>
-                                                    <AlertDescription className={cn("text-[10px] font-bold", testResults["opencode"].success ? "text-emerald-500" : "text-rose-500")}>
-                                                        {testResults["opencode"].message}
-                                                    </AlertDescription>
-                                                </Alert>
-                                            )}
-                                        </div>
-
-                                        {/* [NEW] Ollama Settings */}
-                                        <div className="pt-4 border-t border-border space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Server className="w-4 h-4 text-amber-500" />
-                                                    <Label className="font-bold text-foreground">로컬 지능 (Ollama)</Label>
-                                                </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="h-8 gap-1 border-border bg-card rounded-lg font-bold"
-                                                    onClick={() => testConnection("ollama", { base_url: formData.ollama_api_base_url })}
-                                                    disabled={testResults["ollama"]?.loading}
-                                                >
-                                                    {testResults["ollama"]?.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />}
-                                                    연결 확인
-                                                </Button>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-xs text-muted-foreground font-semibold">API Base URL</Label>
-                                                <Input
-                                                    value={formData.ollama_api_base_url || 'http://localhost:11434/v1'}
-                                                    onChange={e => setFormData({ ...formData, ollama_api_base_url: e.target.value })}
-                                                    placeholder="http://localhost:11434/v1"
-                                                    className="bg-card border-border rounded-xl"
-                                                />
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    * 로컬에 설치된 Ollama 서버 주소입니다. (Gemma 3/4 백업용)
-                                                </p>
-                                            </div>
-                                            {testResults["ollama"] && !testResults["ollama"].loading && (
-                                                <Alert className={cn("py-2", testResults["ollama"].success ? "bg-emerald-500/10 border-emerald-500/30" : "bg-rose-500/10 border-rose-500/30")}>
-                                                    <AlertDescription className={cn("text-[10px] font-bold", testResults["ollama"].success ? "text-emerald-500" : "text-rose-500")}>
-                                                        {testResults["ollama"].message}
-                                                    </AlertDescription>
-                                                </Alert>
-                                            )}
-                                        </div>
-
-                                        <KeyListInput
-                                            label="SambaNova API Keys (Multi-line)"
-                                            keys={formData.sambanova_api_keys || []}
-                                            onChange={k => setFormData({ ...formData, sambanova_api_keys: k })}
-                                            placeholder="sk-..."
-                                        />
-                                        <div className="pt-4 border-t border-border space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Cpu className="w-4 h-4 text-emerald-500" />
-                                                    <Label className="font-bold text-foreground">NVIDIA NIM (Cloud/API)</Label>
-                                                </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="h-8 gap-1 border-border bg-card rounded-lg font-bold"
-                                                    onClick={() => testConnection("nvidia", { api_key: formData.nvidia_api_keys?.[0] })}
-                                                    disabled={testResults["nvidia"]?.loading}
-                                                >
-                                                    {testResults["nvidia"]?.loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCcw className="w-3 h-3 mr-1" />}
-                                                    테스트
-                                                </Button>
-                                            </div>
-                                            <KeyListInput
-                                                label=""
-                                                keys={formData.nvidia_api_keys || []}
-                                                onChange={k => setFormData({ ...formData, nvidia_api_keys: k })}
-                                                placeholder="nvapi-..."
-                                            />
-                                        </div>
-                                        <KeyListInput
-                                            label="Cerebras API Keys (Multi-line)"
-                                            keys={formData.cerebras_api_keys || []}
-                                            onChange={k => setFormData({ ...formData, cerebras_api_keys: k })}
-                                            placeholder="sk-..."
-                                        />
-                                        <div className="pt-4 border-t border-border space-y-4">
-                                            <div className="flex items-center gap-2">
-                                                <RadioReceiver className="w-4 h-4 text-amber-500" />
-                                                <Label className="font-bold text-foreground">YouTube1 (Custom OpenAI API)</Label>
-                                            </div>
-                                            <KeyListInput
-                                                label=""
-                                                keys={(formData as any).youtube1_api_keys || []}
-                                                onChange={k => setFormData({ ...formData, youtube1_api_keys: k } as any)}
-                                                placeholder="sk-..."
-                                            />
-                                            <p className="text-[10px] text-muted-foreground">
-                                                * http://localhost:20128/v1 (9router API) 모델: youtube1
-                                            </p>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Right Column: Web Search & Model Config */}
-                                <div className="space-y-6">
-                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                            <CardTitle className="flex items-center gap-2 text-base font-bold">
-                                                <Search className="w-4 h-4 text-primary" /> Web Search Strategy
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4 pt-4">
-                                            <div className="space-y-1">
-                                                <Label className="text-xs font-bold text-muted-foreground">Search Engine Strategy</Label>
-                                                <Select
-                                                    value={formData.web_search_engine || "searxng_first"}
-                                                    onValueChange={(val) => setFormData({ ...formData, web_search_engine: val })}
-                                                >
-                                                    <SelectTrigger className="bg-card border-border rounded-xl">
-                                                        <SelectValue placeholder="Select Strategy" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="searxng_first">SearXNG (Backup: Tavily)</SelectItem>
-                                                        <SelectItem value="tavily_first">Tavily (Backup: SearXNG)</SelectItem>
-                                                        <SelectItem value="searxng_only">SearXNG Only</SelectItem>
-                                                        <SelectItem value="tavily_only">Tavily Only</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    * 검색 엔진 우선순위를 설정합니다. (기본값: SearXNG 우선)
-                                                </p>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                            <CardTitle className="flex items-center gap-2 text-base font-bold">
-                                                <Globe className="w-4 h-4 text-sky-500" /> Web Search (Tavily)
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="pt-4">
-                                            <KeyListInput
-                                                label="Tavily API Keys (리서치 도구)"
-                                                keys={formData.tavily_api_keys || []}
-                                                onChange={k => setFormData({ ...formData, tavily_api_keys: k })}
-                                                placeholder="tvly-..."
-                                            />
-                                            <p className="text-[10px] text-muted-foreground mt-2">
-                                                * 키가 없으면 리서치 기능이 'Mock(가상)' 모드로 동작합니다.
-                                            </p>
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                            <CardTitle className="flex items-center gap-2 text-base font-bold">
-                                                <Search className="w-4 h-4 text-amber-500" /> Web Search (SearXNG)
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-2 pt-4">
-
-                                            <div className="space-y-1">
-                                                <Label className="text-xs font-bold text-muted-foreground">SearXNG Server URL</Label>
-                                                <Input
-                                                    value={formData.searxng_url || ''}
-                                                    onChange={e => setFormData({ ...formData, searxng_url: e.target.value })}
-                                                    placeholder="https://search.gogloo.gleeze.com/search"
-                                                    className="bg-card border-border rounded-xl"
-                                                />
-                                            </div>
-                                            <p className="text-[10px] text-muted-foreground">
-                                                * 유튜브 키워드 검색기에서 사용하는 검색 엔진 주소입니다.
-                                            </p>
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                            <CardTitle className="flex items-center gap-2 text-base font-bold">
-                                                <Globe className="w-4 h-4 text-purple-500" /> Web Fetch (Jina Reader)
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-2 pt-4">
-                                            <div className="space-y-1">
-                                                <Label className="text-xs font-bold text-muted-foreground">Jina Reader Endpoint</Label>
-                                                <Input
-                                                    value={formData.jina_reader_endpoint || ''}
-                                                    onChange={e => setFormData({ ...formData, jina_reader_endpoint: e.target.value })}
-                                                    placeholder="http://localhost:20128/v1/web/fetch"
-                                                    className="bg-card border-border rounded-xl"
-                                                />
-                                            </div>
-                                            <KeyListInput
-                                                label="Jina API Keys"
-                                                keys={formData.jina_reader_api_keys || []}
-                                                onChange={k => setFormData({ ...formData, jina_reader_api_keys: k })}
-                                                placeholder="Bearer sk-..."
-                                            />
-                                            <p className="text-[10px] text-muted-foreground mt-2">
-                                                * 실시간 트렌드 및 블루오션 시그널 수집에 사용되는 고성능 웹 스크래퍼입니다.
-                                            </p>
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                            <CardTitle className="text-base font-bold">기본 분석 모델</CardTitle>
-                                            <CardDescription>
-                                                대본 작성, 분석, 그리고 검색을 위한 AI 기능을 관리합니다.
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="pt-4">
-                                            <AIModelSelector
-                                                provider={formData.script_analysis_provider || 'opencode'}
-                                                onProviderChange={(val) => setFormData(prev => ({ ...prev, script_analysis_provider: val }))}
-                                                model={formData.script_analysis_model || 'opencode/deepseek-v4-flash-free'}
-                                                onModelChange={(val) => setFormData(prev => ({ ...prev, script_analysis_model: val }))}
-                                                showPreset={false}
-                                            />
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* [NEW] Quick Model Verification Chat */}
-                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                        <CardHeader className="pb-3 bg-muted/30 border-b border-border">
-                                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
-                                                <MessageSquare className="w-4 h-4 text-primary" /> 지능 검증 퀵 채팅
-                                            </CardTitle>
-                                            <CardDescription className="text-xs">
-                                                위에서 선택한 모델과 직접 대화하여 기능을 확인합니다.
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-3 pt-4">
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    placeholder="질문을 입력하세요... (예: 안녕?)"
-                                                    value={chatInput}
-                                                    onChange={e => setChatInput(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleTestChat()}
-                                                    disabled={isChatLoading}
-                                                    className="bg-card border-border rounded-xl"
-                                                />
-                                                <Button
-                                                    size="sm"
-                                                    onClick={handleTestChat}
-                                                    disabled={isChatLoading || !chatInput.trim()}
-                                                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl"
-                                                >
-                                                    {isChatLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "전송"}
-                                                </Button>
-                                            </div>
-
-                                            {chatResponse && (
-                                                <div className="p-3.5 rounded-xl bg-muted/30 border border-border shadow-2xs">
-                                                    <p className="text-[10px] uppercase font-bold text-primary mb-1">AI Response</p>
-                                                    <div className="text-xs whitespace-pre-wrap leading-relaxed text-foreground font-medium">
-                                                        {chatResponse}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* [NEW] Pluggable Cognitive Brain Configurations */}
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <BrainCircuit className="w-5 h-5 text-primary animate-pulse" />
-                                            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">에이전트 지능 코어 설정 (Agentic OS Brains)</h3>
-                                        </div>
-
-                                        {/* 1. OpenClaude (마스터 기획 / 스텔스 운영) */}
-                                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                            <CardHeader className="pb-3 bg-muted/30 border-b border-border">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="p-2 bg-purple-500/10 rounded-xl">
-                                                            <Wrench className="w-5 h-5 text-purple-500" />
-                                                        </div>
-                                                        <div>
-                                                            <CardTitle className="text-base font-bold text-foreground">OpenClaude / OpenHands</CardTitle>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-[10px] h-4">Master Planner / Stealth Operator</Badge>
-                                                                <span className="text-[10px] text-muted-foreground italic">Logical AI Core</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <CardDescription className="text-xs mb-1 leading-relaxed">
-                                                    전체 생산 파이프라인 기획(OpenClaude) 및 OS/코드 터미널 실행(OpenHands)을 담당하는 지휘 통제 모델을 설정합니다.
-                                                </CardDescription>
-                                            </CardHeader>
-                                            <CardContent className="pt-4">
-                                                <AIModelSelector
-                                                    provider={formData.openclaude_provider || 'google'}
-                                                    onProviderChange={(val) => setFormData(prev => ({ ...prev, openclaude_provider: val }))}
-                                                    model={formData.openclaude_model || ''}
-                                                    onModelChange={(val) => setFormData(prev => ({ ...prev, openclaude_model: val }))}
-                                                    showPreset={false}
-                                                />
-                                            </CardContent>
-                                        </Card>
-
-                                        {/* 2. Hermes (추론 & 자율 생산) */}
-                                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                            <CardHeader className="pb-3 bg-muted/30 border-b border-border">
-                                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="p-2 bg-indigo-500/10 rounded-xl">
-                                                            <Cpu className="w-5 h-5 text-indigo-500" />
-                                                        </div>
-                                                        <div>
-                                                            <CardTitle className="text-base font-bold text-foreground">Hermes 지능 & 워크플로우</CardTitle>
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                <Badge variant="outline" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 text-[10px] h-4">Worker Bees</Badge>
-                                                                <span className="text-[10px] text-muted-foreground italic">Strategy Engine</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="h-8 gap-2 bg-card text-foreground border-border hover:bg-muted rounded-xl self-start"
-                                                        onClick={() => window.open(`http://${window.location.hostname}:9119`, '_blank')}
-                                                    >
-                                                        <ExternalLink className="w-3 h-3" /> n8n 대시보드
-                                                    </Button>
-                                                </div>
-
-                                                <CardDescription className="text-xs mb-1 leading-relaxed">
-                                                    ViraLoop의 세부 작업 실행 및 자율 콘텐츠 생산을 처리하는 논리 엔진을 설정합니다. n8n 워크플로우 대시보드에서 연동 상태를 관리할 수 있습니다.
-                                                </CardDescription>
-                                            </CardHeader>
-                                            <CardContent className="pt-4">
-                                                <AIModelSelector
-                                                    provider={(formData as any).hermes_agent_provider || 'google'}
-                                                    onProviderChange={(val) => setFormData(prev => ({ ...prev, hermes_agent_provider: val } as any))}
-                                                    model={(formData as any).hermes_agent_model || ''}
-                                                    onModelChange={(val) => setFormData(prev => ({ ...prev, hermes_agent_model: val } as any))}
-                                                    showPreset={false}
-                                                />
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex justify-end">
-                                <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">{isSaving && <Loader2 className="mr-2 animate-spin" />}설정 저장</Button>
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="hermes">
-                        <LoopieTab />
-                    </TabsContent>
-
-
-
-                    {/* --- TAB 3: VOICE (TTS) --- */}
-                    <TabsContent value="voice">
-                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                            <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                <CardTitle className="text-base font-bold">음성 합성 (TTS)</CardTitle>
-                                <CardDescription className="text-xs">ElevenLabs, Typecast 등 TTS 서비스 키를 관리합니다.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6 pt-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <KeyListInput
-                                        label="ElevenLabs Keys"
-                                        keys={formData.elevenlabs_api_keys || []}
-                                        onChange={k => setFormData({ ...formData, elevenlabs_api_keys: k })}
-                                        placeholder="sk_..."
-                                    />
-                                    <KeyListInput
-                                        label="Typecast API Keys"
-                                        keys={formData.typecast_api_keys || []}
-                                        onChange={k => setFormData({ ...formData, typecast_api_keys: k })}
-                                    />
-
-                                    {/* Supertonic Local Config */}
-                                    <div className="space-y-4 pt-4 border-t border-border col-span-1 md:col-span-2">
-                                        <div className="flex items-center justify-between">
-                                            <div className="space-y-0.5">
-                                                <Label className="text-sm font-bold flex items-center gap-2 text-foreground">
-                                                    <Zap className="w-4 h-4 text-amber-500" />
-                                                    Supertonic Local (On-Device)
-                                                </Label>
-                                                <p className="text-xs text-muted-foreground">
-                                                    로컬 ONNX 모델을 사용하여 음성을 생성합니다. (빠르고 무료, GPU 권장)
-                                                </p>
-                                            </div>
-                                            <Switch
-                                                checked={formData.supertone_local_enabled !== false}
-                                                onCheckedChange={c => setFormData({ ...formData, supertone_local_enabled: c })}
-                                            />
-                                        </div>
-
-                                        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end bg-muted/30 p-4 rounded-2xl border border-border">
-                                            <div className="space-y-2 flex-1">
-                                                <Label className="text-xs font-bold text-muted-foreground">모델 경로 (Models Path)</Label>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        value={formData.supertone_model_path || 'backend/models/supertonic'}
-                                                        onChange={e => setFormData({ ...formData, supertone_model_path: e.target.value })}
-                                                        placeholder="backend/models/supertonic"
-                                                        className="bg-card border-border rounded-xl"
-                                                    />
-                                                    <Button variant="outline" onClick={() => handlePickPath('supertone_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card rounded-xl shrink-0">
-                                                        <FolderOpen className="w-4 h-4" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                            <Button
-                                                variant="secondary"
-                                                className="h-10 font-bold bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl shrink-0"
-                                                onClick={async () => {
-                                                    try {
-                                                        const res = await api.post('/tools/tts/supertonic/download');
-                                                        toast.success(res.data.message || "모델 다운로드 시작됨");
-                                                    } catch (e) {
-                                                        toast.error("모델 다운로드 요청 실패 (콘솔 확인)");
-                                                    }
-                                                }}
-                                            >
-                                                <Download className="w-4 h-4 mr-2" />
-                                                모델 다운로드/갱신
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label className="text-xs sm:text-sm font-bold text-foreground">Kokoro TTS 서버 URL</Label>
-                                        <Input value={formData.kokoro_tts_url || ''} onChange={e => setFormData({ ...formData, kokoro_tts_url: e.target.value })} className="bg-card border-border rounded-xl" />
-                                    </div>
-                                </div>
-                                <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">{isSaving && <Loader2 className="mr-2 animate-spin" />}저장</Button>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    {/* --- TAB 4: SUBTITLES --- */}
-                    <TabsContent value="subtitles">
-                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                            <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                <CardTitle className="text-base font-bold">자막 및 트랜스크립션</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6 pt-4">
-                                <Alert className="bg-primary/10 border-primary/20 text-foreground">
-                                    <Info className="h-4 w-4 text-primary" />
-                                    <AlertTitle className="font-bold">FFmpeg Status</AlertTitle>
-                                    <AlertDescription>
-                                        {formData.ffmpeg_status && formData.ffmpeg_status !== 'Missing' ? (
-                                            <div className="flex flex-col gap-1 mt-1">
-                                                <p className="font-mono text-xs bg-muted/40 p-2 rounded-lg break-all border border-border">{formData.ffmpeg_status}</p>
-                                                <p className="text-xs text-emerald-400 font-bold">시스템 내부 FFmpeg가 활성화되어 있습니다.</p>
-                                            </div>
-                                        ) : (
-                                            "시스템 내부 FFmpeg가 활성화되어 있습니다. 별도 설정이 필요하지 않습니다."
-                                        )}
-                                    </AlertDescription>
-                                </Alert>
-                                <div className="space-y-2">
-                                    <Label className="text-xs sm:text-sm font-bold text-foreground">Whisper 모델 경로</Label>
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex-1 min-w-0 h-10 px-3.5 flex items-center rounded-xl border border-border bg-card text-foreground font-mono text-xs overflow-hidden select-all shadow-2xs">
-                                            <span className="truncate">{formData.whisper_model_path || <span className="text-muted-foreground italic">기본 Whisper 모델 경로 사용</span>}</span>
-                                        </div>
-                                        <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card hover:bg-muted rounded-xl shrink-0 font-bold text-foreground">
-                                            <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
-                                        </Button>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-bold text-muted-foreground">기본 모델 크기</Label>
-                                        <Select value={formData.default_model_size || 'base'} onValueChange={v => setFormData({ ...formData, default_model_size: v })}>
-                                            <SelectTrigger className="bg-card border-border rounded-xl"><SelectValue /></SelectTrigger>
-                                            <SelectContent><SelectItem value="base">Base</SelectItem><SelectItem value="small">Small</SelectItem><SelectItem value="medium">Medium</SelectItem></SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-bold text-muted-foreground">기본 언어</Label>
-                                        <Select value={formData.default_language || 'ko'} onValueChange={v => setFormData({ ...formData, default_language: v })}>
-                                            <SelectTrigger className="bg-card border-border rounded-xl"><SelectValue /></SelectTrigger>
-                                            <SelectContent><SelectItem value="auto">자동</SelectItem><SelectItem value="ko">한국어</SelectItem><SelectItem value="en">영어</SelectItem></SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">{isSaving && <Loader2 className="mr-2 animate-spin" />}저장</Button>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-
-                    {/* --- TAB 5: MAINTENANCE --- */}
-                    <TabsContent value="maintenance">
-                        <div className="space-y-6">
-                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                    <CardTitle className="text-base font-bold text-rose-500">로그 및 초기화</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4 pt-4">
-                                    <div className="flex gap-2">
-                                        <Button variant="secondary" onClick={() => setIsLogOpen(true)} className="w-full h-10 font-bold bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl">
-                                            로그 뷰어 열기
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                <CardHeader className="bg-muted/30 border-b border-border py-3">
-                                    <CardTitle className="text-base font-bold">시스템 업데이트</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4 pt-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-0.5">
-                                            <Label className="text-xs sm:text-sm font-bold text-foreground">yt-dlp 자동 업데이트</Label>
-                                            <p className="text-xs text-muted-foreground">매주 최신 버전으로 업데이트합니다.</p>
-                                        </div>
-                                        <Switch checked={formData.ytdlp_auto_update} onCheckedChange={c => setFormData({ ...formData, ytdlp_auto_update: c })} />
-                                    </div>
-                                    <div className="pt-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-muted/30 p-3.5 rounded-2xl border border-border">
-                                        <div className="text-xs sm:text-sm">
-                                            <span className="text-muted-foreground mr-2 font-medium">현재 버전:</span>
-                                            <span className="font-mono font-bold text-foreground">{ytdlpVersion?.version || maintenanceStatus?.version || 'Unknown'}</span>
-                                        </div>
-                                        <Button variant="outline" size="sm" disabled={isUpdatingYtdlp} onClick={async () => {
-                                            setIsUpdatingYtdlp(true);
-                                            try {
-                                                const res = await apiLong.post('/system/update-ytdlp');
-                                                if (res.data.success) {
-                                                    toast.success(res.data.message);
-                                                } else {
-                                                    toast.error(res.data.message || 'Update Failed');
-                                                }
-                                                refetchVersion();
-                                            } catch (e: any) {
-                                                toast.error(e?.response?.data?.message || e?.message || 'Update Failed');
-                                            } finally {
-                                                setIsUpdatingYtdlp(false);
-                                            }
-                                        }} className="h-9 px-4 font-bold border-border bg-card rounded-xl self-end sm:self-auto">
-                                            {isUpdatingYtdlp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            {isUpdatingYtdlp ? '업데이트 중...' : '지금 업데이트'}
-                                        </Button>
-                                    </div>
-                                    <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">설정 저장</Button>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="border-rose-500/30 bg-rose-500/5 shadow-2xs rounded-2xl overflow-hidden">
-                                <CardHeader className="bg-rose-500/10 border-b border-rose-500/20 py-3">
-                                    <CardTitle className="text-rose-500 flex items-center gap-2 text-base font-bold">
-                                        <AlertTriangle className="w-5 h-5" />
-                                        위험 구역
-                                    </CardTitle>
-                                    <CardDescription className="text-xs text-rose-400/80">
-                                        데이터베이스를 초기화하면 모든 채널 및 영상 기록이 영구적으로 삭제됩니다.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="pt-4">
-                                    <Button
-                                        type="button"
-                                        variant="destructive"
-                                        className="w-full h-10 font-bold rounded-xl"
-                                        onClick={async () => {
-                                            if (confirm("경고: 데이터베이스를 초기화하면 모든 채널 등록 정보와 영상 기록이 삭제됩니다.\n정말로 계속하시겠습니까?")) {
-                                                try {
-                                                    await api.post('/system/reset-database');
-                                                    toast.success("데이터베이스가 초기화되었습니다.");
-                                                    queryClient.invalidateQueries();
-                                                } catch (e: any) {
-                                                    toast.error("초기화 실패: " + e.message);
-                                                }
-                                            }
-                                        }}
-                                    >
-                                        데이터베이스 초기화
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </TabsContent>
-
-                    {/* --- TAB 6: SYSTEM --- */}
-                    <TabsContent value="system">
-                        <SystemSettingsTab />
-                    </TabsContent>
-
-                    {/* --- TAB 8: BROWSER (Anti-detect) --- */}
-                    <TabsContent value="browser">
-                        <div className="grid gap-6">
-                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
-                                    <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-                                        <Globe className="w-5 h-5 text-emerald-500" />
-                                        자체 개발 브라우저 (CloakBrowser) 버전 패치
-                                    </CardTitle>
-                                    <CardDescription className="text-xs">
-                                        최신 우회 패치가 적용된 CloakBrowser 버전을 확인하고 자동 업데이트할 수 있습니다.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-6 pt-6">
-                                    <CloakBrowserUpdater />
-                                </CardContent>
-                            </Card>
-
-                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
-                                    <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-                                        <Globe className="w-5 h-5 text-emerald-500" />
-                                        서드파티 브라우저 (iXBrowser) 연동 설정
-                                    </CardTitle>
-                                    <CardDescription className="text-xs">
-                                        iXBrowser를 사용할 경우의 로컬 API 주소를 설정합니다.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-6 pt-6">
-                                    <div className="space-y-4 max-w-md">
-                                        <div className="space-y-2">
-                                            <Label className="text-xs sm:text-sm font-bold text-foreground">iXBrowser API Base URL</Label>
-                                            <Input
-                                                value={formData.ixbrowser_api_url || 'http://127.0.0.1:4320'}
-                                                onChange={e => setFormData({ ...formData, ixbrowser_api_url: e.target.value })}
-                                                placeholder="http://127.0.0.1:4320"
-                                                className="bg-card border-border rounded-xl"
-                                            />
-                                            <p className="text-[10px] text-muted-foreground">
-                                                * iXBrowser 클라이언트가 실행 중인 로컬 API 주소입니다.
-                                            </p>
-                                        </div>
-                                        <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">
-                                            {isSaving && <Loader2 className="mr-2 animate-spin w-4 h-4" />}설정 저장
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
-                                    <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-                                        <Globe className="w-5 h-5 text-emerald-500" />
-                                        네트워크 및 다중 프록시 라우팅 전략
-                                    </CardTitle>
-                                    <CardDescription className="text-xs">
-                                        통신사 테더링 차단 우회 및 IP 관리를 위한 프록시 연동 방식을 선택합니다.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-6 pt-6">
-                                    <div className="space-y-4 max-w-xl">
-                                        <div className="space-y-2">
-                                            <Label className="text-xs sm:text-sm font-bold text-foreground">프록시 모드 선택</Label>
-                                            <Select value={formData.proxy_mode || 'DIRECT_LTE'} onValueChange={v => setFormData({...formData, proxy_mode: v})}>
-                                                <SelectTrigger className="bg-card border-border rounded-xl text-xs sm:text-sm">
-                                                    <SelectValue placeholder="프록시 모드를 선택하세요" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="DIRECT_LTE">📱 스마트폰 USB 직접 연결 (LTE 바인딩 - 기본)</SelectItem>
-                                                    <SelectItem value="NETSHARE">🔗 안드로이드 프록시 우회 모드 (EveryProxy, NetShare 등)</SelectItem>
-                                                    <SelectItem value="ISP_PROXY">🌐 외부 ISP 프록시 (유료 IP)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        
-                                        {formData.proxy_mode === 'NETSHARE' && (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border border-border p-4 rounded-2xl bg-muted/30">
-                                                <div className="space-y-2">
-                                                    <Label className="text-xs font-bold text-muted-foreground">NetShare IP 주소</Label>
-                                                    <Input 
-                                                        value={formData.netshare_ip || '192.168.49.1'} 
-                                                        onChange={e => setFormData({...formData, netshare_ip: e.target.value})}
-                                                        className="bg-card border-border rounded-xl"
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="text-xs font-bold text-muted-foreground">NetShare 포트</Label>
-                                                    <Input 
-                                                        type="number"
-                                                        value={formData.netshare_port || 8282} 
-                                                        onChange={e => setFormData({...formData, netshare_port: parseInt(e.target.value) || 8282})}
-                                                        className="bg-card border-border rounded-xl"
-                                                    />
-                                                </div>
-                                                <p className="col-span-1 sm:col-span-2 text-xs text-muted-foreground mt-1">
-                                                    * 핸드폰의 NetShare 앱을 켜고 하단에 표시되는 Address와 Port를 입력하세요. (보통 192.168.49.1 : 8282)
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {formData.proxy_mode === 'ISP_PROXY' && (
-                                            <div className="space-y-2 border border-border p-4 rounded-2xl bg-muted/30">
-                                                <Label className="text-xs font-bold text-muted-foreground">ISP 프록시 주소 (SOCKS5 / HTTP)</Label>
-                                                <Input 
-                                                    value={formData.isp_proxy_url || ''} 
-                                                    onChange={e => setFormData({...formData, isp_proxy_url: e.target.value})}
-                                                    placeholder="socks5://username:password@12.34.56.78:1080"
-                                                    className="bg-card border-border rounded-xl"
-                                                />
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    * 구매하신 유료 프록시 주소를 입력하세요. ID/PW 인증이 포함된 주소 형식을 지원합니다.
-                                                </p>
-                                            </div>
-                                        )}
-                                        
-                                        <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">
-                                            {isSaving && <Loader2 className="mr-2 animate-spin w-4 h-4" />}라우팅 설정 저장
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </TabsContent>
-
-                    {/* --- TAB 7: AI GRID (Nodes) --- */}
-                    <TabsContent value="aigrid">
-                        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-                            <CardHeader className="bg-muted/30 border-b border-border py-3.5">
-                                <CardTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-                                    <Zap className="w-5 h-5 text-amber-500" />
-                                    AI Grid 분산 노드 설정
-                                </CardTitle>
-                                <CardDescription className="text-xs">
-                                    Audio Node와 Visual Node의 주소 및 API 키를 관리합니다.
-                                    (Colab 또는 전용 서버 연동용)
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6 pt-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Audio Node Section */}
-                                    <div className="space-y-4 p-4 border border-border rounded-2xl bg-muted/30">
-                                        <div className="flex items-center gap-2 font-bold text-base text-sky-500">
-                                            <Mic2 className="w-5 h-5" /> Audio Node (TTS)
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-muted-foreground">Node URL</Label>
-                                            <Input
-                                                value={formData.audio_node_url || ''}
-                                                onChange={e => setFormData({ ...formData, audio_node_url: e.target.value })}
-                                                placeholder="https://...ngrok-free.dev"
-                                                className="bg-card border-border rounded-xl"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-muted-foreground">API Key (Optional)</Label>
-                                            <Input
-                                                type="password"
-                                                value={formData.audio_node_api_key || ''}
-                                                onChange={e => setFormData({ ...formData, audio_node_api_key: e.target.value })}
-                                                placeholder="Node API Key"
-                                                className="bg-card border-border rounded-xl"
-                                            />
-                                        </div>
-                                        <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-xl border border-border">
-                                            * Qwen3-TTS 모델이 실행되고 있는 서버 주소를 입력하세요.
-                                        </div>
-                                    </div>
-
-                                    {/* Visual Node Section */}
-                                    <div className="space-y-4 p-4 border border-border rounded-2xl bg-muted/30">
-                                        <div className="flex items-center gap-2 font-bold text-base text-purple-500">
-                                            <Play className="w-5 h-5" /> Visual Node (Image/Video)
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-muted-foreground">Node URL</Label>
-                                            <Input
-                                                value={formData.visual_node_url || ''}
-                                                onChange={e => setFormData({ ...formData, visual_node_url: e.target.value })}
-                                                placeholder="https://...ngrok-free.dev"
-                                                className="bg-card border-border rounded-xl"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-muted-foreground">API Key (Optional)</Label>
-                                            <Input
-                                                type="password"
-                                                value={formData.visual_node_api_key || ''}
-                                                onChange={e => setFormData({ ...formData, visual_node_api_key: e.target.value })}
-                                                placeholder="Node API Key"
-                                                className="bg-card border-border rounded-xl"
-                                            />
-                                        </div>
-                                        <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-xl border border-border">
-                                            * SDXL 및 Zeroscopev2 모델이 실행되고 있는 서버 주소를 입력하세요.
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col gap-3 pt-4 border-t border-border">
-                                    <div className="flex items-start gap-2.5 text-xs text-amber-500 bg-amber-500/10 p-3.5 rounded-2xl border border-amber-500/20">
-                                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="font-bold">주의사항</p>
-                                            <p className="text-muted-foreground mt-0.5">노드 주소가 올바르지 않으면 AI 자산 생성 기능이 동작하지 않습니다. Ngrok 주소의 경우 일정 시간이 지나면 주소가 변경될 수 있으니 확인 후 업데이트해주세요.</p>
-                                        </div>
-                                    </div>
-                                    <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl">
-                                        {isSaving && <Loader2 className="mr-2 animate-spin" />}설정 저장
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
-            </div>
-
-            {/* Explicit Mobile Bottom Navigation Clearance Spacer */}
-            <div className="h-28 md:hidden shrink-0 pointer-events-none" aria-hidden="true" />
-
-            {/* Logs Dialog (Kept Global) */}
-            <Dialog open={isLogOpen} onOpenChange={setIsLogOpen}>
-                <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
-                    <DialogHeader>
-                        <DialogTitle>시스템 로그</DialogTitle>
-                        <DialogDescription>스케줄러 및 시스템 동작 로그입니다.</DialogDescription>
-                        {/* Error Warning Banner */}
-                        {logs.some(l => l.includes('ERROR') || l.includes('CRITICAL')) && (
-                            <Alert variant="destructive" className="mt-2 py-2">
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle className="text-sm font-semibold">오류 발견됨</AlertTitle>
-                                <AlertDescription className="text-xs">
-                                    로그에 에러 메시지가 포함되어 있습니다. 아래 내용을 확인하세요.
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        {/* Search Input inside Dialog */}
-                        <div className="flex gap-2 mt-2">
-                            <Input
-                                placeholder="로그 검색 (예: ERROR, job_id...)"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="h-8 text-xs font-mono"
-                            />
-                            <Button variant="ghost" size="sm" className="h-8 text-red-500" onClick={clearLogs}><Trash2 className="w-4 h-4 mr-1" /> 비우기</Button>
-                        </div>
-                    </DialogHeader>
-                    <ScrollArea className="flex-1 border rounded bg-black p-4">
-                        <div className="space-y-1 font-mono text-xs">
-                            {logs.filter(l => l.toLowerCase().includes(searchQuery.toLowerCase())).map((log, i) => (
-                                <div key={i} className={cn(
-                                    "break-all border-b border-slate-200 pb-0.5 mb-0.5",
-                                    log.includes("ERROR") ? "text-red-400 font-bold" :
-                                        log.includes("WARNING") ? "text-yellow-400" :
-                                            log.includes("INFO") ? "text-blue-300" : "text-slate-700"
-                                )}>
-                                    {log}
-                                </div>
-                            ))}
-                            {logs.length === 0 && <div className="text-slate-500 text-center py-10">로그가 없습니다.</div>}
-                        </div>
-                    </ScrollArea>
-                </DialogContent>
-            </Dialog>
-        </div>
-    );
-};
-
-export default Settings;
+import React, { useState, useEffect, useRef } from 'react';
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useNavigate } from 'react-router-dom';
+
+import api, { apiLong, Settings as SettingsType } from '../lib/api';
+
+import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2 } from 'lucide-react';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+import { cn } from "@/lib/utils";
+
+import { Label } from "@/components/ui/label";
+
+import { Badge } from "@/components/ui/badge";
+
+import { Button } from "@/components/ui/button";
+
+import { toast } from "sonner";
+
+import { Input } from "@/components/ui/input";
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { Switch } from "@/components/ui/switch";
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+import AIModelSelector from '@/components/shared/AIModelSelector';
+
+import { SystemSettingsTab } from './SystemSettingsTab';
+
+// Helper Component for Key Lists
+
+const KeyListInput = ({
+
+    label,
+
+    keys,
+
+    onChange,
+
+    placeholder = "sk-..."
+
+}: {
+
+    label: string,
+
+    keys: string[],
+
+    onChange: (keys: string[]) => void,
+
+    placeholder?: string
+
+}) => {
+
+    const [inputVal, setInputVal] = useState("");
+
+    const addKey = () => {
+
+        if (inputVal.trim()) {
+
+            onChange([...keys, inputVal.trim()]);
+
+            setInputVal("");
+
+        }
+
+    };
+
+    return (
+
+        <div className="space-y-2">
+
+            {label && <Label className="text-xs sm:text-sm font-bold text-foreground">{label}</Label>}
+
+            <div className="border border-border rounded-xl p-2.5 bg-muted/30 space-y-2 max-h-[140px] overflow-y-auto">
+
+                {keys.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">키가 등록되지 않았습니다.</p>}
+
+                {keys.map((k, i) => (
+
+                    <div key={i} className="flex items-center gap-2">
+
+                        <Input value={k} readOnly className="h-8 text-xs bg-card text-foreground font-mono border-border rounded-lg" type="password" />
+
+                        <Button variant="ghost" size="sm" onClick={() => onChange(keys.filter((_, idx) => idx !== i))} className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 shrink-0"><Trash2 className="w-4 h-4" /></Button>
+
+                    </div>
+
+                ))}
+
+            </div>
+
+            <div className="flex gap-2">
+
+                <Input
+
+                    value={inputVal}
+
+                    onChange={e => setInputVal(e.target.value)}
+
+                    placeholder={placeholder}
+
+                    className="h-9 text-xs sm:text-sm bg-card border-border rounded-lg"
+
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addKey())}
+
+                />
+
+                <Button variant="secondary" size="sm" onClick={addKey} className="shrink-0 h-9 font-bold px-3.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-lg">추가</Button>
+
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">여러 키를 등록하면 자동으로 순환하여 사용됩니다.</p>
+
+        </div>
+
+    );
+
+};
+
+const CloakBrowserUpdater = () => {
+
+    const queryClient = useQueryClient();
+
+    const { data, isLoading } = useQuery({
+
+        queryKey: ['cloakbrowser_version'],
+
+        queryFn: async () => {
+
+            const res = await api.get('/system/cloakbrowser/version');
+
+            return res.data;
+
+        }
+
+    });
+
+    const updateMutation = useMutation({
+
+        mutationFn: async () => {
+
+            const res = await api.post('/system/cloakbrowser/update');
+
+            return res.data;
+
+        },
+
+        onSuccess: (data) => {
+
+            if (data.success) {
+
+                toast.success(data.message || "업데이트 성공");
+
+                queryClient.invalidateQueries({ queryKey: ['cloakbrowser_version'] });
+
+            } else {
+
+                toast.error(data.message || "업데이트 실패");
+
+                console.error(data.logs);
+
+            }
+
+        },
+
+        onError: (err: any) => {
+
+            toast.error("오류 발생: " + err.message);
+
+        }
+
+    });
+
+    return (
+
+        <div className="space-y-4">
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-muted/30 rounded-2xl border border-border">
+
+                <div className="space-y-1">
+
+                    <div className="font-bold text-sm text-foreground flex items-center gap-2">
+
+                        현재 설치된 버전
+
+                        {isLoading ? (
+
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+
+                        ) : (
+
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-mono font-bold">
+
+                                v{data?.version || 'Unknown'}
+
+                            </Badge>
+
+                        )}
+
+                    </div>
+
+                    <p className="text-xs text-muted-foreground font-medium">
+
+                        CloakBrowser는 유튜브/틱톡 업로드 시 봇 탐지를 우회하는 핵심 엔진입니다.
+
+                    </p>
+
+                </div>
+
+                <Button 
+
+                    onClick={() => updateMutation.mutate()} 
+
+                    disabled={updateMutation.isPending}
+
+                    variant={updateMutation.isPending ? "outline" : "default"}
+
+                    className="min-w-[120px] font-bold shadow-2xs rounded-xl"
+
+                >
+
+                    {updateMutation.isPending ? (
+
+                        <>
+
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+
+                            업데이트 중...
+
+                        </>
+
+                    ) : (
+
+                        <>
+
+                            <RefreshCcw className="w-4 h-4 mr-2" />
+
+                            최신버전 패치
+
+                        </>
+
+                    )}
+
+                </Button>
+
+            </div>
+
+            
+
+            {updateMutation.data && !updateMutation.data.success && updateMutation.data.logs && (
+
+                <div className="mt-4 p-3 bg-rose-500/10 text-rose-400 text-xs rounded-xl border border-rose-500/30 whitespace-pre-wrap font-mono h-32 overflow-y-auto">
+
+                    {updateMutation.data.logs}
+
+                </div>
+
+            )}
+
+        </div>
+
+    );
+
+};
+
+const Settings = () => {
+
+    const navigate = useNavigate();
+
+    const queryClient = useQueryClient();
+
+    // Default global_auto_download to TRUE
+
+    const [formData, setFormData] = useState<Partial<SettingsType>>({
+
+        global_auto_download: true
+
+    });
+
+    const [isSaving, setIsSaving] = useState(false);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Logs State
+
+    const [isLogOpen, setIsLogOpen] = useState(false);
+
+    const [logs, setLogs] = useState<string[]>([]);
+
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const [isScanning, setIsScanning] = useState(false);
+
+    const [isUpdatingOpenClaw, setIsUpdatingOpenClaw] = useState(false);
+
+    const [isSyncingOpenClaude, setIsSyncingOpenClaude] = useState(false);
+
+    const [isUpdatingOpenClaude, setIsUpdatingOpenClaude] = useState(false);
+
+    const [isUpdatingYtdlp, setIsUpdatingYtdlp] = useState(false);
+
+    const [agentVersions, setAgentVersions] = useState<Record<string, any>>({});
+
+    const fetchVersions = async () => {
+
+        try {
+
+            const res = await api.get('/settings/versions');
+
+            setAgentVersions(res.data);
+
+        } catch (e) {
+
+            console.error("Failed to fetch versions:", e);
+
+        }
+
+    };
+
+    useEffect(() => {
+
+        fetchVersions();
+
+    }, []);
+
+    // [NEW] Connectivity Test State
+
+    const [testResults, setTestResults] = useState<Record<string, { loading: boolean, success?: boolean, message?: string }>>({});
+
+    // [NEW] Quick Chat Test State
+
+    const [chatInput, setChatInput] = useState("");
+
+    const [chatResponse, setChatResponse] = useState("");
+
+    const [isChatLoading, setIsChatLoading] = useState(false);
+
+    const handleTestChat = async () => {
+
+        if (!chatInput.trim()) return;
+
+        setIsChatLoading(true);
+
+        setChatResponse("");
+
+        try {
+
+            const res = await api.post('/creative/test-chat', {
+
+                message: chatInput,
+
+                provider: formData.script_analysis_provider || 'youtube1',
+
+                model: formData.script_analysis_model || 'youtube1/youtube1'
+
+            });
+
+            setChatResponse(res.data.content || JSON.stringify(res.data, null, 2));
+
+            toast.success("채팅 테스트 응답 성공");
+
+        } catch (e: any) {
+
+            const errorMsg = e.response?.data?.detail || e.message;
+
+            setChatResponse(`오류 발생: ${errorMsg}`);
+
+            toast.error(`채팅 테스트 실패: ${errorMsg}`);
+
+        } finally {
+
+            setIsChatLoading(false);
+
+        }
+
+    };
+
+    const testConnection = async (provider: string, data: any) => {
+
+        setTestResults(prev => ({ ...prev, [provider]: { loading: true } }));
+
+        try {
+
+            const res = await api.post('/settings/test-connection', {
+
+                provider,
+
+                base_url: data.base_url,
+
+                api_key: data.api_key
+
+            });
+
+            setTestResults(prev => ({
+
+                ...prev,
+
+                [provider]: {
+
+                    loading: false,
+
+                    success: res.data.success,
+
+                    message: res.data.message || (res.data.success ? "연결 성공!" : "연결 실패")
+
+                }
+
+            }));
+
+            if (res.data.success) toast.success(`${provider} 연결 성공!`);
+
+            else toast.error(`${provider} 연결 실패: ${res.data.message}`);
+
+        } catch (e: any) {
+
+            setTestResults(prev => ({
+
+                ...prev,
+
+                [provider]: { loading: false, success: false, message: e.message }
+
+            }));
+
+            toast.error(`${provider} 테스트 오류: ${e.message}`);
+
+        }
+
+    };
+
+    // [NEW] Scheduler Status
+
+    const [nextRunTime, setNextRunTime] = useState<string | null>(null);
+
+    const [timeLeft, setTimeLeft] = useState<string>("");
+
+    // [NEW] Cleanup State
+
+    const [cleanupDays, setCleanupDays] = useState<number>(10);
+
+    const handleCleanupDaysChange = (val: number) => {
+
+        const safeVal = Math.max(1, val);
+
+        setCleanupDays(safeVal);
+
+        setFormData(prev => ({ ...prev, cleanup_days: safeVal }));
+
+    };
+
+    // [NEW] Fetch Old Videos Count based on cleanupDays
+
+    const { data: oldVideosData, refetch: refetchOldVideos } = useQuery({
+
+        queryKey: ['oldVideosCount', cleanupDays],
+
+        queryFn: async () => (await api.get(`/maintenance/old-videos-count?days=${cleanupDays}`)).data,
+
+        enabled: true
+
+    });
+
+    const handleCleanup = async () => {
+
+        if (!oldVideosData || oldVideosData.count === 0) return;
+
+        if (!confirm(`${cleanupDays}일이 경과한 ${oldVideosData.count}개의 파일을 영구 삭제하시겠습니까?\n\n- 예상 확보 용량: ${oldVideosData.total_size_mb} MB`)) {
+
+            return;
+
+        }
+
+        try {
+
+            const res = await api.post(`/maintenance/cleanup-old-videos?days=${cleanupDays}&dry_run=false`);
+
+            toast.success(`삭제 완료: ${res.data.deleted_count}개 파일 정리됨`);
+
+            refetchOldVideos();
+
+            queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] });
+
+        } catch (e: any) {
+
+            toast.error(`삭제 실패: ${e.message}`);
+
+        }
+
+    };
+
+    // Poll logs when dialog is open
+
+    useEffect(() => {
+
+        let interval: NodeJS.Timeout;
+
+        if (isLogOpen) {
+
+            fetchLogs(); // Initial fetch
+
+            fetchSchedulerStatus(); // [NEW] Fetch schedule
+
+            interval = setInterval(fetchLogs, 2000);
+
+        }
+
+        return () => clearInterval(interval);
+
+    }, [isLogOpen]);
+
+    // [NEW] Countdown Timer
+
+    useEffect(() => {
+
+        if (!nextRunTime) {
+
+            setTimeLeft("");
+
+            return;
+
+        }
+
+        const updateTimer = () => {
+
+            const now = new Date();
+
+            const target = new Date(nextRunTime);
+
+            const diff = target.getTime() - now.getTime();
+
+            if (diff <= 0) {
+
+                setTimeLeft("실행 중...");
+
+                // Refetch to see next run if it finished
+
+                if (diff < -5000) fetchSchedulerStatus();
+
+            } else {
+
+                const minutes = Math.floor(diff / 60000);
+
+                const seconds = Math.floor((diff % 60000) / 1000);
+
+                setTimeLeft(`${minutes}분 ${seconds}초 후 실행`);
+
+            }
+
+        };
+
+        updateTimer();
+
+        const timer = setInterval(updateTimer, 1000);
+
+        return () => clearInterval(timer);
+
+    }, [nextRunTime]);
+
+    const fetchSchedulerStatus = async () => {
+
+        try {
+
+            const res = await api.get('/system/scheduler-status');
+
+            if (res.data.next_run) {
+
+                setNextRunTime(res.data.next_run);
+
+            } else {
+
+                setNextRunTime(null);
+
+                setTimeLeft("스케줄러 대기 중");
+
+            }
+
+        } catch (e) {
+
+            console.error("Scheduler status error", e);
+
+        }
+
+    };
+
+    const fetchLogs = async () => {
+
+        try {
+
+            const res = await api.get('/logs/scheduler?lines=500');
+
+            setLogs(res.data.logs || []);
+
+        } catch (e) {
+
+            console.error("Failed to fetch logs", e);
+
+        }
+
+    };
+
+    const clearLogs = async () => {
+
+        if (!confirm("로그 기록을 삭제하시겠습니까?")) return;
+
+        try {
+
+            await api.delete('/logs/scheduler');
+
+            setLogs([]);
+
+            toast.success("로그가 삭제되었습니다.");
+
+        } catch (e) {
+
+            toast.error("로그 삭제 실패");
+
+        }
+
+    };
+
+    const triggerScan = async () => {
+
+        try {
+
+            setIsScanning(true);
+
+            await api.post('/logs/scan');
+
+            toast.success("스캔 요청이 전송되었습니다. 잠시 후 데이터가 갱신됩니다.");
+
+            // [FIX] Aggressive Invalidation to catch Async Backend Updates
+
+            // The backend scan is backgrounded, so we invalidate repeatedly to catch the completion.
+
+            const keys = [['videos'], ['channels'], ['dashboard_stats']];
+
+            // Immediate
+
+            keys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
+
+            // Delayed Refresh Sequence (3s, 8s, 15s)
+
+            [3000, 8000, 15000].forEach(delay => {
+
+                setTimeout(() => {
+
+                    keys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
+
+                }, delay);
+
+            });
+
+        } catch (e) {
+
+            toast.error("스캔 시작 실패");
+
+        } finally {
+
+            // Keep spinning for a bit implies "working"
+
+            setTimeout(() => setIsScanning(false), 3000);
+
+        }
+
+    };
+
+    const { data: settings, isLoading } = useQuery<SettingsType>({
+
+        queryKey: ['settings'],
+
+        queryFn: async () => (await api.get('/settings/')).data
+
+    });
+
+    const { data: maintenanceStatus, refetch: refetchMaintenance } = useQuery({
+
+        queryKey: ['maintenanceStatus'],
+
+        queryFn: async () => (await api.get('/system/maintenance-status')).data
+
+    });
+
+    const { data: ytdlpVersion, refetch: refetchVersion } = useQuery({
+
+        queryKey: ['ytdlpVersion'],
+
+        queryFn: async () => (await api.get('/system/ytdlp-version')).data
+
+    });
+
+    const { data: supertonicStatus, refetch: refetchSupertonic } = useQuery({
+
+        queryKey: ['supertonicStatus'],
+
+        queryFn: async () => (await api.get('/tools/tts/supertonic/status')).data
+
+    });
+
+    const [isUpdatingSupertonic, setIsUpdatingSupertonic] = useState(false);
+
+    const [isTestingKokoro, setIsTestingKokoro] = useState(false);
+
+    const [isTestingIxBrowser, setIsTestingIxBrowser] = useState(false);
+
+    // Fetch Available Models for Script AI - Now handled by AIModelSelector component
+
+    useEffect(() => {
+
+        if (settings) {
+
+            setFormData({
+
+                ...settings,
+
+                kokoro_tts_url: settings.kokoro_tts_url || 'https://tts1.gogloo.gleeze.com'
+
+            });
+
+            if (settings.cleanup_days !== undefined && settings.cleanup_days !== null) {
+
+                setCleanupDays(settings.cleanup_days);
+
+            }
+
+        }
+
+    }, [settings]);
+
+    const updateMutation = useMutation({
+
+        mutationFn: (data: Partial<SettingsType>) => api.put('/settings', data),
+
+        onSuccess: () => {
+
+            queryClient.invalidateQueries({ queryKey: ['settings'] });
+
+            toast.success('설정이 저장되었습니다.');
+
+            setIsSaving(false);
+
+        },
+
+        onError: () => {
+
+            toast.error('설정 저장 실패');
+
+            setIsSaving(false);
+
+        }
+
+    });
+
+    const restoreMutation = useMutation({
+
+        mutationFn: async (data: Partial<SettingsType>) => (await api.post('/settings/restore', data)).data,
+
+        onSuccess: (updatedData: SettingsType) => {
+
+            queryClient.invalidateQueries({ queryKey: ['settings'] });
+
+            if (updatedData) {
+
+                setFormData(updatedData);
+
+                if (updatedData.cleanup_days) {
+
+                    setCleanupDays(updatedData.cleanup_days);
+
+                }
+
+            }
+
+            toast.success('설정이 성공적으로 복원되었습니다.');
+
+        },
+
+        onError: (e: any) => {
+
+            toast.error(`복원 실패: ${e.response?.data?.detail || e.message}`);
+
+        }
+
+    });
+
+    const handleSave = (e: React.FormEvent) => {
+
+        e.preventDefault();
+
+        setIsSaving(true);
+
+        updateMutation.mutate(formData);
+
+    };
+
+    const handlePickPath = async (field: keyof SettingsType, type: 'folder' | 'file') => {
+
+        try {
+
+            // 1. Try Electron native dialog if available in Desktop environment
+
+            const electron = (window as any).electron;
+
+            if (electron && electron.ipcRenderer) {
+
+                if (type === 'folder') {
+
+                    const res = await electron.ipcRenderer.invoke('fs:select-work-folder');
+
+                    if (res && res.success && res.path) {
+
+                        setFormData(prev => ({ ...prev, [field]: res.path }));
+
+                        toast.success(`경로가 설정되었습니다: ${res.path}`);
+
+                        return;
+
+                    }
+
+                }
+
+            }
+
+            // 2. Fallback to backend native Windows dialog via API
+
+            const endpoint = type === 'folder' ? '/system/pick-folder' : '/system/pick-file';
+
+            const res = await api.post(endpoint);
+
+            if (res.data && res.data.path) {
+
+                setFormData(prev => ({ ...prev, [field]: res.data.path }));
+
+                toast.success(`경로가 설정되었습니다: ${res.data.path}`);
+
+            } else if (res.data && res.data.status === 'cancelled') {
+
+                // User cancelled, no error
+
+            } else {
+
+                toast.info("원하시는 경로를 직접 입력 필드에 입력하실 수도 있습니다.");
+
+            }
+
+        } catch (e: any) {
+
+            console.error("Path picker failed", e);
+
+            toast.error(`${type === 'folder' ? '폴더' : '파일'} 선택 창을 여는 중 오류가 발생했습니다. 직접 입력해 주세요.`);
+
+        }
+
+    };
+
+    // --- Modernized Clean Settings Backup & Restore Logic ---
+
+    const handleBackup = () => {
+
+        if (!confirm("주의: 백업 파일에는 API 키가 포함됩니다.\n안전한 곳에 보관하세요.\n\n계속하시겠습니까?")) {
+
+            return;
+
+        }
+
+        // 현재 작업 환경 설정에서 실제 사용하는 핵심 17개 설정만 정제(Sanitize)하여 추출
+
+        const cleanSettings = {
+
+            // 1. 일반 및 저장소
+
+            root_download_path: formData.root_download_path ?? '',
+
+            cookies_path: formData.cookies_path ?? '',
+
+            global_auto_download: formData.global_auto_download !== false,
+
+            scan_interval_minutes: formData.scan_interval_minutes ?? 120,
+
+            auto_delete_mp4_days: formData.auto_delete_mp4_days ?? 7,
+
+            cleanup_days: formData.cleanup_days ?? cleanupDays ?? 10,
+
+            // 2. AI 지능 및 게이트웨이 (9router AI Gateway)
+
+            youtube1_api_keys: formData.youtube1_api_keys ?? [],
+
+            script_analysis_provider: formData.script_analysis_provider ?? 'youtube1',
+
+            script_analysis_model: formData.script_analysis_model ?? 'youtube1/youtube1',
+
+            // 3. 음성 및 자막
+
+            elevenlabs_api_keys: formData.elevenlabs_api_keys ?? [],
+
+            typecast_api_keys: formData.typecast_api_keys ?? [],
+
+            supertone_local_enabled: formData.supertone_local_enabled !== false,
+
+            supertone_model_path: formData.supertone_model_path ?? '',
+
+            kokoro_tts_url: formData.kokoro_tts_url ?? 'https://tts1.gogloo.gleeze.com',
+
+            whisper_model_path: formData.whisper_model_path ?? '',
+
+            default_model_size: formData.default_model_size ?? 'base',
+
+            default_language: formData.default_language ?? 'ko',
+
+            // 4. 스텔스 및 프록시
+
+            ixbrowser_api_url: formData.ixbrowser_api_url ?? 'http://127.0.0.1:53200',
+
+            proxy_mode: formData.proxy_mode ?? 'DIRECT_LTE',
+
+            isp_proxy_url: formData.isp_proxy_url ?? null,
+
+            // 5. 시스템 및 유지보수
+
+            ytdlp_auto_update: formData.ytdlp_auto_update !== false,
+
+            enable_view_stats_collection: formData.enable_view_stats_collection !== false,
+
+        };
+
+        const backupData = {
+
+            app: "ViraLoop Studio",
+
+            schema_version: "2.0",
+
+            timestamp: new Date().toISOString(),
+
+            settings: cleanSettings
+
+        };
+
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+
+        a.href = url;
+
+        a.download = `viral_loop_settings_${new Date().toISOString().slice(0, 10)}.json`;
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        document.body.removeChild(a);
+
+        window.URL.revokeObjectURL(url);
+
+        toast.success("작업 환경 설정 백업 파일이 다운로드되었습니다.");
+
+    };
+
+    const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+        const file = e.target.files?.[0];
+
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = (event) => {
+
+            try {
+
+                const json = JSON.parse(event.target?.result as string);
+
+                
+
+                // 구버전 및 신버전 포맷 지원
+
+                let rawSettings: any = null;
+
+                if (json.settings && typeof json.settings === 'object') {
+
+                    if (json.settings.general || json.settings.ai_gateway) {
+
+                        rawSettings = {
+
+                            ...(json.settings.general || {}),
+
+                            ...(json.settings.ai_gateway || {}),
+
+                            ...(json.settings.voice_subtitles || {}),
+
+                            ...(json.settings.stealth_proxy || {}),
+
+                            ...(json.settings.system || {})
+
+                        };
+
+                    } else {
+
+                        rawSettings = json.settings;
+
+                    }
+
+                } else if (typeof json === 'object') {
+
+                    rawSettings = json;
+
+                }
+
+                if (!rawSettings || typeof rawSettings !== 'object') {
+
+                    toast.error("올바르지 않은 백업 파일 형식입니다.");
+
+                    return;
+
+                }
+
+                // 현재 시스템에 유효한 핵심 필드만 추출하여 정제 (Sanitize)
+
+                const sanitizedSettings: Partial<SettingsType> = {
+
+                    root_download_path: rawSettings.root_download_path,
+
+                    cookies_path: rawSettings.cookies_path,
+
+                    global_auto_download: rawSettings.global_auto_download,
+
+                    scan_interval_minutes: rawSettings.scan_interval_minutes,
+
+                    auto_delete_mp4_days: rawSettings.auto_delete_mp4_days,
+
+                    cleanup_days: rawSettings.cleanup_days,
+
+                    youtube1_api_keys: Array.isArray(rawSettings.youtube1_api_keys) ? rawSettings.youtube1_api_keys : undefined,
+
+                    script_analysis_provider: rawSettings.script_analysis_provider,
+
+                    script_analysis_model: rawSettings.script_analysis_model,
+
+                    elevenlabs_api_keys: Array.isArray(rawSettings.elevenlabs_api_keys) ? rawSettings.elevenlabs_api_keys : undefined,
+
+                    typecast_api_keys: Array.isArray(rawSettings.typecast_api_keys) ? rawSettings.typecast_api_keys : undefined,
+
+                    supertone_local_enabled: rawSettings.supertone_local_enabled,
+
+                    supertone_model_path: rawSettings.supertone_model_path,
+
+                    kokoro_tts_url: rawSettings.kokoro_tts_url,
+
+                    whisper_model_path: rawSettings.whisper_model_path,
+
+                    default_model_size: rawSettings.default_model_size,
+
+                    default_language: rawSettings.default_language,
+
+                    ixbrowser_api_url: rawSettings.ixbrowser_api_url,
+
+                    proxy_mode: rawSettings.proxy_mode,
+
+                    isp_proxy_url: rawSettings.isp_proxy_url,
+
+                    ytdlp_auto_update: rawSettings.ytdlp_auto_update,
+
+                    enable_view_stats_collection: rawSettings.enable_view_stats_collection,
+
+                };
+
+                // undefined 키 정리
+
+                Object.keys(sanitizedSettings).forEach(key => {
+
+                    if ((sanitizedSettings as any)[key] === undefined) {
+
+                        delete (sanitizedSettings as any)[key];
+
+                    }
+
+                });
+
+                const dateStr = json.timestamp ? new Date(json.timestamp).toLocaleString() : '확인 불가';
+
+                const versionStr = json.schema_version ? `(v${json.schema_version})` : '(구버전 포맷)';
+
+                if (confirm(`[설정 복원 확인]\n\n• 백업 일자: ${dateStr} ${versionStr}\n• 복원 항목: 일반/저장소, 9router AI, TTS/자막, 스텔스/프록시, 시스템 유지보수\n\n현재 환경에 이 설정을 적용하시겠습니까?`)) {
+
+                    restoreMutation.mutate(sanitizedSettings);
+
+                }
+
+            } catch (err: any) {
+
+                toast.error(`JSON 파싱 오류: ${err.message || '파일이 손상되었거나 올바르지 않습니다.'}`);
+
+            }
+
+        };
+
+        reader.readAsText(file);
+
+        e.target.value = '';
+
+    };
+
+    const handleOpenClawUpdate = async () => {
+
+        if (!confirm("OpenClaw 시스템 최신 업데이트를 진행하시겠습니까?\n(git pull & npm install 수행)")) return;
+
+        setIsUpdatingOpenClaw(true);
+
+        try {
+
+            const res = await api.post('/settings/openclaw/update');
+
+            if (res.data.status === 'success') {
+
+                toast.success(res.data.message || "OpenClaw 업데이트 성공!");
+
+                fetchVersions();
+
+                queryClient.invalidateQueries({ queryKey: ['availableModels'] });
+
+            } else {
+
+                toast.error(`업데이트 실패: ${res.data.message}`);
+
+                console.error("Update logs:", res.data);
+
+            }
+
+        } catch (e: any) {
+
+            toast.error(`업데이트 서버 오류: ${e.message}`);
+
+        } finally {
+
+            setIsUpdatingOpenClaw(false);
+
+        }
+
+    };
+
+    const handleOpenClaudeSync = () => {
+
+        queryClient.invalidateQueries({ queryKey: ['availableModels'] });
+
+        toast.success("최신 모델 리스트를 동기화했습니다.");
+
+    };
+
+    const handleOpenClaudeUpdate = async () => {
+
+        if (!confirm("OpenClaude 시스템 업데이트를 진행하시겠습니까?")) return;
+
+        setIsUpdatingOpenClaude(true);
+
+        try {
+
+            const res = await api.post('/settings/openclaude/update');
+
+            toast.success(res.data.message || "OpenClaude 업데이트 완료");
+
+            fetchVersions();
+
+        } catch (e: any) {
+
+            toast.error(`업데이트 실패: ${e.response?.data?.detail || e.message}`);
+
+        } finally {
+
+            setIsUpdatingOpenClaude(false);
+
+        }
+
+    };
+
+    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
+
+    return (
+
+        <div className="space-y-4 sm:space-y-6 max-w-4xl w-full mx-auto pb-44 md:pb-12 bg-background text-foreground min-h-screen font-sans min-w-0">
+
+            {/* 1. 상단 타이틀 헤더 바 */}
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-3 border-b border-border">
+
+                <div className="space-y-0.5">
+
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+
+                        <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+
+                        <span>작업 환경 설정</span>
+
+                    </h1>
+
+                    <p className="text-[11px] sm:text-xs text-muted-foreground">
+
+                        AI 모델 API 키, 다운로드 경로, 자동화 스케줄 및 전역 시스템 환경 관리
+
+                    </p>
+
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 w-full sm:w-auto shrink-0">
+
+                    <Button variant="outline" size="sm" onClick={handleBackup} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
+
+                        <Download className="w-3.5 h-3.5 mr-1.5" />
+
+                        설정 백업 (Export)
+
+                    </Button>
+
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-9 text-xs sm:text-sm font-semibold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs">
+
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
+
+                        설정 복원 (Import)
+
+                    </Button>
+
+                    <input
+
+                        type="file"
+
+                        ref={fileInputRef}
+
+                        className="hidden"
+
+                        accept=".json"
+
+                        onChange={handleRestore}
+
+                    />
+
+                </div>
+
+            </div>
+
+            <div className="flex-1 w-full min-w-0">
+
+                <Tabs defaultValue="general" className="w-full min-w-0">
+
+                    {/* Modern 5-Tab Architecture */}
+
+                    <div className="w-full min-w-0 mb-5 overflow-x-auto pb-1">
+
+                        <TabsList className="bg-muted/80 p-1.5 rounded-2xl border border-border shadow-2xs flex flex-row flex-nowrap gap-1.5 h-auto min-w-max w-full">
+
+                            <TabsTrigger value="general" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+
+                                <SettingsIcon className="w-4 h-4 shrink-0 text-foreground" /> <span>일반 & 저장소</span>
+
+                            </TabsTrigger>
+
+                            <TabsTrigger value="intelligence" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+
+                                <BrainCircuit className="w-4 h-4 shrink-0 text-primary" /> <span>AI 지능 & 모델</span>
+
+                            </TabsTrigger>
+
+                            <TabsTrigger value="voice_subtitles" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+
+                                <Mic2 className="w-4 h-4 shrink-0 text-sky-400" /> <span>음성 & 자막</span>
+
+                            </TabsTrigger>
+
+                            <TabsTrigger value="stealth_proxy" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+
+                                <Globe className="w-4 h-4 shrink-0 text-teal-400" /> <span>스텔스 & 프록시</span>
+
+                            </TabsTrigger>
+
+                            <TabsTrigger value="system_maintenance" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+
+                                <Wrench className="w-4 h-4 shrink-0 text-amber-400" /> <span>시스템 & 유지보수</span>
+
+                            </TabsTrigger>
+
+                        </TabsList>
+
+                    </div>
+
+                    {/* ========================================================= */}
+
+                    {/* --- TAB 1: GENERAL & STORAGE (일반 및 저장소) --- */}
+
+                    {/* ========================================================= */}
+
+                    <TabsContent value="general">
+
+                        <div className="space-y-6">
+
+                            {/* Card 1: Storage & Cookie Paths */}
+
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden w-full">
+
+                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+
+                                    <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+
+                                        <FolderOpen className="w-5 h-5 text-primary" />
+
+                                        미디어 저장소 및 쿠키 경로
+
+                                    </CardTitle>
+
+                                    <CardDescription className="text-xs">
+
+                                        비디오/스크립트 저장 경로와 인증용 소셜 쿠키 파일 경로를 관리합니다. (기본값 자동 지정)
+
+                                    </CardDescription>
+
+                                </CardHeader>
+
+                                <CardContent className="pt-5 space-y-4">
+
+                                    {/* Download Path */}
+
+                                    <div className="space-y-2">
+
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">기본 다운로드 경로</Label>
+
+                                        <div className="flex items-center gap-2">
+
+                                            <Input
+
+                                                value={formData.root_download_path ?? ''}
+
+                                                onChange={(e) => setFormData({ ...formData, root_download_path: e.target.value })}
+
+                                                placeholder="기본 표준 경로 사용 (AppData/Local/ViraLoop Studio/media)"
+
+                                                className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-foreground font-mono text-xs shadow-2xs"
+
+                                            />
+
+                                            <Button type="button" variant="outline" onClick={() => handlePickPath('root_download_path', 'folder')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
+
+                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 변경
+
+                                            </Button>
+
+                                        </div>
+
+                                    </div>
+
+                                    {/* Cookies */}
+
+                                    <div className="space-y-2">
+
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">유튜브/소셜 인증 쿠키 파일 경로 (선택)</Label>
+
+                                        <div className="flex items-center gap-2">
+
+                                            <Input
+
+                                                value={formData.cookies_path ?? ''}
+
+                                                onChange={(e) => setFormData({ ...formData, cookies_path: e.target.value })}
+
+                                                placeholder="기본 쿠키 경로 사용 (04_Profiles/cookies.txt)"
+
+                                                className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-foreground font-mono text-xs shadow-2xs"
+
+                                            />
+
+                                            <Button type="button" variant="outline" onClick={() => handlePickPath('cookies_path', 'file')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
+
+                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
+
+                                            </Button>
+
+                                        </div>
+
+                                    </div>
+
+                                </CardContent>
+
+                            </Card>
+
+                            {/* Card 2: Smart Auto Sourcing & Scan */}
+
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden w-full">
+
+                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+
+                                    <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+
+                                        <Zap className="w-5 h-5 text-amber-500" />
+
+                                        지능형 스마트 자동 수집 & 즉시 스캔
+
+                                    </CardTitle>
+
+                                    <CardDescription className="text-xs">
+
+                                        유튜브 봇 탐지 보호(Rate Limiting)와 연동되어 안전하고 유연하게 최신 영상을 모니터링합니다.
+
+                                    </CardDescription>
+
+                                </CardHeader>
+
+                                <CardContent className="pt-5 space-y-4">
+
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
+
+                                        <div className="space-y-1">
+
+                                            <div className="flex items-center space-x-3">
+
+                                                <Switch id="global_dl" checked={formData.global_auto_download} onCheckedChange={(c) => setFormData({ ...formData, global_auto_download: c })} />
+
+                                                <Label htmlFor="global_dl" className="cursor-pointer font-bold text-xs sm:text-sm text-foreground">
+
+                                                    24시간 스마트 자동 수집 활성화
+
+                                                </Label>
+
+                                            </div>
+
+                                            <p className="text-[11px] text-muted-foreground ml-11">
+
+                                                백그라운드 스케줄러가 등록된 채널들의 신규 영상을 안전한 주기로 자동 수집합니다.
+
+                                            </p>
+
+                                        </div>
+
+                                        <Button
+
+                                            type="button"
+
+                                            variant="outline"
+
+                                            onClick={triggerScan}
+
+                                            disabled={isScanning}
+
+                                            className="h-10 px-4 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0 gap-1.5 self-end sm:self-auto shadow-2xs"
+
+                                        >
+
+                                            {isScanning ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Play className="w-4 h-4 text-primary" />}
+
+                                            지금 즉시 전체 채널 스캔
+
+                                        </Button>
+
+                                    </div>
+
+                                </CardContent>
+
+                            </Card>
+
+                            {/* Card 3: Storage Lifespan & Cleanup Management */}
+
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden w-full">
+
+                                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+
+                                    <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+
+                                        <Trash2 className="w-5 h-5 text-rose-500" />
+
+                                        디스크 용량 및 파일 수명 관리
+
+                                    </CardTitle>
+
+                                    <CardDescription className="text-xs">
+
+                                        대용량 .mp4 영상 파일의 자동 삭제 정책과 수동 일괄 정리를 통합 관리합니다.
+
+                                    </CardDescription>
+
+                                </CardHeader>
+
+                                <CardContent className="pt-5 space-y-6">
+
+                                    {/* Auto Delete Interval */}
+
+                                    <div className="space-y-2">
+
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">배포 완료/실패 영상 자동 삭제 주기</Label>
+
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+
+                                            <Select
+
+                                                value={(formData as any).auto_delete_mp4_days?.toString() || "7"}
+
+                                                onValueChange={(val) => setFormData({ ...formData, auto_delete_mp4_days: parseInt(val) } as any)}
+
+                                            >
+
+                                                <SelectTrigger className="w-full sm:w-[240px] bg-card border-border rounded-xl text-xs sm:text-sm text-foreground">
+
+                                                    <SelectValue placeholder="자동 삭제 주기 선택" />
+
+                                                </SelectTrigger>
+
+                                                <SelectContent>
+
+                                                    <SelectItem value="7">7일 후 자동 삭제 (기본 권장)</SelectItem>
+
+                                                    <SelectItem value="15">15일 후 자동 삭제</SelectItem>
+
+                                                    <SelectItem value="30">1개월(30일) 후 자동 삭제</SelectItem>
+
+                                                    <SelectItem value="60">2개월(60일) 후 자동 삭제</SelectItem>
+
+                                                    <SelectItem value="90">3개월(90일) 후 자동 삭제</SelectItem>
+
+                                                    <SelectItem value="0">삭제 안 함 (영구 보관)</SelectItem>
+
+                                                </SelectContent>
+
+                                            </Select>
+
+                                            <p className="text-[11px] text-muted-foreground">
+
+                                                * 업로드 완료 또는 실패 후 설정 기간이 지나면 PC 로컬의 .mp4 파일만 안전하게 자동 삭제됩니다. (대기열 기록/URL은 보존)
+
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+                                    {/* Manual Cleanup Section */}
+
+                                    <div className="pt-4 border-t border-border space-y-2">
+
+                                        <div className="flex items-center justify-between">
+
+                                            <Label className="text-xs sm:text-sm font-bold text-foreground">보관함 오래된 영상 즉시 일괄 정리 (Clean Up)</Label>
+
+                                            {oldVideosData && oldVideosData.count > 0 ? (
+
+                                                <Badge variant="outline" className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 text-xs font-bold px-2.5 py-0.5">
+
+                                                    정리 대상: {oldVideosData.count}개 ({oldVideosData.total_size_mb} MB)
+
+                                                </Badge>
+
+                                            ) : (
+
+                                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 text-xs font-medium px-2.5 py-0.5">
+
+                                                    정리 대상 영상 없음 (0개)
+
+                                                </Badge>
+
+                                            )}
+
+                                        </div>
+
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-muted/30 border border-border rounded-2xl">
+
+                                            <div className="flex items-center gap-3">
+
+                                                <Label className="text-xs text-muted-foreground font-bold shrink-0">보관 기준</Label>
+
+                                                <div className="flex items-center gap-1.5">
+
+                                                    <Button
+
+                                                        type="button"
+
+                                                        variant="outline"
+
+                                                        size="icon"
+
+                                                        className="h-9 w-9 rounded-xl border-border bg-card text-foreground font-bold"
+
+                                                        onClick={() => handleCleanupDaysChange(Math.max(1, cleanupDays - 1))}
+
+                                                    >
+
+                                                        -
+
+                                                    </Button>
+
+                                                    <div className="relative">
+
+                                                        <Input
+
+                                                            type="number"
+
+                                                            value={cleanupDays}
+
+                                                            onChange={(e) => handleCleanupDaysChange(Math.max(1, parseInt(e.target.value) || 1))}
+
+                                                            className="h-9 w-16 text-center font-bold bg-card border-border rounded-xl text-foreground pr-4 pl-2"
+
+                                                        />
+
+                                                        <span className="absolute right-2 top-2 text-[10px] text-muted-foreground font-bold pointer-events-none">일</span>
+
+                                                    </div>
+
+                                                    <Button
+
+                                                        type="button"
+
+                                                        variant="outline"
+
+                                                        size="icon"
+
+                                                        className="h-9 w-9 rounded-xl border-border bg-card text-foreground font-bold"
+
+                                                        onClick={() => handleCleanupDaysChange(cleanupDays + 1)}
+
+                                                    >
+
+                                                        +
+
+                                                    </Button>
+
+                                                </div>
+
+                                            </div>
+
+                                            <Button
+
+                                                type="button"
+
+                                                variant={oldVideosData && oldVideosData.count > 0 ? "destructive" : "outline"}
+
+                                                className={`h-10 px-5 font-bold rounded-xl transition-all shrink-0 ${
+
+                                                    oldVideosData && oldVideosData.count > 0
+
+                                                        ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm'
+
+                                                        : 'bg-card text-muted-foreground border-border opacity-70 cursor-not-allowed'
+
+                                                }`}
+
+                                                disabled={!oldVideosData || oldVideosData.count === 0}
+
+                                                onClick={handleCleanup}
+
+                                            >
+
+                                                <Trash2 className="w-4 h-4 mr-1.5" />
+
+                                                {oldVideosData && oldVideosData.count > 0
+
+                                                    ? `${cleanupDays}일 경과 영상 즉시 삭제 (${oldVideosData.count}개)`
+
+                                                    : `${cleanupDays}일 경과 영상 즉시 삭제 (대상 없음)`
+
+                                                }
+
+                                            </Button>
+
+                                        </div>
+
+                                    </div>
+
+                                </CardContent>
+
+                            </Card>
+
+                            <div className="flex justify-end pt-2">
+
+                                <Button onClick={handleSave} disabled={isSaving} className="w-full md:w-auto h-11 px-8 text-xs sm:text-sm font-bold shadow-2xs rounded-xl">
+
+                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} 일반 설정 저장
+
+                                </Button>
+
+                            </div>
+
+                        </div>
+
+                    </TabsContent>
+
+                    {/* ========================================================= */}
+
+                    {/* --- TAB 2: AI INTELLIGENCE & MODELS (9router 통합 허브) --- */}
+
+                    {/* ========================================================= */}
+
+                    <TabsContent value="intelligence">
+
+                        <div className="space-y-6">
+
+                            <Alert className="bg-primary/10 border-primary/20 text-foreground">
+
+                                <BrainCircuit className="h-4 w-4 text-primary" />
+
+                                <AlertTitle className="text-foreground font-bold">9router 통합 로컬 AI 게이트웨이</AlertTitle>
+
+                                <AlertDescription className="text-muted-foreground text-xs">
+
+                                    로컬 서버의 9router가 Gemini, Claude, GPT, DeepSeek 등 모든 AI 모델을 단일 라우터로 통합 관리하고 자동 폴백합니다. 개별 API 키를 일일이 등록할 필요 없이 9router 허브 하나로 모든 영상 기획 및 분석을 수행합니다.
+
+                                </AlertDescription>
+
+                            </Alert>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                                {/* Left Column: 9router Gateway Configuration */}
+
+                                <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+
+                                    <CardHeader className="bg-muted/30 border-b border-border py-3 flex flex-row items-center justify-between">
+
+                                        <div>
+
+                                            <CardTitle className="text-base font-bold flex items-center gap-2">
+
+                                                <Server className="w-4 h-4 text-primary" /> 9router 로컬 게이트웨이
+
+                                            </CardTitle>
+
+                                            <CardDescription className="text-xs">
+
+                                                모든 AI 모델의 통합 라우터 엔드포인트
+
+                                            </CardDescription>
+
+                                        </div>
+
+                                        <Button
+
+                                            size="sm"
+
+                                            variant="outline"
+
+                                            className="h-8 gap-1.5 border-border bg-card text-foreground rounded-xl font-bold text-xs"
+
+                                            onClick={() => window.open('http://localhost:20128/dashboard', '_blank')}
+
+                                        >
+
+                                            <ExternalLink className="w-3.5 h-3.5" /> 대시보드
+
+                                        </Button>
+
+                                    </CardHeader>
+
+                                    <CardContent className="space-y-5 pt-4">
+
+                                        <div className="space-y-2">
+
+                                            <div className="flex justify-between items-center">
+
+                                                <Label className="text-xs font-bold text-foreground">9router 엔드포인트 URL</Label>
+
+                                                <Button
+
+                                                    size="sm"
+
+                                                    variant="ghost"
+
+                                                    className="h-7 text-[10px] px-2 font-bold text-primary hover:bg-primary/10"
+
+                                                    onClick={() => testConnection("youtube1", { 
+
+                                                        base_url: "http://localhost:20128/v1",
+
+                                                        api_key: formData.youtube1_api_keys?.[0]
+
+                                                    })}
+
+                                                    disabled={testResults["youtube1"]?.loading}
+
+                                                >
+
+                                                    {testResults["youtube1"]?.loading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCcw className="w-3 h-3 mr-1" />}
+
+                                                    연결 상태 확인
+
+                                                </Button>
+
+                                            </div>
+
+                                            <Input
+
+                                                value="http://localhost:20128/v1"
+
+                                                readOnly
+
+                                                className="bg-card border-border rounded-xl font-mono text-xs text-foreground select-all"
+
+                                            />
+
+                                            {testResults["youtube1"] && !testResults["youtube1"].loading && (
+
+                                                <Alert className={cn("py-2", testResults["youtube1"].success ? "bg-emerald-500/10 border-emerald-500/30" : "bg-rose-500/10 border-rose-500/30")}>
+
+                                                    <AlertDescription className={cn("text-[10px] font-bold", testResults["youtube1"].success ? "text-emerald-500" : "text-rose-500")}>
+
+                                                        {testResults["youtube1"].message}
+
+                                                    </AlertDescription>
+
+                                                </Alert>
+
+                                            )}
+
+                                        </div>
+
+                                        {/* 9router API Keys */}
+
+                                        <div className="pt-2 border-t border-border space-y-2">
+
+                                            <KeyListInput
+
+                                                label="9router 전용 API Key (대시보드에서 생성한 sk-... 키)"
+
+                                                keys={formData.youtube1_api_keys || []}
+
+                                                onChange={k => setFormData({ ...formData, youtube1_api_keys: k })}
+
+                                                placeholder="sk-e07acd31..."
+
+                                            />
+
+                                        </div>
+
+                                        <div className="p-3.5 rounded-2xl bg-muted/30 border border-border space-y-2">
+
+                                            <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+
+                                                <Zap className="w-3.5 h-3.5 text-amber-500" /> 9router 자동 라우팅 안내
+
+                                            </p>
+
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+
+                                                9router 대시보드의 <strong>API Keys</strong> 메뉴에서 발급받은 키를 위에 등록하시면, ViraLoop Studio가 9router에 안전하게 인증하여 연결됩니다.
+
+                                            </p>
+
+                                        </div>
+
+                                    </CardContent>
+
+                                </Card>
+
+                                {/* Right Column: Model Selection & Quick Verification */}
+
+                                <div className="space-y-6">
+
+                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+
+                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
+
+                                            <CardTitle className="text-base font-bold">기본 분석 & 기획 모델 선택</CardTitle>
+
+                                            <CardDescription className="text-xs">
+
+                                                대본 분석, 씬 분할 및 키워드 추출 시 사용할 9router 모델을 지정합니다.
+
+                                            </CardDescription>
+
+                                        </CardHeader>
+
+                                        <CardContent className="space-y-4 pt-4">
+
+                                            <AIModelSelector
+
+                                                provider="youtube1"
+
+                                                onProviderChange={(val) => setFormData(prev => ({ ...prev, script_analysis_provider: val }))}
+
+                                                model={formData.script_analysis_model || 'youtube1'}
+
+                                                onModelChange={(val) => setFormData(prev => ({ ...prev, script_analysis_model: val }))}
+
+                                                showProvider={false}
+
+                                                showPreset={false}
+
+                                            />
+
+                                        </CardContent>
+
+                                    </Card>
+
+                                    {/* Quick Verification Chat */}
+
+                                    <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+
+                                        <CardHeader className="bg-muted/30 border-b border-border py-3">
+
+                                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+
+                                                <MessageSquare className="w-4 h-4 text-primary" /> 9router 모델 응답 검증 챗
+
+                                            </CardTitle>
+
+                                            <CardDescription className="text-xs">
+
+                                                선택된 9router 모델과 직접 통신하여 정상 동작을 확인합니다.
+
+                                            </CardDescription>
+
+                                        </CardHeader>
+
+                                        <CardContent className="space-y-3 pt-4">
+
+                                            <div className="flex gap-2">
+
+                                                <Input
+
+                                                    placeholder="질문을 입력하세요... (예: 안녕?)"
+
+                                                    value={chatInput}
+
+                                                    onChange={e => setChatInput(e.target.value)}
+
+                                                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleTestChat()}
+
+                                                    disabled={isChatLoading}
+
+                                                    className="bg-card border-border rounded-xl text-xs"
+
+                                                />
+
+                                                <Button
+
+                                                    size="sm"
+
+                                                    onClick={handleTestChat}
+
+                                                    disabled={isChatLoading || !chatInput.trim()}
+
+                                                    className="font-bold rounded-xl px-4"
+
+                                                >
+
+                                                    {isChatLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "전송"}
+
+                                                </Button>
+
+                                            </div>
+
+                                            {chatResponse && (
+
+                                                <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-xs whitespace-pre-wrap font-medium">
+
+                                                    <p className="text-[10px] uppercase font-bold text-primary mb-1">9router Response</p>
+
+                                                    {chatResponse}
+
+                                                </div>
+
+                                            )}
+
+                                        </CardContent>
+
+                                    </Card>
+
+                                </div>
+
+                            </div>
+
+                            <div className="flex justify-end">
+
+                                <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl px-6">
+
+                                    {isSaving && <Loader2 className="mr-2 animate-spin" />}AI 설정 저장
+
+                                </Button>
+
+                            </div>
+
+                        </div>
+
+                    </TabsContent>
+
+                    {/* ========================================================= */}
+
+                    {/* --- TAB 3: VOICE & SUBTITLES (음성 및 자막) --- */}
+
+                    {/* ========================================================= */}
+
+                    <TabsContent value="voice_subtitles">
+
+                        <div className="space-y-6">
+
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+
+                                <CardHeader className="bg-muted/30 border-b border-border py-3">
+
+                                    <CardTitle className="text-base font-bold flex items-center gap-2">
+
+                                        <Mic2 className="w-5 h-5 text-sky-500" />
+
+                                        AI 음성 합성 (TTS) 엔진 설정
+
+                                    </CardTitle>
+
+                                    <CardDescription className="text-xs">ElevenLabs, Typecast, Supertonic Local 등 보이스 엔진을 관리합니다.</CardDescription>
+
+                                </CardHeader>
+
+                                <CardContent className="space-y-6 pt-4">
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                                        <KeyListInput
+
+                                            label="ElevenLabs API Keys"
+
+                                            keys={formData.elevenlabs_api_keys || []}
+
+                                            onChange={k => setFormData({ ...formData, elevenlabs_api_keys: k })}
+
+                                            placeholder="sk_..."
+
+                                        />
+
+                                        <KeyListInput
+
+                                            label="Typecast API Keys"
+
+                                            keys={formData.typecast_api_keys || []}
+
+                                            onChange={k => setFormData({ ...formData, typecast_api_keys: k })}
+
+                                        />
+
+                                        {/* Supertonic Local Config */}
+
+                                        <div className="space-y-4 pt-4 border-t border-border col-span-1 md:col-span-2">
+
+                                            <div className="flex items-center justify-between flex-wrap gap-2">
+
+                                                <div className="space-y-1">
+
+                                                    <div className="flex items-center gap-2 flex-wrap">
+
+                                                        <Label className="text-sm font-bold flex items-center gap-2 text-foreground">
+
+                                                            <Zap className="w-4 h-4 text-amber-500" />
+
+                                                            Supertonic Local (온디바이스 초고속 ONNX 보이스)
+
+                                                        </Label>
+
+                                                        {supertonicStatus?.installed ? (
+
+                                                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[11px] px-2 py-0.5 font-bold">
+
+                                                                ✓ 설치 완료 {supertonicStatus.version ? `(v${supertonicStatus.version})` : ''}
+
+                                                            </Badge>
+
+                                                        ) : (
+
+                                                            <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[11px] px-2 py-0.5 font-bold">
+
+                                                                ⚠️ 모델 다운로드 필요
+
+                                                            </Badge>
+
+                                                        )}
+
+                                                        {supertonicStatus?.last_updated && (
+
+                                                            <span className="text-[11px] text-muted-foreground font-mono">
+
+                                                                (최근 패치: {supertonicStatus.last_updated})
+
+                                                            </span>
+
+                                                        )}
+
+                                                    </div>
+
+                                                    <p className="text-xs text-muted-foreground">
+
+                                                        API 비용 없이 로컬 GPU/CPU에서 50ms 초정밀 음성을 무제한 합성합니다.
+
+                                                    </p>
+
+                                                </div>
+
+                                                <Switch
+
+                                                    checked={formData.supertone_local_enabled !== false}
+
+                                                    onCheckedChange={c => setFormData({ ...formData, supertone_local_enabled: c })}
+
+                                                />
+
+                                            </div>
+
+                                            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end bg-muted/30 p-4 rounded-2xl border border-border">
+
+                                                <div className="space-y-2 flex-1">
+
+                                                    <Label className="text-xs font-bold text-muted-foreground">로컬 모델 저장 경로</Label>
+
+                                                    <div className="flex gap-2">
+
+                                                        <Input
+
+                                                            value={formData.supertone_model_path || ''}
+
+                                                            onChange={e => setFormData({ ...formData, supertone_model_path: e.target.value })}
+
+                                                            placeholder="기본 시스템 모델 경로 (%LOCALAPPDATA%\ViraLoop Studio\media\09_System\models\supertonic)"
+
+                                                            className="bg-card border-border rounded-xl font-mono text-xs"
+
+                                                        />
+
+                                                        <Button variant="outline" onClick={() => handlePickPath('supertone_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card rounded-xl shrink-0">
+
+                                                            <FolderOpen className="w-4 h-4" />
+
+                                                        </Button>
+
+                                                    </div>
+
+                                                </div>
+
+                                                <Button
+
+                                                    variant="secondary"
+
+                                                    disabled={isUpdatingSupertonic}
+
+                                                    className="h-10 font-bold bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl shrink-0"
+
+                                                    onClick={async () => {
+
+                                                        try {
+
+                                                            setIsUpdatingSupertonic(true);
+
+                                                            const res = await api.post('/tools/tts/supertonic/download');
+
+                                                            toast.success(res.data.message || "모델 다운로드/패치 확인이 시작되었습니다.");
+
+                                                            setTimeout(() => {
+
+                                                                refetchSupertonic();
+
+                                                                setIsUpdatingSupertonic(false);
+
+                                                            }, 3500);
+
+                                                        } catch (e) {
+
+                                                            setIsUpdatingSupertonic(false);
+
+                                                            toast.error("모델 다운로드 요청 실패 (콘솔 확인)");
+
+                                                        }
+
+                                                    }}
+
+                                                >
+
+                                                    {isUpdatingSupertonic ? (
+
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin text-amber-500" />
+
+                                                    ) : (
+
+                                                        <Download className="w-4 h-4 mr-2" />
+
+                                                    )}
+
+                                                    {isUpdatingSupertonic ? "버전 확인 중..." : "모델 다운로드/갱신"}
+
+                                                </Button>
+
+                                            </div>
+
+                                        </div>
+
+                                        {/* Kokoro TTS Config */}
+
+                                        <div className="space-y-4 pt-4 border-t border-border col-span-1 md:col-span-2">
+
+                                            <div className="flex items-center justify-between">
+
+                                                <div className="space-y-0.5">
+
+                                                    <Label className="text-sm font-bold flex items-center gap-2 text-foreground">
+
+                                                        <Volume2 className="w-4 h-4 text-pink-500" />
+
+                                                        Kokoro TTS (초고품질 오픈소스 신경망 보이스)
+
+                                                    </Label>
+
+                                                    <p className="text-xs text-muted-foreground">
+
+                                                        원격 고성능 Kokoro API 서버를 사용하거나 로컬 ONNX 엔진을 통해 자연스러운 다국어 음성을 생성합니다.
+
+                                                    </p>
+
+                                                </div>
+
+                                            </div>
+
+                                            <div className="space-y-2 bg-muted/30 p-4 rounded-2xl border border-border">
+
+                                                <Label className="text-xs font-bold text-muted-foreground">Kokoro TTS 서버 URL (또는 로컬 프록시)</Label>
+
+                                                <div className="flex gap-2">
+
+                                                    <Input
+
+                                                        value={formData.kokoro_tts_url || ''}
+
+                                                        onChange={e => setFormData({ ...formData, kokoro_tts_url: e.target.value })}
+
+                                                        placeholder="https://tts1.gogloo.gleeze.com"
+
+                                                        className="bg-card border-border rounded-xl font-mono text-xs"
+
+                                                    />
+
+                                                    <Button
+
+                                                        variant="outline"
+
+                                                        disabled={isTestingKokoro}
+
+                                                        className="h-10 px-3.5 border-border bg-card rounded-xl shrink-0 font-bold text-xs"
+
+                                                        onClick={async () => {
+
+                                                            try {
+
+                                                                if (!formData.kokoro_tts_url) {
+
+                                                                    toast.error("Kokoro 서버 URL을 입력해주세요.");
+
+                                                                    return;
+
+                                                                }
+
+                                                                setIsTestingKokoro(true);
+
+                                                                const res = await api.post('/tools/tts/test-kokoro', {
+
+                                                                    url: formData.kokoro_tts_url
+
+                                                                });
+
+                                                                toast.success(res.data.message || "Kokoro TTS 서버 연결 정상!");
+
+                                                            } catch (e: any) {
+
+                                                                toast.error(`Kokoro 연결 실패: ${e?.response?.data?.detail || e.message || '서버 응답 없음'}`);
+
+                                                            } finally {
+
+                                                                setIsTestingKokoro(false);
+
+                                                            }
+
+                                                        }}
+
+                                                    >
+
+                                                        {isTestingKokoro ? (
+
+                                                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin text-pink-500" />
+
+                                                        ) : null}
+
+                                                        {isTestingKokoro ? "연결 확인 중..." : "연결 확인"}
+
+                                                    </Button>
+
+                                                </div>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </CardContent>
+
+                            </Card>
+
+                            {/* Subtitles & Whisper AI Card */}
+
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+
+                                <CardHeader className="bg-muted/30 border-b border-border py-3">
+
+                                    <CardTitle className="text-base font-bold flex items-center gap-2">
+
+                                        <MessageSquare className="w-5 h-5 text-emerald-500" />
+
+                                        자막 추출 및 Whisper AI 음성인식
+
+                                    </CardTitle>
+
+                                    <CardDescription className="text-xs">Whisper AI 모델 및 FFmpeg 미디어 인코더 엔진 상태를 관리합니다.</CardDescription>
+
+                                </CardHeader>
+
+                                <CardContent className="space-y-6 pt-4">
+
+                                    <Alert className="bg-primary/10 border-primary/20 text-foreground">
+
+                                        <Info className="h-4 w-4 text-primary" />
+
+                                        <AlertTitle className="font-bold">FFmpeg 미디어 처리 엔진</AlertTitle>
+
+                                        <AlertDescription>
+
+                                            {formData.ffmpeg_status && formData.ffmpeg_status !== 'Missing' ? (
+
+                                                <div className="flex flex-col gap-1 mt-1">
+
+                                                    <p className="font-mono text-xs bg-muted/40 p-2 rounded-lg break-all border border-border">{formData.ffmpeg_status}</p>
+
+                                                    <p className="text-xs text-emerald-400 font-bold">ViraLoop 전용 미디어 처리 엔진이 정상 활성화되어 있습니다.</p>
+
+                                                </div>
+
+                                            ) : (
+
+                                                "시스템 내부 FFmpeg가 활성화되어 있습니다. 무음 컷팅 및 씬 분할이 정상 동작합니다."
+
+                                            )}
+
+                                        </AlertDescription>
+
+                                    </Alert>
+
+                                    <div className="space-y-2">
+
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">Whisper 모델 저장 경로</Label>
+
+                                        <div className="flex items-center gap-2">
+
+                                            <Input
+
+                                                value={formData.whisper_model_path || ''}
+
+                                                onChange={e => setFormData({ ...formData, whisper_model_path: e.target.value })}
+
+                                                placeholder="기본 Whisper 모델 경로 (%LOCALAPPDATA%\ViraLoop Studio\media\09_System\models\faster-whisper)"
+
+                                                className="bg-card border-border rounded-xl font-mono text-xs"
+
+                                            />
+
+                                            <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card hover:bg-muted rounded-xl shrink-0 font-bold text-foreground">
+
+                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
+
+                                            </Button>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                                        <div className="space-y-2">
+
+                                            <Label className="text-xs font-bold text-muted-foreground">기본 모델 크기</Label>
+
+                                            <Select value={formData.default_model_size || 'base'} onValueChange={v => setFormData({ ...formData, default_model_size: v })}>
+
+                                                <SelectTrigger className="bg-card border-border rounded-xl"><SelectValue /></SelectTrigger>
+
+                                                <SelectContent>
+
+                                                    <SelectItem value="base">Base (가장 빠름 - 권장)</SelectItem>
+
+                                                    <SelectItem value="small">Small (균형)</SelectItem>
+
+                                                    <SelectItem value="medium">Medium (고정밀)</SelectItem>
+
+                                                </SelectContent>
+
+                                            </Select>
+
+                                        </div>
+
+                                        <div className="space-y-2">
+
+                                            <Label className="text-xs font-bold text-muted-foreground">기본 음성인식 언어</Label>
+
+                                            <Select value={formData.default_language || 'ko'} onValueChange={v => setFormData({ ...formData, default_language: v })}>
+
+                                                <SelectTrigger className="bg-card border-border rounded-xl"><SelectValue /></SelectTrigger>
+
+                                                <SelectContent>
+
+                                                    <SelectItem value="auto">자동 감지 (Auto)</SelectItem>
+
+                                                    <SelectItem value="ko">한국어 (Korean)</SelectItem>
+
+                                                    <SelectItem value="en">영어 (English)</SelectItem>
+
+                                                    <SelectItem value="zh">중국어 (Chinese)</SelectItem>
+
+                                                </SelectContent>
+
+                                            </Select>
+
+                                        </div>
+
+                                    </div>
+
+                                </CardContent>
+
+                            </Card>
+
+                            <div className="flex justify-end">
+
+                                <Button onClick={handleSave} disabled={isSaving} className="font-bold shadow-2xs rounded-xl px-6">{isSaving && <Loader2 className="mr-2 animate-spin" />}음성/자막 설정 저장</Button>
+
+                            </div>
+
+                        </div>
+
+                    </TabsContent>
+
+                    {/* ========================================================= */}
+
+                    {/* --- TAB 4: STEALTH BROWSER & PROXY (스텔스 및 프록시) --- */}
+
+                    {/* ========================================================= */}
+
+                    <TabsContent value="stealth_proxy">
+                        <div className="space-y-6">
+                            {/* Card 1: Anti-Detect Engine (ixBrowser) */}
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                                        <Shield className="w-4 h-4 text-teal-500" /> 안티디텍트 지능형 브라우저 엔진 (ixBrowser)
+                                    </CardTitle>
+                                    <CardDescription className="text-xs">
+                                        구글 핑거프린팅 탐지를 원천 우회하는 ixBrowser 로컬 API 연동 설정입니다.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-4">
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <Label className="text-xs font-bold text-foreground">ixBrowser API 엔드포인트 URL</Label>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-7 text-[10px] px-2 font-bold text-teal-600 dark:text-teal-400 hover:bg-teal-500/10"
+                                                onClick={async () => {
+                                                    setIsTestingIxBrowser(true);
+                                                    try {
+                                                        const res = await api.post('/tools/ixbrowser/test-connection');
+                                                        if (res.data?.success) toast.success("ixBrowser 엔진 연결 성공!");
+                                                        else toast.error(`연결 실패: ${res.data?.message || '응답 없음'}`);
+                                                    } catch (e: any) {
+                                                        toast.error(`오류: ${e.message}`);
+                                                    } finally {
+                                                        setIsTestingIxBrowser(false);
+                                                    }
+                                                }}
+                                                disabled={isTestingIxBrowser}
+                                            >
+                                                {isTestingIxBrowser ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCcw className="w-3 h-3 mr-1" />}
+                                                엔진 연결 진단
+                                            </Button>
+                                        </div>
+                                        <Input
+                                            value={formData.ixbrowser_api_url || 'http://127.0.0.1:53200'}
+                                            onChange={e => setFormData({ ...formData, ixbrowser_api_url: e.target.value })}
+                                            placeholder="http://127.0.0.1:53200"
+                                            className="bg-card border-border rounded-xl font-mono text-xs"
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Card 2: Hybrid Network & Proxy Strategy Policy */}
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-muted/30 border-b border-border py-3">
+                                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                                        <Globe className="w-4 h-4 text-teal-500" /> 하이브리드 네트워크 격리 인프라 정책
+                                    </CardTitle>
+                                    <CardDescription className="text-xs">
+                                        ViraLoop Studio는 유튜브 알고리즘의 채널 연쇄 제재를 완벽히 차단하기 위해 2단계 격리 정책을 기본 적용합니다.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Policy 1: Global Default */}
+                                        <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-2">
+                                            <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+                                                <RadioReceiver className="w-4 h-4 text-sky-500" />
+                                                1. 전역 기본 연결 (LTE Clean IP 회전)
+                                            </div>
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                소싱, AI 분석, 다운로드 및 일반 백그라운드 작업은 USB 테더링 LTE 모바일 클린 IP로 무제한 회전 연결됩니다.
+                                            </p>
+                                            <Badge variant="outline" className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800 text-[11px] font-bold">
+                                                기본 활성화됨
+                                            </Badge>
+                                        </div>
+
+                                        {/* Policy 2: Channel Dedicated */}
+                                        <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-2">
+                                            <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+                                                <Shield className="w-4 h-4 text-purple-500" />
+                                                2. 채널별 1:1 전용 ISP 고정 IP
+                                            </div>
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                채널 업로드 및 웜업은 IP 오염 방지를 위해 <b>[채널 계정 및 웜업 육성]</b> 메뉴에서 프로필별로 1:1 전용 ISP 고정 IP를 직접 할당합니다.
+                                            </p>
+                                            <Badge variant="outline" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 text-[11px] font-bold">
+                                                채널별 개별 지정
+                                            </Badge>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-300 font-medium">
+                                        💡 <b>안내:</b> 전역 설정에서 단일 고정 IP를 고정하지 않고 채널별 1:1로만 할당하여, 여러 채널이 동일 IP로 묶여 동시 정지되는 위험을 원천 방지합니다.
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div></TabsContent>
+
+                    {/* ========================================================= */}
+
+                    {/* --- TAB 5: SYSTEM & MAINTENANCE (시스템 및 유지보수) --- */}
+
+                    {/* ========================================================= */}
+
+                    <TabsContent value="system_maintenance">
+
+                        <div className="space-y-6">
+
+                            {/* yt-dlp 버전 관리 카드 */}
+
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+
+                                <CardHeader className="bg-muted/30 border-b border-border py-3">
+
+                                    <CardTitle className="text-base font-bold flex items-center gap-2">
+
+                                        <Download className="w-5 h-5 text-indigo-500" />
+
+                                        다운로드 코어 엔진 (yt-dlp)
+
+                                    </CardTitle>
+
+                                    <CardDescription className="text-xs">
+
+                                        유튜브 및 15개 플랫폼 다운로더 엔진을 최신 버전으로 유지합니다.
+
+                                    </CardDescription>
+
+                                </CardHeader>
+
+                                <CardContent className="space-y-4 pt-4">
+
+                                    {/* Auto-update toggle */}
+
+                                    <div className="flex items-center justify-between">
+
+                                        <div className="space-y-0.5">
+
+                                            <Label className="text-xs sm:text-sm font-bold text-foreground">자동 업데이트</Label>
+
+                                            <p className="text-xs text-muted-foreground">매주 최신 버전으로 자동 갱신합니다.</p>
+
+                                        </div>
+
+                                        <Switch checked={formData.ytdlp_auto_update} onCheckedChange={c => setFormData({ ...formData, ytdlp_auto_update: c })} />
+
+                                    </div>
+
+                                    {/* Version + update button */}
+
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-muted/30 p-3.5 rounded-2xl border border-border">
+
+                                        <div className="flex flex-col gap-1 min-w-0">
+
+                                            <div className="flex items-center gap-2 flex-wrap">
+
+                                                <span className="text-xs text-muted-foreground font-medium">현재 버전</span>
+
+                                                <span className="font-mono font-bold text-sm text-foreground">
+
+                                                    {ytdlpVersion?.version || maintenanceStatus?.version || 'Unknown'}
+
+                                                </span>
+
+                                                {ytdlpVersion?.is_frozen && (
+
+                                                    <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full font-medium">앱 내장</span>
+
+                                                )}
+
+                                            </div>
+
+                                            {ytdlpVersion?.install_path && (
+
+                                                <div className="text-[10px] font-mono text-muted-foreground break-all">
+
+                                                    📂 {ytdlpVersion.install_path}
+
+                                                </div>
+
+                                            )}
+
+                                        </div>
+
+                                        <Button
+
+                                            variant="outline"
+
+                                            size="sm"
+
+                                            disabled={isUpdatingYtdlp || ytdlpVersion?.is_frozen}
+
+                                            onClick={async () => {
+
+                                                setIsUpdatingYtdlp(true);
+
+                                                try {
+
+                                                    const res = await apiLong.post('/system/update-ytdlp');
+
+                                                    if (res.data.success) {
+
+                                                        toast.success(res.data.message);
+
+                                                    } else {
+
+                                                        toast.error(res.data.message || '업데이트 실패');
+
+                                                    }
+
+                                                    refetchVersion();
+
+                                                } catch (e: any) {
+
+                                                    toast.error(e?.response?.data?.detail || e?.message || '업데이트 실패');
+
+                                                } finally {
+
+                                                    setIsUpdatingYtdlp(false);
+
+                                                }
+
+                                            }}
+
+                                            className="h-9 px-4 font-bold border-border bg-card rounded-xl flex-shrink-0"
+
+                                        >
+
+                                            {isUpdatingYtdlp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+
+                                            {isUpdatingYtdlp ? '업데이트 중...' : '지금 최신 업데이트'}
+
+                                        </Button>
+
+                                    </div>
+
+                                </CardContent>
+
+                            </Card>
+
+                            {/* System Settings & Rate Limiting Embed */}
+
+                            <SystemSettingsTab />
+
+                            {/* Logs & Diagnostic Card */}
+
+                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+
+                                <CardHeader className="bg-muted/30 border-b border-border py-3">
+
+                                    <CardTitle className="text-base font-bold flex items-center gap-2">
+
+                                        <Terminal className="w-5 h-5 text-primary" />
+
+                                        실시간 시스템 로그 및 진단
+
+                                    </CardTitle>
+
+                                    <CardDescription className="text-xs">백그라운드 스케줄러, API 통신 및 에러 로그를 실시간으로 확인합니다.</CardDescription>
+
+                                </CardHeader>
+
+                                <CardContent className="space-y-4 pt-4">
+
+                                    <Button variant="secondary" onClick={() => setIsLogOpen(true)} className="w-full h-10 font-bold bg-muted hover:bg-muted/80 text-foreground border border-border rounded-xl">
+
+                                        실시간 로그 뷰어 열기
+
+                                    </Button>
+
+                                </CardContent>
+
+                            </Card>
+
+                        </div>
+
+                    </TabsContent>
+
+                </Tabs>
+
+            </div>
+
+            {/* Explicit Mobile Bottom Navigation Clearance Spacer */}
+
+            <div className="h-28 md:hidden shrink-0 pointer-events-none" aria-hidden="true" />
+
+            {/* Logs Dialog */}
+
+            <Dialog open={isLogOpen} onOpenChange={setIsLogOpen}>
+
+                <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 overflow-hidden bg-card border-border shadow-2xl rounded-2xl">
+
+                    <DialogHeader className="p-4 pb-3 border-b border-border bg-muted/20 flex flex-row items-center justify-between">
+
+                        <div className="space-y-0.5">
+
+                            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+
+                                <Terminal className="w-4 h-4 text-primary" /> 시스템 로그 및 스케줄러 진단
+
+                            </DialogTitle>
+
+                            <DialogDescription className="text-xs text-muted-foreground">
+
+                                백그라운드 스케줄러, 수집 엔진, 배포 작업의 실시간 실행 로그입니다.
+
+                            </DialogDescription>
+
+                        </div>
+
+                        <div className="flex items-center gap-2">
+
+                            <Button variant="outline" size="sm" onClick={clearLogs} className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-border rounded-xl">
+
+                                <Trash2 className="w-3.5 h-3.5 mr-1" /> 비우기
+
+                            </Button>
+
+                        </div>
+
+                    </DialogHeader>
+
+                    {/* Filter & Search Bar */}
+
+                    <div className="p-3 border-b border-border bg-muted/10 flex items-center gap-2">
+
+                        <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+
+                        <Input
+
+                            placeholder="로그 검색 (ERROR, 워밍업, 채널명, 모듈명...)"
+
+                            value={searchQuery}
+
+                            onChange={(e) => setSearchQuery(e.target.value)}
+
+                            className="h-8 text-xs bg-card border-border rounded-xl"
+
+                        />
+
+                    </div>
+
+                    {/* Log Terminal Window - Theme Adaptive */}
+
+                    <ScrollArea className="flex-1 p-4 bg-slate-50/70 dark:bg-zinc-950 font-mono text-xs overflow-y-auto">
+
+                        {filteredLogs.length === 0 ? (
+
+                            <div className="text-center py-12 text-muted-foreground">기록된 로그가 없거나 검색 조건과 일치하는 로그가 없습니다.</div>
+
+                        ) : (
+
+                            <div className="space-y-1 divide-y divide-slate-200/70 dark:divide-zinc-800/60">
+
+                                {filteredLogs.map((log, i) => {
+
+                                    const isError = log.includes('ERROR') || log.includes('Exception') || log.includes('Error:');
+
+                                    const isWarn = log.includes('WARN') || log.includes('WARNING');
+
+                                    const isSuccess = log.includes('SUCCESS') || log.includes('완료') || log.includes('성공');
+
+                                    return (
+
+                                        <div key={i} className="py-1.5 flex items-start gap-2 leading-relaxed">
+
+                                            {isError ? (
+
+                                                <Badge variant="outline" className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 text-[10px] px-1.5 py-0 shrink-0 font-bold">ERROR</Badge>
+
+                                            ) : isWarn ? (
+
+                                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-[10px] px-1.5 py-0 shrink-0 font-bold">WARN</Badge>
+
+                                            ) : isSuccess ? (
+
+                                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 text-[10px] px-1.5 py-0 shrink-0 font-bold">OK</Badge>
+
+                                            ) : (
+
+                                                <Badge variant="outline" className="bg-slate-200/60 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-300 dark:border-zinc-700 text-[10px] px-1.5 py-0 shrink-0 font-bold">INFO</Badge>
+
+                                            )}
+
+                                            <span className={`flex-1 break-all ${isError ? 'text-rose-700 dark:text-rose-300 font-semibold' : isWarn ? 'text-amber-700 dark:text-amber-300' : isSuccess ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-800 dark:text-zinc-200'}`}>
+
+                                                {log}
+
+                                            </span>
+
+                                        </div>
+
+                                    );
+
+                                })}
+
+                            </div>
+
+                        )}
+
+                    </ScrollArea>
+
+                    <div className="p-3 border-t border-border bg-muted/20 text-xs text-muted-foreground flex justify-between items-center">
+
+                        <span>표시 중인 로그: {filteredLogs.length}줄 / 전체: {logs.length}줄</span>
+
+                        <Button size="sm" variant="ghost" onClick={() => setIsLogOpen(false)} className="h-7 text-xs rounded-lg">닫기</Button>
+
+                    </div>
+
+                </DialogContent>
+
+            </Dialog>
+
+        </div>
+
+    );
+
+};
+
+export default Settings;
+

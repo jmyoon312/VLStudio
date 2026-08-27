@@ -95,7 +95,7 @@ def test_chat(
         model_name = request.model
         actual_provider = request.provider
         
-        for p in ["google", "groq", "openrouter", "sambanova", "cerebras", "ollama", "nvidia", "opencode"]:
+        for p in ["google", "groq", "openrouter", "sambanova", "cerebras", "ollama", "nvidia", "opencode", "youtube1"]:
             if model_name.startswith(f"{p}/"):
                 actual_provider = p
                 break

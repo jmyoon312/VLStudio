@@ -625,7 +625,7 @@ def start_scheduler():
     db = SessionLocal()
     try:
         settings = crud.get_settings(db)
-        interval = (settings.scan_interval_minutes if settings and settings.scan_interval_minutes is not None else 60)
+        interval = (settings.scan_interval_minutes if settings and settings.scan_interval_minutes is not None else 120)
     finally:
         db.close()
 

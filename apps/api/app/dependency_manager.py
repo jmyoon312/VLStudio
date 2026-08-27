@@ -85,10 +85,10 @@ class DependencyManager:
         Returns the path to the FFmpeg executable.
         Priority:
         1. FFMPEG_BINARY environment variable
-        2. System PATH (Global FFmpeg, preferred for hardware acceleration)
-        3. WinGet Gyan.FFmpeg package bin folder
-        4. User Profile Local AppData media bin folder (Primary Bundled)
-        5. C:\ViraLoopMedia\bin backup path (Secondary Bundled)
+        2. ViraLoop AppData media bin folder (Primary Bundled: media/bin/ffmpeg or media/09_System/bin/ffmpeg)
+        3. App Root runtime/ffmpeg/bin/ffmpeg.exe
+        4. Python static_ffmpeg / imageio_ffmpeg
+        5. System PATH / WinGet FFmpeg (Fallback)
         """
         # 1. Check environment variable
         env_ffmpeg = os.environ.get("FFMPEG_BINARY")
@@ -99,14 +99,35 @@ class DependencyManager:
         if not local_app_data:
             local_app_data = os.path.join(os.path.expanduser("~"), "AppData", "Local")
 
-        # Ensure venv/Scripts is in PATH
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         root_dir = os.path.dirname(os.path.dirname(base_dir))
-        venv_scripts = os.path.join(root_dir, "venv", "Scripts")
-        if os.path.exists(venv_scripts) and venv_scripts not in os.environ["PATH"]:
-            os.environ["PATH"] = venv_scripts + os.pathsep + os.environ["PATH"]
 
-        # Ensure WinGet Gyan.FFmpeg is in PATH if present
+        # 2. Check ViraLoop AppData media bin folders (Bundled with ViraLoop Studio)
+        local_ffmpeg_candidates = [
+            os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg", "bin", "ffmpeg.exe"),
+            os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "bin", "ffmpeg", "bin", "ffmpeg.exe"),
+            os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg.exe"),
+            os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "bin", "ffmpeg.exe")
+        ]
+        for candidate in local_ffmpeg_candidates:
+            if os.path.exists(candidate):
+                return candidate
+
+        # 3. Check App Root runtime/ffmpeg/bin/ffmpeg.exe
+        rel_ffmpeg = os.path.join(root_dir, "runtime", "ffmpeg", "bin", "ffmpeg.exe")
+        if os.path.exists(rel_ffmpeg):
+            return rel_ffmpeg
+
+        # 4. Check static_ffmpeg in Python environment
+        try:
+            import static_ffmpeg
+            ffmpeg_exe, _ = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise()
+            if ffmpeg_exe and os.path.exists(ffmpeg_exe):
+                return ffmpeg_exe
+        except Exception:
+            pass
+
+        # 5. Check WinGet / System PATH as fallback
         if local_app_data:
             winget_packages = os.path.join(local_app_data, "Microsoft", "WinGet", "Packages")
             if os.path.exists(winget_packages):
@@ -116,37 +137,15 @@ class DependencyManager:
                             for sub in os.listdir(os.path.join(winget_packages, item)):
                                 if sub.startswith("ffmpeg-"):
                                     ffmpeg_bin = os.path.join(winget_packages, item, sub, "bin")
-                                    if os.path.exists(ffmpeg_bin) and ffmpeg_bin not in os.environ["PATH"]:
+                                    if os.path.exists(ffmpeg_bin) and ffmpeg_bin not in os.environ.get("PATH", ""):
                                         os.environ["PATH"] = ffmpeg_bin + os.pathsep + os.environ["PATH"]
                 except Exception:
                     pass
 
-        # 2. Check system PATH (includes WinGet added above) - Highly preferred for HW Acceleration
         system_ffmpeg = shutil.which("ffmpeg")
         if system_ffmpeg:
-            # Prevent picking up a dummy or non-working one if possible, but generally trust system PATH
             return system_ffmpeg
 
-        # 3. Check static_ffmpeg in Python environment
-        try:
-            import static_ffmpeg
-            ffmpeg_exe, _ = static_ffmpeg.run.get_or_fetch_platform_executables_else_raise()
-            if ffmpeg_exe and os.path.exists(ffmpeg_exe):
-                return ffmpeg_exe
-        except Exception:
-            pass
-
-        # 4. Check App Root runtime/ffmpeg/bin/ffmpeg.exe
-        rel_ffmpeg = os.path.join(root_dir, "runtime", "ffmpeg", "bin", "ffmpeg.exe")
-        if os.path.exists(rel_ffmpeg):
-            return rel_ffmpeg
-
-        # 5. Check User Local AppData media bin folder
-        local_ffmpeg = os.path.join(local_app_data, "ViraLoop Studio", "media", "bin", "ffmpeg", "bin", "ffmpeg.exe")
-        if os.path.exists(local_ffmpeg):
-            return local_ffmpeg
-
-        # 6. Fallback
         return "ffmpeg"
 
     @staticmethod

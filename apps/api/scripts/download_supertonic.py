@@ -8,15 +8,18 @@ base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if base_dir not in sys.path:
     sys.path.append(base_dir)
 
+local_app_data = os.environ.get("LOCALAPPDATA", os.path.join(os.path.expanduser("~"), "AppData", "Local"))
+default_app_model_dir = os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "supertonic").replace("\\", "/")
+
 try:
     from app import crud, database
     # Get session
     db = next(database.get_db())
     settings = crud.get_settings(db)
-    model_dir = settings.supertone_model_path if settings.supertone_model_path else "backend/models/supertonic"
+    model_dir = settings.supertone_model_path if settings.supertone_model_path and settings.supertone_model_path != "backend/models/supertonic" else default_app_model_dir
 except Exception as e:
     print(f"Failed to load DB settings: {e}")
-    model_dir = "backend/models/supertonic"
+    model_dir = default_app_model_dir
 
 # Resolve absolute path
 if os.path.isabs(model_dir):

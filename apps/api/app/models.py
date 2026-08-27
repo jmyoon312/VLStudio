@@ -402,9 +402,10 @@ class Settings(Base):
     # Global Configs
     global_auto_download = Column(Boolean, default=True)
     enable_trend_scheduling = Column(Boolean, default=True) # [NEW] Scheduler Toggle
-    scan_interval_minutes = Column(Integer, default=60)
+    scan_interval_minutes = Column(Integer, default=120) # 2시간 기본 시작 (스마트 가변 수집)
     enable_view_stats_collection = Column(Boolean, default=True) # [NEW] Prevent IP block if needed
     auto_delete_mp4_days = Column(Integer, default=7) # [NEW] Delete MP4 files after X days (0 = disabled)
+    cleanup_days = Column(Integer, default=10) # [NEW] Manual cleanup threshold days
     
     # [NEW] Auto HD Download Thresholds
     auto_hd_viral_threshold = Column(Float, nullable=True)

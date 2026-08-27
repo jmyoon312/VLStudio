@@ -17,15 +17,47 @@ import sys
 
 @router.post("/pick-folder")
 def pick_folder():
-    """Stubbed for Docker/Headless: Tkinter not available."""
-    # Return success with message instead of 501 to prevent UI crash
-    return {"status": "manual_required", "message": "Headless environment detected. Please enter the path manually in the input field."}
+    """Opens a native Windows folder browser dialog via PowerShell."""
+    try:
+        ps_cmd = (
+            "[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; "
+            "$f = New-Object System.Windows.Forms.FolderBrowserDialog; "
+            "$f.Description = '폴더를 선택하세요'; "
+            "$f.ShowNewFolderButton = $true; "
+            "if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.SelectedPath }"
+        )
+        res = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True, text=True, timeout=60
+        )
+        selected = res.stdout.strip()
+        if selected:
+            return {"status": "success", "path": selected.replace("\\", "/")}
+        return {"status": "cancelled", "path": ""}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "path": ""}
 
 @router.post("/pick-file")
 def pick_file():
-    """Stubbed for Docker/Headless: Tkinter not available."""
-    # Return success with message instead of 501 to prevent UI crash
-    return {"status": "manual_required", "message": "Headless environment detected. Please enter the file path manually in the input field."}
+    """Opens a native Windows file browser dialog via PowerShell."""
+    try:
+        ps_cmd = (
+            "[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; "
+            "$f = New-Object System.Windows.Forms.OpenFileDialog; "
+            "$f.Title = '쿠키 또는 설정 파일을 선택하세요'; "
+            "$f.Filter = '모든 파일 (*.*)|*.*|텍스트 파일 (*.txt)|*.txt|JSON (*.json)|*.json'; "
+            "if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $f.FileName }"
+        )
+        res = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True, text=True, timeout=60
+        )
+        selected = res.stdout.strip()
+        if selected:
+            return {"status": "success", "path": selected.replace("\\", "/")}
+        return {"status": "cancelled", "path": ""}
+    except Exception as e:
+        return {"status": "error", "message": str(e), "path": ""}
 
 @router.post("/open-folder")
 def open_folder(request: PathRequest, db: Session = Depends(database.get_db)):
@@ -190,80 +222,246 @@ def open_folder(request: PathRequest, db: Session = Depends(database.get_db)):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+DB_FILE = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio", "viral_loop.db")
+BACKUP_DIR = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio", "db", "backups")
+
+
+@router.post("/backup-database")
+def backup_database_now():
+    """Create a manual database backup to AppData/ViraLoop Studio/db/backups/"""
+    import shutil, datetime
+    try:
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        if not os.path.exists(DB_FILE):
+            raise HTTPException(status_code=404, detail=f"데이터베이스 파일을 찾을 수 없습니다: {DB_FILE}")
+        
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"viral_loop_backup_{ts}.db"
+        backup_path = os.path.join(BACKUP_DIR, backup_filename)
+        shutil.copy2(DB_FILE, backup_path)
+        size_kb = os.path.getsize(backup_path) // 1024
+        return {
+            "ok": True,
+            "message": f"백업 완료: {backup_filename} ({size_kb:,} KB)",
+            "backup_path": backup_path.replace("\\", "/"),
+            "backup_dir": BACKUP_DIR.replace("\\", "/"),
+            "filename": backup_filename,
+            "size_kb": size_kb
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"백업 실패: {str(e)}")
+
+
+@router.get("/backup-list")
+def list_backups():
+    """List all available database backups."""
+    import datetime
+    try:
+        if not os.path.exists(BACKUP_DIR):
+            return {"backups": [], "backup_dir": BACKUP_DIR.replace("\\", "/")}
+        
+        backups = []
+        for f in sorted(os.listdir(BACKUP_DIR), reverse=True):
+            fp = os.path.join(BACKUP_DIR, f)
+            if os.path.isfile(fp) and f.endswith(".db"):
+                stat = os.stat(fp)
+                backups.append({
+                    "filename": f,
+                    "size_kb": stat.st_size // 1024,
+                    "created_at": datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                })
+        
+        total_kb = sum(b["size_kb"] for b in backups)
+        return {
+            "backups": backups,
+            "total_count": len(backups),
+            "total_size_kb": total_kb,
+            "backup_dir": BACKUP_DIR.replace("\\", "/")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/open-backup-folder")
+def open_backup_folder():
+    """Open the backup folder in Windows Explorer."""
+    try:
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        subprocess.Popen(["explorer.exe", BACKUP_DIR])
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/delete-backup/{filename}")
+def delete_backup(filename: str):
+    """Delete a specific backup file."""
+    try:
+        # Safety: only allow deleting files inside BACKUP_DIR
+        backup_path = os.path.join(BACKUP_DIR, os.path.basename(filename))
+        if not backup_path.startswith(BACKUP_DIR):
+            raise HTTPException(status_code=403, detail="잘못된 경로입니다.")
+        if not os.path.exists(backup_path):
+            raise HTTPException(status_code=404, detail="백업 파일을 찾을 수 없습니다.")
+        os.remove(backup_path)
+        return {"ok": True, "message": f"{filename} 삭제 완료"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/reset-database")
 def reset_database():
+    """Safely reset database: creates an automatic backup first, then drops and recreates all tables."""
+    import shutil, datetime
     try:
+        # Step 1: Auto-backup before reset
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        if os.path.exists(DB_FILE):
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            auto_backup_path = os.path.join(BACKUP_DIR, f"viral_loop_pre_reset_{ts}.db")
+            shutil.copy2(DB_FILE, auto_backup_path)
+        
+        # Step 2: Drop and recreate tables
         from ..database import engine
         from .. import models
-        
-        # Drop all tables
         models.Base.metadata.drop_all(bind=engine)
-        
-        # Create all tables
         models.Base.metadata.create_all(bind=engine)
         
-        return {"ok": True, "message": "Database reset successful"}
+        return {
+            "ok": True,
+            "message": f"데이터베이스 초기화 완료. 초기화 전 자동 백업이 생성되었습니다 (viral_loop_pre_reset_{ts}.db)",
+            "backup_dir": BACKUP_DIR.replace("\\", "/")
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to reset database: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"초기화 실패: {str(e)}")
 
 
 # ============================================
-# yt-dlp Maintenance Endpoints
+# yt-dlp 버전 관리 (Python 패키지 기반)
+# 실제 사용: import yt_dlp (venv 또는 PyInstaller 번들)
+# 업데이트: pip install --upgrade yt-dlp
 # ============================================
 
 import importlib
-import yt_dlp
+import yt_dlp as _yt_dlp_module
 
-def get_current_version_logic():
-    """Get yt-dlp version via importlib.reload (safe for both dev & packaged builds).
-    Subprocess fallback is only used in non-frozen dev mode as a secondary check."""
+
+def _get_ytdlp_version() -> str:
+    """Get yt-dlp version from installed Python package."""
     try:
-        importlib.reload(yt_dlp)
-        return yt_dlp.version.__version__
+        importlib.reload(_yt_dlp_module)
+        return _yt_dlp_module.version.__version__
     except Exception:
         pass
-    # Fallback: subprocess (only safe in non-frozen dev mode)
-    if not getattr(sys, 'frozen', False):
-        try:
-            result = subprocess.run(
-                [sys.executable, '-m', 'yt_dlp', '--version'],
-                capture_output=True, text=True, timeout=15
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except Exception:
-            pass
+    # Fallback: importlib.metadata (works in both venv and PyInstaller builds)
+    try:
+        from importlib.metadata import version
+        return version("yt-dlp")
+    except Exception:
+        pass
     return "Unknown"
+
+
+def _get_ytdlp_install_path() -> str:
+    """Return a user-friendly install path description."""
+    # PyInstaller frozen build
+    if getattr(sys, 'frozen', False):
+        return "앱 내장 (배포판 번들)"
+    # venv / regular install
+    try:
+        pkg_dir = os.path.dirname(_yt_dlp_module.__file__)
+        # Show only AppData-relative or short form
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        appdata = os.environ.get("APPDATA", "")
+        if local_app and pkg_dir.lower().startswith(local_app.lower()):
+            return pkg_dir.replace("\\", "/")
+        if appdata and pkg_dir.lower().startswith(appdata.lower()):
+            return pkg_dir.replace("\\", "/")
+        # Dev/venv path — show as Python package notation
+        return f"Python 패키지: {pkg_dir.replace(chr(92), '/')}"
+    except Exception:
+        return "Unknown"
+
 
 @router.get("/ytdlp-version")
 async def get_ytdlp_version():
-    """Get current yt-dlp version"""
-    return {"version": get_current_version_logic()}
+    """Get yt-dlp version and install location (Python package)."""
+    version = _get_ytdlp_version()
+    install_path = _get_ytdlp_install_path()
+    is_frozen = getattr(sys, 'frozen', False)
+
+    return {
+        "version": version,
+        "install_path": install_path,
+        "installed": version != "Unknown",
+        "is_frozen": is_frozen,
+    }
 
 
 @router.post("/update-ytdlp")
 async def update_ytdlp():
-    """Manually trigger yt-dlp update (Forces update regardless of schedule)"""
+    """Update yt-dlp Python package via pip (source installs only)."""
+    import asyncio, datetime
+
+    # Packaged/frozen build cannot update via pip
+    if getattr(sys, 'frozen', False):
+        return {
+            "success": False,
+            "message": "배포판 빌드에서는 pip 업데이트를 사용할 수 없습니다. 앱 전체를 새 버전으로 업데이트하세요."
+        }
+
+    old_version = _get_ytdlp_version()
+
+    def _run_pip_upgrade():
+        creationflags = 0x08000000 if sys.platform == "win32" else 0
+        return subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"],
+            capture_output=True, text=True, timeout=120,
+            creationflags=creationflags
+        )
+
     try:
-        from ..system_maintenance import system_maintenance
-        
-        # Use the shared maintenance logic which we fixed to use correct pip env
-        result = await system_maintenance.update_ytdlp()
-        
-        if result['status'] == 'success':
-            return {
-                "success": True, 
-                "message": result['message'], 
-                "version": result['new_version']
-            }
+        result = await asyncio.to_thread(_run_pip_upgrade)
+        if result.returncode != 0:
+            return {"success": False, "message": f"pip 업데이트 실패: {result.stderr.strip()}"}
+
+        # Reload module so new version is reflected in same process
+        try:
+            importlib.reload(_yt_dlp_module)
+        except Exception:
+            pass
+
+        new_version = _get_ytdlp_version()
+
+        # Save to DB
+        try:
+            from ..database import SessionLocal
+            from .. import crud
+            db = SessionLocal()
+            try:
+                settings = crud.get_settings(db)
+                if settings:
+                    settings.ytdlp_version = new_version
+                    settings.ytdlp_last_check = datetime.datetime.now()
+                    db.commit()
+            finally:
+                db.close()
+        except Exception:
+            pass
+
+        if old_version != new_version:
+            msg = f"업데이트 완료: {old_version} → {new_version}"
         else:
-             return {
-                "success": False, 
-                "message": f"Update Failed: {result.get('error')}"
-             }
+            msg = f"이미 최신 버전입니다: {new_version}"
+        return {"success": True, "message": msg, "version": new_version}
 
     except Exception as e:
-        return {"success": False, "message": f"Error: {str(e)}"}
+        return {"success": False, "message": f"오류: {str(e)}"}
+
 
 # ============================================
 # CloakBrowser Maintenance Endpoints

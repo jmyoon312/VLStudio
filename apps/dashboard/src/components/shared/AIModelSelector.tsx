@@ -24,6 +24,7 @@ interface AIModelSelectorProps {
     // Optional: UI Controls
     compact?: boolean;
     disabled?: boolean;
+    showProvider?: boolean;
     showModel?: boolean;
     showPreset?: boolean;
 
@@ -32,19 +33,9 @@ interface AIModelSelectorProps {
     onCreatePreset?: () => void;
 }
 
-// 1. Static Provider List (Always Visible)
+// 1. Static Provider List (9router Unified Gateway)
 const PROVIDER_OPTIONS = [
-    { value: "google", label: "Google" },
-    { value: "openai", label: "OpenAI" },
-    { value: "anthropic", label: "Anthropic" },
-    { value: "groq", label: "Groq (OpenSource)" },
-    { value: "openrouter", label: "OpenRouter" },
-    { value: "sambanova", label: "SambaNova" },
-    { value: "cerebras", label: "Cerebras" },
-    { value: "xai", label: "xAI (Grok)" },
-    { value: "nvidia", label: "NVIDIA" },
-    { value: "ollama", label: "Ollama" },
-    { value: "youtube1", label: "YouTube1" },
+    { value: "youtube1", label: "9router (로컬 AI 통합 허브)" },
 ];
 
 const AIModelSelector = ({
@@ -56,6 +47,7 @@ const AIModelSelector = ({
     onPresetChange,
     compact = false,
     disabled = false,
+    showProvider = true,
     showModel = true,
     showPreset = false,
     onEditPreset,
@@ -168,28 +160,30 @@ const AIModelSelector = ({
     });
 
     return (
-        <div className={cn("grid gap-3 sm:gap-4", compact ? "grid-cols-2 gap-3" : "grid-cols-1 md:grid-cols-2")}>
+        <div className={cn("grid gap-3 sm:gap-4", !showProvider ? "grid-cols-1" : compact ? "grid-cols-2 gap-3" : "grid-cols-1 md:grid-cols-2")}>
             {/* Provider Section */}
-            <div className="space-y-1.5">
-                <div className="flex items-end min-h-[24px] pb-0.5">
-                    <Label className={labelClass}>제공자 (Provider)</Label>
+            {showProvider && (
+                <div className="space-y-1.5">
+                    <div className="flex items-end min-h-[24px] pb-0.5">
+                        <Label className={labelClass}>제공자 (Provider)</Label>
+                    </div>
+                    <Select value={provider} onValueChange={handleProviderChange} disabled={disabled}>
+                        <SelectTrigger className={selectTriggerClass}>
+                            <SelectValue placeholder="제공자 선택..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {PROVIDER_OPTIONS.filter((opt) => {
+                                // Only display providers that have models loaded from user's keys
+                                return fetchedModels?.[opt.value]?.length > 0 || ['ollama', 'nvidia', 'xai', 'openai', 'anthropic', 'youtube1'].includes(opt.value);
+                            }).map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value} className={itemClass}>
+                                    {opt.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
-                <Select value={provider} onValueChange={handleProviderChange} disabled={disabled}>
-                    <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="제공자 선택..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {PROVIDER_OPTIONS.filter((opt) => {
-                            // Only display providers that have models loaded from user's keys
-                            return fetchedModels?.[opt.value]?.length > 0 || ['ollama', 'nvidia', 'xai', 'openai', 'anthropic', 'youtube1'].includes(opt.value);
-                        }).map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value} className={itemClass}>
-                                {opt.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
+            )}
 
             {/* Model Dropdown (Dynamic) */}
             {showModel && (

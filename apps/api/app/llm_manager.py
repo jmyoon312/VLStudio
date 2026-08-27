@@ -421,17 +421,18 @@ class LLMClient:
                         continue
                 raise last_error or Exception("All NVIDIA keys exhausted.")
 
-            elif model_name.startswith("youtube1/"):
-                # YouTube1 Custom Provider (local API endpoint)
+            elif model_name == "youtube1" or model_name.startswith("youtube1/"):
+                # YouTube1 Custom Provider (local API endpoint / 9router combo)
                 last_error = None
                 for _ in range(len(self.youtube1_keys) + 1):
                     current_key = self.youtube1_keys[self.youtube1_key_index] if self.youtube1_keys else None
                     if not current_key: break
 
                     try:
+                        clean_model = model_name.replace("youtube1/", "") if model_name.startswith("youtube1/") else model_name
                         return self._generate_openai_compatible(
                             prompt=prompt,
-                            model=model_name.replace("youtube1/", ""),
+                            model=clean_model,
                             system_instruction=system_instruction,
                             full_response=full_response,
                             base_url="http://localhost:20128/v1",
@@ -1131,9 +1132,12 @@ class LLMClient:
                 temp_client.models.list(config={"page_size": 1})
                 return {"success": True, "message": "Google API 연결 성공!"}
 
-            # 2. OpenAI Compatible Case (Groq, OpenRouter, SambaNova, Cerebras, NVIDIA, Ollama)
+            # 2. OpenAI Compatible Case (9router, Groq, OpenRouter, SambaNova, Cerebras, NVIDIA, Ollama)
             # Map providers to their default base URLs if not provided
             default_urls = {
+                "youtube1": "http://localhost:20128/v1",
+                "9router": "http://localhost:20128/v1",
+                "ninerouter": "http://localhost:20128/v1",
                 "groq": "https://api.groq.com/openai/v1",
                 "openrouter": "https://openrouter.ai/api/v1",
                 "sambanova": "https://api.sambanova.ai/v1",
@@ -1149,6 +1153,9 @@ class LLMClient:
             # Map providers to their keys from settings if not provided
             if not api_key:
                 key_map = {
+                    "youtube1": self.youtube1_keys if self.youtube1_keys else ["9router"],
+                    "9router": ["9router"],
+                    "ninerouter": ["9router"],
                     "groq": self.groq_keys,
                     "openrouter": self.openrouter_keys,
                     "sambanova": self.sambanova_keys,
@@ -1157,14 +1164,17 @@ class LLMClient:
                     "opencode": self.opencode_keys,
                     "ollama": ["ollama"]
                 }
-                keys = key_map.get(provider, [])
-                api_key = keys[0] if keys else None
+                keys = key_map.get(provider, ["9router"])
+                api_key = keys[0] if keys else "9router"
 
-            if not api_key: return {"success": False, "message": f"{provider} API 키가 설정되지 않았습니다."}
+            if not api_key:
+                api_key = "9router"
 
             temp_client = OpenAI(api_key=api_key, base_url=target_url)
-            temp_client.models.list()
-            return {"success": True, "message": f"{provider.capitalize()} 연결 성공!"}
+            models_res = temp_client.models.list()
+            model_count = len(models_res.data) if hasattr(models_res, 'data') else 1
+            provider_label = "9router" if provider in ["youtube1", "9router", "ninerouter"] else provider.capitalize()
+            return {"success": True, "message": f"{provider_label} 연결 성공! (사용 가능 모델: {model_count}개 감지)"}
 
         except Exception as e:
             return {"success": False, "message": parse_llm_error(e, provider)}

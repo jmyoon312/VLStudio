@@ -21,17 +21,17 @@ def get_settings(db: Session):
             typecast_api_keys=[],
             groq_api_keys=[],
             nvidia_api_keys=[],
-            supertone_project_key=None,
+            supertone_model_path=os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio", "media", "09_System", "models", "supertonic").replace("\\", "/"),
             
             kokoro_tts_url="https://tts1.gogloo.gleeze.com",
             
             global_auto_download=True,
-            scan_interval_minutes=60,
+            scan_interval_minutes=120,
             ytdlp_auto_update=True,
             
             default_model_size="base",
             default_language="ko",
-            whisper_model_path=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models--Systran--faster-whisper-base")) if os.path.exists(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "models--Systran--faster-whisper-base"))) else os.path.join(os.path.expanduser("~"), ".cache", "faster_whisper"),
+            whisper_model_path=os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio", "media", "09_System", "models", "faster-whisper").replace("\\", "/"),
             
             # Distributed AI Grid Defaults
             audio_node_url="https://miscultivated-nonvertically-londa.ngrok-free.dev",

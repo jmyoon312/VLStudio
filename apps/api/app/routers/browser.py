@@ -153,3 +153,54 @@ async def type_into_active_window(req: TypeRequest):
     except Exception as e:
         logger.error(f"Macro injection failed: {e}")
         raise HTTPException(500, f"Macro injection failed: {e}")
+
+
+class IXBrowserTestRequest(BaseModel):
+    url: str = "http://127.0.0.1:53200"
+
+
+@router.post("/test-ixbrowser")
+async def test_ixbrowser_connection(req: IXBrowserTestRequest):
+    """Test connection to local ixBrowser API client."""
+    import httpx
+    import time
+    
+    raw_url = req.url.strip().rstrip('/')
+    if not raw_url:
+        raise HTTPException(400, "ixBrowser API URL이 비어 있습니다.")
+    
+    # Normalize url (ensure http scheme)
+    if not raw_url.startswith("http://") and not raw_url.startswith("https://"):
+        raw_url = f"http://{raw_url}"
+        
+    endpoint = f"{raw_url}/api/v2/profile-list" if not raw_url.endswith("/profile-list") else raw_url
+    
+    t0 = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.post(endpoint, json={"page": 1, "limit": 10})
+            elapsed_ms = int((time.time() - t0) * 1000)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("code") == 0:
+                    profile_count = data.get("data", {}).get("total", 0)
+                    return {
+                        "status": "success",
+                        "message": f"ixBrowser 연결 정상! (응답 시간: {elapsed_ms}ms, 감지된 프로필: {profile_count}개)",
+                        "profile_count": profile_count
+                    }
+                else:
+                    return {
+                        "status": "success",
+                        "message": f"ixBrowser 클라이언트 감지됨 (응답 시간: {elapsed_ms}ms, 코드: {data.get('code')})",
+                        "profile_count": 0
+                    }
+            else:
+                raise HTTPException(400, f"ixBrowser 응답 오류 (HTTP {resp.status_code}): {resp.text[:150]}")
+    except httpx.ConnectError:
+        raise HTTPException(400, f"ixBrowser 앱에 연결할 수 없습니다. ixBrowser 데스크톱 클라이언트가 실행 중이고 포트({raw_url})가 맞는지 확인하세요.")
+    except httpx.TimeoutException:
+        raise HTTPException(400, f"ixBrowser 연결 시간 초과 ({raw_url}). 앱이 응답하지 않습니다.")
+    except Exception as e:
+        raise HTTPException(400, f"ixBrowser 연결 실패: {str(e)}")
