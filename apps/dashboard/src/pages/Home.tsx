@@ -476,62 +476,51 @@ const fallbackScriptInsights = [
 
 ];
 
+// -- Instant Cache Helpers (SWR: 0.001초 즉시 렌더링으로 깜빡임/0 상태 원천 방지) --
+const getLocalCache = <T,>(key: string, fallback: T): T => {
+    try {
+        const saved = sessionStorage.getItem(`VL_HOME_CACHE_${key}`);
+        if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return fallback;
+};
+
+const setLocalCache = (key: string, data: any) => {
+    try {
+        sessionStorage.setItem(`VL_HOME_CACHE_${key}`, JSON.stringify(data));
+    } catch (_) {}
+};
+
 const Home = () => {
 
     const { activeProfile, user } = useAuth();
 
-    const [stats, setStats] = useState<DashboardStats>({
-
+        const [stats, setStats] = useState<DashboardStats>(() => getLocalCache('stats', {
         total_channels: 0,
-
         active_channels: 0,
-
         total_videos: 0,
-
         downloaded_today: 0
-
-    });
-
+    }));
     
-
-    const [latestReport, setLatestReport] = useState<any | null>(null);
-
-    const [netStatus, setNetStatus] = useState<NetworkStatus | null>(null);
-
+    const [latestReport, setLatestReport] = useState<any | null>(() => getLocalCache('latestReport', null));
+    const [netStatus, setNetStatus] = useState<NetworkStatus | null>(() => getLocalCache('netStatus', null));
     const [isNetFetched, setIsNetFetched] = useState(false);
-
     const [isRotating, setIsRotating] = useState(false);
-
-    const [channelsList, setChannelsList] = useState<ChannelItem[]>([]);
-
-    const [categoriesList, setCategoriesList] = useState<CategoryItem[]>([]);
-
-    const [galleryVideos, setGalleryVideos] = useState<VideoAssetItem[]>([]);
-
-    const [scriptLabVideos, setScriptLabVideos] = useState<VideoAssetItem[]>([]);
-
-    const [settings, setSettings] = useState<Settings | null>(null);
-
+    const [channelsList, setChannelsList] = useState<ChannelItem[]>(() => getLocalCache('channelsList', []));
+    const [categoriesList, setCategoriesList] = useState<CategoryItem[]>(() => getLocalCache('categoriesList', []));
+    const [galleryVideos, setGalleryVideos] = useState<VideoAssetItem[]>(() => getLocalCache('galleryVideos', []));
+    const [scriptLabVideos, setScriptLabVideos] = useState<VideoAssetItem[]>(() => getLocalCache('scriptLabVideos', []));
+    const [settings, setSettings] = useState<Settings | null>(() => getLocalCache('settings', null));
     const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-
     const [selectedDateFilter, setSelectedDateFilter] = useState<'ALL' | '1d' | '3d' | '7d' | '30d'>('ALL');
-
-    const [queueStats, setQueueStats] = useState<QueueStats>({
-
+    const [queueStats, setQueueStats] = useState<QueueStats>(() => getLocalCache('queueStats', {
         total: 0,
-
         queued: 0,
-
         uploading: 0,
-
         completed: 0,
-
         failed: 0
-
-    });
-
-    const [recentQueueItems, setRecentQueueItems] = useState<any[]>([]);
-
+    }));
+    const [recentQueueItems, setRecentQueueItems] = useState<any[]>(() => getLocalCache('recentQueueItems', []));
     const [showNotice, setShowNotice] = useState(true);
 
     
@@ -633,38 +622,72 @@ const Home = () => {
     };
 
     const fetchData = async () => {
+
         try {
+
             const [statsRes, channelsRes, categoriesRes, queueStatsRes, queueItemsRes, videosRes, scriptVideosRes, settingsRes, reportRes] = await Promise.all([
+
                 api.get('/dashboard/stats').catch(() => null),
+
                 api.get('/channels/').catch(() => null),
+
                 api.get('/categories/').catch(() => null),
+
                 api.get('/work-queue/stats').catch(() => null),
+
                 api.get('/work-queue/items?limit=5').catch(() => null),
+
                 api.get('/videos/?mode=video').catch(() => null),
+
                 api.get('/videos/?mode=script&limit=20').catch(() => null),
+
                 api.get('/settings/').catch(() => null),
+
                 api.get('/reports/latest').catch(() => null),
+
             ]);
 
-            if (statsRes?.data) setStats(statsRes.data);
-            if (reportRes?.data) setLatestReport(reportRes.data);
-            if (channelsRes?.data) setChannelsList(channelsRes.data);
-            if (categoriesRes?.data && Array.isArray(categoriesRes.data)) setCategoriesList(categoriesRes.data);
-            if (queueStatsRes?.data) setQueueStats(queueStatsRes.data);
-            if (settingsRes?.data) setSettings(settingsRes.data);
+                        if (statsRes?.data) {
+                setStats(statsRes.data);
+                setLocalCache('stats', statsRes.data);
+            }
+            if (reportRes?.data) {
+                setLatestReport(reportRes.data);
+                setLocalCache('latestReport', reportRes.data);
+            }
+            if (channelsRes?.data) {
+                setChannelsList(channelsRes.data);
+                setLocalCache('channelsList', channelsRes.data);
+            }
+            if (categoriesRes?.data && Array.isArray(categoriesRes.data)) {
+                setCategoriesList(categoriesRes.data);
+                setLocalCache('categoriesList', categoriesRes.data);
+            }
+            if (queueStatsRes?.data) {
+                setQueueStats(queueStatsRes.data);
+                setLocalCache('queueStats', queueStatsRes.data);
+            }
+            if (settingsRes?.data) {
+                setSettings(settingsRes.data);
+                setLocalCache('settings', settingsRes.data);
+            }
             if (queueItemsRes?.data && Array.isArray(queueItemsRes.data)) {
                 setRecentQueueItems(queueItemsRes.data);
+                setLocalCache('recentQueueItems', queueItemsRes.data);
             }
             if (videosRes?.data && Array.isArray(videosRes.data)) {
-                const rawVideos: VideoAssetItem[] = videosRes.data;
-                setGalleryVideos(rawVideos.filter(v => !v.is_script_only));
+                const filtered = (videosRes.data as VideoAssetItem[]).filter(v => !v.is_script_only);
+                setGalleryVideos(filtered);
+                setLocalCache('galleryVideos', filtered);
             }
             if (scriptVideosRes?.data && Array.isArray(scriptVideosRes.data)) {
-                // 수집 대본 분석실 실제 데이터 바인딩
                 setScriptLabVideos(scriptVideosRes.data);
+                setLocalCache('scriptLabVideos', scriptVideosRes.data);
             }
             await fetchNetworkStatus();
+
         } catch (_) { }
+
     };
 
     useEffect(() => {
@@ -2003,29 +2026,40 @@ const Home = () => {
                                         <div 
                                             key={item.id || idx} 
                                             onClick={() => navigate(`/script-lab`)}
-                                            className="p-1.5 hover:bg-muted/60 rounded-lg transition-colors cursor-pointer group bg-muted/30"
-                                            title="클릭하면 수집 대본 분석실에서 전체 대본과 상세 바이럴 지표를 확인합니다."
+                                            className="p-1.5 hover:bg-muted/60 rounded-xl transition-colors cursor-pointer group bg-muted/30 border border-transparent hover:border-border/60 flex items-center justify-between gap-2"
+                                            title="클릭하면 수집 대본 분석실에서 전체 대본을 확인합니다."
                                         >
-                                            <div className="flex items-start gap-1.5">
-                                                <span className="text-[11px] font-bold text-indigo-500 shrink-0 w-3">{idx + 1}</span>
+                                            <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                                                <span className="text-[11px] font-bold text-indigo-500 shrink-0 w-3.5 mt-0.5">{idx + 1}</span>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-[11px] font-bold text-foreground truncate group-hover:text-indigo-600 transition-colors">
                                                         {item.title}
                                                     </p>
-                                                    <div className="flex items-center justify-between text-[9.5px] text-muted-foreground mt-0.5">
-                                                        <span className="truncate max-w-[130px]">{channelName}</span>
-                                                        {viralScore !== null ? (
-                                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+                                                    <div className="flex items-center gap-1.5 text-[9.5px] text-muted-foreground mt-0.5">
+                                                        <span className="truncate max-w-[90px]">{channelName}</span>
+                                                        {viralScore !== null && (
+                                                            <span className="text-[8.5px] font-bold px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
                                                                 🔥 EV {viralScore}%
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-indigo-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                                                대본 보기 ➔
                                                             </span>
                                                         )}
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            {/* AI 각색 버튼 (보관함의 AI 생성 버튼과 동일한 규격) */}
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/script-writer?video_id=${item.id}&topic=${encodeURIComponent(item.title || '')}`);
+                                                }}
+                                                className="h-6 px-2 text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 rounded-lg shrink-0 gap-1 shadow-2xs transition-all"
+                                                title="이 대본을 기반으로 AI 쇼츠 대본을 재창작/각색합니다."
+                                            >
+                                                <Sparkles className="w-3 h-3 text-amber-500" />
+                                                <span>AI 각색</span>
+                                            </Button>
                                         </div>
                                     );
                                 })
