@@ -298,23 +298,72 @@ const ScriptLab = () => {
         enabled: !!statsVideo
     });
 
+    // 차트 데이터 계산 (Gallery.tsx와 100% 동일: 히스토리가 0~1개여도 기본 추이 곡선 자동 생성)
     const chartData = useMemo(() => {
-        if (!videoHistory || videoHistory.length === 0) {
-            if (!statsVideo) return [];
-            return [
-                {
-                    timestamp: statsVideo.upload_date || new Date().toISOString(),
-                    view_count: statsVideo.view_count || statsVideo.metadata_json?.view_count || 0,
-                    velocity: statsVideo.velocity_score || 0
+        if (!statsVideo) return [];
+        const currentViews = statsVideo.view_count || (statsVideo.metadata_json?.view_count ? Number(statsVideo.metadata_json.view_count) : 0);
+        const viralScore = statsVideo.viral_score || 0;
+
+        // Safe Date Parser
+        const parseSafe = (val: any, fallbackMs: number) => {
+            if (!val) return new Date(fallbackMs);
+            const str = String(val).trim();
+            if (/^\d{8}$/.test(str)) {
+                const y = parseInt(str.substring(0, 4));
+                const m = parseInt(str.substring(4, 6)) - 1;
+                const d = parseInt(str.substring(6, 8));
+                return new Date(y, m, d);
+            }
+            const d = new Date(str);
+            return isNaN(d.getTime()) ? new Date(fallbackMs) : d;
+        };
+
+        const uploadDate = parseSafe(statsVideo.upload_date || statsVideo.created_at, Date.now() - 86400000 * 3);
+        const createdDate = parseSafe(statsVideo.created_at, Date.now());
+
+        if (videoHistory && videoHistory.length >= 2) {
+            const sorted = [...videoHistory].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            return sorted.map((item, i) => {
+                const itemTime = new Date(item.timestamp).getTime();
+                const hoursSinceUpload = Math.max(0.1, (itemTime - uploadDate.getTime()) / (1000 * 60 * 60));
+                const lifetimeVelocity = item.view_count / hoursSinceUpload;
+                let velocity = lifetimeVelocity;
+                if (i > 0) {
+                    const prev = sorted[i - 1];
+                    const timeDiff = (itemTime - new Date(prev.timestamp).getTime()) / (1000 * 60 * 60);
+                    if (timeDiff > 0) {
+                        velocity = Math.max(0, (item.view_count - prev.view_count) / timeDiff);
+                    }
                 }
-            ];
+                return {
+                    ...item,
+                    timestamp: item.timestamp,
+                    velocity: Math.max(0, Math.floor(velocity))
+                };
+            });
         }
-        return videoHistory.map((h: any) => ({
-            timestamp: h.recorded_at,
-            view_count: h.view_count,
-            velocity: h.velocity_score
-        }));
+
+        // 히스토리가 0~1개일 때: 업로드 시점부터 현재까지의 지수 성장/바이럴 추이 시뮬레이션 6개 포인트 생성
+        const points = [];
+        const totalDuration = Math.max(86400000, createdDate.getTime() - uploadDate.getTime());
+        const steps = 6;
+        for (let i = 0; i <= steps; i++) {
+            const ratio = i / steps;
+            const time = new Date(uploadDate.getTime() + totalDuration * ratio);
+            // 가속 곡선 (t^1.8)
+            const growthFactor = Math.pow(ratio, 1.8);
+            const estViews = Math.round(currentViews * growthFactor);
+            const estVelocity = Math.round((currentViews / Math.max(1, totalDuration / 3600000)) * (0.4 + 1.2 * ratio));
+            points.push({
+                timestamp: time.toISOString(),
+                view_count: estViews,
+                velocity: estVelocity,
+                viral_score: Math.round(viralScore * (0.3 + 0.7 * ratio))
+            });
+        }
+        return points;
     }, [videoHistory, statsVideo]);
+
 
 
 
