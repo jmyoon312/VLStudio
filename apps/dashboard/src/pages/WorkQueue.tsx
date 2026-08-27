@@ -688,15 +688,15 @@ const WorkQueue = () => {
                     </div>
                     
                     {/* 스마트 통합 검색 및 강화된 다차원 필터/정렬 툴바 */}
-                    <div className="flex items-center gap-1.5 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
                         {/* 1. 검색어 입력창 + 빠른 X 지우기 버튼 */}
-                        <div className="flex items-center gap-1.5 relative flex-1 sm:flex-initial min-w-[170px] sm:min-w-[210px]">
+                        <div className="flex items-center gap-1.5 relative w-full sm:w-56 md:w-64 shrink-0">
                             <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 pointer-events-none" />
                             <Input 
                                 placeholder="제목, 채널, 파일명, ID..." 
                                 value={searchQuery} 
                                 onChange={e => setSearchQuery(e.target.value)} 
-                                className="w-full h-8 text-xs bg-background border-border pl-8 pr-7" 
+                                className="w-full h-8 text-xs bg-background border-border pl-8 pr-7 rounded-lg" 
                             />
                             {searchQuery && (
                                 <button
@@ -708,102 +708,108 @@ const WorkQueue = () => {
                                 </button>
                             )}
                         </div>
-                        
-                        {/* 2. 채널 계정 필터 */}
-                        <Select value={channelFilter} onValueChange={setChannelFilter}>
-                            <SelectTrigger className="w-28 sm:w-32 h-8 text-xs bg-background">
-                                <SelectValue placeholder="전체 채널" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">전체 채널</SelectItem>
-                                {channels.map((c: any) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>
-                                        🎬 {c.name}
-                                    </SelectItem>
-                                ))}
-                                {tiktokChannels.map((c: any) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>
-                                        🎵 {c.name || c.username}
-                                    </SelectItem>
-                                ))}
-                                {instagramChannels.map((c: any) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>
-                                        📸 {c.name || c.username}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
 
-                        {/* 3. 업로드 방식 필터 */}
-                        <Select value={uploadMethodFilter} onValueChange={setUploadMethodFilter}>
-                            <SelectTrigger className="w-24 sm:w-28 h-8 text-xs bg-background">
-                                <SelectValue placeholder="업로드 방식" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">전체 방식</SelectItem>
-                                <SelectItem value="stealth_auto">🤖 스텔스 자동</SelectItem>
-                                <SelectItem value="manual">✍️ 수동 업로드</SelectItem>
-                                <SelectItem value="immediate">⚡ 즉시 등록</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        {/* 2. 세부 필터 & 정렬 컨트롤 (모바일 가로 스크롤 / PC 인라인) */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto dashboard-scroll-area pb-1 sm:pb-0 shrink-0">
+                            {/* 채널 계정 필터 */}
+                            <Select value={channelFilter} onValueChange={setChannelFilter}>
+                                <SelectTrigger className="h-8 text-xs bg-background shrink-0 w-auto min-w-[96px] whitespace-nowrap px-2.5">
+                                    <SelectValue placeholder="전체 채널" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">전체 채널</SelectItem>
+                                    {channels.map((c: any) => (
+                                        <SelectItem key={c.id} value={String(c.id)}>
+                                            🎬 {c.name}
+                                        </SelectItem>
+                                    ))}
+                                    {tiktokChannels.map((c: any) => (
+                                        <SelectItem key={c.id} value={String(c.id)}>
+                                            🎵 {c.name || c.username}
+                                        </SelectItem>
+                                    ))}
+                                    {instagramChannels.map((c: any) => (
+                                        <SelectItem key={c.id} value={String(c.id)}>
+                                            📸 {c.name || c.username}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
 
-                        {/* 4. 프로젝트 그룹 필터 */}
-                        <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-                            <SelectTrigger className="w-28 sm:w-32 h-8 text-xs bg-background">
-                                <SelectValue placeholder="프로젝트 그룹" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">전체 프로젝트</SelectItem>
-                                {batchGroups.map((b: any) => (
-                                    <SelectItem key={b.batch_id} value={b.batch_id}>
-                                        {b.source_type === 'PIXELING' ? '🎨 픽셀링' : b.source_type === 'EXCEL' ? '📊 엑셀' : '📁'}: {b.batch_id} ({b.count}건)
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            {/* 업로드 방식 필터 */}
+                            <Select value={uploadMethodFilter} onValueChange={setUploadMethodFilter}>
+                                <SelectTrigger className="h-8 text-xs bg-background shrink-0 w-auto min-w-[94px] whitespace-nowrap px-2.5">
+                                    <SelectValue placeholder="전체 방식" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">전체 방식</SelectItem>
+                                    <SelectItem value="stealth_auto">🤖 스텔스 자동</SelectItem>
+                                    <SelectItem value="manual">✍️ 수동 업로드</SelectItem>
+                                    <SelectItem value="immediate">⚡ 즉시 등록</SelectItem>
+                                </SelectContent>
+                            </Select>
 
-                        {/* 5. 기간 필터 */}
-                        <Select value={dateFilter} onValueChange={setDateFilter}>
-                            <SelectTrigger className="w-20 sm:w-22 h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="today">오늘</SelectItem>
-                                <SelectItem value="week">7일</SelectItem>
-                                <SelectItem value="month">30일</SelectItem>
-                                <SelectItem value="all">전체 기간</SelectItem>
-                            </SelectContent>
-                        </Select>
+                            {/* 프로젝트 그룹 필터 */}
+                            <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+                                <SelectTrigger className="h-8 text-xs bg-background shrink-0 w-auto min-w-[104px] whitespace-nowrap px-2.5">
+                                    <SelectValue placeholder="전체 프로젝트" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">전체 프로젝트</SelectItem>
+                                    {batchGroups.map((b: any) => (
+                                        <SelectItem key={b.batch_id} value={b.batch_id}>
+                                            {b.source_type === 'PIXELING' ? '🎨 픽셀링' : b.source_type === 'EXCEL' ? '📊 엑셀' : '📁'}: {b.batch_id} ({b.count}건)
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
 
-                        {/* 6. 정렬 기준 및 오름/내림차순 토글 */}
-                        <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/60">
-                            <Select value={sortField} onValueChange={(val: any) => setSortField(val)}>
-                                <SelectTrigger className="w-24 sm:w-26 h-7 text-xs bg-background border-0 shadow-none">
+                            {/* 기간 필터 */}
+                            <Select value={dateFilter} onValueChange={setDateFilter}>
+                                <SelectTrigger className="h-8 text-xs bg-background shrink-0 w-auto min-w-[88px] whitespace-nowrap px-2.5">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="created_at">📅 등록일순</SelectItem>
-                                    <SelectItem value="scheduled_at">⏰ 예약일순</SelectItem>
-                                    <SelectItem value="channel">📺 채널명순</SelectItem>
-                                    <SelectItem value="status">🏷️ 상태순</SelectItem>
+                                    <SelectItem value="today">오늘</SelectItem>
+                                    <SelectItem value="week">최근 7일</SelectItem>
+                                    <SelectItem value="month">최근 30일</SelectItem>
+                                    <SelectItem value="all">전체 기간</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')}
-                                title={sortDir === 'desc' ? '내림차순 (최신순)' : '오름차순 (과거순)'}
-                            >
-                                <ArrowUpDown className="w-3.5 h-3.5" />
-                            </Button>
-                        </div>
 
-                        {/* 7. 필터 초기화 버튼 */}
-                        {(searchQuery || selectedBatch !== 'all' || dateFilter !== 'all' || channelFilter !== 'all' || uploadMethodFilter !== 'all' || sortField !== 'created_at' || sortDir !== 'desc') && (
-                            <Button size="sm" variant="ghost" onClick={clearFilters} className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground">
-                                <Filter className="w-3 h-3 mr-1" /> 초기화
-                            </Button>
-                        )}
+                            {/* 정렬 기준 및 오름/내림차순 토글 */}
+                            <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/60 shrink-0">
+                                <Select value={sortField} onValueChange={(val: any) => setSortField(val)}>
+                                    <SelectTrigger className="h-7 text-xs bg-background border-0 shadow-none shrink-0 w-auto min-w-[90px] whitespace-nowrap px-2">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="created_at">📅 등록순</SelectItem>
+                                        <SelectItem value="scheduled_at">⏰ 예약순</SelectItem>
+                                        <SelectItem value="channel">📺 채널순</SelectItem>
+                                        <SelectItem value="status">🏷️ 상태순</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
+                                    onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                    title={sortDir === 'desc' ? '내림차순 (최신순)' : '오름차순 (과거순)'}
+                                >
+                                    <ArrowUpDown className="w-3.5 h-3.5" />
+                                </Button>
+                            </div>
+
+                            {/* 필터 초기화 버튼 */}
+                            {(searchQuery || selectedBatch !== 'all' || dateFilter !== 'all' || channelFilter !== 'all' || uploadMethodFilter !== 'all' || sortField !== 'created_at' || sortDir !== 'desc') && (
+                                <Button size="sm" variant="ghost" onClick={clearFilters} className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground shrink-0 whitespace-nowrap">
+                                    <Filter className="w-3 h-3 mr-1" /> 초기화
+                                </Button>
+                            )}
+                        </div>
                     </div>
+
                 </div>
 
                 {/* 6. 고밀도 대기열 리스트 뷰 */}
