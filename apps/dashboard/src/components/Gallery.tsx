@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api, { Video, Settings, Channel, Category } from '../lib/api';
 import SubtitleViewer from './SubtitleViewer';
-import { AutoHDSettingsDialog } from './AutoHDSettingsDialog';
 import { Card, CardContent } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -264,18 +264,8 @@ const Gallery = () => {
         }
     });
 
-    const hdDownloadMutation = useMutation({
-        mutationFn: (videoId: number) => api.post('/videos/manual-hd-download', { video_id: videoId }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['videos'] });
-            toast.success('HD 다운로드가 완료되었습니다.');
-        },
-        onError: (error: any) => {
-            toast.error(`HD 다운로드 실패: ${error.response?.data?.detail || error.message}`);
-        }
-    });
-
     // 드래그 영역 선택 상태 & ref
+
     const [isDragging, setIsDragging] = useState(false);
     const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
     const videoRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
@@ -544,15 +534,6 @@ const Gallery = () => {
 
                 {/* 우측 빠른 제어 액션 버튼들 */}
                 <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-start md:justify-end">
-                    <AutoHDSettingsDialog
-                        trigger={
-                            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs text-primary border-primary/20 hover:bg-primary/10">
-                                <Settings2 className="w-3.5 h-3.5" />
-                                Auto HD 설정
-                            </Button>
-                        }
-                    />
-
                     <Button 
                         variant="outline" 
                         size="sm"
@@ -566,6 +547,7 @@ const Gallery = () => {
                         {selectedIds.size === filteredVideos.length && filteredVideos.length > 0 ? '전체 해제' : '전체 선택'}
                     </Button>
                 </div>
+
             </div>
 
             {/* 2. 🏷️ 통합 스마트 필터 바 (카테고리 + 기간 + 정렬 + 검색) */}
@@ -826,16 +808,6 @@ const Gallery = () => {
                                         <Button 
                                             size="icon" 
                                             variant="secondary" 
-                                            className="rounded-full h-8 w-8 bg-amber-500/30 hover:bg-amber-500/50 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-amber-400/30" 
-                                            onClick={(e) => { e.stopPropagation(); hdDownloadMutation.mutate(video.id); }} 
-                                            title="HD 재다운로드"
-                                            disabled={hdDownloadMutation.isPending}
-                                        >
-                                            {hdDownloadMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                                        </Button>
-                                        <Button 
-                                            size="icon" 
-                                            variant="secondary" 
                                             className="rounded-full h-8 w-8 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-white/30" 
                                             onClick={(e) => { e.stopPropagation(); openFolder(video.file_path); }} 
                                             title="로컬 폴더 열기"
@@ -844,6 +816,7 @@ const Gallery = () => {
                                         </Button>
                                     </div>
                                 </div>
+
 
                                 {/* 하단 메타데이터: 타이틀 & 채널 & 조회수 & 날짜 */}
                                 <div className="space-y-1 z-10">
