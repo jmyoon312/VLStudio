@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Copy, Check, Languages, AlertCircle, Sparkles } from 'lucide-react';
+import { Loader2, Copy, Check, Languages, AlertCircle, Sparkles, FileText } from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 
