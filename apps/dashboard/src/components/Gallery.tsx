@@ -108,7 +108,18 @@ const getVideoThumbnailUrl = (video: Video, rootDownloadPath?: string): string =
     return '';
 };
 
+const getYoutubeWatchUrl = (video?: Video | null): string => {
+    if (!video) return '';
+    if (video.url && video.url.startsWith('http')) return video.url;
+    if (video.video_id) return `https://www.youtube.com/watch?v=${video.video_id}`;
+    const meta = video.metadata_json as any;
+    if (meta?.webpage_url) return meta.webpage_url;
+    if (meta?.url) return meta.url;
+    return '';
+};
+
 const Gallery = () => {
+
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
@@ -787,6 +798,18 @@ const Gallery = () => {
                                         >
                                             <LineChart className="w-4 h-4" />
                                         </Button>
+                                        {getYoutubeWatchUrl(video) && (
+                                            <a 
+                                                href={getYoutubeWatchUrl(video)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="rounded-full h-9 w-9 bg-red-600/80 hover:bg-red-600 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-red-400/40 flex items-center justify-center transition-transform hover:scale-105"
+                                                title="유튜브 원본 새 탭으로 열기"
+                                            >
+                                                <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Button 
@@ -813,10 +836,25 @@ const Gallery = () => {
 
                                 {/* 하단 메타데이터: 타이틀 & 채널 & 조회수 & 날짜 */}
                                 <div className="space-y-1 z-10">
-                                    <h4 className="text-xs font-bold text-white line-clamp-2 leading-snug drop-shadow-xs" title={video.title}>
-                                        {video.title}
-                                    </h4>
+                                    <div className="flex items-start justify-between gap-1">
+                                        <h4 className="text-xs font-bold text-white line-clamp-2 leading-snug drop-shadow-xs flex-1" title={video.title}>
+                                            {video.title}
+                                        </h4>
+                                        {getYoutubeWatchUrl(video) && (
+                                            <a
+                                                href={getYoutubeWatchUrl(video)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="text-white/60 hover:text-red-400 p-0.5 rounded transition-colors shrink-0"
+                                                title="유튜브 원본 새 탭 열기"
+                                            >
+                                                <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                        )}
+                                    </div>
                                     <div className="flex items-center justify-between text-[10px] text-white/80 font-medium pt-0.5">
+
                                         <span className="truncate max-w-[85px]">{channelName}</span>
                                         <span className="text-amber-300 font-bold">{formatCount(video.viewCountNum)} 조회</span>
                                     </div>
@@ -953,7 +991,21 @@ const Gallery = () => {
                                     {getVideoCategory(selectedVideo)}
                                 </span>
                             </div>
+
+                            {/* 우측 상단 유튜브 원본 바로가기 링크 버튼 */}
+                            {getYoutubeWatchUrl(selectedVideo) && (
+                                <a
+                                    href={getYoutubeWatchUrl(selectedVideo)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-red-600/90 hover:bg-red-600 text-white text-[10.5px] font-bold px-2.5 py-1 rounded-full shadow-md backdrop-blur-xs transition-transform active:scale-95"
+                                >
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span>유튜브 원본</span>
+                                </a>
+                            )}
                         </div>
+
 
                         {/* 우측: 상세 메타데이터 & 바이럴루프 원클릭 제작 액션 패널 */}
                         <div className="w-full md:w-[52%] h-[55%] md:h-full p-4 sm:p-6 overflow-y-auto flex flex-col justify-between space-y-4 bg-card text-card-foreground">
