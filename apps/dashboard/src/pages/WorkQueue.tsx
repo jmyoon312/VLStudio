@@ -62,6 +62,8 @@ const WorkQueue = () => {
     const [isPlayerOpen, setIsPlayerOpen] = useState(false);
     const [playingItem, setPlayingItem] = useState<any>(null);
     const [editingItem, setEditingItem] = useState<any>(null);
+    const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'batch'; itemId?: number; title?: string; count?: number } | null>(null);
+    const [deleteVideoFile, setDeleteVideoFile] = useState(false);
     const [showBulkImport, setShowBulkImport] = useState(false);
     const [wsConnections, setWsConnections] = useState<Map<number, WebSocket>>(new Map());
     const [dateFilter, setDateFilter] = useState('all');
@@ -72,6 +74,7 @@ const WorkQueue = () => {
     const [channels, setChannels] = useState<any[]>([]);
     const [tiktokChannels, setTiktokChannels] = useState<any[]>([]);
     const [instagramChannels, setInstagramChannels] = useState<any[]>([]);
+
 
     useEffect(() => {
         loadQueueItems();
@@ -187,14 +190,51 @@ const WorkQueue = () => {
         } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
-    const handleDelete = async (itemId: number) => {
-        if (!confirm('정말 삭제하시겠습니까?')) return;
-        try {
-            await fetchWithRetry(`/api/work-queue/items/${itemId}`, { method: 'DELETE' });
-            toast({ title: "삭제됨" });
-            loadQueueItems(); loadStats();
-        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
+    const handleDelete = (itemOrId: any) => {
+        if (typeof itemOrId === 'object' && itemOrId !== null) {
+            setDeleteTarget({ type: 'single', itemId: itemOrId.id, title: itemOrId.title });
+        } else {
+            const found = queueItems.find(i => i.id === itemOrId);
+            setDeleteTarget({ type: 'single', itemId: itemOrId, title: found?.title });
+        }
+        setDeleteVideoFile(false);
     };
+
+    const handleBatchDelete = () => {
+        if (!selectedItems.length) return;
+        setDeleteTarget({ type: 'batch', count: selectedItems.length });
+        setDeleteVideoFile(false);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        try {
+            if (deleteTarget.type === 'single' && deleteTarget.itemId) {
+                await fetchWithRetry(`/api/work-queue/items/${deleteTarget.itemId}?delete_video_file=${deleteVideoFile}`, { method: 'DELETE' });
+                toast({
+                    title: "삭제 완료",
+                    description: deleteVideoFile ? "대기열 목록 및 PC의 영상 파일이 모두 삭제되었습니다." : "대기열 목록에서 삭제되었습니다 (영상 원본 파일 보존)."
+                });
+            } else if (deleteTarget.type === 'batch' && selectedItems.length) {
+                await fetchWithRetry('/api/work-queue/batch/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_ids: selectedItems, delete_video_files: deleteVideoFile })
+                });
+                toast({
+                    title: "일괄 삭제 완료",
+                    description: deleteVideoFile ? `${selectedItems.length}개 항목 및 영상 파일이 삭제되었습니다.` : `${selectedItems.length}개 항목이 목록에서 삭제되었습니다 (영상 원본 파일 보존).`
+                });
+                setSelectedItems([]);
+            }
+            setDeleteTarget(null);
+            loadQueueItems();
+            loadStats();
+        } catch (_) {
+            toast({ variant: "destructive", title: "삭제 실패", description: "삭제 처리 중 오류가 발생했습니다." });
+        }
+    };
+
 
     const handleBatchApprove = async () => {
         if (!selectedItems.length) return;
@@ -216,16 +256,8 @@ const WorkQueue = () => {
         } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
-    const handleBatchDelete = async () => {
-        if (!selectedItems.length || !confirm(`${selectedItems.length}개 삭제?`)) return;
-        try {
-            await fetchWithRetry('/api/work-queue/batch/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: selectedItems }) });
-            toast({ title: "일괄 삭제 완료" });
-            setSelectedItems([]); loadQueueItems(); loadStats();
-        } catch (_) { toast({ variant: "destructive", title: "오류" }); }
-    };
-
     const handleBatchReset = async () => {
+
         if (!selectedItems.length) return;
         try {
             await fetchWithRetry('/api/work-queue/batch/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: selectedItems }) });
@@ -484,6 +516,70 @@ const WorkQueue = () => {
             {isPixelingOpen && (
                 <PixelingImportDialog isOpen={isPixelingOpen} setIsOpen={setIsPixelingOpen} onSuccess={() => { loadQueueItems(); loadStats(); }} />
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <DialogContent className="max-w-md bg-card border-border text-foreground">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive font-bold text-base">
+                            <Trash2 className="w-5 h-5" />
+                            {deleteTarget?.type === 'batch' ? `선택 항목 일괄 삭제 (${deleteTarget.count}개)` : '대기열 항목 삭제'}
+                        </DialogTitle>
+                        <DialogDescription className="text-muted-foreground text-xs pt-1">
+                            {deleteTarget?.type === 'batch'
+                                ? `선택한 ${deleteTarget.count}개의 작업 대기열 항목을 삭제하시겠습니까?`
+                                : `"${deleteTarget?.title || '선택한 항목'}" 대기열을 삭제하시겠습니까?`}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 py-2">
+                        <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
+                            <div className="flex items-start space-x-2.5">
+                                <Checkbox
+                                    id="delete-video-file"
+                                    checked={deleteVideoFile}
+                                    onCheckedChange={(checked) => setDeleteVideoFile(!!checked)}
+                                    className="mt-0.5"
+                                />
+                                <div className="grid gap-1 leading-none">
+                                    <label
+                                        htmlFor="delete-video-file"
+                                        className="text-xs font-semibold text-foreground cursor-pointer"
+                                    >
+                                        PC에 저장된 실제 영상 파일(.mp4)도 함께 영구 삭제
+                                    </label>
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                        {deleteVideoFile
+                                            ? "⚠️ 주의: 디스크의 원본 영상 및 썸네일 파일이 완전히 삭제됩니다."
+                                            : "💡 체크 해제 시: 대기열 목록만 제거되며, PC의 원본 영상 파일은 안전하게 보존됩니다."}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteTarget(null)}
+                            className="h-8 text-xs border-border bg-card hover:bg-muted text-foreground"
+                        >
+                            취소
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={confirmDelete}
+                            className="h-8 text-xs font-bold gap-1.5"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {deleteVideoFile ? "파일 포함 완전 삭제" : "목록에서 삭제"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
 
             {/* 5. 탭 및 스마트 필터 툴바 */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

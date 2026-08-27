@@ -1,7 +1,7 @@
 """
 작업 대기열 API 엔드포인트
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Request, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -12,6 +12,7 @@ import re
 import asyncio
 import json
 import logging
+import subprocess
 import redis.asyncio as aioredis
 
 from app.database import get_db
@@ -21,6 +22,114 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["work_queue"])
+
+
+def _safe_remove_file(file_path: Optional[str]):
+    """파일이 존재하면 안전하게 삭제"""
+    if not file_path:
+        return
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            logger.info(f"🗑️ Deleted file from disk: {file_path}")
+    except Exception as e:
+        logger.warning(f"Failed to delete file {file_path}: {e}")
+
+
+def check_and_convert_video_to_h264(file_path: str) -> str:
+    """
+    영상 파일의 코덱을 확인하고, HEVC/H.265/AV1 등 Electron/웹 미지원 코덱인 경우
+    완벽하게 재생되도록 표준 H.264 (yuv420p + aac)로 자동 변환합니다.
+    """
+    if not file_path or not os.path.exists(file_path):
+        return file_path
+
+    try:
+        # ffprobe로 비디오 코덱 및 픽셀 포맷 확인
+        cmd = [
+            "ffprobe", "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=codec_name,pix_fmt",
+            "-of", "json",
+            file_path
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if res.returncode == 0 and res.stdout:
+            data = json.loads(res.stdout)
+            streams = data.get("streams", [])
+            if streams:
+                codec = streams[0].get("codec_name", "").lower()
+                pix_fmt = streams[0].get("pix_fmt", "").lower()
+                
+                # hevc, h265, av1 또는 비표준 pix_fmt인 경우 H.264로 변환
+                needs_conversion = (
+                    codec in ["hevc", "h265", "av1", "vp9"] or
+                    (codec == "h264" and pix_fmt not in ["yuv420p", "nv12", "yuvj420p"])
+                )
+                
+                if needs_conversion:
+                    logger.info(f"🔄 Transcoding video from '{codec}' ({pix_fmt}) to standard H.264 (yuv420p): {file_path}")
+                    
+                    dir_name, base_name = os.path.split(file_path)
+                    root, ext = os.path.splitext(base_name)
+                    temp_output = os.path.join(dir_name, f"h264_tmp_{uuid.uuid4().hex[:6]}_{root}.mp4")
+                    
+                    convert_cmd = [
+                        "ffmpeg", "-y",
+                        "-i", file_path,
+                        "-c:v", "libx264",
+                        "-preset", "fast",
+                        "-crf", "22",
+                        "-pix_fmt", "yuv420p",
+                        "-c:a", "aac",
+                        "-b:a", "192k",
+                        temp_output
+                    ]
+                    convert_res = subprocess.run(convert_cmd, capture_output=True, text=True, timeout=180)
+                    if convert_res.returncode == 0 and os.path.exists(temp_output) and os.path.getsize(temp_output) > 0:
+                        try:
+                            # 원본 파일 백업 삭제 후 교체
+                            os.remove(file_path)
+                            os.rename(temp_output, file_path)
+                            logger.info(f"✅ Successfully converted to H.264: {file_path}")
+                            return file_path
+                        except Exception as e:
+                            logger.warning(f"Could not overwrite original file, using new path: {e}")
+                            return temp_output
+                    else:
+                        logger.error(f"FFmpeg conversion failed: {convert_res.stderr}")
+                        if os.path.exists(temp_output):
+                            os.remove(temp_output)
+    except Exception as e:
+        logger.error(f"Error during video codec conversion check for {file_path}: {e}")
+
+    return file_path
+
+
+def generate_thumbnail_if_missing(video_path: str) -> Optional[str]:
+    """영상에서 썸네일(첫 프레임) 자동 추출"""
+    if not video_path or not os.path.exists(video_path):
+        return None
+    try:
+        dir_name, base_name = os.path.split(video_path)
+        root, _ = os.path.splitext(base_name)
+        thumb_path = os.path.join(dir_name, f"thumb_{root}.jpg")
+        if not os.path.exists(thumb_path):
+            cmd = [
+                "ffmpeg", "-y",
+                "-ss", "00:00:01",
+                "-i", video_path,
+                "-vframes", "1",
+                "-q:v", "2",
+                thumb_path
+            ]
+            subprocess.run(cmd, capture_output=True, timeout=10)
+        return thumb_path if os.path.exists(thumb_path) else None
+    except Exception as e:
+        logger.warning(f"Failed to generate thumbnail: {e}")
+        return None
+
+
 
 
 # === Pydantic Schemas ===
@@ -105,6 +214,7 @@ class BatchRejectRequest(BaseModel):
 
 class BatchDeleteRequest(BaseModel):
     item_ids: List[int]
+    delete_video_files: bool = False
 
 class BatchShieldConfigRequest(BaseModel):
     item_ids: List[int]
@@ -319,6 +429,8 @@ def create_queue_item(
         try:
             shutil.copy2(item_data.video_file_path, safe_file_path)
             logger.info(f"📁 Video safely copied to: {safe_file_path}")
+            # [HEVC Fix] 코덱 검사 및 자동 H.264 변환
+            safe_file_path = check_and_convert_video_to_h264(safe_file_path)
         except Exception as e:
             logger.error(f"Failed to copy video file: {e}")
             safe_file_path = item_data.video_file_path
@@ -327,6 +439,9 @@ def create_queue_item(
         safe_file_path = item_data.video_file_path
         logger.info(f"[SEARCH] Discovery item, using URL as path: {safe_file_path}")
     
+    # 썸네일 자동 생성
+    thumbnail_path = generate_thumbnail_if_missing(safe_file_path) if (has_video and not is_discovery) else None
+
     # Determine initial status based on approval_required & video existence
     if not has_video:
         initial_status = "DRAFT"
@@ -349,6 +464,8 @@ def create_queue_item(
         hashtags=item_data.hashtags,
         tags=item_data.tags,
         video_file_path=safe_file_path,
+        thumbnail_path=thumbnail_path,
+
         source_type=item_data.source_type,
         source_batch_id=item_data.source_batch_id,
         source_external_id=item_data.source_external_id,
@@ -429,16 +546,25 @@ def update_queue_item(
 
 
 @router.delete("/items/{item_id}")
-def delete_queue_item(item_id: int, db: Session = Depends(get_db)):
-    """작업 대기열 항목 삭제"""
+def delete_queue_item(
+    item_id: int,
+    delete_video_file: bool = Query(False, description="로컬 영상 및 썸네일 파일도 함께 삭제 여부"),
+    db: Session = Depends(get_db)
+):
+    """작업 대기열 항목 삭제 (선택적 영상 파일 포함 삭제 지원)"""
     item = db.query(models.WorkQueueItem).filter(models.WorkQueueItem.id == item_id).first()
     if not item:
         raise HTTPException(404, "Queue item not found")
     
+    if delete_video_file:
+        _safe_remove_file(item.video_file_path)
+        _safe_remove_file(item.thumbnail_path)
+    
     db.delete(item)
     db.commit()
     
-    return {"message": "Queue item deleted"}
+    return {"message": "Queue item deleted", "deleted_file": delete_video_file}
+
 
 
 @router.post("/items/{item_id}/approve")
@@ -654,7 +780,7 @@ def _get_upload_dir() -> str:
 
 
 def _save_uploaded_video_stream(upload_file: UploadFile) -> str:
-    """대용량 영상 청크 스트리밍 디스크 저장 (64KB chunks)"""
+    """대용량 영상 청크 스트리밍 디스크 저장 (64KB chunks) 및 H.264 자동 보정"""
     upload_dir = _get_upload_dir()
     clean_name = re.sub(r'[^a-zA-Z0-9_\-\.\uac00-\ud7a3]', '_', upload_file.filename or 'video.mp4')
     unique_filename = f"{uuid.uuid4().hex[:8]}_{clean_name}"
@@ -663,7 +789,11 @@ def _save_uploaded_video_stream(upload_file: UploadFile) -> str:
     with open(target_path, "wb") as buffer:
         shutil.copyfileobj(upload_file.file, buffer, length=64 * 1024)
     
-    return os.path.abspath(target_path)
+    abs_path = os.path.abspath(target_path)
+    # [HEVC/AV1 Fix] 스마트폰 영상 등을 위해 H.264로 자동 변환 검사
+    abs_path = check_and_convert_video_to_h264(abs_path)
+    return abs_path
+
 
 
 @router.post("/upload")
@@ -729,12 +859,14 @@ async def upload_and_attach_video(
 
     saved_path = _save_uploaded_video_stream(file)
     item.video_file_path = saved_path
+    item.thumbnail_path = generate_thumbnail_if_missing(saved_path)
     item.status = "PENDING"
     item.updated_at = datetime.now()
     db.commit()
     db.refresh(item)
     logger.info(f"Direct video upload & attach completed for item #{item_id}: {saved_path}")
     return item
+
 
 @router.patch("/items/{item_id}/finalize", response_model=dict)
 def finalize_draft(
@@ -1315,7 +1447,7 @@ def batch_delete(
     request: BatchDeleteRequest,
     db: Session = Depends(get_db)
 ):
-    """일괄 삭제"""
+    """일괄 삭제 (선택적 영상 파일 포함 삭제 지원)"""
     deleted_items = []
     failed_items = []
     
@@ -1329,6 +1461,10 @@ def batch_delete(
                 failed_items.append({"item_id": item_id, "reason": "Not found"})
                 continue
             
+            if request.delete_video_files:
+                _safe_remove_file(item.video_file_path)
+                _safe_remove_file(item.thumbnail_path)
+                
             db.delete(item)
             deleted_items.append(item_id)
             
@@ -1339,11 +1475,14 @@ def batch_delete(
     db.commit()
     
     return {
-        "deleted": len(deleted_items),
-        "failed": len(failed_items),
+        "success": True,
+        "deleted_count": len(deleted_items),
+        "failed_count": len(failed_items),
         "deleted_items": deleted_items,
-        "failed_items": failed_items
+        "failed_items": failed_items,
+        "files_deleted": request.delete_video_files
     }
+
 
 
 @router.post("/priority/update")

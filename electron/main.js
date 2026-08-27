@@ -51,10 +51,10 @@ app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_pro
 app.commandLine.appendSwitch('disable-webrtc-multiple-routes')
 app.commandLine.appendSwitch('enforce-webrtc-ip-permission-check')
 app.commandLine.appendSwitch('disable-quic')  // [NEW-1] QUIC/UDP 트래픽 누출 차단
-app.commandLine.appendSwitch('disable-background-networking')
-app.commandLine.appendSwitch('enable-features', 'DnsOverHttps')
+app.commandLine.appendSwitch('enable-features', 'DnsOverHttps,PlatformHEVCDecoderSupport')
 app.commandLine.appendSwitch('dns-over-https-templates', 'https://chrome.cloudflare-dns.com/dns-query')
 app.commandLine.appendSwitch('disable-features', 'WebAuthentication') // [Passkey 완벽 차단] 엔진 레벨에서 WebAuthn 기능 비활성화
+
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // macOS About 패널 + Dock 아이콘

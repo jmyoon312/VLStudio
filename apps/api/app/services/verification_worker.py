@@ -105,7 +105,8 @@ class VerificationWorker:
                         
                         items_to_cleanup = db.query(models.WorkQueueItem).filter(
                             models.WorkQueueItem.status.in_(["COMPLETED", "FAILED", "FAILED_REVIEW"]),
-                            models.WorkQueueItem.updated_at <= delete_cutoff
+                            models.WorkQueueItem.updated_at <= delete_cutoff,
+                            models.WorkQueueItem.video_file_path.isnot(None)
                         ).all()
                         
                         for cleanup_item in items_to_cleanup:
@@ -115,6 +116,21 @@ class VerificationWorker:
                                     logger.info(f"🗑️ [GarbageCollector] Auto-deleted old video file for item {cleanup_item.id}: {cleanup_item.video_file_path}")
                                 except Exception as e:
                                     logger.error(f"[FAIL] [GarbageCollector] Failed to delete file {cleanup_item.video_file_path}: {e}")
+                            
+                            # Also cleanup thumbnail if exists
+                            if cleanup_item.thumbnail_path and os.path.exists(cleanup_item.thumbnail_path):
+                                try:
+                                    os.remove(cleanup_item.thumbnail_path)
+                                except Exception:
+                                    pass
+                            
+                            # Mark video file path as cleared
+                            cleanup_item.video_file_path = None
+                            cleanup_item.thumbnail_path = None
+                        
+                        if items_to_cleanup:
+                            db.commit()
+
                                     
                 finally:
                     db.close()

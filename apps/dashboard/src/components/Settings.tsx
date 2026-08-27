@@ -670,7 +670,7 @@ const Settings = () => {
 
                                     {/* Auto Delete Interval */}
                                     <div className="space-y-2 pt-4 border-t border-border">
-                                        <Label className="text-xs sm:text-sm font-bold text-foreground">영상 파일 자동 삭제 주기 (용량 확보)</Label>
+                                        <Label className="text-xs sm:text-sm font-bold text-foreground">완료/실패 영상 파일 자동 삭제 주기 (디스크 용량 확보)</Label>
                                         <div className="flex gap-2 items-center">
                                             <Select
                                                 value={(formData as any).auto_delete_mp4_days?.toString() || "7"}
@@ -682,14 +682,15 @@ const Settings = () => {
                                                 <SelectContent>
                                                     <SelectItem value="7">7일 후 삭제</SelectItem>
                                                     <SelectItem value="15">15일 후 삭제</SelectItem>
-                                                    <SelectItem value="30">1개월 후 삭제</SelectItem>
-                                                    <SelectItem value="60">2개월 후 삭제</SelectItem>
-                                                    <SelectItem value="0">삭제 안 함</SelectItem>
+                                                    <SelectItem value="30">1개월(30일) 후 삭제</SelectItem>
+                                                    <SelectItem value="60">2개월(60일) 후 삭제</SelectItem>
+                                                    <SelectItem value="90">3개월(90일) 후 삭제</SelectItem>
+                                                    <SelectItem value="0">삭제 안 함 (영구 보관)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <p className="text-[10px] text-muted-foreground">
-                                            * 설정한 기간이 지나면 MP4 영상 파일만 자동 삭제되며, 메타데이터 기록은 유지됩니다.
+                                            * 업로드 완료 또는 실패 후 설정한 기간이 지나면 PC 로컬의 .mp4 영상 파일만 안전하게 자동 삭제되며, 대기열 기록과 배포 완료 URL은 그대로 유지됩니다.
                                         </p>
                                     </div>
 
