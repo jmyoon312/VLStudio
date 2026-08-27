@@ -92,14 +92,16 @@ def create_channel(channel: schemas.ChannelCreate, db: Session = Depends(databas
                     response.raw.decode_content = True
                     shutil.copyfileobj(response.raw, f)
 
-                # Store relative path from root using forward slashes (Linux compatibility)
+                # Store relative path for /files/ static endpoint.
+                # /files/ is mounted at MEDIA_ROOT, and actual folder is MEDIA_ROOT/07_Downloads/...
                 if category_name:
-                    thumbnail_path = f"downloads/{category_name}/{channel.folder_name}/{thumb_filename}"
+                    thumbnail_path = f"07_Downloads/{category_name}/{channel.folder_name}/{thumb_filename}"
                 else:
-                    thumbnail_path = f"downloads/_temp_storage/{channel.folder_name}/{thumb_filename}"
+                    thumbnail_path = f"07_Downloads/_temp_storage/{channel.folder_name}/{thumb_filename}"
 
                 # Normalize slashes
                 thumbnail_path = thumbnail_path.replace("\\", "/")
+
 
                 print(f"DEBUG: Thumbnail saved at {thumb_path} (DB path: {thumbnail_path})")
             else:
