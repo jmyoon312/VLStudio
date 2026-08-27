@@ -738,71 +738,115 @@ async def batch_download(
         settings = crud.create_settings(db, schemas.SettingsCreate())
     
     from ..utils.path_utils import get_channel_download_path
-    
-    # Determine category path
-    target_category_id = request.category_id
-    category_name = None
-    if target_category_id:
-        category = crud.get_category(db, target_category_id)
-        if category:
-            category_name = category.folder_name or category.name
-            
-    # For batch downloads, we might not have a single channel name, but it will be resolved per video in the loop
-    # or fallback to Unknown_Channel here as a default base if needed.
-    download_root = get_channel_download_path(settings, category_name=category_name, channel_name="Batch_Download_Unknown")
+
+    # Pre-resolve global category if provided in request
+    req_category_name = None
+    if request.category_id:
+        cat = crud.get_category(db, request.category_id)
+        if cat:
+            req_category_name = cat.folder_name or sanitize_folder_name(cat.name)
 
     for url in request.urls:
         if not url.strip():
             continue
             
+        clean_url = url.strip()
         try:
-            # 1. Download (Network Phase) - Await this to prevent IP ban
-            print(f"Downloading: {url}")
+            # 1. Resolve Channel Info to ensure videos land in proper channel folder
+            print(f"[BatchDL] Resolving channel info for: {clean_url}")
+            try:
+                channel_info = downloader.get_channel_info(clean_url, cookies_path=settings.cookies_path)
+            except Exception as e:
+                print(f"[BatchDL] Warning: Failed to resolve channel info early: {e}")
+                channel_info = None
+
+            channel_name = "Unknown_Channel"
+            channel_thumbnail = None
+            matched_channel_id = None
+            cur_category_id = request.category_id
+            cur_category_name = req_category_name
+
+            if channel_info:
+                channel_name = channel_info.get('name') or channel_info.get('uploader') or "Unknown_Channel"
+                channel_thumbnail = channel_info.get('thumbnail')
+                
+                # If no category was explicitly selected in request, check if channel is already registered in DB
+                if not cur_category_id:
+                    existing_channel = db.query(models.Channel).filter(models.Channel.name == channel_name).first()
+                    if existing_channel:
+                        matched_channel_id = existing_channel.id
+                        if existing_channel.category_id:
+                            cur_category_id = existing_channel.category_id
+                            cat = crud.get_category(db, cur_category_id)
+                            if cat:
+                                cur_category_name = cat.folder_name or sanitize_folder_name(cat.name)
+
+            # 2. Build channel-specific download path
+            download_root = get_channel_download_path(
+                settings, 
+                category_name=cur_category_name, 
+                channel_name=channel_name
+            )
+            os.makedirs(download_root, exist_ok=True)
+
+            # 3. Download channel profile image if available & missing
+            if channel_thumbnail:
+                profile_path = os.path.join(download_root, "profile.jpg")
+                if not os.path.exists(profile_path):
+                    try:
+                        import requests
+                        headers = {'User-Agent': 'Mozilla/5.0'}
+                        resp = requests.get(channel_thumbnail, headers=headers, timeout=10)
+                        if resp.status_code == 200:
+                            with open(profile_path, 'wb') as f:
+                                f.write(resp.content)
+                    except Exception as pe:
+                        print(f"[BatchDL] Failed to download profile image for {channel_name}: {pe}")
+
+            # 4. Download Video
+            print(f"[BatchDL] Downloading video to: {download_root}")
             result = downloader.download_single_video(
-                video_url=url,
+                video_url=clean_url,
                 root_download_path=download_root,
                 cookies_path=settings.cookies_path
             )
             
-            if result['status'] == 'success':
-                # 2. Save to DB
+            if result.get('status') == 'success':
+                # 5. Save to DB
                 metadata = result.get('metadata')
                 if metadata:
-                    # (Simplified DB logic for batch - reuse existing logic if possible, 
-                    # but for now let's duplicate the essential parts to keep it self-contained or call a helper)
-                    # To avoid massive code duplication, we should ideally refactor DB saving into a helper function.
-                    # For this task, I will implement the minimal DB save here.
-                    
-                    # ... (Channel/Video creation logic similar to single download) ...
-                    # For brevity and reliability, let's assume the single download function handles DB? 
-                    # No, download_single_video ONLY downloads. The DB logic was in the route handler.
-                    # I should extract DB logic to a helper function.
-                    
-                    # Refactoring DB logic to helper:
-                    # Unified DB save with transcription trigger
-                    # [NEW] auto_create_channel=False for batch manual downloads too
-                    save_video_to_db(db, result, metadata, None, target_category_id, False, background_tasks, auto_create_channel=False)
+                    save_video_to_db(
+                        db, 
+                        result, 
+                        metadata, 
+                        matched_channel_id, 
+                        cur_category_id, 
+                        False, 
+                        background_tasks, 
+                        auto_create_channel=False
+                    )
                 
-                # 3. Background Conversion (CPU Phase) - Fire and Forget
-                raw_file = result.get('raw_file_path', result['file_path'])
+                # 6. Background Conversion (CPU Phase) - Fire and Forget
+                raw_file = result.get('raw_file_path', result.get('file_path'))
                 if raw_file and os.path.exists(raw_file):
-                    print(f"Queuing background conversion for {raw_file}")
+                    print(f"[BatchDL] Queuing background conversion for {raw_file}")
                     background_tasks.add_task(run_background_conversion, raw_file, db)
                 
-                results.append({"url": url, "status": "success", "title": metadata.get('title')})
+                results.append({"url": clean_url, "status": "success", "title": metadata.get('title') if metadata else "Video"})
             else:
-                results.append({"url": url, "status": "failed", "error": result.get('error')})
+                results.append({"url": clean_url, "status": "failed", "error": result.get('error')})
 
-            # 4. Random Delay (Reduced for speed)
+            # 7. Random Delay to prevent IP rate-limiting
             delay = random.uniform(2, 5)
-            print(f"Sleeping for {delay:.2f}s...")
+            print(f"[BatchDL] Sleeping for {delay:.2f}s...")
             await asyncio.sleep(delay)
             
         except Exception as e:
-            print(f"Batch error for {url}: {e}")
-            results.append({"url": url, "status": "failed", "error": str(e)})
+            print(f"[BatchDL] Error for {clean_url}: {e}")
+            results.append({"url": clean_url, "status": "failed", "error": str(e)})
 
     return {"results": results}
+
 
 async def run_background_conversion(input_path: str, db: Session):
     # Wrapper to run conversion and update DB
