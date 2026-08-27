@@ -1652,10 +1652,52 @@ def get_video_history(video_id: int, db: Session = Depends(database.get_db)):
     return [{
         "timestamp": item.timestamp,
         "view_count": item.view_count,
-        # History table might ideally store viral/velocity snapshots too, but for now we might only have view_count.
-        # Check models.VideoHistory definition in fix_db.py. It only has view_count.
-        # We can simulate metrics or if the user wants viral history, we need to add those cols to history table.
-        # For now, let's just return view_count trends. Use 0 for others or imply them.
-        "viral_score": 0, # Placeholder until schema update
+        "viral_score": 0,
         "velocity_score": 0 
     } for item in history_items]
+
+
+class OpenFolderRequest(BaseModel):
+    file_path: Optional[str] = None
+    path: Optional[str] = None
+
+@router.post("/open-folder")
+def open_video_folder(request: OpenFolderRequest, db: Session = Depends(database.get_db)):
+    """
+    Open the local explorer folder for a video file or category folder.
+    """
+    target_path = request.file_path or request.path
+    if not target_path:
+        raise HTTPException(status_code=400, detail="Path is required")
+    
+    # If it's a file, get directory
+    if os.path.isfile(target_path):
+        target_path = os.path.dirname(target_path)
+    
+    # Construct absolute path if needed
+    if not os.path.exists(target_path):
+        settings = crud.get_settings(db)
+        from app.config import settings as settings_conf
+        root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+        if root_path:
+            joined = os.path.join(root_path, target_path)
+            if os.path.exists(joined):
+                target_path = joined if os.path.isdir(joined) else os.path.dirname(joined)
+
+    try:
+        import platform
+        import subprocess
+        if platform.system() == "Windows":
+            target_path = target_path.replace("/", "\\")
+            if os.path.exists(target_path):
+                subprocess.Popen(f'explorer "{target_path}"')
+            else:
+                subprocess.Popen('explorer')
+        elif platform.system() == "Darwin":
+            subprocess.Popen(["open", target_path])
+        else:
+            subprocess.Popen(["xdg-open", target_path])
+        return {"status": "success", "opened_path": target_path}
+    except Exception as e:
+        return {"status": "warning", "message": str(e), "path": target_path}
+

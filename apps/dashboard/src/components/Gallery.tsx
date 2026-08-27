@@ -419,11 +419,22 @@ const Gallery = () => {
     const openFolder = async (filePath?: string) => {
         if (!filePath) return;
         try {
-            await api.post('/videos/open-folder', { file_path: filePath });
+            const res = await api.post('/videos/open-folder', { file_path: filePath });
+            const openedPath = res.data?.opened_path || filePath;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(openedPath).catch(() => {});
+            }
+            toast.success(`📁 로컬 탐색기에서 폴더를 열었습니다.`);
         } catch (_) {
-            toast.error('폴더 열기 실패');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(filePath).catch(() => {});
+                toast.info(`📁 폴더 경로가 복사되었습니다: ${filePath}`);
+            } else {
+                toast.error('폴더 열기 실패');
+            }
         }
     };
+
 
     // 차트 데이터 계산 (히스토리가 0~1개여도 기본 추이 곡선 자동 생성)
     const chartData = useMemo(() => {
@@ -860,8 +871,9 @@ const Gallery = () => {
                                     </div>
                                     <div className="flex items-center justify-between text-[9px] text-white/60 pt-0.5 border-t border-white/10">
                                         <span>{uploadDateStr}</span>
-                                        <span className="text-emerald-400 font-bold">⚡ 딸깍 준비됨</span>
+                                        <span className="text-emerald-400 font-bold">⚡ AI 제작 가능</span>
                                     </div>
+
                                 </div>
                             </div>
                         );
