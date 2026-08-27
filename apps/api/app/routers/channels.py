@@ -131,61 +131,129 @@ def create_channel(channel: schemas.ChannelCreate, db: Session = Depends(databas
 def delete_channel(channel_id: int, db: Session = Depends(database.get_db)):
     # Get channel before deletion
     db_channel = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
-    if not db_channel:
+    if not db_channel:\
         raise HTTPException(status_code=404, detail="Channel not found")
-    
+
     # Get all videos for this channel
     videos = db.query(models.Video).filter(models.Video.channel_id == channel_id).all()
-    
+
     # Delete video files
     for video in videos:
         try:
-            # Delete video file
             if video.file_path and os.path.exists(video.file_path):
-                # Get the video folder (parent of the file)
                 video_folder = os.path.dirname(video.file_path)
-                
-                # Delete all files in the video folder
                 if os.path.exists(video_folder):
                     shutil.rmtree(video_folder, ignore_errors=True)
         except Exception as e:
             print(f"Error deleting video files for {video.id}: {e}")
-   
+
     # Delete videos from database
     db.query(models.Video).filter(models.Video.channel_id == channel_id).delete()
-    
-    # Delete channel folder and profile image
+
+    # Delete channel folder using unified path function (avoids category folder_name=None bug)
     try:
-        from ..utils.path_utils import get_standardized_download_path
-        downloads_path = get_standardized_download_path(settings)
-        
-        # Build channel folder path considering category
+        from ..utils.path_utils import get_channel_download_path
+        settings = crud.get_settings(db)
+        category_name = None
         if db_channel.category_id:
             category = crud.get_category(db, db_channel.category_id)
             if category:
-                channel_folder = os.path.join(downloads_path, category.folder_name, db_channel.folder_name)
-            else:
-                channel_folder = os.path.join(downloads_path, db_channel.folder_name)
-        else:
-            channel_folder = os.path.join(downloads_path, db_channel.folder_name)
-        
+                category_name = category.folder_name or sanitize_folder_name(category.name)
+        channel_folder = get_channel_download_path(
+            settings,
+            category_name=category_name,
+            channel_name=db_channel.folder_name or db_channel.name
+        )
         if os.path.exists(channel_folder):
             shutil.rmtree(channel_folder, ignore_errors=True)
     except Exception as e:
         print(f"Error deleting channel folder: {e}")
-    
+
     # Delete channel from database
     db.delete(db_channel)
     db.commit()
-    
     return {"ok": True}
 
 @router.patch("/{channel_id}", response_model=schemas.Channel)
 def update_channel(channel_id: int, channel_update: schemas.ChannelUpdate, db: Session = Depends(database.get_db)):
-    db_channel = crud.update_channel(db, channel_id, channel_update)
+    db_channel = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
     if not db_channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    update_data = channel_update.dict(exclude_unset=True)
+    new_category_id = update_data.get("category_id", ...)  # sentinel
+
+    # --- Category change: move physical folder and update all DB paths ---
+    category_changed = (
+        "category_id" in update_data
+        and update_data["category_id"] != db_channel.category_id
+    )
+
+    if category_changed:
+        try:
+            from ..utils.path_utils import get_channel_download_path
+            settings = crud.get_settings(db)
+
+            # Resolve OLD category name
+            old_category_name = None
+            if db_channel.category_id:
+                old_cat = crud.get_category(db, db_channel.category_id)
+                if old_cat:
+                    old_category_name = old_cat.folder_name or sanitize_folder_name(old_cat.name)
+
+            # Resolve NEW category name
+            new_category_name = None
+            new_cat_id = update_data["category_id"]
+            if new_cat_id:
+                new_cat = crud.get_category(db, new_cat_id)
+                if new_cat:
+                    new_category_name = new_cat.folder_name or sanitize_folder_name(new_cat.name)
+
+            channel_folder = db_channel.folder_name or sanitize_folder_name(db_channel.name)
+
+            old_path = get_channel_download_path(settings, category_name=old_category_name, channel_name=channel_folder)
+            new_path = get_channel_download_path(settings, category_name=new_category_name, channel_name=channel_folder)
+
+            # Move folder if it exists and paths differ
+            if os.path.exists(old_path) and old_path != new_path:
+                os.makedirs(os.path.dirname(new_path), exist_ok=True)
+                shutil.move(old_path, new_path)
+                print(f"[ChannelUpdate] Moved folder: {old_path} -> {new_path}")
+
+                # Bulk-update Video.file_path and Video.thumbnail_path
+                old_path_norm = old_path.replace("\\", "/")
+                new_path_norm = new_path.replace("\\", "/")
+                videos = db.query(models.Video).filter(models.Video.channel_id == channel_id).all()
+                for video in videos:
+                    if video.file_path and old_path_norm in video.file_path.replace("\\", "/"):
+                        video.file_path = video.file_path.replace("\\", "/").replace(old_path_norm, new_path_norm)
+                    if video.thumbnail_path and old_path_norm in video.thumbnail_path.replace("\\", "/"):
+                        video.thumbnail_path = video.thumbnail_path.replace("\\", "/").replace(old_path_norm, new_path_norm)
+
+                # Update Channel.thumbnail_path
+                if db_channel.thumbnail_path:
+                    # Build new DB-relative thumbnail path
+                    thumb_filename = os.path.basename(db_channel.thumbnail_path)
+                    if new_category_name:
+                        new_thumb_db = f"07_Downloads/{new_category_name}/{channel_folder}/{thumb_filename}"
+                    else:
+                        new_thumb_db = f"07_Downloads/_temp_storage/{channel_folder}/{thumb_filename}"
+                    update_data["thumbnail_path"] = new_thumb_db.replace("\\", "/")
+
+        except Exception as e:
+            db.rollback()
+            print(f"[ChannelUpdate] Folder move failed: {e}")
+            raise HTTPException(status_code=500, detail=f"카테고리 변경 중 폴더 이동에 실패했습니다: {e}")
+
+    # Apply remaining field updates
+    for key, value in update_data.items():
+        setattr(db_channel, key, value)
+
+    db.commit()
+    db.refresh(db_channel)
     return db_channel
+
+
 
 @router.post("/reference")
 def add_reference_channel(req: ReferenceChannelRequest, db: Session = Depends(database.get_db)):

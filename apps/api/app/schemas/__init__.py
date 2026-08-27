@@ -103,10 +103,14 @@ class ChannelCreate(ChannelBase):
 class ChannelUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
+    category_id: Optional[int] = None        # 카테고리 변경 지원
+    folder_name: Optional[str] = None        # 채널 폴더명 변경 시
     status: Optional[str] = None
     auto_download: Optional[bool] = None
     default_script_only: Optional[bool] = None # [NEW]
     last_scanned_at: Optional[datetime] = None
+    thumbnail_path: Optional[str] = None     # 폴더 이동 후 경로 갱신
+
 
 class Channel(ChannelBase):
     id: int

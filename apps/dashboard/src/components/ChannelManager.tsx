@@ -14,6 +14,15 @@ const ChannelManager = () => {
     const [selectedChannels, setSelectedChannels] = useState<Set<number>>(new Set());
     const [isScriptOnly, setIsScriptOnly] = useState(false); // [NEW]
     const [editingChannelId, setEditingChannelId] = useState<number | null>(null);
+    const [editDialog, setEditDialog] = useState<{
+        open: boolean;
+        channelId: number | null;
+        name: string;
+        url: string;
+        categoryId: number | null;
+        originalCategoryId: number | null;
+    }>({ open: false, channelId: null, name: '', url: '', categoryId: null, originalCategoryId: null });
+
 
     // [NEW] Restore missing queries
     const { data: channels, isLoading } = useQuery({
@@ -96,8 +105,38 @@ const ChannelManager = () => {
 
     const updateMutation = useMutation({
         mutationFn: ({ id, data }: { id: number, data: any }) => api.patch(`/channels/${id}`, data),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['channels'] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
+            setEditDialog(d => ({ ...d, open: false }));
+        },
+        onError: (error: any) => {
+            alert('채널 수정 실패: ' + (error.response?.data?.detail || error.message || '서버 응답 없음'));
+        }
     });
+
+    const handleEditOpen = (channel: any) => {
+        setEditDialog({
+            open: true,
+            channelId: channel.id,
+            name: channel.name || '',
+            url: channel.url || '',
+            categoryId: channel.category_id ?? null,
+            originalCategoryId: channel.category_id ?? null,
+        });
+    };
+
+    const handleEditSave = () => {
+        if (!editDialog.channelId) return;
+        const payload: any = {
+            name: editDialog.name,
+            url: editDialog.url,
+        };
+        // Always send category_id (even if null) so backend detects the change
+        payload.category_id = editDialog.categoryId;
+        updateMutation.mutate({ id: editDialog.channelId, data: payload });
+    };
+
+
 
     const scanMutation = useMutation({
         mutationFn: (id: number) => api.post(`/channels/${id}/scan`),
@@ -505,44 +544,16 @@ const ChannelManager = () => {
                                         </div>
                                     </td>
                                     <td className="p-3 sm:p-4 align-middle text-muted-foreground truncate max-w-[150px] whitespace-nowrap">
-                                        {editingChannelId === channel.id ? (
-                                            <input
-                                                type="text"
-                                                defaultValue={channel.url}
-                                                onBlur={(e) => {
-                                                    const updatedUrl = e.target.value.trim();
-                                                    if (updatedUrl && updatedUrl !== channel.url) {
-                                                        updateMutation.mutate({ id: channel.id, data: { url: updatedUrl } });
-                                                    }
-                                                    setEditingChannelId(null);
-                                                }}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        const updatedUrl = (e.target as HTMLInputElement).value.trim();
-                                                        if (updatedUrl && updatedUrl !== channel.url) {
-                                                            updateMutation.mutate({ id: channel.id, data: { url: updatedUrl } });
-                                                        }
-                                                        setEditingChannelId(null);
-                                                    } else if (e.key === 'Escape') {
-                                                        setEditingChannelId(null);
-                                                    }
-                                                }}
-                                                autoFocus
-                                                className="w-full px-2 py-1 text-sm border rounded bg-background"
-                                            />
-                                        ) : (
-                                            <a
-                                                href={channel.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="hover:underline hover:text-primary transition-colors"
-                                                title="더블클릭하여 수정 가능"
-                                                onDoubleClick={() => setEditingChannelId(channel.id)}
-                                            >
-                                                {channel.url}
-                                            </a>
-                                        )}
+                                        <a
+                                            href={channel.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="hover:underline hover:text-primary transition-colors"
+                                        >
+                                            {channel.url}
+                                        </a>
                                     </td>
+
                                     <td className="p-4 align-middle">
                                         <span className={cn(
                                             "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
@@ -583,12 +594,13 @@ const ChannelManager = () => {
                                     <td className="p-4 align-middle text-right">
                                         <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                                             <button
-                                                onClick={() => setEditingChannelId(channel.id)}
-                                                title="URL 수정"
+                                                onClick={() => handleEditOpen(channel)}
+                                                title="채널 정보 수정"
                                                 className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 w-9 shrink-0"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                             </button>
+
                                             <button
                                                 onClick={() => scanMutation.mutate(channel.id)}
                                                 disabled={scanMutation.isPending}
@@ -618,8 +630,95 @@ const ChannelManager = () => {
                     </table>
                 </div>
             </div>
+
+            {/* ===== Channel Edit Dialog ===== */}
+            {editDialog.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-base font-bold text-foreground">채널 정보 수정</h2>
+                            <button
+                                onClick={() => setEditDialog(d => ({ ...d, open: false }))}
+                                className="rounded-full p-1.5 hover:bg-muted transition-colors"
+                            >
+                                <X className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                        </div>
+
+                        {/* Name */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">채널 이름</label>
+                            <input
+                                type="text"
+                                value={editDialog.name}
+                                onChange={e => setEditDialog(d => ({ ...d, name: e.target.value }))}
+                                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                placeholder="채널 이름"
+                            />
+                        </div>
+
+                        {/* URL */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">채널 URL</label>
+                            <input
+                                type="text"
+                                value={editDialog.url}
+                                onChange={e => setEditDialog(d => ({ ...d, url: e.target.value }))}
+                                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                placeholder="https://www.youtube.com/@channel"
+                            />
+                        </div>
+
+                        {/* Category */}
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">카테고리</label>
+                            <select
+                                value={editDialog.categoryId ?? ''}
+                                onChange={e => setEditDialog(d => ({ ...d, categoryId: e.target.value ? Number(e.target.value) : null }))}
+                                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            >
+                                <option value="">카테고리 없음 (미분류)</option>
+                                {categories?.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Category change warning */}
+                        {editDialog.categoryId !== editDialog.originalCategoryId && (
+                            <div className="flex items-start gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2.5 text-xs text-amber-700 dark:text-amber-400">
+                                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                                <span>
+                                    카테고리를 변경하면 이미 다운로드된 영상 폴더가 새 카테고리 폴더로 자동 이동됩니다.
+                                    {editDialog.categoryId === null && (
+                                        <span className="block mt-1 font-medium">미분류로 변경 시: <code className="text-xs bg-amber-500/20 px-1 rounded">07_Downloads/_temp_storage/</code> 폴더로 이동됩니다.</span>
+                                    )}
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex justify-end gap-2 pt-1">
+                            <button
+                                onClick={() => setEditDialog(d => ({ ...d, open: false }))}
+                                className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleEditSave}
+                                disabled={updateMutation.isPending}
+                                className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 font-semibold"
+                            >
+                                {updateMutation.isPending ? '저장 중...' : '저장'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
-export default ChannelManager;
+export default ChannelManager;
