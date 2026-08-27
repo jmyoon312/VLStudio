@@ -901,10 +901,11 @@ const ScriptLab = () => {
                                     </h4>
                                     <div className="bg-muted/40 hover:bg-muted/60 p-2.5 rounded-xl border border-border/50 transition-colors">
                                         <p className="text-[11.5px] text-foreground/90 leading-relaxed line-clamp-2 italic">
-                                            "{v.content || v.extracted_text || '대본을 불러오려면 탭하세요.'}"
+                                            "{cleanSrtToText(v.content || v.extracted_text || '') || '대본을 불러오려면 탭하세요.'}"
                                         </p>
                                     </div>
                                 </div>
+
 
                                 {/* 하단: 날짜 + 액션 버튼 (대본열람 / AI 각색) */}
                                 <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-xs">
@@ -986,13 +987,13 @@ const ScriptLab = () => {
                 extractedText={subtitleVideo?.extracted_text}
             />
 
-            {/* 2. AI 바이럴 추이 그래프 모달 (Matches Gallery.tsx exactly) */}
+            {/* 2. AI 바이럴 추이 그래프 모달 (Matches Gallery.tsx exactly & mobile safe) */}
             <Dialog open={!!statsVideo} onOpenChange={(open) => !open && setStatsVideo(null)}>
-                <DialogContent className="max-w-2xl bg-card border border-border text-foreground p-5 sm:p-6 shadow-2xl">
+                <DialogContent className="w-[95vw] max-w-2xl bg-card border border-border text-foreground p-3.5 sm:p-6 shadow-2xl rounded-2xl">
                     <DialogHeader>
                         <div className="flex items-center justify-between gap-2">
-                            <DialogTitle className="text-base sm:text-lg font-extrabold text-foreground flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5 text-indigo-500" /> AI 바이럴 성과 및 추이 분석
+                            <DialogTitle className="text-sm sm:text-lg font-extrabold text-foreground flex items-center gap-1.5 sm:gap-2">
+                                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" /> AI 바이럴 성과 및 추이 분석
                             </DialogTitle>
                             {statsVideo && getViralBadge(statsVideo.viral_score, statsVideo.velocity_score)}
                         </div>
@@ -1001,51 +1002,52 @@ const ScriptLab = () => {
 
                     {/* 4대 핵심 바이럴 KPI 지표 카드 */}
                     {statsVideo && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
-                            <div className="bg-muted/40 border border-border/80 rounded-xl p-2.5 space-y-0.5">
-                                <span className="text-[10px] text-muted-foreground font-medium">총 누적 조회수</span>
-                                <p className="text-sm sm:text-base font-extrabold text-foreground">{formatCount(statsVideo.view_count || statsVideo.metadata_json?.view_count)}</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 pt-1 sm:pt-2">
+                            <div className="bg-muted/40 border border-border/80 rounded-xl p-2 sm:p-2.5 space-y-0.5">
+                                <span className="text-[9.5px] sm:text-[10px] text-muted-foreground font-medium">총 누적 조회수</span>
+                                <p className="text-xs sm:text-base font-extrabold text-foreground">{formatCount(statsVideo.view_count || statsVideo.metadata_json?.view_count)}</p>
                             </div>
-                            <div className="bg-muted/40 border border-border/80 rounded-xl p-2.5 space-y-0.5">
-                                <span className="text-[10px] text-muted-foreground font-medium">바이럴 지수</span>
-                                <p className="text-sm sm:text-base font-extrabold text-amber-500">{Math.round(statsVideo.viral_score || 0)}%</p>
+                            <div className="bg-muted/40 border border-border/80 rounded-xl p-2 sm:p-2.5 space-y-0.5">
+                                <span className="text-[9.5px] sm:text-[10px] text-muted-foreground font-medium">바이럴 지수</span>
+                                <p className="text-xs sm:text-base font-extrabold text-amber-500">{Math.round(statsVideo.viral_score || 0)}%</p>
                             </div>
-                            <div className="bg-muted/40 border border-border/80 rounded-xl p-2.5 space-y-0.5">
-                                <span className="text-[10px] text-muted-foreground font-medium">시간당 유입 속도</span>
-                                <p className="text-sm sm:text-base font-extrabold text-indigo-400">
+                            <div className="bg-muted/40 border border-border/80 rounded-xl p-2 sm:p-2.5 space-y-0.5">
+                                <span className="text-[9.5px] sm:text-[10px] text-muted-foreground font-medium">시간당 유입 속도</span>
+                                <p className="text-xs sm:text-base font-extrabold text-indigo-400">
                                     {formatVelocity(statsVideo.velocity_score || 0)}
                                 </p>
                             </div>
-                            <div className="bg-muted/40 border border-border/80 rounded-xl p-2.5 space-y-0.5">
-                                <span className="text-[10px] text-muted-foreground font-medium">채널 카테고리</span>
-                                <p className="text-sm sm:text-base font-extrabold text-foreground truncate">
+                            <div className="bg-muted/40 border border-border/80 rounded-xl p-2 sm:p-2.5 space-y-0.5">
+                                <span className="text-[9.5px] sm:text-[10px] text-muted-foreground font-medium">채널 카테고리</span>
+                                <p className="text-xs sm:text-base font-extrabold text-foreground truncate">
                                     {categoryMap[channelMap[statsVideo.channel_id]?.category_id || 0]?.name || channelMap[statsVideo.channel_id]?.folder_name || '유튜브 채널'}
                                 </p>
                             </div>
                         </div>
                     )}
 
-                    <div className="h-[240px] sm:h-[280px] w-full mt-3 bg-muted/20 border border-border/60 rounded-xl p-2 sm:p-3">
+                    <div className="h-[220px] sm:h-[280px] w-full mt-2 sm:mt-3 bg-muted/20 border border-border/60 rounded-xl p-1.5 sm:p-3">
                         <ResponsiveContainer width="100%" height="100%">
-                            <RechartsLineChart data={chartData}>
+                            <RechartsLineChart data={chartData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                                 <XAxis
                                     dataKey="timestamp"
                                     tickFormatter={(time) => new Date(time).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}
                                     className="text-muted-foreground fill-muted-foreground"
-                                    fontSize={10}
+                                    fontSize={9.5}
                                 />
-                                <YAxis yAxisId="left" stroke="#818cf8" fontSize={10} tickFormatter={(val) => formatCount(val)} />
-                                <YAxis yAxisId="right" orientation="right" stroke="#fbbf24" fontSize={10} tickFormatter={(val) => formatCount(val) + '/h'} />
+                                <YAxis yAxisId="left" stroke="#818cf8" fontSize={9.5} tickFormatter={(val) => formatCount(val)} />
+                                <YAxis yAxisId="right" orientation="right" stroke="#fbbf24" fontSize={9.5} tickFormatter={(val) => formatCount(val) + '/h'} />
                                 <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)', fontSize: '11px' }}
                                     labelFormatter={(label) => new Date(label).toLocaleString()}
                                 />
-                                <Line yAxisId="left" type="monotone" dataKey="view_count" name="누적 조회수" stroke="#818cf8" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                                <Line yAxisId="left" type="monotone" dataKey="view_count" name="누적 조회수" stroke="#818cf8" strokeWidth={2.5} dot={{ r: 2.5 }} activeDot={{ r: 4.5 }} />
                                 <Line yAxisId="right" type="monotone" dataKey="velocity" name="시간당 유입 속도" stroke="#fbbf24" strokeWidth={2} dot={{ r: 2 }} strokeDasharray="4 4" />
                             </RechartsLineChart>
                         </ResponsiveContainer>
                     </div>
+
 
                     <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs flex items-center justify-between gap-2">
                         <p className="text-[11px] text-muted-foreground leading-tight">
