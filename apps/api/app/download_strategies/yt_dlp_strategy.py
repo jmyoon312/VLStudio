@@ -26,14 +26,16 @@ class StrategyFilteredLogger:
             "web_safari client", 
             "web client https formats", 
             "YouTube is forcing SABR",
-            "PO Token",  # Suppress all PO Token warnings
-            "android client",  # Suppress android client warnings
-            "ios client",  # Suppress ios client warnings
-            "GVS PO Token",  # Explicit GVS PO Token suppression
-            "require a GVS"  # Catch "require a GVS PO Token" messages
+            "PO Token",
+            "android client",
+            "ios client",
+            "GVS PO Token",
+            "require a GVS",
+            "Requested format is not available"
         ]
         if any(p in msg for p in ignore_patterns): return
-        logger.info(f"[yt-dlp] {msg}")
+        logger.debug(f"[yt-dlp] {msg}")
+
     def error(self, msg):
         external_errors = [
             "Video unavailable",
@@ -41,12 +43,15 @@ class StrategyFilteredLogger:
             "This video is unavailable",
             "Sign in to confirm your age",
             "HTTP Error 429",
-            "Video unavailable"
+            "rate-limited",
+            "This content isn't available",
+            "Requested format is not available"
         ]
         if any(p in msg for p in external_errors):
-            logger.info(f"[yt-dlp External Warning] {msg}")
+            logger.debug(f"[yt-dlp External Note] {msg}")
         else:
             logger.warning(f"[yt-dlp Error] {msg}")
+
 
 class YTDLPDownloader:
     """Handles downloading via yt-dlp with Smart Subtitle Selection."""
