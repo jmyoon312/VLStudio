@@ -13,38 +13,85 @@ def update_video_stats():
     from app.database import SessionLocal
     db = SessionLocal()
     """
-    Periodic task to update view counts and calculate viral metrics.
-    [UPGRADE] Added jitter (random delay) to avoid YouTube rate limits.
+    [Smart Tiered Lifecycle Polling]
+    - Tier 0 (Missing views): view_count is 0/null -> Immediate highest priority
+    - Tier 1 (Golden Period 0~24h): Poll every 2 hours (120 min)
+    - Tier 2 (Growth 1~3 days): Poll every 6 hours
+    - Tier 3 (Maturity 3~7 days): Poll every 24 hours (daily)
+    - Tier 4 (Archive 7+ days): Only top viral videos (viral_score >= 20) poll every 3 days; others stopped
     """
     try:
-        # [NEW] Check Toggle
+        # Check Toggle
         settings = crud.get_settings(db)
         if settings and not settings.enable_view_stats_collection:
             logger.info("⏸️ View stats collection is disabled in settings. Skipping update.")
             return
 
-        # [IMPROVEMENT] Fetch candidate IDs based on priority (Recent or High Velocity)
-        cutoff = datetime.now() - timedelta(days=7)
-        recent_videos = db.query(models.Video.id, models.Video.url, models.Video.title)\
-            .filter((models.Video.upload_date >= cutoff) | (models.Video.downloaded_at >= cutoff))\
-            .order_by(models.Video.velocity_score.desc().nulls_last())\
-            .limit(50).all()
-            
-        viral_videos = db.query(models.Video.id, models.Video.url, models.Video.title)\
-            .filter(models.Video.upload_date < cutoff, models.Video.velocity_score > 10)\
-            .order_by(models.Video.velocity_score.desc().nulls_last())\
-            .limit(30).all()
-            
-        candidates = list(set(recent_videos + viral_videos))
-        if not candidates:
-            candidates = db.query(models.Video.id, models.Video.url, models.Video.title)\
-                .order_by(models.Video.viewed_at.asc().nulls_first()).limit(20).all()
+        now = datetime.now()
+
+        # 1. Tier 0: Missing or zero view count (Immediate top priority)
+        tier0_videos = db.query(models.Video.id, models.Video.url, models.Video.title)\
+            .filter((models.Video.view_count == 0) | (models.Video.view_count.is_(None)))\
+            .limit(15).all()
+
+        # 2. Tier 1: Golden Period (0 ~ 24h old) -> Polled if not viewed in last 2 hours (120 min)
+        t1_cutoff_date = now - timedelta(hours=24)
+        t1_poll_interval = now - timedelta(hours=2)
+        tier1_videos = db.query(models.Video.id, models.Video.url, models.Video.title)\
+            .filter(
+                (models.Video.upload_date >= t1_cutoff_date) | (models.Video.downloaded_at >= t1_cutoff_date),
+                models.Video.view_count > 0,
+                (models.Video.viewed_at.is_(None)) | (models.Video.viewed_at <= t1_poll_interval)
+            ).order_by(models.Video.viewed_at.asc().nulls_first()).limit(15).all()
+
+        # 3. Tier 2: Growth Stage (24h ~ 72h old) -> Polled if not viewed in last 6 hours
+        t2_start_date = now - timedelta(hours=72)
+        t2_end_date = now - timedelta(hours=24)
+        t2_poll_interval = now - timedelta(hours=6)
+        tier2_videos = db.query(models.Video.id, models.Video.url, models.Video.title)\
+            .filter(
+                (models.Video.upload_date >= t2_start_date) | (models.Video.downloaded_at >= t2_start_date),
+                (models.Video.upload_date < t2_end_date) | (models.Video.downloaded_at < t2_end_date),
+                models.Video.view_count > 0,
+                (models.Video.viewed_at.is_(None)) | (models.Video.viewed_at <= t2_poll_interval)
+            ).order_by(models.Video.viewed_at.asc().nulls_first()).limit(10).all()
+
+        # 4. Tier 3: Maturity Stage (3 ~ 7 days old) -> Polled if not viewed in last 24 hours
+        t3_start_date = now - timedelta(days=7)
+        t3_end_date = now - timedelta(days=3)
+        t3_poll_interval = now - timedelta(hours=24)
+        tier3_videos = db.query(models.Video.id, models.Video.url, models.Video.title)\
+            .filter(
+                (models.Video.upload_date >= t3_start_date) | (models.Video.downloaded_at >= t3_start_date),
+                (models.Video.upload_date < t3_end_date) | (models.Video.downloaded_at < t3_end_date),
+                models.Video.view_count > 0,
+                (models.Video.viewed_at.is_(None)) | (models.Video.viewed_at <= t3_poll_interval)
+            ).order_by(models.Video.viewed_at.asc().nulls_first()).limit(10).all()
+
+        # 5. Tier 4: Archive Stage (7+ days old) -> Only viral hits (viral_score >= 20) polled every 3 days
+        t4_poll_interval = now - timedelta(days=3)
+        tier4_videos = db.query(models.Video.id, models.Video.url, models.Video.title)\
+            .filter(
+                models.Video.upload_date < t3_start_date,
+                models.Video.viral_score >= 20.0,
+                (models.Video.viewed_at.is_(None)) | (models.Video.viewed_at <= t4_poll_interval)
+            ).order_by(models.Video.viewed_at.asc().nulls_first()).limit(5).all()
+
+        # Merge candidates keeping priority: Tier 0 > Tier 1 > Tier 2 > Tier 3 > Tier 4
+        candidates = []
+        seen_ids = set()
+        for v in tier0_videos + tier1_videos + tier2_videos + tier3_videos + tier4_videos:
+            if v.id not in seen_ids:
+                seen_ids.add(v.id)
+                candidates.append(v)
 
         if not candidates:
+            logger.debug("[POLL] No videos currently due for stats refresh.")
             return
-            
-        # Shuffle and pick smaller batch (10) but much higher quality targets to save API quota
-        target_batch = random.sample(candidates, k=min(len(candidates), 10))
+
+        # Cap batch to max 12 per run to prevent YouTube rate-limits
+        target_batch = candidates[:12]
+        logger.info(f"📊 [POLL] Selected {len(target_batch)} videos for stats update (Tier0:{len(tier0_videos)}, Tier1:{len(tier1_videos)}, Tier2:{len(tier2_videos)}, Tier3:{len(tier3_videos)})")
         
         updated_count = 0
         from ..downloader import get_video_info
@@ -54,9 +101,10 @@ def update_video_stats():
         cookies_path = current_settings.cookies_path if current_settings else None
         
         for vid_data in target_batch:
-            # [JITTER] Randomized delay between requests (3-7 seconds)
-            delay = random.uniform(3, 7)
+            # Randomized jitter delay (3-6 seconds)
+            delay = random.uniform(3, 6)
             logger.info(f"[WAIT] Jitter delay: {delay:.1f}s before fetching {vid_data.title}")
+
             try:
                 time.sleep(delay)
             except Exception:

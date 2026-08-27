@@ -283,10 +283,10 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
                         logger.info(f"[REFRESH] [RE-PROCESS] {log_prefix} Mode change detected ({existing.is_script_only} -> {current_script_only}) for [{title}]")
                         is_existing_failed = True
             
-            # B. Date Filter (YouTube only)
+            # B. Date & View Count Filter (Ensure metadata is complete)
             if not is_existing_failed:
-                if not item.get('date'):
-                    logger.debug(f"? [Checking Date] {log_prefix} missing metadata...")
+                if not item.get('date') or item.get('view_count') is None:
+                    logger.debug(f"? [Checking Metadata] {log_prefix} fetching missing details for {vid_id}...")
                     try:
                         # [FIX] Add timeout to prevent hanging on slow metadata extraction
                         from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -298,12 +298,14 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
                             future = executor.submit(fetch_info)
                             try:
                                 info = future.result(timeout=30)  # [FIX] Increased from 5s to 30s to prevent skipping videos on slow networks
-                                if info and info.get('upload_date'):
-                                    item['date'] = info.get('upload_date')
+                                if info:
+                                    if info.get('upload_date'):
+                                        item['date'] = info.get('upload_date')
+                                    if info.get('view_count') is not None:
+                                        item['view_count'] = info.get('view_count')
                                     item['title'] = info.get('title', item.get('title'))
                                     title = item['title']
-                                    date_info = item['date']
-                                    logger.debug(f"✓ [Got Date] {log_prefix} {date_info}")
+                                    logger.debug(f"✓ [Got Metadata] {log_prefix} Date:{item.get('date')} | Views:{item.get('view_count')}")
                             except FutureTimeoutError:
                                 logger.warning(f"[TIME] [TIMEOUT] {log_prefix} Metadata fetch timeout (30s)")
                             except Exception as e:
@@ -317,6 +319,7 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
                         if '429' in err_msg or 'rate limit' in err_msg.lower():
                              return {"status": "failed", "error": "YouTube Rate Limit (429)"}
                         logger.warning(f"Failed to fetch metadata for {vid_id}: {e}")
+
 
                 if item.get('date'):
                     try:
