@@ -1231,9 +1231,14 @@ const ScriptLab = () => {
             {playerVideo && (
                 <Dialog open={!!playerVideo} onOpenChange={(open) => !open && setPlayerVideo(null)}>
                     <DialogContent className="max-w-4xl p-0 overflow-hidden bg-card border border-border text-foreground flex flex-col md:flex-row h-[90vh] md:h-[80vh] max-h-[780px] rounded-2xl shadow-2xl">
+                        <DialogHeader className="sr-only">
+                            <DialogTitle>{playerVideo.title || '영상 상세 정보'}</DialogTitle>
+                            <DialogDescription>{playerVideo.content || playerVideo.extracted_text || '영상 상세 및 유튜브 플레이어'}</DialogDescription>
+                        </DialogHeader>
                         
                         {/* 좌측: 9:16 비디오 플레이어 영역 (YouTube iframe / 로컬 스트리밍) */}
                         <div className="relative w-full md:w-[48%] h-[45%] md:h-full bg-black flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-border">
+
                             {(() => {
                                 const ytId = playerVideo.video_id || (playerVideo.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([\w-]{11})/)?.[1]);
                                 const localVideoUrl = playerVideo.file_path ? getMediaUrl(playerVideo.file_path) : null;
