@@ -30,6 +30,27 @@ const formatCount = (val?: number | string) => {
     return num.toLocaleString();
 };
 
+const cleanTranscript = (text: string): string => {
+    if (!text) return '';
+    return text
+        .replace(/^WEBVTT[^\n]*\n/gm, '')
+        .replace(/\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{3}[^\n]*/g, '')
+        .replace(/^\s*\d+\s*$/gm, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\[(?:music|applause|laughter|sound|음악|박수|웃음|기타)[^\]]*\]/gi, '')
+        .replace(/\((?:music|applause|laughter|sound|음악|박수|웃음)[^)]*\)/gi, '')
+        .replace(/^\s*>>\s*/gm, '')
+        .replace(/&gt;&gt;/g, '')
+        .replace(/>>/g, '')
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean)
+        .join(' ')
+        .replace(/[ \t]+/g, ' ')
+        .trim();
+};
+
+
 const getViralBadge = (viralScore?: number, velocityScore?: number) => {
     const rawScore = Number(viralScore) || 0;
     const score = Math.round(rawScore); // 소수점 아래 반올림하여 깔끔한 정수 표시
@@ -956,7 +977,7 @@ const Gallery = () => {
                                     </div>
                                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                                         <p className="text-[10px] text-muted-foreground">바이럴 스코어</p>
-                                        <p className="text-xs font-extrabold text-amber-500 mt-0.5">{selectedVideo.viral_score || 0}%</p>
+                                        <p className="text-xs font-extrabold text-amber-500 mt-0.5">{Math.round(selectedVideo.viral_score || 0)}%</p>
                                     </div>
                                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
                                         <p className="text-[10px] text-muted-foreground">영상 길이</p>
@@ -968,11 +989,22 @@ const Gallery = () => {
                                     </div>
                                 </div>
 
-                                {/* 설명 & 해시태그 박스 */}
+                                {/* 설명 & 추출 대본 프리뷰 박스 */}
                                 <div className="p-3 rounded-xl bg-muted/30 border border-border text-xs text-foreground space-y-1.5">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">영상 설명 및 추출 대본</p>
-                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-muted-foreground">
-                                        {selectedVideo.extracted_text || (selectedVideo.metadata_json as any)?.description || '추출된 대본 또는 영상 설명이 없습니다.'}
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            <FileText className="w-3 h-3 text-primary" />
+                                            수집 대본 및 설명
+                                        </p>
+                                        <button
+                                            onClick={() => setSubtitleVideo(selectedVideo)}
+                                            className="text-[10px] font-bold text-primary hover:underline"
+                                        >
+                                            대본 전문보기 →
+                                        </button>
+                                    </div>
+                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-muted-foreground select-text font-sans">
+                                        {cleanTranscript(selectedVideo.content || selectedVideo.extracted_text || (selectedVideo.metadata_json as any)?.description || '') || '추출된 대본 또는 영상 설명이 없습니다.'}
                                     </p>
                                 </div>
 
@@ -980,12 +1012,13 @@ const Gallery = () => {
                                 <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs space-y-1">
                                     <div className="flex items-center justify-between text-[11px] font-bold text-primary">
                                         <span>📊 AI 바이럴 점수 분석</span>
-                                        <span className="text-emerald-500">상위 {Math.max(1, (100 - (selectedVideo.viral_score || 50) / 10)).toFixed(1)}%</span>
+                                        <span className="text-emerald-500">상위 {Math.max(1, (100 - Math.min(100, (selectedVideo.viral_score || 50) / 10))).toFixed(1)}%</span>
                                     </div>
                                     <p className="text-[10px] text-muted-foreground leading-normal">
                                         수집된 영상 자산입니다. 딸깍 자동 생성을 통해 자막 합성 및 더빙 버전으로 재가공하여 새로운 숏폼으로 제작할 수 있습니다.
                                     </p>
                                 </div>
+
 
                             </div>
 
