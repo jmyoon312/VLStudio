@@ -28,10 +28,11 @@ import SubtitleViewer from '../components/SubtitleViewer';
 import {
     Search, TrendingUp, PlaySquare, FileText, Copy, Languages,
     ChevronUp, ChevronDown, MonitorPlay, Film, Smartphone, Trash2,
-    Flame, Zap, Sparkles
+    Flame, Zap, Sparkles, Play, ExternalLink, Video as VideoIcon, Check, Radio, Scissors
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '../lib/utils';
+import { cn, getMediaUrl } from '../lib/utils';
+import { toast } from 'sonner';
 
 
 // -- Helper Function to Clean SRT format into flowing readable text --
@@ -64,6 +65,42 @@ const cleanSrtToText = (text: string): string => {
 
     return deduped.join(' ').replace(/[ \t]+/g, ' ').trim();
 };
+
+const getVideoThumbnailUrl = (video: Video): string => {
+    if (video.thumbnail_path) {
+        const url = getMediaUrl(video.thumbnail_path);
+        if (url) return url;
+    }
+    const meta = video.metadata_json as any;
+    if (meta?.thumbnail_url) return meta.thumbnail_url;
+    if (meta?.thumbnail) return meta.thumbnail;
+    if (video.video_id) return `https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`;
+    if (video.url) {
+        const match = video.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([\w-]{11})/);
+        if (match && match[1]) return `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`;
+    }
+    return '';
+};
+
+const getYoutubeWatchUrl = (video: Video): string => {
+    if (video.url && video.url.startsWith('http')) return video.url;
+    if (video.video_id) return `https://www.youtube.com/watch?v=${video.video_id}`;
+    const meta = video.metadata_json as any;
+    if (meta?.webpage_url) return meta.webpage_url;
+    if (meta?.url) return meta.url;
+    return '';
+};
+
+const getYoutubeEmbedUrl = (video: Video): string => {
+    let ytId = video.video_id;
+    if (!ytId && video.url) {
+        const match = video.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([\w-]{11})/);
+        if (match && match[1]) ytId = match[1];
+    }
+    if (ytId) return `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=0&rel=0`;
+    return '';
+};
+
 
 
 const formatCount = (num?: number): string => {
@@ -146,6 +183,9 @@ const ScriptLab = () => {
     const [sortOption, setSortOption] = useState<'viral' | 'latest' | 'views'>('viral');
     const [subtitleVideo, setSubtitleVideo] = useState<Video | null>(null);
     const [statsVideo, setStatsVideo] = useState<Video | null>(null);
+    const [playerVideo, setPlayerVideo] = useState<Video | null>(null);
+    const [isCopied, setIsCopied] = useState(false);
+
 
 
 
@@ -417,29 +457,85 @@ const ScriptLab = () => {
             },
             size: 110,
         }),
-        // 3. Title & Script Hook Summary (Core Value of Script Lab)
+        // 3. Title & Script Hook Summary (With Video Thumbnail & Player Trigger)
         columnHelper.accessor('title', {
             header: '제목 및 대본 바이럴 훅 (Hook)',
             cell: info => {
-                const rawContent = info.row.original.content || "";
+                const v = info.row.original;
+                const rawContent = v.content || "";
                 const cleanPreview = cleanSrtToText(rawContent);
+                const thumbUrl = getVideoThumbnailUrl(v);
+                const ytUrl = getYoutubeWatchUrl(v);
+
                 return (
-                    <div className="flex flex-col w-full max-w-lg py-1">
-                        <span
-                            className="font-bold text-foreground text-sm cursor-pointer hover:underline hover:text-primary transition-colors line-clamp-1"
-                            title={info.getValue()}
+                    <div className="flex items-center gap-3 w-full max-w-xl py-1">
+                        {/* 썸네일 & 플레이어 트리거 버튼 */}
+                        <div 
+                            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-slate-900 border border-border/80 shrink-0 cursor-pointer group shadow-2xs"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                setSubtitleVideo(info.row.original);
+                                setPlayerVideo(v);
                             }}
+                            title="영상 및 대본 상세 플레이어 열기"
                         >
-                            {info.getValue()}
-                        </span>
-                        <div className="flex items-start gap-1.5 text-xs text-muted-foreground mt-1">
-                            <FileText className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5 opacity-80" />
-                            <p className="line-clamp-2 text-[12px] text-muted-foreground/90 leading-relaxed font-sans select-text">
-                                {cleanPreview ? `"${cleanPreview}"` : "(대본을 불러오려면 클릭하세요)"}
-                            </p>
+                            {thumbUrl ? (
+                                <img 
+                                    src={thumbUrl} 
+                                    alt={v.title} 
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" 
+                                    loading="lazy"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+                                    <VideoIcon className="w-5 h-5 opacity-50" />
+                                </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 flex items-center justify-center transition-colors">
+                                <div className="w-6 h-6 rounded-full bg-white/30 backdrop-blur-xs flex items-center justify-center group-hover:scale-110 transition-transform">
+                                    <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 제목 및 훅 텍스트 */}
+                        <div className="flex flex-col flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                                <span
+                                    className="font-bold text-foreground text-xs sm:text-sm cursor-pointer hover:underline hover:text-primary transition-colors line-clamp-1 flex-1"
+                                    title={info.getValue()}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPlayerVideo(v);
+                                    }}
+                                >
+                                    {info.getValue()}
+                                </span>
+                                {ytUrl && (
+                                    <a
+                                        href={ytUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-muted-foreground hover:text-red-500 transition-colors p-0.5 rounded hover:bg-muted shrink-0"
+                                        title="유튜브 원본 새 탭으로 열기"
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                )}
+                            </div>
+                            <div 
+                                className="flex items-start gap-1.5 text-xs text-muted-foreground mt-1 cursor-pointer"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSubtitleVideo(v);
+                                }}
+                                title="클릭하여 대본 전문 보기"
+                            >
+                                <FileText className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5 opacity-80" />
+                                <p className="line-clamp-2 text-[11.5px] text-muted-foreground/90 leading-relaxed font-sans select-text hover:text-foreground transition-colors">
+                                    {cleanPreview ? `"${cleanPreview}"` : "(대본을 불러오려면 클릭하세요)"}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 );
@@ -528,7 +624,7 @@ const ScriptLab = () => {
             },
             size: 80,
         }),
-        // 7. Actions (대본 전문 열람 / AI 재창작)
+        // 7. Actions (영상 플레이 / 대본 전문 열람 / AI 재창작)
         {
             id: 'actions',
             header: '작업',
@@ -539,11 +635,22 @@ const ScriptLab = () => {
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 px-2.5 text-[11px] gap-1 hover:bg-primary/10 hover:text-primary border-border/80 font-medium"
-                            onClick={() => setSubtitleVideo(v)}
+                            className="h-7 px-2 text-[11px] gap-1 hover:bg-primary/10 hover:text-primary border-border/80 font-medium"
+                            onClick={() => setPlayerVideo(v)}
+                            title="영상 재생 및 상세 분석 열기"
                         >
-                            <FileText className="w-3 h-3" />
-                            대본열람
+                            <Play className="w-3 h-3 text-red-500 fill-red-500" />
+                            영상
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-[11px] gap-1 hover:bg-primary/10 hover:text-primary border-border/80 font-medium"
+                            onClick={() => setSubtitleVideo(v)}
+                            title="대본 전문 열람"
+                        >
+                            <FileText className="w-3 h-3 text-primary" />
+                            대본
                         </Button>
                         <Button
                             size="sm"
@@ -559,17 +666,17 @@ const ScriptLab = () => {
                                 }
                             }}
                         >
-                            <Sparkles className="w-3 h-3" />
+                            <Sparkles className="w-3 h-3 text-amber-300" />
                             AI 각색
                         </Button>
                     </div>
                 );
-
             },
-            size: 160,
+            size: 190,
             enableSorting: false,
         }
     ], [channelMap, categoryMap]);
+
 
 
 
@@ -856,6 +963,9 @@ const ScriptLab = () => {
                     {table.getRowModel().rows.map(row => {
                         const v = row.original;
                         const isSelected = row.getIsSelected();
+                        const thumbUrl = getVideoThumbnailUrl(v);
+                        const ytUrl = getYoutubeWatchUrl(v);
+
                         return (
                             <div 
                                 key={row.id}
@@ -895,39 +1005,91 @@ const ScriptLab = () => {
                                     </div>
                                 </div>
 
-                                {/* 중앙: 제목 & 대본 바이럴 훅 (탭하면 전체 대본 모달 오픈) */}
-                                <div onClick={() => setSubtitleVideo(v)} className="cursor-pointer space-y-1.5 active:opacity-80 transition-opacity">
-                                    <h4 className="text-[13px] sm:text-sm font-extrabold text-foreground line-clamp-1 leading-snug">
-                                        {v.title}
-                                    </h4>
-                                    <div className="bg-muted/40 hover:bg-muted/60 p-2.5 rounded-xl border border-border/50 transition-colors">
-                                        <p className="text-[11.5px] text-foreground/90 leading-relaxed line-clamp-2 italic">
-                                            "{cleanSrtToText(v.content || v.extracted_text || '') || '대본을 불러오려면 탭하세요.'}"
-                                        </p>
+                                {/* 중앙: 썸네일 + 제목 & 대본 바이럴 훅 (탭하면 상세 플레이어 오픈) */}
+                                <div className="flex gap-2.5 items-start">
+                                    <div 
+                                        className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-900 border border-border/80 shrink-0 cursor-pointer group shadow-2xs"
+                                        onClick={() => setPlayerVideo(v)}
+                                    >
+                                        {thumbUrl ? (
+                                            <img 
+                                                src={thumbUrl} 
+                                                alt={v.title} 
+                                                className="w-full h-full object-cover" 
+                                                loading="lazy"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+                                                <VideoIcon className="w-5 h-5 opacity-50" />
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                            <div className="w-6 h-6 rounded-full bg-white/40 backdrop-blur-xs flex items-center justify-center">
+                                                <Play className="w-3 h-3 text-white fill-white ml-0.5" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                        <div className="flex items-center gap-1">
+                                            <h4 
+                                                onClick={() => setPlayerVideo(v)}
+                                                className="text-[13px] font-extrabold text-foreground line-clamp-1 leading-snug cursor-pointer hover:underline flex-1"
+                                            >
+                                                {v.title}
+                                            </h4>
+                                            {ytUrl && (
+                                                <a
+                                                    href={ytUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="text-muted-foreground hover:text-red-500 p-0.5 rounded shrink-0"
+                                                    title="유튜브 원본 새 탭 열기"
+                                                >
+                                                    <ExternalLink className="w-3.5 h-3.5" />
+                                                </a>
+                                            )}
+                                        </div>
+                                        <div 
+                                            onClick={() => setSubtitleVideo(v)}
+                                            className="bg-muted/40 hover:bg-muted/60 p-2 rounded-xl border border-border/50 transition-colors cursor-pointer"
+                                        >
+                                            <p className="text-[11px] text-foreground/90 leading-relaxed line-clamp-2 italic">
+                                                "{cleanSrtToText(v.content || v.extracted_text || '') || '대본을 불러오려면 탭하세요.'}"
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
-
-                                {/* 하단: 날짜 + 액션 버튼 (대본열람 / AI 각색) */}
+                                {/* 하단: 날짜 + 액션 버튼 (영상 / 대본열람 / AI 각색) */}
                                 <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-xs">
                                     <span className="text-[10.5px] text-muted-foreground font-mono">
                                         {v.upload_date ? new Date(v.upload_date).toLocaleDateString() : '최근'}
                                     </span>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setPlayerVideo(v)}
+                                            className="h-7 px-2 text-[11px] font-bold rounded-xl border-border bg-background shadow-2xs hover:bg-muted active:scale-95"
+                                        >
+                                            <Play className="w-3 h-3 mr-0.5 text-red-500 fill-red-500" /> 영상
+                                        </Button>
                                         <Button
                                             size="sm"
                                             variant="outline"
                                             onClick={() => setSubtitleVideo(v)}
-                                            className="h-8 px-3 text-xs font-bold rounded-xl border-border bg-background shadow-2xs hover:bg-muted active:scale-95"
+                                            className="h-7 px-2 text-[11px] font-bold rounded-xl border-border bg-background shadow-2xs hover:bg-muted active:scale-95"
                                         >
-                                            <FileText className="w-3.5 h-3.5 mr-1 text-primary" /> 대본열람
+                                            <FileText className="w-3 h-3 mr-0.5 text-primary" /> 대본
                                         </Button>
                                         <Button
                                             size="sm"
                                             onClick={() => navigate('/creative-scripts', { state: { referenceVideo: v } })}
-                                            className="h-8 px-3 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs active:scale-95"
+                                            className="h-7 px-2.5 text-[11px] font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs active:scale-95"
                                         >
-                                            <Sparkles className="w-3.5 h-3.5 mr-1" /> AI 각색
+                                            <Sparkles className="w-3 h-3 mr-0.5 text-amber-300" /> 각색
                                         </Button>
                                     </div>
                                 </div>
@@ -935,6 +1097,7 @@ const ScriptLab = () => {
                         );
                     })}
                 </div>
+
 
                 {/* Centered Empty / Loading State Overlay */}
                 {isLoading ? (
@@ -1063,6 +1226,190 @@ const ScriptLab = () => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* 3. 🎬 수집 영상 보관함과 동일한 프리미엄 비디오 상세 & 플레이어 모달 */}
+            {playerVideo && (
+                <Dialog open={!!playerVideo} onOpenChange={(open) => !open && setPlayerVideo(null)}>
+                    <DialogContent className="max-w-4xl p-0 overflow-hidden bg-card border border-border text-foreground flex flex-col md:flex-row h-[90vh] md:h-[80vh] max-h-[780px] rounded-2xl shadow-2xl">
+                        
+                        {/* 좌측: 9:16 비디오 플레이어 영역 (YouTube iframe / 로컬 스트리밍) */}
+                        <div className="relative w-full md:w-[48%] h-[45%] md:h-full bg-black flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-border">
+                            {(() => {
+                                const ytId = playerVideo.video_id || (playerVideo.url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/))([\w-]{11})/)?.[1]);
+                                const localVideoUrl = playerVideo.file_path ? getMediaUrl(playerVideo.file_path) : null;
+
+                                if (ytId) {
+                                    return (
+                                        <iframe
+                                            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=0`}
+                                            title={playerVideo.title}
+                                            className="w-full h-full border-0"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                            allowFullScreen
+                                        />
+                                    );
+                                } else if (localVideoUrl && localVideoUrl.startsWith('http')) {
+                                    return (
+                                        <video 
+                                            src={localVideoUrl} 
+                                            controls 
+                                            autoPlay 
+                                            loop 
+                                            playsInline
+                                            className="w-full h-full object-contain bg-black"
+                                        />
+                                    );
+                                }
+                                return (
+                                    <div className="relative w-full h-full flex items-center justify-center">
+                                        <img 
+                                            src={getVideoThumbnailUrl(playerVideo)} 
+                                            alt={playerVideo.title} 
+                                            className="w-full h-full object-cover opacity-60 filter blur-xs scale-105" 
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-6 text-center">
+                                            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center mb-3 shadow-lg">
+                                                <Play className="w-7 h-7 text-white fill-white ml-1" />
+                                            </div>
+                                            <p className="text-xs font-bold text-white/90">유튜브 원본 영상 스트리밍</p>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* 상단 퀵 뱃지 */}
+                            <div className="absolute top-3 left-3 flex items-center gap-1.5 z-20">
+                                {getViralBadge(playerVideo.viral_score, playerVideo.velocity_score)}
+                                <span className="bg-black/60 backdrop-blur-xs text-white/90 text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20">
+                                    {categoryMap[channelMap[playerVideo.channel_id]?.category_id || 0]?.name || channelMap[playerVideo.channel_id]?.folder_name || '유튜브'}
+                                </span>
+                            </div>
+
+                            {/* 우측 상단 유튜브 원본 바로가기 링크 버튼 */}
+                            {getYoutubeWatchUrl(playerVideo) && (
+                                <a
+                                    href={getYoutubeWatchUrl(playerVideo)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-red-600/90 hover:bg-red-600 text-white text-[10.5px] font-bold px-2.5 py-1 rounded-full shadow-md backdrop-blur-xs transition-transform active:scale-95"
+                                >
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span>유튜브 원본</span>
+                                </a>
+                            )}
+                        </div>
+
+                        {/* 우측: 상세 메타데이터 & 바이럴루프 원클릭 제작 액션 패널 */}
+                        <div className="w-full md:w-[52%] h-[55%] md:h-full p-4 sm:p-6 overflow-y-auto flex flex-col justify-between space-y-4 bg-card text-card-foreground">
+                            <div className="space-y-4">
+                                
+                                {/* 타이틀 및 채널 */}
+                                <div>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                        <span>채널: <strong className="text-foreground">{(playerVideo.channel_id && channelMap[playerVideo.channel_id]?.name) || (playerVideo.metadata_json as any)?.uploader || '트렌딩 크리에이터'}</strong></span>
+                                        <span>{playerVideo.upload_date ? new Date(playerVideo.upload_date).toLocaleDateString() : '최근'}</span>
+                                    </div>
+                                    <h3 className="text-sm sm:text-base md:text-lg font-extrabold text-foreground leading-snug">
+                                        {playerVideo.title}
+                                    </h3>
+                                </div>
+
+                                {/* 메트릭 4분할 그리드 */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">조회수</p>
+                                        <p className="text-xs font-extrabold text-foreground mt-0.5">{formatCount(playerVideo.view_count || (playerVideo.metadata_json as any)?.view_count)}</p>
+                                    </div>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">바이럴 스코어</p>
+                                        <p className="text-xs font-extrabold text-amber-500 mt-0.5">{Math.round(playerVideo.viral_score || 0)}%</p>
+                                    </div>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">유입 속도</p>
+                                        <p className="text-xs font-extrabold text-indigo-400 mt-0.5">{formatVelocity(playerVideo.velocity_score || 0)}</p>
+                                    </div>
+                                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border text-center">
+                                        <p className="text-[10px] text-muted-foreground">수집 상태</p>
+                                        <p className="text-xs font-extrabold text-emerald-500 mt-0.5">온라인 분석</p>
+                                    </div>
+                                </div>
+
+                                {/* 설명 & 추출 대본 프리뷰 박스 */}
+                                <div className="p-3 rounded-xl bg-muted/30 border border-border text-xs text-foreground space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            <FileText className="w-3 h-3 text-primary" />
+                                            수집 대본 및 설명
+                                        </p>
+                                        <button
+                                            onClick={() => setSubtitleVideo(playerVideo)}
+                                            className="text-[10px] font-bold text-primary hover:underline"
+                                        >
+                                            대본 전문보기 →
+                                        </button>
+                                    </div>
+                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-muted-foreground select-text font-sans">
+                                        {cleanSrtToText(playerVideo.content || playerVideo.extracted_text || (playerVideo.metadata_json as any)?.description || '') || '추출된 대본 또는 영상 설명이 없습니다.'}
+                                    </p>
+                                </div>
+
+                                {/* 수집 기록 및 성과 분석 */}
+                                <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs space-y-1">
+                                    <div className="flex items-center justify-between text-[11px] font-bold text-primary">
+                                        <span>📊 AI 바이럴 점수 분석</span>
+                                        <span className="text-emerald-500">상위 {Math.max(1, (100 - Math.min(100, (playerVideo.viral_score || 50) / 10))).toFixed(1)}%</span>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground leading-normal">
+                                        수집된 영상 자산입니다. AI 대본 재창작을 통해 자막 합성 및 더빙 버전으로 재가공하여 새로운 숏폼으로 제작할 수 있습니다.
+                                    </p>
+                                </div>
+
+                            </div>
+
+                            {/* 하단 바이럴루프 원클릭 제작 액션 버튼 바 */}
+                            <div className="space-y-2 pt-2 border-t border-border">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button 
+                                        onClick={async () => {
+                                            const raw = playerVideo.content || playerVideo.extracted_text || "";
+                                            const cleanText = cleanSrtToText(raw);
+                                            navigate('/script-writer', { state: { initialScript: cleanText || playerVideo.title } });
+                                        }}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 flex items-center justify-center gap-1.5 rounded-xl shadow-md"
+                                    >
+                                        <Zap className="w-3.5 h-3.5 text-amber-300" /> ⚡ 대본 AI 재창작
+                                    </Button>
+                                    <Button 
+                                        onClick={() => navigate('/creative-scripts', { state: { referenceVideo: playerVideo } })}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2.5 flex items-center justify-center gap-1.5 rounded-xl shadow-md"
+                                    >
+                                        <Radio className="w-3.5 h-3.5 text-purple-200" /> 🎙️ 딸깍 대본+더빙
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => setSubtitleVideo(playerVideo)}
+                                        className="bg-muted hover:bg-muted/80 border-border text-foreground text-xs py-2 flex items-center justify-center gap-1.5 rounded-xl"
+                                    >
+                                        <FileText className="w-3.5 h-3.5 text-indigo-500" /> 대본 전문 열람
+                                    </Button>
+                                    <Button 
+                                        variant="outline" 
+                                        onClick={() => setStatsVideo(playerVideo)}
+                                        className="bg-muted hover:bg-muted/80 border-border text-foreground text-xs py-2 flex items-center justify-center gap-1.5 rounded-xl"
+                                    >
+                                        <TrendingUp className="w-3.5 h-3.5 text-amber-500" /> 📊 AI 바이럴 추이
+                                    </Button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </DialogContent>
+                </Dialog>
+            )}
+
         </div>
     );
 };
