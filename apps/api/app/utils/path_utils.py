@@ -91,30 +91,48 @@ def get_temp_dir():
 
 def get_absolute_path(path: str) -> str:
     """
-    Ensures a path is absolute. If relative, resolves against the backend root.
-    Useful for background tasks that might run from different working directories.
+    Ensures a path is absolute. Resolves against MEDIA_ROOT, DOWNLOADS_DIR, or backend root.
     """
     if not path:
         return ""
     
-    if os.path.isabs(path):
+    if os.path.isabs(path) and os.path.exists(path):
         return path
     
-    # Resolve relative to backend root (backend/app/utils/path_utils.py -> backend/)
-    backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from app.config import settings
     
-    # Candidate 1: Direct Join
+    # Candidate 1: Check in MEDIA_ROOT
+    if settings.MEDIA_ROOT:
+        cand1 = os.path.abspath(os.path.join(settings.MEDIA_ROOT, path))
+        if os.path.exists(cand1):
+            return cand1
+            
+    # Candidate 2: Check in DOWNLOADS_DIR
+    if settings.DOWNLOADS_DIR:
+        cand2 = os.path.abspath(os.path.join(settings.DOWNLOADS_DIR, path))
+        if os.path.exists(cand2):
+            return cand2
+            
+    # Candidate 3: If path starts with or without 07_Downloads
+    if settings.MEDIA_ROOT:
+        cand3 = os.path.abspath(os.path.join(settings.MEDIA_ROOT, "07_Downloads", path))
+        if os.path.exists(cand3):
+            return cand3
+
+    # Candidate 4: Resolve relative to backend root
+    backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     abs_path = os.path.abspath(os.path.join(backend_root, path))
     if os.path.exists(abs_path):
         return abs_path
         
-    # Candidate 2: Try with "07_Downloads" prefix (common for DB paths)
     if not path.startswith("07_Downloads"):
         dl_path = os.path.abspath(os.path.join(backend_root, "07_Downloads", path))
         if os.path.exists(dl_path):
             return dl_path
             
-    return abs_path
+    # Fallback to MEDIA_ROOT join if available
+    return os.path.abspath(os.path.join(settings.MEDIA_ROOT, path)) if settings.MEDIA_ROOT else abs_path
+
 def normalize_path(path: str) -> str:
     if not path:
         return path

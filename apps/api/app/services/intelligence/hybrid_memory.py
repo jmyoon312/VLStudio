@@ -1,10 +1,22 @@
 import os
-import lancedb
-import networkx as nx
+try:
+    import lancedb
+except ImportError:
+    lancedb = None
+
+try:
+    import networkx as nx
+except ImportError:
+    nx = None
+
 import pickle
 import logging
 from typing import List, Dict, Any, Optional
-import pyarrow as pa
+try:
+    import pyarrow as pa
+except ImportError:
+    pa = None
+
 from datetime import datetime
 
 logger = logging.getLogger("hybrid_memory")
@@ -26,7 +38,8 @@ class HybridMemory:
         self.graph_path = os.path.join(self.base_path, "knowledge_graph.pkl")
         
         os.makedirs(self.vector_db_path, exist_ok=True)
-        self.db = lancedb.connect(self.vector_db_path)
+        self.db = lancedb.connect(self.vector_db_path) if lancedb else None
+
         
         # Load or Init Knowledge Graph
         self.graph = self._load_graph()

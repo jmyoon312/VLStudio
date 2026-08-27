@@ -894,18 +894,38 @@ def get_video_subtitles(video_id: int, db: Session = Depends(database.get_db)):
         return {"content": ext_text.strip()}
 
         
-    if not video.file_path:
-        # DB metadata 설명이라도 반환
-        meta_desc = (video.metadata_json or {}).get('description', '')
-        if meta_desc:
-            return {"content": meta_desc}
-        return {"content": "No subtitles found."}
+    # 2. Check if file_path is given or search media folder by video_id
+    abs_file_path = get_absolute_path(video.file_path) if video.file_path else None
 
-    # [FIX] Use get_absolute_path to handle 'downloads/' prefix correctly
-    abs_file_path = get_absolute_path(video.file_path)
+    # If abs_file_path is missing or not found, try searching 07_Downloads by video_id
+    if not abs_file_path or not os.path.exists(abs_file_path):
+        vid = video.video_id or (video.metadata_json or {}).get('id')
+        if vid:
+            from app.config import settings
+            search_roots = [
+                os.path.join(settings.DOWNLOADS_DIR, "07_Downloads"),
+                settings.DOWNLOADS_DIR
+            ]
+            for sroot in search_roots:
+                if os.path.exists(sroot):
+                    for r, _, files in os.walk(sroot):
+                        for f in files:
+                            if vid in f and f.lower().endswith(('.mp4', '.mkv', '.webm')):
+                                abs_file_path = os.path.join(r, f)
+                                # Update DB file_path for self-healing
+                                try:
+                                    video.file_path = os.path.relpath(abs_file_path, settings.DOWNLOADS_DIR).replace('\\', '/')
+                                    db.commit()
+                                except Exception:
+                                    pass
+                                break
+                        if abs_file_path:
+                            break
+                if abs_file_path:
+                    break
 
-    # [FIX] If abs_file_path is ALREADY a subtitle file (e.g. in script_only mode), read and return directly
-    if abs_file_path.lower().endswith(('.srt', '.vtt', '.txt')) and os.path.isfile(abs_file_path):
+    # If direct subtitle file
+    if abs_file_path and abs_file_path.lower().endswith(('.srt', '.vtt', '.txt')) and os.path.isfile(abs_file_path):
         try:
             with open(abs_file_path, "r", encoding="utf-8", errors="replace") as f:
                 content = f.read()
@@ -914,33 +934,48 @@ def get_video_subtitles(video_id: int, db: Session = Depends(database.get_db)):
         except Exception as e:
             print(f"Error reading direct subtitle file {abs_file_path}: {e}")
 
-    directory = os.path.dirname(abs_file_path)
+    directory = os.path.dirname(abs_file_path) if abs_file_path and os.path.exists(abs_file_path) else None
 
-    if not os.path.exists(directory):
-         meta_desc = (video.metadata_json or {}).get('description', '')
-         if meta_desc:
-             return {"content": meta_desc}
-         return {"content": "No subtitles found."}
-
+    if not directory or not os.path.exists(directory):
+        # Fallback: search any .srt file matching video_id in entire downloads
+        vid = video.video_id or (video.metadata_json or {}).get('id')
+        if vid:
+            from app.config import settings
+            for sroot in [os.path.join(settings.DOWNLOADS_DIR, "07_Downloads"), settings.DOWNLOADS_DIR]:
+                if os.path.exists(sroot):
+                    for r, _, files in os.walk(sroot):
+                        for f in files:
+                            if vid in f and f.lower().endswith(('.srt', '.vtt')):
+                                try:
+                                    with open(os.path.join(r, f), "r", encoding="utf-8", errors="replace") as sf:
+                                        scontent = sf.read()
+                                    if scontent.strip():
+                                        return {"content": scontent}
+                                except Exception:
+                                    pass
+        return {"content": "No subtitles found."}
 
     # Get video filename without extension (use absolute path for consistency)
     video_basename = os.path.splitext(os.path.basename(abs_file_path))[0]
+    # Remove format suffix like .f788, .f137
+    import re
+    clean_basename = re.sub(r'\.f\d+$', '', video_basename)
+    vid = video.video_id or (video.metadata_json or {}).get('id')
     
     subtitle_path = None
     
     # List all files in directory to find matching subtitle
     try:
-        # robust subtitle finder
         candidates = []
         for f in os.listdir(directory):
-            # [NEW] Expanded extensions to include .txt
             if f.lower().endswith(('.vtt', '.srt', '.txt')):
-                # Match if starts with basename (most reliable)
-                if f.lower().startswith(video_basename.lower()):
+                f_lower = f.lower()
+                # Match if starts with clean basename or contains video_id
+                if clean_basename and f_lower.startswith(clean_basename.lower()):
                     candidates.append(os.path.join(directory, f))
-                # Fallback to ID check
-                elif video.video_id and video.video_id in f:
+                elif vid and vid.lower() in f_lower:
                     candidates.append(os.path.join(directory, f))
+
         
         if candidates:
             # [NEW] Language prioritization
