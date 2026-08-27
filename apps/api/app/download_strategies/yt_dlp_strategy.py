@@ -430,7 +430,7 @@ class YTDLPDownloader:
         
         if script_only:
             dl_opts['skip_download'] = True
-            dl_opts['format'] = 'null/best' # yt-dlp trick to skip video streams
+            dl_opts.pop('format', None)
             print(f"🛑 [SCRIPT-ONLY] Enforcing skip_download for {video_id}")
             dl_opts['postprocessors'] = [{
                 'key': 'FFmpegSubtitlesConvertor',
@@ -442,6 +442,7 @@ class YTDLPDownloader:
                 'key': 'FFmpegSubtitlesConvertor',
                 'format': 'srt',
             }]
+
 
         ydl_opts = self._get_opts(video_url, dl_opts)
         

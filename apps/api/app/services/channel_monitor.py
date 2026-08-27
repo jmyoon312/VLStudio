@@ -67,11 +67,11 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
     candidates = [] # List of (url, metadata_date)
 
     try:
-        # [FIX] Date Window Constraint (Expanded to 30 days for manual user scans)
-        # Background automatic scan stays at 1-2 days for light load
-        scan_days = 30 if is_manual else 1
+        # [FIX] 7-Day Window for manual scans, 1-Day Window for automated background scans
+        scan_days = 7 if is_manual else 1
         yesterday = datetime.now() - timedelta(days=scan_days)
         yesterday_str = yesterday.strftime('%Y%m%d')
+
 
         
         # 1. Fetch Candidates (URLs)
@@ -324,9 +324,10 @@ def scan_specific_channel(db: Session, channel: models.Channel, headless: bool =
                 if item.get('date'):
                     try:
                         v_date = datetime.strptime(item['date'], '%Y%m%d')
-                        # [FIX] Relaxed check to 2 days (30 days for manual user scans)
-                        limit_days = 30 if is_manual else 2
+                        # [FIX] Relaxed check to 2 days (7 days for manual user scans)
+                        limit_days = 7 if is_manual else 2
                         if datetime.now() - v_date > timedelta(days=limit_days): 
+
                             # [OPTIMIZATION] Strict Stop (Relaxed for manual scans)
                             # We only stop if we've seen several old videos in a row to avoid issues with mixed sorting
                             consecutive_old_misses += 1

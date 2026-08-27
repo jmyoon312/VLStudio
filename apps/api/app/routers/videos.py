@@ -889,8 +889,10 @@ def get_video_subtitles(video_id: int, db: Session = Depends(database.get_db)):
         raise HTTPException(status_code=404, detail="Video not found")
     
     # 1. DB에 이미 추출/저장된 텍스트가 있는 경우 우선 반환
-    if video.extracted_text and video.extracted_text.strip():
-        return {"content": video.extracted_text.strip()}
+    ext_text = getattr(video, 'extracted_text', None)
+    if ext_text and ext_text.strip():
+        return {"content": ext_text.strip()}
+
         
     if not video.file_path:
         # DB metadata 설명이라도 반환
@@ -901,6 +903,17 @@ def get_video_subtitles(video_id: int, db: Session = Depends(database.get_db)):
 
     # [FIX] Use get_absolute_path to handle 'downloads/' prefix correctly
     abs_file_path = get_absolute_path(video.file_path)
+
+    # [FIX] If abs_file_path is ALREADY a subtitle file (e.g. in script_only mode), read and return directly
+    if abs_file_path.lower().endswith(('.srt', '.vtt', '.txt')) and os.path.isfile(abs_file_path):
+        try:
+            with open(abs_file_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+            if content.strip():
+                return {"content": content}
+        except Exception as e:
+            print(f"Error reading direct subtitle file {abs_file_path}: {e}")
+
     directory = os.path.dirname(abs_file_path)
 
     if not os.path.exists(directory):
@@ -908,6 +921,7 @@ def get_video_subtitles(video_id: int, db: Session = Depends(database.get_db)):
          if meta_desc:
              return {"content": meta_desc}
          return {"content": "No subtitles found."}
+
 
     # Get video filename without extension (use absolute path for consistency)
     video_basename = os.path.splitext(os.path.basename(abs_file_path))[0]
