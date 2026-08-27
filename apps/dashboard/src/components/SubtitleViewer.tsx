@@ -144,8 +144,9 @@ const SubtitleViewer = ({ open, onOpenChange, videoId, title, description, extra
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-lg bg-card text-foreground border border-border shadow-2xl rounded-2xl p-5 sm:p-6">
+            <DialogContent className="w-[95vw] max-w-lg bg-card text-foreground border border-border shadow-2xl rounded-2xl p-4 sm:p-6 max-h-[88vh] flex flex-col">
                 <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
+
                     <div className="space-y-1 mr-4 overflow-hidden">
                         <DialogTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
                             <FileText className="w-4 h-4 text-primary" />

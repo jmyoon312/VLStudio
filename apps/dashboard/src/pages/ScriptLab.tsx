@@ -681,16 +681,16 @@ const ScriptLab = () => {
             </div>
 
             {/* 2. 🏷️ 통합 스마트 필터 바 (카테고리 + 기간 + 정렬 + 검색) */}
-            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 p-2 rounded-2xl bg-card border border-border/80 shadow-2xs">
-                {/* 좌측: 카테고리 탭 */}
-                <div className="flex items-center gap-1 overflow-x-auto dashboard-scroll-area select-none pb-1 lg:pb-0">
+            <div className="flex flex-col gap-2.5 p-2.5 rounded-2xl bg-card border border-border/80 shadow-2xs">
+                {/* 상단: 카테고리 탭 (모바일 가로 스크롤 지원) */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 select-none">
                     <button
                         onClick={() => setSelectedCategory('ALL')}
                         className={cn(
-                            "px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5",
+                            "px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 active:scale-95",
                             selectedCategory === 'ALL'
                                 ? "bg-primary text-white shadow-2xs"
-                                : "hover:bg-muted text-muted-foreground hover:text-foreground border border-transparent"
+                                : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
                         )}
                     >
                         <span>전체</span>
@@ -709,10 +709,10 @@ const ScriptLab = () => {
                                 key={catName}
                                 onClick={() => setSelectedCategory(catName)}
                                 className={cn(
-                                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5",
+                                    "px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 active:scale-95",
                                     isCatSelected
                                         ? "bg-primary text-white shadow-2xs"
-                                        : "hover:bg-muted text-muted-foreground hover:text-foreground border border-transparent"
+                                        : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
                                 )}
                             >
                                 <span>{catName}</span>
@@ -727,52 +727,54 @@ const ScriptLab = () => {
                     })}
                 </div>
 
-                {/* 우측: 기간 + 정렬 + 검색창 */}
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {/* 기간 필터 */}
-                    <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground">
-                        <span className="px-1.5 text-[10px] text-muted-foreground/70 hidden sm:inline">📅 기간:</span>
-                        {(['ALL', '1d', '3d', '7d'] as const).map((r) => (
-                            <button
-                                key={r}
-                                onClick={() => setTimeRange(r)}
-                                className={cn(
-                                    "px-2 py-1 rounded-lg transition-all text-xs font-semibold",
-                                    timeRange === r
-                                        ? "bg-card text-foreground shadow-2xs font-bold"
-                                        : "hover:text-foreground"
-                                )}
-                            >
-                                {r === 'ALL' ? '전체' : r === '1d' ? '최근 1일' : r === '3d' ? '최근 3일' : '최근 7일'}
-                            </button>
-                        ))}
-                    </div>
+                {/* 하단: 기간 + 정렬 + 검색창 */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {/* 기간 필터 */}
+                        <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground">
+                            <span className="px-1.5 text-[10px] text-muted-foreground/70 hidden sm:inline">📅 기간:</span>
+                            {(['ALL', '1d', '3d', '7d'] as const).map((r) => (
+                                <button
+                                    key={r}
+                                    onClick={() => setTimeRange(r)}
+                                    className={cn(
+                                        "px-2.5 py-1.5 rounded-lg transition-all text-xs font-semibold active:scale-95",
+                                        timeRange === r
+                                            ? "bg-card text-foreground shadow-2xs font-bold"
+                                            : "hover:text-foreground"
+                                    )}
+                                >
+                                    {r === 'ALL' ? '전체' : r === '1d' ? '최근 1일' : r === '3d' ? '최근 3일' : '최근 7일'}
+                                </button>
+                            ))}
+                        </div>
 
-                    {/* 정렬 옵션 */}
-                    <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground">
-                        <span className="px-1.5 text-[10px] text-muted-foreground/70 hidden sm:inline">⚡ 정렬:</span>
-                        {(['viral', 'latest', 'views'] as const).map((opt) => (
-                            <button
-                                key={opt}
-                                onClick={() => setSortOption(opt)}
-                                className={cn(
-                                    "px-2 py-1 rounded-lg transition-all text-xs font-semibold",
-                                    sortOption === opt
-                                        ? "bg-card text-foreground shadow-2xs font-bold"
-                                        : "hover:text-foreground"
-                                )}
-                            >
-                                {opt === 'viral' ? '바이럴순' : opt === 'latest' ? '최신순' : '조회수순'}
-                            </button>
-                        ))}
+                        {/* 정렬 옵션 */}
+                        <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground">
+                            <span className="px-1.5 text-[10px] text-muted-foreground/70 hidden sm:inline">⚡ 정렬:</span>
+                            {(['viral', 'latest', 'views'] as const).map((opt) => (
+                                <button
+                                    key={opt}
+                                    onClick={() => setSortOption(opt)}
+                                    className={cn(
+                                        "px-2.5 py-1.5 rounded-lg transition-all text-xs font-semibold active:scale-95",
+                                        sortOption === opt
+                                            ? "bg-card text-foreground shadow-2xs font-bold"
+                                            : "hover:text-foreground"
+                                    )}
+                                >
+                                    {opt === 'viral' ? '바이럴순' : opt === 'latest' ? '최신순' : '조회수순'}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* 실시간 검색창 */}
-                    <div className="relative flex-1 sm:w-48">
+                    <div className="relative flex-1 min-w-[160px] sm:max-w-xs">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                         <Input
                             placeholder="제목, 채널 검색..."
-                            className="pl-9 bg-card shadow-2xs text-xs h-9 w-full"
+                            className="pl-9 bg-card shadow-2xs text-xs h-9 w-full rounded-xl"
                             value={globalFilter}
                             onChange={e => setGlobalFilter(e.target.value)}
                         />
@@ -780,22 +782,22 @@ const ScriptLab = () => {
                 </div>
             </div>
 
-            {/* Data Table Container */}
-            <div className="flex-1 rounded-xl border border-border bg-card shadow-2xs overflow-hidden flex flex-col select-none relative min-h-[360px]">
+            {/* Data Container: Desktop Table (md+) / Mobile Cards (<md) */}
+            <div className="flex-1 rounded-2xl border border-border bg-card shadow-2xs overflow-hidden flex flex-col select-none relative min-h-[360px]">
+                
+                {/* 1. Desktop Table View (>= 768px) */}
                 <div
-                    className="overflow-x-auto flex-1 w-full relative"
+                    className="hidden md:block overflow-x-auto flex-1 w-full relative"
                     onMouseDown={handleMouseDown}
                     onMouseMove={onTableMouseMove}
                 >
                     <Table className="w-full min-w-[760px]">
-                        {/* Headers: Always visible to show column structure */}
                         <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-xs z-10 shadow-2xs">
                             {table.getHeaderGroups().map(headerGroup => (
                                 <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map(header => {
-                                        // Determine alignment based on column ID
                                         let alignClass = 'justify-start';
-                                        if (header.column.id === 'viral_score' || header.column.id === 'select') alignClass = 'justify-center'; // Grade & Checkbox
+                                        if (header.column.id === 'viral_score' || header.column.id === 'select') alignClass = 'justify-center';
                                         else if (['viral_val', 'velocity_score', 'view_count', 'upload_date'].includes(header.column.id)) alignClass = 'justify-end';
 
                                         return (
@@ -831,12 +833,10 @@ const ScriptLab = () => {
                                         row.getIsSelected() ? "bg-primary/10 hover:bg-primary/20" : "hover:bg-muted/60"
                                     )}
                                     onClick={(e) => {
-                                        // [FIX] Only open dialog if NOT dragged
                                         if (!isDragMoved.current) {
                                             setSubtitleVideo(row.original);
                                         }
                                     }}
-
                                     onMouseEnter={() => handleRowMouseEnter(row)}
                                 >
                                     {row.getVisibleCells().map(cell => (
@@ -848,18 +848,103 @@ const ScriptLab = () => {
                             ))}
                         </TableBody>
                     </Table>
-
-                    {/* Centered Empty State Overlay (Viewport relative) */}
-                    {table.getRowModel().rows?.length === 0 && (
-                        <div className="absolute inset-x-0 bottom-0 top-12 flex flex-col items-center justify-center p-6 text-center text-muted-foreground gap-2 bg-card/60 backdrop-blur-2xs">
-                            <Sparkles className="w-9 h-9 opacity-30 text-primary mb-0.5" />
-                            <p className="text-sm font-semibold text-foreground">분석된 대본 데이터가 없습니다</p>
-                            <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-                                더우인 수집기 또는 미디어 고속 다운로드에서 영상을 추출하여 대본 분석을 시작해보세요.
-                            </p>
-                        </div>
-                    )}
                 </div>
+
+                {/* 2. Mobile Responsive Card List View (< 768px) */}
+                <div className="md:hidden flex-1 p-3 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)]">
+                    {table.getRowModel().rows.map(row => {
+                        const v = row.original;
+                        const isSelected = row.getIsSelected();
+                        return (
+                            <div 
+                                key={row.id}
+                                className={cn(
+                                    "p-3.5 rounded-2xl border transition-all space-y-2.5",
+                                    isSelected ? "bg-primary/10 border-primary/50 shadow-sm" : "bg-card border-border/80 shadow-2xs hover:border-primary/30"
+                                )}
+                            >
+                                {/* 상단: 체크박스 + 성과 뱃지 + 채널 & 조회수/속도 */}
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-1 -m-1" onClick={(e) => e.stopPropagation()}>
+                                            <Checkbox 
+                                                checked={isSelected}
+                                                onCheckedChange={(checked) => row.toggleSelected(!!checked)}
+                                                className="w-4 h-4 rounded-md"
+                                            />
+                                        </div>
+                                        <div 
+                                            onClick={(e) => { e.stopPropagation(); setStatsVideo(v); }} 
+                                            className="cursor-pointer active:scale-95 transition-transform"
+                                        >
+                                            {getViralBadge(v.viral_score, v.velocity_score)}
+                                        </div>
+                                    </div>
+                                    <div 
+                                        onClick={(e) => { e.stopPropagation(); setStatsVideo(v); }}
+                                        className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer"
+                                    >
+                                        <span className="font-extrabold text-foreground">{formatCount(v.view_count || (v.metadata_json as any)?.view_count)}</span>
+                                        {v.velocity_score > 0 && (
+                                            <span className="font-bold text-indigo-400">+{formatVelocity(v.velocity_score)}</span>
+                                        )}
+                                        <span className="text-[10px] text-muted-foreground/80 truncate max-w-[75px] bg-muted/60 px-1.5 py-0.5 rounded-md">
+                                            {(v.channel_id && channelMap[v.channel_id]?.name) || (v.metadata_json as any)?.uploader || '유튜브'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* 중앙: 제목 & 대본 바이럴 훅 (탭하면 전체 대본 모달 오픈) */}
+                                <div onClick={() => setSubtitleVideo(v)} className="cursor-pointer space-y-1.5 active:opacity-80 transition-opacity">
+                                    <h4 className="text-[13px] sm:text-sm font-extrabold text-foreground line-clamp-1 leading-snug">
+                                        {v.title}
+                                    </h4>
+                                    <div className="bg-muted/40 hover:bg-muted/60 p-2.5 rounded-xl border border-border/50 transition-colors">
+                                        <p className="text-[11.5px] text-foreground/90 leading-relaxed line-clamp-2 italic">
+                                            "{v.content || v.extracted_text || '대본을 불러오려면 탭하세요.'}"
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* 하단: 날짜 + 액션 버튼 (대본열람 / AI 각색) */}
+                                <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-xs">
+                                    <span className="text-[10.5px] text-muted-foreground font-mono">
+                                        {v.upload_date ? new Date(v.upload_date).toLocaleDateString() : '최근'}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setSubtitleVideo(v)}
+                                            className="h-8 px-3 text-xs font-bold rounded-xl border-border bg-background shadow-2xs hover:bg-muted active:scale-95"
+                                        >
+                                            <FileText className="w-3.5 h-3.5 mr-1 text-primary" /> 대본열람
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            onClick={() => navigate('/creative-scripts', { state: { referenceVideo: v } })}
+                                            className="h-8 px-3 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs active:scale-95"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 mr-1" /> AI 각색
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Centered Empty State Overlay */}
+                {table.getRowModel().rows?.length === 0 && (
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground gap-2 bg-card/60 backdrop-blur-2xs min-h-[220px]">
+                        <Sparkles className="w-9 h-9 opacity-30 text-primary mb-0.5" />
+                        <p className="text-sm font-semibold text-foreground">분석된 대본 데이터가 없습니다</p>
+                        <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                            더우인 수집기 또는 미디어 고속 다운로드에서 영상을 추출하여 대본 분석을 시작해보세요.
+                        </p>
+                    </div>
+                )}
+
 
                 {/* Pagination / Footer */}
                 <div className="flex flex-col sm:flex-row items-center justify-between p-3 border-t border-border bg-muted/40 text-xs text-muted-foreground gap-2">
@@ -889,6 +974,7 @@ const ScriptLab = () => {
                     </div>
                 </div>
             </div>
+
 
             {/* 1. Subtitle Viewer Modal (Matches Gallery.tsx exactly) */}
             <SubtitleViewer
