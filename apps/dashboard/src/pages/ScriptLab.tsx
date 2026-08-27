@@ -155,23 +155,24 @@ const ScriptLab = () => {
     const tableContainerRef = useRef<HTMLDivElement>(null);
 
 
-    // 1. Fetch Data
-    const { data: videos = [], isLoading } = useQuery({
-        queryKey: ['videos', 'script', 'strict_mode_v1'], // [FIX] Rotated key to bust stale cache
+    // 1. Fetch Data with Instant Cache (Stale-While-Revalidate)
+    const { data: videos = [], isLoading, isFetching } = useQuery({
+        queryKey: ['videos', 'script'],
         queryFn: async () => {
-            // [FIX] Must explicitly request 'script' mode, otherwise backend defaults to 'video' and returns 0 scripts.
             const res = await api.get<Video[]>('/videos/', {
                 params: {
                     mode: 'script',
                     limit: 1000,
-                    sort_by: 'upload_date', // [FIX] Ensure backend sends latest first
+                    sort_by: 'upload_date',
                     sort_order: 'desc',
-                    _t: new Date().getTime() // [FIX] Cache buster
                 }
             });
-            return res.data.filter((v: Video) => v.is_script_only); // [FINAL SAFEGUARD] Client-side filter
-        }
+            return res.data.filter((v: Video) => v.is_script_only);
+        },
+        staleTime: 1000 * 60 * 3, // 3분간 캐시 즉시 재사용 (메뉴 전환 시 0.001초 즉각 로딩)
+        gcTime: 1000 * 60 * 10,
     });
+
 
     // Delete Mutation
     const deleteMutation = useMutation({
@@ -935,8 +936,13 @@ const ScriptLab = () => {
                     })}
                 </div>
 
-                {/* Centered Empty State Overlay */}
-                {table.getRowModel().rows?.length === 0 && (
+                {/* Centered Empty / Loading State Overlay */}
+                {isLoading ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground gap-3 min-h-[260px]">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <p className="text-xs font-bold text-foreground">수집된 대본 목록을 불러오는 중...</p>
+                    </div>
+                ) : table.getRowModel().rows?.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground gap-2 bg-card/60 backdrop-blur-2xs min-h-[220px]">
                         <Sparkles className="w-9 h-9 opacity-30 text-primary mb-0.5" />
                         <p className="text-sm font-semibold text-foreground">분석된 대본 데이터가 없습니다</p>
@@ -944,7 +950,8 @@ const ScriptLab = () => {
                             더우인 수집기 또는 미디어 고속 다운로드에서 영상을 추출하여 대본 분석을 시작해보세요.
                         </p>
                     </div>
-                )}
+                ) : null}
+
 
 
                 {/* Pagination / Footer */}
