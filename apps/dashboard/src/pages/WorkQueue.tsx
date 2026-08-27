@@ -256,8 +256,22 @@ const WorkQueue = () => {
         } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
 
-    const handleBatchReset = async () => {
+    const handleReset = async (itemId: number) => {
+        try {
+            await fetchWithRetry('/api/work-queue/batch/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ item_ids: [itemId] })
+            });
+            toast({ title: "재시도 대기열에 등록되었습니다." });
+            loadQueueItems();
+            loadStats();
+        } catch (_) {
+            toast({ variant: "destructive", title: "재시도 등록 실패" });
+        }
+    };
 
+    const handleBatchReset = async () => {
         if (!selectedItems.length) return;
         try {
             await fetchWithRetry('/api/work-queue/batch/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_ids: selectedItems }) });
@@ -265,6 +279,7 @@ const WorkQueue = () => {
             setSelectedItems([]); loadQueueItems(); loadStats();
         } catch (_) { toast({ variant: "destructive", title: "오류" }); }
     };
+
 
     const handleBatchFinalize = async () => {
         if (!selectedItems.length) return;
@@ -663,6 +678,7 @@ const WorkQueue = () => {
                                     onApprove={handleApprove}
                                     onReject={handleReject}
                                     onDelete={handleDelete}
+                                    onReset={handleReset}
                                     onEdit={(i: any) => { setEditingItem(i); setIsAddDialogOpen(true); }}
                                     onPlay={(i: any) => { setPlayingItem(i); setIsPlayerOpen(true); }}
                                     onAttach={handleAttachVideo}
@@ -688,13 +704,183 @@ const WorkQueue = () => {
     );
 };
 
+// === 사용자 친화적 실패 사유 파서 & 카드 컴포넌트 ===
+interface ParsedFailureInfo {
+    platform?: string;
+    title: string;
+    description: string;
+    actionGuide: string;
+    rawMessage: string;
+}
+
+const parseFailureReason = (rawReason: string): ParsedFailureInfo => {
+    if (!rawReason) {
+        return {
+            title: "업로드 실패",
+            description: "알 수 없는 오류가 발생했습니다.",
+            actionGuide: "[즉시 재시도]를 눌러 다시 실행해 보세요.",
+            rawMessage: rawReason
+        };
+    }
+
+    let platform = '';
+    let innerMessage = rawReason;
+
+    try {
+        const parsedObj = JSON.parse(rawReason);
+        if (typeof parsedObj === 'object' && parsedObj !== null) {
+            const keys = Object.keys(parsedObj);
+            if (keys.length > 0) {
+                platform = keys[0];
+                const detail = parsedObj[platform];
+                if (typeof detail === 'object' && detail !== null) {
+                    innerMessage = detail.message || detail.error || JSON.stringify(detail);
+                } else if (typeof detail === 'string') {
+                    innerMessage = detail;
+                }
+            }
+        }
+    } catch (_) { }
+
+    const platformName = platform === 'youtube' ? '유튜브(YouTube)'
+        : platform === 'tiktok' ? '틱톡(TikTok)'
+        : platform === 'instagram' ? '인스타그램(Instagram)'
+        : platform ? platform.toUpperCase() : '';
+
+    const lower = (innerMessage || '').toLowerCase();
+
+    if (lower.includes('indentation') || lower.includes('browser_session') || lower.includes('syntaxerror') || lower.includes('internal error')) {
+        return {
+            platform: platformName,
+            title: `${platformName ? platformName + ' ' : ''}브라우저 자동화 엔진 오류`,
+            description: "업로드 자동화 브라우저 실행 중 일시적인 시스템/엔진 오류가 발생했습니다.",
+            actionGuide: "[즉시 재시도]를 누르거나 잠시 후 다시 시도해 주세요.",
+            rawMessage: rawReason
+        };
+    }
+
+    if (lower.includes('login') || lower.includes('auth') || lower.includes('cookie') || lower.includes('session') || lower.includes('unauthorized') || lower.includes('401')) {
+        return {
+            platform: platformName,
+            title: `${platformName ? platformName + ' ' : ''}채널 로그인 세션 만료`,
+            description: "채널의 로그인 세션 또는 인증 쿠키가 만료되어 업로드가 중단되었습니다.",
+            actionGuide: "설정 > 브라우저 프로필 관리에서 해당 채널의 로그인을 확인/갱신해 주세요.",
+            rawMessage: rawReason
+        };
+    }
+
+    if (lower.includes('quota') || lower.includes('limit') || lower.includes('exceeded') || lower.includes('한도') || lower.includes('제한')) {
+        return {
+            platform: platformName,
+            title: `${platformName ? platformName + ' ' : ''}일일 업로드 한도 도달`,
+            description: "해당 채널의 플랫폼 일일 영상 업로드 가능 한도에 도달했습니다.",
+            actionGuide: "플랫폼 정책상 24시간 후 업로드가 재개되거나 내일 다시 시도해 주세요.",
+            rawMessage: rawReason
+        };
+    }
+
+    if (lower.includes('file not found') || lower.includes('no such file') || lower.includes('cannot find') || lower.includes('corrupt')) {
+        return {
+            platform: platformName,
+            title: "영상 파일 경로 오류",
+            description: "지정된 영상 파일을 찾을 수 없거나 파일이 손상되었습니다.",
+            actionGuide: "영상 파일 경로를 확인하거나 영상을 다시 첨부해 주세요.",
+            rawMessage: rawReason
+        };
+    }
+
+    if (lower.includes('timeout') || lower.includes('network') || lower.includes('connect') || lower.includes('econnrefused')) {
+        return {
+            platform: platformName,
+            title: "네트워크 연결 시간 초과",
+            description: "업로드 서버 또는 플랫폼과의 통신이 지연되어 시간 초과가 발생했습니다.",
+            actionGuide: "인터넷 연결 상태를 확인한 후 [즉시 재시도]를 눌러주세요.",
+            rawMessage: rawReason
+        };
+    }
+
+    return {
+        platform: platformName,
+        title: `${platformName ? platformName + ' ' : ''}업로드 처리 실패`,
+        description: innerMessage && innerMessage.length < 120 ? innerMessage : "업로드 처리 중 오류가 발생했습니다.",
+        actionGuide: "[즉시 재시도] 버튼을 눌러 다시 시도해 주세요.",
+        rawMessage: rawReason
+    };
+};
+
+const FailureReasonCard = ({ failureReason, onRetry }: { failureReason: string; onRetry?: () => void }) => {
+    const [showRaw, setShowRaw] = useState(false);
+    const [isRetrying, setIsRetrying] = useState(false);
+    const info = parseFailureReason(failureReason);
+
+    const handleRetryClick = async () => {
+        if (!onRetry) return;
+        setIsRetrying(true);
+        try {
+            await onRetry();
+        } finally {
+            setIsRetrying(false);
+        }
+    };
+
+    return (
+        <div className="p-3 bg-red-50/90 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-xs space-y-2 animate-in fade-in">
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5 font-bold text-red-600 dark:text-red-400">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>{info.title}</span>
+                </div>
+                {onRetry && (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRetryClick}
+                        disabled={isRetrying}
+                        className="h-6 px-2 text-[11px] font-bold border-red-300 dark:border-red-800 bg-white dark:bg-red-950 text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/60 gap-1 shrink-0"
+                    >
+                        <RotateCcw className={`w-3 h-3 ${isRetrying ? 'animate-spin' : ''}`} />
+                        {isRetrying ? '재시도 중...' : '즉시 재시도'}
+                    </Button>
+                )}
+            </div>
+
+            <p className="text-red-700 dark:text-red-300 text-[11px] leading-relaxed">
+                {info.description}
+            </p>
+
+            {info.actionGuide && (
+                <div className="flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-300/90 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/70 dark:border-amber-900/50 px-2.5 py-1.5 rounded-lg leading-normal">
+                    <span className="font-bold shrink-0">💡 해결 가이드:</span>
+                    <span>{info.actionGuide}</span>
+                </div>
+            )}
+
+            <div className="pt-0.5">
+                <button
+                    type="button"
+                    onClick={() => setShowRaw(!showRaw)}
+                    className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors underline cursor-pointer"
+                >
+                    <span>{showRaw ? '▾ 기술 상세 로그 닫기' : '▸ 기술 상세 로그 보기 (개발자용)'}</span>
+                </button>
+                {showRaw && (
+                    <pre className="mt-1.5 p-2 bg-slate-900 text-slate-200 rounded text-[10px] font-mono overflow-x-auto whitespace-pre-wrap max-h-32">
+                        {info.rawMessage}
+                    </pre>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const QueueItemCompactCard = ({
-    index, item, onApprove, onReject, onDelete, onEdit, onPlay,
+    index, item, onApprove, onReject, onDelete, onReset, onEdit, onPlay,
     onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel,
     channels, tiktokChannels, instagramChannels,
     getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection,
     isUploadingAttach
 }: any) => {
+
     const { toast } = useToast();
     const [expanded, setExpanded] = useState(false);
     const [isMuted, setIsMuted] = useState(true);
@@ -1209,11 +1395,12 @@ const QueueItemCompactCard = ({
                                             <div><span>Batch:</span> <span className="font-mono">{item.source_batch_id ? item.source_batch_id.slice(0, 10) : '--'}</span></div>
                                         </div>
                                         {item.failure_reason && (
-                                            <div className="p-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded text-[11px]">
-                                                <p className="text-red-600 dark:text-red-400 font-bold">⚠️ 실패 사유</p>
-                                                <p className="text-red-500 mt-0.5">{item.failure_reason}</p>
-                                            </div>
+                                            <FailureReasonCard
+                                                failureReason={item.failure_reason}
+                                                onRetry={onReset ? () => onReset(item.id) : undefined}
+                                            />
                                         )}
+
                                     </div>
                                 </div>
                             </div>
