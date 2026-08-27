@@ -277,13 +277,19 @@ const ScriptLab = () => {
         });
     }, [videos, selectedCategory, timeRange, sortOption, globalFilter, channelMap, categoryMap]);
 
-    // Fetch History for Stats Graph
+    // Fetch History for Stats Graph (Stats Modal)
     const { data: videoHistory } = useQuery({
         queryKey: ['history', statsVideo?.id],
         queryFn: async () => (await api.get(`/videos/${statsVideo?.id}/history`)).data,
         enabled: !!statsVideo
     });
 
+    // Fetch History for Selected Video (Detail Script Modal)
+    const { data: selectedVideoHistory } = useQuery({
+        queryKey: ['history', selectedVideo?.id],
+        queryFn: async () => (await api.get(`/videos/${selectedVideo?.id}/history`)).data,
+        enabled: !!selectedVideo
+    });
 
     // Fetch Script Content for Dialog
     const { data: subtitleContent, isLoading: isScriptLoading } = useQuery({
@@ -300,6 +306,25 @@ const ScriptLab = () => {
         },
         enabled: !!selectedVideo
     });
+
+    const selectedChartData = useMemo(() => {
+        if (!selectedVideoHistory || selectedVideoHistory.length === 0) {
+            if (!selectedVideo) return [];
+            return [
+                {
+                    timestamp: selectedVideo.upload_date || new Date().toISOString(),
+                    view_count: selectedVideo.view_count || 0,
+                    velocity: selectedVideo.velocity_score || 0
+                }
+            ];
+        }
+        return selectedVideoHistory.map((h: any) => ({
+            timestamp: h.recorded_at,
+            view_count: h.view_count,
+            velocity: h.velocity_score
+        }));
+    }, [selectedVideoHistory, selectedVideo]);
+
 
     // 2. Table Configuration
     const columnHelper = createColumnHelper<Video>();
@@ -856,49 +881,47 @@ const ScriptLab = () => {
                 </div>
             </div>
 
-            {/* Script Reader Dialog (Instead of Sheet) */}
+            {/* Script Reader & Viral Analytics Modal */}
             <Dialog open={!!selectedVideo} onOpenChange={(open) => !open && setSelectedVideo(null)}>
-                <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden bg-card/95 backdrop-blur-xl">
+                <DialogContent className="max-w-5xl h-[88vh] flex flex-col p-0 gap-0 overflow-hidden bg-background text-foreground border border-border shadow-2xl rounded-2xl">
                     {selectedVideo && (
                         <>
-                            {/* Header with Title and Actions */}
-                            <div className="flex items-center justify-between p-4 border-b">
-                                <div className="flex flex-col overflow-hidden mr-4">
-                                    <DialogTitle className="text-lg font-bold truncate">
+                            {/* Header with Title, Grade Badge, and Action Buttons */}
+                            <div className="flex items-center justify-between p-4 px-6 border-b border-border bg-card">
+                                <div className="flex flex-col overflow-hidden mr-4 gap-1">
+                                    <DialogTitle className="text-lg font-black tracking-tight text-foreground truncate max-w-2xl">
                                         {selectedVideo.title}
                                     </DialogTitle>
-                                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                        <Badge variant="secondary" className="font-normal">
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                        <Badge variant="secondary" className="font-semibold text-[11px] px-2 py-0.5 bg-muted text-foreground">
                                             {channelMap[selectedVideo.channel_id]?.name || 'Unknown Channel'}
                                         </Badge>
                                         <span>•</span>
-                                        <span>{new Date(selectedVideo.upload_date).toLocaleDateString()}</span>
+                                        <span className="font-mono text-xs">{new Date(selectedVideo.upload_date).toLocaleDateString('ko-KR')}</span>
                                         <span>•</span>
-                                        <span className="font-mono text-primary font-bold whitespace-nowrap">
-                                            바이럴 지수: {selectedVideo.viral_score?.toFixed(0)}%
-                                        </span>
+                                        {getViralBadge(selectedVideo.viral_score, selectedVideo.velocity_score)}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="gap-1.5 text-xs h-8"
+                                        className="gap-1.5 text-xs h-8.5 px-3 border-border font-medium hover:bg-muted"
                                         onClick={() => {
                                             if (subtitleContent?.content && subtitleContent.content !== "No subtitles found.") {
                                                 const textToCopy = cleanSrtToText(subtitleContent.content);
                                                 navigator.clipboard.writeText(textToCopy);
-                                                alert("대본이 클립보드에 복사되었습니다.");
+                                                alert("정제된 대본이 클립보드에 복사되었습니다.");
                                             }
                                         }}
                                         disabled={!subtitleContent?.content || subtitleContent.content === "No subtitles found."}
                                     >
-                                        <Copy className="w-3.5 h-3.5" />
+                                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
                                         대본 복사
                                     </Button>
                                     <Button
                                         size="sm"
-                                        className="gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 font-semibold"
+                                        className="gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8.5 px-3.5 font-bold shadow-md"
                                         onClick={() => {
                                             if (subtitleContent?.content && subtitleContent.content !== "No subtitles found.") {
                                                 const cleanText = cleanSrtToText(subtitleContent.content);
@@ -907,85 +930,135 @@ const ScriptLab = () => {
                                         }}
                                         disabled={!subtitleContent?.content || subtitleContent.content === "No subtitles found."}
                                     >
-                                        <Languages className="w-3.5 h-3.5" />
+                                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                                         AI 대본 각색
                                     </Button>
                                 </div>
                             </div>
 
-                            <div className="flex-1 flex overflow-hidden">
-                                {/* Left: Script Content */}
-                                <div className="flex-1 p-6 overflow-hidden flex flex-col bg-card">
+                            {/* Modal Body: Left 55% Script Viewer, Right 45% Viral Trend & Stats */}
+                            <div className="flex-1 flex overflow-hidden divide-x divide-border">
+                                {/* Left Panel: Clean Script Content */}
+                                <div className="flex-1 p-6 overflow-hidden flex flex-col bg-background">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                            <FileText className="w-4 h-4 text-primary" />
+                                            수집된 대본 전문 (Clean Script)
+                                        </h4>
+                                        <span className="text-[11px] text-muted-foreground font-mono">
+                                            {selectedVideo.duration ? `${selectedVideo.duration}초 분량` : ''}
+                                        </span>
+                                    </div>
                                     <ScrollArea className="flex-1 h-full pr-4">
                                         {isScriptLoading ? (
-                                            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
-                                                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                            <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-3">
+                                                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
                                                 <p className="text-sm font-medium">대본을 불러오는 중...</p>
                                             </div>
                                         ) : subtitleContent && subtitleContent.content && subtitleContent.content !== "No subtitles found." ? (
                                             <div className="space-y-4">
-                                                <div className="p-4 rounded-xl bg-muted/40 border border-border/60">
-                                                    <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                                                        <FileText className="w-3.5 h-3.5 text-primary" />
-                                                        정제된 대본 텍스트
-                                                    </h5>
-                                                    <p className="text-sm font-sans leading-relaxed text-foreground select-text whitespace-pre-wrap">
+                                                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-2xs">
+                                                    <p className="text-[14.5px] font-sans leading-relaxed text-foreground select-text whitespace-pre-wrap font-normal">
                                                         {cleanSrtToText(subtitleContent.content)}
                                                     </p>
                                                 </div>
 
-                                                {/* Raw Subtitle Toggle (Collapsed by default) */}
-                                                <details className="text-xs text-muted-foreground">
-                                                    <summary className="cursor-pointer font-semibold hover:text-foreground py-1">
-                                                        타임스탬프 원본(SRT) 보기
+                                                {/* Raw Subtitle Toggle */}
+                                                <details className="text-xs text-muted-foreground p-1">
+                                                    <summary className="cursor-pointer font-semibold hover:text-foreground py-1 select-none">
+                                                        타임스탬프 원본 (SRT) 보기
                                                     </summary>
-                                                    <pre className="mt-2 p-3 bg-muted/30 rounded-lg font-mono text-[11px] leading-snug max-h-60 overflow-y-auto whitespace-pre-wrap border border-border/40">
+                                                    <pre className="mt-2 p-3 bg-muted/40 rounded-xl font-mono text-[11px] leading-snug max-h-56 overflow-y-auto whitespace-pre-wrap border border-border/60">
                                                         {subtitleContent.content}
                                                     </pre>
                                                 </details>
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
-                                                <FileText className="w-8 h-8 opacity-30" />
-                                                <p className="text-sm font-medium">대본 파일이 없습니다.</p>
+                                            <div className="flex flex-col items-center justify-center h-60 text-muted-foreground gap-3">
+                                                <FileText className="w-10 h-10 opacity-30" />
+                                                <p className="text-sm font-medium">대본 파일이 존재하지 않습니다.</p>
                                             </div>
                                         )}
                                     </ScrollArea>
                                 </div>
 
-                                {/* Right: Metadata Panel */}
-                                <div className="w-64 border-l bg-muted/30 p-4 space-y-5 overflow-y-auto shrink-0">
+                                {/* Right Panel: Viral Analytics & Time-Series Graph */}
+                                <div className="w-[420px] p-5 space-y-4 overflow-y-auto shrink-0 bg-muted/20 flex flex-col">
                                     <div>
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">성과 지표</h4>
-                                        <div className="space-y-2.5">
-                                            <div className="flex justify-between items-center bg-card p-2.5 rounded-xl border shadow-2xs">
-                                                <span className="text-xs text-muted-foreground font-medium">바이럴 지수</span>
-                                                <span className="font-bold text-red-600 dark:text-red-400">{selectedVideo.viral_score?.toFixed(0) ?? 0}%</span>
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5 text-indigo-500" />
+                                            AI 바이럴 성과 지표
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="bg-card border border-border rounded-xl p-3 space-y-0.5 shadow-2xs">
+                                                <span className="text-[10px] text-muted-foreground font-medium">총 누적 조회수</span>
+                                                <p className="text-base font-extrabold text-foreground font-mono">
+                                                    {formatCount(selectedVideo.view_count || selectedVideo.metadata_json?.view_count)}
+                                                </p>
                                             </div>
-                                            <div className="flex justify-between items-center bg-card p-2.5 rounded-xl border shadow-2xs">
-                                                <span className="text-xs text-muted-foreground font-medium">급상승 유입</span>
-                                                <span className="font-bold text-primary">{formatVelocity(selectedVideo.velocity_score ?? 0)}</span>
+                                            <div className="bg-card border border-border rounded-xl p-3 space-y-0.5 shadow-2xs">
+                                                <span className="text-[10px] text-muted-foreground font-medium">바이럴 지수</span>
+                                                <p className="text-base font-extrabold text-red-500 font-mono">
+                                                    {Math.round(selectedVideo.viral_score || 0)}%
+                                                </p>
                                             </div>
-                                            <div className="flex justify-between items-center bg-card p-2.5 rounded-xl border shadow-2xs">
-                                                <span className="text-xs text-muted-foreground font-medium">누적 조회수</span>
-                                                <span className="font-mono font-bold text-foreground">{formatCount(selectedVideo.view_count)}</span>
+                                            <div className="bg-card border border-border rounded-xl p-3 space-y-0.5 shadow-2xs">
+                                                <span className="text-[10px] text-muted-foreground font-medium">시간당 유입 속도</span>
+                                                <p className="text-base font-extrabold text-indigo-500 font-mono">
+                                                    {formatVelocity(selectedVideo.velocity_score || 0)}
+                                                </p>
+                                            </div>
+                                            <div className="bg-card border border-border rounded-xl p-3 space-y-0.5 shadow-2xs">
+                                                <span className="text-[10px] text-muted-foreground font-medium">채널 카테고리</span>
+                                                <p className="text-xs font-bold text-foreground truncate mt-1">
+                                                    {categoryMap[channelMap[selectedVideo.channel_id]?.category_id || 0]?.name || channelMap[selectedVideo.channel_id]?.folder_name || '미분류'}
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">상세 정보</h4>
-                                        <div className="text-xs space-y-2 text-foreground">
-                                            <div className="flex justify-between">
-                                                <span className="text-muted-foreground">재생 시간</span>
-                                                <span className="font-mono font-medium">{selectedVideo.duration}s</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-muted-foreground">대본 파일</span>
-                                                <span className="truncate max-w-[120px] font-mono text-[11px]" title={selectedVideo.file_path}>
-                                                    {selectedVideo.file_path ? '수집 완료' : '없음'}
-                                                </span>
-                                            </div>
+                                    {/* Viral Trend Time-Series Graph */}
+                                    <div className="flex-1 flex flex-col min-h-[220px]">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                                바이럴 추이 분석 그래프
+                                            </h4>
+                                            <span className="text-[10px] text-muted-foreground">조회수(보라) / 유입속도(노랑)</span>
+                                        </div>
+                                        <div className="flex-1 w-full bg-card border border-border/80 rounded-xl p-2.5">
+                                            <ResponsiveContainer width="100%" height={190}>
+                                                <RechartsLineChart data={selectedChartData}>
+                                                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
+                                                    <XAxis
+                                                        dataKey="timestamp"
+                                                        tickFormatter={(time) => new Date(time).toLocaleDateString([], { month: 'numeric', day: 'numeric' })}
+                                                        className="text-muted-foreground fill-muted-foreground"
+                                                        fontSize={10}
+                                                    />
+                                                    <YAxis yAxisId="left" stroke="#818cf8" fontSize={10} tickFormatter={(val) => formatCount(val)} />
+                                                    <YAxis yAxisId="right" orientation="right" stroke="#fbbf24" fontSize={10} tickFormatter={(val) => formatCount(val) + '/h'} />
+                                                    <Tooltip
+                                                        contentStyle={{
+                                                            borderRadius: '12px',
+                                                            border: '1px solid var(--border)',
+                                                            backgroundColor: 'var(--card)',
+                                                            color: 'var(--foreground)',
+                                                            fontSize: '11px'
+                                                        }}
+                                                        labelFormatter={(label) => new Date(label).toLocaleString()}
+                                                    />
+                                                    <Line yAxisId="left" type="monotone" dataKey="view_count" name="누적 조회수" stroke="#818cf8" strokeWidth={2.5} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                                                    <Line yAxisId="right" type="monotone" dataKey="velocity" name="시간당 유입 속도" stroke="#fbbf24" strokeWidth={2} dot={{ r: 2 }} strokeDasharray="3 3" />
+                                                </RechartsLineChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+
+                                    {/* Bottom Details */}
+                                    <div className="pt-2 border-t border-border text-[11px] text-muted-foreground space-y-1">
+                                        <div className="flex justify-between">
+                                            <span>대본 파일 상태:</span>
+                                            <span className="font-mono text-foreground">{selectedVideo.file_path ? '수집 완료' : '없음'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -993,6 +1066,7 @@ const ScriptLab = () => {
                         </>
                     )}
                 </DialogContent>
+
             </Dialog>
 
 
