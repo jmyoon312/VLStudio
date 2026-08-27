@@ -152,10 +152,11 @@ const Gallery = () => {
         queryKey: ['videoHistory', statsVideo?.id],
         queryFn: async () => {
             if (!statsVideo) return [];
-            return (await api.get(`/videos/${statsVideo.id}/stats`)).data;
+            return (await api.get(`/videos/${statsVideo.id}/history`)).data;
         },
         enabled: !!statsVideo
     });
+
 
     // 맵 빌드
     const channelMap = useMemo(() => {

@@ -1234,20 +1234,22 @@ def manual_hd_download(
         except Exception as e:
             print(f"Warning: Could not delete old file: {e}")
     
-    # Simple direct yt-dlp call
+    # Simple direct yt-dlp call via current Python interpreter
     try:
         import subprocess
+        import sys
         from datetime import datetime
         
         # Sanitize filename
-        safe_title = "".join(c for c in video.title if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_title = "".join(c for c in (video.title or "") if c.isalnum() or c in (' ', '-', '_')).strip()
+        if not safe_title:
+            safe_title = video.video_id or f"video_{video.id}"
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_template = os.path.join(download_folder, f"{timestamp}_{safe_title}.%(ext)s")
         
-        # yt-dlp command
+        # yt-dlp command via Python interpreter to guarantee execution on Windows
         cmd = [
-            'yt-dlp',
-            # [FIX] No client restrictions - yt-dlp smart defaults provide full quality access
+            sys.executable, '-m', 'yt_dlp',
             '--format', 'bestvideo[height<=1080]+bestaudio/best',
             '--merge-output-format', 'mp4',
             '--output', output_template,
@@ -1262,6 +1264,7 @@ def manual_hd_download(
         ]
         
         print(f"Running: {' '.join(cmd)}")
+
         
         # Run yt-dlp
         result = subprocess.run(
@@ -1626,10 +1629,12 @@ def get_video_analysis(video_id: int, db: Session = Depends(database.get_db)):
     }
 
 @router.get("/{video_id}/history")
+@router.get("/{video_id}/stats")
 def get_video_history(video_id: int, db: Session = Depends(database.get_db)):
     """
-    Get historical metrics for a video.
+    Get historical metrics for a video (supports both /history and /stats).
     """
+
     history_items = db.query(models.VideoHistory).filter(models.VideoHistory.video_id == video_id).order_by(models.VideoHistory.timestamp.asc()).all()
     
     # If no history, return current state as single point or empty
