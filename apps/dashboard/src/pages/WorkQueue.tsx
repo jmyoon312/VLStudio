@@ -21,8 +21,9 @@ import {
     Eye, EyeOff, Paperclip, Rocket, RotateCcw, FileVideo, Layers, Clock4,
     FileCheck, Hash, Files, Filter, ChevronDown, ChevronUp, Copy, Film,
     Save, FileSpreadsheet, Send, Search, ArrowUpDown, Workflow, Pause,
-    PlaySquare, Settings, Table, Columns2, Volume2, VolumeX
+    PlaySquare, Settings, Table, Columns2, Volume2, VolumeX, X, SlidersHorizontal
 } from 'lucide-react';
+
 
 const getStreamUrl = (filePath: string) => {
     if (!filePath) return '';
@@ -74,6 +75,11 @@ const WorkQueue = () => {
     const [channels, setChannels] = useState<any[]>([]);
     const [tiktokChannels, setTiktokChannels] = useState<any[]>([]);
     const [instagramChannels, setInstagramChannels] = useState<any[]>([]);
+    // 강화된 검색/정렬 상태
+    const [channelFilter, setChannelFilter] = useState('all');
+    const [uploadMethodFilter, setUploadMethodFilter] = useState('all');
+    const [sortField, setSortField] = useState<'created_at' | 'scheduled_at' | 'channel' | 'status'>('created_at');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
 
     useEffect(() => {
@@ -376,7 +382,77 @@ const WorkQueue = () => {
 
     const toggleItemSelection = (id: number) => setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     const toggleAllSelection = () => setSelectedItems(selectedItems.length === queueItems.length ? [] : queueItems.map(i => i.id));
-    const clearFilters = () => { setSearchQuery(''); setSelectedBatch('all'); setDateFilter('all'); };
+    const clearFilters = () => { setSearchQuery(''); setSelectedBatch('all'); setDateFilter('all'); setChannelFilter('all'); setUploadMethodFilter('all'); setSortField('created_at'); setSortDir('desc'); };
+
+    // 강화된 다차원 검색 & 필터링 & 정렬 연산
+    const filteredAndSortedItems = React.useMemo(() => {
+        let list = [...queueItems];
+
+        // 1. 실시간 다중 키워드 검색 (제목, 설명, 파일명, ID, 프로젝트 그룹, 채널명)
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            list = list.filter(item => {
+                const matchId = String(item.id).includes(q);
+                const matchTitle = item.title?.toLowerCase().includes(q);
+                const matchDesc = item.description?.toLowerCase().includes(q);
+                const matchFile = item.video_file_path?.toLowerCase().includes(q);
+                const matchBatch = item.source_batch_id?.toLowerCase().includes(q);
+                const ytChan = channels.find(c => String(c.id) === String(item.platform_configs?.youtube?.channel_id))?.name?.toLowerCase() || '';
+                const matchChannel = (item.channel_name || item.account_name || ytChan).includes(q);
+                return matchId || matchTitle || matchDesc || matchFile || matchBatch || matchChannel;
+            });
+        }
+
+        // 2. 채널 계정 필터
+        if (channelFilter !== 'all') {
+            list = list.filter(item => {
+                const ytId = String(item.platform_configs?.youtube?.channel_id || '');
+                const ttId = String(item.platform_configs?.tiktok?.account_id || '');
+                const igId = String(item.platform_configs?.instagram?.account_id || '');
+                const currentChan = String(item.channel_id || item.account_id || '');
+                return ytId === channelFilter || ttId === channelFilter || igId === channelFilter || currentChan === channelFilter;
+            });
+        }
+
+        // 3. 업로드 방식 필터
+        if (uploadMethodFilter !== 'all') {
+            list = list.filter(item => {
+                const method = item.upload_method || 'stealth_auto';
+                if (uploadMethodFilter === 'manual') return method === 'manual';
+                if (uploadMethodFilter === 'stealth_auto') return method === 'stealth_auto';
+                if (uploadMethodFilter === 'api') return method === 'api';
+                if (uploadMethodFilter === 'immediate') return item.is_immediate || method === 'immediate';
+                return true;
+            });
+        }
+
+        // 4. 정렬 로직
+        list.sort((a, b) => {
+            let comp = 0;
+            if (sortField === 'created_at') {
+                const da = new Date(a.created_at || 0).getTime();
+                const db = new Date(b.created_at || 0).getTime();
+                comp = da - db;
+            } else if (sortField === 'scheduled_at') {
+                const da = new Date(a.scheduled_time || a.scheduled_at || a.created_at || 0).getTime();
+                const db = new Date(b.scheduled_time || b.scheduled_at || b.created_at || 0).getTime();
+                comp = da - db;
+            } else if (sortField === 'channel') {
+                const ca = a.channel_name || a.account_name || '';
+                const cb = b.channel_name || b.account_name || '';
+                comp = ca.localeCompare(cb);
+            } else if (sortField === 'status') {
+                const sa = a.status || '';
+                const sb = b.status || '';
+                comp = sa.localeCompare(sb);
+            }
+            return sortDir === 'asc' ? comp : -comp;
+        });
+
+        return list;
+    }, [queueItems, searchQuery, channelFilter, uploadMethodFilter, sortField, sortDir, channels]);
+
+
 
     const totalCount = (stats.total ?? 0);
     const draftCount = (stats.draft ?? 0);
@@ -611,37 +687,84 @@ const WorkQueue = () => {
                         </TabsList>
                     </div>
                     
-                    {/* 스마트 통합 검색 및 프로젝트 그룹 필터 */}
-                    <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-                        <div className="flex items-center gap-1.5 relative flex-1 sm:flex-initial">
-                            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2 pointer-events-none" />
+                    {/* 스마트 통합 검색 및 강화된 다차원 필터/정렬 툴바 */}
+                    <div className="flex items-center gap-1.5 flex-wrap w-full lg:w-auto justify-start lg:justify-end">
+                        {/* 1. 검색어 입력창 + 빠른 X 지우기 버튼 */}
+                        <div className="flex items-center gap-1.5 relative flex-1 sm:flex-initial min-w-[170px] sm:min-w-[210px]">
+                            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 pointer-events-none" />
                             <Input 
-                                placeholder="제목, 파일명, ID 검색..." 
+                                placeholder="제목, 채널, 파일명, ID..." 
                                 value={searchQuery} 
                                 onChange={e => setSearchQuery(e.target.value)} 
-                                className="w-full sm:w-48 h-8 text-xs bg-background border-border pl-7" 
+                                className="w-full h-8 text-xs bg-background border-border pl-8 pr-7" 
                             />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-2 text-muted-foreground hover:text-foreground p-0.5 rounded-full"
+                                    title="검색어 지우기"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            )}
                         </div>
                         
-                        <div className="flex items-center gap-1">
-                            <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                            <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-                                <SelectTrigger className="w-32 sm:w-36 h-8 text-xs bg-background">
-                                    <SelectValue placeholder="프로젝트 그룹" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">전체 프로젝트 그룹</SelectItem>
-                                    {batchGroups.map((b: any) => (
-                                        <SelectItem key={b.batch_id} value={b.batch_id}>
-                                            {b.source_type === 'PIXELING' ? '🎨 픽셀링' : b.source_type === 'EXCEL' ? '📊 엑셀' : '📁'}: {b.batch_id} ({b.count}건)
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        {/* 2. 채널 계정 필터 */}
+                        <Select value={channelFilter} onValueChange={setChannelFilter}>
+                            <SelectTrigger className="w-28 sm:w-32 h-8 text-xs bg-background">
+                                <SelectValue placeholder="전체 채널" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">전체 채널</SelectItem>
+                                {channels.map((c: any) => (
+                                    <SelectItem key={c.id} value={String(c.id)}>
+                                        🎬 {c.name}
+                                    </SelectItem>
+                                ))}
+                                {tiktokChannels.map((c: any) => (
+                                    <SelectItem key={c.id} value={String(c.id)}>
+                                        🎵 {c.name || c.username}
+                                    </SelectItem>
+                                ))}
+                                {instagramChannels.map((c: any) => (
+                                    <SelectItem key={c.id} value={String(c.id)}>
+                                        📸 {c.name || c.username}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
 
+                        {/* 3. 업로드 방식 필터 */}
+                        <Select value={uploadMethodFilter} onValueChange={setUploadMethodFilter}>
+                            <SelectTrigger className="w-24 sm:w-28 h-8 text-xs bg-background">
+                                <SelectValue placeholder="업로드 방식" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">전체 방식</SelectItem>
+                                <SelectItem value="stealth_auto">🤖 스텔스 자동</SelectItem>
+                                <SelectItem value="manual">✍️ 수동 업로드</SelectItem>
+                                <SelectItem value="immediate">⚡ 즉시 등록</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {/* 4. 프로젝트 그룹 필터 */}
+                        <Select value={selectedBatch} onValueChange={setSelectedBatch}>
+                            <SelectTrigger className="w-28 sm:w-32 h-8 text-xs bg-background">
+                                <SelectValue placeholder="프로젝트 그룹" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">전체 프로젝트</SelectItem>
+                                {batchGroups.map((b: any) => (
+                                    <SelectItem key={b.batch_id} value={b.batch_id}>
+                                        {b.source_type === 'PIXELING' ? '🎨 픽셀링' : b.source_type === 'EXCEL' ? '📊 엑셀' : '📁'}: {b.batch_id} ({b.count}건)
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {/* 5. 기간 필터 */}
                         <Select value={dateFilter} onValueChange={setDateFilter}>
-                            <SelectTrigger className="w-20 sm:w-24 h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="w-20 sm:w-22 h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="today">오늘</SelectItem>
                                 <SelectItem value="week">7일</SelectItem>
@@ -650,7 +773,32 @@ const WorkQueue = () => {
                             </SelectContent>
                         </Select>
 
-                        {(searchQuery || selectedBatch !== 'all' || dateFilter !== 'all') && (
+                        {/* 6. 정렬 기준 및 오름/내림차순 토글 */}
+                        <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/60">
+                            <Select value={sortField} onValueChange={(val: any) => setSortField(val)}>
+                                <SelectTrigger className="w-24 sm:w-26 h-7 text-xs bg-background border-0 shadow-none">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="created_at">📅 등록일순</SelectItem>
+                                    <SelectItem value="scheduled_at">⏰ 예약일순</SelectItem>
+                                    <SelectItem value="channel">📺 채널명순</SelectItem>
+                                    <SelectItem value="status">🏷️ 상태순</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                title={sortDir === 'desc' ? '내림차순 (최신순)' : '오름차순 (과거순)'}
+                            >
+                                <ArrowUpDown className="w-3.5 h-3.5" />
+                            </Button>
+                        </div>
+
+                        {/* 7. 필터 초기화 버튼 */}
+                        {(searchQuery || selectedBatch !== 'all' || dateFilter !== 'all' || channelFilter !== 'all' || uploadMethodFilter !== 'all' || sortField !== 'created_at' || sortDir !== 'desc') && (
                             <Button size="sm" variant="ghost" onClick={clearFilters} className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground">
                                 <Filter className="w-3 h-3 mr-1" /> 초기화
                             </Button>
@@ -660,17 +808,21 @@ const WorkQueue = () => {
 
                 {/* 6. 고밀도 대기열 리스트 뷰 */}
                 <TabsContent value={activeTab} className="mt-3 w-full">
-                    {queueItems.length === 0 ? (
+                    {filteredAndSortedItems.length === 0 ? (
                         <Card className="border-dashed border-2 border-border w-full">
                             <CardContent className="p-14 text-center">
                                 <FileVideo className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
-                                <h3 className="text-base font-semibold text-muted-foreground mb-0.5">대기열에 항목이 없습니다</h3>
-                                <p className="text-xs text-muted-foreground">상단의 [픽셀링 제작물 등록] 또는 [개별 영상 등록]으로 영상을 추가해 보세요</p>
+                                <h3 className="text-base font-semibold text-muted-foreground mb-0.5">
+                                    {queueItems.length > 0 ? "검색/필터 조건에 맞는 항목이 없습니다" : "대기열에 항목이 없습니다"}
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    {queueItems.length > 0 ? "검색어나 필터 조건을 재설정해 보세요" : "상단의 [픽셀링 제작물 등록] 또는 [개별 영상 등록]으로 영상을 추가해 보세요"}
+                                </p>
                             </CardContent>
                         </Card>
                     ) : (
                         <div className="space-y-2 w-full">
-                            {queueItems.map((item, idx) => (
+                            {filteredAndSortedItems.map((item, idx) => (
                                 <QueueItemCompactCard
                                     key={item.id}
                                     index={idx + 1}
@@ -682,6 +834,7 @@ const WorkQueue = () => {
                                     onEdit={(i: any) => { setEditingItem(i); setIsAddDialogOpen(true); }}
                                     onPlay={(i: any) => { setPlayingItem(i); setIsPlayerOpen(true); }}
                                     onAttach={handleAttachVideo}
+
                                     onFinalize={handleFinalize}
                                     onUpdateUploadMethod={handleUpdateUploadMethod}
                                     onUpdateChannel={handleUpdateChannel}
