@@ -852,7 +852,21 @@ const CaptainChannelList = ({ profileId, parentScan, onOpenLogs }: { profileId: 
 };
 
 // --- Sub Component: Warmup Button with Dropdown ---
-export const WarmupButton = ({ channel, profileId, onOpenLogs, onNeedSync, compact = false }: { channel?: any, profileId: string, onOpenLogs?: (channelId: string) => void, onNeedSync?: () => void, compact?: boolean }) => {
+export const WarmupButton = ({ 
+    channel, 
+    profileId, 
+    onOpenLogs, 
+    onNeedSync, 
+    compact = false,
+    layout = 'inline'
+}: { 
+    channel?: any, 
+    profileId: string, 
+    onOpenLogs?: (channelId: string) => void, 
+    onNeedSync?: () => void, 
+    compact?: boolean,
+    layout?: 'inline' | 'stacked'
+}) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [isVisibleMode, setIsVisibleMode] = useState(false);
@@ -954,14 +968,14 @@ export const WarmupButton = ({ channel, profileId, onOpenLogs, onNeedSync, compa
             // 백그라운드 재검증 (서버 최신 데이터로 동기화)
             queryClient.invalidateQueries({ queryKey: ['captain-channels', profileId] });
             toast({
-                title: "웜업 초기화",
-                description: "채널 웜업이 초기화되었습니다",
+                title: "웜업 상태 초기화",
+                description: "계정의 웜업 단계와 로그가 초기화되었습니다.",
             });
         },
         onError: (err: any) => {
             toast({
                 title: "초기화 실패",
-                description: err.response?.data?.detail || "오류가 발생했습니다",
+                description: err.response?.data?.detail || "초기화 중 오류가 발생했습니다.",
                 variant: "destructive",
             });
         }
@@ -972,10 +986,11 @@ export const WarmupButton = ({ channel, profileId, onOpenLogs, onNeedSync, compa
             <Button
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs text-orange-600 border-orange-200 hover:bg-orange-50 font-bold"
-                onClick={() => onNeedSync && onNeedSync()}
+                className="h-8 text-xs font-semibold border-border text-muted-foreground hover:text-foreground shrink-0"
+                onClick={onNeedSync}
             >
-                🔥 웜업 시작 (채널 수집)
+                <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                채널 연동 필요
             </Button>
         );
     }
@@ -988,36 +1003,115 @@ export const WarmupButton = ({ channel, profileId, onOpenLogs, onNeedSync, compa
         warmupMutation.mutate(stage);
     };
 
-    return (
-        <div className="flex items-center gap-2">
-            {/* Enhanced Status Badge - Always show stage info */}
-            {warmupStatus === "RUNNING" ? (
-                <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 animate-pulse">
+    const renderBadge = () => {
+        if (warmupStatus === "RUNNING") {
+            return (
+                <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 animate-pulse whitespace-nowrap text-[11px] px-2 py-0.5">
                     <Flame className="w-3 h-3 mr-1 fill-current" />
                     진화중 (Stage {warmupStage})
                 </Badge>
-            ) : warmupStage > 0 && warmupStage < 3 ? (
-                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
-                    🔄 Stage {warmupStage} 완료 → 다음: Stage {warmupStage + 1}
+            );
+        }
+        if (warmupStage > 0 && warmupStage < 3) {
+            return (
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 whitespace-nowrap text-[11px] px-2 py-0.5">
+                    🔄 Stage {warmupStage} 완료
                 </Badge>
-            ) : warmupStage >= 3 ? (
-                <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
+            );
+        }
+        if (warmupStage >= 3) {
+            return (
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 whitespace-nowrap text-[11px] px-2 py-0.5">
                     ✅ 활성 계정 (Stage 3)
                 </Badge>
-            ) : (
-                <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
-                    ⏳ 웜업 대기중
-                </Badge>
-            )}
+            );
+        }
+        return (
+            <Badge variant="outline" className="bg-muted text-muted-foreground border-border whitespace-nowrap text-[11px] px-2 py-0.5">
+                ⏳ 웜업 대기중
+            </Badge>
+        );
+    };
+
+    if (layout === 'stacked') {
+        return (
+            <div className="space-y-2 w-full">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[11px] font-medium text-muted-foreground shrink-0">육성:</span>
+                        {renderBadge()}
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                        <Switch
+                            id={`visible-mode-${channel.id || profileId}`}
+                            checked={isVisibleMode}
+                            onCheckedChange={setIsVisibleMode}
+                            disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
+                        />
+                        <Label htmlFor={`visible-mode-${channel.id || profileId}`} className="text-[11px] text-muted-foreground whitespace-nowrap cursor-pointer">
+                            UI 표시
+                        </Label>
+                    </div>
+                </div>
+
+                <div className="w-full">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-8 border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 font-bold text-xs flex items-center justify-center gap-1.5 rounded-lg"
+                                disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
+                            >
+                                <Flame className="w-3.5 h-3.5" />
+                                {warmupStatus === "RUNNING" ? "웜업 진행 중..." : "🔥 웜업 시작"}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuItem
+                                onClick={() => startWarmup(warmupStage < 3 ? warmupStage + 1 : 3)}
+                                disabled={warmupStage >= 3 || warmupStatus === "RUNNING"}
+                            >
+                                ▶️ 진화 시작 (Stage {warmupStage < 3 ? warmupStage + 1 : 3})
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => startWarmup(1)}>
+                                🔍 Day 1~2: 순수 관찰자 (Stage 1)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => startWarmup(2)}>
+                                🎯 Day 3~5: 관심사 좁히기 (Stage 2)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => startWarmup(3)}>
+                                🚀 Day 6~7: 채널 개설 준비 (Stage 3)
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={() => resetMutation.mutate()}
+                                className="text-destructive font-semibold"
+                            >
+                                🔄 웜업 상태 초기화
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-2">
+            {/* Enhanced Status Badge */}
+            {renderBadge()}
 
             <div className="flex items-center space-x-2 ml-1 mr-1">
                 <Switch
-                    id={`visible-mode-${channel.id}`}
+                    id={`visible-mode-${channel.id || profileId}`}
                     checked={isVisibleMode}
                     onCheckedChange={setIsVisibleMode}
                     disabled={warmupMutation.isPending || warmupStatus === "RUNNING"}
                 />
-                <Label htmlFor={`visible-mode-${channel.id}`} className="text-xs text-muted-foreground whitespace-nowrap cursor-pointer">
+                <Label htmlFor={`visible-mode-${channel.id || profileId}`} className="text-xs text-muted-foreground whitespace-nowrap cursor-pointer">
                     UI 표시
                 </Label>
             </div>

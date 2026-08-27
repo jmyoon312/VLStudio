@@ -40,14 +40,21 @@ const ProfileApiStatus = ({ profileId }: { profileId: string }) => {
 
 const sanitizeChannelTitle = (title?: string) => {
     if (!title) return "브랜드 채널 미수집";
-    // 뚊??go-global 등 깨진 유니코드/물음표 접두사 정제
-    let cleaned = title.replace(/^[^\w가-힣\s]+|\?\?|\(\?\?\)/g, '').replace(/^[뚊똠뜀땸\?]+\s*/g, '').trim();
-    if (!cleaned) return "브랜드 채널 (연결됨)";
+    // 뚊, 똠, ??, [??], (??) 등 인코딩 깨짐 및 비정상 접두사 완벽 제거
+    let cleaned = title
+        .replace(/^[^\w가-힣\s]*[뚊똠뜀땸똠뚬\?]+[^a-zA-Z0-9가-힣\s]*/gi, '')
+        .replace(/^[뚊똠뜀땸\?]+\s*/g, '')
+        .replace(/^[^\w가-힣\s\(\)]+/g, '')
+        .replace(/\?+/g, '')
+        .trim();
+
     if (cleaned.startsWith('(') && cleaned.endsWith(')')) {
         cleaned = cleaned.slice(1, -1).trim();
     }
+    if (!cleaned) return "브랜드 채널 (연결됨)";
     return cleaned;
 };
+
 
 
 const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
@@ -448,21 +455,20 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                 const cleanTitle = sanitizeChannelTitle(channel?.title || channel?.channel_name);
 
                                 return (
-                                    <div key={p.id} className="space-y-2.5 bg-card rounded-2xl p-3.5 border border-border shadow-2xs">
-                                        {/* 1. 상단: 상태 배지 + 이메일 + API 상태 + 액션 툴바 */}
-                                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
-                                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                    <div key={p.id} className="space-y-3 bg-card rounded-2xl p-4 border border-border shadow-xs">
+                                        {/* 1. 상단: 상태 배지 + 이메일 + 관리 아이콘 */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
                                                 <Badge variant="outline" className={
-                                                    p.status?.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold px-1.5 py-0 text-[10px]' :
-                                                        p.status?.toLowerCase() === 'draft' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 px-1.5 py-0 text-[10px]' :
-                                                            'bg-muted text-muted-foreground px-1.5 py-0 text-[10px]'
+                                                    p.status?.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold px-2 py-0.5 text-[10px]' :
+                                                        p.status?.toLowerCase() === 'draft' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 px-2 py-0.5 text-[10px]' :
+                                                            'bg-muted text-muted-foreground px-2 py-0.5 text-[10px]'
                                                 }>
                                                     {p.status ? p.status.toUpperCase() : 'UNKNOWN'}
                                                 </Badge>
-                                                <span className="font-bold text-xs text-foreground truncate" title={emailText}>
+                                                <span className="font-bold text-xs sm:text-sm text-foreground truncate" title={emailText}>
                                                     {emailText}
                                                 </span>
-                                                <ProfileApiStatus profileId={p.id} />
                                             </div>
 
                                             {/* 우측 관리 아이콘 */}
@@ -487,61 +493,72 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                             </div>
                                         </div>
 
-                                        {/* 2. 중단: 브랜드 채널 정보 박스 */}
-                                        <div className="flex items-center justify-between gap-2 p-2 bg-muted/40 rounded-xl border border-border/70 text-xs">
-                                            <div className="flex items-center gap-1.5 min-w-0">
-                                                <span className="text-xs">📺</span>
-                                                <span className="font-semibold text-xs text-foreground truncate">{cleanTitle}</span>
+                                        {/* 2. 중단: 브랜드 채널 및 환경 정보 인셋 카드 */}
+                                        <div className="bg-muted/40 rounded-xl p-3 border border-border/70 space-y-2.5">
+                                            {/* 채널명 & 수집 버튼 */}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span className="text-sm">📺</span>
+                                                    <span className="font-semibold text-xs text-foreground truncate">{cleanTitle}</span>
+                                                </div>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-6 px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/10 border-border shrink-0 shadow-2xs"
+                                                    onClick={() => handleSyncChannel(p.id)}
+                                                    disabled={syncingId === p.id}
+                                                >
+                                                    <RefreshCw className={`w-3 h-3 mr-1 ${syncingId === p.id ? 'animate-spin text-primary' : ''}`} />
+                                                    {syncingId === p.id ? '수집 중' : '수집'}
+                                                </Button>
                                             </div>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-6 px-2 text-[11px] font-semibold text-primary hover:bg-primary/10 border-border shrink-0 shadow-2xs"
-                                                onClick={() => handleSyncChannel(p.id)}
-                                                disabled={syncingId === p.id}
-                                            >
-                                                <RefreshCw className={`w-3 h-3 mr-1 ${syncingId === p.id ? 'animate-spin text-primary' : ''}`} />
-                                                {syncingId === p.id ? '수집 중' : '수집'}
-                                            </Button>
+
+                                            {/* 엔진 / 프록시 / API 인증 뱃지 & 설정 버튼 */}
+                                            <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40 text-xs">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <ProfileApiStatus profileId={p.id} />
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border bg-muted text-foreground">
+                                                        {p.engine_type === 'ixbrowser' ? '🌐 iXBrowser' : '🛡️ Cloak'}
+                                                    </span>
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${p.proxy_mode === 'ISP_PROXY' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-800'}`}>
+                                                        {p.proxy_mode === 'ISP_PROXY' ? '🌐 ISP 고정' : '📱 LTE 모바일'}
+                                                    </span>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground font-medium shrink-0"
+                                                    onClick={() => setQuickNetworkProfile({ ...p })}
+                                                >
+                                                    <Settings className="w-3 h-3 mr-1" /> 설정
+                                                </Button>
+                                            </div>
                                         </div>
 
-                                        {/* 3. 엔진 & 프록시 모드 정보 */}
-                                        <div className="flex items-center justify-between gap-2 px-1 text-xs">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/80 text-foreground">
-                                                    {p.engine_type === 'ixbrowser' ? '🌐 iXBrowser' : '🛡️ Cloak'}
-                                                </span>
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${p.proxy_mode === 'ISP_PROXY' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-800'}`}>
-                                                    {p.proxy_mode === 'ISP_PROXY' ? '🌐 ISP 고정' : '📱 LTE 모바일'}
-                                                </span>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground font-medium"
-                                                onClick={() => setQuickNetworkProfile({ ...p })}
-                                            >
-                                                <Settings className="w-3 h-3 mr-1" /> 설정
-                                            </Button>
-                                        </div>
-
-                                        {/* 4. 운영 제어 버튼 (스텔스 접속 & 웜업) */}
+                                        {/* 3. 하단 운영 제어: 스텔스 접속 & 웜업 육성 제어 */}
                                         {p.status?.toLowerCase() === 'active' && (
-                                            <div className="space-y-2 pt-1 border-t border-border/50">
+                                            <div className="space-y-2.5 pt-1 border-t border-border/60">
                                                 <Button
                                                     variant="default"
                                                     size="sm"
-                                                    className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-2xs flex items-center justify-center gap-1.5 rounded-xl"
+                                                    className="w-full h-8.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs flex items-center justify-center gap-1.5 rounded-xl"
                                                     onClick={() => handleSecureConnect(p)}
                                                 >
                                                     <ShieldCheck className="w-4 h-4" /> 🛡️ 스텔스 보안 접속
                                                 </Button>
 
-                                                <div className="flex items-center justify-between gap-2 pt-0.5">
+                                                {/* 웜업 제어 영역 (stacked 레이아웃) */}
+                                                <div className="bg-muted/30 rounded-xl p-2.5 border border-border/50 space-y-2">
+                                                    <WarmupButton 
+                                                        channel={channel} 
+                                                        profileId={p.id} 
+                                                        onNeedSync={() => handleSyncChannel(p.id)}
+                                                        layout="stacked"
+                                                    />
                                                     <Button 
                                                         size="sm" 
                                                         variant="outline" 
-                                                        className="h-7 text-xs text-primary border-border hover:bg-muted font-semibold px-2.5 shrink-0 rounded-lg"
+                                                        className="w-full h-7 text-xs text-primary border-border hover:bg-muted font-semibold rounded-lg"
                                                         onClick={async () => {
                                                             if (channel) {
                                                                 setSelectedChannelForWizard(channel); 
@@ -557,9 +574,8 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                                             }
                                                         }}
                                                     >
-                                                        전략 설정
+                                                        ⚙️ 웜업 전략 설정 마법사
                                                     </Button>
-                                                    <WarmupButton channel={channel} profileId={p.id} onNeedSync={() => handleSyncChannel(p.id)} />
                                                 </div>
                                             </div>
                                         )}
@@ -568,6 +584,7 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                             })
                         )}
                     </div>
+
 
 
                     {/* 데스크톱 전용 테이블 (hidden md:block) */}
