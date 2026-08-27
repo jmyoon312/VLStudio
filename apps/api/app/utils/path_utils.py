@@ -183,24 +183,59 @@ import re
 
 def clean_transcript(text: str) -> str:
     """
-    Removes SRT/VTT timestamps, line numbers, and extra metadata.
+    Removes SRT/VTT timestamps, line numbers, and extra metadata,
+    and intelligently joins fragmented subtitle snippets into fluent, readable paragraphs.
     """
     if not text:
         return ""
     
     # 1. Remove VTT header
-    text = re.sub(r'^WEBVTT.*\n', '', text)
+    text = re.sub(r'^WEBVTT[^\n]*\n', '', text, flags=re.MULTILINE)
     
     # 2. Remove timestamps (SRT & VTT)
-    # 00:00:00,000 --> 00:00:00,000 or 00:00:00.000 --> 00:00:00.000
-    text = re.sub(r'\d{1,2}:\d{2}:\d{2}[,.]\d{3} --> \d{1,2}:\d{2}:\d{2}[,.]\d{3}', '', text)
+    text = re.sub(r'\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{3}[^\n]*', '', text)
     
-    # 3. Remove line numbers (at start of line, followed by newline)
-    text = re.sub(r'^\d+\s*$', '', text, flags=re.MULTILINE)
+    # 3. Remove numeric line numbers
+    text = re.sub(r'^\s*\d+\s*$', '', text, flags=re.MULTILINE)
     
-    # 4. Remove HTML-like tags (e.g., <i>, <c.color>)
+    # 4. Remove HTML-like tags (e.g., <i>, <c.color>, <font>)
     text = re.sub(r'<[^>]+>', '', text)
     
-    # 5. Clean up extra whitespace and newlines
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
-    return '\n'.join(lines)
+    # 5. Remove sound / system tags like [music], [Applause], [음악], (음악)
+    text = re.sub(r'\[(?:music|applause|laughter|sound|음악|박수|웃음|기타)[^\]]*\]', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\((?:music|applause|laughter|sound|음악|박수|웃음)[^)]*\)', '', text, flags=re.IGNORECASE)
+    
+    # 6. Remove leading dialogue indicators like >>
+    text = re.sub(r'^\s*>>\s*', '', text, flags=re.MULTILINE)
+    text = text.replace('&gt;&gt;', '').replace('>>', '')
+    
+    # 7. Collect non-empty text lines
+    raw_lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if not raw_lines:
+        return ""
+    
+    # 8. Deduplicate adjacent identical lines
+    deduped_lines = []
+    for l in raw_lines:
+        if not deduped_lines or deduped_lines[-1] != l:
+            deduped_lines.append(l)
+            
+    # 9. Intelligently join lines into paragraphs based on sentence endings
+    paragraphs = []
+    current_p = []
+    
+    for line in deduped_lines:
+        current_p.append(line)
+        # Check if line ends with terminal punctuation (. ? !) or Korean terminal ending
+        if re.search(r'[.?!]\s*$', line) and len(' '.join(current_p)) > 120:
+            paragraphs.append(' '.join(current_p))
+            current_p = []
+            
+    if current_p:
+        paragraphs.append(' '.join(current_p))
+        
+    final_text = '\n\n'.join(paragraphs) if paragraphs else ' '.join(deduped_lines)
+    # Clean multiple spaces
+    final_text = re.sub(r'[ \t]+', ' ', final_text)
+    return final_text.strip()
+

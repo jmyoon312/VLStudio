@@ -17,29 +17,55 @@ interface SubtitleViewerProps {
     extractedText?: string | null;
 }
 
-// -- Helper Function to Clean SRT format into readable text --
-const cleanSrtToText = (srt: string): string => {
-    if (!srt) return '';
-    if (!srt.includes('-->')) return srt.trim();
-
-    return srt
-        .split(/\r?\n\r?\n/)
-        .map(block => {
-            const lines = block.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-            if (lines.length === 0) return '';
-            const textLines = lines.filter(line => {
-                if (/^\d+$/.test(line)) return false;
-                if (line.includes('-->')) return false;
-                return true;
-            });
-            return textLines.join(' ');
-        })
-        .filter(Boolean)
-        .join('\n\n')
+// -- Helper Function to Clean SRT/VTT format into readable flowing paragraphs --
+const cleanSrtToText = (text: string): string => {
+    if (!text) return '';
+    
+    // 1. Remove VTT header & timestamps & line numbers
+    let cleaned = text
+        .replace(/^WEBVTT[^\n]*\n/gm, '')
+        .replace(/\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{3}[^\n]*/g, '')
+        .replace(/^\s*\d+\s*$/gm, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\[(?:music|applause|laughter|sound|음악|박수|웃음|기타)[^\]]*\]/gi, '')
+        .replace(/\((?:music|applause|laughter|sound|음악|박수|웃음)[^)]*\)/gi, '')
+        .replace(/^\s*>>\s*/gm, '')
         .replace(/&gt;&gt;/g, '')
-        .replace(/>>/g, '')
-        .trim();
+        .replace(/>>/g, '');
+
+    // 2. Split lines and filter empty
+    const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return '';
+
+    // 3. Deduplicate consecutive identical lines
+    const deduped: string[] = [];
+    for (const l of lines) {
+        if (deduped.length === 0 || deduped[deduped.length - 1] !== l) {
+            deduped.push(l);
+        }
+    }
+
+    // 4. Intelligently assemble into flowing sentences and natural paragraphs
+    const paragraphs: string[] = [];
+    let currentParagraph: string[] = [];
+
+    for (const line of deduped) {
+        currentParagraph.push(line);
+        const joined = currentParagraph.join(' ');
+        // If line ends with sentence punctuation and paragraph length >= 120 chars, break into new paragraph
+        if (/[.?!]\s*$/.test(line) && joined.length > 120) {
+            paragraphs.push(joined);
+            currentParagraph = [];
+        }
+    }
+
+    if (currentParagraph.length > 0) {
+        paragraphs.push(currentParagraph.join(' '));
+    }
+
+    return paragraphs.join('\n\n').replace(/[ \t]+/g, ' ').trim();
 };
+
 
 const SubtitleViewer = ({ open, onOpenChange, videoId, title, description, extractedText }: SubtitleViewerProps) => {
     const navigate = useNavigate();

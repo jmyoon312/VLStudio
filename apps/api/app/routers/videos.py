@@ -675,43 +675,49 @@ def read_videos(
                      # Ideally we mark it, but schemas don't have that yet, only schemas.AssetQuery
                      pass
 
-                # [NEW] Populate Content for Script Mode
-                if mode == "script":
-                    content = video.description or ""
-                    
-                    # Try to load from file if available (subtitle or txt)
-                    if video.file_path:
-                        base, _ = os.path.splitext(video.file_path)
-                        found_sub = None
-                        for ext in ['.ko.vtt', '.en.vtt', '.vtt', '.srt', '.txt']:
-                            if os.path.exists(base + ext):
-                                found_sub = base + ext
-                                break
-                        
-                        if found_sub:
+                # [NEW] Populate clean Hook Content for Script preview
+                content = getattr(video, 'extracted_text', None) or video.description or ""
+                
+                # Try to load from subtitle file if available
+                if video.file_path:
+                    abs_path = get_absolute_path(video.file_path)
+                    if abs_path and os.path.exists(abs_path):
+                        # If direct subtitle file
+                        if abs_path.lower().endswith(('.srt', '.vtt', '.txt')):
                             try:
-                                with open(found_sub, 'r', encoding='utf-8') as f:
-                                    # Read first 500 chars for preview
-                                    file_text = f.read(1000)
-                                    if file_text:
-                                        content = file_text
-                            except: pass
-                    
-                    # Assign to schema field (We need to ensure it's a dict or object that permits assignment if it's ORM)
-                    # SQLAlchemy objects: we can set attributes usually, but 'content' is not in model, only schema.
-                    # So we need to convert to Pydantic first?
-                    # Or we can just attach it if possible.
-                    # Better: Convert to dict or schema manually or attach dynamic attr if Pydantic 'from_attributes' handles it?
-                    # Pydantic 'from_attributes' reads attributes. Python objects allow dynamic attrs?
-                    # No, SQLAlchemy models might limit it.
-                    # Let's use `setattr`.
-                    try:
-                        setattr(video, "content", content)
-                    except Exception:
-                        # If setattr fails (e.g., on SQLAlchemy model), skip it
-                        pass
+                                with open(abs_path, 'r', encoding='utf-8', errors='replace') as f:
+                                    raw_text = f.read(3000)
+                                    if raw_text:
+                                        content = clean_transcript(raw_text)
+                            except Exception:
+                                pass
+                        else:
+                            # Search matching subtitle files in directory
+                            directory = os.path.dirname(abs_path)
+                            video_basename = os.path.splitext(os.path.basename(abs_path))[0]
+                            clean_basename = re.sub(r'\.f\d+$', '', video_basename)
+                            vid = video.video_id or (video.metadata_json or {}).get('id')
+                            
+                            try:
+                                for f in os.listdir(directory):
+                                    f_lower = f.lower()
+                                    if f_lower.endswith(('.srt', '.vtt')):
+                                        if (clean_basename and f_lower.startswith(clean_basename.lower())) or (vid and vid.lower() in f_lower):
+                                            with open(os.path.join(directory, f), 'r', encoding='utf-8', errors='replace') as sf:
+                                                raw_text = sf.read(3000)
+                                                if raw_text:
+                                                    content = clean_transcript(raw_text)
+                                            break
+                            except Exception:
+                                pass
+                
+                try:
+                    setattr(video, "content", clean_transcript(content))
+                except Exception:
+                    pass
 
                 safe_videos.append(video)
+
             except Exception:
                 pass
         
@@ -1010,44 +1016,14 @@ def get_video_subtitles(video_id: int, db: Session = Depends(database.get_db)):
         return {"content": "No subtitles found."}
 
     try:
-        with open(subtitle_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        with open(subtitle_path, "r", encoding="utf-8", errors="replace") as f:
+            raw_content = f.read()
             
-        # Clean content (remove timestamps and metadata)
-        import re
-        
-        lines = content.splitlines()
-        cleaned_lines = []
-        is_vtt = subtitle_path.lower().endswith('.vtt')
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            if line == "WEBVTT":
-                continue
-            # Skip numeric counters
-            if line.isdigit():
-                continue
-            # Skip timestamps (00:00:00.000 --> 00:00:05.000)
-            if '-->' in line:
-                continue
-            
-            # Remove HTML-like tags (e.g. <c.colorCCCCCC>)
-            line = re.sub(r'<[^>]+>', '', line)
-            
-            # Remove [music] tag (case-insensitive)
-            line = re.sub(r'\[music\]', '', line, flags=re.IGNORECASE)
-            
-            # Avoid duplicates if they are close (simple de-dupe)
-            if cleaned_lines and cleaned_lines[-1] == line:
-                continue
-                
-            cleaned_lines.append(line)
-            
-        return {"content": "\n".join(cleaned_lines)}
+        formatted_content = clean_transcript(raw_content)
+        return {"content": formatted_content, "raw": raw_content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading subtitle: {str(e)}")
+
 
 @router.post("/{video_id}/generate-subtitles")
 def trigger_subtitle_generation(

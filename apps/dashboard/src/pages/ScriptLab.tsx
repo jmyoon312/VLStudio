@@ -34,27 +34,37 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 
 
-// -- Helper Functions --
-const cleanSrtToText = (srt: string): string => {
-    if (!srt) return '';
-    // If text does not look like SRT (no timestamps), return directly
-    if (!srt.includes('-->')) return srt.trim();
+// -- Helper Function to Clean SRT format into flowing readable text --
+const cleanSrtToText = (text: string): string => {
+    if (!text) return '';
     
-    // Remove SRT index numbers and timestamps
-    return srt
-        .replace(/\r\n/g, '\n')
-        .split('\n')
-        .filter(line => {
-            const trimmed = line.trim();
-            if (!trimmed) return false;
-            if (/^\d+$/.test(trimmed)) return false; // sequence number
-            if (/^\d{2}:\d{2}:\d{2}[,\.]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[,\.]\d{3}/.test(trimmed)) return false; // timestamp
-            return true;
-        })
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    // 1. Remove VTT header & timestamps & line numbers
+    let cleaned = text
+        .replace(/^WEBVTT[^\n]*\n/gm, '')
+        .replace(/\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[,.]\d{3}[^\n]*/g, '')
+        .replace(/^\s*\d+\s*$/gm, '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\[(?:music|applause|laughter|sound|음악|박수|웃음|기타)[^\]]*\]/gi, '')
+        .replace(/\((?:music|applause|laughter|sound|음악|박수|웃음)[^)]*\)/gi, '')
+        .replace(/^\s*>>\s*/gm, '')
+        .replace(/&gt;&gt;/g, '')
+        .replace(/>>/g, '');
+
+    // 2. Split lines and filter empty
+    const lines = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return '';
+
+    // 3. Deduplicate consecutive identical lines
+    const deduped: string[] = [];
+    for (const l of lines) {
+        if (deduped.length === 0 || deduped[deduped.length - 1] !== l) {
+            deduped.push(l);
+        }
+    }
+
+    return deduped.join(' ').replace(/[ \t]+/g, ' ').trim();
 };
+
 
 const formatCount = (num?: number): string => {
     const n = num ?? 0;
