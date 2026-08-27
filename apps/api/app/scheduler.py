@@ -679,7 +679,7 @@ def start_scheduler():
     scheduler.add_job(check_scheduled_uploads, 'interval', minutes=1, id='scheduled_upload',
                       next_run_time=datetime.now() + timedelta(minutes=1))
 
-    # Daily Report Job (9:00 AM)
+    # Daily Report Job & 3-Tier Catch-up System
     from app.services import report_generator
     def daily_report_wrapper():
         if _shutdown_requested.is_set():
@@ -690,9 +690,30 @@ def start_scheduler():
         finally:
             db.close()
 
+    def daily_report_catchup_wrapper():
+        """서버 시작 시 또는 주기적 점검 시 오늘자 리포트가 누락된 경우 자동 보충"""
+        if _shutdown_requested.is_set():
+            return
+        db = SessionLocal()
+        try:
+            report_generator.ensure_today_report_exists(db)
+        finally:
+            db.close()
+
+    # Tier 1: 매일 오전 9시 정기 리포트 생성 크론
     scheduler.add_job(daily_report_wrapper, 'cron', hour=9, minute=0, id='daily_report')
 
+    # Tier 2: 서버 부팅 15초 후 즉시 오늘자 리포트 누락 검사 & 매시간 주기적 누락 보충
+    scheduler.add_job(
+        daily_report_catchup_wrapper,
+        'interval',
+        hours=1,
+        id='daily_report_catchup',
+        next_run_time=datetime.now() + timedelta(seconds=15)
+    )
+
     scheduler.start()
+
 
     # [REMOVED] Disable unwanted background initial scan as requested by user
     # t = threading.Thread(target=initial_scan_thread, daemon=True)

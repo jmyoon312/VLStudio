@@ -411,6 +411,36 @@ def generate_daily_report(db: Session) -> bool:
         db.rollback()
         return False
 
+
+def ensure_today_report_exists(db: Session) -> bool:
+    """
+    오늘 날짜(00:00:00 ~ 23:59:59)의 일일 리포트가 이미 존재하는지 확인하고,
+    누락된 경우에만 자동으로 리포트를 생성합니다 (중복 생성 방지).
+    """
+    try:
+        from app import models
+        today = datetime.now()
+        start = today.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+        
+        # 오늘 날짜 리포트 존재 여부 검사
+        existing = db.query(models.DailyReport).filter(
+            models.DailyReport.report_date >= start,
+            models.DailyReport.report_date < end
+        ).first()
+        
+        if existing:
+            logger.info(f"📊 [DailyReport] Today's report already exists (#{existing.id}). Skipping auto-generation.")
+            return True
+            
+        logger.info("📊 [DailyReport] No report found for today. Generating catch-up daily report now...")
+        return generate_daily_report(db)
+    except Exception as e:
+        logger.error(f"Error in ensure_today_report_exists: {e}")
+        return False
+
+
+
 class ReportGenerator:
     def __init__(self):
         self._reports: Dict[str, Report] = {}
