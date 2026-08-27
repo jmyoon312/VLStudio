@@ -1207,24 +1207,21 @@ def manual_hd_download(
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
     
-    # Construct proper download path with category/channel structure
-    from app.config import settings as settings_conf
-    download_root = normalize_path(settings.root_download_path if settings.root_download_path else settings_conf.MEDIA_ROOT)
+    # Construct proper download path with standard 07_Downloads/{Category}/{Channel} structure
+    from app.utils.path_utils import get_channel_download_path, sanitize_folder_name
     
+    cat_name = None
     if channel.category_id:
         category = crud.get_category(db, channel.category_id)
         if category:
-            cat_folder = category.folder_name or sanitize_folder_name(category.name)
-            download_folder = os.path.join(download_root, cat_folder, channel.folder_name or channel.name)
-        else:
-            download_folder = os.path.join(download_root, channel.folder_name or channel.name)
-    else:
-        download_folder = os.path.join(download_root, "_temp_storage", channel.folder_name or channel.name)
+            cat_name = category.folder_name or sanitize_folder_name(category.name)
     
+    download_folder = get_channel_download_path(settings, cat_name, channel.folder_name or channel.name)
     os.makedirs(download_folder, exist_ok=True)
     
     print(f"[VIDEO] Starting manual HD download for: {video.title}")
     print(f"📁 Download folder: {download_folder}")
+
     
     # Delete old file if exists
     if video.file_path and os.path.exists(video.file_path):
