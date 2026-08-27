@@ -33,19 +33,22 @@ const ProfileApiStatus = ({ profileId }: { profileId: string }) => {
         staleTime: 60000,
     });
 
-    if (isLoading) return <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded ml-1 font-semibold animate-pulse border border-slate-200" title="API 상태 확인 중">API ⏳</span>;
-    if (data?.authenticated) return <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded ml-1 font-semibold" title="API 인증 완료">API 🟢</span>;
-    return <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded ml-1 font-semibold" title="API 미인증">API 🟡</span>;
+    if (isLoading) return <span className="text-[9.5px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-bold animate-pulse border border-border shrink-0" title="API 상태 확인 중">API ⏳</span>;
+    if (data?.authenticated) return <span className="text-[9.5px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full font-bold shrink-0" title="API 인증 완료">API 🟢</span>;
+    return <span className="text-[9.5px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold shrink-0" title="API 미인증">API 🟡</span>;
 };
 
 const sanitizeChannelTitle = (title?: string) => {
     if (!title) return "브랜드 채널 미수집";
-    if (/[\u7240-\u7299]|[\uB370-\uB37F]\?\?/.test(title) || title.includes('??')) {
-        const cleaned = title.replace(/^[^a-zA-Z0-9가-힣]+/, '').trim();
-        return cleaned ? `브랜드 채널 (${cleaned})` : "브랜드 채널 (연결됨)";
+    // 뚊??go-global 등 깨진 유니코드/물음표 접두사 정제
+    let cleaned = title.replace(/^[^\w가-힣\s]+|\?\?|\(\?\?\)/g, '').replace(/^[뚊똠뜀땸\?]+\s*/g, '').trim();
+    if (!cleaned) return "브랜드 채널 (연결됨)";
+    if (cleaned.startsWith('(') && cleaned.endsWith(')')) {
+        cleaned = cleaned.slice(1, -1).trim();
     }
-    return title;
+    return cleaned;
 };
+
 
 const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
     const { toast } = useToast();
@@ -433,7 +436,7 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                 </CardHeader>
                 <CardContent className="p-0">
                     {/* 모바일 전용 계정 카드 리스트 (md:hidden) */}
-                    <div className="md:hidden divide-y divide-border p-3 space-y-3">
+                    <div className="md:hidden p-3 space-y-3">
                         {isLoading ? (
                             <div className="text-center py-8 text-xs text-muted-foreground">로딩 중...</div>
                         ) : activeOps.length === 0 ? (
@@ -441,11 +444,14 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                         ) : (
                             activeOps.map((p: any) => {
                                 const channel = channels?.find((c: any) => c.owner_profile_id === p.id || c.channel_id === p.channel_id);
+                                const emailText = p.email || `미설정 (${p.id.slice(0, 6)})`;
+                                const cleanTitle = sanitizeChannelTitle(channel?.title || channel?.channel_name);
+
                                 return (
-                                    <div key={p.id} className="pt-3 first:pt-0 space-y-2.5 bg-card rounded-xl p-3 border border-border shadow-2xs">
-                                        {/* 1. 상단: 상태 배지 + 이메일 + 관리 아이콘 */}
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-1.5 min-w-0">
+                                    <div key={p.id} className="space-y-2.5 bg-card rounded-2xl p-3.5 border border-border shadow-2xs">
+                                        {/* 1. 상단: 상태 배지 + 이메일 + API 상태 + 액션 툴바 */}
+                                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+                                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
                                                 <Badge variant="outline" className={
                                                     p.status?.toLowerCase() === 'active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold px-1.5 py-0 text-[10px]' :
                                                         p.status?.toLowerCase() === 'draft' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 px-1.5 py-0 text-[10px]' :
@@ -453,9 +459,9 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                                 }>
                                                     {p.status ? p.status.toUpperCase() : 'UNKNOWN'}
                                                 </Badge>
-                                                <div className="font-semibold text-xs text-foreground truncate max-w-[160px]">
-                                                    {p.email || `미설정 (${p.id.slice(0, 6)})`}
-                                                </div>
+                                                <span className="font-bold text-xs text-foreground truncate" title={emailText}>
+                                                    {emailText}
+                                                </span>
                                                 <ProfileApiStatus profileId={p.id} />
                                             </div>
 
@@ -463,6 +469,7 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                             <div className="flex items-center gap-0.5 shrink-0">
                                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground"
                                                     onClick={() => (p.status?.toLowerCase() === 'draft' || p.status?.toLowerCase() === 'pending') ? handleResumeDraft(p) : setEditProfile(p)}
+                                                    title="계정 정보 수정"
                                                 >
                                                     <Pencil className="w-3.5 h-3.5" />
                                                 </Button>
@@ -473,17 +480,18 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                                 </Button>
                                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                                     onClick={() => setDeleteId(p.id)}
+                                                    title="계정 삭제"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </Button>
                                             </div>
                                         </div>
 
-                                        {/* 2. 브랜드 채널 정보 및 수집 버튼 */}
-                                        <div className="flex items-center justify-between gap-2 p-2 bg-muted/40 rounded-lg border border-border text-xs">
+                                        {/* 2. 중단: 브랜드 채널 정보 박스 */}
+                                        <div className="flex items-center justify-between gap-2 p-2 bg-muted/40 rounded-xl border border-border/70 text-xs">
                                             <div className="flex items-center gap-1.5 min-w-0">
-                                                <span className="text-sm">📺</span>
-                                                <span className="font-medium text-foreground truncate">{sanitizeChannelTitle(channel?.title || channel?.channel_name)}</span>
+                                                <span className="text-xs">📺</span>
+                                                <span className="font-semibold text-xs text-foreground truncate">{cleanTitle}</span>
                                             </div>
                                             <Button
                                                 variant="outline"
@@ -498,19 +506,19 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                         </div>
 
                                         {/* 3. 엔진 & 프록시 모드 정보 */}
-                                        <div className="flex items-center justify-between gap-2 text-xs">
+                                        <div className="flex items-center justify-between gap-2 px-1 text-xs">
                                             <div className="flex items-center gap-1.5">
-                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/60 text-foreground">
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-border bg-muted/80 text-foreground">
                                                     {p.engine_type === 'ixbrowser' ? '🌐 iXBrowser' : '🛡️ Cloak'}
                                                 </span>
                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${p.proxy_mode === 'ISP_PROXY' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-800'}`}>
-                                                    {p.proxy_mode === 'ISP_PROXY' ? '🌐 ISP' : '📱 LTE'}
+                                                    {p.proxy_mode === 'ISP_PROXY' ? '🌐 ISP 고정' : '📱 LTE 모바일'}
                                                 </span>
                                             </div>
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+                                                className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground font-medium"
                                                 onClick={() => setQuickNetworkProfile({ ...p })}
                                             >
                                                 <Settings className="w-3 h-3 mr-1" /> 설정
@@ -518,23 +526,22 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                         </div>
 
                                         {/* 4. 운영 제어 버튼 (스텔스 접속 & 웜업) */}
-                                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
-                                            {p.status?.toLowerCase() === 'active' && (
+                                        {p.status?.toLowerCase() === 'active' && (
+                                            <div className="space-y-2 pt-1 border-t border-border/50">
                                                 <Button
                                                     variant="default"
                                                     size="sm"
-                                                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex-1 shadow-2xs"
+                                                    className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-2xs flex items-center justify-center gap-1.5 rounded-xl"
                                                     onClick={() => handleSecureConnect(p)}
                                                 >
-                                                    <ShieldCheck className="w-3.5 h-3.5 mr-1" /> 🛡️ 스텔스 접속
+                                                    <ShieldCheck className="w-4 h-4" /> 🛡️ 스텔스 보안 접속
                                                 </Button>
-                                            )}
-                                            {p.status?.toLowerCase() === 'active' && (
-                                                <div className="flex items-center gap-1.5">
+
+                                                <div className="flex items-center justify-between gap-2 pt-0.5">
                                                     <Button 
                                                         size="sm" 
                                                         variant="outline" 
-                                                        className="h-7 text-xs text-primary border-border hover:bg-muted font-semibold"
+                                                        className="h-7 text-xs text-primary border-border hover:bg-muted font-semibold px-2.5 shrink-0 rounded-lg"
                                                         onClick={async () => {
                                                             if (channel) {
                                                                 setSelectedChannelForWizard(channel); 
@@ -550,17 +557,18 @@ const TinCanVault = ({ mode = 'vault' }: TinCanVaultProps) => {
                                                             }
                                                         }}
                                                     >
-                                                        전략
+                                                        전략 설정
                                                     </Button>
                                                     <WarmupButton channel={channel} profileId={p.id} onNeedSync={() => handleSyncChannel(p.id)} />
                                                 </div>
-                                            )}
-                                        </div>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })
                         )}
                     </div>
+
 
                     {/* 데스크톱 전용 테이블 (hidden md:block) */}
                     <div className="hidden md:block overflow-x-auto">
