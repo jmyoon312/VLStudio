@@ -28,8 +28,9 @@ import SubtitleViewer from '../components/SubtitleViewer';
 import {
     Search, TrendingUp, PlaySquare, FileText, Copy, Languages,
     ChevronUp, ChevronDown, MonitorPlay, Film, Smartphone, Trash2,
-    Flame, Zap, Sparkles, Play, ExternalLink, Video as VideoIcon, Check, Radio, Scissors
+    Flame, Zap, Sparkles, Play, ExternalLink, Video as VideoIcon, Check, Radio, Scissors, Loader2
 } from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
 import { cn, getMediaUrl } from '../lib/utils';
 import { toast } from 'sonner';
