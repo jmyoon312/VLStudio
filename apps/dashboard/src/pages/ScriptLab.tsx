@@ -784,9 +784,10 @@ const ScriptLab = () => {
                                     onClick={(e) => {
                                         // [FIX] Only open dialog if NOT dragged
                                         if (!isDragMoved.current) {
-                                            setSelectedVideo(row.original);
+                                            setSubtitleVideo(row.original);
                                         }
                                     }}
+
                                     onMouseEnter={() => handleRowMouseEnter(row)}
                                 >
                                     {row.getVisibleCells().map(cell => (
