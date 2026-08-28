@@ -55,7 +55,13 @@ interface DashboardStats {
 
     total_videos: number;
 
+    total_scripts?: number;
+
     downloaded_today: number;
+
+    recent_videos?: any[];
+
+    recent_scripts?: any[];
 
 }
 
@@ -614,7 +620,16 @@ const Home = () => {
 
     const fetchData = () => {
         api.get('/dashboard/stats').then(res => {
-            if (res?.data) { setStats(res.data); setLocalCache('stats', res.data); }
+            if (res?.data) {
+                setStats(res.data);
+                setLocalCache('stats', res.data);
+                if (res.data.recent_scripts && Array.isArray(res.data.recent_scripts) && res.data.recent_scripts.length > 0) {
+                    setScriptLabVideos(prev => prev.length === 0 ? res.data.recent_scripts : prev);
+                }
+                if (res.data.recent_videos && Array.isArray(res.data.recent_videos) && res.data.recent_videos.length > 0) {
+                    setGalleryVideos(prev => prev.length === 0 ? res.data.recent_videos : prev);
+                }
+            }
         }).catch(() => {});
 
         api.get('/channels/').then(res => {
@@ -2016,60 +2031,62 @@ const Home = () => {
 
                         <div className="space-y-1.5">
 
-                            {scriptLabVideos.length > 0 ? (
-                                scriptLabVideos.slice(0, 4).map((item: any, idx) => {
-                                    const channelName = item.channel?.name || item.channel_title || '수집 채널';
-                                    const viralScore = item.viral_score ? Math.round(item.viral_score) : null;
-                                    return (
-                                        <div 
-                                            key={item.id || idx} 
-                                            onClick={() => setSubtitleModalVideo(item)}
-                                            className="p-1.5 hover:bg-muted/70 rounded-xl transition-colors cursor-pointer group bg-muted/30 border border-transparent hover:border-border/60 flex items-center justify-between gap-2"
-                                            title="클릭 시 전체 대본 및 자막 타임라인 팝업을 즉시 확인합니다."
-                                        >
-                                            <div className="flex items-start gap-1.5 min-w-0 flex-1">
-                                                <span className="text-[11px] font-bold text-indigo-500 shrink-0 w-3.5 mt-0.5">{idx + 1}</span>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-[11px] font-bold text-foreground truncate group-hover:text-indigo-600 transition-colors">
-                                                        {item.title}
-                                                    </p>
-                                                    <div className="flex items-center gap-1.5 text-[9.5px] text-muted-foreground mt-0.5">
-                                                        <span className="truncate max-w-[90px]">{channelName}</span>
-                                                        {viralScore !== null && (
-                                                            <span className="text-[8.5px] font-bold px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
-                                                                🔥 EV {viralScore}%
-                                                            </span>
-                                                        )}
-                                                    </div>
+                            {(scriptLabVideos.length > 0 ? scriptLabVideos : (fallbackScriptInsights as any[])).slice(0, 4).map((item: any, idx) => {
+                                const isReal = !!item.created_at || !!item.id && typeof item.id === 'number' && scriptLabVideos.length > 0;
+                                const channelName = item.channel?.name || item.channel_title || item.source || '수집 채널';
+                                const viralScore = item.viral_score ? Math.round(item.viral_score) : null;
+                                return (
+                                    <div 
+                                        key={item.id || idx} 
+                                        onClick={() => {
+                                            if (isReal) {
+                                                setSubtitleModalVideo(item);
+                                            } else {
+                                                navigate('/script-lab');
+                                            }
+                                        }}
+                                        className="p-1.5 hover:bg-muted/70 rounded-xl transition-colors cursor-pointer group bg-muted/30 border border-transparent hover:border-border/60 flex items-center justify-between gap-2"
+                                        title="클릭 시 전체 대본 및 자막 타임라인 팝업을 즉시 확인합니다."
+                                    >
+                                        <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                                            <span className="text-[11px] font-bold text-indigo-500 shrink-0 w-3.5 mt-0.5">{idx + 1}</span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-bold text-foreground truncate group-hover:text-indigo-600 transition-colors">
+                                                    {item.title}
+                                                </p>
+                                                <div className="flex items-center gap-1.5 text-[9.5px] text-muted-foreground mt-0.5">
+                                                    <span className="truncate max-w-[90px]">{channelName}</span>
+                                                    {viralScore !== null && (
+                                                        <span className="text-[8.5px] font-bold px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+                                                            🔥 EV {viralScore}%
+                                                        </span>
+                                                    )}
+                                                    {!isReal && item.tag && (
+                                                        <span className="text-[8.5px] font-medium px-1 py-0.2 rounded bg-indigo-500/5 text-indigo-500 border border-indigo-500/10 shrink-0">
+                                                            {item.tag}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
-
-                                            {/* AI 각색 버튼 (누르면 AI 대본 작성기로 이동) */}
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    navigate(`/script-writer?video_id=${item.id}&topic=${encodeURIComponent(item.title || '')}`);
-                                                }}
-                                                className="h-6.5 px-2.5 text-[10px] font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 dark:border-indigo-700/50 rounded-lg shrink-0 gap-1 shadow-2xs transition-all"
-                                                title="이 대본을 기반으로 AI 쇼츠 대본을 재창작/각색합니다."
-                                            >
-                                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                                                <span>AI 각색</span>
-                                            </Button>
                                         </div>
-                                    );
-                                })
-                            ) : (
 
-                                <div className="p-4 text-center text-xs text-muted-foreground">
-
-                                    수집 대본 분석실에 등록된 항목이 없습니다.
-
-                                </div>
-
-                            )}
+                                        {/* AI 각색 버튼 (누르면 AI 대본 작성기로 이동) */}
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/script-writer?video_id=${item.id || ''}&topic=${encodeURIComponent(item.title || '')}`);
+                                            }}
+                                            className="h-6.5 px-2.5 text-[10px] font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 dark:border-indigo-700/50 rounded-lg shrink-0 gap-1 shadow-2xs transition-all"
+                                            title="이 대본을 기반으로 AI 쇼츠 대본을 재창작/각색합니다."
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                            <span>AI 각색</span>
+                                        </Button>
+                                    </div>
+                                );
+                            })}
 
                         </div>
 
@@ -2077,7 +2094,7 @@ const Home = () => {
 
                     <Link to="/script-lab" className="mt-2.5 pt-2 border-t border-border/60 text-[11px] font-bold text-center text-muted-foreground hover:text-foreground flex items-center justify-center gap-1">
 
-                        수집 대본 분석실 전체보기 ({scriptLabVideos.length}개) <ArrowRight className="w-3 h-3" />
+                        수집 대본 분석실 전체보기 ({(stats.total_scripts !== undefined && stats.total_scripts > 0) ? stats.total_scripts : (scriptLabVideos.length > 0 ? scriptLabVideos.length : 0)}개) <ArrowRight className="w-3 h-3" />
 
                     </Link>
 

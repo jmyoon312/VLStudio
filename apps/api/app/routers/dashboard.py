@@ -26,7 +26,9 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     # Let's count ALL for 'total_videos' to match previous behavior (get_videos/ len), 
     # but maybe we should split them if we want precision.
     # For now, let's keep 'total_videos' as ALL to match "Videos" table size.
-    total_videos = db.query(models.Video).count()
+    # Total Videos (excluding script only) and Total Scripts
+    total_videos = db.query(models.Video).filter(models.Video.is_script_only == False).count()
+    total_scripts = db.query(models.Video).filter(models.Video.is_script_only == True).count()
     
     # Downloaded Today (All)
     today_str = datetime.now().strftime("%Y-%m-%d")
@@ -40,6 +42,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         "total_channels": total_channels,
         "active_channels": active_channels,
         "total_videos": total_videos,
+        "total_scripts": total_scripts,
         "downloaded_today": downloaded_today,
         "recent_videos": recent_videos,
         "recent_scripts": recent_scripts

@@ -695,6 +695,7 @@ class DashboardStats(BaseModel):
     total_channels: int
     active_channels: int
     total_videos: int
+    total_scripts: Optional[int] = 0
     downloaded_today: int
     recent_videos: List[Video]
     recent_scripts: List[Video]
