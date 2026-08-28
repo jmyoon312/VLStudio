@@ -1445,9 +1445,15 @@ const Settings = () => {
 
                             </TabsTrigger>
 
+                            <TabsTrigger value="engine_hub" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
+
+                                <Cpu className="w-4 h-4 shrink-0 text-indigo-400" /> <span>엔진 & 업데이트</span>
+
+                            </TabsTrigger>
+
                             <TabsTrigger value="system_maintenance" className="flex-1 gap-1.5 px-3.5 h-10 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap">
 
-                                <Wrench className="w-4 h-4 shrink-0 text-amber-400" /> <span>시스템 & 유지보수</span>
+                                <Wrench className="w-4 h-4 shrink-0 text-amber-400" /> <span>시스템 설정</span>
 
                             </TabsTrigger>
 
@@ -1490,67 +1496,35 @@ const Settings = () => {
                                 <CardContent className="pt-5 space-y-4">
 
                                     {/* Download Path */}
-
-                                    <div className="space-y-2">
-
+                                    <div className="space-y-1.5">
                                         <Label className="text-xs sm:text-sm font-bold text-foreground">기본 다운로드 경로</Label>
-
-                                        <div className="flex items-center gap-2">
-
-                                            <Input
-
-                                                value={formData.root_download_path ?? ''}
-
-                                                onChange={(e) => setFormData({ ...formData, root_download_path: e.target.value })}
-
-                                                placeholder="기본 표준 경로 사용 (AppData/Local/ViraLoop Studio/media)"
-
-                                                title={formData.root_download_path ?? ''}
-
-                                                className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-foreground font-mono text-xs shadow-2xs truncate"
-
-                                            />
-
-                                            <Button type="button" variant="outline" onClick={() => handlePickPath('root_download_path', 'folder')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
-
-                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 변경
-
+                                        <div className="flex items-center gap-2 h-10 px-3.5 rounded-xl border border-border bg-card shadow-2xs">
+                                            <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                                            <span className="flex-1 font-mono text-xs text-foreground truncate min-w-0" title={formData.root_download_path ?? ''}>
+                                                {formData.root_download_path
+                                                    ? formData.root_download_path.replace(/^C:\\Users\\[^\\]+\\/, '~\\')
+                                                    : '기본 경로 (AppData\Local\ViraLoop Studio\media)'}
+                                            </span>
+                                            <Button type="button" variant="ghost" size="sm" onClick={() => handlePickPath('root_download_path', 'folder')} className="h-7 px-3 text-xs font-bold shrink-0 border border-border rounded-lg hover:bg-muted">
+                                                변경
                                             </Button>
-
                                         </div>
-
                                     </div>
 
                                     {/* Cookies */}
-
-                                    <div className="space-y-2">
-
+                                    <div className="space-y-1.5">
                                         <Label className="text-xs sm:text-sm font-bold text-foreground">유튜브/소셜 인증 쿠키 파일 경로 (선택)</Label>
-
-                                        <div className="flex items-center gap-2">
-
-                                            <Input
-
-                                                value={formData.cookies_path ?? ''}
-
-                                                onChange={(e) => setFormData({ ...formData, cookies_path: e.target.value })}
-
-                                                placeholder="기본 쿠키 경로 사용 (04_Profiles/cookies.txt)"
-
-                                                title={formData.cookies_path ?? ''}
-
-                                                className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-foreground font-mono text-xs shadow-2xs truncate"
-
-                                            />
-
-                                            <Button type="button" variant="outline" onClick={() => handlePickPath('cookies_path', 'file')} className="h-10 px-3.5 font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shrink-0">
-
-                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
-
+                                        <div className="flex items-center gap-2 h-10 px-3.5 rounded-xl border border-border bg-card shadow-2xs">
+                                            <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                                            <span className="flex-1 font-mono text-xs text-foreground truncate min-w-0" title={formData.cookies_path ?? ''}>
+                                                {formData.cookies_path
+                                                    ? formData.cookies_path.replace(/^C:\\Users\\[^\\]+\\/, '~\\')
+                                                    : '선택 안 함 (기본 경로 자동 사용)'}
+                                            </span>
+                                            <Button type="button" variant="ghost" size="sm" onClick={() => handlePickPath('cookies_path', 'file')} className="h-7 px-3 text-xs font-bold shrink-0 border border-border rounded-lg hover:bg-muted">
+                                                선택
                                             </Button>
-
                                         </div>
-
                                     </div>
 
                                 </CardContent>
@@ -2794,16 +2768,28 @@ const Settings = () => {
 
                     {/* ========================================================= */}
 
-                    {/* --- TAB 5: SYSTEM & MAINTENANCE (시스템 및 유지보수) --- */}
+                    {/* --- TAB 5: ENGINE HUB (엔진 & 업데이트) --- */}
+
+                    {/* ========================================================= */}
+
+                    <TabsContent value="engine_hub">
+
+                        <div className="space-y-6">
+
+                            {/* 🌟 Unified Core Engine Hub */}
+                            <UnifiedEnginesHub formData={formData} setFormData={setFormData} />
+
+                        </div>
+
+                    </TabsContent>
+
+                    {/* --- TAB 6: SYSTEM SETTINGS & MAINTENANCE (시스템 설정) --- */}
 
                     {/* ========================================================= */}
 
                     <TabsContent value="system_maintenance">
 
                         <div className="space-y-6">
-
-                            {/* 🌟 Unified Core Engine Hub */}
-                            <UnifiedEnginesHub formData={formData} setFormData={setFormData} />
 
                             {/* System Settings & Rate Limiting Embed */}
 
