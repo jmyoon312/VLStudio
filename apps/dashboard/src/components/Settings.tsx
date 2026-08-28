@@ -1505,7 +1505,9 @@ const Settings = () => {
 
                                                 placeholder="기본 표준 경로 사용 (AppData/Local/ViraLoop Studio/media)"
 
-                                                className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-foreground font-mono text-xs shadow-2xs"
+                                                title={formData.root_download_path ?? ''}
+
+                                                className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-foreground font-mono text-xs shadow-2xs truncate"
 
                                             />
 
@@ -1535,7 +1537,9 @@ const Settings = () => {
 
                                                 placeholder="기본 쿠키 경로 사용 (04_Profiles/cookies.txt)"
 
-                                                className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-foreground font-mono text-xs shadow-2xs"
+                                                title={formData.cookies_path ?? ''}
+
+                                                className="flex-1 h-10 px-3.5 rounded-xl border border-border bg-card text-foreground font-mono text-xs shadow-2xs truncate"
 
                                             />
 
@@ -2275,32 +2279,18 @@ const Settings = () => {
 
                                             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end bg-muted/30 p-4 rounded-2xl border border-border">
 
-                                                <div className="space-y-2 flex-1">
-
+                                                <div className="space-y-1.5 flex-1 min-w-0">
                                                     <Label className="text-xs font-bold text-muted-foreground">로컬 모델 저장 경로</Label>
-
-                                                    <div className="flex gap-2">
-
-                                                        <Input
-
-                                                            value={formData.supertone_model_path || ''}
-
-                                                            onChange={e => setFormData({ ...formData, supertone_model_path: e.target.value })}
-
-                                                            placeholder="기본 시스템 모델 경로 (%LOCALAPPDATA%\ViraLoop Studio\media\09_System\models\supertonic)"
-
-                                                            className="bg-card border-border rounded-xl font-mono text-xs"
-
-                                                        />
-
-                                                        <Button variant="outline" onClick={() => handlePickPath('supertone_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card rounded-xl shrink-0">
-
-                                                            <FolderOpen className="w-4 h-4" />
-
+                                                    <div className="flex items-center gap-2 p-2 bg-muted/40 rounded-xl border border-border">
+                                                        <span className="text-[11px] font-mono text-muted-foreground flex-1 truncate" title={formData.supertone_model_path || ''}>
+                                                            📁 {formData.supertone_model_path
+                                                                ? formData.supertone_model_path.replace(/^.*[\\/]ViraLoop Studio[\\/]/, '~/ViraLoop Studio/')
+                                                                : '기본 시스템 경로 (자동)'}
+                                                        </span>
+                                                        <Button variant="ghost" size="sm" onClick={() => handlePickPath('supertone_model_path', 'folder')} className="h-7 px-2.5 text-[10px] font-bold shrink-0 text-muted-foreground hover:text-foreground">
+                                                            <FolderOpen className="w-3.5 h-3.5 mr-1" /> 변경
                                                         </Button>
-
                                                     </div>
-
                                                 </div>
 
                                                 <Button
@@ -2489,47 +2479,22 @@ const Settings = () => {
 
                                 <CardContent className="space-y-6 pt-4">
 
-                                    <Alert className="bg-primary/10 border-primary/20 text-foreground">
-
-                                        <Info className="h-4 w-4 text-primary" />
-
-                                        <AlertTitle className="font-bold">FFmpeg 미디어 처리 엔진</AlertTitle>
-
-                                        <AlertDescription>
-
-                                            {formData.ffmpeg_status && formData.ffmpeg_status !== 'Missing' ? (
-
-                                                <div className="flex flex-col gap-1 mt-1">
-
-                                                    <p className="font-mono text-xs bg-muted/40 p-2 rounded-lg break-all border border-border">{formData.ffmpeg_status}</p>
-
-                                                    <p className="text-xs text-emerald-400 font-bold">ViraLoop 전용 미디어 처리 엔진이 정상 활성화되어 있습니다.</p>
-
-                                                </div>
-
-                                            ) : (
-
-                                                "시스템 내부 FFmpeg가 활성화되어 있습니다. 무음 컷팅 및 씬 분할이 정상 동작합니다."
-
-                                            )}
-
-                                        </AlertDescription>
-
-                                    </Alert>
-
-                                                                        {/* 엔진 상태 및 안내 */}
-                                    <div className="p-4 bg-muted/30 rounded-2xl border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-foreground">온디바이스 AI 음성인식 엔진:</span>
-                                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-bold text-[11px]">
-                                                    ✅ Faster-Whisper 활성화됨
-                                                </Badge>
-                                            </div>
-                                            <p className="text-[11px] text-muted-foreground">
-                                                모델 파일 및 FFmpeg 인코더는 시스템에 의해 자동 관리됩니다. (상세 상태 및 캐시 관리는 [시스템 & 유지보수] 탭 참조)
-                                            </p>
+                                    {/* 미디어 엔진 & Whisper 상태 배지 */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-muted/30 rounded-2xl border border-border">
+                                        <div className="flex flex-wrap items-center gap-2 flex-1">
+                                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-bold text-xs gap-1.5">
+                                                <Film className="w-3.5 h-3.5" />
+                                                FFmpeg {formData.ffmpeg_status && formData.ffmpeg_status !== 'Missing' ? '✅ 정상 가동' : '⚠️ 미설치'}
+                                            </Badge>
+                                            <Badge variant="outline" className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30 font-bold text-xs gap-1.5">
+                                                <Mic2 className="w-3.5 h-3.5" />
+                                                ✅ Faster-Whisper 활성화됨
+                                            </Badge>
                                         </div>
+                                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                            인코더 및 AI 모델 파일은 시스템이 자동 관리합니다.<br/>
+                                            <span className="text-indigo-500 dark:text-indigo-400 font-semibold">[시스템 & 유지보수] 탭</span>에서 버전 확인, 캐시 정리, 업데이트를 할 수 있습니다.
+                                        </p>
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2606,8 +2571,46 @@ const Settings = () => {
 
                         <div className="space-y-6">
 
-                            {/* Card 0: Built-in Stealth Engine (CloakBrowser) */}
-                            
+                            {/* Card 0: Built-in Stealth Engine (CloakBrowser / Patchright) */}
+                            <Card className="border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 to-transparent shadow-2xs rounded-2xl overflow-hidden">
+                                <CardHeader className="bg-indigo-500/10 border-b border-indigo-500/20 py-3">
+                                    <CardTitle className="text-base font-bold flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Globe className="w-4 h-4 text-indigo-400" />
+                                            기본 내장 스텔스 엔진 (CloakBrowser / Patchright)
+                                        </div>
+                                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold text-[11px]">
+                                            ✅ 봇 탐지 원천 우회 가동 중
+                                        </Badge>
+                                    </CardTitle>
+                                    <CardDescription className="text-xs text-muted-foreground">
+                                        Patchright 기반 지능형 핑거프린팅 우회 엔진이 백그라운드에서 자동 활성화됩니다.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="pt-4 pb-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                        <div className="flex flex-col gap-1 p-3 bg-muted/30 rounded-xl border border-border">
+                                            <span className="font-bold text-muted-foreground text-[10px] uppercase tracking-wider">배포 방식</span>
+                                            <span className="font-semibold">Python 패키지 내장</span>
+                                            <span className="text-[10px] text-muted-foreground">patchright pip 라이브러리</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1 p-3 bg-muted/30 rounded-xl border border-border">
+                                            <span className="font-bold text-muted-foreground text-[10px] uppercase tracking-wider">업데이트 방식</span>
+                                            <span className="font-semibold">자동 (pip 연동)</span>
+                                            <span className="text-[10px] text-muted-foreground">[시스템 & 유지보수] 일괄 최신화 적용</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1 p-3 bg-muted/30 rounded-xl border border-border">
+                                            <span className="font-bold text-muted-foreground text-[10px] uppercase tracking-wider">적용 범위</span>
+                                            <span className="font-semibold">전체 플랫폼 자동화</span>
+                                            <span className="text-[10px] text-muted-foreground">유튜브, 틱톡, 도우인 등 15개</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground mt-3 flex items-center gap-1.5">
+                                        <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                        버전 확인 및 1클릭 업데이트는 <span className="text-indigo-400 font-semibold">[시스템 & 유지보수] → 플랫폼 연동 코어 엔진 허브</span>에서 관리합니다.
+                                    </p>
+                                </CardContent>
+                            </Card>
 
                             {/* Card 1: Anti-Detect Engine (ixBrowser) */}
 
