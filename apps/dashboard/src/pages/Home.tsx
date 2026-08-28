@@ -641,7 +641,7 @@ const Home = () => {
             }
         }).catch(() => {});
 
-        api.get('/videos/?mode=script&limit=20').then(res => {
+        api.get('/videos/?is_script_only=true&limit=8&sort_by=created_at&sort_order=desc').then(res => {
             if (res?.data && Array.isArray(res.data)) {
                 setScriptLabVideos(res.data);
                 setLocalCache('scriptLabVideos', res.data);
@@ -2096,9 +2096,10 @@ const Home = () => {
 
                                         key={item.id} 
 
-                                        onClick={() => navigate('/work-queue')}
+                                        onClick={() => navigate(`/work-queue?item_id=${item.id}`)}
 
                                         className="flex items-center justify-between p-1.5 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer"
+                                        title={(item.status || '').toUpperCase() === 'FAILED' && item.error_message ? `실패 원인: ${item.error_message}` : item.title || ''}
 
                                     >
 
@@ -2113,6 +2114,9 @@ const Home = () => {
                                                 <p className="text-[9.5px] text-muted-foreground">
 
                                                     {item.source_type === 'PIXELING' ? '🎨 픽셀링' : '🎬 렌더링'} · {item.upload_method === 'BROWSER_AUTO' ? '스텔스 자동' : '수동'}
+                                                    {(item.status || '').toUpperCase() === 'FAILED' && item.error_message && (
+                                                        <span className="ml-1 text-rose-500 truncate max-w-[100px] inline-block align-bottom">{item.error_message.slice(0, 30)}{item.error_message.length > 30 ? '…' : ''}</span>
+                                                    )}
 
                                                 </p>
 
@@ -2369,93 +2373,71 @@ const Home = () => {
 
                         <div className="w-full md:w-[48%] h-[45%] md:h-full bg-black relative flex items-center justify-center overflow-hidden border-b md:border-b-0 md:border-r border-border">
 
-                            {selectedVideo.videoUrl && !selectedVideo.videoUrl.startsWith('http') && selectedVideo.videoUrl.includes('/api/files/stream') ? (
+                            {(() => {
+                                const raw = selectedVideo.raw;
+                                const localVideoUrl = raw?.file_path ? getMediaUrl(raw.file_path, settings?.root_download_path) : null;
+                                const isYouTube = (raw?.url || selectedVideo.youtubeUrl || '')
+                                    .match(/youtube\.com|youtu\.be/);
+                                const ytSrc = raw?.url || selectedVideo.youtubeUrl || '';
+                                let ytId: string | null = null;
+                                try {
+                                    ytId = new URL(ytSrc).searchParams.get('v') ||
+                                        ytSrc.match(/(?:youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{11})/)?.[1] ||
+                                        ytSrc.split('/').pop()?.split('?')[0] || null;
+                                } catch(_) {}
 
-                                <video 
-
-                                    src={selectedVideo.videoUrl} 
-
-                                    controls 
-
-                                    autoPlay 
-
-                                    loop 
-
-                                    playsInline
-
-                                    className="w-full h-full object-contain bg-black"
-
-                                    onError={(e) => {
-
-                                        console.warn("Local video play error, showing fallback view");
-
-                                    }}
-
-                                />
-
-                            ) : selectedVideo.youtubeUrl && (selectedVideo.youtubeUrl.includes('youtube.com') || selectedVideo.youtubeUrl.includes('youtu.be')) ? (
-
-                                <iframe
-
-                                    src={`https://www.youtube.com/embed/${new URL(selectedVideo.youtubeUrl).searchParams.get('v') || selectedVideo.youtubeUrl.split('/').pop()}?autoplay=1&mute=0`}
-
-                                    className="w-full h-full border-0"
-
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-
-                                    allowFullScreen
-
-                                />
-
-                            ) : selectedVideo.videoUrl && selectedVideo.videoUrl.startsWith('http') ? (
-
-                                <video 
-
-                                    src={selectedVideo.videoUrl} 
-
-                                    controls 
-
-                                    autoPlay 
-
-                                    loop 
-
-                                    playsInline
-
-                                    className="w-full h-full object-contain bg-black"
-
-                                />
-
-                            ) : (
-
-                                <div className="relative w-full h-full flex items-center justify-center">
-
-                                    <img 
-
-                                        src={selectedVideo.img} 
-
-                                        alt={selectedVideo.title} 
-
-                                        className="w-full h-full object-cover opacity-60 filter blur-xs scale-105" 
-
-                                    />
-
-                                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-6 text-center">
-
-                                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center mb-3 shadow-lg">
-
-                                            <Play className="w-7 h-7 text-white fill-white ml-1" />
-
+                                if (localVideoUrl && localVideoUrl.includes('/api/files/stream')) {
+                                    return (
+                                        <video
+                                            src={localVideoUrl}
+                                            controls
+                                            autoPlay
+                                            loop
+                                            playsInline
+                                            className="w-full h-full object-contain bg-black"
+                                            onError={() => {
+                                                // silent fallback handled by JSX order
+                                            }}
+                                        />
+                                    );
+                                } else if (isYouTube && ytId) {
+                                    return (
+                                        <iframe
+                                            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=0`}
+                                            className="w-full h-full border-0"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                        />
+                                    );
+                                } else if (localVideoUrl && localVideoUrl.startsWith('http')) {
+                                    return (
+                                        <video
+                                            src={localVideoUrl}
+                                            controls
+                                            autoPlay
+                                            loop
+                                            playsInline
+                                            className="w-full h-full object-contain bg-black"
+                                        />
+                                    );
+                                }
+                                return (
+                                    <div className="relative w-full h-full flex items-center justify-center">
+                                        <img
+                                            src={selectedVideo.img}
+                                            alt={selectedVideo.title}
+                                            className="w-full h-full object-cover opacity-60 filter blur-sm scale-105"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center p-6 text-center">
+                                            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center mb-3 shadow-lg">
+                                                <Play className="w-7 h-7 text-white fill-white ml-1" />
+                                            </div>
+                                            <p className="text-xs font-bold text-white/90">레퍼런스 쇼츠 스트리밍 준비됨</p>
+                                            <span className="text-[10px] text-white/60 mt-1">길이: {selectedVideo.duration} · {selectedVideo.views} 조회</span>
                                         </div>
-
-                                        <p className="text-xs font-bold text-white/90">레퍼런스 쇼츠 스트리밍 준비됨</p>
-
-                                        <span className="text-[10px] text-white/60 mt-1">길이: {selectedVideo.duration} · {selectedVideo.views} 조회</span>
-
                                     </div>
-
-                                </div>
-
-                            )}
+                                );
+                            })()}
 
                             {/* 상단 퀵 뱃지 */}
 
@@ -2474,6 +2456,20 @@ const Home = () => {
                                 </span>
 
                             </div>
+
+                            {/* 유튜브 원본 바로가기 버튼 */}
+                            {(selectedVideo.youtubeUrl || selectedVideo.raw?.url) && (
+                                <a
+                                    href={selectedVideo.youtubeUrl || selectedVideo.raw?.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-red-600/90 hover:bg-red-600 text-white text-[10.5px] font-bold px-2.5 py-1 rounded-full shadow-md backdrop-blur-xs transition-transform active:scale-95"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <ArrowRight className="w-3 h-3" />
+                                    <span>유튜브 원본</span>
+                                </a>
+                            )}
 
                         </div>
 
@@ -2547,11 +2543,24 @@ const Home = () => {
 
                                 <div className="p-3 rounded-xl bg-muted/30 border border-border text-xs text-foreground space-y-1.5">
 
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">영상 설명 및 태그</p>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            <FileText className="w-3 h-3 text-primary" />
+                                            수집 대본 및 설명
+                                        </p>
+                                        {selectedVideo.raw && (
+                                            <button
+                                                onClick={() => { setSelectedVideo(null); setSubtitleModalVideo(selectedVideo.raw); }}
+                                                className="text-[10px] font-bold text-primary hover:underline"
+                                            >
+                                                대본 전문보기 →
+                                            </button>
+                                        )}
+                                    </div>
 
-                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-muted-foreground">
+                                    <p className="leading-relaxed line-clamp-3 text-[11px] text-muted-foreground select-text">
 
-                                        {selectedVideo.description}
+                                        {selectedVideo.raw?.content || selectedVideo.raw?.extracted_text || selectedVideo.description || (selectedVideo.raw?.metadata_json as any)?.description || '추출된 대본 또는 영상 설명이 없습니다.'}
 
                                     </p>
 
@@ -2565,13 +2574,19 @@ const Home = () => {
 
                                         <span>📊 AI 바이럴 점수 분석</span>
 
-                                        <span className="text-emerald-500">상위 1.2%</span>
+                                        <span className="text-emerald-500">
+                                            {selectedVideo.raw?.viral_score
+                                                ? `상위 ${Math.max(1, (100 - Math.min(100, (selectedVideo.raw.viral_score || 50) / 10))).toFixed(1)}%`
+                                                : '상위 1.2%'}
+                                        </span>
 
                                     </div>
 
                                     <p className="text-[10px] text-muted-foreground leading-normal">
 
-                                        초반 3초 시청 유지율 78% 기록. 딸깍 자막 또는 AI 더빙으로 재가공 시 높은 도달률이 예상됩니다.
+                                        {selectedVideo.raw?.viral_score
+                                            ? `바이럴 점수 ${Math.round(selectedVideo.raw.viral_score)}점 · 딸깍 자막 또는 AI 더빙으로 재가공 시 높은 도달률이 예상됩니다.`
+                                            : '초반 3초 시청 유지율 78% 기록. 딸깍 자막 또는 AI 더빙으로 재가공 시 높은 도달률이 예상됩니다.'}
 
                                     </p>
 
