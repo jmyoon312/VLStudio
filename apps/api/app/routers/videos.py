@@ -669,8 +669,8 @@ def read_videos(
         safe_videos = []
         for video in videos:
             try:
-                # [FAST PATH] For script-only videos, extracted_text is already in DB — skip FS scan entirely
-                if is_script_only is True or getattr(video, 'is_script_only', False):
+                # [FAST PATH 1] If already has text in DB or is script-only / script mode, skip all disk I/O
+                if is_script_only is True or getattr(video, 'is_script_only', False) or mode == "script" or getattr(video, 'extracted_text', None):
                     content = getattr(video, 'extracted_text', None) or video.description or ""
                     try:
                         setattr(video, "content", clean_transcript(content))
@@ -679,14 +679,11 @@ def read_videos(
                     safe_videos.append(video)
                     continue
 
-                # [NORMAL PATH] Populate clean Hook Content for Script preview
-                content = getattr(video, 'extracted_text', None) or video.description or ""
-                
-                # Try to load from subtitle file if available
+                # [FAST PATH 2] Direct subtitle file check (O(1) existence check, no os.listdir scan)
+                content = video.description or ""
                 if video.file_path:
                     abs_path = get_absolute_path(video.file_path)
                     if abs_path and os.path.exists(abs_path):
-                        # If direct subtitle file
                         if abs_path.lower().endswith(('.srt', '.vtt', '.txt')):
                             try:
                                 with open(abs_path, 'r', encoding='utf-8', errors='replace') as f:
@@ -696,24 +693,19 @@ def read_videos(
                             except Exception:
                                 pass
                         else:
-                            # Search matching subtitle files in directory
-                            directory = os.path.dirname(abs_path)
-                            video_basename = os.path.splitext(os.path.basename(abs_path))[0]
-                            clean_basename = re.sub(r'\.f\d+$', '', video_basename)
-                            vid = video.video_id or (video.metadata_json or {}).get('id')
-                            
-                            try:
-                                for f in os.listdir(directory):
-                                    f_lower = f.lower()
-                                    if f_lower.endswith(('.srt', '.vtt')):
-                                        if (clean_basename and f_lower.startswith(clean_basename.lower())) or (vid and vid.lower() in f_lower):
-                                            with open(os.path.join(directory, f), 'r', encoding='utf-8', errors='replace') as sf:
-                                                raw_text = sf.read(3000)
-                                                if raw_text:
-                                                    content = clean_transcript(raw_text)
-                                            break
-                            except Exception:
-                                pass
+                            # Direct check without directory scan
+                            base_no_ext = os.path.splitext(abs_path)[0]
+                            for ext in ['.srt', '.vtt', '.ko.srt', '.en.srt']:
+                                srt_candidate = base_no_ext + ext
+                                if os.path.exists(srt_candidate):
+                                    try:
+                                        with open(srt_candidate, 'r', encoding='utf-8', errors='replace') as sf:
+                                            raw_text = sf.read(3000)
+                                            if raw_text:
+                                                content = clean_transcript(raw_text)
+                                        break
+                                    except Exception:
+                                        pass
                 
                 try:
                     setattr(video, "content", clean_transcript(content))

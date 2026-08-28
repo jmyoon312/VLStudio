@@ -435,7 +435,7 @@ const getLocalCache = <T,>(key: string, fallback: T): T => {
 
     try {
 
-        const saved = sessionStorage.getItem(`VL_HOME_CACHE_${key}`);
+        const saved = localStorage.getItem(`VL_HOME_CACHE_${key}`);
 
         if (saved) return JSON.parse(saved);
 
@@ -449,7 +449,7 @@ const setLocalCache = (key: string, data: any) => {
 
     try {
 
-        sessionStorage.setItem(`VL_HOME_CACHE_${key}`, JSON.stringify(data));
+        localStorage.setItem(`VL_HOME_CACHE_${key}`, JSON.stringify(data));
 
     } catch (_) {}
 
@@ -641,7 +641,7 @@ const Home = () => {
             }
         }).catch(() => {});
 
-        api.get('/videos/?is_script_only=true&limit=8&sort_by=created_at&sort_order=desc').then(res => {
+        api.get('/videos/?mode=script&limit=8&sort_by=upload_date&sort_order=desc').then(res => {
             if (res?.data && Array.isArray(res.data)) {
                 setScriptLabVideos(res.data);
                 setLocalCache('scriptLabVideos', res.data);
