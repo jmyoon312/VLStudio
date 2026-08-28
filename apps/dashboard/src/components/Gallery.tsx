@@ -766,72 +766,83 @@ const Gallery = () => {
                                     </button>
                                 </div>
 
-                                {/* 중앙 호버 액션 툴바 */}
-                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-20 backdrop-blur-[2px] p-2">
-                                    <div className="flex items-center gap-2">
-                                        <Button 
-                                            size="icon" 
-                                            variant="secondary" 
-                                            className="rounded-full h-9 w-9 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-white/30" 
-                                            onClick={(e) => { e.stopPropagation(); setSelectedVideo(video); }} 
-                                            title="상세 재생"
-                                        >
-                                            <Play className="w-4 h-4 fill-current ml-0.5" />
-                                        </Button>
-                                        <Button 
-                                            size="icon" 
-                                            variant="secondary" 
-                                            className="rounded-full h-9 w-9 bg-indigo-600/80 hover:bg-indigo-600 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-indigo-400/40" 
-                                            onClick={(e) => { e.stopPropagation(); handleSingleDdalkkak(video, 'subtitle'); }} 
-                                            title="⚡ 딸깍 자막 생성"
-                                        >
-                                            <Zap className="w-4 h-4 text-amber-300" />
-                                        </Button>
-                                        <Button 
-                                            size="icon" 
-                                            variant="secondary" 
-                                            className="rounded-full h-9 w-9 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-white/30" 
-                                            onClick={(e) => { e.stopPropagation(); setSubtitleVideo(video); }} 
-                                            title="자막 뷰어"
-                                        >
-                                            <FileText className="w-4 h-4" />
-                                        </Button>
-                                        <Button 
-                                            size="icon" 
-                                            variant="secondary" 
-                                            className="rounded-full h-9 w-9 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-white/30" 
-                                            onClick={(e) => { e.stopPropagation(); setStatsVideo(video); }} 
-                                            title="바이럴 추이 통계"
-                                        >
-                                            <LineChart className="w-4 h-4" />
-                                        </Button>
-                                        {getYoutubeWatchUrl(video) && (
-                                            <a 
-                                                href={getYoutubeWatchUrl(video)}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="rounded-full h-9 w-9 bg-red-600/80 hover:bg-red-600 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-red-400/40 flex items-center justify-center transition-transform hover:scale-105"
-                                                title="유튜브 원본 새 탭으로 열기"
-                                            >
-                                                <ExternalLink className="w-4 h-4" />
-                                            </a>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button 
-                                            size="icon" 
-                                            variant="secondary" 
-                                            className="rounded-full h-8 w-8 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-white/30" 
-                                            onClick={(e) => { e.stopPropagation(); openFolder(video.file_path); }} 
-                                            title="로컬 폴더 열기"
-                                        >
-                                            <FolderOpen className="w-3.5 h-3.5" />
-                                        </Button>
-                                    </div>
-                                </div>
-
-
+                                {/* 중앙 호버/터치 액션 툴바 (모바일에서도 잘림 없는 3x2 컴팩트 그리드) */}
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20 backdrop-blur-[2px] p-1">
+                                    <div className="grid grid-cols-3 gap-1.5 max-w-[120px] sm:max-w-[135px] items-center justify-items-center">
+                                        {/* 1. 재생 */}
+                                        <Button 
+                                            size="icon" 
+                                            variant="secondary" 
+                                            className="rounded-full h-8 w-8 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-white/30" 
+                                            onClick={(e) => { e.stopPropagation(); setSelectedVideo(video); }} 
+                                            title="상세 재생"
+                                        >
+                                            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                                        </Button>
+
+                                        {/* 2. 딸깍 자막 생성 */}
+                                        <Button 
+                                            size="icon" 
+                                            variant="secondary" 
+                                            className="rounded-full h-8 w-8 bg-amber-500/85 hover:bg-amber-500 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-amber-300/40" 
+                                            onClick={(e) => { e.stopPropagation(); handleSingleDdalkkak(video, 'subtitle'); }} 
+                                            title="⚡ 딸깍 자막 생성"
+                                        >
+                                            <Zap className="w-3.5 h-3.5 text-amber-200 fill-amber-200" />
+                                        </Button>
+
+                                        {/* 3. 자막 뷰어 */}
+                                        <Button 
+                                            size="icon" 
+                                            variant="secondary" 
+                                            className="rounded-full h-8 w-8 bg-indigo-600/85 hover:bg-indigo-600 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-indigo-400/40" 
+                                            onClick={(e) => { e.stopPropagation(); setSubtitleVideo(video); }} 
+                                            title="자막 뷰어"
+                                        >
+                                            <FileText className="w-3.5 h-3.5" />
+                                        </Button>
+
+                                        {/* 4. 바이럴 통계 */}
+                                        <Button 
+                                            size="icon" 
+                                            variant="secondary" 
+                                            className="rounded-full h-8 w-8 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-white/30" 
+                                            onClick={(e) => { e.stopPropagation(); setStatsVideo(video); }} 
+                                            title="바이럴 추이 통계"
+                                        >
+                                            <LineChart className="w-3.5 h-3.5" />
+                                        </Button>
+
+                                        {/* 5. 유튜브 원본 */}
+                                        {getYoutubeWatchUrl(video) ? (
+                                            <a 
+                                                href={getYoutubeWatchUrl(video)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="rounded-full h-8 w-8 bg-red-600/85 hover:bg-red-600 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-red-400/40 flex items-center justify-center transition-transform hover:scale-105"
+                                                title="유튜브 원본 새 탭으로 열기"
+                                            >
+                                                <ExternalLink className="w-3.5 h-3.5" />
+                                            </a>
+                                        ) : (
+                                            <div className="h-8 w-8" />
+                                        )}
+
+                                        {/* 6. 로컬 폴더 */}
+                                        <Button 
+                                            size="icon" 
+                                            variant="secondary" 
+                                            className="rounded-full h-8 w-8 bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm border-0 shadow-md ring-1 ring-white/30" 
+                                            onClick={(e) => { e.stopPropagation(); openFolder(video.file_path); }} 
+                                            title="로컬 폴더 열기"
+                                        >
+                                            <FolderOpen className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                </div>
+
+
                                 {/* 하단 메타데이터: 타이틀 & 채널 & 조회수 & 날짜 */}
                                 <div className="space-y-1 z-10">
                                     <div className="flex items-start justify-between gap-1">
