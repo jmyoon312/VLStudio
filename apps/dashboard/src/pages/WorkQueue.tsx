@@ -36,12 +36,29 @@ const getStreamUrl = (filePath: string) => {
 
 
 
+// -- Instant Cache Helpers for WorkQueue --
+const getLocalCache = <T,>(key: string, fallback: T): T => {
+    try {
+        const saved = localStorage.getItem(`VL_WQ_CACHE_${key}`);
+        if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return fallback;
+};
+
+const setLocalCache = (key: string, data: any) => {
+    try {
+        localStorage.setItem(`VL_WQ_CACHE_${key}`, JSON.stringify(data));
+    } catch (_) {}
+};
+
 const WorkQueue = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-
-                const location = useLocation();
+    const location = useLocation();
     const navigate = useNavigate();
     const hasHandledOpenRef = useRef(false);
+
+    // URL 쿼리 파라미터에서 특정 작업 항목 ID (?item_id=123) 추출
+    const targetItemId = searchParams.get('item_id') ? Number(searchParams.get('item_id')) : null;
 
     useEffect(() => {
         const hasSessionPending = sessionStorage.getItem('pending_pixeling_open') === 'true' || sessionStorage.getItem('pending_pixeling_meta');
@@ -53,9 +70,10 @@ const WorkQueue = () => {
             setIsPixelingOpen(true);
         }
     }, [location.pathname]);
+
     const { toast } = useToast();
-    const [queueItems, setQueueItems] = useState<any[]>([]);
-    const [stats, setStats] = useState<any>({});
+    const [queueItems, setQueueItems] = useState<any[]>(() => getLocalCache('queueItems', []));
+    const [stats, setStats] = useState<any>(() => getLocalCache('stats', {}));
     const [activeTab, setActiveTab] = useState('all');
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -71,16 +89,15 @@ const WorkQueue = () => {
     const [limit, setLimit] = useState(100);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedBatch, setSelectedBatch] = useState('all');
-    const [batchGroups, setBatchGroups] = useState<any[]>([]);
-    const [channels, setChannels] = useState<any[]>([]);
-    const [tiktokChannels, setTiktokChannels] = useState<any[]>([]);
-    const [instagramChannels, setInstagramChannels] = useState<any[]>([]);
+    const [batchGroups, setBatchGroups] = useState<any[]>(() => getLocalCache('batchGroups', []));
+    const [channels, setChannels] = useState<any[]>(() => getLocalCache('channels', []));
+    const [tiktokChannels, setTiktokChannels] = useState<any[]>(() => getLocalCache('tiktokChannels', []));
+    const [instagramChannels, setInstagramChannels] = useState<any[]>(() => getLocalCache('instagramChannels', []));
     // 강화된 검색/정렬 상태
     const [channelFilter, setChannelFilter] = useState('all');
     const [uploadMethodFilter, setUploadMethodFilter] = useState('all');
     const [sortField, setSortField] = useState<'created_at' | 'scheduled_at' | 'channel' | 'status'>('created_at');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-
 
     useEffect(() => {
         loadQueueItems();
@@ -124,15 +141,19 @@ const WorkQueue = () => {
         try {
             const response = await fetchWithRetry(buildUrl());
             const data = await response.json();
-            setQueueItems(Array.isArray(data) ? data : []);
-        } catch (_) { setQueueItems([]); }
+            const items = Array.isArray(data) ? data : [];
+            setQueueItems(items);
+            setLocalCache('queueItems', items);
+        } catch (_) {}
     };
 
     const loadBatchGroups = async () => {
         try {
             const response = await fetchWithRetry('/api/work-queue/batches');
             if (response.ok) {
-                setBatchGroups(await response.json());
+                const data = await response.json();
+                setBatchGroups(data);
+                setLocalCache('batchGroups', data);
             }
         } catch (_) { }
     };
@@ -140,7 +161,9 @@ const WorkQueue = () => {
     const loadStats = async () => {
         try {
             const response = await fetchWithRetry('/api/work-queue/stats');
-            setStats(await response.json());
+            const data = await response.json();
+            setStats(data);
+            setLocalCache('stats', data);
         } catch (_) { }
     };
 
@@ -149,11 +172,11 @@ const WorkQueue = () => {
             const [r1, r2, r3] = await Promise.all([
                 fetchWithRetry('/api/youtube/all'),
                 fetchWithRetry('/api/tiktok-channels/'),
-                fetchWithRetry('/api/instagram-channels/'),
+                fetchWithRetry('/api/instagram-channels/')
             ]);
-            if (r1.ok) setChannels(await r1.json());
-            if (r2.ok) setTiktokChannels(await r2.json());
-            if (r3.ok) setInstagramChannels(await r3.json());
+            if (r1.ok) { const d1 = await r1.json(); setChannels(d1); setLocalCache('channels', d1); }
+            if (r2.ok) { const d2 = await r2.json(); setTiktokChannels(d2); setLocalCache('tiktokChannels', d2); }
+            if (r3.ok) { const d3 = await r3.json(); setInstagramChannels(d3); setLocalCache('instagramChannels', d3); }
         } catch (_) { }
     };
 
@@ -852,6 +875,7 @@ const WorkQueue = () => {
                                     selectedItems={selectedItems}
                                     toggleItemSelection={toggleItemSelection}
                                     isUploadingAttach={uploadingItemId === item.id}
+                                    targetItemId={targetItemId}
                                 />
                             ))}
                         </div>
@@ -1037,16 +1061,32 @@ const QueueItemCompactCard = ({
     onAttach, onFinalize, onUpdateUploadMethod, onUpdateChannel,
     channels, tiktokChannels, instagramChannels,
     getStatusBadge, getApprovalBadge, selectedItems, toggleItemSelection,
-    isUploadingAttach
+    isUploadingAttach, targetItemId
 }: any) => {
 
     const { toast } = useToast();
-    const [expanded, setExpanded] = useState(false);
+    const isTarget = targetItemId && item.id === targetItemId;
+    const [expanded, setExpanded] = useState(isTarget || false);
     const [isMuted, setIsMuted] = useState(true);
     const [isPlaying, setIsPlaying] = useState(true);
     const [videoInfo, setVideoInfo] = useState<{ width: number; height: number; duration: number; isVertical: boolean } | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const cardRef = useRef<HTMLDivElement>(null);
     const hasVideo = !!item.video_file_path;
+
+    // 실패 사유 원시 텍스트 통합 (failure_reason, error_message, error, last_error 모두 지원)
+    const rawFailureReason = item.failure_reason || item.error_message || item.error || item.last_error || '';
+    const isFailed = (item.status || '').toUpperCase() === 'FAILED' || (item.status || '').toUpperCase() === 'FAILED_REVIEW' || !!rawFailureReason;
+
+    // 타겟 아이템으로 진입 시 자동 스크롤 및 자동 펼침
+    useEffect(() => {
+        if (isTarget) {
+            setExpanded(true);
+            setTimeout(() => {
+                cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        }
+    }, [isTarget]);
 
     const copyText = (t: string, msg: string) => {
         if (!t) return;
@@ -1128,7 +1168,18 @@ const QueueItemCompactCard = ({
     };
 
     return (
-        <Card className={`w-full overflow-hidden border transition-all ${selectedItems.includes(item.id) ? 'border-indigo-500 bg-indigo-50/15 dark:bg-indigo-950/20 shadow-xs' : 'border-border/80 bg-card hover:border-border'}`}>
+        <Card 
+            ref={cardRef} 
+            className={`w-full overflow-hidden border transition-all ${
+                isTarget 
+                    ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/30 shadow-md' 
+                    : selectedItems.includes(item.id) 
+                        ? 'border-indigo-500 bg-indigo-50/15 dark:bg-indigo-950/20 shadow-xs' 
+                        : isFailed 
+                            ? 'border-rose-300/80 dark:border-rose-900/60 bg-rose-50/10 dark:bg-rose-950/10' 
+                            : 'border-border/80 bg-card hover:border-border'
+            }`}
+        >
             <CardContent className="p-3 w-full min-w-0 space-y-2">
                 {/* 1. 모바일 상단 바 (체크박스, 순번, 상태 배지 & 간편 조작 아이콘) */}
                 <div className="flex items-center justify-between w-full sm:hidden border-b border-border/40 pb-1.5">
@@ -1245,6 +1296,26 @@ const QueueItemCompactCard = ({
                                 </span>
                             )}
                         </div>
+
+                        {/* 🚨 실패 항목 즉시 가시화 배너 (접힌 상태에서도 실패 사유 바로 노출) */}
+                        {isFailed && (
+                            <div 
+                                onClick={() => setExpanded(!expanded)}
+                                className="flex items-center gap-1.5 text-[11px] text-rose-700 dark:text-rose-300 font-medium bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 px-2 py-1 rounded-lg mt-1 cursor-pointer hover:bg-rose-100/80 transition-colors"
+                                title="클릭하여 상세 실패 원인 및 해결 가이드 확인"
+                            >
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                <span className="font-bold text-rose-600 dark:text-rose-400 shrink-0">
+                                    {parseFailureReason(rawFailureReason).title}:
+                                </span>
+                                <span className="truncate flex-1">
+                                    {parseFailureReason(rawFailureReason).description}
+                                </span>
+                                <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold underline ml-1 shrink-0">
+                                    {expanded ? '상세 닫기 ▴' : '상세 사유 보기 ▾'}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* 데스크톱 전용 우측 액션 버튼 바 */}
@@ -1553,9 +1624,9 @@ const QueueItemCompactCard = ({
                                             <div><span>외부ID:</span> <span className="font-mono">{item.source_external_id || '--'}</span></div>
                                             <div><span>Batch:</span> <span className="font-mono">{item.source_batch_id ? item.source_batch_id.slice(0, 10) : '--'}</span></div>
                                         </div>
-                                        {item.failure_reason && (
+                                        {rawFailureReason && (
                                             <FailureReasonCard
-                                                failureReason={item.failure_reason}
+                                                failureReason={rawFailureReason}
                                                 onRetry={onReset ? () => onReset(item.id) : undefined}
                                             />
                                         )}
