@@ -2491,7 +2491,7 @@ const Home = () => {
 
                                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
 
-                                        <span>채널: <strong className="text-foreground">{selectedVideo.channel || '트렌딩 크리에이터'}</strong></span>
+                                        <span>채널: <strong className="text-foreground">{typeof selectedVideo.channel === 'object' && selectedVideo.channel !== null ? (selectedVideo.channel as any).name : (selectedVideo.channel || (selectedVideo as any).channel_title || '트렌딩 크리에이터')}</strong></span>
 
                                         <span>{selectedVideo.time || '1일 전'}</span>
 
