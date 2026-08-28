@@ -133,6 +133,19 @@ const Gallery = () => {
     // 모달 상태
     const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
 
+
+    const [subtitleVideo, setSubtitleVideo] = useState<Video | null>(null);
+    const [statsVideo, setStatsVideo] = useState<Video | null>(null);
+
+    // 데이터 조회
+    const { data: videos, isLoading: isVideosLoading, isError, error } = useQuery<Video[]>({
+        queryKey: ['videos'],
+        queryFn: async () => {
+            const res = await api.get<Video[]>('/videos/', { params: { mode: 'video' } });
+            return res.data.filter(v => !v.is_script_only);
+        }
+    });
+
     // URL Query Params 체크 (?video_id=...) -> 해당 영상 자동 플레이어 모달 오픈
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -144,17 +157,6 @@ const Gallery = () => {
             }
         }
     }, [videos]);
-    const [subtitleVideo, setSubtitleVideo] = useState<Video | null>(null);
-    const [statsVideo, setStatsVideo] = useState<Video | null>(null);
-
-    // 데이터 조회
-    const { data: videos, isLoading: isVideosLoading, isError, error } = useQuery<Video[]>({
-        queryKey: ['videos'],
-        queryFn: async () => {
-            const res = await api.get<Video[]>('/videos/', { params: { mode: 'video' } });
-            return res.data.filter(v => !v.is_script_only);
-        }
-    });
 
     const { data: settings } = useQuery<Settings>({
         queryKey: ['settings'],

@@ -184,17 +184,7 @@ const ScriptLab = () => {
     const [sortOption, setSortOption] = useState<'viral' | 'latest' | 'views'>('viral');
     const [subtitleVideo, setSubtitleVideo] = useState<Video | null>(null);
 
-    // URL Query Params 체크 (?video_id=...) -> 해당 대본/자막 모달 자동 오픈
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const targetVideoId = params.get('video_id');
-        if (targetVideoId && videos && videos.length > 0) {
-            const target = videos.find(v => v.id === parseInt(targetVideoId, 10));
-            if (target) {
-                setSubtitleVideo(target);
-            }
-        }
-    }, [videos]);
+
     const [statsVideo, setStatsVideo] = useState<Video | null>(null);
     const [playerVideo, setPlayerVideo] = useState<Video | null>(null);
     const [isCopied, setIsCopied] = useState(false);
@@ -224,7 +214,19 @@ const ScriptLab = () => {
         },
         staleTime: 1000 * 60 * 3, // 3분간 캐시 즉시 재사용 (메뉴 전환 시 0.001초 즉각 로딩)
         gcTime: 1000 * 60 * 10,
-    });
+    });
+
+    // URL Query Params 체크 (?video_id=...) -> 해당 대본/자막 모달 자동 오픈
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const targetVideoId = params.get('video_id');
+        if (targetVideoId && videos && videos.length > 0) {
+            const target = videos.find(v => v.id === parseInt(targetVideoId, 10));
+            if (target) {
+                setSubtitleVideo(target);
+            }
+        }
+    }, [videos]);
 
 
     // Delete Mutation
