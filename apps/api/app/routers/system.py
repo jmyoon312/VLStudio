@@ -597,7 +597,264 @@ def delete_config_preset(preset_id: int, db: Session = Depends(database.get_db))
     db_preset = db.query(models.ConfigPreset).filter(models.ConfigPreset.id == preset_id).first()
     if not db_preset:
         raise HTTPException(status_code=404, detail="Preset not found")
+    db.delete(db_preset)
+    db.commit()
+    return {"message": "Preset deleted"}
+
+
+# =========================================================================
+# Unified Core Engine Hub & Dependency Health Endpoints (통합 엔진 센터)
+# =========================================================================
+
+@router.get("/engines/status")
+async def get_unified_engines_status():
+    """
+    통합 엔진 & AI 런타임 & 시스템 의존성 상태 일괄 진단
+    """
+    import shutil
+    from .. import dependency_manager
+
+    # 1. yt-dlp 상태
+    ytdlp_ver = "Unknown"
+    try:
+        import yt_dlp
+        ytdlp_ver = getattr(yt_dlp, 'version', None) and yt_dlp.version.__version__ or getattr(yt_dlp, '__version__', 'Unknown')
+    except Exception:
+        pass
+
+    # 2. CloakBrowser 상태
+    cloak_ver = get_cloakbrowser_version()
+
+    # 3. FFmpeg & FFprobe 상태 및 하드웨어 가속 여부
+    ffmpeg_path = dependency_manager.DependencyManager.get_ffmpeg_path()
+    ffmpeg_installed = ffmpeg_path and (os.path.exists(ffmpeg_path) or ffmpeg_path == "ffmpeg")
+    ffmpeg_version_str = "Unknown"
+    hw_accel_nvenc = False
     
+    if ffmpeg_installed:
+        try:
+            res = subprocess.run(
+                [ffmpeg_path, "-version"],
+                capture_output=True, text=True, timeout=5,
+                creationflags=0x08000000 if platform.system() == "Windows" else 0
+            )
+            if res.returncode == 0:
+                first_line = res.stdout.splitlines()[0] if res.stdout else ""
+                ffmpeg_version_str = first_line.split("Copyright")[0].strip() if "Copyright" in first_line else first_line
+        except Exception:
+            pass
+
+        try:
+            res_enc = subprocess.run(
+                [ffmpeg_path, "-encoders"],
+                capture_output=True, text=True, timeout=5,
+                creationflags=0x08000000 if platform.system() == "Windows" else 0
+            )
+            if "h264_nvenc" in res_enc.stdout or "hevc_nvenc" in res_enc.stdout:
+                hw_accel_nvenc = True
+        except Exception:
+            pass
+
+    ffprobe_path = dependency_manager.DependencyManager.get_ffprobe_path()
+    ffprobe_installed = bool(ffprobe_path and (os.path.exists(ffprobe_path) or shutil.which("ffprobe")))
+
+    # 4. Node.js 상태
+    node_path = shutil.which("node")
+    node_version = "Unknown"
+    if node_path:
+        try:
+            res_node = subprocess.run(
+                [node_path, "-v"],
+                capture_output=True, text=True, timeout=5,
+                creationflags=0x08000000 if platform.system() == "Windows" else 0
+            )
+            if res_node.returncode == 0:
+                node_version = res_node.stdout.strip()
+        except Exception:
+            pass
+
+    # 5. Whisper 모델 캐시 상태 분석
+    local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    whisper_dir = os.path.normpath(os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "faster-whisper"))
+    
+    cached_models = []
+    total_whisper_bytes = 0
+    
+    if os.path.exists(whisper_dir):
+        for root, dirs, files in os.walk(whisper_dir):
+            for f in files:
+                fp = os.path.join(root, f)
+                try:
+                    total_whisper_bytes += os.path.getsize(fp)
+                except Exception:
+                    pass
+        try:
+            for item in os.listdir(whisper_dir):
+                item_path = os.path.join(whisper_dir, item)
+                if os.path.isdir(item_path):
+                    # Check size of this model folder
+                    item_bytes = sum(os.path.getsize(os.path.join(r, f)) for r, d, fls in os.walk(item_path) for f in fls)
+                    cached_models.append({
+                        "name": item.replace("models--Systran--faster-whisper-", "").replace("faster-whisper-", ""),
+                        "folder": item,
+                        "size_mb": round(item_bytes / (1024 * 1024), 1)
+                    })
+        except Exception:
+            pass
+
+    total_whisper_mb = round(total_whisper_bytes / (1024 * 1024), 1)
+
+    # 6. 파이썬 핵심 패키지 헬스체크 (핵심 15개 모듈 로드 검증)
+    core_packages = [
+        "fastapi", "uvicorn", "pydantic", "sqlalchemy", "requests", "httpx",
+        "google.generativeai", "openai", "anthropic", "cv2", "PIL", "numpy",
+        "edge_tts", "faster_whisper", "onnxruntime", "yt_dlp", "pydub"
+    ]
+    package_health = []
+    healthy_count = 0
+    for pkg in core_packages:
+        try:
+            __import__(pkg)
+            package_health.append({"name": pkg, "status": "ok"})
+            healthy_count += 1
+        except Exception as err:
+            package_health.append({"name": pkg, "status": "error", "message": str(err)})
+
+    return {
+        "ytdlp": {
+            "version": ytdlp_ver,
+            "installed": ytdlp_ver != "Unknown"
+        },
+        "cloakbrowser": {
+            "version": cloak_ver,
+            "installed": "Unknown" not in cloak_ver and "not installed" not in cloak_ver
+        },
+        "ffmpeg": {
+            "installed": ffmpeg_installed,
+            "version": ffmpeg_version_str,
+            "path": ffmpeg_path,
+            "hw_nvenc": hw_accel_nvenc
+        },
+        "ffprobe": {
+            "installed": ffprobe_installed,
+            "path": ffprobe_path
+        },
+        "nodejs": {
+            "installed": bool(node_path),
+            "version": node_version,
+            "path": node_path
+        },
+        "whisper": {
+            "cache_dir": whisper_dir,
+            "total_size_mb": total_whisper_mb,
+            "cached_models": cached_models
+        },
+        "dependencies": {
+            "total": len(core_packages),
+            "healthy": healthy_count,
+            "all_healthy": healthy_count == len(core_packages),
+            "packages": package_health
+        }
+    }
+
+
+@router.post("/engines/update-all")
+async def update_all_engines():
+    """
+    모든 플랫폼 연동 엔진(yt-dlp 및 CloakBrowser)을 1클릭 일괄 최신화
+    """
+    results = {}
+    
+    # 1. Update yt-dlp
+    try:
+        res_yt = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', '--upgrade', 'yt-dlp'],
+            capture_output=True, text=True, timeout=120,
+            creationflags=0x08000000 if platform.system() == "Windows" else 0
+        )
+        results["ytdlp"] = {
+            "success": res_yt.returncode == 0,
+            "message": "yt-dlp 최신 버전 업데이트 완료" if res_yt.returncode == 0 else "yt-dlp 업데이트 실패",
+            "logs": res_yt.stdout or res_yt.stderr
+        }
+    except Exception as e:
+        results["ytdlp"] = {"success": False, "message": str(e)}
+
+    # 2. Update CloakBrowser
+    try:
+        res_cloak = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', '--upgrade', 'cloakbrowser[patchright]'],
+            capture_output=True, text=True, timeout=120,
+            creationflags=0x08000000 if platform.system() == "Windows" else 0
+        )
+        results["cloakbrowser"] = {
+            "success": res_cloak.returncode == 0,
+            "message": "CloakBrowser 최신 버전 업데이트 완료" if res_cloak.returncode == 0 else "CloakBrowser 업데이트 실패",
+            "logs": res_cloak.stdout or res_cloak.stderr
+        }
+    except Exception as e:
+        results["cloakbrowser"] = {"success": False, "message": str(e)}
+
+    all_success = all(r.get("success", False) for r in results.values())
+    return {
+        "success": all_success,
+        "message": "모든 플랫폼 코어 엔진이 최신 버전으로 업데이트되었습니다." if all_success else "일부 엔진 업데이트 중 문제가 발생했습니다.",
+        "results": results
+    }
+
+
+@router.post("/engines/repair-dependencies")
+async def repair_dependencies():
+    """
+    가상환경 의존성 무결성 원터치 자가 복구 (Self-Healing Repair)
+    requirements.txt 기반으로 누락되거나 손상된 패키지만 안전하게 재설치
+    """
+    req_path = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "requirements.txt"))
+    if not os.path.exists(req_path):
+        # Fallback to current directory
+        req_path = "requirements.txt"
+
+    try:
+        res = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', '-r', req_path],
+            capture_output=True, text=True, timeout=300,
+            creationflags=0x08000000 if platform.system() == "Windows" else 0
+        )
+        if res.returncode == 0:
+            return {
+                "success": True,
+                "message": "모든 파이썬 핵심 의존성 패키지가 정상적으로 복구되었습니다.",
+                "logs": res.stdout
+            }
+        else:
+            return {
+                "success": False,
+                "message": "의존성 복구 중 일부 오류가 발생했습니다.",
+                "logs": res.stderr
+            }
+    except Exception as e:
+        return {"success": False, "message": f"복구 실행 오류: {str(e)}"}
+
+
+@router.post("/whisper/clear-cache")
+async def clear_whisper_cache():
+    """
+    Faster-Whisper 로컬 모델 캐시 폴더 정리
+    """
+    local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    whisper_dir = os.path.normpath(os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "faster-whisper"))
+    
+    if not os.path.exists(whisper_dir):
+        return {"success": True, "message": "정리할 Whisper 모델 캐시가 없습니다."}
+
+    import shutil
+    try:
+        shutil.rmtree(whisper_dir, ignore_errors=True)
+        os.makedirs(whisper_dir, exist_ok=True)
+        return {"success": True, "message": "Whisper 모델 캐시 폴더가 성공적으로 비워졌습니다."}
+    except Exception as e:
+        return {"success": False, "message": f"캐시 정리 실패: {str(e)}"}
+
     db.delete(db_preset)
     db.commit()
     return {"ok": True}

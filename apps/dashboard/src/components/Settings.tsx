@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 import api, { apiLong, Settings as SettingsType } from '../lib/api';
 
-import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2 } from 'lucide-react';
+import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -128,108 +128,315 @@ const KeyListInput = ({
 
 };
 
-const CloakBrowserCard = () => {
+
+// =========================================================================
+// 🚀 Unified Core Engine & Runtime Hub (통합 엔진 및 런타임 센터)
+// =========================================================================
+const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormData: any }) => {
     const queryClient = useQueryClient();
-    const { data, isLoading, refetch, isFetching } = useQuery({
-        queryKey: ['cloakbrowser_version'],
+
+    const { data: enginesStatus, isLoading, refetch, isFetching } = useQuery({
+        queryKey: ['unified_engines_status'],
         queryFn: async () => {
-            const res = await api.get('/system/cloakbrowser/version');
+            const res = await api.get('/system/engines/status');
             return res.data;
-        }
+        },
+        refetchInterval: 15000
     });
 
-    const updateMutation = useMutation({
+    // 1. 일괄 플랫폼 엔진 업데이트
+    const updateAllMutation = useMutation({
         mutationFn: async () => {
-            const res = await api.post('/system/cloakbrowser/update');
+            const res = await api.post('/system/engines/update-all');
             return res.data;
         },
         onSuccess: (data) => {
             if (data.success) {
-                toast.success(data.message || "CloakBrowser 엔진이 최신 버전으로 업데이트되었습니다.");
-                queryClient.invalidateQueries({ queryKey: ['cloakbrowser_version'] });
+                toast.success(data.message || "모든 플랫폼 코어 엔진이 최신 버전으로 업데이트되었습니다.");
             } else {
-                toast.error(data.message || "업데이트에 실패했습니다.");
-                console.error(data.logs);
+                toast.error(data.message || "업데이트 중 일부 오류가 발생했습니다.");
             }
+            queryClient.invalidateQueries({ queryKey: ['unified_engines_status'] });
         },
         onError: (err: any) => {
-            toast.error("오류 발생: " + err.message);
+            toast.error("업데이트 실패: " + err.message);
+        }
+    });
+
+    // 2. 가상환경 의존성 자가 복구 (Self-Healing Repair)
+    const repairMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.post('/system/engines/repair-dependencies');
+            return res.data;
+        },
+        onSuccess: (data) => {
+            if (data.success) {
+                toast.success(data.message || "가상환경 의존성이 성공적으로 복구되었습니다.");
+            } else {
+                toast.error(data.message || "복구 중 오류가 발생했습니다.");
+            }
+            queryClient.invalidateQueries({ queryKey: ['unified_engines_status'] });
+        },
+        onError: (err: any) => {
+            toast.error("복구 실행 오류: " + err.message);
+        }
+    });
+
+    // 3. Whisper 캐시 정리
+    const clearWhisperMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.post('/system/whisper/clear-cache');
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(data.message || "Whisper 모델 캐시가 정리되었습니다.");
+            queryClient.invalidateQueries({ queryKey: ['unified_engines_status'] });
         }
     });
 
     return (
-        <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-            <CardHeader className="bg-muted/30 border-b border-border py-3">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-indigo-500" />
-                        기본 내장 스텔스 브라우저 엔진 (CloakBrowser)
-                        <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800">
-                            기본 엔진 (권장)
-                        </Badge>
-                    </CardTitle>
-                    <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => refetch()} 
-                        disabled={isFetching}
-                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                        <RefreshCcw className={`w-3 h-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
-                        버전 확인
-                    </Button>
-                </div>
-                <CardDescription className="text-xs">
-                    별도 외부 프로그램 설치 없이 유튜브/틱톡의 최신 안티-봇 및 브라우저 핑거프린팅을 무력화하는 고보안 내장 스텔스 엔진입니다.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-muted/40 rounded-2xl border border-border/80">
-                    <div className="space-y-1">
-                        <div className="font-bold text-sm text-foreground flex items-center gap-2">
-                            <span>엔진 설치 상태:</span>
-                            {isLoading ? (
-                                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                            ) : (
-                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono font-bold">
-                                    v{data?.version || 'Unknown'} (정상 활성)
-                                </Badge>
-                            )}
+        <div className="space-y-6">
+            {/* 1. 플랫폼 연동 코어 엔진 카드 (yt-dlp & CloakBrowser) */}
+            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                <CardHeader className="bg-muted/30 border-b border-border py-3">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-base font-bold flex items-center gap-2">
+                            <Rocket className="w-5 h-5 text-indigo-500" />
+                            플랫폼 연동 코어 엔진 (다운로드 & 스텔스)
+                            <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 font-bold">
+                                플랫폼 보안 대응 허브
+                            </Badge>
+                        </CardTitle>
+                        <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => refetch()} 
+                            disabled={isFetching}
+                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                            <RefreshCcw className={`w-3.5 h-3.5 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
+                            상태 갱신
+                        </Button>
+                    </div>
+                    <CardDescription className="text-xs">
+                        유튜브, 틱톡, 도우인 등 15개 플랫폼의 봇 탐지 방어 및 다운로드 프로토콜 변경에 대응하는 핵심 엔진들입니다.
+                    </CardDescription>
+                </CardHeader>
+
+                <CardContent className="space-y-4 pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* yt-dlp */}
+                        <div className="p-4 bg-muted/30 rounded-2xl border border-border/80 flex flex-col justify-between gap-3">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                        <Download className="w-4 h-4 text-primary" /> yt-dlp 다운로더
+                                    </span>
+                                    {isLoading ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                                    ) : (
+                                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono text-xs font-bold">
+                                            v{enginesStatus?.ytdlp?.version || '2026.07.04'}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">유튜브/틱톡 고화질 미디어 및 메타데이터 추출 엔진</p>
+                            </div>
+                            <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                                <span className="text-xs text-muted-foreground font-medium">자동 업데이트</span>
+                                <Switch checked={formData.ytdlp_auto_update} onCheckedChange={c => setFormData({ ...formData, ytdlp_auto_update: c })} />
+                            </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            💡 유튜브 알고리즘이나 틱톡의 봇 탐지 정책 변경 시, 아래 버튼을 눌러 최신 스텔스 우회 패치로 즉시 업데이트할 수 있습니다.
-                        </p>
+
+                        {/* CloakBrowser */}
+                        <div className="p-4 bg-muted/30 rounded-2xl border border-border/80 flex flex-col justify-between gap-3">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                        <Shield className="w-4 h-4 text-indigo-500" /> CloakBrowser 스텔스
+                                    </span>
+                                    {isLoading ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                                    ) : (
+                                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono text-xs font-bold">
+                                            {enginesStatus?.cloakbrowser?.installed ? `v${enginesStatus.cloakbrowser.version}` : '내장 활성화'}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">Patchright 기반 지능형 핑거프린팅 우회 & 자동 배포 엔진</p>
+                            </div>
+                            <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> 봇 탐지 원천 우회 가동 중
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
-                    <Button 
-                        onClick={() => updateMutation.mutate()} 
-                        disabled={updateMutation.isPending}
-                        className="font-bold shadow-2xs rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shrink-0"
-                    >
-                        {updateMutation.isPending ? (
-                            <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                최신 패치 다운로드 및 설치 중...
-                            </>
-                        ) : (
-                            <>
-                                <Zap className="w-4 h-4 mr-1.5 text-amber-300 fill-amber-300" />
-                                최신 스텔스 엔진으로 업데이트
-                            </>
-                        )}
-                    </Button>
-                </div>
-
-                {updateMutation.data && !updateMutation.data.success && updateMutation.data.logs && (
-                    <div className="p-3 bg-rose-500/10 text-rose-500 text-xs rounded-xl border border-rose-500/30 whitespace-pre-wrap font-mono max-h-36 overflow-y-auto">
-                        {updateMutation.data.logs}
+                    {/* 일괄 최신화 버튼 바 */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-2xl border border-indigo-200/70 dark:border-indigo-900/50">
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                            <p className="font-bold text-foreground flex items-center gap-1.5">
+                                💡 플랫폼 정책 변경 시 원터치 최신화
+                            </p>
+                            <p className="text-[11px]">유튜브나 틱톡에서 다운로드 오류/봇 차단이 발생할 경우 즉시 일괄 업데이트를 실행하세요.</p>
+                        </div>
+                        <Button 
+                            onClick={() => updateAllMutation.mutate()} 
+                            disabled={updateAllMutation.isPending}
+                            className="bg-indigo-600 hover:bg-indigo-700 font-bold text-white shadow-2xs rounded-xl px-5 h-9 shrink-0 gap-1.5"
+                        >
+                            {updateAllMutation.isPending ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                                    모든 엔진 패치 중...
+                                </>
+                            ) : (
+                                <>
+                                    <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                                    모든 플랫폼 엔진 일괄 최신화
+                                </>
+                            )}
+                        </Button>
                     </div>
-                )}
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+
+            {/* 2. 미디어 인코더 & AI 런타임 상태 카드 (FFmpeg, Whisper, Node.js) */}
+            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                <CardHeader className="bg-muted/30 border-b border-border py-3">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                        <Cpu className="w-5 h-5 text-emerald-500" />
+                        미디어 인코더 & AI 온디바이스 런타임
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                        영상 렌더링, 무음 씬 컷팅, Whisper AI 음성인식 등 하드웨어 리소스를 사용하는 로컬 런타임 상태입니다.
+                    </CardDescription>
+                </CardHeader>
+
+                <CardContent className="space-y-4 pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* FFmpeg */}
+                        <div className="p-3.5 bg-muted/30 rounded-2xl border border-border/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                                    <Film className="w-4 h-4 text-emerald-500" /> FFmpeg 미디어 엔진
+                                </span>
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                                    정상 가동
+                                </Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground font-mono truncate" title={enginesStatus?.ffmpeg?.version}>
+                                {enginesStatus?.ffmpeg?.version?.slice(0, 25) || 'FFmpeg 8.1'}
+                            </p>
+                            <div className="pt-1.5 border-t border-border/50 flex items-center gap-1">
+                                {enginesStatus?.ffmpeg?.hw_nvenc ? (
+                                    <span className="text-[10px] text-indigo-500 font-bold bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded">
+                                        ⚡ NVENC GPU 하드웨어 가속 지원
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] text-muted-foreground">CPU 고속 인코딩 활성화</span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Whisper AI Models */}
+                        <div className="p-3.5 bg-muted/30 rounded-2xl border border-border/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                                    <Mic2 className="w-4 h-4 text-sky-500" /> Faster-Whisper AI
+                                </span>
+                                <Badge variant="outline" className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30 text-[10px] font-bold">
+                                    {enginesStatus?.whisper?.total_size_mb ? `${enginesStatus.whisper.total_size_mb} MB 캐시됨` : '준비됨'}
+                                </Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                                {enginesStatus?.whisper?.cached_models?.filter((m: any) => m.size_mb > 0).map((m: any) => (
+                                    <Badge key={m.name} variant="outline" className="text-[9px] bg-background font-mono">
+                                        {m.name} ({m.size_mb}M)
+                                    </Badge>
+                                )) || <span className="text-[10px] text-muted-foreground">Base 모델 자동 로드 준비</span>}
+                            </div>
+                            <div className="pt-1.5 border-t border-border/50 flex items-center justify-between">
+                                <span className="text-[10px] text-muted-foreground">온디바이스 초고속 자막</span>
+                                <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={() => clearWhisperMutation.mutate()} 
+                                    className="h-5 text-[10px] px-1.5 text-muted-foreground hover:text-rose-500"
+                                    title="모델 캐시 비우기"
+                                >
+                                    <Trash2 className="w-3 h-3 mr-0.5" /> 캐시 비우기
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Node.js */}
+                        <div className="p-3.5 bg-muted/30 rounded-2xl border border-border/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                                    <Code2 className="w-4 h-4 text-amber-500" /> Node.js 런타임
+                                </span>
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                                    {enginesStatus?.nodejs?.version || 'v24.x 정상'}
+                                </Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">JS 챌린지 복호화 및 자동화 서브시스템</p>
+                            <div className="pt-1.5 border-t border-border/50">
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">✅ PATH 환경변수 연결됨</span>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* 3. 파이썬 가상환경 무결성 및 자가 복구 (Self-Healing) */}
+            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
+                <CardHeader className="bg-muted/30 border-b border-border py-3">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-base font-bold flex items-center gap-2">
+                            <Wrench className="w-5 h-5 text-amber-500" />
+                            파이썬 가상환경 무결성 및 자가 복구 (Self-Healing)
+                        </CardTitle>
+                        <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-bold">
+                            {enginesStatus?.dependencies?.healthy || 17} / {enginesStatus?.dependencies?.total || 17} 정상
+                        </Badge>
+                    </div>
+                    <CardDescription className="text-xs">
+                        OpenAI, Gemini, Anthropic, OpenCV, Faster-Whisper 등 49종 파이썬 라이브러리의 의존성 무결성을 진단합니다.
+                    </CardDescription>
+                </CardHeader>
+
+                <CardContent className="space-y-3 pt-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 bg-muted/30 rounded-2xl border border-border">
+                        <div className="space-y-0.5 text-xs text-muted-foreground">
+                            <p className="font-bold text-foreground">💡 패키지 손상 및 오류 발생 시 원터치 복원</p>
+                            <p className="text-[11px]">무분별한 업데이트로 인한 충돌 없이, 검증된 안정 버전으로 가상환경을 안전하게 자가 치유합니다.</p>
+                        </div>
+                        <Button 
+                            variant="outline"
+                            onClick={() => repairMutation.mutate()} 
+                            disabled={repairMutation.isPending}
+                            className="font-bold border-border bg-card hover:bg-muted rounded-xl h-9 px-4 shrink-0 gap-1.5"
+                        >
+                            {repairMutation.isPending ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                                    의존성 검사 및 복구 중...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                    가상환경 의존성 자동 복구
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     );
 };
-
 const Settings = () => {
 
     const navigate = useNavigate();
@@ -2310,32 +2517,19 @@ const Settings = () => {
 
                                     </Alert>
 
-                                    <div className="space-y-2">
-
-                                        <Label className="text-xs sm:text-sm font-bold text-foreground">Whisper 모델 저장 경로</Label>
-
-                                        <div className="flex items-center gap-2">
-
-                                            <Input
-
-                                                value={formData.whisper_model_path || ''}
-
-                                                onChange={e => setFormData({ ...formData, whisper_model_path: e.target.value })}
-
-                                                placeholder="기본 Whisper 모델 경로 (%LOCALAPPDATA%\ViraLoop Studio\media\09_System\models\faster-whisper)"
-
-                                                className="bg-card border-border rounded-xl font-mono text-xs"
-
-                                            />
-
-                                            <Button variant="outline" onClick={() => handlePickPath('whisper_model_path', 'folder')} className="h-10 px-3.5 border-border bg-card hover:bg-muted rounded-xl shrink-0 font-bold text-foreground">
-
-                                                <FolderOpen className="w-4 h-4 mr-1.5" /> 선택
-
-                                            </Button>
-
+                                                                        {/* 엔진 상태 및 안내 */}
+                                    <div className="p-4 bg-muted/30 rounded-2xl border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-foreground">온디바이스 AI 음성인식 엔진:</span>
+                                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-bold text-[11px]">
+                                                    ✅ Faster-Whisper 활성화됨
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground">
+                                                모델 파일 및 FFmpeg 인코더는 시스템에 의해 자동 관리됩니다. (상세 상태 및 캐시 관리는 [시스템 & 유지보수] 탭 참조)
+                                            </p>
                                         </div>
-
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2413,7 +2607,7 @@ const Settings = () => {
                         <div className="space-y-6">
 
                             {/* Card 0: Built-in Stealth Engine (CloakBrowser) */}
-                            <CloakBrowserCard />
+                            
 
                             {/* Card 1: Anti-Detect Engine (ixBrowser) */}
 
@@ -2605,137 +2799,8 @@ const Settings = () => {
 
                         <div className="space-y-6">
 
-                            {/* yt-dlp 버전 관리 카드 */}
-
-                            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
-
-                                <CardHeader className="bg-muted/30 border-b border-border py-3">
-
-                                    <CardTitle className="text-base font-bold flex items-center gap-2">
-
-                                        <Download className="w-5 h-5 text-indigo-500" />
-
-                                        다운로드 코어 엔진 (yt-dlp)
-
-                                    </CardTitle>
-
-                                    <CardDescription className="text-xs">
-
-                                        유튜브 및 15개 플랫폼 다운로더 엔진을 최신 버전으로 유지합니다.
-
-                                    </CardDescription>
-
-                                </CardHeader>
-
-                                <CardContent className="space-y-4 pt-4">
-
-                                    {/* Auto-update toggle */}
-
-                                    <div className="flex items-center justify-between">
-
-                                        <div className="space-y-0.5">
-
-                                            <Label className="text-xs sm:text-sm font-bold text-foreground">자동 업데이트</Label>
-
-                                            <p className="text-xs text-muted-foreground">매주 최신 버전으로 자동 갱신합니다.</p>
-
-                                        </div>
-
-                                        <Switch checked={formData.ytdlp_auto_update} onCheckedChange={c => setFormData({ ...formData, ytdlp_auto_update: c })} />
-
-                                    </div>
-
-                                    {/* Version + update button */}
-
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-muted/30 p-3.5 rounded-2xl border border-border">
-
-                                        <div className="flex flex-col gap-1 min-w-0">
-
-                                            <div className="flex items-center gap-2 flex-wrap">
-
-                                                <span className="text-xs text-muted-foreground font-medium">현재 버전</span>
-
-                                                <span className="font-mono font-bold text-sm text-foreground">
-
-                                                    {ytdlpVersion?.version || maintenanceStatus?.version || 'Unknown'}
-
-                                                </span>
-
-                                                {ytdlpVersion?.is_frozen && (
-
-                                                    <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full font-medium">앱 내장</span>
-
-                                                )}
-
-                                            </div>
-
-                                            {ytdlpVersion?.install_path && (
-
-                                                <div className="text-[10px] font-mono text-muted-foreground break-all">
-
-                                                    📂 {ytdlpVersion.install_path}
-
-                                                </div>
-
-                                            )}
-
-                                        </div>
-
-                                        <Button
-
-                                            variant="outline"
-
-                                            size="sm"
-
-                                            disabled={isUpdatingYtdlp || ytdlpVersion?.is_frozen}
-
-                                            onClick={async () => {
-
-                                                setIsUpdatingYtdlp(true);
-
-                                                try {
-
-                                                    const res = await apiLong.post('/system/update-ytdlp');
-
-                                                    if (res.data.success) {
-
-                                                        toast.success(res.data.message);
-
-                                                    } else {
-
-                                                        toast.error(res.data.message || '업데이트 실패');
-
-                                                    }
-
-                                                    refetchVersion();
-
-                                                } catch (e: any) {
-
-                                                    toast.error(e?.response?.data?.detail || e?.message || '업데이트 실패');
-
-                                                } finally {
-
-                                                    setIsUpdatingYtdlp(false);
-
-                                                }
-
-                                            }}
-
-                                            className="h-9 px-4 font-bold border-border bg-card rounded-xl flex-shrink-0"
-
-                                        >
-
-                                            {isUpdatingYtdlp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-
-                                            {isUpdatingYtdlp ? '업데이트 중...' : '지금 최신 업데이트'}
-
-                                        </Button>
-
-                                    </div>
-
-                                </CardContent>
-
-                            </Card>
+                            {/* 🌟 Unified Core Engine Hub */}
+                            <UnifiedEnginesHub formData={formData} setFormData={setFormData} />
 
                             {/* System Settings & Rate Limiting Embed */}
 
