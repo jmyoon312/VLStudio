@@ -1907,7 +1907,32 @@ const Home = () => {
                                 galleryVideos.slice(0, 4).map((v, idx) => (
                                     <div 
                                         key={v.id} 
-                                        onClick={() => setSelectedVideo(v)}
+                                        onClick={() => {
+                                            const thumbUrl = getMediaUrl(v.thumbnail_path, settings?.root_download_path)
+                                                || (v.video_id ? `https://i.ytimg.com/vi/${v.video_id}/hqdefault.jpg` : '')
+                                                || (() => { const m = (v.url || '').match(/(?:youtu\.be\/|shorts\/|watch\?v=)([A-Za-z0-9_-]{11})/); return m ? `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` : ''; })();
+                                            const ytUrl = v.url && (v.url.includes('youtube.com') || v.url.includes('youtu.be'))
+                                                ? v.url
+                                                : v.video_id ? `https://www.youtube.com/watch?v=${v.video_id}` : '';
+                                            const vc = v.view_count || (v.metadata_json as any)?.view_count || 0;
+                                            setSelectedVideo({
+                                                id: v.id,
+                                                rank: `#${idx + 1}`,
+                                                title: v.title || '(제목 없음)',
+                                                tag: v.category || '레퍼런스',
+                                                channel: (v.metadata_json as any)?.uploader || (v.metadata_json as any)?.channel_name || '수집 채널',
+                                                views: vc > 0 ? (vc >= 10000 ? `${(vc / 10000).toFixed(0)}만` : String(vc)) : '-',
+                                                comments: (v.metadata_json as any)?.comment_count ? `${(v.metadata_json as any).comment_count}개` : '-',
+                                                duration: v.duration || v.duration_sec ? `0:${String(v.duration || v.duration_sec || 60).padStart(2, '0')}` : '1:00',
+                                                time: v.upload_date ? new Date(v.upload_date).toLocaleDateString() : '최근',
+                                                img: thumbUrl,
+                                                videoUrl: getMediaUrl(v.file_path, settings?.root_download_path) || ytUrl || '',
+                                                youtubeUrl: ytUrl,
+                                                description: v.extracted_text || (v.metadata_json as any)?.description || '',
+                                                isRealAsset: true,
+                                                raw: v,
+                                            });
+                                        }}
                                         className="flex items-center justify-between p-1.5 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer group border border-transparent hover:border-border/60 gap-2"
                                         title="클릭 시 영상 플레이어 및 상세 정보 팝업을 엽니다."
                                     >
@@ -1955,7 +1980,7 @@ const Home = () => {
 
                     <Link to="/gallery" className="mt-2.5 pt-2 border-t border-border/60 text-[11px] font-bold text-center text-muted-foreground hover:text-foreground flex items-center justify-center gap-1">
 
-                        보관함 전체 ({stats.total_videos}개) 관리 <ArrowRight className="w-3 h-3" />
+                        보관함 전체 ({galleryVideos.length > 0 ? galleryVideos.length : stats.total_videos}개) 관리 <ArrowRight className="w-3 h-3" />
 
                     </Link>
 

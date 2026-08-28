@@ -669,13 +669,17 @@ def read_videos(
         safe_videos = []
         for video in videos:
             try:
-                # [FIX] Check file existence
-                if video.file_path and not os.path.exists(video.file_path):
-                     # If file missing, mark it? Or just let it be?
-                     # Ideally we mark it, but schemas don't have that yet, only schemas.AssetQuery
-                     pass
+                # [FAST PATH] For script-only videos, extracted_text is already in DB — skip FS scan entirely
+                if is_script_only is True or getattr(video, 'is_script_only', False):
+                    content = getattr(video, 'extracted_text', None) or video.description or ""
+                    try:
+                        setattr(video, "content", clean_transcript(content))
+                    except Exception:
+                        pass
+                    safe_videos.append(video)
+                    continue
 
-                # [NEW] Populate clean Hook Content for Script preview
+                # [NORMAL PATH] Populate clean Hook Content for Script preview
                 content = getattr(video, 'extracted_text', None) or video.description or ""
                 
                 # Try to load from subtitle file if available
