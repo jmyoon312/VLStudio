@@ -21,7 +21,7 @@ def get_settings(db: Session):
             typecast_api_keys=[],
             groq_api_keys=[],
             nvidia_api_keys=[],
-            supertone_model_path=os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio", "media", "09_System", "models", "supertonic").replace("\\", "/"),
+            supertone_model_path=os.path.normpath(os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio", "media", "09_System", "models", "supertonic")),
             
             kokoro_tts_url="https://tts1.gogloo.gleeze.com",
             
@@ -31,7 +31,7 @@ def get_settings(db: Session):
             
             default_model_size="base",
             default_language="ko",
-            whisper_model_path=os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio", "media", "09_System", "models", "faster-whisper").replace("\\", "/"),
+            whisper_model_path=os.path.normpath(os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "ViraLoop Studio", "media", "09_System", "models", "faster-whisper")),
             
             # Distributed AI Grid Defaults
             audio_node_url="https://miscultivated-nonvertically-londa.ngrok-free.dev",
@@ -73,7 +73,10 @@ def update_settings(db: Session, settings: schemas.SettingsCreate):
     db_settings = db.query(models.Settings).first()
     if db_settings:
         update_data = settings.dict(exclude_unset=True)
+        path_fields = ['whisper_model_path', 'supertone_model_path', 'root_download_path', 'cookies_path', 'chrome_path']
         for key, value in update_data.items():
+            if key in path_fields and isinstance(value, str) and value.strip():
+                value = os.path.normpath(value)
             setattr(db_settings, key, value)
         db.commit()
         db.refresh(db_settings)

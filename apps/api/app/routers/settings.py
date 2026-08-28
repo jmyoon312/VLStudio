@@ -22,22 +22,32 @@ def read_settings(db: Session = Depends(database.get_db)):
     from app.config import settings as settings_conf
     local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
     
-    app_whisper_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "faster-whisper").replace("\\", "/")
-    app_supertonic_path = os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "supertonic").replace("\\", "/")
+    app_whisper_path = os.path.normpath(os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "faster-whisper"))
+    app_supertonic_path = os.path.normpath(os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "supertonic"))
 
     default_whisper_path = app_whisper_path
     default_supertonic_path = app_supertonic_path
 
     if not settings.root_download_path:
-        settings.root_download_path = settings_conf.MEDIA_ROOT
+        settings.root_download_path = os.path.normpath(settings_conf.MEDIA_ROOT) if settings_conf.MEDIA_ROOT else ""
+    else:
+        settings.root_download_path = os.path.normpath(settings.root_download_path)
+
     if not settings.cookies_path:
-        settings.cookies_path = os.path.join(settings_conf.MEDIA_ROOT, "04_Profiles", "cookies.txt").replace("\\", "/")
+        settings.cookies_path = os.path.normpath(os.path.join(settings_conf.MEDIA_ROOT, "04_Profiles", "cookies.txt"))
+    else:
+        settings.cookies_path = os.path.normpath(settings.cookies_path)
 
     # Normalize Whisper & Supertonic Model Paths (prevent dev paths or vague relative paths from persisting in UI)
     if not settings.whisper_model_path or "viraloopmedia" in settings.whisper_model_path.lower().replace("\\", "/") or ".cache/faster_whisper" in settings.whisper_model_path.replace("\\", "/"):
         settings.whisper_model_path = default_whisper_path
+    else:
+        settings.whisper_model_path = os.path.normpath(settings.whisper_model_path)
+
     if not settings.supertone_model_path or settings.supertone_model_path == "backend/models/supertonic" or ".cache/supertonic3" in settings.supertone_model_path.replace("\\", "/"):
         settings.supertone_model_path = default_supertonic_path
+    else:
+        settings.supertone_model_path = os.path.normpath(settings.supertone_model_path)
 
     # Safe FFmpeg Check
     try:
@@ -53,13 +63,23 @@ def read_settings(db: Session = Depends(database.get_db)):
             
         ffmpeg_path = dependency_manager.DependencyManager.get_ffmpeg_path()
         if ffmpeg_path and (os.path.exists(ffmpeg_path) or ffmpeg_path == "ffmpeg"):
-            settings.ffmpeg_status = ffmpeg_path # Return full path
+            settings.ffmpeg_status = os.path.normpath(ffmpeg_path) if ffmpeg_path != "ffmpeg" else ffmpeg_path
         else:
             settings.ffmpeg_status = "Missing"
     except Exception as e:
         print(f"FFmpeg check failed in settings: {e}")
         settings.ffmpeg_status = f"Error: {str(e)}"
         
+    # Ensure all path attributes are normalized for OS consistency (Windows backslashes)
+    if settings.whisper_model_path:
+        settings.whisper_model_path = os.path.normpath(settings.whisper_model_path)
+    if settings.supertone_model_path:
+        settings.supertone_model_path = os.path.normpath(settings.supertone_model_path)
+    if settings.root_download_path:
+        settings.root_download_path = os.path.normpath(settings.root_download_path)
+    if settings.cookies_path:
+        settings.cookies_path = os.path.normpath(settings.cookies_path)
+
     return settings
 
 @router.put("", response_model=schemas.Settings)
