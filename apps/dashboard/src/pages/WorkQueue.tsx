@@ -897,12 +897,12 @@ interface ParsedFailureInfo {
 }
 
 const parseFailureReason = (rawReason: string): ParsedFailureInfo => {
-    if (!rawReason) {
+    if (!rawReason || rawReason.trim() === '' || rawReason === 'FAILED' || rawReason === 'null' || rawReason === 'None') {
         return {
-            title: "업로드 실패",
-            description: "알 수 없는 오류가 발생했습니다.",
-            actionGuide: "[즉시 재시도]를 눌러 다시 실행해 보세요.",
-            rawMessage: rawReason
+            title: "업로드 자동화 처리 중단",
+            description: "스텔스 브라우저 세션 만료, 채널 인증 또는 네트워크 일시적 지연으로 업로드가 중단되었습니다.",
+            actionGuide: "채널 로그인 상태를 점검하거나 우측 상단의 [즉시 재시도] 버튼을 눌러 다시 실행해 보세요.",
+            rawMessage: rawReason || "Status: FAILED\n(시스템 상세 에러 로그가 기록되지 않았거나 자동화 프로세스가 일시 중단되었습니다.)"
         };
     }
 
@@ -1296,26 +1296,6 @@ const QueueItemCompactCard = ({
                                 </span>
                             )}
                         </div>
-
-                        {/* 🚨 실패 항목 즉시 가시화 배너 (접힌 상태에서도 실패 사유 바로 노출) */}
-                        {isFailed && (
-                            <div 
-                                onClick={() => setExpanded(!expanded)}
-                                className="flex items-center gap-1.5 text-[11px] text-rose-700 dark:text-rose-300 font-medium bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 px-2 py-1 rounded-lg mt-1 cursor-pointer hover:bg-rose-100/80 transition-colors"
-                                title="클릭하여 상세 실패 원인 및 해결 가이드 확인"
-                            >
-                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                                <span className="font-bold text-rose-600 dark:text-rose-400 shrink-0">
-                                    {parseFailureReason(rawFailureReason).title}:
-                                </span>
-                                <span className="truncate flex-1">
-                                    {parseFailureReason(rawFailureReason).description}
-                                </span>
-                                <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold underline ml-1 shrink-0">
-                                    {expanded ? '상세 닫기 ▴' : '상세 사유 보기 ▾'}
-                                </span>
-                            </div>
-                        )}
                     </div>
 
                     {/* 데스크톱 전용 우측 액션 버튼 바 */}
@@ -1619,18 +1599,19 @@ const QueueItemCompactCard = ({
                                         </div>
                                     </div>
 
-                                    <div className="space-y-1.5 pt-2 border-t border-border/50">
-                                        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-                                            <div><span>외부ID:</span> <span className="font-mono">{item.source_external_id || '--'}</span></div>
-                                            <div><span>Batch:</span> <span className="font-mono">{item.source_batch_id ? item.source_batch_id.slice(0, 10) : '--'}</span></div>
-                                        </div>
-                                        {rawFailureReason && (
+                                    <div className="space-y-2 pt-2 border-t border-border/50">
+                                        {/* 실패 사유 카드 (사용자가 이해할 수 있는 설명 + 시스템 상세 로그 확인) */}
+                                        {isFailed && (
                                             <FailureReasonCard
                                                 failureReason={rawFailureReason}
                                                 onRetry={onReset ? () => onReset(item.id) : undefined}
                                             />
                                         )}
 
+                                        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground pt-1">
+                                            <div><span>외부ID:</span> <span className="font-mono">{item.source_external_id || '--'}</span></div>
+                                            <div><span>Batch:</span> <span className="font-mono">{item.source_batch_id ? item.source_batch_id.slice(0, 10) : '--'}</span></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
