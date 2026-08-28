@@ -178,7 +178,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 
 
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import SubtitleViewer from '@/components/SubtitleViewer';
 
 
 
@@ -1070,7 +1071,8 @@ const Home = () => {
 
 
 
-    const [scriptLabVideos, setScriptLabVideos] = useState<VideoAssetItem[]>(() => getLocalCache('scriptLabVideos', []));
+    const [scriptLabVideos, setScriptLabVideos] = useState<VideoAssetItem[]>(() => getLocalCache('scriptLabVideos', []));
+    const [subtitleModalVideo, setSubtitleModalVideo] = useState<VideoAssetItem | null>(null);
 
 
 
@@ -1194,7 +1196,7 @@ const Home = () => {
 
 
 
-            if (netRes?.data) setNetStatus(netRes.data);
+            if (netRes?.data) { setNetStatus(netRes.data); setLocalCache('netStatus', netRes.data); }
 
 
 
@@ -1318,234 +1320,61 @@ const Home = () => {
 
 
 
-    const fetchData = async () => {
-
-
-
-        try {
-
-
-
-            const [statsRes, channelsRes, categoriesRes, queueStatsRes, queueItemsRes, videosRes, scriptVideosRes, settingsRes, reportRes] = await Promise.all([
-
-
-
-                api.get('/dashboard/stats').catch(() => null),
-
-
-
-                api.get('/channels/').catch(() => null),
-
-
-
-                api.get('/categories/').catch(() => null),
-
-
-
-                api.get('/work-queue/stats').catch(() => null),
-
-
-
-                api.get('/work-queue/items?limit=5').catch(() => null),
-
-
-
-                api.get('/videos/?mode=video').catch(() => null),
-
-
-
-                api.get('/videos/?mode=script&limit=20').catch(() => null),
-
-
-
-                api.get('/settings/').catch(() => null),
-
-
-
-                api.get('/reports/latest').catch(() => null),
-
-
-
-            ]);
-
-
-
-                        if (statsRes?.data) {
-
-
-
-                setStats(statsRes.data);
-
-
-
-                setLocalCache('stats', statsRes.data);
-
-
-
-            }
-
-
-
-            if (reportRes?.data) {
-
-
-
-                setLatestReport(reportRes.data);
-
-
-
-                setLocalCache('latestReport', reportRes.data);
-
-
-
-            }
-
-
-
-            if (channelsRes?.data) {
-
-
-
-                setChannelsList(channelsRes.data);
-
-
-
-                setLocalCache('channelsList', channelsRes.data);
-
-
-
-            }
-
-
-
-            if (categoriesRes?.data && Array.isArray(categoriesRes.data)) {
-
-
-
-                setCategoriesList(categoriesRes.data);
-
-
-
-                setLocalCache('categoriesList', categoriesRes.data);
-
-
-
-            }
-
-
-
-            if (queueStatsRes?.data) {
-
-
-
-                setQueueStats(queueStatsRes.data);
-
-
-
-                setLocalCache('queueStats', queueStatsRes.data);
-
-
-
-            }
-
-
-
-            if (settingsRes?.data) {
-
-
-
-                setSettings(settingsRes.data);
-
-
-
-                setLocalCache('settings', settingsRes.data);
-
-
-
-            }
-
-
-
-            if (queueItemsRes?.data && Array.isArray(queueItemsRes.data)) {
-
-
-
-                setRecentQueueItems(queueItemsRes.data);
-
-
-
-                setLocalCache('recentQueueItems', queueItemsRes.data);
-
-
-
-            }
-
-
-
-            if (videosRes?.data && Array.isArray(videosRes.data)) {
-
-
-
-                const filtered = (videosRes.data as VideoAssetItem[]).filter(v => !v.is_script_only);
-
-
-
-                setGalleryVideos(filtered);
-
-
-
-                setLocalCache('galleryVideos', filtered);
-
-
-
-            }
-
-
-
-            if (scriptVideosRes?.data && Array.isArray(scriptVideosRes.data)) {
-
-
-
-                setScriptLabVideos(scriptVideosRes.data);
-
-
-
-                setLocalCache('scriptLabVideos', scriptVideosRes.data);
-
-
-
-            }
-
-
-
-            await fetchNetworkStatus();
-
-
-
-        } catch (_) { }
-
-
-
-    };
-
-
-
-    useEffect(() => {
-
-
-
-        fetchData();
-
-
-
-        const interval = setInterval(fetchData, 10000);
-
-
-
-        return () => clearInterval(interval);
-
-
-
+    const fetchData = () => {
+        api.get('/dashboard/stats').then(res => {
+            if (res?.data) { setStats(res.data); setLocalCache('stats', res.data); }
+        }).catch(() => {});
+
+        api.get('/channels/').then(res => {
+            if (res?.data) { setChannelsList(res.data); setLocalCache('channelsList', res.data); }
+        }).catch(() => {});
+
+        api.get('/categories/').then(res => {
+            if (res?.data && Array.isArray(res.data)) { setCategoriesList(res.data); setLocalCache('categoriesList', res.data); }
+        }).catch(() => {});
+
+        api.get('/work-queue/stats').then(res => {
+            if (res?.data) { setQueueStats(res.data); setLocalCache('queueStats', res.data); }
+        }).catch(() => {});
+
+        api.get('/work-queue/items?limit=5').then(res => {
+            if (res?.data && Array.isArray(res.data)) { setRecentQueueItems(res.data); setLocalCache('recentQueueItems', res.data); }
+        }).catch(() => {});
+
+        api.get('/videos/?mode=video').then(res => {
+            if (res?.data && Array.isArray(res.data)) {
+                const filtered = (res.data as VideoAssetItem[]).filter(v => !v.is_script_only);
+                setGalleryVideos(filtered);
+                setLocalCache('galleryVideos', filtered);
+            }
+        }).catch(() => {});
+
+        api.get('/videos/?mode=script&limit=20').then(res => {
+            if (res?.data && Array.isArray(res.data)) {
+                setScriptLabVideos(res.data);
+                setLocalCache('scriptLabVideos', res.data);
+            }
+        }).catch(() => {});
+
+        api.get('/settings/').then(res => {
+            if (res?.data) { setSettings(res.data); setLocalCache('settings', res.data); }
+        }).catch(() => {});
+
+        api.get('/reports/latest').then(res => {
+            if (res?.data) { setLatestReport(res.data); setLocalCache('latestReport', res.data); }
+        }).catch(() => {});
+    };
+
+    useEffect(() => {
+        fetchData();
+        fetchNetworkStatus();
+
+        const interval = setInterval(() => {
+            fetchData();
+            fetchNetworkStatus();
+        }, 10000);
+
+        return () => clearInterval(interval);
     }, []);
 
 
@@ -4018,86 +3847,36 @@ const Home = () => {
 
 
 
-                            {galleryVideos.length > 0 ? (
-
-
-
-                                galleryVideos.slice(0, 4).map((v, idx) => (
-
-
-
-                                    <div 
-
-
-
-                                        key={v.id} 
-
-
-
-                                        onClick={() => handleSingleDdalkkak(v, 'subtitle')}
-
-
-
-                                        className="flex items-center justify-between p-1.5 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer group"
-
-
-
-                                        title="클릭 시 AI 자동 생성으로 이동"
-
-
-
-                                    >
-
-
-
-                                        <div className="flex items-center gap-1.5 min-w-0">
-
-
-
-                                            <span className="text-[11px] font-bold font-mono text-muted-foreground w-3 text-center">{idx + 1}</span>
-
-
-
-                                            <div className="min-w-0">
-
-
-
-                                                <p className="text-[11px] font-bold text-foreground truncate group-hover:text-primary transition-colors">{v.title || '(제목 없음)'}</p>
-
-
-
-                                                <p className="text-[9.5px] text-muted-foreground">{v.category || '일반'} · 레퍼런스</p>
-
-
-
-                                            </div>
-
-
-
-                                        </div>
-
-
-
-                                        <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 shrink-0">
-
-
-
-                                            ⚡ AI 생성
-
-
-
-                                        </span>
-
-
-
-                                    </div>
-
-
-
-                                ))
-
-
-
+                            {galleryVideos.length > 0 ? (
+                                galleryVideos.slice(0, 4).map((v, idx) => (
+                                    <div 
+                                        key={v.id} 
+                                        onClick={() => setSelectedVideo(v)}
+                                        className="flex items-center justify-between p-1.5 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer group border border-transparent hover:border-border/60 gap-2"
+                                        title="클릭 시 영상 플레이어 및 상세 정보 팝업을 엽니다."
+                                    >
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <span className="text-[11px] font-bold font-mono text-muted-foreground w-3.5 text-center shrink-0">{idx + 1}</span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-bold text-foreground truncate group-hover:text-amber-500 transition-colors">{v.title || '(제목 없음)'}</p>
+                                                <p className="text-[9.5px] text-muted-foreground truncate">{v.category || '일반'} · 레퍼런스</p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleSingleDdalkkak(v, 'subtitle');
+                                            }}
+                                            className="h-6.5 px-2.5 text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/20 dark:border-amber-700/50 rounded-lg shrink-0 gap-1 shadow-2xs transition-all"
+                                            title="클릭 시 이 영상을 기반으로 AI 자동 생성을 진행합니다."
+                                        >
+                                            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                            <span>AI 생성</span>
+                                        </Button>
+                                    </div>
+                                ))
                             ) : (
 
 
@@ -4186,96 +3965,51 @@ const Home = () => {
 
                         <div className="space-y-1.5">
 
-                            {scriptLabVideos.length > 0 ? (
-
-                                scriptLabVideos.slice(0, 4).map((item: any, idx) => {
-
-                                    const channelName = item.channel?.name || item.channel_title || '수집 채널';
-
-                                    const viralScore = item.viral_score ? Math.round(item.viral_score) : null;
-
-                                    return (
-
-                                        <div 
-
-                                            key={item.id || idx} 
-
-                                            onClick={() => navigate(`/script-lab?video_id=${item.id}`)}
-
-                                            className="p-1.5 hover:bg-muted/60 rounded-xl transition-colors cursor-pointer group bg-muted/30 border border-transparent hover:border-border/60 flex items-center justify-between gap-2"
-
-                                            title="클릭 시 수집 대본 분석실에서 전체 대본과 상세 바이럴 지표를 팝업으로 즉시 확인합니다."
-
-                                        >
-
-                                            <div className="flex items-start gap-1.5 min-w-0 flex-1">
-
-                                                <span className="text-[11px] font-bold text-indigo-500 shrink-0 w-3.5 mt-0.5">{idx + 1}</span>
-
-                                                <div className="min-w-0 flex-1">
-
-                                                    <p className="text-[11px] font-bold text-foreground truncate group-hover:text-indigo-600 transition-colors">
-
-                                                        {item.title}
-
-                                                    </p>
-
-                                                    <div className="flex items-center gap-1.5 text-[9.5px] text-muted-foreground mt-0.5">
-
-                                                        <span className="truncate max-w-[90px]">{channelName}</span>
-
-                                                        {viralScore !== null && (
-
-                                                            <span className="text-[8.5px] font-bold px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
-
-                                                                🔥 EV {viralScore}%
-
-                                                            </span>
-
-                                                        )}
-
-                                                    </div>
-
-                                                </div>
-
-                                            </div>
-
-
-
-                                            {/* AI 각색 버튼 (누르면 AI 대본 작성기로 이동) */}
-
-                                            <Button
-
-                                                size="sm"
-
-                                                variant="outline"
-
-                                                onClick={(e) => {
-
-                                                    e.stopPropagation();
-
-                                                    navigate(`/script-writer?video_id=${item.id}&topic=${encodeURIComponent(item.title || '')}`);
-
-                                                }}
-
-                                                className="h-6 px-2 text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700/50 rounded-lg shrink-0 gap-1 shadow-2xs transition-all"
-
-                                                title="이 대본을 기반으로 AI 쇼츠 대본을 재창작/각색합니다."
-
-                                            >
-
-                                                <Sparkles className="w-3 h-3 text-amber-500" />
-
-                                                <span>AI 각색</span>
-
-                                            </Button>
-
-                                        </div>
-
-                                    );
-
-                                })
-
+                            {scriptLabVideos.length > 0 ? (
+                                scriptLabVideos.slice(0, 4).map((item: any, idx) => {
+                                    const channelName = item.channel?.name || item.channel_title || '수집 채널';
+                                    const viralScore = item.viral_score ? Math.round(item.viral_score) : null;
+                                    return (
+                                        <div 
+                                            key={item.id || idx} 
+                                            onClick={() => setSubtitleModalVideo(item)}
+                                            className="p-1.5 hover:bg-muted/70 rounded-xl transition-colors cursor-pointer group bg-muted/30 border border-transparent hover:border-border/60 flex items-center justify-between gap-2"
+                                            title="클릭 시 전체 대본 및 자막 타임라인 팝업을 즉시 확인합니다."
+                                        >
+                                            <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                                                <span className="text-[11px] font-bold text-indigo-500 shrink-0 w-3.5 mt-0.5">{idx + 1}</span>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[11px] font-bold text-foreground truncate group-hover:text-indigo-600 transition-colors">
+                                                        {item.title}
+                                                    </p>
+                                                    <div className="flex items-center gap-1.5 text-[9.5px] text-muted-foreground mt-0.5">
+                                                        <span className="truncate max-w-[90px]">{channelName}</span>
+                                                        {viralScore !== null && (
+                                                            <span className="text-[8.5px] font-bold px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+                                                                🔥 EV {viralScore}%
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* AI 각색 버튼 (누르면 AI 대본 작성기로 이동) */}
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/script-writer?video_id=${item.id}&topic=${encodeURIComponent(item.title || '')}`);
+                                                }}
+                                                className="h-6.5 px-2.5 text-[10px] font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 dark:border-indigo-700/50 rounded-lg shrink-0 gap-1 shadow-2xs transition-all"
+                                                title="이 대본을 기반으로 AI 쇼츠 대본을 재창작/각색합니다."
+                                            >
+                                                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                                <span>AI 각색</span>
+                                            </Button>
+                                        </div>
+                                    );
+                                })
                             ) : (
 
                                 <div className="p-4 text-center text-xs text-muted-foreground">
@@ -4424,15 +4158,42 @@ const Home = () => {
 
 
 
-                                        <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
-
-
-
-                                            {item.status}
-
-
-
-                                        </span>
+                                        {(() => {
+                                            const s = (item.status || '').toUpperCase();
+                                            if (s === 'FAILED') {
+                                                return (
+                                                    <span className="h-6 px-2 text-[10px] font-bold rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0 flex items-center gap-1">
+                                                        <AlertCircle className="w-3 h-3" /> FAILED
+                                                    </span>
+                                                );
+                                            }
+                                            if (s === 'DRAFT') {
+                                                return (
+                                                    <span className="h-6 px-2 text-[10px] font-bold rounded-lg bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20 shrink-0 flex items-center gap-1">
+                                                        <FileText className="w-3 h-3" /> DRAFT
+                                                    </span>
+                                                );
+                                            }
+                                            if (s === 'COMPLETED' || s === 'SUCCESS' || s === 'DONE') {
+                                                return (
+                                                    <span className="h-6 px-2 text-[10px] font-bold rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0 flex items-center gap-1">
+                                                        <CheckCircle className="w-3 h-3" /> {s}
+                                                    </span>
+                                                );
+                                            }
+                                            if (s === 'QUEUED' || s === 'UPLOADING' || s === 'PROCESSING') {
+                                                return (
+                                                    <span className="h-6 px-2 text-[10px] font-bold rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 animate-pulse shrink-0 flex items-center gap-1">
+                                                        <Loader2 className="w-3 h-3 animate-spin" /> {s}
+                                                    </span>
+                                                );
+                                            }
+                                            return (
+                                                <span className="h-6 px-2 text-[10px] font-bold rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                                                    {item.status}
+                                                </span>
+                                            );
+                                        })()}
 
 
 
