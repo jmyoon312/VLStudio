@@ -2139,12 +2139,6 @@ function App() {
         spinnerVisible={importSpinnerVisible}
         label={t('import.processing')}
       />
-      {projectLoading && (
-        <div className="project-loading-overlay">
-          <div className="project-loading-spinner" />
-          <span>Loading project...</span>
-        </div>
-      )}
       <Header
         onSettings={(tab) => openSettings(typeof tab === 'string' ? tab : null)}
         onExport={handleExportClick}
@@ -2154,6 +2148,7 @@ function App() {
         authReady={authReady}
         onAuthRecovered={handleAuthRecovered}
         projectName={settings.projectName}
+        projectLoading={projectLoading}
         onProjectChange={handleProjectChange}
         onNewProject={() => openSettings('storage')}
         saveMode={settings.saveMode}

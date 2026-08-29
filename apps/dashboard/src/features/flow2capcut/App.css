@@ -83,15 +83,15 @@
    ============================================ */
 
 :root {
-  --bg-color: #1a202c;
-  --bg-secondary: #2d3748;
-  --text-color: #e2e8f0;
-  --text-secondary: #a0aec0;
+  --bg-color: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-color: #0f172a;
+  --text-secondary: #64748b;
   --primary-color: #4299e1;
   --success-color: #48bb78;
   --warning-color: #ecc94b;
   --error-color: #f56565;
-  --border-color: #4a5568;
+  --border-color: #e2e8f0;
   --border-radius: 8px;
   --font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
   --gutter-w: 2rem;
@@ -128,7 +128,7 @@
 }
 
 /* Project Loading Overlay */
-.project-loading-overlay {
+.project-loading-overlay { display: none !important;
   position: absolute;
   inset: 0;
   z-index: 9999;
@@ -181,6 +181,11 @@
 
 /* Tabs */
 .tabs-header {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 4px 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -539,6 +544,10 @@
 }
 
 .prompt-textarea {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   position: relative;
   z-index: 1;
   width: 100%;
@@ -564,12 +573,20 @@
 }
 /* compact(상세/Ref 모달): 단일 프롬프트라 줄번호 거터 불필요 — 번호 숨김 + 왼쪽 패딩 정상화. */
 .prompt-textarea-wrap.compact .prompt-textarea {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   padding-left: 12px;
 }
 .prompt-textarea-wrap.compact .prompt-paragraph::before {
   content: none;
 }
 .prompt-textarea-wrap.disabled .prompt-textarea {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -750,6 +767,10 @@
 /* 인트로 동안만 표면 윤기: ① 흐르는 대각선 sheen ② 위 광택 ③ 베이스색
    (모두 background 레이어 = 텍스트 뒤라 가독성 유지) */
 .prompt-textarea-wrap.intro .prompt-textarea {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   border-color: transparent;   /* 인트로 땐 글로우 링이 테두리 역할 */
   background:
     linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.10) 50%, transparent 58%) 0 0 / 250% 100% no-repeat,
@@ -787,6 +808,10 @@
   .prompt-textarea-wrap.intro::before,
   .prompt-textarea-wrap.intro::after,
   .prompt-textarea-wrap.intro .prompt-textarea {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     animation: none;
   }
   .prompt-paragraph.is-busy::after {
@@ -795,6 +820,11 @@
 }
 
 .prompt-input-footer {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 6px 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1459,6 +1489,11 @@
     font-size: 0.78rem;
   }
   .tabs-header {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 4px 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
     margin-bottom: 8px;
   }
   .col-image { width: 90px; }
@@ -1496,6 +1531,11 @@
     gap: 2px;
   }
   .tabs-header {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 4px 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
     gap: 4px;
   }
 }

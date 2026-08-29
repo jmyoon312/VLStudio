@@ -150,6 +150,7 @@ export default function Header({
   setAuthReady,
   onAuthRecovered,
   projectName,
+  projectLoading = false,
   onProjectChange,
   onNewProject,
   saveMode,
@@ -465,11 +466,11 @@ export default function Header({
             <button
               className="project-current"
               onClick={() => !disabled && setShowProjectDropdown(!showProjectDropdown)}
-              disabled={disabled}
+              disabled={disabled || projectLoading}
               title={disabled ? t('headerExtra.cannotChangeProject') : ''}
             >
-              <span className="project-icon">📁</span>
-              <span className="project-name">{projectName || t('settings.noProjects')}</span>
+              <span className="project-icon">{projectLoading ? '⏳' : '📁'}</span>
+              <span className="project-name">{projectLoading ? '로딩 중...' : (projectName || t('settings.noProjects'))}</span>
               <span className="dropdown-arrow">{showProjectDropdown ? '▲' : '▼'}</span>
             </button>
 

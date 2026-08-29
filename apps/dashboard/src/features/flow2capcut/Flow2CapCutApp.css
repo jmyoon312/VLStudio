@@ -83,25 +83,25 @@
    ============================================ */
 
 :root {
-  --bg-color: var(--background, #0a0e1a);
-  --bg-secondary: var(--card, #111827);
-  --text-color: var(--foreground, #f3f4f6);
-  --text-secondary: var(--muted-foreground, #9ca3af);
+  --bg-color: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-color: #0f172a;
+  --text-secondary: #64748b;
   --primary-color: var(--primary, #3b82f6);
   --success-color: var(--color-success, #10B981);
   --warning-color: var(--color-warning, #F59E0B);
   --error-color: var(--color-error, #EF4444);
-  --border-color: var(--border, rgba(255, 255, 255, 0.12));
+  --border-color: #e2e8f0;
   --border-radius: 12px;
   --font-family: var(--font-wanted-sans, var(--font-sans, 'Wanted Sans Variable', 'Pretendard', 'Inter', system-ui, sans-serif));
 }
 
 .dark {
-  --bg-color: var(--background, #0a0e1a);
-  --bg-secondary: var(--card, #111827);
-  --text-color: var(--foreground, #f3f4f6);
-  --text-secondary: var(--muted-foreground, #9ca3af);
-  --border-color: var(--border, rgba(255, 255, 255, 0.12));
+  --bg-color: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-color: #0f172a;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
 }
 
 * {
@@ -137,7 +137,7 @@ html, body {
 }
 
 /* Project Loading Overlay */
-.project-loading-overlay {
+.project-loading-overlay { display: none !important; /* removed */
   position: absolute;
   inset: 0;
   z-index: 9999;
