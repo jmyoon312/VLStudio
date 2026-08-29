@@ -390,9 +390,11 @@ export default function Header({
   const loadProjects = async () => {
     try {
       const list = await fileSystemAPI.listProjects()
-      setProjects(list)
+      const safeList = Array.isArray(list) ? list : (Array.isArray(list?.projects) ? list.projects : [])
+      setProjects(safeList)
     } catch (err) {
       console.error('Failed to load projects:', err)
+      setProjects([])
     }
   }
 
@@ -476,7 +478,7 @@ export default function Header({
 
             {showProjectDropdown && (
               <div className="project-dropdown">
-                {projects.length === 0 ? (
+                {(!Array.isArray(projects) || projects.length === 0) ? (
                   <div className="project-empty">{t('settings.noProjects')}</div>
                 ) : (
                   projects.map(p => (
