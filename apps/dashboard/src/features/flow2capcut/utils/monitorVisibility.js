@@ -10,7 +10,9 @@
  */
 export function monitorRenderMode({ mode, activeTab, overlayOpen }) {
   if (activeTab === 'audio') return null
-  if (mode === 'api') return 'inline'
+  // 웹 브라우저(Chrome / 모바일)이거나 API 모드일 때는 Flow 웹뷰가 없으므로 프리뷰 모니터 상시 표시
+  const isWebBrowser = typeof window !== 'undefined' && !window.electronAPI
+  if (isWebBrowser || mode === 'api') return 'inline'
   if (mode === 'flow' && overlayOpen) return 'inline'
   return null
 }
