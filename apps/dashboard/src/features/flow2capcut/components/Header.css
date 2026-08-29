@@ -440,51 +440,78 @@
 /* 📱 모바일 스마트폰 화면 최적화 (< 640px) */
 @media (max-width: 640px) {
   .header.flow-renderer-header {
-    height: 38px !important;
-    padding: 0 8px !important;
-    gap: 6px !important;
-  }
-  .header-left {
+    height: 40px !important;
+    padding: 0 6px !important;
     gap: 4px !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex-wrap: nowrap !important;
   }
+  .header.flow-renderer-header::-webkit-scrollbar {
+    display: none !important;
+  }
+  .header-left, .header-right {
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  /* 데스크톱 전용 분할만 숨김 */
+  .layout-picker, .btn-flow-reset {
+    display: none !important;
+  }
+  /* 모바일 핵심 제어 메뉴 100% 복원 */
   .hamburger-btn,
-  .btn-flow-reset,
-  .layout-picker,
   .mode-toggle,
   .language-picker,
   .user-menu,
   .btn-story-toggle,
-  .flow-profile-container {
-    display: none !important;
+  .flow-profile-container,
+  .btn-settings {
+    display: inline-flex !important;
+    flex-shrink: 0 !important;
   }
   .logo {
     display: flex !important;
+    font-size: 0.76rem !important;
   }
   .logo-text {
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
   }
   .project-current {
-    height: 24px !important;
+    height: 26px !important;
     padding: 0 6px !important;
-    max-width: 90px !important;
-    font-size: 0.7rem !important;
+    max-width: 80px !important;
+    font-size: 0.68rem !important;
   }
   .project-current .project-name {
-    max-width: 60px !important;
+    max-width: 50px !important;
   }
   .auth-badge, .auth-btn {
-    height: 24px !important;
+    height: 26px !important;
     padding: 0 6px !important;
     font-size: 0.68rem !important;
   }
   .btn-export {
     height: 26px !important;
     padding: 0 8px !important;
-    font-size: 0.7rem !important;
+    font-size: 0.68rem !important;
   }
   .btn-settings {
     width: 26px !important;
     height: 26px !important;
-    font-size: 0.75rem !important;
+    font-size: 0.72rem !important;
+  }
+  .btn-story-toggle {
+    height: 26px !important;
+    padding: 0 6px !important;
+    font-size: 0.68rem !important;
+  }
+  .btn-profile-selector {
+    height: 26px !important;
+    padding: 0 6px !important;
+    font-size: 0.68rem !important;
   }
 }
