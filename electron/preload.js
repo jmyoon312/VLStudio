@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('layout-changed', handler)
   },
   setModalVisible: (params) => ipcRenderer.invoke('app:set-modal-visible', params),
+  setFlowTabActive: (params) => ipcRenderer.invoke('app:set-flow-tab-active', params),
   setLocale: (params) => ipcRenderer.invoke('app:set-locale', params),
   setFlowAgentMode: (params) => ipcRenderer.invoke('flow:set-agent-mode', params),
 

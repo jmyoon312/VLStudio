@@ -105,6 +105,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         syncViewsAndProfiles();
     }, []);
 
+    React.useEffect(() => {
+        const isFlowPage = location.pathname === '/flow2capcut';
+        (window as any).electronAPI?.setFlowTabActive?.({ active: isFlowPage });
+    }, [location.pathname]);
+
     const { user, subscription, logout, activeProfile } = useAuth();
     const { avatarSrc: cachedAvatarSrc } = useCachedAvatar(user?.photoURL);
     const [avatarFetchFailed, setAvatarFetchFailed] = React.useState(false);

@@ -352,11 +352,10 @@ function ShellContent({ children }) {
   const location = useLocation()
   const isFlowPage = location?.pathname === '/flow2capcut'
 
-  // flow2capcut 페이지가 아닐 때 Electron의 Flow WebContentsView 가시성 제어
+  // flow2capcut 페이지 활성화 여부에 따른 Electron Flow WebContentsView 가시성 제어
   useEffect(() => {
-    if (!isFlowPage) {
-      window.electronAPI?.setModalVisible?.({ visible: true }) // Hide native views on other tabs
-    } else {
+    window.electronAPI?.setFlowTabActive?.({ active: isFlowPage })
+    if (isFlowPage) {
       loadProfilesAndViews()
     }
   }, [isFlowPage, loadProfilesAndViews])

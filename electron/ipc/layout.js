@@ -5,8 +5,9 @@
 import { powerSaveBlocker, shell } from 'electron'
 
 let layoutMode = 'split-left'
-let splitRatio = 0.5
+let splitRatio = 0.45
 let modalVisible = false
+let flowTabActive = false
 let powerSaveBlockerId = null
 let sidebarOffset = 0
 
@@ -21,7 +22,7 @@ export function updateBounds(mainWindow, flowView) {
   const views = global.flowViews ? Array.from(global.flowViews.values()) : (flowView ? [flowView] : [])
   if (views.length === 0) return
 
-  if (modalVisible) {
+  if (modalVisible || !flowTabActive) {
     for (const view of views) {
       try { view.setBounds({ x: 0, y: 0, width: 0, height: 0 }) } catch (e) {
         console.warn('[Layout] Failed to hide view bounds:', e.message)
@@ -124,6 +125,12 @@ export function registerLayoutIPC(ipcMain, getMainWindow, getFlowView) {
       getMainWindow()?.webContents?.focus()
     }
     return { success: true }
+  })
+
+  ipcMain.handle('app:set-flow-tab-active', (event, { active }) => {
+    flowTabActive = Boolean(active)
+    updateBounds(getMainWindow(), getFlowView())
+    return { success: true, flowTabActive }
   })
 
   // 화면 꺼짐/절전 방지
