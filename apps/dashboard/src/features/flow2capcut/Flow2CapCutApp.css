@@ -2015,6 +2015,21 @@ html, body {
   .tab-count {
     font-size: 0.62rem !important;
   }
+  .editor-row {
+    flex-direction: column-reverse !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .content-monitor {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 220px !important;
+    min-height: 200px !important;
+    border-radius: 12px !important;
+  }
+  .content-monitor-resizer {
+    display: none !important;
+  }
   .main-panel {
     padding: 6px 8px 24px 8px !important;
     display: flex;
