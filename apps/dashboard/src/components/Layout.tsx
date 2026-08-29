@@ -572,7 +572,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
                 {/* Direct Page Router View Panel */}
                 {location.pathname === '/flow2capcut' ? (
-                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full">
+                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full pb-16 md:pb-0 box-border">
                         {children}
                     </div>
                 ) : (

@@ -1879,7 +1879,7 @@ html, body {
     font-size: 0.62rem !important;
   }
   .main-panel {
-    padding: 6px 8px 90px 8px !important;
+    padding: 6px 8px 24px 8px !important;
     display: flex;
     flex-direction: column;
     flex: 1;
