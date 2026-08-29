@@ -1,7 +1,7 @@
 import { useMemo, useRef, useEffect } from 'react'
 import { resolveVideoSrc } from '../../utils/videoSrc'
 import { resolveImageSrc } from '../../utils/formatters'
-import { computeVideoClipPlacement, getSceneTimeRangeMs, isPreviewVideoVisible } from './useAudioTimeline'
+import { computeVideoClipPlacement, getSceneTimeRangeMs, isPreviewVideoVisible } from './timelinePlacement'
 
 // 활성 직전 비디오 prefetch lead time — playhead가 다음 비디오 활성에 도달
 // PREFETCH_LEAD_MS 안쪽으로 가까워지면 hidden <video>로 미리 src+load 트리거.

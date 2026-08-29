@@ -1,11 +1,10 @@
-/**
- * useAudioTimeline - audioPackage / scenes / srtEntries → 트랙 데이터 정규화
- */
-
 import { useMemo } from 'react'
 import { parseTimeToSeconds } from '../../utils/parsers'
 import { resolveVideoSrc } from '../../utils/videoSrc'
 import { resolveImageSrc } from '../../utils/formatters'
+import { getSceneTimeRangeMs, isPreviewVideoVisible, computeVideoClipPlacement } from './timelinePlacement'
+
+export { getSceneTimeRangeMs, isPreviewVideoVisible, computeVideoClipPlacement }
 
 const COLORS = {
   image: '#7E57C2',
@@ -14,93 +13,6 @@ const COLORS = {
   narration: '#4FC3F7',
   voice: '#BA68C8',
   sfx: '#FFB74D',
-}
-
-/**
- * 씬의 시작/끝 시간을 ms 단위로 정규화.
- *
- * Scene 객체는 camelCase(`startTime`/`endTime`)와 snake_case(`start_time`/`end_time`)
- * 두 표기를 혼용하며, 값은 number(seconds) 또는 string(`"00:01:23,456"` 류 timecode)일 수 있다.
- * 이 헬퍼가 양쪽을 흡수해 항상 `{ startMs, endMs }` 또는 `null` 을 반환한다.
- *
- * @param {object} scene
- * @returns {{startMs: number, endMs: number} | null}
- */
-export function getSceneTimeRangeMs(scene) {
-  if (!scene) return null
-  const startRaw = scene.startTime ?? scene.start_time
-  const endRaw = scene.endTime ?? scene.end_time
-  const startSec = typeof startRaw === 'number' ? startRaw : parseTimeToSeconds(startRaw)
-  const endSec = typeof endRaw === 'number' ? endRaw : parseTimeToSeconds(endRaw)
-  if (!Number.isFinite(startSec) || !Number.isFinite(endSec)) return null
-  return { startMs: startSec * 1000, endMs: endSec * 1000 }
-}
-
-/**
- * 씬 안에서 비디오가 차지할 구간을 계산.
- * i2v 우선, 없으면 t2v. duration은 초 단위(소수점 1자리)로 저장됨 — SceneList.jsx의
- * detectVideoDuration / handleVideoMetadata와 동일 단위 가정.
- *
- * Case A (scene_dur >= video_dur): 비디오를 씬의 뒤편에 정렬
- *   videoIn = sceneEnd - videoDur
- *   videoOut = sceneEnd
- *   앞쪽 패딩(scene_start → videoIn)에는 이미지 그대로 (PreviewPanel 기존 동작)
- *
- * Case B (scene_dur < video_dur): 비디오를 씬의 시작에 정렬, 꼬리 잘림
- *   videoIn = sceneStart
- *   videoOut = sceneEnd   (비디오 자연 길이가 아니라 씬 끝에서 컷)
- *
- * 반환 단위는 ms.
- * @param {object} scene - useScenes 정규화된 씬 객체
- * @param {number} sceneStartMs - 씬 시작 ms (이미 계산되어 있어야 함)
- * @param {number} sceneEndMs - 씬 끝 ms
- * @returns {{videoPath: string, videoIn: number, videoOut: number} | null}
- */
-
-// 프리뷰 모니터에서 이 source 영상이 보이는지: View 토글(hiddenRoles)과 per-clip disabled 둘 다 고려.
-// (export 는 disabled 만 보지만 — resolveExportVideos — 프리뷰는 View 토글도 합쳐서 본다.)
-export function isPreviewVideoVisible(scene, source, hiddenRoles) {
-  if (!scene) return false
-  if (hiddenRoles && hiddenRoles.has(`video-${source}`)) return false
-  return source === 'i2v' ? !scene.videoI2VDisabled : !scene.videoT2VDisabled
-}
-
-// source: 'i2v' | 't2v' → 해당 소스만. 미지정이면 i2v 우선(기존 동작, PreviewPanel fallback 등).
-// 비디오 트랙을 i2v/t2v 두 개로 분리하면서, 트랙별로 자기 소스만 배치하도록 파라미터 추가.
-export function computeVideoClipPlacement(scene, sceneStartMs, sceneEndMs, source) {
-  if (!scene) return null
-  if (!Number.isFinite(sceneStartMs) || !Number.isFinite(sceneEndMs)) return null
-  const sceneDurMs = sceneEndMs - sceneStartMs
-  if (sceneDurMs <= 0) return null
-
-  const i2vPath = scene.videoI2VPath || scene.video_i2v_path || null
-  const t2vPath = scene.videoT2VPath || scene.video_t2v_path || null
-  const i2vDur = scene.videoI2VDuration ?? scene.video_i2v_duration ?? null
-  const t2vDur = scene.videoT2VDuration ?? scene.video_t2v_duration ?? null
-
-  let videoPath, videoDurSec
-  if (source === 'i2v') { videoPath = i2vPath; videoDurSec = i2vDur }
-  else if (source === 't2v') { videoPath = t2vPath; videoDurSec = t2vDur }
-  else { videoPath = i2vPath || t2vPath; videoDurSec = i2vPath ? i2vDur : t2vDur } // 미지정: i2v 우선
-  if (!videoPath) return null
-  if (!Number.isFinite(videoDurSec) || videoDurSec <= 0) return null
-
-  const videoDurMs = videoDurSec * 1000
-
-  if (sceneDurMs >= videoDurMs) {
-    // Case A — 씬이 같거나 더 김 → 비디오 뒤편
-    return {
-      videoPath,
-      videoIn: sceneEndMs - videoDurMs,
-      videoOut: sceneEndMs,
-    }
-  }
-  // Case B — 씬이 더 짧음 → 비디오 앞부터, 씬 끝에서 컷
-  return {
-    videoPath,
-    videoIn: sceneStartMs,
-    videoOut: sceneEndMs,
-  }
 }
 
 // HSL hue shift (sub-track 색상 변형용)
