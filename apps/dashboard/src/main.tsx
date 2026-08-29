@@ -52,14 +52,14 @@ if (typeof window !== 'undefined') {
 
 // Global Robust Fallback Mock for window.electronAPI in browser development environments
 if (typeof window !== 'undefined' && typeof (window as any).electronAPI === 'undefined') {
-  console.log('[Polyfill] window.electronAPI mock registered for non-Electron development environments.');
-  (window as any).electronAPI = {
+  console.log('[Polyfill] Smart window.electronAPI Proxy mock registered for non-Electron browser environments.');
+  const baseMock: Record<string, any> = {
     isMock: true,
     loadProfiles: async () => {
       try {
         const res = await fetch('/api/browser-profiles/');
         const profiles = await res.json();
-        return { activeProfileId: profiles.length > 0 ? profiles[0].id : 'default', profiles };
+        return { activeProfileId: Array.isArray(profiles) && profiles.length > 0 ? profiles[0].id : 'default', profiles: Array.isArray(profiles) ? profiles : [] };
       } catch (e) {
         return { activeProfileId: 'default', profiles: [] };
       }
@@ -78,26 +78,13 @@ if (typeof window !== 'undefined' && typeof (window as any).electronAPI === 'und
     readFileByPath: async () => ({ success: false, error: 'Mock environment' }),
     getHistory: async () => ({ success: true, histories: [] }),
     readHistoryMetadata: async () => ({ success: false }),
-    switchProfile: async ({ profileId }: any) => {
-      // Just a mock, backend handles context internally
-      return { success: true };
-    },
-    deleteProfile: async ({ profileId }: any) => {
-      try {
-        await fetch(`/api/browser-profiles/${profileId}`, { method: 'DELETE' });
-        return { success: true };
-      } catch (e) { return { success: false }; }
-    },
-    createProfile: async ({ name }: any) => {
-      try {
-        await fetch(`/api/browser-profiles/`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, user_agent: null })
-        });
-        return { success: true };
-      } catch (e) { return { success: false }; }
-    },
-    extractToken: async () => ({ success: false, error: 'Mock environment' }),
+    getActiveViews: async () => ({ views: [] }),
+    loadStyleThumbnails: async () => ({ success: true, thumbnails: {} }),
+    checkStyleThumbnails: async () => ({ success: true, thumbnails: {} }),
+    switchProfile: async ({ profileId }: any) => ({ success: true }),
+    deleteProfile: async () => ({ success: true }),
+    createProfile: async () => ({ success: true }),
+    extractToken: async () => ({ success: false, error: 'Browser environment' }),
     validateToken: async () => ({ expiry: Date.now() + 3600000 }),
     extractProjectId: async () => ({ success: false }),
     uploadReference: async () => ({ success: false }),
@@ -107,25 +94,24 @@ if (typeof window !== 'undefined' && typeof (window as any).electronAPI === 'und
     writeFileAbsolute: async () => ({ success: false }),
     
     // Listeners
-    onFlowStatus: (cb: any) => {
-      console.log('[Mock] onFlowStatus listener registered');
-      // Call mock immediately in browser to allow onboarding
-      setTimeout(() => cb?.({ authenticated: true }), 100);
-      return () => {};
-    },
-    onLayoutChanged: (cb: any) => {
-      console.log('[Mock] onLayoutChanged listener registered');
-      return () => {};
-    },
-    
-    // Additional Layout/View Mocks
-    getActiveViews: async () => ({ views: [] }),
-    
-    // Controls
-    setLayout: async () => {},
-    updateSplit: async () => {},
-    switchTab: async () => {},
+    onFlowStatus: (cb: any) => () => {},
+    onLayoutChanged: (cb: any) => () => {},
+    onMenuAction: (cb: any) => () => {},
+    onStoryEvent: (cb: any) => () => {},
+    onMcpUpdate: (cb: any) => () => {},
   };
+
+  (window as any).electronAPI = new Proxy(baseMock, {
+    get(target, prop: string) {
+      if (prop in target) return target[prop];
+      if (prop.startsWith('on')) {
+        return (cb: any) => () => {};
+      }
+      return async (...args: any[]) => {
+        return { success: true, isMock: true };
+      };
+    }
+  });
 }
 
 const queryClient = new QueryClient()
