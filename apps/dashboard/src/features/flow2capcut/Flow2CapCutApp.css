@@ -1832,63 +1832,72 @@ html, body {
   50% { transform: translateY(-4px) rotate(8deg); }
 }
 
-/* 📱 Mobile Responsive Enhancements (< 640px) */
+/* 📱 Mobile Responsive Companion UI (< 640px) */
 @media (max-width: 640px) {
   .tabs-header {
     display: flex;
     flex-direction: column;
     width: 100%;
-    gap: 6px;
-    padding: 0 0 6px 0;
-    margin-bottom: 8px;
-    overflow-x: hidden;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 6px;
+    background: var(--muted, #f1f5f9);
+    border-radius: 10px;
+    border: 1px solid var(--border, #e2e8f0);
+    box-sizing: border-box;
   }
   .tabs-left {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     width: 100%;
-    gap: 4px;
+    gap: 3px;
   }
   .tabs-right {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     width: 100%;
-    gap: 4px;
+    gap: 3px;
   }
   .tab {
     width: 100% !important;
-    padding: 7px 2px !important;
-    font-size: 0.76rem !important;
-    border-radius: 8px;
+    padding: 6px 2px !important;
+    font-size: 0.72rem !important;
+    border-radius: 6px;
     white-space: nowrap !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 2px;
     box-sizing: border-box;
   }
   .tab-label {
     display: inline !important;
-    font-size: 0.76rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 700;
   }
   .tab-count {
-    font-size: 0.7rem !important;
+    font-size: 0.65rem !important;
   }
   .main-panel {
-    padding-bottom: 20px !important;
+    padding: 6px 8px 85px 8px !important;
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    overflow-y: auto !important;
+    box-sizing: border-box;
   }
   .tab-content {
-    padding-bottom: 10px !important;
+    padding-bottom: 6px !important;
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
   }
   .prompt-input-container {
+    padding: 10px !important;
+    border-radius: 12px !important;
+    gap: 6px !important;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -1896,25 +1905,33 @@ html, body {
   }
   .prompt-textarea {
     width: 100% !important;
-    height: 300px !important;
-    min-height: 260px !important;
-    font-size: 0.95rem !important;
-    padding: 10px !important;
-    line-height: 1.5 !important;
+    height: 180px !important;
+    min-height: 140px !important;
+    font-size: 0.88rem !important;
+    padding: 8px !important;
+    line-height: 1.45 !important;
+    border-radius: 8px !important;
+  }
+  .prompt-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin-top: 4px;
   }
   .style-selection-bar {
     width: 100%;
-    padding: 6px 10px;
-    margin-bottom: 6px;
-    gap: 6px;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+    gap: 4px;
   }
   .ss-title {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
   .ss-value-button {
-    height: 34px;
-    padding: 4px 10px;
-    font-size: 0.8rem;
+    height: 30px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
   }
   .action-buttons {
     width: 100%;
@@ -1926,23 +1943,26 @@ html, body {
   .action-buttons button,
   .btn-primary, .btn-secondary, .btn-danger, .btn-warning, .btn-success, .btn-upgrade {
     width: 100% !important;
-    height: 42px !important;
-    font-size: 0.9rem !important;
+    height: 44px !important;
+    font-size: 0.92rem !important;
+    font-weight: 800 !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
   }
   .bottom-panel {
-    min-height: 70px !important;
-    max-height: 140px !important;
+    min-height: 60px !important;
+    max-height: 120px !important;
+    border-radius: 10px !important;
   }
   .status-bar {
-    padding: 8px 10px !important;
+    padding: 6px 8px !important;
   }
   .status-progress {
-    gap: 8px !important;
-    margin-bottom: 4px !important;
+    gap: 6px !important;
+    margin-bottom: 2px !important;
   }
 }
 
