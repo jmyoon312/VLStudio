@@ -361,7 +361,7 @@ function ShellContent({ children }) {
   }, [isFlowPage, loadProfilesAndViews])
 
   if (!isFlowPage || activeViews.length === 0 || layoutMode === 'none' || layoutMode === 'tab' || !layoutMode.startsWith('split-')) {
-    return <div style={{ width: '100%', height: '100vh', overflow: 'hidden' }}>{children}</div>
+    return <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>{children}</div>
   }
 
   const flowPct = `${splitRatio * 100}%`
@@ -373,7 +373,7 @@ function ShellContent({ children }) {
       <div
         className="shell-root split-mode"
         ref={shellRef}
-        style={{ display: 'flex', flexDirection: 'row', height: '100vh', width: '100%', overflow: 'hidden', position: 'relative' }}
+        style={{ display: 'flex', flexDirection: 'row', height: '100%', width: '100%', overflow: 'hidden', position: 'relative' }}
       >
         {/* Flow placeholders */}
         {isLeft && <div style={{ width: flowPct, flexShrink: 0, height: '100%' }}>{renderFlowPlaceholders()}</div>}
@@ -408,7 +408,7 @@ function ShellContent({ children }) {
     <div
       className="shell-root split-mode"
       ref={shellRef}
-      style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', overflow: 'hidden', position: 'relative' }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden', position: 'relative' }}
     >
       {isTop && <div style={{ height: flowPct, flexShrink: 0, width: '100%' }}>{renderFlowPlaceholders()}</div>}
 

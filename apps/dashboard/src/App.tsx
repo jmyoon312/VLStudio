@@ -116,27 +116,28 @@ function MainAppContent() {
     }
 
     return (
-        <GlobalShellWrapper>
-            <Layout>
-                <Routes>
-                    <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
-                    <Route path="/douyin-search" element={<SmartDouyinSearch />} />
-                    <Route path="/ddalkkak" element={<DdalkkakUI />} />
-                    <Route path="/scene-cutter-pro" element={<SceneCutter />} />
-                    <Route path="/ai-copilot" element={<AICoPilotStudio />} /> {/* [NEW] AI Copilot Studio */}
-                    <Route path="/flow2capcut" element={
-                        <RouteErrorBoundary>
-                            <ModeProvider>
-                                <I18nProvider>
-                                    <ToastProvider>
+        <Layout>
+            <Routes>
+                <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
+                <Route path="/douyin-search" element={<SmartDouyinSearch />} />
+                <Route path="/ddalkkak" element={<DdalkkakUI />} />
+                <Route path="/scene-cutter-pro" element={<SceneCutter />} />
+                <Route path="/ai-copilot" element={<AICoPilotStudio />} /> {/* [NEW] AI Copilot Studio */}
+                <Route path="/flow2capcut" element={
+                    <RouteErrorBoundary>
+                        <ModeProvider>
+                            <I18nProvider>
+                                <ToastProvider>
+                                    <Shell>
                                         <Flow2CapCutApp />
-                                    </ToastProvider>
-                                </I18nProvider>
-                            </ModeProvider>
-                        </RouteErrorBoundary>
-                    } /> {/* Content when split is active */}
-                    <Route path="/agent-studio" element={<Navigate to="/flow2capcut" replace />} />
-                    <Route path="/download" element={<DirectDownload />} />
+                                    </Shell>
+                                </ToastProvider>
+                            </I18nProvider>
+                        </ModeProvider>
+                    </RouteErrorBoundary>
+                } /> {/* Content when split is active */}
+                <Route path="/agent-studio" element={<Navigate to="/flow2capcut" replace />} />
+                <Route path="/download" element={<DirectDownload />} />
 
                     {/* Fallback Missing Routes */}
                     <Route path="/stealth" element={<Navigate to="/incubator" replace />} />
@@ -189,7 +190,6 @@ function MainAppContent() {
                     <Route path="/research-brief" element={<ResearchBrief />} />
                 </Routes>
             </Layout>
-        </GlobalShellWrapper>
     );
 }
 
