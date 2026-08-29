@@ -25,6 +25,7 @@ import AICoPilotStudio from './pages/AICoPilotStudio'; // [NEW] AI Copilot
 import Shell from './features/flow2capcut/Shell'; // [NEW] Flow2CapCut Integration (Loads Shell)
 import Flow2CapCutApp from './features/flow2capcut/Flow2CapCutApp';
 import { I18nProvider } from './features/flow2capcut/hooks/useI18n';
+import { ModeProvider } from './features/flow2capcut/contexts/ModeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from './components/theme-provider';
 import ToastProvider from './features/flow2capcut/components/Toast';
@@ -128,11 +129,13 @@ function MainAppContent() {
                     <Route path="/ai-copilot" element={<AICoPilotStudio />} /> {/* [NEW] AI Copilot Studio */}
                     <Route path="/flow2capcut" element={
                         <RouteErrorBoundary>
-                            <I18nProvider>
-                                <ToastProvider>
-                                    <Flow2CapCutApp />
-                                </ToastProvider>
-                            </I18nProvider>
+                            <ModeProvider>
+                                <I18nProvider>
+                                    <ToastProvider>
+                                        <Flow2CapCutApp />
+                                    </ToastProvider>
+                                </I18nProvider>
+                            </ModeProvider>
                         </RouteErrorBoundary>
                     } /> {/* Content when split is active */}
                     <Route path="/agent-studio" element={<Navigate to="/flow2capcut" replace />} />
