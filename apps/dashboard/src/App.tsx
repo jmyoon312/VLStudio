@@ -86,6 +86,14 @@ class RouteErrorBoundary extends React.Component<{children: React.ReactNode}, {h
     }
 }
 
+function GlobalShellWrapper({ children }: { children: React.ReactNode }) {
+    return (
+        <Shell>
+            {children}
+        </Shell>
+    );
+}
+
 function MainAppContent() {
     const { isAuthenticated, loading } = useAuth();
     const location = useLocation();
@@ -108,8 +116,9 @@ function MainAppContent() {
     }
 
     return (
-        <Layout>
-            <Routes>
+        <GlobalShellWrapper>
+            <Layout>
+                <Routes>
                     <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
                     <Route path="/douyin-search" element={<SmartDouyinSearch />} />
                     <Route path="/ddalkkak" element={<DdalkkakUI />} />
@@ -180,6 +189,7 @@ function MainAppContent() {
                     <Route path="/research-brief" element={<ResearchBrief />} />
                 </Routes>
             </Layout>
+        </GlobalShellWrapper>
     );
 }
 

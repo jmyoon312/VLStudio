@@ -161,6 +161,16 @@ global.flowViews = new Map() // Map<ProfileId, WebContentsView>
 global.activeFlowProfileId = 'default'
 const profileStates = new Map() // Map<ProfileId, { consentClicked: boolean, enterToolClicked: boolean }>
 
+function getCurrentFlowView() {
+  if (global.flowViews && global.flowViews.size > 0) {
+    const activeId = global.activeFlowProfileId || 'default'
+    if (global.flowViews.has(activeId)) return global.flowViews.get(activeId)
+    const first = Array.from(global.flowViews.values())[0]
+    if (first) return first
+  }
+  return flowView
+}
+
 function getProfileState(profileId) {
   const pId = profileId || global.activeFlowProfileId || 'default'
   if (!profileStates.has(pId)) {
@@ -1814,17 +1824,6 @@ ipcMain.handle('mcp:stop-http', () => {
   stopMcpHttpServer()
   return { success: true }
 })
-
-// Helper to always resolve the active or default WebContentsView dynamically
-const getCurrentFlowView = () => {
-  if (global.flowViews && global.flowViews.size > 0) {
-    const activeId = global.activeFlowProfileId || 'default'
-    if (global.flowViews.has(activeId)) return global.flowViews.get(activeId)
-    const first = Array.from(global.flowViews.values())[0]
-    if (first) return first
-  }
-  return flowView
-}
 
 // === Flow API IPC (image generation, media fetch, token, reference upload) ===
 const flowAPIDeps = {
