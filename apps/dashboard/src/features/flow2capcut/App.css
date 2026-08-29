@@ -103,26 +103,12 @@
   padding: 0;
 }
 
-html, body {
-  font-family: var(--font-family);
-  font-size: 14px;
-  background: var(--bg-color);
-  color: var(--text-color);
-  height: 100%;
-  overflow: hidden;
-}
-
-#root {
-  height: 100%;
-}
-
 .app {
   display: flex;
   flex-direction: column;
-  /* 뷰포트를 꽉 채운다. (옛 -40px 는 제거된 하단 footer/StatusBar 잔재 — 지금 StatusBar 는
-     bottom-panel 안에 있어 그 자리를 쓰는 요소가 없었고, API 모드에서만 40px 빈 하단마진이 남았다.
-     flow 모드는 .app-content-split .app 가 100%-4px 로 채워 갭이 없었다.) */
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
   overflow: hidden;
   position: relative;
 }

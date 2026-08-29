@@ -3,6 +3,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import './App.css'
+import './Flow2CapCutApp.css'
 import { DEFAULTS, UI, TIMING, STYLE_PRESETS } from './config/defaults'
 import { useGenerationEngine } from './engine/useGenerationEngine'
 import { useMode } from './contexts/ModeContext'
