@@ -268,48 +268,48 @@ export default function StorageTab({
   highlight,
   t
 }) {
-  const showFolderWarning = localSettings.saveMode === 'folder' && !workFolder.name
-  const showFolderDeletedWarning = localSettings.saveMode === 'folder' && workFolder.error === 'folder_deleted'
+  const validFolderName = (workFolder.name && workFolder.name !== 'undefined') ? workFolder.name : ''
+  const isDeleted = workFolder.error === 'folder_deleted'
+  const showFolderWarning = localSettings.saveMode === 'folder' && !validFolderName
+  const showFolderDeletedWarning = localSettings.saveMode === 'folder' && isDeleted
 
   return (
     <div className={`tab-panel ${highlight ? 'highlight' : ''}`}>
       {showFolderDeletedWarning && (
-        <div className="settings-alert error">
-          ❌ {t('settings.folderDeletedDesc')}
+        <div className="settings-alert error" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 700 }}>
+          ❌ 작업 폴더가 삭제되었거나 이동되었습니다. [작업 폴더 선택]을 눌러 다시 지정해 주세요.
         </div>
       )}
       {showFolderWarning && !showFolderDeletedWarning && (
-        <div className="settings-alert">
-          ⚠️ {t('settings.folderRequired')}
+        <div className="settings-alert" style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#d97706', padding: '10px 14px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 700 }}>
+          ⚠️ {t('settings.folderRequired') || '작업 폴더가 지정되지 않았습니다. 폴더를 선택해 주세요.'}
         </div>
       )}
 
-      {/* 저장 방식 토글 제거 — 공식 API(BYOK) 는 base64 만 오므로 작업폴더 저장이 필수.
-          옛 Flow(none, 로컬 저장 안함) 모드는 폐기(useAppSettings 가 folder 로 강제). */}
-
       {/* 작업 폴더 선택 — saveMode 는 항상 folder */}
       {localSettings.saveMode === 'folder' && (
-        <div className={`setting-row-stack ${!workFolder.name ? 'highlight-box' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+        <div className={`setting-row-stack ${!validFolderName || isDeleted ? 'highlight-box' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label className="setting-label">{t('settings.workFolder')}</label>
             <button className="btn-primary" style={{ height: '34px', padding: '0 14px', borderRadius: '8px', fontSize: '0.8rem' }} onClick={onSelectFolder}>
-              {workFolder.name ? t('settings.changeFolder') : t('settings.selectFolder')}
+              {validFolderName && !isDeleted ? t('settings.changeFolder') : t('settings.selectFolder')}
             </button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--muted, #f8fafc)', border: '1px solid var(--border, #e2e8f0)', borderRadius: '10px' }}>
             <div className="folder-status" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {workFolder.name ? (
-                <span className={`folder-name ${workFolder.error === 'folder_deleted' ? 'deleted' : ''}`} style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--foreground, #0f172a)' }}>
-                  📂 {workFolder.name}
-                  {workFolder.error === 'folder_deleted' && (
-                    <span className="permission-badge deleted" style={{ color: '#ef4444', marginLeft: '6px' }}> ❌ {t('settings.folderDeleted')}</span>
-                  )}
+              {validFolderName && !isDeleted ? (
+                <span className="folder-name" style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--foreground, #0f172a)' }}>
+                  📂 {validFolderName}
+                </span>
+              ) : isDeleted ? (
+                <span className="folder-name deleted" style={{ fontWeight: 700, fontSize: '0.82rem', color: '#ef4444' }}>
+                  📂 {validFolderName || '이전 작업 폴더'} <span className="permission-badge deleted" style={{ color: '#ef4444', marginLeft: '6px' }}>❌ 폴더가 삭제됨</span>
                 </span>
               ) : (
-                <span className="folder-empty" style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem' }}>📂 {t('settings.folderNotSelected')}</span>
+                <span className="folder-empty" style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem' }}>📂 {t('settings.folderNotSelected') || '작업 폴더가 선택되지 않았습니다.'}</span>
               )}
             </div>
-            {workFolder.name && !workFolder.error && (
+            {validFolderName && !isDeleted && (
               <span className="setting-sublabel" style={{ fontSize: '0.73rem', color: 'var(--muted-foreground)' }}>{t('settings.projectNote')}</span>
             )}
           </div>

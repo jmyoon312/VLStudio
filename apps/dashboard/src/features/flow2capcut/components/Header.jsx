@@ -168,6 +168,10 @@ export default function Header({
   const [showDrawer, setShowDrawer] = useState(false)
   const [projects, setProjects] = useState([])
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [renameTarget, setRenameTarget] = useState(null)
+  const [renameInput, setRenameInput] = useState('')
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false)
+  const [newProjectInput, setNewProjectInput] = useState('')
   const dropdownRef = useRef(null)
   const pollingRef = useRef(null)
   const mountedRef = useRef(true)
@@ -194,6 +198,20 @@ export default function Header({
       console.error('Failed to load flow profiles:', err)
     }
   }
+
+  // 바깥 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowProjectDropdown(false)
+      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
+        setShowProfileDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // 프로필 전환 처리
   const handleProfileSwitch = async (profileId) => {
@@ -407,7 +425,66 @@ export default function Header({
 
   const handleNewProject = () => {
     setShowProjectDropdown(false)
-    onNewProject?.()
+    setNewProjectInput('')
+    setShowNewProjectModal(true)
+  }
+
+  const handleCreateProjectConfirm = async () => {
+    const name = newProjectInput.trim().replace(/\s+/g, '_')
+    if (!name) return
+    const exists = await fileSystemAPI.projectExists(name)
+    if (exists) {
+      alert(t('settings.projectExists') || '이미 존재하는 프로젝트 이름입니다.')
+      return
+    }
+    const result = await fileSystemAPI.getProjectFolder(name)
+    if (result.success) {
+      await loadProjects()
+      onProjectChange?.(name, { isNewProject: true })
+      setShowNewProjectModal(false)
+      setNewProjectInput('')
+    } else {
+      alert(`프로젝트 생성 실패: ${result.error || 'Unknown error'}`)
+    }
+  }
+
+  const handleStartRename = (e, name) => {
+    e.stopPropagation()
+    setRenameTarget(name)
+    setRenameInput(name)
+    setShowProjectDropdown(false)
+  }
+
+  const handleRenameConfirm = async () => {
+    if (!renameTarget) return
+    const newName = renameInput.trim().replace(/\s+/g, '_')
+    if (!newName || newName === renameTarget) {
+      setRenameTarget(null)
+      return
+    }
+    const result = await fileSystemAPI.renameProject(renameTarget, newName)
+    if (result.success) {
+      await loadProjects()
+      if (renameTarget === projectName) {
+        onProjectChange?.(newName)
+      }
+      setRenameTarget(null)
+    } else {
+      alert(`이름 변경 실패: ${result.error || 'Unknown error'}`)
+    }
+  }
+
+  const handleOpenFolder = async () => {
+    setShowProjectDropdown(false)
+    try {
+      if (window.electronAPI?.openWorkFolder) {
+        await window.electronAPI.openWorkFolder()
+      } else {
+        onSettings?.('storage')
+      }
+    } catch {
+      onSettings?.('storage')
+    }
   }
 
   const handleDeleteClick = (e, name) => {
@@ -462,14 +539,14 @@ export default function Header({
           <span className="logo-text" style={{ fontSize: '0.85rem', fontWeight: 800, whiteSpace: 'nowrap' }}>🎬 Flow AI</span>
         </h1>
 
-        {/* 프로젝트 선택기 (폴더 모드) */}
+        {/* 프로젝트 선택기 (스마트 팝오버) */}
         {saveMode === 'folder' && (
           <div className={`project-selector-header ${disabled ? 'disabled' : ''}`} ref={dropdownRef}>
             <button
               className="project-current"
               onClick={() => !disabled && setShowProjectDropdown(!showProjectDropdown)}
               disabled={disabled || projectLoading}
-              title={disabled ? t('headerExtra.cannotChangeProject') : ''}
+              title={disabled ? t('headerExtra.cannotChangeProject') : '프로젝트 전환 및 관리'}
             >
               <span className="project-icon">{projectLoading ? '⏳' : '📁'}</span>
               <span className="project-name">{projectLoading ? '로딩 중...' : (projectName || t('settings.noProjects'))}</span>
@@ -477,33 +554,78 @@ export default function Header({
             </button>
 
             {showProjectDropdown && (
-              <div className="project-dropdown">
-                {(!Array.isArray(projects) || projects.length === 0) ? (
-                  <div className="project-empty">{t('settings.noProjects')}</div>
-                ) : (
-                  projects.map(p => (
-                    <div
-                      key={p}
-                      className={`project-option ${p === projectName ? 'active' : ''}`}
-                      onClick={() => handleProjectSelect(p)}
+              <div className="project-dropdown" style={{ width: '220px', padding: '6px', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px 6px', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', fontWeight: 800, color: 'var(--muted-foreground)' }}>
+                  <span>📁 프로젝트 관리</span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#2563eb' }}>{projects.length}개</span>
+                </div>
+
+                {/* 현재 프로젝트 액션 바 */}
+                {projectName && (
+                  <div style={{ display: 'flex', gap: '4px', padding: '6px 4px', borderBottom: '1px solid var(--border)' }}>
+                    <button
+                      onClick={(e) => handleStartRename(e, projectName)}
+                      style={{ flex: 1, height: '26px', background: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
+                      title="현재 프로젝트 이름 변경"
                     >
-                      <span className="project-option-name">{p}</span>
-                      <span className="project-option-actions">
-                        {p === projectName && <span className="check">✓</span>}
-                        <button
-                          className="project-delete-btn"
-                          onClick={(e) => handleDeleteClick(e, p)}
-                          title={t('settings.deleteProject') || '삭제'}
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    </div>
-                  ))
+                      ✏️ 이름 변경
+                    </button>
+                    <button
+                      onClick={handleOpenFolder}
+                      style={{ height: '26px', padding: '0 8px', background: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
+                      title="작업 폴더 열기"
+                    >
+                      📂
+                    </button>
+                  </div>
                 )}
+
+                {/* 프로젝트 목록 */}
+                <div style={{ maxHeight: '180px', overflowY: 'auto', padding: '4px 0' }}>
+                  {(!Array.isArray(projects) || projects.length === 0) ? (
+                    <div className="project-empty">{t('settings.noProjects')}</div>
+                  ) : (
+                    projects.map(p => (
+                      <div
+                        key={p}
+                        className={`project-option ${p === projectName ? 'active' : ''}`}
+                        onClick={() => handleProjectSelect(p)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: '8px', marginBottom: '2px' }}
+                      >
+                        <span className="project-option-name" style={{ fontWeight: p === projectName ? 800 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p}</span>
+                        <span className="project-option-actions" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {p === projectName && <span className="check" style={{ color: '#2563eb', fontWeight: 800, fontSize: '0.8rem' }}>✓</span>}
+                          <button
+                            className="project-delete-btn"
+                            onClick={(e) => handleStartRename(e, p)}
+                            style={{ opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.7rem' }}
+                            title="이름 변경"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="project-delete-btn"
+                            onClick={(e) => handleDeleteClick(e, p)}
+                            title={t('settings.deleteProject') || '삭제'}
+                            style={{ opacity: 0.6, background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.7rem' }}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+
                 <div className="project-divider"></div>
-                <div className="project-option new-project" onClick={handleNewProject}>
-                  <span>+</span> {t('settings.createProject')}
+                
+                {/* 하단 새 프로젝트 생성 버튼 */}
+                <div
+                  className="project-option new-project"
+                  onClick={handleNewProject}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px', borderRadius: '8px', background: '#eff6ff', color: '#2563eb', fontWeight: 800, fontSize: '0.75rem', cursor: 'pointer' }}
+                >
+                  <span style={{ fontSize: '0.85rem' }}>➕</span> 새 프로젝트 만들기
                 </div>
               </div>
             )}
@@ -671,6 +793,73 @@ export default function Header({
       <p className="modal-confirm-msg">
         <strong>"{deleteTarget}"</strong> {t('settings.deleteConfirm') || '프로젝트를 삭제하시겠습니까?\n모든 이미지와 데이터가 삭제됩니다.'}
       </p>
+    </Modal>
+
+    {/* 프로젝트 이름 변경 모달 */}
+    <Modal
+      isOpen={!!renameTarget}
+      onClose={() => setRenameTarget(null)}
+      title="✏️ 프로젝트 이름 변경"
+      className="modal-rename-project"
+      footer={
+        <div className="modal-confirm-actions">
+          <button className="btn-cancel" onClick={() => setRenameTarget(null)}>
+            {t('common.cancel') || '취소'}
+          </button>
+          <button className="btn-primary" onClick={handleRenameConfirm}>
+            {t('common.confirm') || '변경 확인'}
+          </button>
+        </div>
+      }
+    >
+      <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <p style={{ fontSize: '0.82rem', color: 'var(--muted-foreground)' }}>변경할 새 프로젝트 이름을 입력해 주세요:</p>
+        <input
+          type="text"
+          value={renameInput}
+          onChange={(e) => setRenameInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleRenameConfirm()
+            if (e.key === 'Escape') setRenameTarget(null)
+          }}
+          autoFocus
+          style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontWeight: 700 }}
+        />
+      </div>
+    </Modal>
+
+    {/* 새 프로젝트 생성 모달 */}
+    <Modal
+      isOpen={showNewProjectModal}
+      onClose={() => setShowNewProjectModal(false)}
+      title="➕ 새 프로젝트 만들기"
+      className="modal-new-project"
+      footer={
+        <div className="modal-confirm-actions">
+          <button className="btn-cancel" onClick={() => setShowNewProjectModal(false)}>
+            {t('common.cancel') || '취소'}
+          </button>
+          <button className="btn-primary" onClick={handleCreateProjectConfirm}>
+            {t('settings.create') || '프로젝트 생성'}
+          </button>
+        </div>
+      }
+    >
+      <div style={{ padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <p style={{ fontSize: '0.82rem', color: 'var(--muted-foreground)' }}>새로 생성할 프로젝트 이름을 입력하세요 (예: 쇼츠_1편, 역사_스토리):</p>
+        <input
+          type="text"
+          value={newProjectInput}
+          onChange={(e) => setNewProjectInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleCreateProjectConfirm()
+            if (e.key === 'Escape') setShowNewProjectModal(false)
+          }}
+          placeholder="새 프로젝트 이름..."
+          autoFocus
+          style={{ width: '100%', height: '36px', padding: '0 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--foreground)', fontWeight: 700 }}
+        />
+      </div>
     </Modal>
 
     {/* 사이드 드로워 */}
