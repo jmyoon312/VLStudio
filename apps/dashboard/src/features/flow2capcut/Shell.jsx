@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { resetModalCount } from '../../lib/utils'
 
 const DEFAULT_LAYOUT = 'split-left'
@@ -348,7 +349,19 @@ function ShellContent({ children }) {
     )
   }
 
-  if (activeViews.length === 0 || layoutMode === 'none' || layoutMode === 'tab' || !layoutMode.startsWith('split-')) {
+  const location = useLocation()
+  const isFlowPage = location?.pathname === '/flow2capcut'
+
+  // flow2capcut 페이지가 아닐 때 Electron의 Flow WebContentsView 가시성 제어
+  useEffect(() => {
+    if (!isFlowPage) {
+      window.electronAPI?.setModalVisible?.({ visible: true }) // Hide native views on other tabs
+    } else {
+      loadProfilesAndViews()
+    }
+  }, [isFlowPage, loadProfilesAndViews])
+
+  if (!isFlowPage || activeViews.length === 0 || layoutMode === 'none' || layoutMode === 'tab' || !layoutMode.startsWith('split-')) {
     return <div style={{ width: '100%', height: '100vh', overflow: 'hidden' }}>{children}</div>
   }
 

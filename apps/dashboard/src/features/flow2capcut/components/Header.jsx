@@ -459,7 +459,7 @@ export default function Header({
         </button>
 
         <h1 className="logo">
-          <span className="logo-text">Flow AI Video Renderer</span>
+          <span className="logo-text" style={{ fontSize: '0.85rem', fontWeight: 800, whiteSpace: 'nowrap' }}>🎬 Flow AI</span>
         </h1>
 
         {/* 프로젝트 선택기 (폴더 모드) */}
