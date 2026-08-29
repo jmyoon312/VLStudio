@@ -6,14 +6,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 14px;
+  padding: 6px 12px;
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
   container-type: inline-size;
   container-name: header;
-  gap: 8px;
-  min-height: 52px;
+  gap: 6px;
+  min-height: 48px;
+  height: 48px;
+  box-sizing: border-box;
 }
 
 /* Hamburger Menu Button */
@@ -29,6 +31,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   color: #475569;
+  box-sizing: border-box;
 }
 
 .hamburger-btn:hover {
@@ -45,7 +48,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
@@ -58,7 +61,7 @@
 .header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
@@ -71,12 +74,14 @@
 .auth-badge {
   font-size: 0.75rem;
   font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  box-sizing: border-box;
 }
 
 .auth-badge.authenticated {
@@ -101,14 +106,14 @@
   background: #fff1f2;
   color: #e11d48;
   border: 1px solid #fecdd3;
-  font-size: 0.75rem;
 }
 
 .auth-btn {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid #f59e0b;
   border-radius: 10px;
   background: #fffbeb;
@@ -117,6 +122,7 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .auth-btn:hover {
@@ -133,16 +139,18 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 10px;
+  height: 32px;
+  padding: 0 10px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   color: #334155;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  max-width: 160px;
+  max-width: 150px;
+  box-sizing: border-box;
 }
 
 .project-current:hover:not(:disabled) {
@@ -160,7 +168,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100px;
+  max-width: 90px;
 }
 
 .project-current .dropdown-arrow {
@@ -220,13 +228,13 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   flex-wrap: nowrap;
   overflow: visible;
 }
 
 /* ============================================
-   Modern Light Controls (Profile, Layout, Reset, Export)
+   Modern Light Controls (Profile, Layout, Reset, Export) - Unified 32px
    ============================================ */
 
 .flow-profile-container {
@@ -236,8 +244,9 @@
 .btn-profile-selector {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 9px;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -247,7 +256,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  box-sizing: border-box;
 }
 
 .btn-profile-selector:hover, .btn-profile-selector.active {
@@ -336,11 +345,6 @@
   overflow: hidden;
 }
 
-.profile-item-gpu {
-  font-size: 0.62rem;
-  color: #94a3b8;
-}
-
 .profile-delete-btn {
   background: none;
   border: none;
@@ -366,7 +370,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 8px;
+  height: 32px;
+  padding: 0 8px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -375,6 +380,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .layout-picker-btn:hover {
@@ -450,11 +456,6 @@
   gap: 4px;
 }
 
-.layout-ratio-edge {
-  font-size: 0.62rem;
-  color: #94a3b8;
-}
-
 .layout-ratio-slider {
   flex: 1;
   accent-color: #2563eb;
@@ -468,18 +469,13 @@
   text-align: right;
 }
 
-.layout-picker-hint {
-  font-size: 0.62rem;
-  color: #94a3b8;
-  text-align: center;
-}
-
 /* Reset / Story / Export / Settings buttons */
 .btn-flow-reset {
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 5px 8px;
+  height: 32px;
+  padding: 0 8px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -489,6 +485,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .btn-flow-reset:hover {
@@ -501,7 +498,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 10px;
+  height: 32px;
+  padding: 0 9px;
   background: linear-gradient(135deg, #ede9fe 0%, #f3e8ff 100%);
   border: 1px solid #ddd6fe;
   border-radius: 10px;
@@ -511,20 +509,22 @@
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .btn-story-toggle:hover, .btn-story-toggle.active {
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   border-color: #7c3aed;
   color: #ffffff;
-  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 3px 8px rgba(124, 58, 237, 0.25);
 }
 
 .btn-export {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 5px 11px;
+  height: 32px;
+  padding: 0 10px;
   background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
   border: 1px solid #2563eb;
   border-radius: 10px;
@@ -534,12 +534,13 @@
   font-weight: 700;
   transition: all 0.15s ease;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+  box-sizing: border-box;
 }
 
 .btn-export:hover:not(:disabled) {
   background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3);
 }
 
 .btn-export:disabled {
@@ -551,8 +552,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -561,6 +562,7 @@
   cursor: pointer;
   font-size: 0.85rem;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .btn-settings:hover, .btn-settings.active {
@@ -570,53 +572,47 @@
 }
 
 /* ============================================
-   Ultra-Responsive Container Queries (다중창 분할 시 100% 최적화)
+   Ultra-Responsive Container Queries (다중창 분할 시 100% 1줄 노출)
    ============================================ */
 
-/* < 720px: 로고 축약, 라벨 스마트 숨김 */
-@container header (max-width: 720px) {
+/* < 780px: 로고 텍스트 숨김, 초기화 라벨 숨김 */
+@container header (max-width: 780px) {
   .logo-text {
     display: none;
   }
   .btn-flow-reset .btn-text {
     display: none;
   }
-  .btn-profile-selector {
-    padding: 4px 7px;
-    font-size: 0.75rem;
-  }
-  .layout-picker-btn {
-    padding: 4px 6px;
-    font-size: 0.75rem;
-  }
-  .header-right {
-    gap: 3px;
+  .project-current {
+    max-width: 120px;
   }
 }
 
-/* < 560px: 초슬림 아이콘 모드 — 모든 버튼이 1줄에 완벽하게 들어감 */
-@container header (max-width: 560px) {
+/* < 640px: 프로젝트 축약, 프로필 텍스트 숨김 */
+@container header (max-width: 640px) {
   .project-current {
-    max-width: 100px;
-    padding: 4px 6px;
-    font-size: 0.75rem;
+    max-width: 80px;
   }
   .project-current .project-name {
-    max-width: 60px;
+    max-width: 50px;
   }
   .btn-profile-selector .btn-text {
     display: none;
   }
-  .btn-story-toggle {
-    padding: 4px 6px;
-    font-size: 0.75rem;
+  .header-right {
+    gap: 3px;
   }
   .btn-export {
-    padding: 4px 8px;
-    font-size: 0.75rem;
+    padding: 0 7px;
   }
-  .btn-settings {
-    width: 28px;
-    height: 28px;
+}
+
+/* < 520px: 초슬림 아이콘 모드 */
+@container header (max-width: 520px) {
+  .project-current {
+    display: none;
+  }
+  .btn-story-toggle .btn-text {
+    display: none;
   }
 }

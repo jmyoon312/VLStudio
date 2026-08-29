@@ -1,6 +1,4 @@
-/* =========================================================
-   ViraLoop Studio - Modern Light NLE AudioTimeline
-   ========================================================= */
+/* AudioTimeline — Remotion Studio 스타일 다크 테마 */
 
 .atl-root {
   display: flex;
@@ -8,34 +6,34 @@
   height: 100%;
   background: #ffffff;
   color: #1e293b;
-  font-family: 'Pretendard Variable', 'Wanted Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   user-select: none;
-  border-top: 1px solid #e2e8f0;
 }
 
-.atl-root--compact {
-  height: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-/* ── Preview Panel ── */
+/* ── Preview Panel — 비디오 미리보기 (Remotion Studio 스타일) ── */
 .atl-preview {
   flex-shrink: 0;
-  background: #f8fafc;
+  background: #0d0d0d;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 12px;
+  /* height는 inline style로 동적 (splitter로 조절) */
+  background-image:
+    linear-gradient(45deg, #161616 25%, transparent 25%),
+    linear-gradient(-45deg, #161616 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #161616 75%),
+    linear-gradient(-45deg, transparent 75%, #161616 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
   overflow: hidden;
-  border-bottom: 1px solid #e2e8f0;
 }
 
-/* Splitter */
+/* Preview ↔ Timeline 사이 splitter (드래그 핸들) */
 .atl-splitter {
   flex-shrink: 0;
-  height: 6px;
-  background: #f1f5f9;
+  height: 8px;
+  background: #ffffff;
   border-top: 1px solid #e2e8f0;
   border-bottom: 1px solid #e2e8f0;
   cursor: row-resize;
@@ -43,401 +41,737 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: background 0.15s;
 }
-
 .atl-splitter:hover {
-  background: #e2e8f0;
+  background: #252525;
 }
-
 .atl-splitter:active {
-  background: #cbd5e1;
+  background: #303030;
 }
-
 .atl-splitter-grip {
   width: 32px;
   height: 2px;
-  background: #94a3b8;
+  background: #555;
   border-radius: 1px;
 }
-
 .atl-splitter:hover .atl-splitter-grip {
-  background: #64748b;
+  background: #888;
 }
-
 .atl-preview-stage {
   position: relative;
   height: 100%;
-  width: 100%;
+  aspect-ratio: 16 / 9;
   display: flex;
   align-items: center;
   justify-content: center;
   max-width: 100%;
 }
-
 .atl-preview-img {
   height: 100%;
   width: auto;
   max-width: 100%;
   object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
   display: block;
-  border: 1px solid #e2e8f0;
 }
-
 .atl-preview-empty {
-  color: #94a3b8;
+  color: #666;
   font-size: 13px;
-  font-weight: 500;
+  font-style: italic;
 }
-
 .atl-preview-subtitle {
   position: absolute;
   bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.85);
-  color: #ffffff;
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  background: rgba(0, 0, 0, 0.7);
+  color: #0f172a;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
   text-align: center;
   max-width: 90%;
   white-space: pre-wrap;
-  backdrop-filter: blur(4px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   pointer-events: none;
 }
 
-/* ── Header Toolbar ── */
+/* ── Header ── */
 .atl-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 14px;
+  gap: 16px;
+  padding: 10px 16px;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
-  min-height: 40px;
 }
-
 .atl-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.01em;
-}
-
-.atl-title--btn {
-  font-family: inherit;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 3px 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
-  color: #334155;
-  transition: all 0.15s ease;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  color: #0f172a;
+  letter-spacing: 0.02em;
 }
-
-.atl-title--btn:hover {
-  border-color: #2563eb;
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.atl-title--btn.atl-title--active {
-  border-color: #2563eb;
-  background: #2563eb;
-  color: #ffffff;
-}
-
 .atl-time-range {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
   color: #64748b;
-  font-weight: 600;
 }
 
-/* Transport (Play/Stop/Time) */
+/* Transport (Play/Pause/Stop + Time) */
 .atl-transport {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
-
 .atl-play-btn,
 .atl-stop-btn {
-  width: 28px;
-  height: 26px;
+  width: 32px;
+  height: 28px;
   border: 1px solid #e2e8f0;
-  background: #ffffff;
+  background: #f1f5f9;
   color: #334155;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  line-height: 1;
 }
-
-.atl-play-btn:hover:not(:disabled),
-.atl-stop-btn:hover:not(:disabled) {
-  background: #f1f5f9;
+.atl-play-btn:hover,
+.atl-stop-btn:hover {
+  background: #353535;
   color: #0f172a;
-  border-color: #cbd5e1;
 }
-
-.atl-play-btn:disabled,
-.atl-stop-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 .atl-play-btn.atl-playing {
-  background: #10b981;
-  border-color: #059669;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
-}
-
-.atl-time-display {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 11px;
-  font-weight: 700;
+  background: #1d6f42;
+  border-color: #2a9d5a;
   color: #0f172a;
-  background: #ffffff;
-  padding: 3px 8px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
+}
+.atl-time-display {
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  color: #64748b;
+  margin-left: 4px;
 }
 
-.atl-ken-burns-toggle {
+.atl-kb-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  cursor: pointer;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
   font-size: 11px;
-  font-weight: 600;
   color: #475569;
+  cursor: pointer;
   user-select: none;
 }
-
-.atl-ken-burns-toggle input {
-  cursor: pointer;
-  accent-color: #2563eb;
+.atl-kb-toggle:hover {
+  background: #353535;
+  color: #0f172a;
 }
-
-.atl-zoom-controls {
+.atl-kb-toggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  accent-color: #FFB74D;
+}
+.atl-time-cur {
+  color: #0f172a;
+  font-weight: 600;
+}
+.atl-time-sep {
+  color: #555;
+  margin: 0 2px;
+}
+.atl-time-total {
+  color: #64748b;
+}
+.atl-zoom {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-left: auto;
 }
-
-.atl-zoom-btn {
+.atl-zoom button {
   width: 24px;
   height: 24px;
   border: 1px solid #e2e8f0;
-  background: #ffffff;
+  background: #f1f5f9;
   color: #475569;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
 }
-
-.atl-zoom-btn:hover {
-  background: #f1f5f9;
+.atl-zoom button:hover {
+  background: #353535;
   color: #0f172a;
 }
-
-.atl-zoom-level {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  color: #64748b;
-  min-width: 36px;
+.atl-zoom-val {
+  display: inline-block;
+  min-width: 48px;
   text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #64748b;
 }
 
-/* ── Timeline Body ── */
+/* ── Body ── */
 .atl-body {
-  flex: 1;
   display: flex;
+  flex: 1;
   min-height: 0;
   background: #ffffff;
-  position: relative;
-  overflow: hidden;
 }
 
-/* Track Headers Column */
-.atl-headers {
-  width: 140px;
+.atl-labels-col {
   flex-shrink: 0;
   background: #f8fafc;
-  border-right: 1px solid #e2e8f0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
-
-.atl-headers-top {
-  height: 24px;
+.atl-label-spacer {
+  background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
-  background: #f1f5f9;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+/* 우측 메인 스크롤과 sync되는 inner wrapper (transform translateY로 이동) */
+.atl-labels-scroll {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
 }
 
-.atl-track-header {
-  height: 48px;
+/* 좌측 라벨 ↔ 타임라인 splitter (col-resize) */
+.atl-col-splitter {
+  flex-shrink: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 6;
+}
+.atl-col-splitter::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #3a3a3a;
+  transform: translateX(-50%);
+}
+.atl-col-splitter:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.atl-col-splitter:hover::before {
+  background: #5a5a5a;
+}
+.atl-col-splitter:active::before {
+  background: #888;
+}
+.atl-label {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: default;
   border-bottom: 1px solid #e2e8f0;
-  font-size: 11px;
-  font-weight: 700;
-  color: #334155;
-}
-
-.atl-track-header-left {
-  display: flex;
-  align-items: center;
+  flex-shrink: 0;
   gap: 6px;
+  position: relative;
 }
 
-.atl-track-icon {
-  font-size: 12px;
+/* 트랙 높이 조절 핸들 (라벨 행 하단 바) */
+.atl-track-resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 4px;
+  cursor: row-resize;
+  z-index: 4;
+}
+.atl-track-resize:hover {
+  background: #4a4a4a;
+}
+.atl-track-resize:active {
+  background: #6a6a6a;
+}
+.atl-label-sub {
+  font-size: 11px;
+  font-weight: 500;
+  padding-left: 24px;
+  opacity: 0.85;
+}
+.atl-expand {
+  font-size: 9px;
   color: #64748b;
+  cursor: pointer;
+  width: 12px;
+  display: inline-block;
+}
+.atl-sub-marker {
+  color: #666;
+  font-size: 11px;
+  margin-right: 2px;
+}
+.atl-expand-sub {
+  font-size: 8px;
+  margin-right: 4px;
+}
+.atl-label-clickable {
+  cursor: pointer;
+}
+.atl-label-clickable:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.atl-file-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: #666;
+  font-weight: 400;
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
 }
 
-.atl-track-title {
+/* 파일 항목 row (펼쳤을 때) */
+.atl-label-file {
+  font-size: 10px;
+  font-weight: 500;
+  padding-left: 36px;
+  padding-right: 8px;
+  cursor: pointer;
+  gap: 6px;
+  border-bottom: 1px solid #232323;
+  background: rgba(0, 0, 0, 0.15);
+}
+.atl-label-file:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.atl-file-tc {
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 9px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+.atl-file-name {
+  font-size: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  opacity: 0.85;
 }
 
-/* Tracks Scroll Area */
-.atl-tracks-scroll {
+/* SFX file row with prompt metadata — column layout, taller row.
+   Used when audioPackage.sfxPromptMap had a match for this clip's filename stem.
+   Falls back to the default row when no metadata, so unaffected rows look the same. */
+.atl-label-file-sfx-meta {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  gap: 2px;
+}
+.atl-label-file-sfx-meta .atl-file-row-line1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.atl-sfx-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-weight: 400;
+  line-height: 1.25;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.55);
+  /* metadata text uses the row color for the icon column only; body text is muted */
+}
+.atl-sfx-meta-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  overflow: hidden;
+}
+.atl-sfx-meta-line > span:first-child {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.atl-sfx-anchor-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.75);
+}
+.atl-sfx-placement {
+  flex-shrink: 0;
+  opacity: 0.6;
+  font-size: 8px;
+}
+.atl-sfx-prompt-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.7);
+}
+.atl-sfx-duration {
+  opacity: 0.55;
+}
+
+.atl-lane-file {
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid #232323;
+  position: relative; /* mini-clip 절대 위치 기준 */
+}
+
+/* file row 안의 mini-clip 마커 — 22px 행에서 시간 위치를 시각화 */
+.atl-file-mini-clip {
+  position: absolute;
+  top: 50%;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 2px;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: height 0.12s ease-out, margin-top 0.12s ease-out, opacity 0.12s ease-out;
+}
+.atl-file-mini-clip:hover {
+  height: 12px;
+  margin-top: -6px;
+  opacity: 1;
+}
+.atl-label-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* ── Scroll area (가로 스크롤) ── */
+.atl-scroll {
   flex: 1;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   position: relative;
   background: #ffffff;
 }
-
-/* Time Ruler */
-.atl-ruler {
-  height: 24px;
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
-  position: relative;
+.atl-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.atl-scroll::-webkit-scrollbar-track {
+  background: #ffffff;
+}
+.atl-scroll::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 5px;
+}
+.atl-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
 }
 
+/* ── Time Ruler ── */
+.atl-ruler {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  z-index: 5;
+}
 .atl-ruler-tick {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-left: 1px solid #cbd5e1;
-  font-size: 9px;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  color: #64748b;
-  padding-left: 4px;
-  font-weight: 600;
 }
-
-/* Track Row */
-.atl-track-row {
-  height: 48px;
-  position: relative;
-  border-bottom: 1px solid #f1f5f9;
-  background: #ffffff;
-}
-
-.atl-track-row:nth-child(even) {
-  background: #fafbfc;
-}
-
-/* Timeline Clip Blocks */
-.atl-clip {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.atl-clip--video {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
-}
-
-.atl-clip--video:hover {
-  background: #dbeafe;
-  border-color: #3b82f6;
-}
-
-.atl-clip--audio {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #047857;
-}
-
-.atl-clip--audio:hover {
-  background: #d1fae5;
-  border-color: #10b981;
-}
-
-.atl-clip--sfx {
-  background: #faf5ff;
-  border: 1px solid #e9d5ff;
-  color: #7e22ce;
-}
-
-.atl-clip--sfx:hover {
-  background: #f3e8ff;
-  border-color: #a855f7;
-}
-
-/* Playhead Line */
-.atl-playhead {
+.atl-ruler-line {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
-  background: #ef4444;
-  z-index: 50;
-  pointer-events: none;
+  width: 1px;
+  background: #3a3a3a;
+}
+.atl-ruler-label {
+  position: absolute;
+  top: 6px;
+  left: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #64748b;
+  white-space: nowrap;
 }
 
-.atl-playhead::before {
-  content: '';
+/* ── Scroll content wrapper (Playhead의 containing block) ── */
+/* position: relative라 Playhead의 top/bottom이 viewport가 아닌
+   ruler+tracks 전체 높이 기준이 됨 → 세로 스크롤해도 playhead가 끝까지 닿음 */
+.atl-content {
+  position: relative;
+}
+
+/* ── Track lane ── */
+.atl-tracks {
+  position: relative;
+}
+.atl-lane {
+  position: relative;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* ── Clip ── */
+.atl-clip {
+  position: absolute;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: filter 0.1s, transform 0.1s;
+}
+.atl-clip:hover {
+  filter: brightness(1.15);
+  z-index: 2;
+}
+.atl-clip-playing {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+  filter: brightness(1.25);
+  z-index: 3;
+}
+.atl-clip-dragging {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  outline: 1px dashed #fff;
+  outline-offset: -1px;
+}
+.atl-clip-flagged {
+  /* outline 대신 inset box-shadow 사용 → playing의 흰색 outline과 공존 가능 */
+  box-shadow: inset 0 0 0 2px #FFB74D;
+  filter: brightness(0.92) saturate(0.85);
+}
+/* playing + flagged 동시: playing의 흰 outline 유지 + flagged 노란 inset shadow 두껍게 */
+.atl-clip-playing.atl-clip-flagged {
+  filter: brightness(1.15);
+  box-shadow: inset 0 0 0 3px #FFB74D;
+}
+.atl-clip-flag-indicator {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  z-index: 4;
+}
+.atl-clip-action-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+  color: #0f172a;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, border-color 0.12s;
+  z-index: 5;
+  user-select: none;
+}
+.atl-clip:hover .atl-clip-action-btn,
+.atl-file-mini-clip:hover .atl-clip-action-btn,
+.atl-clip-action-btn:focus-visible {
+  opacity: 1;
+}
+/* 키보드 포커스 시 버튼이 강조되도록 — hover 가 아니면 안 보이는 문제 보완 */
+.atl-clip-action-btn:focus-visible {
+  outline: 2px solid #E4FA04;
+  outline-offset: 1px;
+  background: rgba(0, 0, 0, 0.95);
+}
+/* 얇은 클립 (<40px): 우측 하단에 작은 사이즈 — overflow: hidden 안에 위치 */
+.atl-clip-action-btn.is-narrow {
+  top: auto;
+  bottom: 1px;
+  right: 1px;
+  padding: 0 2px;
+  font-size: 9px;
+  line-height: 1;
+}
+.atl-clip:hover .atl-clip-action-btn {
+  opacity: 1;
+}
+.atl-clip-action-btn:hover {
+  background: rgba(0, 0, 0, 0.95);
+  border-color: #E4FA04;
+}
+.atl-clip-flag-btn.is-flagged {
+  background: rgba(255, 183, 77, 0.85);
+  border-color: #FFB74D;
+  color: #1a1a1a;
+  font-weight: 700;
+}
+.atl-clip-flag-btn.is-flagged:hover {
+  background: rgba(255, 183, 77, 1);
+}
+.atl-clip-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.atl-clip-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.9;
+}
+.atl-clip-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  width: 100%;
+}
+.atl-clip-audio {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Waveform ── */
+.atl-waveform {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+  height: 100%;
+  padding: 0 4px;
+  pointer-events: none;
+}
+.atl-waveform > div {
+  flex: 1;
+  border-radius: 1px;
+  min-width: 1px;
+}
+
+/* ── Playhead ── */
+.atl-playhead {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  width: 0;
+}
+.atl-playhead-handle {
   position: absolute;
   top: 0;
-  left: -5px;
-  width: 12px;
-  height: 12px;
-  background: #ef4444;
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  left: -7px;
+  width: 14px;
+  height: 14px;
+  background: #ff3b3b;
+  border-radius: 2px 2px 0 0;
+  transform: rotate(45deg) translateY(-2px);
+}
+.atl-playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: #ff3b3b;
+  box-shadow: 0 0 6px rgba(255, 59, 59, 0.6);
+}
+
+/* ── 헤더 버튼 hover 툴팁 (label + desc + hotkey) ── */
+/* 밝은 배경 + 어두운 글자로 콘트라스트 ↑ */
+.atl-btn-tooltip {
+  position: fixed;
+  z-index: 1100;
+  background: #f5f5f5;
+  color: #1a1a1a;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  max-width: 280px;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  transform: translateX(-50%);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.atl-btn-tooltip-label {
+  font-weight: 700;
+  color: #1976d2;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.atl-btn-tooltip-desc {
+  color: #333;
+}
+.atl-btn-tooltip-hotkey {
+  color: #555;
+  font-size: 11px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #e0e0e0;
+}
+.atl-btn-tooltip-hotkey kbd {
+  display: inline-block;
+  background: #e8e8e8;
+  border: 1px solid #b8b8b8;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 10px;
+  color: #1a1a1a;
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+/* ── 씬 호버 툴팁 ── */
+.atl-tooltip {
+  position: fixed;
+  z-index: 1000;
+  background: #f1f5f9;
+  border: 1px solid #4a4a4a;
+  border-radius: 6px;
+  padding: 8px;
+  max-width: min(var(--balloon-avail-width, 100vw), 280px);
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+.atl-tooltip img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  max-height: min(var(--balloon-avail-height, 100vh), 180px);
+  object-fit: cover;
+}
+.atl-tooltip-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.3;
 }

@@ -144,9 +144,14 @@ export default function MultiWindowController({
             if (isActive) {
                 // Close window
                 await (window as any).electronAPI?.destroyFlowView?.({ profileId: profId });
+                const viewsRes = await (window as any).electronAPI?.getActiveViews?.();
+                if (!viewsRes?.views || viewsRes.views.length === 0) {
+                    (window as any).electronAPI?.setLayout?.({ mode: 'none' });
+                }
             } else {
                 // Open window & enforce active layout
-                (window as any).electronAPI?.setLayout?.({ mode, ratio: ratio / 100 });
+                const curMode = mode === 'none' ? 'split-left' : mode;
+                (window as any).electronAPI?.setLayout?.({ mode: curMode, ratio: ratio / 100 });
                 await (window as any).electronAPI?.createFlowView?.({ profileId: profId });
             }
             await syncViewsAndProfiles();

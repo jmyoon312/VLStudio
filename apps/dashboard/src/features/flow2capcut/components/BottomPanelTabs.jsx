@@ -14,7 +14,7 @@ const VIEWS = [
 
 export default function BottomPanelTabs({ view, onChange, t = (k) => k }) {
   return (
-    <div className="bottom-panel-tabs" role="tablist" style={{ display: 'flex', gap: '2px', padding: '4px 8px' }}>
+    <div className="bottom-panel-tabs" role="tablist" style={{ display: 'inline-flex', gap: '3px', padding: '3px', background: '#f1f5f9', borderRadius: '10px', border: '1px solid #e2e8f0', margin: '4px 10px' }}>
       {VIEWS.map((v) => {
         const active = view === v.value
         return (
@@ -25,17 +25,22 @@ export default function BottomPanelTabs({ view, onChange, t = (k) => k }) {
             className={`bp-tab ${active ? 'active' : ''}`}
             onClick={() => onChange(v.value)}
             style={{
-              padding: '3px 12px',
-              fontSize: '12px',
-              border: '1px solid',
-              borderColor: active ? '#4a9eff' : '#3a3a3a',
-              background: active ? '#4a9eff' : 'transparent',
-              color: active ? '#fff' : '#999',
-              borderRadius: '4px',
+              padding: '4px 10px',
+              fontSize: '11px',
+              fontWeight: 700,
+              border: 'none',
+              background: active ? '#ffffff' : 'transparent',
+              color: active ? '#2563eb' : '#64748b',
+              borderRadius: '8px',
               cursor: 'pointer',
+              boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease'
             }}
           >
-            {v.icon} {t(v.labelKey)}
+            <span>{v.icon}</span> <span>{t(v.labelKey)}</span>
           </button>
         )
       })}
