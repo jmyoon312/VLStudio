@@ -938,61 +938,85 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
 
   return (
     <div className={`atl-root${compact ? ' atl-root--compact' : ''}`}>
-      {/* compact(하단 도크): 큰 프리뷰 패널을 접어 좁은 높이에서 트랙이 보이게 한다. */}
-      {!compact && (
+      {/* compact 모드에서도 titleActive(프리뷰 활성화)일 때 또는 비compact(오디오 탭)일 때 PreviewPanel 렌더링 */}
+      {(!compact || titleActive) && (
         <>
           {/* 비디오 프리뷰 (현재 playhead 위치의 씬 이미지 + 자막) */}
           <PreviewPanel
             playheadMs={playheadMs}
             scenes={scenes}
             srtEntries={srtEntries}
-            height={previewHeight}
+            height={compact ? 200 : previewHeight}
             isPlaying={isGlobalPlaying}
             hiddenRoles={disabledTracks}
           />
 
-          {/* Preview ↔ Timeline 사이 splitter (드래그=조절 / 더블클릭=기본값 복귀) */}
-          <div
-            className="atl-splitter"
-            onPointerDown={startSplitterDrag}
-            onDoubleClick={() => {
-              setPreviewHeight(PREVIEW_H_DEFAULT)
-              try { localStorage.setItem(PREVIEW_H_KEY, String(PREVIEW_H_DEFAULT)) } catch {}
-            }}
-            title="드래그=높이 조절 · 더블클릭=기본값"
-          >
-            <div className="atl-splitter-grip" />
-          </div>
+          {/* Preview ↔ Timeline 사이 splitter */}
+          {!compact && (
+            <div
+              className="atl-splitter"
+              onPointerDown={startSplitterDrag}
+              onDoubleClick={() => {
+                setPreviewHeight(PREVIEW_H_DEFAULT)
+                try { localStorage.setItem(PREVIEW_H_KEY, String(PREVIEW_H_DEFAULT)) } catch {}
+              }}
+              title="드래그=높이 조절 · 더블클릭=기본값"
+            >
+              <div className="atl-splitter-grip" />
+            </div>
+          )}
         </>
       )}
 
       {/* Header */}
       <div className="atl-header">
         {onTitleClick ? (
-          <button
-            type="button"
-            className={`atl-title atl-title--btn${titleActive ? ' atl-title--active' : ''}`}
-            onClick={onTitleClick}
-            aria-pressed={titleActive}
-            title={titleActive ? '프리뷰 모니터 닫기' : '프리뷰 모니터 크게 보기'}
-            style={{
-              whiteSpace: 'nowrap',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              background: titleActive ? '#2563eb' : 'var(--muted, #f1f5f9)',
-              color: titleActive ? '#ffffff' : 'var(--foreground, #0f172a)',
-              border: '1px solid var(--border, #e2e8f0)',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              flexShrink: 0
-            }}
-          >
-            <span>📺</span> <span>{compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}</span>
-          </button>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <button
+              type="button"
+              className={`atl-title atl-title--btn${titleActive ? ' atl-title--active' : ''}`}
+              onClick={onTitleClick}
+              aria-pressed={titleActive}
+              title={titleActive ? '프리뷰 모니터 닫기' : '프리뷰 모니터 열기'}
+              style={{
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                background: titleActive ? '#2563eb' : 'var(--muted, #f1f5f9)',
+                color: titleActive ? '#ffffff' : 'var(--foreground, #0f172a)',
+                border: '1px solid var(--border, #e2e8f0)',
+                fontSize: '0.75rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+            >
+              <span>📺</span> <span>{compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}</span>
+            </button>
+            {titleActive && (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('monitor-transport', { detail: { action: 'fullscreen' } }))}
+                title="전체화면으로 크게 보기"
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: 'inherit',
+                  border: '1px solid var(--border, #e2e8f0)',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  flexShrink: 0
+                }}
+              >
+                ⛶
+              </button>
+            )}
+          </div>
         ) : (
           <div className="atl-title" style={{ whiteSpace: 'nowrap', fontSize: '0.75rem', fontWeight: 800 }}>
             <span>📺</span> {compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}

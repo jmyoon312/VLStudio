@@ -112,6 +112,16 @@ export function useMonitor({ mode, activeTab }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [monitorFullscreen])
 
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.action === 'fullscreen') {
+        toggleMonitorFullscreen()
+      }
+    }
+    window.addEventListener('monitor-transport', handler)
+    return () => window.removeEventListener('monitor-transport', handler)
+  }, [toggleMonitorFullscreen])
+
   // activeTab이 audio일 때만 전체화면 자동 닫기
   useEffect(() => {
     if (activeTab === 'audio') {
