@@ -495,7 +495,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
             {/* Main Content Area */}
             <main className="flex-1 h-full overflow-hidden relative bg-background flex flex-col transition-all duration-300 md:pl-[var(--sidebar-width)] pl-0">
-                <header className="sticky top-0 z-[70] w-full px-4 md:px-8 h-14 flex items-center justify-between bg-card border-b border-border shrink-0">
+                <header className="sticky top-0 z-[9990] w-full px-4 md:px-8 h-14 flex items-center justify-between bg-card border-b border-border shrink-0">
                     <div className="flex items-center gap-2.5 min-w-0">
                         <button 
                             onClick={() => setMobileMenuOpen(true)} 

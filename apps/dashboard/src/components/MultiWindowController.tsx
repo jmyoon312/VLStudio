@@ -204,7 +204,7 @@ export default function MultiWindowController({
             </button>
 
             {open && (
-                <div className="absolute top-[calc(100%+8px)] right-0 w-[320px] bg-card border border-border rounded-xl shadow-xl z-[9999] p-3 flex flex-col gap-4">
+                <div className="absolute top-[calc(100%+8px)] right-0 w-[320px] bg-card border border-border rounded-xl shadow-2xl z-[99999] p-3 flex flex-col gap-4">
                     
                     {/* 1. Account / Window Grid & List */}
                     <div className="space-y-3">
