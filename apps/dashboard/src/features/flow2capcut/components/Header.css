@@ -450,7 +450,9 @@
   .layout-picker,
   .mode-toggle,
   .language-picker,
-  .user-menu {
+  .user-menu,
+  .btn-story-toggle,
+  .flow-profile-container {
     display: none !important;
   }
   .logo {

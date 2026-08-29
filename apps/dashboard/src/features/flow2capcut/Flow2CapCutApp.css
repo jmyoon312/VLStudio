@@ -1854,14 +1854,14 @@ html, body {
   }
   .tabs-right {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     width: 100%;
     gap: 3px;
   }
   .tab {
     width: 100% !important;
     padding: 6px 2px !important;
-    font-size: 0.72rem !important;
+    font-size: 0.7rem !important;
     border-radius: 6px;
     white-space: nowrap !important;
     display: flex;
@@ -1872,14 +1872,14 @@ html, body {
   }
   .tab-label {
     display: inline !important;
-    font-size: 0.72rem !important;
+    font-size: 0.7rem !important;
     font-weight: 700;
   }
   .tab-count {
-    font-size: 0.65rem !important;
+    font-size: 0.62rem !important;
   }
   .main-panel {
-    padding: 6px 8px 85px 8px !important;
+    padding: 6px 8px 90px 8px !important;
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -1905,8 +1905,8 @@ html, body {
   }
   .prompt-textarea {
     width: 100% !important;
-    height: 180px !important;
-    min-height: 140px !important;
+    height: 160px !important;
+    min-height: 130px !important;
     font-size: 0.88rem !important;
     padding: 8px !important;
     line-height: 1.45 !important;
@@ -1953,9 +1953,14 @@ html, body {
     box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
   }
   .bottom-panel {
-    min-height: 60px !important;
-    max-height: 120px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 180px !important;
+    height: auto !important;
     border-radius: 10px !important;
+    margin-top: 8px !important;
+    background: #0f172a !important;
+    border: 1px solid #1e293b !important;
   }
   .status-bar {
     padding: 6px 8px !important;

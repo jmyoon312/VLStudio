@@ -2217,16 +2217,14 @@ function App() {
             >
               📋 <span className="tab-label">{t('tabs.list')}</span> ({scenes.length})
             </button>
-            {/* Audio 탭 — SFX 입력용. 현재 상단 프리뷰(LiveTimeline)가 타임라인을 커버해 중복이라 숨김.
-                SFX 입력 처리 재개 시 주석 해제. (content 블록은 activeTab==='audio' 가 안 돼 자동 미렌더) */}
-            {/* <button
+            <button
               className={`tab tab-icon ${activeTab === 'audio' ? 'active' : ''}`}
               onClick={() => setActiveTab('audio')}
-              title={t('audioTab.title') || '오디오'}
+              title="오디오 및 영상 멀티트랙 타임라인 플레이어"
             >
-              🎵 <span className="tab-label">{t('audioTab.title') || '오디오'}</span>
-              {audioPackage && <span className="tab-count"> ({(audioPackage.summary?.totalVoiceFiles || 0) + (audioPackage.summary?.totalSfxFiles || 0)})</span>}
-            </button> */}
+              🎵 <span className="tab-label">타임라인</span>
+              {scenes.length > 0 && <span className="tab-count"> ({scenes.length})</span>}
+            </button>
             <button
               className={`tab tab-icon ${showReferences ? 'active' : ''}`}
               onClick={() => setOpenByUser(!showReferences)}

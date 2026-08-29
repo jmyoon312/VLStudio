@@ -514,11 +514,11 @@ export default function Header({
 
   const isFlowMode = mode === 'flow'
   const authenticatedLabel = isFlowMode
-    ? (t('header.authenticated') || 'Flow 연결됨')
-    : (t('header.apiModeAuthenticated') || 'API 연결됨')
+    ? (lang === 'ko' ? 'Flow 연결됨' : 'Flow Connected')
+    : (lang === 'ko' ? 'API 연결됨' : 'API Connected')
   const authActionLabel = isFlowMode
-    ? (t('header.login') || 'Flow 로그인')
-    : (t('header.apiModeLogin') || 'API 재연결')
+    ? (lang === 'ko' ? 'Flow 로그인' : 'Flow Login')
+    : (lang === 'ko' ? 'API 연결' : 'Connect API')
   const authActionIcon = isFlowMode ? '🔑' : '🔌'
 
   const activeProfile = profileConfig.profiles.find(p => p.id === profileConfig.activeProfileId)
