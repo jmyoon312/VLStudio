@@ -610,6 +610,7 @@ export function useProjectData({
   //   create-new 가 실행될 수 있도록 한다. dep 배열에 포함됨.
   const [hydrated, setHydrated] = useState(false)
   // 하위 호환: hydratedRef 는 즉시 읽기(비동기 외부)에서 계속 쓸 수 있도록 유지.
+  const hydratedRef = useRef(false)
   const [projectLoading, setProjectLoading] = useState(false)
 
   // Failsafe: projectLoading이 2.5초 이상 갇혀 화면을 가리는 것을 원천 차단
