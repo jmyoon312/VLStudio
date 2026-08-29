@@ -86,20 +86,9 @@ class RouteErrorBoundary extends React.Component<{children: React.ReactNode}, {h
     }
 }
 
-function GlobalShellWrapper({ children }: { children: React.ReactNode }) {
-    return (
-        <Shell>
-            {children}
-        </Shell>
-    );
-}
-
 function MainAppContent() {
     const { isAuthenticated, loading } = useAuth();
     const location = useLocation();
-
-
-
 
     if (loading) {
         return (
@@ -108,7 +97,7 @@ function MainAppContent() {
                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-blue-600"></div>
                 </div>
                 <p className="mt-4 text-[10px] font-bold text-slate-600 tracking-wider uppercase animate-pulse">
-                    ViraLoop Studio ?션 초기???..
+                    ViraLoop Studio 세션 초기화 중...
                 </p>
             </div>
         );
@@ -119,9 +108,8 @@ function MainAppContent() {
     }
 
     return (
-        <GlobalShellWrapper>
-            <Layout>
-                <Routes>
+        <Layout>
+            <Routes>
                     <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
                     <Route path="/douyin-search" element={<SmartDouyinSearch />} />
                     <Route path="/ddalkkak" element={<DdalkkakUI />} />
@@ -192,7 +180,6 @@ function MainAppContent() {
                     <Route path="/research-brief" element={<ResearchBrief />} />
                 </Routes>
             </Layout>
-        </GlobalShellWrapper>
     );
 }
 

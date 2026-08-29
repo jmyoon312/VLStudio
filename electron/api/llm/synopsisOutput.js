@@ -4,7 +4,7 @@
  * - 마커 없음/JSON 깨짐은 throw하지 않고 characters=[] 폴백(synopsisMd는 원문 유지).
  * - createSynopsisDeltaGate: 마커 이후(JSON 파편)를 onDelta로 흘리지 않는 스트리밍 게이트(M4).
  */
-import { normalizeStoryCharacter } from '../../../src/services/storyCharacter.js'
+import { normalizeStoryCharacter } from '../../../apps/dashboard/src/features/flow2capcut/services/storyCharacter.js'
 
 export const CHARACTERS_MARKER = 'CHARACTERS_JSON'
 

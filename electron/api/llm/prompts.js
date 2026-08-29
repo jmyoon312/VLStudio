@@ -2,8 +2,8 @@
 
 // Ref 카드 prompt와 동일한 `${ethnicity}, ${age}, ${gender}, ${appearance}` 조합 규칙(공유 helper) —
 // electron→src import는 stepMachine의 기존 관례(storyCharacter.js는 순수 모듈, 순환 없음).
-import { characterVisualPrompt } from '../../../src/services/storyCharacter.js'
-import { formatMentionToken } from '../../../src/utils/mentionParser.js'
+import { characterVisualPrompt } from '../../../apps/dashboard/src/features/flow2capcut/services/storyCharacter.js'
+import { formatMentionToken } from '../../../apps/dashboard/src/features/flow2capcut/utils/mentionParser.js'
 
 const KOREAN_CHARS_PER_MINUTE = 330
 const ENGLISH_WORDS_PER_MINUTE = 150

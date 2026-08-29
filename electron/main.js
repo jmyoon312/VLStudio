@@ -1,5 +1,5 @@
 import electronPkg from 'electron';
-const { app, BrowserWindow, WebContentsView, ipcMain, shell, protocol, net, powerSaveBlocker } = electronPkg;
+const { app, BrowserWindow, WebContentsView, ipcMain, shell, protocol, net, powerSaveBlocker, safeStorage } = electronPkg;
 import http from 'node:http'
 import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
@@ -19,15 +19,28 @@ import { registerCharacterIPC } from './ipc/character.js'
 import { registerGenaiIPC } from './ipc/genai-api.js'
 import { registerStoryIPC } from './ipc/story-api.js'
 import { registerTtsIPC } from './ipc/tts-api.js'
-import { registerModeIPC } from './ipc/mode.js'
-
+import { createModeController } from './ipc/mode.js'
+import * as llmClaude from './api/llm/llmClaude.js'
+import { createStoryLlmRouter } from './api/llm/storyLlmRouter.js'
+import { loadMetaPrompt } from './api/llm/metaPrompts.js'
+import { createKeyStore } from './api/keyStore.js'
+import { createMultiKeyStore } from './api/keyStoreMulti.js'
+import { createTtsAdapter } from './api/tts/index.js'
+import { getTypecastKey } from './api/tts/typecastKey.js'
+import { readCredentialsKey } from './api/tts/credentialsKey.js'
+import { createSfxAdapter } from './api/sfx/index.js'
+import { createVoiceGenderCache } from './api/tts/voiceGenderCache.js'
+import { applyGenderOverlay } from './api/tts/genderOverlay.js'
+import { createVoicePreviewService } from './api/tts/voicePreviewService.js'
+import { ssrfSafeFetch } from './api/net/ssrfSafeFetch.js'
+import { buildKeyResolvers } from './main/keyResolvers.js'
 import { registerVideoIPC } from './ipc/video.js'
 import { registerDomIPC } from './ipc/dom.js'
 import { registerYoutubeIPC } from './ipc/ytExportManager.js'
 import { createSharedHelpers } from './ipc/shared.js'
 import { updateBounds, registerLayoutIPC, setLayoutMode, setSplitRatio, setModalVisible, resetModalState } from './ipc/layout.js'
 import { openApiSpec, getSwaggerHtml } from './api-docs.js'
-import { setupAppMenuAndUpdater, noteProjectActivated } from './updater.js'
+import { setupAppMenuAndUpdater, noteProjectActivated, setMenuLocale } from './updater.js'
 import { selectCdpCase } from './video-cdp-dispatch.js'
 import { loadProfiles, saveProfiles, switchProfile, createProfile, deleteProfile, updateProfile, cleanupUnusedPartitions } from './profileManager.js'
 import { injectImageBatchBody } from './cdp-image-inject.js'
@@ -864,7 +877,131 @@ registerCapcutIPC(ipcMain)
 registerMcpIPC(ipcMain)
 
 // Layout, modal, sleep, open-external, show-in-folder IPC
-registerLayoutIPC(ipcMain, () => mainWindow, () => flowView)
+registerLayoutIPC(ipcMain, () => mainWindow, () => getCurrentFlowView())
+
+// ─── Mode Controller IPC (mode:set, flow:set-startup-project) ───────────────
+const modeController = createModeController(
+  () => mainWindow,
+  () => getCurrentFlowView()
+)
+modeController.register(ipcMain)
+
+// ─── Locale IPC (app:set-locale) ─────────────────────────────────────────────
+ipcMain.handle('app:set-locale', (_e, { locale } = {}) => {
+  try { setMenuLocale(locale) } catch (e) { console.warn('[ViraLoop Studio] setMenuLocale failed:', e.message) }
+  return { ok: true }
+})
+
+// ─── GenAI KeyStore & IPC ──────────────────────────────────────────────────
+let genaiKeyStore = null
+try {
+  genaiKeyStore = createKeyStore({
+    safeStorage,
+    filePath: path.join(app.getPath('userData'), 'genai-key.enc'),
+    fs: fsSync,
+  })
+  registerGenaiIPC(ipcMain, { keyStore: genaiKeyStore })
+} catch (e) {
+  console.warn('[ViraLoop Studio] registerGenaiIPC failed:', e.message)
+}
+
+// ─── MultiKeyStore & TTS IPC ────────────────────────────────────────────────
+let multiKeyStore = null
+let ttsFor = null
+let sfxFor = null
+let voicePreviewService = null
+let voiceGenderCache = null
+let resolveKeyWithSource = null
+
+try {
+  multiKeyStore = createMultiKeyStore({
+    safeStorage,
+    keysDir: path.join(app.getPath('userData'), 'keys'),
+    fs: fsSync,
+    path,
+  })
+
+  const ttsFetch = (...a) => globalThis.fetch(...a)
+  const keyResolvers = buildKeyResolvers({
+    multiKeyStore,
+    genaiKeyStore,
+    getTypecastKey,
+    readCredentialsKey,
+    disableFallback: process.env.AUTOFLOWCUT_DISABLE_KEY_FALLBACK === '1',
+  })
+  const ttsKeyFor = keyResolvers.ttsKeyFor
+  resolveKeyWithSource = keyResolvers.resolveKeyWithSource
+
+  const ttsAdapters = {}
+  ttsFor = (provider) => {
+    const p = provider || 'typecast'
+    if (!ttsKeyFor[p]) throw new Error(`Unsupported TTS provider: ${p}`)
+    if (!ttsAdapters[p]) ttsAdapters[p] = createTtsAdapter(p, { getKey: ttsKeyFor[p], fetch: ttsFetch })
+    return ttsAdapters[p]
+  }
+
+  voiceGenderCache = createVoiceGenderCache({ filePath: path.join(app.getPath('userData'), 'voice-gender.json') })
+  const voiceMetaCache = new Map()
+  const VOICE_META_CACHE_MAX = 5000
+  voicePreviewService = createVoicePreviewService({
+    cacheDir: path.join(app.getPath('userData'), 'voice-preview'),
+    ttsFor,
+    voiceMeta: (provider, voiceId) => voiceMetaCache.get(`${provider}:${voiceId}`) || {},
+    ssrfSafeFetch,
+    fetch: globalThis.fetch,
+  })
+
+  registerTtsIPC(ipcMain, {
+    keyStore: multiKeyStore,
+    safeStorage,
+    listVoices: async (provider, options) => {
+      let raw
+      try { raw = await ttsFor(provider).listVoices(options) } catch { return [] }
+      if (voiceMetaCache.size + raw.length > VOICE_META_CACHE_MAX) voiceMetaCache.clear()
+      for (const v of raw) voiceMetaCache.set(`${provider}:${v.id}`, { previewUrl: v.previewUrl || null, language: v.language || 'ko' })
+      try { return applyGenderOverlay(provider, raw, voiceGenderCache.get()) } catch { return raw }
+    },
+    previewVoice: (args) => voicePreviewService.getPreview(args),
+    tagVoiceGender: (args) => voiceGenderCache.tag(args),
+  })
+
+  // SFX Adapter
+  const sfxKeyFor = { ...keyResolvers.sfxKeyFor, library: () => null }
+  const sfxAdapters = {}
+  sfxFor = (provider) => {
+    const p = provider || 'elevenlabs'
+    if (!sfxKeyFor[p]) throw new Error(`Unsupported SFX provider: ${p}`)
+    if (!sfxAdapters[p]) sfxAdapters[p] = createSfxAdapter(p, { getKey: sfxKeyFor[p], fetch: ttsFetch })
+    return sfxAdapters[p]
+  }
+} catch (e) {
+  console.warn('[ViraLoop Studio] TTS/SFX IPC setup failed:', e.message)
+}
+
+// ─── Story Pipeline IPC ─────────────────────────────────────────────────────
+try {
+  const storyLlm = createStoryLlmRouter({ claude: llmClaude })
+  let activeWorkFolder = null
+  registerStoryIPC(ipcMain, {
+    keyStore: genaiKeyStore,
+    getWindow: () => mainWindow,
+    llm: storyLlm,
+    loadMetaPrompt,
+    getActiveWorkFolder: () => activeWorkFolder,
+    tts: ttsFor ? ttsFor('typecast') : null,
+    ttsFor,
+    sfxFor,
+    resolveKeyWithSource,
+    safeStorage,
+  })
+} catch (e) {
+  console.warn('[ViraLoop Studio] registerStoryIPC failed:', e.message)
+}
+
+// ─── Premiere & Vrew & Character IPC ─────────────────────────────────────────
+try { registerPremiereIPC(ipcMain) } catch (e) { console.warn('[ViraLoop Studio] registerPremiereIPC failed:', e.message) }
+try { registerVrewIPC(ipcMain) } catch (e) { console.warn('[ViraLoop Studio] registerVrewIPC failed:', e.message) }
+try { registerCharacterIPC(ipcMain, { getMainWindow: () => mainWindow }) } catch (e) { console.warn('[ViraLoop Studio] registerCharacterIPC failed:', e.message) }
 
 // Renderer reports the active project (with its work folder) so the native
 // "Recent Projects" menu stays in MRU order and scoped to the current folder.

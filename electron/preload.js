@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // App

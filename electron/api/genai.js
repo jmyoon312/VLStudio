@@ -19,13 +19,13 @@
  * fetch / sleep 은 주입 가능 → 실제 네트워크·키·타이머 없이 테스트.
  */
 import { formatGoogleApiError } from '../ipc/googleApiError.js'
-import { normalizeVideoModel } from '../../src/utils/videoModels.js'
+import { normalizeVideoModel } from '../../apps/dashboard/src/features/flow2capcut/utils/videoModels.js'
 import {
   VIDEO_REFERENCE_IMAGE_MODEL_IDS,
   VIDEO_REFERENCE_IMAGE_LIMIT,
   coerceResolution,
   supportsVideoReferenceMimeType,
-} from '../../src/config/genModels.js'
+} from '../../apps/dashboard/src/features/flow2capcut/config/genModels.js'
 
 export const GENAI_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 // Nano Banana 2. renderer 의 DEFAULT_IMAGE_MODEL_ID(src/config/genModels.js)와 동기화 유지

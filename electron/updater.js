@@ -1,6 +1,7 @@
 import { app, Menu, dialog, shell } from 'electron'
 import electronUpdater from 'electron-updater'
 import { loadRecentProjects, saveRecentProjects, mergeRecent } from './recent-projects.js'
+import { getMenuLabels } from './menuLabels.js'
 
 const { autoUpdater } = electronUpdater
 
@@ -13,6 +14,8 @@ const { autoUpdater } = electronUpdater
 let getMainWindowRef = () => null
 let recentProjects = []
 let currentWorkFolder = null
+// 렌더러가 app:set-locale 로 push 하는 현재 언어 — 메뉴 라벨 현지화용. 기본 en.
+let currentLang = 'en'
 
 // AppX (Microsoft Store) builds update through the Store, not electron-updater.
 // process.windowsStore is true when running as a packaged AppX.
@@ -25,6 +28,14 @@ let updaterConfigured = false
 
 function log(...args) {
   try { console.log('[Updater]', ...args) } catch {}
+}
+
+function label(key, params = {}) {
+  let value = getMenuLabels(currentLang)[key] || getMenuLabels('en')[key] || key
+  for (const [name, replacement] of Object.entries(params)) {
+    value = value.replaceAll(`{${name}}`, String(replacement))
+  }
+  return value
 }
 
 function configureAutoUpdater() {
@@ -355,6 +366,17 @@ export function setupAppMenuAndUpdater(getMainWindow = () => null) {
   recentProjects = loadRecentProjects()
   buildAppMenu()
   startAutoCheck()
+}
+
+/**
+ * 렌더러(I18nProvider)가 app:set-locale 로 push 한 언어로 메뉴 라벨을 현지화.
+ * 바뀐 경우에만 메뉴를 다시 그린다.
+ * @param {string} lang
+ */
+export function setMenuLocale(lang) {
+  if (!lang || lang === currentLang) return
+  currentLang = lang
+  buildAppMenu()
 }
 
 export { manualCheck as checkForUpdatesManually }

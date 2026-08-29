@@ -1,4 +1,4 @@
-import { STORY_TTS_PROVIDERS } from '../../src/config/storyTtsProviders.js'
+import { STORY_TTS_PROVIDERS } from '../../apps/dashboard/src/features/flow2capcut/config/storyTtsProviders.js'
 
 /**
  * Electron IPC — TTS provider 키 관리(멀티) + 성우 목록 (스펙 §6, M2a-3b).

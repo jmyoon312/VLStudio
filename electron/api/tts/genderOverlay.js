@@ -1,4 +1,4 @@
-import { voiceKey } from '../../../src/utils/voiceKey.js'
+import { voiceKey } from '../../../apps/dashboard/src/features/flow2capcut/utils/voiceKey.js'
 
 // 순수: 어댑터 voice 배열에 app-global 성별 캐시를 병합. 확정(adapter/seed)은 불변.
 export function applyGenderOverlay(provider, voices, cache = {}) {

@@ -10,7 +10,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import { shell } from 'electron'
-import { packVrewProject } from '../../src/exporters/vrewZip.js'
+import { packVrewProject } from '../../apps/dashboard/src/features/flow2capcut/exporters/vrewZip.js'
 
 async function pathExists(p) {
   try { await fs.access(p); return true } catch { return false }

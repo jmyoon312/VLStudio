@@ -57,7 +57,14 @@ export default defineConfig(({ mode }) => {
             build: {
               outDir: 'dist-electron',
               rollupOptions: {
-                external: ['electron']
+                external: [
+                  'electron',
+                  '@anthropic-ai/claude-agent-sdk',
+                  '@modelcontextprotocol/sdk',
+                  '@openai/codex',
+                  'koffi',
+                  'sharp'
+                ]
               }
             },
             esbuild: isProduction ? { drop: ['console', 'debugger'] } : {}
@@ -106,6 +113,22 @@ export default defineConfig(({ mode }) => {
       // build finds nothing (vs. leaving an if/else in code where the dead
       // branch's string literal would still land in the output).
       '__FUNCTION_SUFFIX__': JSON.stringify(functionEnv === 'prod' ? '_prod' : '_test')
+    },
+    optimizeDeps: {
+      include: [
+        'lexical',
+        '@lexical/react/LexicalComposer',
+        '@lexical/react/LexicalContentEditable',
+        '@lexical/react/LexicalRichTextPlugin',
+        '@lexical/react/LexicalHistoryPlugin',
+        '@lexical/react/LexicalErrorBoundary',
+        '@lexical/react/LexicalComposerContext',
+        '@lexical/react/LexicalPlainTextPlugin',
+        'lexical-beautiful-mentions',
+        '@tanstack/react-virtual',
+        '@tanstack/virtual-core',
+        'react-error-boundary',
+      ]
     },
     server: {
       host: '0.0.0.0',

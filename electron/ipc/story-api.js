@@ -5,7 +5,7 @@
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { createStepMachine, readAudioPackage } from '../story/stepMachine.js'
-import { keyIdForProvider } from '../../src/config/apiKeyRegistry.js'
+import { keyIdForProvider } from '../../apps/dashboard/src/features/flow2capcut/config/apiKeyRegistry.js'
 import * as llmGemini from '../api/llm/llmGemini.js'
 import * as llmClaude from '../api/llm/llmClaude.js'
 import { searchVideos } from '../api/youtube/searchVideos.js'

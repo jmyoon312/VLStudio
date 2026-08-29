@@ -1,6 +1,6 @@
 import nodeFs from 'node:fs'
 import path from 'node:path'
-import { voiceKey } from '../../../src/utils/voiceKey.js'
+import { voiceKey } from '../../../apps/dashboard/src/features/flow2capcut/utils/voiceKey.js'
 
 // app-global 성별 캐시. 프로젝트 무관. corrupt/missing → {} degrade.
 export function createVoiceGenderCache({ filePath, fs = nodeFs }) {

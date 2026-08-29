@@ -26,7 +26,7 @@ import { splitSynopsisOutput, parseCharactersJson, createSynopsisDeltaGate } fro
 import { toOpenAiJsonSchema } from './toJsonSchema.js'
 import { PROMPTS_SCHEMA, REVIEW_SCHEMA, SCORED_REVIEW_SCHEMA, clampReviewScore, SCENES_SCHEMA, RESEARCH_ANALYSIS_SCHEMA, validateScenesSegments } from './schemas.js'
 import { createPartialScenesParser } from './partialScenes.js'
-import { isNarratorSpeaker as isNarratorTrackSpeaker } from '../../../src/utils/storyNarrationTracks.js'
+import { isNarratorSpeaker as isNarratorTrackSpeaker } from '../../../apps/dashboard/src/features/flow2capcut/utils/storyNarrationTracks.js'
 
 export const DEFAULT_MODEL = 'gpt-5.5'
 
