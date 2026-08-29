@@ -437,91 +437,80 @@
   .btn-export { padding: 0 4px; }
 }
 
-/* 📱 모바일 스마트폰 화면 최적화 (< 640px) — 2줄 콤팩트 풀-컨트롤 툴바 */
+/* 📱 모바일 스마트폰 화면 최적화 (< 640px) — 1줄 럭셔리 슬림 헤더 + 퀵메뉴 팝오버 */
 @media (max-width: 640px) {
   .header.flow-renderer-header {
-    height: auto !important;
-    min-height: 72px !important;
-    padding: 6px 8px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 8px !important;
     gap: 6px !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     overflow: visible !important;
   }
   .header-left {
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
-    width: 100% !important;
     gap: 4px !important;
     flex-shrink: 0 !important;
   }
   .header-right {
     display: flex !important;
     align-items: center !important;
-    justify-content: flex-start !important;
-    width: 100% !important;
     gap: 4px !important;
     flex-shrink: 0 !important;
-    flex-wrap: wrap !important;
   }
-  /* 데스크톱 전용 분할만 숨김 */
-  .layout-picker, .btn-flow-reset {
-    display: none !important;
-  }
-  /* 모바일 핵심 제어 메뉴 100% 복원 */
+  /* 1줄 헤더에서 공간을 차지하는 메뉴는 ⚙️ 퀵메뉴 팝오버 내부로 위임 */
   .hamburger-btn,
+  .layout-picker,
+  .btn-flow-reset,
   .mode-toggle,
   .language-picker,
   .user-menu,
   .btn-story-toggle,
-  .flow-profile-container,
-  .btn-settings {
-    display: inline-flex !important;
-    flex-shrink: 0 !important;
+  .flow-profile-container {
+    display: none !important;
   }
+  /* 1줄 헤더 상시 노출 핵심 4개 요소 */
   .logo {
     display: flex !important;
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
+    font-weight: 800 !important;
   }
   .logo-text {
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
   }
   .project-current {
-    height: 28px !important;
-    padding: 0 8px !important;
-    max-width: 110px !important;
-    font-size: 0.72rem !important;
+    height: 26px !important;
+    padding: 0 6px !important;
+    max-width: 90px !important;
+    font-size: 0.7rem !important;
+    border-radius: 6px !important;
   }
   .project-current .project-name {
-    max-width: 80px !important;
+    max-width: 60px !important;
   }
   .auth-badge, .auth-btn {
-    height: 28px !important;
-    padding: 0 8px !important;
-    font-size: 0.72rem !important;
+    height: 26px !important;
+    padding: 0 6px !important;
+    font-size: 0.68rem !important;
+    border-radius: 6px !important;
   }
   .btn-export {
-    height: 28px !important;
-    padding: 0 10px !important;
-    font-size: 0.72rem !important;
-    flex: 1 1 auto !important;
-    max-width: 140px !important;
-    justify-content: center !important;
+    height: 26px !important;
+    padding: 0 8px !important;
+    font-size: 0.7rem !important;
+    border-radius: 6px !important;
+    max-width: 110px !important;
   }
   .btn-settings {
-    width: 28px !important;
-    height: 28px !important;
-    font-size: 0.8rem !important;
-  }
-  .btn-story-toggle {
-    height: 28px !important;
-    padding: 0 8px !important;
-    font-size: 0.72rem !important;
-  }
-  .btn-profile-selector {
-    height: 28px !important;
-    padding: 0 8px !important;
-    font-size: 0.72rem !important;
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 0.76rem !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 }

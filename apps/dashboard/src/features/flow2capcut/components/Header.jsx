@@ -184,7 +184,9 @@ export default function Header({
   // -------------------------------------------------------------
   const [profileConfig, setProfileConfig] = useState({ activeProfileId: 'default', profiles: [] })
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const profileDropdownRef = useRef(null)
+  const mobileMenuRef = useRef(null)
 
   const loadFlowProfiles = async () => {
     try {
@@ -207,6 +209,9 @@ export default function Header({
       }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
         setShowProfileDropdown(false)
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target)) {
+        setShowMobileMenu(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -752,6 +757,7 @@ export default function Header({
         />
 
         {/* 언어 선택 */}
+        {/* 언어 선택 (데스크톱) */}
         <LanguagePicker
           current={lang}
           languages={languages}
@@ -759,14 +765,117 @@ export default function Header({
           tooltip={t('header.language')}
         />
 
-        {/* 설정 */}
-        <button
-          className="btn-settings"
-          onClick={() => onSettings()}
-          data-tooltip={t('header.settings')}
-        >
-          ⚙️
-        </button>
+        {/* 설정 / 모바일 퀵메뉴 트리거 */}
+        <div className="settings-trigger-container" ref={mobileMenuRef} style={{ position: 'relative' }}>
+          <button
+            className="btn-settings"
+            onClick={() => {
+              if (window.innerWidth <= 640) {
+                setShowMobileMenu(prev => !prev)
+              } else {
+                onSettings()
+              }
+            }}
+            data-tooltip={t('header.settings')}
+            title="환경설정 및 빠른 제어"
+          >
+            ⚙️
+          </button>
+
+          {/* 📱 모바일 스마트 퀵 컨트롤 팝오버 */}
+          {showMobileMenu && (
+            <div className="mobile-quick-menu" style={{
+              position: 'absolute',
+              top: 'calc(100% + 8px)',
+              right: 0,
+              width: '260px',
+              background: 'var(--card, #1e293b)',
+              border: '1px solid var(--border, #334155)',
+              borderRadius: '14px',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.45)',
+              padding: '10px',
+              zIndex: 99999,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              backdropFilter: 'blur(12px)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border, rgba(255,255,255,0.1))' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--foreground)' }}>⚡ 빠른 제어 & 설정</span>
+                <button onClick={() => setShowMobileMenu(false)} style={{ background: 'none', border: 'none', color: 'var(--muted-foreground)', cursor: 'pointer', fontSize: '0.8rem', padding: '2px 6px' }}>✕</button>
+              </div>
+
+              {/* 1. 모드 전환 */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--muted-foreground)' }}>엔진 모드</span>
+                <ModeToggle busy={modeBusy} />
+              </div>
+
+              {/* 2. Story 모드 */}
+              {onStoryClick && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--muted-foreground)' }}>Story AI</span>
+                  <button
+                    type="button"
+                    className={`btn-story-toggle ${storyActive ? 'active' : ''}`}
+                    onClick={() => { onStoryClick(); setShowMobileMenu(false); }}
+                    style={{ height: '26px', padding: '0 8px', fontSize: '0.72rem' }}
+                  >
+                    📖 {storyActive ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+              )}
+
+              {/* 3. 프로필 선택기 */}
+              {mode === 'flow' && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--muted-foreground)' }}>계정 프로필</span>
+                  <button
+                    className="btn-profile-selector"
+                    onClick={() => { setShowProfileDropdown(true); setShowMobileMenu(false); }}
+                    style={{ height: '26px', padding: '0 8px', fontSize: '0.72rem' }}
+                  >
+                    👤 {profileConfig.profiles.find(p => p.id === profileConfig.activeProfileId)?.name || '기본'} ▼
+                  </button>
+                </div>
+              )}
+
+              {/* 4. 언어 선택 */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--muted-foreground)' }}>언어</span>
+                <LanguagePicker
+                  current={lang}
+                  languages={languages}
+                  onChange={changeLang}
+                />
+              </div>
+
+              {/* 5. 상세 환경설정 버튼 */}
+              <div style={{ paddingTop: '6px', borderTop: '1px solid var(--border, rgba(255,255,255,0.1))' }}>
+                <button
+                  onClick={() => { onSettings(); setShowMobileMenu(false); }}
+                  style={{
+                    width: '100%',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    fontSize: '0.76rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  ⚙️ 작업환경 상세 설정
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 사용자 메뉴 */}
         <UserMenu onLoginClick={onLoginClick} onUpgradeClick={onUpgradeClick} />
