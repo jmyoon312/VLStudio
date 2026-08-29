@@ -6,14 +6,18 @@
  */
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
-import { useAudioTimeline } from './useAudioTimeline'
+import { useAudioTimeline, collectPlayableClips } from './useAudioTimeline'
+import { useVideoPosters } from './useVideoPosters'
 import { useI18n } from '../../hooks/useI18n'
 import { formatDuration } from '../../utils/formatters'
+import { getVideoDisabledField } from '../../utils/sceneMedia'
+import { readMonitorMaster } from '../../utils/monitorAudioMaster'
 import { toast } from '../Toast'
 import TimeRuler from './TimeRuler'
 import TrackLane from './TrackLane'
 import TimelineFlagButton from './TimelineFlagButton'
 import HoverImageBalloon from '../HoverImageBalloon'
+import { resolveHoverPreviewSrc, findLiveClip } from './hoverPreview'
 import PreviewPanel from './PreviewPanel'
 import Playhead from './Playhead'
 import {
@@ -23,8 +27,50 @@ import {
   PREVIEW_H_MIN, PREVIEW_H_MAX, PREVIEW_H_DEFAULT, PREVIEW_H_KEY,
   TRACK_H_MIN, TRACK_H_MAX, SUB_TRACK_H_MIN, SUB_TRACK_H_MAX, TRACK_HEIGHTS_KEY,
   TRACK_LABEL_KEYS,
+  POSTER_VIEWPORT_BUFFER_MS,
 } from './constants'
+import { AUDIO_CLIP_CLICK_DELAY_MS, AUDIO_CLIP_DOUBLE_CLICK_DEDUPE_MS } from './interactionTiming'
 import './AudioTimeline.css'
+
+// 트랙 토글: 비주얼=View(눈, off→프리뷰에서 숨김), 오디오=Mute(스피커, off→재생 제외).
+const VISUAL_ROLES = new Set(['video-i2v', 'video-t2v', 'image', 'subtitle'])
+const VIDEO_ROLES = new Set(['video-i2v', 'video-t2v'])
+const AUDIO_ROLES = new Set(['narration', 'voice', 'sfx'])
+const PLAYHEAD_PARENT_SYNC_MS = 80
+
+// 트랙 라벨의 토글 아이콘 (kind: 'view'|'mute', off: 비활성 여부).
+function TrackToggleIcon({ kind, off }) {
+  if (kind === 'view') {
+    return off ? (
+      // eye-off
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+        <path d="M6.61 6.61A18.5 18.5 0 0 0 2 12s3 8 10 8a9.12 9.12 0 0 0 5.39-1.61" />
+        <line x1="2" y1="2" x2="22" y2="22" />
+      </svg>
+    ) : (
+      // eye
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    )
+  }
+  return off ? (
+    // volume-x (muted)
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <line x1="23" y1="9" x2="17" y2="15" />
+      <line x1="17" y1="9" x2="23" y2="15" />
+    </svg>
+  ) : (
+    // volume-2 (audible)
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  )
+}
 
 // utils/formatters의 formatDuration(seconds)와 표시 규칙이 동일.
 // 여기선 ms-friendly + 비유한값 가드를 추가한 thin wrapper로 둠 (시간 포맷 단일 출처 유지).
@@ -33,11 +79,88 @@ function formatTC(ms) {
   return formatDuration(ms / 1000)
 }
 
-export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClipSelect, onSaveTimecodeOverride, disabled = false, onFlag, isFlagged }) {
+export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClipSelect, onSaveTimecodeOverride, disabled = false, onFlag, isFlagged, onTrackDrop, compact = false, onPlayheadChange, onPlayingChange, onHiddenRolesChange, onSceneUpdate, onTitleClick = null, titleActive = false }) {
   const { t } = useI18n()
-  const data = useAudioTimeline(audioPackage, scenes, srtEntries)
+  // 영상 클립 호버 👁 → 해당 씬의 i2v/t2v export 제외 플래그 토글 (falsy=포함).
+  const handleToggleVideo = useCallback((clip) => {
+    if (!onSceneUpdate || !clip?.sceneRef) return
+    const source = clip.role === 'video-i2v' ? 'i2v' : clip.role === 'video-t2v' ? 't2v' : null
+    if (!source) return // 알 수 없는 role 은 토글 안 함(silent t2v 처리 방지)
+    const field = getVideoDisabledField(source)
+    onSceneUpdate(clip.sceneRef.id, { [field]: clip.sceneRef[field] ? null : true })
+  }, [onSceneUpdate])
+  const rawData = useAudioTimeline(audioPackage, scenes, srtEntries)
+
+  // 비디오 트랙 클립에 posterDataUrl 주입 (썸네일 비동기 로드).
+  // useAudioTimeline은 순수 정규화만 담당 — 비동기/캐시는 여기서 합성.
+  const allVideoClips = useMemo(() => {
+    return (rawData?.tracks || [])
+      .filter(t => VIDEO_ROLES.has(t.role))
+      .flatMap(t => t.clips || [])
+  }, [rawData])
+
+  // visible-range filtering — 500씬에서도 화면 안 보이는 클립의 추출을 지연.
+  // viewport ± POSTER_VIEWPORT_BUFFER_MS 범위에 걸치는 클립만 useVideoPosters에 전달.
+  //
+  // 초기 상태는 null(=unmeasured). useLayoutEffect가 첫 paint 전에 측정해서 set.
+  // null 동안에는 빈 clips 만 전달 → useVideoPosters가 초기 mount에서
+  // 전체 클립 큐잉하는 사고를 막음 (Infinity sentinel 의 버그 수정).
+  const [visibleRangeMs, setVisibleRangeMs] = useState(null)
+  const videoClipsForPosters = useMemo(() => {
+    if (!allVideoClips.length) return allVideoClips
+    if (!visibleRangeMs) return [] // 미측정 — poster 큐 누르지 않음
+    const minMs = Math.max(0, visibleRangeMs.startMs - POSTER_VIEWPORT_BUFFER_MS)
+    const maxMs = visibleRangeMs.endMs + POSTER_VIEWPORT_BUFFER_MS
+    return allVideoClips.filter(c => c.endMs >= minMs && c.startMs <= maxMs)
+  }, [allVideoClips, visibleRangeMs])
+  const posterMap = useVideoPosters(videoClipsForPosters)
+
+  const data = useMemo(() => {
+    if (!rawData?.tracks) return rawData
+    // posterMap 기준만 체크 — 사용자가 스크롤해서 visible 밖으로 나가도
+    // 이미 로드된 poster들은 그대로 표시되어야 함 (visibleVideoClips로 판단 X).
+    if (Object.keys(posterMap).length === 0) return rawData
+    return {
+      ...rawData,
+      tracks: rawData.tracks.map(t => {
+        if (!VIDEO_ROLES.has(t.role)) return t
+        return {
+          ...t,
+          clips: t.clips.map(c => {
+            const entry = posterMap[c.id]
+            if (!entry?.url) return c
+            // src 일치 검증 — useVideoPosters effect가 이전 posterMap을 정리하기 전
+            // 같은 render에서 stale poster가 새 비디오에 잘못 주입되는 한-프레임 flash 차단.
+            // c.videoSrc는 useAudioTimeline이 미리 resolveVideoSrc로 정규화한 값.
+            if (entry.src !== c.videoSrc) return c
+            return { ...c, posterDataUrl: entry.url }
+          }),
+        }
+      }),
+    }
+  }, [rawData, posterMap])
+
   const [zoom, setZoom] = useState(1)
   const [playheadMs, setPlayheadMs] = useState(0)
+  const isGlobalPlayingRef = useRef(false)
+  const isDraggingRef = useRef(false)
+  const lastParentPlayheadSyncRef = useRef({ at: -Infinity, value: null })
+  const syncPlayheadToParent = useCallback((nextMs, { force = false } = {}) => {
+    if (!onPlayheadChange) return
+    const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
+    const last = lastParentPlayheadSyncRef.current
+    const shouldThrottle = isGlobalPlayingRef.current || isDraggingRef.current
+    if (last.value === nextMs) return
+    if (!force && shouldThrottle && now - last.at < PLAYHEAD_PARENT_SYNC_MS) return
+    lastParentPlayheadSyncRef.current = { at: now, value: nextMs }
+    onPlayheadChange(nextMs)
+  }, [onPlayheadChange])
+  // 플레이헤드 변경을 상단 모니터(App)로 보고.
+  // 재생 중에는 App 전체 리렌더를 매 RAF마다 만들지 않도록 짧게 throttle하고,
+  // 스크럽/클립 점프/정지 상태 변경은 즉시 반영한다.
+  useEffect(() => {
+    syncPlayheadToParent(playheadMs, { force: !isGlobalPlayingRef.current && !isDraggingRef.current })
+  }, [playheadMs, syncPlayheadToParent])
   const [expandedTracks, setExpandedTracks] = useState(new Set())
   const [expandedSubTracks, setExpandedSubTracks] = useState(new Set())
   const [labelW, setLabelW] = useState(() => {
@@ -124,19 +247,40 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   const [btnTooltip, setBtnTooltip] = useState(null) // { x, y, label, desc, hotkey } | null
   const showBtnTooltip = (e, info) => {
     const r = e.currentTarget.getBoundingClientRect()
-    setBtnTooltip({ x: r.left + r.width / 2, y: r.bottom + 6, ...info })
+    // align:'right' → 버튼 좌측 edge 에 앵커해 오른쪽으로 펼침(중앙정렬 시 왼쪽이 Flow 네이티브 뷰에
+    //   가려지는 것 방지). 기본은 중앙정렬.
+    const align = info.align || 'center'
+    const x = align === 'right' ? r.left : r.left + r.width / 2
+    setBtnTooltip({ x, y: r.bottom + 6, ...info, align })
   }
   const hideBtnTooltip = () => setBtnTooltip(null)
   const [playingClipIds, setPlayingClipIds] = useState(new Set()) // 현재 재생 중인 클립 (단독 또는 글로벌)
   const [isGlobalPlaying, setIsGlobalPlaying] = useState(false)
+  // 재생 상태를 상단 모니터(App)로 보고 — 재생 중일 때만 모니터 비디오도 재생.
+  useEffect(() => { onPlayingChange?.(isGlobalPlaying) }, [isGlobalPlaying])
   const [hoverScene, setHoverScene] = useState(null) // { x, y, scene }
+  const [dragOverTrackId, setDragOverTrackId] = useState(null) // 드롭 타겟 lane 하이라이트용
+  // 트랙별 토글 off (View 끔=프리뷰 숨김 / Mute 끔=재생 제외). 세션 단위.
+  const [disabledTracks, setDisabledTracks] = useState(() => new Set())
+  const disabledTracksRef = useRef(disabledTracks)
+  useEffect(() => { disabledTracksRef.current = disabledTracks }, [disabledTracks])
+  // 상단 모니터(App content-monitor PreviewPanel)도 같은 hiddenRoles 를 쓰도록 통보.
+  // compact 모드에선 AudioTimeline 자체 프리뷰가 접혀 보이는 건 App 모니터뿐이라 필수.
+  useEffect(() => { onHiddenRolesChange?.(disabledTracks) }, [disabledTracks])
   const audioInstancesRef = useRef(new Map()) // clipId -> Audio
+  // 프리뷰 마스터 볼륨/뮤트 — 상단 모니터의 슬라이더가 window CustomEvent 'monitor-volume' 로 통보.
+  //   새로 만드는 Audio 는 startClipAt 에서 이 값으로 시작하고, 라이브 인스턴스는 이벤트로 즉시 갱신.
+  //   초기값은 저장값에서 읽는다 — useMonitor 브로드캐스트는 값이 "바뀔 때"만 발화하므로, 이 컴포넌트가
+  //   늦게 마운트되면 초기 dispatch 를 놓쳐 저장된 뮤트/볼륨이 무시된다(마운트 시 직접 읽어 방지).
+  const masterAudioRef = useRef(readMonitorMaster())
   const scheduledTimersRef = useRef([]) // setTimeout IDs (글로벌 재생 시 미래 클립 예약)
   const scrollRef = useRef(null)
   const rafRef = useRef(null)
   const playStartTimeRef = useRef(0) // performance.now() 시점
   const playStartMsRef = useRef(0)   // 재생 시작 시 playhead 위치 (ms)
-  const isGlobalPlayingRef = useRef(false)
+  const playbackSessionRef = useRef(0)
+  const fileClickTimersRef = useRef(new Map()) // expanded file row mini-clip single/double click 분기
+  const fileDoubleClickAtRef = useRef(new Map())
   // 활성 드래그 cleanup. pointerup 정상 종료 시 / 컴포넌트 unmount 시 모두 호출됨 (idempotent).
   // 드래그 중 프로젝트 전환 등으로 onUp이 안 와도 listener/cursor 잔류 방지.
   const activeDragCleanupRef = useRef(null)
@@ -215,6 +359,50 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
     return () => el.removeEventListener('wheel', handleWheel)
     // data를 deps에 둬야 — null → 데이터 복귀 시 .atl-scroll DOM이 새로 마운트되므로 리스너 재등록 필요
   }, [handleWheel, data])
+
+  // ── visible time range 측정 (poster 추출 가시화 우선) ──
+  // scroll/zoom 시 viewport에 보이는 ms 범위를 RAF 단위로 측정해 visibleRangeMs 갱신.
+  // useVideoPosters는 이 범위에 걸치는 클립만 받아 처리 → 500씬에서 안 보이는 클립의
+  // poster 추출이 뒤로 밀림. 100ms 미만 미세 이동은 무시 (sub-pixel scroll churn 차단).
+  //
+  // 디자인 결정:
+  //   1. useLayoutEffect — 첫 paint 전에 측정해서 useVideoPosters의 첫 effect가
+  //      "unmeasured" 가 아닌 실제 visible range로 시작. 초기 mount에서 빈 클립을
+  //      넘기는 시간을 0으로 만듦.
+  //   2. dep은 [pxPerMs, dataReady] — `data`는 posterMap 변경마다 새 ref가 되므로
+  //      dep으로 두면 poster 도착마다 scroll listener 재등록 + lastRange 리셋 →
+  //      setVisibleRangeMs 의도하지 않은 재호출 피드백 루프. 안정 boolean으로 대체.
+  //   3. lastRangeRef — effect 재실행(줌 변경 등)에도 마지막 측정값 유지.
+  //      재등록 시 첫 commit 이 false-positive setState 를 안 함.
+  const dataReady = !!data
+  const lastRangeRef = useRef({ startMs: -1, endMs: -1 })
+  useLayoutEffect(() => {
+    if (!dataReady) return
+    const el = scrollRef.current
+    if (!el) return
+    let rafId = null
+
+    const commit = () => {
+      rafId = null
+      const startMs = el.scrollLeft / pxPerMs
+      const endMs = (el.scrollLeft + el.clientWidth) / pxPerMs
+      if (Math.abs(lastRangeRef.current.startMs - startMs) < 100 &&
+          Math.abs(lastRangeRef.current.endMs - endMs) < 100) return
+      lastRangeRef.current = { startMs, endMs }
+      setVisibleRangeMs(lastRangeRef.current)
+    }
+    const onScroll = () => {
+      if (rafId != null) return
+      rafId = requestAnimationFrame(commit)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    commit() // initial 측정 (layout phase 라 paint 전)
+
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      if (rafId != null) cancelAnimationFrame(rafId)
+    }
+  }, [pxPerMs, dataReady])
 
   // ── 트랙 펼치기/접기 ──
   const toggleExpand = (trackId) => {
@@ -332,16 +520,42 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   }
 
   // ── 재생 ──
-  const playableClips = useMemo(() => {
-    if (!data) return []
-    return data.tracks
-      .flatMap(t => t.clips || [])
-      .filter(c => c.audioPath)
-      .sort((a, b) => a.startMs - b.startMs)
+  // Mute 된 트랙(disabledTracks)은 재생 대상에서 제외.
+  const playableClips = useMemo(() => collectPlayableClips(data?.tracks, disabledTracks), [data, disabledTracks])
+
+  // clipId → trackId (예약 재생 가드 / 라이브 음소거 정지용).
+  const clipTrackMap = useMemo(() => {
+    const m = new Map()
+    for (const t of data?.tracks || []) {
+      for (const c of t.clips || []) m.set(c.id, t.id)
+    }
+    return m
   }, [data])
+
+  // 트랙 토글: View(비주얼)/Mute(오디오) on↔off.
+  const toggleTrackDisabled = useCallback((trackId) => {
+    setDisabledTracks(prev => {
+      const next = new Set(prev)
+      if (next.has(trackId)) next.delete(trackId); else next.add(trackId)
+      return next
+    })
+  }, [])
+
+  // 재생 중 Mute 토글 시 — 해당 트랙의 현재 재생 중 오디오를 즉시 정지.
+  useEffect(() => {
+    if (audioInstancesRef.current.size === 0) return
+    for (const [clipId, audio] of audioInstancesRef.current) {
+      if (disabledTracks.has(clipTrackMap.get(clipId))) {
+        try { audio.pause() } catch {}
+        audioInstancesRef.current.delete(clipId)
+        setPlayingClipIds(prev => { const n = new Set(prev); n.delete(clipId); return n })
+      }
+    }
+  }, [disabledTracks, clipTrackMap])
 
   // 모든 audio 정지 + RAF/timer 정리
   const stopAll = () => {
+    playbackSessionRef.current += 1
     isGlobalPlayingRef.current = false
     setIsGlobalPlaying(false)
     for (const audio of audioInstancesRef.current.values()) {
@@ -358,20 +572,29 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   }
 
   // 한 클립 시작 (offsetMs는 클립 시작 시점 기준 오프셋)
-  const startClipAt = async (clip, offsetMs = 0) => {
+  const startClipAt = async (clip, offsetMs = 0, { ignoreMute = false, sessionId = playbackSessionRef.current } = {}) => {
     if (!clip?.audioPath) return
+    if (sessionId !== playbackSessionRef.current) return
+    // 예약(setTimeout) 발화 시점에 트랙이 음소거됐으면 재생 안 함 (ref로 최신값 읽기).
+    if (!ignoreMute && disabledTracksRef.current.has(clipTrackMap.get(clip.id))) return
     try {
       const result = await window.electronAPI?.readFileAbsolute({ filePath: clip.audioPath })
+      if (sessionId !== playbackSessionRef.current) return
       if (!result?.success) {
         console.error('[AudioTimeline] Failed to read audio file:', clip.audioPath, result?.error)
         return
       }
       const audio = new Audio(result.data)
+      // 프리뷰 마스터 볼륨/뮤트 적용 (모니터 슬라이더 값).
+      audio.muted = masterAudioRef.current.muted
+      audio.volume = Math.max(0, Math.min(1, masterAudioRef.current.volume))
       audio.onerror = (e) => console.error('[AudioTimeline] Audio error:', clip.audioPath, e)
       if (offsetMs > 0) audio.currentTime = offsetMs / 1000
+      if (sessionId !== playbackSessionRef.current) return
       audioInstancesRef.current.set(clip.id, audio)
       setPlayingClipIds(prev => new Set(prev).add(clip.id))
       audio.onended = () => {
+        if (audioInstancesRef.current.get(clip.id) !== audio) return
         audioInstancesRef.current.delete(clip.id)
         setPlayingClipIds(prev => {
           const n = new Set(prev); n.delete(clip.id); return n
@@ -391,6 +614,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   const playGlobal = () => {
     if (!data) return
     stopAll()
+    const sessionId = playbackSessionRef.current
     isGlobalPlayingRef.current = true
     setIsGlobalPlaying(true)
     const startMs = playheadMs
@@ -401,19 +625,21 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
       if (clip.endMs <= startMs) continue
       if (clip.startMs <= startMs) {
         // 현재 진행 중인 클립 — 오프셋부터 재생
-        startClipAt(clip, startMs - clip.startMs)
+        startClipAt(clip, startMs - clip.startMs, { sessionId })
       } else {
         // 미래 클립 — 시작 시점에 setTimeout 예약
         const delay = clip.startMs - startMs
         const id = setTimeout(() => {
-          if (isGlobalPlayingRef.current) startClipAt(clip, 0)
+          if (isGlobalPlayingRef.current && playbackSessionRef.current === sessionId) {
+            startClipAt(clip, 0, { sessionId })
+          }
         }, delay)
         scheduledTimersRef.current.push(id)
       }
     }
 
     const tick = () => {
-      if (!isGlobalPlayingRef.current) return
+      if (!isGlobalPlayingRef.current || playbackSessionRef.current !== sessionId) return
       const elapsed = performance.now() - playStartTimeRef.current
       const cur = playStartMsRef.current + elapsed
       setPlayheadMs(cur)
@@ -446,17 +672,26 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
     }
   }
 
+  // 정지 + playhead/스크롤을 처음으로 — Esc·전체화면 transport·정지 버튼이 공유.
+  const resetPlaybackToStart = () => {
+    stopAll()
+    setPlayheadMs(0)
+    if (scrollRef.current) scrollRef.current.scrollLeft = 0
+  }
+
   // ── 키보드 (스페이스 = 글로벌 재생/멈춤, Esc = 처음으로) ──
   // 리스너는 마운트 시 한 번만 붙임. togglePlay/stopAll은 매 렌더 새로 만들어지므로
   // ref로 최신 참조를 들고 있다가 핸들러에서 ref.current로 호출
   // (deps에 playheadMs를 넣으면 RAF로 매 프레임 add/remove → perf 낭비 + 키 입력 누락 가능)
   const togglePlayRef = useRef(togglePlay)
   const stopAllRef = useRef(stopAll)
+  const resetPlaybackRef = useRef(resetPlaybackToStart)
   // disabled를 ref로 들고 핸들러에서 매번 검사 — keydown effect는 마운트 1회 등록이라 prop 변경 시 재생성 안 됨.
   const disabledRef = useRef(disabled)
   useEffect(() => {
     togglePlayRef.current = togglePlay
     stopAllRef.current = stopAll
+    resetPlaybackRef.current = resetPlaybackToStart
     disabledRef.current = disabled
   })
 
@@ -470,19 +705,48 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
         e.preventDefault()
         togglePlayRef.current?.()
       } else if (e.code === 'Escape') {
-        stopAllRef.current?.()
-        setPlayheadMs(0)
-        if (scrollRef.current) scrollRef.current.scrollLeft = 0
+        resetPlaybackRef.current?.()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // 전체화면 모니터의 트랜스포트 버튼 — 하단 타임라인이 가려져도 재생/정지를 제어한다.
+  //   (App 의 전체화면 모니터가 window CustomEvent 'monitor-transport' 로 명령을 보낸다.)
+  useEffect(() => {
+    const onTransport = (e) => {
+      if (disabledRef.current) return
+      const action = e.detail?.action
+      if (action === 'toggle') togglePlayRef.current?.()
+      else if (action === 'stop') resetPlaybackRef.current?.()
+    }
+    window.addEventListener('monitor-transport', onTransport)
+    return () => window.removeEventListener('monitor-transport', onTransport)
+  }, [])
+
+  // 프리뷰 마스터 볼륨/뮤트 — 모니터 슬라이더의 window CustomEvent 'monitor-volume' 수신.
+  //   최신값을 ref 에 저장(새 Audio 시작 시 사용)하고 라이브 인스턴스 전부에 즉시 반영.
+  useEffect(() => {
+    const onVolume = (e) => {
+      const volume = Math.max(0, Math.min(1, Number(e.detail?.volume)))
+      const muted = !!e.detail?.muted
+      masterAudioRef.current = { volume: Number.isFinite(volume) ? volume : 1, muted }
+      for (const audio of audioInstancesRef.current.values()) {
+        audio.muted = masterAudioRef.current.muted
+        audio.volume = masterAudioRef.current.volume
+      }
+    }
+    window.addEventListener('monitor-volume', onVolume)
+    return () => window.removeEventListener('monitor-volume', onVolume)
+  }, [])
+
   // 컴포넌트 unmount 시 audio + 활성 드래그 정리
   // 드래그 중 unmount되면 onUp이 안 와서 listener/cursor 잔류 → 여기서 cleanup 강제 실행
   useEffect(() => () => {
     stopAll()
+    for (const timer of fileClickTimersRef.current.values()) clearTimeout(timer)
+    fileClickTimersRef.current.clear()
     activeDragCleanupRef.current?.()
     activeDragCleanupRef.current = null
   }, [])
@@ -495,8 +759,6 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   }, [disabled])
 
   // ── 스크럽 (Remotion 패턴: 타임라인 영역 전체 pointerdown + window pointermove) ──
-  const isDraggingRef = useRef(false)
-
   const computeMsFromClientX = useCallback((clientX) => {
     const scrollEl = scrollRef.current
     if (!scrollEl) return 0
@@ -566,6 +828,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
       ensureEdgeScroll()
     }
     const cleanup = () => {
+      syncPlayheadToParent(computeMsFromClientX(lastClientX), { force: true })
       isDraggingRef.current = false
       stopEdgeScroll()
       document.body.style.userSelect = ''
@@ -583,6 +846,52 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
     // 단독 재생은 모달이 담당 (auto-play). 여기선 playhead만 이동시키고 모달 띄움
     setPlayheadMs(clip.startMs)
     onClipSelect?.(clip)
+  }
+
+  const onClipDoubleClick = (clip) => {
+    if (!clip?.audioPath || disabled) return
+    stopAll()
+    const sessionId = playbackSessionRef.current
+    jumpToClip(clip)
+    startClipAt(clip, 0, { ignoreMute: true, sessionId })
+  }
+
+  const cancelFileClick = (clipId) => {
+    const timer = fileClickTimersRef.current.get(clipId)
+    if (!timer) return
+    clearTimeout(timer)
+    fileClickTimersRef.current.delete(clipId)
+  }
+
+  const dispatchFileDoubleClick = (clip, e) => {
+    if (!clip?.audioPath) return
+    e?.stopPropagation?.()
+    if (e?.target?.closest?.('.atl-clip-action-btn')) return
+    const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
+    const last = fileDoubleClickAtRef.current.get(clip.id) ?? -Infinity
+    if (now - last < AUDIO_CLIP_DOUBLE_CLICK_DEDUPE_MS) return
+    fileDoubleClickAtRef.current.set(clip.id, now)
+    cancelFileClick(clip.id)
+    onClipDoubleClick(clip)
+  }
+
+  const handleFileClipPointerDown = (e, clip) => {
+    if (e.button !== 0) return
+    e.stopPropagation() // 스크럽 트리거 차단
+    jumpToClip(clip)
+    if (!clip.audioPath) {
+      onClipSelect?.(clip)
+      return
+    }
+    if (fileClickTimersRef.current.has(clip.id)) {
+      dispatchFileDoubleClick(clip)
+      return
+    }
+    const timer = setTimeout(() => {
+      fileClickTimersRef.current.delete(clip.id)
+      onClipSelect?.(clip)
+    }, AUDIO_CLIP_CLICK_DELAY_MS)
+    fileClickTimersRef.current.set(clip.id, timer)
   }
 
   // 클립 드래그 → timecode 보정 저장
@@ -627,31 +936,58 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   }
 
   return (
-    <div className="atl-root">
-      {/* 비디오 프리뷰 (현재 playhead 위치의 씬 이미지 + 자막) */}
-      <PreviewPanel
-        playheadMs={playheadMs}
-        scenes={scenes}
-        srtEntries={srtEntries}
-        height={previewHeight}
-      />
+    <div className={`atl-root${compact ? ' atl-root--compact' : ''}`}>
+      {/* compact(하단 도크): 큰 프리뷰 패널을 접어 좁은 높이에서 트랙이 보이게 한다. */}
+      {!compact && (
+        <>
+          {/* 비디오 프리뷰 (현재 playhead 위치의 씬 이미지 + 자막) */}
+          <PreviewPanel
+            playheadMs={playheadMs}
+            scenes={scenes}
+            srtEntries={srtEntries}
+            height={previewHeight}
+            isPlaying={isGlobalPlaying}
+            hiddenRoles={disabledTracks}
+          />
 
-      {/* Preview ↔ Timeline 사이 splitter (드래그=조절 / 더블클릭=기본값 복귀) */}
-      <div
-        className="atl-splitter"
-        onPointerDown={startSplitterDrag}
-        onDoubleClick={() => {
-          setPreviewHeight(PREVIEW_H_DEFAULT)
-          try { localStorage.setItem(PREVIEW_H_KEY, String(PREVIEW_H_DEFAULT)) } catch {}
-        }}
-        title="드래그=높이 조절 · 더블클릭=기본값"
-      >
-        <div className="atl-splitter-grip" />
-      </div>
+          {/* Preview ↔ Timeline 사이 splitter (드래그=조절 / 더블클릭=기본값 복귀) */}
+          <div
+            className="atl-splitter"
+            onPointerDown={startSplitterDrag}
+            onDoubleClick={() => {
+              setPreviewHeight(PREVIEW_H_DEFAULT)
+              try { localStorage.setItem(PREVIEW_H_KEY, String(PREVIEW_H_DEFAULT)) } catch {}
+            }}
+            title="드래그=높이 조절 · 더블클릭=기본값"
+          >
+            <div className="atl-splitter-grip" />
+          </div>
+        </>
+      )}
 
       {/* Header */}
       <div className="atl-header">
-        <div className="atl-title">{t('audioTimeline.title') || 'Audio Timeline'}</div>
+        {onTitleClick ? (
+          // Flow 모드: '프리뷰' 라벨을 모니터 오버레이 토글 버튼으로. (App 이 onTitleClick 전달 시에만)
+          <button
+            type="button"
+            className={`atl-title atl-title--btn${titleActive ? ' atl-title--active' : ''}`}
+            onClick={onTitleClick}
+            aria-pressed={titleActive}
+            onMouseEnter={(e) => showBtnTooltip(e, {
+              align: 'right', // '프리뷰' 라벨은 Flow 경계 옆 → 오른쪽으로 펼쳐 Flow 뷰에 안 가리게
+              label: t('bottomPanel.previewToggleLabel'),
+              desc: titleActive
+                ? t('bottomPanel.previewToggleHide')
+                : t('bottomPanel.previewToggleShow'),
+            })}
+            onMouseLeave={hideBtnTooltip}
+          >
+            {compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}
+          </button>
+        ) : (
+          <div className="atl-title">{compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}</div>
+        )}
         <div className="atl-transport">
           <button
             className={`atl-play-btn${isGlobalPlaying ? ' atl-playing' : ''}`}
@@ -668,7 +1004,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
           </button>
           <button
             className="atl-stop-btn"
-            onClick={() => { if (disabled) return; stopAll(); setPlayheadMs(0); if (scrollRef.current) scrollRef.current.scrollLeft = 0 }}
+            onClick={() => { if (disabled) return; resetPlaybackToStart() }}
             disabled={disabled}
             onMouseEnter={(e) => showBtnTooltip(e, {
               label: t('audioTimeline.stopLabel'),
@@ -824,6 +1160,20 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
                 {track.isSubTrack && track.isSubGroup && (
                   <span className="atl-expand atl-expand-sub">{track.isSubExpanded ? '▼' : '▶'}</span>
                 )}
+                {!track.isSubTrack && (VISUAL_ROLES.has(track.role) || AUDIO_ROLES.has(track.role)) && (
+                  <button
+                    type="button"
+                    className={`atl-track-toggle${disabledTracks.has(track.id) ? ' is-off' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); toggleTrackDisabled(track.id) }}
+                    title={VISUAL_ROLES.has(track.role)
+                      ? (disabledTracks.has(track.id) ? '보기 켜기' : '보기 끄기')
+                      : (disabledTracks.has(track.id) ? '음소거 해제' : '음소거')}
+                    aria-label={VISUAL_ROLES.has(track.role) ? 'toggle view' : 'toggle mute'}
+                    aria-pressed={!disabledTracks.has(track.id)}
+                  >
+                    <TrackToggleIcon kind={VISUAL_ROLES.has(track.role) ? 'view' : 'mute'} off={disabledTracks.has(track.id)} />
+                  </button>
+                )}
                 <span className="atl-label-name">
                   {track.isSubTrack
                     ? track.name
@@ -858,7 +1208,12 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
           {/* wrapper: Playhead의 containing block을 viewport가 아닌 content 전체 높이로 만듦
               (이게 없으면 세로 스크롤 시 playhead가 viewport 밖 영역까지 못 닿음) */}
           <div className="atl-content" style={{ width: totalWidth }}>
-          <TimeRuler totalMs={data.totalDurationMs} pxPerMs={pxPerMs} width={totalWidth} />
+          <TimeRuler
+            totalMs={data.totalDurationMs}
+            pxPerMs={pxPerMs}
+            width={totalWidth}
+            visibleRangeMs={visibleRangeMs}
+          />
           <div className="atl-tracks" style={{ width: totalWidth }}>
             {visibleTracks.map((track, i) => {
               // 파일 항목은 lane 없이 작은 빈 row (vertical 정렬)
@@ -880,12 +1235,8 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
                     <div
                       className={`atl-file-mini-clip${fileFlagged ? ' atl-clip-flagged' : ''}`}
                       style={{ left, width, backgroundColor: track.color }}
-                      onPointerDown={(e) => {
-                        if (e.button !== 0) return
-                        e.stopPropagation() // 스크럽 트리거 차단
-                        jumpToClip(clip)
-                        if (clip.audioPath) onClipSelect?.(clip)
-                      }}
+                      onPointerDown={(e) => handleFileClipPointerDown(e, clip)}
+                      onDoubleClick={(e) => dispatchFileDoubleClick(clip, e)}
                       title={clip.filename}
                     >
                       {fileFlagged && (
@@ -913,14 +1264,21 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
                   width={totalWidth}
                   height={getTrackHeight(track)}
                   pxPerMs={pxPerMs}
+                  visibleRangeMs={visibleRangeMs}
                   renderClips={renderClips}
                   onClipClick={onClipClick}
+                  onClipDoubleClick={onClipDoubleClick}
                   onClipDrag={onClipDrag}
                   totalDurationMs={data.totalDurationMs}
                   playingClipIds={playingClipIds}
                   onSceneHover={setHoverScene}
                   onFlag={onFlag}
                   isFlagged={isFlagged}
+                  onToggleVideo={onSceneUpdate ? handleToggleVideo : undefined}
+                  onTrackDrop={onTrackDrop}
+                  onTrackDragOver={setDragOverTrackId}
+                  onTrackDragLeave={() => setDragOverTrackId(null)}
+                  dragOverTrackId={dragOverTrackId}
                 />
               )
             })}
@@ -933,7 +1291,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
       {/* 헤더 버튼 hover 툴팁 (label + desc + hotkey) */}
       {btnTooltip && (
         <div
-          className="atl-btn-tooltip"
+          className={`atl-btn-tooltip${btnTooltip.align === 'right' ? ' atl-btn-tooltip--right' : ''}`}
           style={{ left: btnTooltip.x, top: btnTooltip.y }}
         >
           <div className="atl-btn-tooltip-label">{btnTooltip.label}</div>
@@ -946,19 +1304,17 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
         </div>
       )}
 
-      {/* 씬 hover 툴팁 */}
-      {hoverScene && (() => {
-        const imgPath = hoverScene.scene.imagePath || hoverScene.scene.image_path || hoverScene.scene.filePath
-        return (
-          <HoverImageBalloon
-            anchorRect={{ left: hoverScene.x, right: hoverScene.x, top: hoverScene.y, bottom: hoverScene.y }}
-            src={imgPath ? `file://${imgPath}` : undefined}
-            className="atl-tooltip"
-          >
-            {hoverScene.scene.subtitle && <div className="atl-tooltip-sub">{hoverScene.scene.subtitle}</div>}
-          </HoverImageBalloon>
-        )
-      })()}
+      {/* 씬 hover 툴팁 — 비디오 클립은 포스터, 이미지 클립은 씬 이미지 (resolveHoverPreviewSrc).
+          hover 시점 clip 은 poster 주입 전 stale 일 수 있어 현재 data 에서 live clip 재조회(P2-b). */}
+      {hoverScene && (
+        <HoverImageBalloon
+          anchorRect={{ left: hoverScene.x, right: hoverScene.x, top: hoverScene.y, bottom: hoverScene.y }}
+          src={resolveHoverPreviewSrc({ ...hoverScene, clip: findLiveClip(data, hoverScene.clip?.id) || hoverScene.clip })}
+          className="atl-tooltip"
+        >
+          {hoverScene.scene.subtitle && <div className="atl-tooltip-sub">{hoverScene.scene.subtitle}</div>}
+        </HoverImageBalloon>
+      )}
     </div>
   )
 }

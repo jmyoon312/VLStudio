@@ -8,6 +8,7 @@ import { resolveImageSrc, hasImageData, formatElapsedMs } from '../utils/formatt
 import { toFileUrl } from '../hooks/useStyleThumbnails'
 import { useElapsedTimer } from '../hooks/useElapsedTimer'
 import HoverImageBalloon from './HoverImageBalloon'
+import LazyImage from './LazyImage'
 import './StylePicker.css'
 
 const ALL_CATEGORY = '__all__'
@@ -23,7 +24,6 @@ export default function StylePicker({
   progress = { current: 0, total: 0 },
   onGenerateThumbnails,
   onStopGenerating,
-  onCustomStyleUpload,
   autoCardMeta,  // { label, icon, tooltip, summary } — 호출자가 createStyleResolver로 만든 값. 없으면 단순 "스타일 없음" fallback.
   t,
   isKo
@@ -114,7 +114,7 @@ export default function StylePicker({
               >
                 <div className="sp-thumb">
                   {hasImageData(ref) ? (
-                    <img src={resolveImageSrc(ref)} alt={ref.name} />
+                    <LazyImage src={resolveImageSrc(ref)} alt={ref.name} />
                   ) : (
                     <span className="sp-icon">🖼️</span>
                   )}
@@ -145,26 +145,6 @@ export default function StylePicker({
           )
         })()}
 
-        {onCustomStyleUpload && (
-          <label className="sp-card sp-custom-style" style={{ cursor: 'pointer' }}>
-            <div className="sp-thumb" style={{ border: '2px dashed #9ca3af', background: 'transparent' }}>
-              <span className="sp-icon">➕</span>
-            </div>
-            <div className="sp-name">{isKo ? '스타일 이미지 추가' : 'Add Style Image'}</div>
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  onCustomStyleUpload(e.target.files[0]);
-                }
-              }}
-            />
-          </label>
-        )}
-
         {filteredStyles.map(style => {
           const thumb = thumbnails[style.id]
           const cat = categories.find(c => c.id === style.category)
@@ -177,7 +157,7 @@ export default function StylePicker({
               onContextMenu={(e) => {
                 if (!thumb) return
                 e.preventDefault()
-                if (window.confirm(`"${styleName}" 썸네일을 삭제하시겠습니까?`)) {
+                if (window.confirm(t('reference.deleteThumbnailConfirm', { name: styleName }))) {
                   onDeleteThumbnail?.(style.id)
                 }
               }}
@@ -185,16 +165,9 @@ export default function StylePicker({
             >
               <div className="sp-thumb">
                 {thumb ? (
-                  <img
+                  <LazyImage
                     src={toFileUrl(thumb)}
                     alt={styleName}
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      if (e.currentTarget.nextElementSibling) {
-                        e.currentTarget.nextElementSibling.style.display = 'inline';
-                      }
-                    }}
                     onDoubleClick={(e) => {
                       e.stopPropagation()
                       setPreviewStyle({ ...style, thumb })
@@ -208,10 +181,9 @@ export default function StylePicker({
                     }}
                     onMouseLeave={() => setHoverPreview(null)}
                   />
-                ) : null}
-                <span className="sp-icon" style={{ display: thumb ? 'none' : 'inline' }}>
-                  {cat?.icon || '🎨'}
-                </span>
+                ) : (
+                  <span className="sp-icon">{cat?.icon || '🎨'}</span>
+                )}
               </div>
               <div className="sp-name">{styleName}</div>
             </div>

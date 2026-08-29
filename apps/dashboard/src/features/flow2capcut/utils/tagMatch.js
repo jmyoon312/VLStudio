@@ -5,10 +5,14 @@
 
 import { STYLE_PRESETS } from '../config/defaults'
 
+export function normalizeTagKey(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
 /** 태그 문자열을 배열로 분리 (콤마, 세미콜론, 콜론) */
 export function splitTags(tagString) {
   if (!tagString) return []
-  return tagString.split(/[,;:]/).map(t => t.trim().toLowerCase()).filter(Boolean)
+  return tagString.split(/[,;:]/).map(normalizeTagKey).filter(Boolean)
 }
 
 /**
@@ -25,9 +29,9 @@ export function checkTagMatch(tagValue, references, type) {
   const presetTokens = type === 'style'
     ? new Set(
         (STYLE_PRESETS?.styles || []).flatMap(p => [
-          p.id?.toLowerCase(),
-          p.name_ko?.toLowerCase(),
-          p.name_en?.toLowerCase(),
+          normalizeTagKey(p.id),
+          normalizeTagKey(p.name_ko),
+          normalizeTagKey(p.name_en),
         ]).filter(Boolean)
       )
     : null
@@ -35,8 +39,8 @@ export function checkTagMatch(tagValue, references, type) {
   const matchedTags = []
   const unmatchedTags = []
   for (const tag of tags) {
-    const refMatch = references.some(ref =>
-      ref.type === type && ref.name.toLowerCase() === tag
+    const refMatch = (references || []).some(ref =>
+      ref.type === type && normalizeTagKey(ref.name) === tag
     )
     const presetMatch = presetTokens?.has(tag) || false
     if (refMatch || presetMatch) matchedTags.push(tag)
@@ -45,8 +49,20 @@ export function checkTagMatch(tagValue, references, type) {
   return { matchedTags, unmatchedTags, allMatched: unmatchedTags.length === 0 }
 }
 
-/** 전체 씬 목록의 태그 매칭 에러 수집 */
-export function collectTagErrors(scenes, references) {
+/**
+ * 전체 씬 목록의 태그 매칭 에러 수집.
+ *
+ * sceneIndex 는 *원본 scenes 배열의 인덱스* — 호출자가 일부 씬만 검사하고 싶으면 options.filter
+ * 로 전달해야 한다. (이전엔 호출자가 미리 filter 해서 *부분 배열* 을 넘기는 패턴이었는데, 그러면
+ * sceneIndex 가 부분 배열 내 위치라서 모달의 "#N" 표시가 실제 씬 번호와 어긋남.)
+ *
+ * @param {Array} scenes - 전체 씬 배열
+ * @param {Array} references
+ * @param {object} [options]
+ * @param {(scene) => boolean} [options.filter] - true 반환 시에만 검사. default: 전부.
+ */
+export function collectTagErrors(scenes, references, options = {}) {
+  const filter = options.filter || (() => true)
   const errors = []
   const checks = [
     { field: 'characters', type: 'character' },
@@ -56,6 +72,7 @@ export function collectTagErrors(scenes, references) {
 
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i]
+    if (!filter(scene)) continue
     const sceneErrors = []
 
     for (const { field, type } of checks) {

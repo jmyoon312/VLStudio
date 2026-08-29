@@ -12,6 +12,57 @@ import { useEffect, useRef } from 'react'
 import { normalizeStyleId, findAutoStyle } from '../services/styleService'
 import { syncExplicitStyleId } from '../services/mcpStyle'
 import { isSceneGenerationDone, isReferenceUploadedDone } from '../services/generationStatus'
+import { clearedImageFields } from '../utils/refEntityRegistration'
+
+/**
+ * MCP load_csv(update-references) 병합. CSV 는 prompt/type/category 의 authoritative 소스지만,
+ * 생성이 카드에 남긴 런타임 사실은 CSV 에 없다 — 여기서 보존하지 않으면 조용히 지워진다.
+ * 스토리 파이프라인 W6/W7 QA 루프가 생성 도중 load_csv 를 부르므로 실제로 밟는 경로다.
+ *
+ *  - 이미지 포인터(data/filePath/mediaId/dataStorage/status/errorMessage): 지우면 배치 필터가
+ *    모든 ref 를 재생성 대상으로 본다.
+ *  - Flow entity 바인딩(entityId/workflowId/registered/flowNameSyncStatus): 지우면 @멘션이 끊기고
+ *    사용자가 Ref 탭에서 다시 동기화해야 한다.
+ *  - styleId/generatedAt: 지우면 카드가 "레거시(미기록)"로 되돌아가 재생성이 전역 스타일로 샌다.
+ *    null("무스타일로 생성됨")과 undefined("기록 없음")는 다른 뜻이라 키째 보존한다.
+ */
+export function mergeReferencesPreservingRuntime(prev, incomingRefs) {
+  const byName = new Map((prev || []).map(r => [r.name, r]))
+  // load_csv 는 {name,type,category,prompt} 만 보낸다 — incoming 에 id 가 없다. 보존하지 않으면
+  //   모든 ref 의 id 가 undefined 가 되어, styleId:'ref:N' 이 가리킬 스타일 카드를 못 찾고
+  //   (조용히 무스타일 생성) ReferencePanel 의 id 기반 갱신이 모든 ref 에 매칭된다.
+  //   씬 병합(R9)이 이미 같은 이유로 id:matched.id 를 유지한다.
+  let maxId = (prev || []).reduce((max, r) => (typeof r?.id === 'number' && r.id > max ? r.id : max), 0)
+  const freshId = () => (maxId += 1)
+  return (incomingRefs || []).map(incoming => {
+    const existing = incoming.name ? byName.get(incoming.name) : null
+    // 매칭된 카드는 소비한다 — CSV 에 같은 이름이 두 번 나오면 두 행이 같은 id 와 같은 런타임
+    //   필드를 복제받아, ReferencePanel 의 id 기반 갱신이 두 카드를 동시에 건드린다(씬 병합 R15).
+    if (existing) byName.delete(incoming.name)
+    // incoming.id 는 신뢰하지 않는다 — 매칭 카드가 이미 쓰는 id 와 충돌할 수 있고, 유일한
+    //   in-repo 생산자(load_csv)는 애초에 id 를 보내지 않는다.
+    if (!existing) return { ...incoming, id: freshId() }
+    return {
+      ...incoming,                      // CSV-authoritative: prompt, type, category, caption(if in CSV)
+      id: existing.id,                  // 기존 stable id 유지 (incoming.id 무시 — 씬 병합 R9 와 동일)
+      data: existing.data,              // preserve runtime-generated image payload
+      filePath: existing.filePath,      // preserve saved image path
+      mediaId: existing.mediaId,        // preserve uploaded Flow mediaId
+      dataStorage: existing.dataStorage,
+      status: existing.status,          // preserve generation status
+      errorMessage: existing.errorMessage,
+      entityId: existing.entityId,      // preserve Flow character entity binding
+      workflowId: existing.workflowId,
+      registered: existing.registered,
+      flowNameSyncStatus: existing.flowNameSyncStatus,
+      styleId: existing.styleId,        // preserve which style this card was generated with
+      // CSV 에 없는 생성 시각. 떨어뜨리면 inheritStyleIdFromCards 의 '가장 최근 카드' 선택이 tie 되고
+      //   resolveImageSrc 의 ?v= 캐시 키가 바뀌어 이미지가 불필요하게 재디코딩된다.
+      generatedAt: existing.generatedAt,
+    }
+  })
+}
+
 
 /**
  * @param {object} params
@@ -33,7 +84,7 @@ import { isSceneGenerationDone, isReferenceUploadedDone } from '../services/gene
  * @param {Array}    params.audioReviews - 오디오 리뷰 배열
  * @param {Function} params.importByPath - 오디오 폴더 임포트
  * @param {object}   params.audioPackage - 오디오 패키지
- * @param {object}   params.automationState - { isRunning, isPaused, progress, status, statusMessage }
+ * @param {object}   params.automationState - { isRunning, isSceneBatchQueued, isPaused, progress, status, statusMessage }
  * @param {object}   params.videoAutomation - 비디오 자동화 상태
  * @param {Array}    params.generatingRefs - 생성 중인 레퍼런스 인덱스들
  */
@@ -41,9 +92,10 @@ export function useMcpServer({
   settings,
   scenes, setScenes,
   references, setReferences,
+  srtTrack = [], setSrtTrack = null,
   handleGenerateRef, handleGenerateScene,
   handleGenerateAllRefs, handleStart, handleStop,
-  handleProjectChange, handleExportConfirm,
+  handleProjectChange, handleExportConfirm, handleExportPremiere,
   selectedStyleRefId, setSelectedStyleRefId,
   refreshReviews, audioReviews,
   importByPath, audioPackage,
@@ -85,26 +137,43 @@ export function useMcpServer({
   // MCP HTTP GET 요청을 위한 글로벌 접근자 등록
   useEffect(() => {
     window.__mcpOpenProject = (name) => handleProjectChange(name)
-    window.__mcpGetReferences = () => references.map(({ data, ...rest }) => rest)
+    window.__mcpGetReferences = () => references.map(({ data, ...rest }) => ({
+      ...rest,
+      hasData: !!data,
+      ready: isReferenceUploadedDone({ ...rest, data }),
+    }))
     window.__mcpGetScenes = () => scenes.map(({ image, videoT2V, videoI2V, ...rest }) => rest)
     // styleId override를 직접 받음 (전역 상태 setSelectedStyleRefId + setTimeout race 회피).
     // styleId 형식은 normalizeStyleId로 정규화됨 ('ref:*' / 'preset:*' / plain → 'preset:*' / null).
-    // 'auto' sentinel은 ref 컨텍스트에 의미 없음 (씬 매칭 부재) — null로 취급해 자연스러운 fallback 발동.
+    // 'auto' sentinel은 ref 컨텍스트에 의미 없음 (씬 매칭 부재) — caller-side fallback만 사용.
     //
     // styleId 생략 시 호출 측에서 findAutoStyle fallback을 미리 적용해 override로 전달.
     // 그래야 useReferenceGeneration 내부의 selectedStyleRefId(UI 선택값)에 끌려가지 않음 —
     // MCP 정책: 자동화 호출은 UI 상태와 독립적이어야 함.
+    const runMcpGenerateRef = (index, styleId) => handleGenerateRef(index, false, styleId)
+      .then(result => {
+        if (!result?.refreshFailed) return result
+        const { error: _error, ...partialSuccess } = result
+        return {
+          ...partialSuccess,
+          success: true,
+          refreshFailed: true,
+          warning: 'Reference image generated, but Flow composer refresh did not complete. Do not regenerate; refresh or sync this reference.',
+        }
+      })
+      .catch(e => ({ success: false, error: e.message }))
     window.__mcpGenerateRef = (index, styleId) => {
       if (styleId === 'auto') {
         console.warn('[MCP] generate-reference received styleId="auto"; ignored (refs have no per-scene matching). Falling back as if styleId were omitted.')
-        styleId = null
+        const effective = findAutoStyle(referencesRef.current) ?? 'none'
+        return runMcpGenerateRef(index, effective)
       } else if (styleId === 'none') {
         // 'none' sentinel — pass through to handler. styleService.applyStyle/_resolveEffectiveStyleId
         // recognize 'none' and skip all style application (prompt + ref override).
-        return handleGenerateRef(index, false, 'none').catch(e => ({ success: false, error: e.message }))
+        return runMcpGenerateRef(index, 'none')
       }
-      const effective = normalizeStyleId(styleId) ?? findAutoStyle(referencesRef.current)
-      return handleGenerateRef(index, false, effective).catch(e => ({ success: false, error: e.message }))
+      const effective = normalizeStyleId(styleId) ?? findAutoStyle(referencesRef.current) ?? 'none'
+      return runMcpGenerateRef(index, effective)
     }
     // styleId override (선택). 형식은 styleService와 동일.
     //   - 'auto' / 'none' / null / undefined / '': 그대로 forward (sentinel 의미 보존)
@@ -157,11 +226,59 @@ export function useMcpServer({
           kenBurnsScaleMin: (options.kenBurnsScaleMin || saved.kenBurnsScaleMin || 100) / 100,
           kenBurnsScaleMax: (options.kenBurnsScaleMax || saved.kenBurnsScaleMax || 130) / 100,
           subtitleOption: options.subtitleOption || (saved.includeSubtitle !== false ? 'ko' : 'none'),
-          subtitleFontSize: options.subtitleFontSize || saved.subtitleFontSize || 8
+          subtitleFontSize: options.subtitleFontSize || saved.subtitleFontSize || 8,
+          audioPackage: options.audioFolderPath ? (await importByPath(options.audioFolderPath)) : audioPackage,
+          // 자동화는 기본 false — 옵션을 명시해야만 pending 씬이 섞인다.
+          includePending: options.includePending === true
         }
         // 3. handleExportConfirm 호출
-        await handleExportConfirm(exportOptions)
-        return { success: true, path: capcutProjectNumber }
+        const exportResult = await handleExportConfirm(exportOptions)
+        if (exportResult?.success === false) return exportResult
+        return { success: true, path: exportResult?.targetPath || capcutProjectNumber }
+      } catch (e) {
+        return { success: false, error: e.message }
+      }
+    }
+    window.__mcpExportPremiere = async (options = {}) => {
+      try {
+        // 0. audioPackage가 없으면 자동 로드
+        if (!audioPackage && options.audioFolderPath) {
+          const pkg = await importByPath(options.audioFolderPath)
+          if (!pkg) console.warn('[MCP Export] Audio import failed, continuing without audio')
+        }
+        // 1. 출력 폴더 경로 결정 (capcutProjectNumber 재사용 = .prproj 를 쓸 폴더).
+        //    명시 안 하면 CapCut 경로 자동 감지를 그대로 사용한다.
+        let capcutProjectNumber = options.capcutProjectNumber
+        if (!capcutProjectNumber) {
+          const pathResult = await window.electronAPI?.detectCapcutPath?.()
+          if (!pathResult?.success) return { success: false, error: 'Output path not detected' }
+          const numResult = await window.electronAPI?.getNextProjectNumber?.({ basePath: pathResult.basePath })
+          if (!numResult?.success) return { success: false, error: 'Cannot determine project number' }
+          const info = await window.electronAPI?.getSystemInfo?.()
+          const sep = info?.platform === 'darwin' ? '/' : '\\'
+          capcutProjectNumber = `${pathResult.basePath}${sep}${numResult.folderName}`
+        }
+        // 2. 저장된 export 설정 읽기
+        let saved = {}
+        try { saved = JSON.parse(localStorage.getItem('exportSettings') || '{}') } catch {}
+        const exportOptions = {
+          capcutProjectNumber,
+          scaleMode: options.scaleMode || saved.scaleMode || 'none',
+          kenBurns: options.kenBurns ?? saved.kenBurns ?? true,
+          kenBurnsMode: options.kenBurnsMode || saved.kenBurnsMode || 'random',
+          kenBurnsCycle: options.kenBurnsCycle || saved.kenBurnsCycle || 5,
+          kenBurnsScaleMin: (options.kenBurnsScaleMin || saved.kenBurnsScaleMin || 100) / 100,
+          kenBurnsScaleMax: (options.kenBurnsScaleMax || saved.kenBurnsScaleMax || 130) / 100,
+          subtitleOption: options.subtitleOption || (saved.includeSubtitle !== false ? 'ko' : 'none'),
+          subtitleFontSize: options.subtitleFontSize || saved.subtitleFontSize || 8,
+          audioPackage: options.audioFolderPath ? (await importByPath(options.audioFolderPath)) : audioPackage,
+          // 자동화는 기본 false — 옵션을 명시해야만 pending 씬이 섞인다.
+          includePending: options.includePending === true
+        }
+        // 3. handleExportPremiere 호출
+        const exportResult = await handleExportPremiere(exportOptions)
+        if (exportResult?.success === false) return exportResult
+        return { success: true, path: exportResult?.targetPath || capcutProjectNumber }
       } catch (e) {
         return { success: false, error: e.message }
       }
@@ -177,46 +294,36 @@ export function useMcpServer({
       delete window.__mcpGetAudioReviews
       delete window.__mcpImportAudio
       delete window.__mcpExportCapcut
+      delete window.__mcpExportPremiere
     }
-  }, [references, scenes, handleGenerateRef, handleGenerateScene, selectedStyleRefId, refreshReviews, audioReviews, handleExportConfirm, importByPath, audioPackage])
+  }, [references, scenes, handleGenerateRef, handleGenerateScene, selectedStyleRefId, refreshReviews, audioReviews, handleExportConfirm, handleExportPremiere, importByPath, audioPackage])
 
   // MCP HTTP 서버에서 오는 데이터 업데이트 수신
   useEffect(() => {
     const cleanup = window.electronAPI?.onMcpUpdate?.((data) => {
       if (data.type === 'update-references') {
-        // Merge CSV/API data over existing in-memory refs by name so that
-        // runtime fields (data, filePath, mediaId, dataStorage, caption,
-        // status, errorMessage) survive a CSV reload. Without this merge,
-        // load_csv during W6/W7 wipes generated-image pointers and the
-        // batch filter treats every ref as regeneratable → full regen.
-        setReferences(prev => {
-          const byName = new Map(prev.map(r => [r.name, r]))
-          return (data.references || []).map(incoming => {
-            const existing = incoming.name ? byName.get(incoming.name) : null
-            if (!existing) return incoming
-            return {
-              ...incoming,                      // CSV-authoritative: prompt, type, category, caption(if in CSV)
-              data: existing.data,              // preserve runtime-generated image payload
-              filePath: existing.filePath,      // preserve saved image path
-              mediaId: existing.mediaId,        // preserve uploaded Flow mediaId
-              dataStorage: existing.dataStorage,
-              status: existing.status,          // preserve generation status
-              errorMessage: existing.errorMessage,
-            }
-          })
-        })
+        setReferences(prev => mergeReferencesPreservingRuntime(prev, data.references))
         console.log('[MCP] References merged via HTTP:', data.references.length)
       } else if (data.type === 'update-reference') {
-        setReferences(prev => prev.map((ref, i) => i === data.index ? { ...prev[i], ...data.fields } : ref))
+        // #R37: fields 가 새 이미지(data/filePath)를 실어오면 옛 Flow entity 를 함께 비운다 —
+        //   안 그러면 이미지는 새것인데 entityId 는 옛 캐릭터를 가리켜, 이후 Sync 가 repair 로 빠져
+        //   새 이미지를 영영 안 올리고 옛 얼굴로 @멘션된다(UI 교체 경로 #R31-3 와 동일 정책).
+        const bringsNewImage = data.fields && ('data' in data.fields || 'filePath' in data.fields)
+        const entityReset = bringsNewImage && !data.fields.entityId
+          ? { entityId: null, workflowId: null, registered: null, flowNameSyncStatus: null }
+          : {}
+        setReferences(prev => prev.map((ref, i) => i === data.index ? { ...prev[i], ...data.fields, ...entityReset } : ref))
         console.log('[MCP] Reference', data.index, 'updated via HTTP')
       } else if (data.type === 'remove-reference') {
         setReferences(prev => prev.filter((_, i) => i !== data.index))
         console.log('[MCP] Reference', data.index, 'removed via HTTP')
       } else if (data.type === 'clear-reference-image') {
-        setReferences(prev => prev.map((ref, i) => i === data.index ? { ...ref, data: null, filePath: null, mediaId: null, caption: null, dataStorage: null } : ref))
+        // #R37: Flow entity 필드도 함께 비운다 — 안 그러면 이미지 없는 ref 가 옛 entityId 를 들고 남아
+        //   Sync 가 옛 entity 를 다시 등록한다(UI 의 '이미지 제거' 와 동일 정책).
+        setReferences(prev => prev.map((ref, i) => i === data.index ? { ...ref, ...clearedImageFields() } : ref))
         console.log('[MCP] Reference', data.index, 'image cleared via HTTP')
       } else if (data.type === 'clear-all-reference-images') {
-        setReferences(prev => prev.map(ref => ({ ...ref, data: null, filePath: null, mediaId: null, caption: null, dataStorage: null })))
+        setReferences(prev => prev.map(ref => ({ ...ref, ...clearedImageFields() })))
         console.log('[MCP] All reference images cleared via HTTP')
       } else if (data.type === 'update-scenes') {
         // Merge incoming CSV/API rows over existing in-memory scenes by id so
@@ -226,25 +333,113 @@ export function useMcpServer({
         // pending → full regeneration of an entire episode (ep4 sat-fire).
         setScenes(prev => {
           const byId = new Map(prev.map(s => [s.id, s]))
-          return (data.scenes || []).map((incoming, i) => {
-            const id = incoming.id || `scene_${i + 1}`
-            const existing = byId.get(id)
-            if (!existing) {
-              return { ...incoming, id, status: incoming.status || 'pending' }
+          // R9 review fix: incoming._sceneNum 우선 매칭 (renderer parseFromCSV
+          // 와 같은 전략). MCP bundler 가 매번 scene_1/2 새 id 부여하므로 id 만
+          // 으로 매칭하면 reorder/insert 시 generated image 가 엉뚱한 prompt 에
+          // 붙음. _sceneNum 매칭 → id fallback → index fallback 순.
+          const byNum = new Map()
+          prev.forEach(s => { if (s._sceneNum != null) byNum.set(s._sceneNum, s) })
+          const prevHasSceneNums = byNum.size > 0
+          // R15 review fix: result 의 id 가 유니크해야 React key/state 가 깨지지
+          // 않음. taken 추적 — 이미 prev 에 있거나 result 에 이미 할당된 id 와
+          // 충돌하면 fresh scene_N 할당.
+          // R18 review fix: freshId 는 monotonic — gap 재사용 안 함. prev + incoming
+          // 의 max scene_N + 1 부터 시작 (useScenes 의 stable id 정책과 일관).
+          const taken = new Set(prev.map(s => s.id))
+          let maxSceneN = 0
+          const incomingScenes = data.scenes || []
+          for (const s of prev) {
+            const m = /^scene_(\d+)$/.exec(s.id || '')
+            if (m) {
+              const n = parseInt(m[1], 10)
+              if (n > maxSceneN) maxSceneN = n
             }
+          }
+          for (const s of incomingScenes) {
+            const m = /^scene_(\d+)$/.exec(s.id || '')
+            if (m) {
+              const n = parseInt(m[1], 10)
+              if (n > maxSceneN) maxSceneN = n
+            }
+          }
+          let nextFreshN = maxSceneN + 1
+          const freshId = () => {
+            while (taken.has(`scene_${nextFreshN}`)) nextFreshN++
+            const fid = `scene_${nextFreshN}`
+            nextFreshN++
+            return fid
+          }
+          return (data.scenes || []).map((incoming, i) => {
+            const incomingId = incoming.id || `scene_${i + 1}`
+            // R11 review fix: prev 에 _sceneNum 있고 incoming 도 가지면 byNum 만
+            // 신뢰. MCP bundler 가 매번 scene_N 새 id 부여 → byId fallback 하면
+            // 새 _sceneNum 의 incoming 이 옛 id 와 충돌해 엉뚱한 image 가 붙음.
+            // _sceneNum 가 어느 쪽이라도 없으면 옛 동작 (id → index) 유지 (legacy 호환).
+            let matched
+            if (prevHasSceneNums && incoming._sceneNum != null) {
+              matched = byNum.get(incoming._sceneNum) || null
+            } else {
+              matched = byId.get(incomingId) || (prevHasSceneNums ? null : prev[i])
+            }
+            // R15: 한 prev 가 두 incoming 에 매칭되면 두번째는 fresh id 필요.
+            // 매칭 즉시 maps 에서 제거해 다음 incoming 이 동일 prev 재매칭 못 하게.
+            if (matched) {
+              byId.delete(matched.id)
+              if (matched._sceneNum != null) byNum.delete(matched._sceneNum)
+            }
+            if (!matched) {
+              // R18 review fix: prev 비어있으면 (첫 로드) incoming.id 신뢰 (충돌만
+              // 회피). prev 가 있으면 unmatched 는 stable-id 정책상 항상 monotonic
+              // fresh id — gap (예: prev=[scene_1, scene_3] 에 새 scene 들어왔을
+              // 때 scene_2 재사용) 금지. useScenes 의 in-session-monotonic 정책과
+              // 일관.
+              let assignedId
+              if (prev.length === 0) {
+                assignedId = taken.has(incomingId) ? freshId() : incomingId
+              } else {
+                assignedId = freshId()
+              }
+              taken.add(assignedId)
+              return { ...incoming, id: assignedId, status: incoming.status || 'pending' }
+            }
+            // matched: matched.id 는 prev 에서 왔으니 이미 taken — 중복 체크 불필요
+            taken.add(matched.id)
+            // Issue #2 parity: CSV 재적용이 Done 씬(이미지 보유)의 프롬프트를 바꾸면 재생성 대상이
+            //   되도록 pending 으로 되돌린다. load_csv 는 에이전트가 per-row status 를 표현할 수 없어
+            //   여기서 규칙을 적용(updateScene / .txt import 와 동일). 프롬프트 불변이면 matched.status
+            //   보존(ep4 sat-fire 가드 — 안 바뀐 Done 행을 pending 으로 덮지 않음).
+            const csvPromptChanged = incoming.prompt !== matched.prompt
+            const matchedHasImage = !!(matched.image || matched.imagePath)
+            const mergedStatus = (csvPromptChanged && matchedHasImage)
+              ? 'pending'
+              : (matched.status || incoming.status || 'pending')
             return {
               ...incoming,                             // CSV-authoritative: prompt, subtitle, characters, scene_tag, etc.
-              id,
-              image: existing.image,                   // preserve in-memory image payload (if any)
-              imagePath: existing.imagePath,           // preserve saved image path
-              status: existing.status || incoming.status || 'pending',
-              mediaId: existing.mediaId,
-              generatingStartedAt: existing.generatingStartedAt,
-              image_size: existing.image_size,
+              id: matched.id,                          // R9 fix: 기존 stable id 유지 (incoming.id 무시)
+              image: matched.image,                    // preserve in-memory image payload (if any)
+              imagePath: matched.imagePath,            // preserve saved image path
+              status: mergedStatus,
+              mediaId: matched.mediaId,
+              generatingStartedAt: matched.generatingStartedAt,
+              image_size: matched.image_size,
+              donePrompt: matched.donePrompt,          // 생성 기준 스냅샷 — 되돌림 done 복원 유지
+              // C9 fix: incoming 이 srtLineIds 안 보내면 기존 보존
+              srtLineIds: incoming.srtLineIds ?? matched.srtLineIds ?? [],
             }
           })
         })
+        // Phase 11: MCP 가 srtTrack 동봉 시 함께 적용 (새 형식 CSV 경로용)
+        if (Array.isArray(data.srtTrack) && setSrtTrack) {
+          setSrtTrack(data.srtTrack)
+          console.log('[MCP] srtTrack synced via HTTP:', data.srtTrack.length)
+        }
         console.log('[MCP] Scenes merged via HTTP:', (data.scenes || []).length)
+      } else if (data.type === 'update-srt-track') {
+        // Phase 11: 자막 트랙만 갱신하고 싶을 때
+        if (Array.isArray(data.srtTrack) && setSrtTrack) {
+          setSrtTrack(data.srtTrack)
+          console.log('[MCP] srtTrack replaced via HTTP:', data.srtTrack.length)
+        }
       } else if (data.type === 'update-scene') {
         setScenes(prev => prev.map((s, i) => i === data.index ? { ...prev[i], ...data.fields } : s))
         console.log('[MCP] Scene', data.index, 'updated via HTTP')
@@ -305,19 +500,19 @@ export function useMcpServer({
     //
     // ref batch는 씬 매칭 개념 자체가 없음 → 'auto' 토큰 미지원.
     // 생략 시 useReferenceGeneration._resolveEffectiveStyleId가 첫 카드 fallback 적용.
-    // options = { force?: boolean } (선택). 없으면 handleStart 1-arg 호출 (백워드 호환).
-    // options 있으면 handleStart(effective, options) — App.jsx의 handleStart가 force 등을 추출.
+    // options = { force?: boolean } (선택). App.jsx가 MCP caller를 구분할 수 있게
+    // options 유무와 관계없이 source:'mcp'를 합쳐 handleStart(effective, options)로 호출한다.
     //
     // Phase 2: 진행 중이면 자동 stop → waitForStopped → start. 확인 모달 없음 (MCP 자동화 의도 명확).
-    // timeout 시 restart abort, console.warn.
     //
     // Phase 2 sync: 명시 styleId ('preset:*', 'ref:*', plain id)면 selectedStyleRefId도 갱신
     // → Start 버튼 라벨이 새 스타일 자동 표시. 'auto'/'none'/생략은 UI 유지 (사용자 의도 보존).
     window.__mcpStartBatch = async (styleId, options) => {
       // ref로 항상 최신 handleStart 호출 — stop 후 stale `isRunning=true` 가드에 막히는 회귀 방지.
-      const callHandleStart = options
-        ? (effective) => handleStartRef.current?.(effective, options)
-        : (effective) => handleStartRef.current?.(effective)
+      const callHandleStart = effective => handleStartRef.current?.(effective, {
+        ...(options || {}),
+        source: 'mcp',
+      })
       const resolveEffective = () => {
         if (styleId === 'auto') return null
         if (styleId === 'none') return 'none'
@@ -346,13 +541,14 @@ export function useMcpServer({
         : (effective) => handleGenerateAllRefsRef.current?.(effective)
       const resolveEffective = () => {
         // 'auto'는 ref batch에 의미 없음 — null로 취급해 normalizeStyleId가 'preset:auto'로
-        // 잘못 wrap하지 않도록 한다 (silent fail 회피).
+        // 잘못 wrap하지 않도록 한다 (silent fail 회피). usable auto style 이 없으면
+        // 'none'을 넘겨 UI selectedStyleRefId 로 fallback하지 않게 한다.
         if (styleId === 'auto') {
           console.warn('[MCP] start-ref-batch received styleId="auto"; ignored (refs have no per-scene matching). Falling back as if styleId were omitted.')
-          return null
+          return findAutoStyle(referencesRef.current) ?? 'none'
         }
         if (styleId === 'none') return 'none'
-        return normalizeStyleId(styleId) ?? findAutoStyle(referencesRef.current)
+        return normalizeStyleId(styleId) ?? findAutoStyle(referencesRef.current) ?? 'none'
       }
 
       syncExplicitStyleId(styleId, { normalizeStyleId, setSelectedStyleRefId })
@@ -369,7 +565,10 @@ export function useMcpServer({
     }
     window.__mcpStopBatch = () => handleStop()
     window.__mcpBatchStatus = () => {
-      const { isRunning, isPaused, progress, status, statusMessage } = automationState
+      const { isRunning, isSceneBatchQueued = false, isPaused, progress, status, statusMessage } = automationState
+      const sceneIsRunning = isRunning || isSceneBatchQueued
+      // renderer 내부의 이미지 preflight 상태는 유지하되 기존 MCP 외부 enum은 늘리지 않는다.
+      const externalAutomationStatus = status === 'preparing' ? 'running' : status
       // P2/P3 v2/v3: done 판정은 services/generationStatus의 공통 helper 사용.
       // status가 in-flight (pending/generating/error)면 image/mediaId 있어도 done에서 제외 —
       // force 재생성 중 progress가 100% stuck 회귀 차단.
@@ -392,12 +591,12 @@ export function useMcpServer({
       const refIsRunning = refBatchRunning || generatingRefs.length > 0
 
       return {
-        isRunning: isRunning || videoAutomation.isRunning || refIsRunning,
+        isRunning: sceneIsRunning || videoAutomation.isRunning || refIsRunning,
         isPaused: isPaused || videoAutomation.isPaused,
-        progress: isRunning ? progress : videoAutomation.progress,
+        progress: sceneIsRunning ? progress : videoAutomation.progress,
         total, done, pending, generating, error,
-        status: isRunning ? status : videoAutomation.status,
-        statusMessage: isRunning ? statusMessage : videoAutomation.statusMessage,
+        status: sceneIsRunning ? externalAutomationStatus : videoAutomation.status,
+        statusMessage: sceneIsRunning ? statusMessage : videoAutomation.statusMessage,
         ref: { total: refTotal, done: refDone, generating: refGenerating, pending: refPending, isRunning: refIsRunning }
       }
     }

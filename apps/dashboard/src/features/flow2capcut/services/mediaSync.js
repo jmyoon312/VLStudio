@@ -1,52 +1,36 @@
 /**
- * MediaSync — 완성된 비디오를 씬에 동기화하는 순수 함수
+ * MediaSync — 완성된 I2V 비디오를 씬에 동기화하는 순수 함수
  *
- * App.jsx (세션 중 동기화)와 useProjectData.js (프로젝트 복원 시 동기화)에서
- * 동일한 로직이 중복되어 있었으므로 하나로 통합.
+ * Step 3 이후로 T2V 는 scenes 가 single source of truth (useVideoScenes 가 직접
+ * scenes.videoT2V* 를 갱신). 따라서 이 모듈은 I2V (framePair → scene.videoI2V*)
+ * 결과물 동기화만 담당한다.
+ *
+ * T2V 관련 호출은 이제 no-op 이지만, App.jsx / useProjectData.js 의 호출 시그니처를
+ * 유지하기 위해 videoScenes 인자는 그대로 받는다.
  */
 
 /**
- * 완성된 비디오(T2V, I2V)를 씬에 동기화
+ * 완성된 I2V 비디오를 씬에 동기화. T2V 는 scenes 가 권위이므로 처리하지 않음.
  *
  * @param {Array} scenes - 씬 배열 (mutated in place)
- * @param {Array} videoScenes - T2V 비디오 씬 배열
+ * @param {Array} _videoScenes - (legacy 인자, 무시됨)
  * @param {Array} framePairs - I2V 프레임 페어 배열
- * @param {string} logPrefix - 로그 접두사 (예: '[App]', '[ProjectData]')
+ * @param {string} logPrefix - 로그 접두사
  * @returns {boolean} 동기화가 발생했는지 여부
  */
-export function syncVideosIntoScenes(scenes, videoScenes, framePairs, logPrefix = '[Sync]') {
+export function syncVideosIntoScenes(scenes, _videoScenes, framePairs, logPrefix = '[Sync]') {
   if (!scenes?.length) return false
   let synced = false
 
-  // T2V: vscene_N → scene_N (path + duration 동기화).
-  // 이전엔 "scene path 비어있을 때만" 채웠으나, recovery / regen 후 source path 가 바뀌어도
-  // scene 에 옛 path 가 남아 있으면 동기화 skip → SceneList/export 가 옛 비디오 사용.
-  // derived 필드 의미상 source 가 권위 — source path 가 있으면 다른 값일 때 overwrite.
-  if (videoScenes?.length) {
-    for (const vs of videoScenes) {
-      if ((vs.status === 'complete' || vs.status === 'done') && (vs.video || vs.videoPath)) {
-        const sceneId = vs.id.replace('vscene_', 'scene_')
-        const scene = scenes.find(s => s.id === sceneId)
-        if (!scene) continue
-        const newPath = vs.videoPath || null
-        if (scene.videoT2VPath !== newPath) {
-          scene.videoT2VPath = newPath
-          synced = true
-        }
-        if (vs.duration && scene.videoT2VDuration !== vs.duration) {
-          scene.videoT2VDuration = vs.duration
-          synced = true
-        }
-        if (synced) console.log(`${logPrefix} Synced T2V video → ${sceneId}`)
-      }
-    }
-  }
-
-  // I2V: framePair.startSceneId → scene (path + duration 동기화) — 동일한 overwrite 정책.
+  // I2V: framePair.ownerSceneId → scene (path + duration 동기화) — overwrite 정책.
+  // ownerSceneId is the canonical row-to-scene binding (see plan
+  // 2026-05-23-framepair-owner-scene-binding.md). startSceneId is just the
+  // mutable input image — irrelevant for "which scene does this video belong to".
+  // Gallery-rooted rows have ownerSceneId=null and are naturally skipped by the truthy guard.
   if (framePairs?.length) {
     for (const fp of framePairs) {
-      if ((fp.status === 'complete' || fp.status === 'done') && (fp.base64 || fp.videoPath) && fp.startSceneId && !fp.startSceneId.startsWith('gallery::')) {
-        const scene = scenes.find(s => s.id === fp.startSceneId)
+      if ((fp.status === 'complete' || fp.status === 'done') && (fp.base64 || fp.videoPath) && fp.ownerSceneId) {
+        const scene = scenes.find(s => s.id === fp.ownerSceneId)
         if (!scene) continue
         const newPath = fp.videoPath || null
         if (scene.videoI2VPath !== newPath) {
@@ -57,7 +41,13 @@ export function syncVideosIntoScenes(scenes, videoScenes, framePairs, logPrefix 
           scene.videoI2VDuration = fp.duration
           synced = true
         }
-        if (synced) console.log(`${logPrefix} Synced I2V video → ${fp.startSceneId}`)
+        // 캐시버스터 — 로드/복구 시에도 비디오 generatedAt 을 scene 에 동기화해야
+        // 타임라인/PreviewPanel 의 ?v= 가 비고 stale 비디오가 보이는 걸 막는다.
+        if (fp.generatedAt != null && scene.videoI2VGeneratedAt !== fp.generatedAt) {
+          scene.videoI2VGeneratedAt = fp.generatedAt
+          synced = true
+        }
+        if (synced) console.log(`${logPrefix} Synced I2V video → ${fp.ownerSceneId}`)
       }
     }
   }

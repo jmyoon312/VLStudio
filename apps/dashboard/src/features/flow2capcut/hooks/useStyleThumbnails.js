@@ -7,6 +7,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { STYLE_PRESETS } from '../config/defaults'
 import { toast } from '../components/Toast'
+import { isQuotaExhaustedError, emitQuotaStop } from '../utils/quotaStop'
+import { checkFlowProjectReady } from '../utils/guards'
+import { getAuthErrorMessage } from '../utils/authMessages'
 
 const THUMBNAIL_PROMPT_PREFIX = 'A serene landscape with mountains and a river'
 
@@ -17,70 +20,70 @@ const randomDelay = () => new Promise(r => setTimeout(r, 1000 + Math.random() * 
 // Vite dev server가 missing 파일에 SPA fallback(index.html)을 반환하므로
 // Content-Type 을 반드시 검증해서 실제 이미지만 허용.
 // 확장자는 jpg → png → webp 순으로 시도 (실제 포맷 다양성 대응)
+const BUNDLED_THUMB_EXTS = ['jpg', 'png', 'webp']
+
+async function fetchFirstAvailable(id) {
+  for (const ext of BUNDLED_THUMB_EXTS) {
+    try {
+      const res = await fetch(`./style-thumbnails/${id}.${ext}`)
+      if (!res.ok) continue
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.startsWith('image/')) continue
+      const blob = await res.blob()
+      if (blob.size === 0) continue
+      return blob
+    } catch {}
+  }
+  return null
+}
+
 async function loadBundledThumbnails(existingIds = []) {
   const allStyles = STYLE_PRESETS?.styles || []
   const missingStyles = allStyles.filter(s => !existingIds.includes(s.id))
   if (missingStyles.length === 0) return {}
 
   const bundled = {}
-  missingStyles.forEach(style => {
-    bundled[style.id] = `/style-thumbnails/${style.id}.jpg`
-  })
+  await Promise.all(
+    missingStyles.map(async (style) => {
+      const blob = await fetchFirstAvailable(style.id)
+      if (blob) bundled[style.id] = URL.createObjectURL(blob)
+    })
+  )
+  if (Object.keys(bundled).length > 0) {
+    console.log('[StyleThumbnails] Loaded', Object.keys(bundled).length, 'bundled thumbnails')
+  }
   return bundled
 }
 
 /**
- * filePath → file:// 또는 웹 자산 URL 변환 (표시용)
+ * filePath → file:// URL 변환 (표시용)
+ *
+ * T1 review fix: 옛 `?t=${Date.now()}` 가 매 render 마다 새 URL → 캐시 무력화.
+ * version 인자 (e.g. thumbnail generatedAt) 받아서 실제 변경 시에만 query 갱신.
+ * version 없으면 query 생략 — stable URL 유지.
+ *
+ * @param {string} pathOrUrl
+ * @param {string|number|null} [version] — cache key (e.g. generatedAt timestamp)
  */
-export function toFileUrl(pathOrUrl) {
+export function toFileUrl(pathOrUrl, version = null) {
   if (!pathOrUrl) return null
-  // 1) 이미 웹 URL이거나 blob/data/http/https 이면 그대로 반환
-  if (
-    pathOrUrl.startsWith('http://') ||
-    pathOrUrl.startsWith('https://') ||
-    pathOrUrl.startsWith('blob:') ||
-    pathOrUrl.startsWith('data:')
-  ) {
+  // 이미 URL이면 그대로 (blob:, data:, file://)
+  if (pathOrUrl.startsWith('blob:') || pathOrUrl.startsWith('data:') || pathOrUrl.startsWith('file://')) {
     return pathOrUrl
   }
-  // 2) 웹 상대 경로 또는 public 자산 (/style-thumbnails/... 등)은 웹 URL 그대로 반환
-  if (pathOrUrl.startsWith('/style-thumbnails/') || pathOrUrl.startsWith('style-thumbnails/')) {
-    return pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`
-  }
-  // 3) Electron 환경 여부 확인
-  const isElectron = typeof window !== 'undefined' && Boolean(window.electronAPI || (window.process && window.process.type === 'renderer'))
-
-  // 4) local-resource:// 스킴인 경우 Electron이 아니면 웹 경로로 복원
-  if (pathOrUrl.startsWith('local-resource://')) {
-    if (!isElectron) {
-      const clean = pathOrUrl.replace(/^local-resource:\/\//, '').split('?')[0]
-      return clean.startsWith('/') ? clean : `/${clean}`
-    }
-    return pathOrUrl
-  }
-
-  // 5) file:// 경로
-  if (pathOrUrl.startsWith('file://')) {
-    if (!isElectron) return pathOrUrl
-    let cleanPath = pathOrUrl.replace('file:///', '').replace('file://', '')
-    return `local-resource://${cleanPath}?t=${Date.now()}`
-  }
-
-  // 6) Windows 절대 경로 (C:\..., D:\...)
-  if (/^[A-Z]:[\\/]/i.test(pathOrUrl)) {
-    if (!isElectron) return pathOrUrl
-    return `local-resource:///${pathOrUrl.replace(/\\/g, '/')}?t=${Date.now()}`
-  }
-
-  // 7) 일반 루트 상대 경로 (/...)
+  const query = version != null ? `?v=${encodeURIComponent(version)}` : ''
+  // 절대 경로 → file://
   if (pathOrUrl.startsWith('/')) {
-    return pathOrUrl
+    return `file://${pathOrUrl}${query}`
   }
-
+  // Windows 경로
+  if (/^[A-Z]:\\/i.test(pathOrUrl)) {
+    return `file:///${pathOrUrl.replace(/\\/g, '/')}${query}`
+  }
   return pathOrUrl
 }
 
-export function useStyleThumbnails(flowAPI) {
+export function useStyleThumbnails(genAPI, { flowProjectReady = true } = {}) {
   const [thumbnails, setThumbnails] = useState({})         // { presetId: filePath | blobUrl }
   const [generating, setGenerating] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -115,8 +118,12 @@ export function useStyleThumbnails(flowAPI) {
 
   // 썸네일 일괄 생성 (프리셋 + 커스텀 스타일 레퍼런스)
   const generateThumbnails = useCallback(async (presetIds, customRefs, t) => {
-    if (!flowAPI?.generateImageDOM) {
-      toast.error('Flow API not available')
+    // Flow 모드에서 프로젝트 미준비 시 차단. API 모드는 flowProjectReady=true → no-op.
+    const readyCheck = checkFlowProjectReady(flowProjectReady, t || ((k, opts) => opts?.defaultValue || k))
+    if (!readyCheck.ok) return
+
+    if (!genAPI?.generateImage) {
+      toast.error('GenAI API not available')
       return
     }
 
@@ -141,6 +148,7 @@ export function useStyleThumbnails(flowAPI) {
 
     let generated = 0
     let stopped = false
+    const authErrorMessage = () => getAuthErrorMessage(genAPI?.mode, t)
 
     // Phase 1: 프리셋 썸네일 생성
     for (const presetId of targetIds) {
@@ -156,7 +164,7 @@ export function useStyleThumbnails(flowAPI) {
       console.log(`[StyleThumbnails] Generating preset ${presetId}: ${prompt}`)
 
       try {
-        const result = await flowAPI.generateImageDOM(prompt, [], { batchCount: 1 })
+        const result = await genAPI.generateImage(prompt, [], { batchCount: 1 })
 
         if (result.success && result.images?.length > 0) {
           const firstImage = result.images[0]
@@ -176,11 +184,28 @@ export function useStyleThumbnails(flowAPI) {
           generated++
         } else {
           console.warn(`[StyleThumbnails] Failed to generate ${presetId}:`, result.error)
+          // #R21-4: 인증 실패면 죽은 토큰이니 남은 스타일을 계속 돌리지 않고 즉시 중단.
+          if (result.authFailed) {
+            toast.error(authErrorMessage())
+            window.dispatchEvent(new CustomEvent('flow-login-expired'))
+            stopped = true
+            break
+          }
+          if (isQuotaExhaustedError(result.error)) {
+            emitQuotaStop({ scope: 'StyleThumbnails(preset)' })
+            stopped = true
+            break
+          }
         }
       } catch (e) {
         console.error(`[StyleThumbnails] Error generating ${presetId}:`, e)
+        if (isQuotaExhaustedError(e)) {
+          emitQuotaStop({ scope: 'StyleThumbnails(preset)' })
+          stopped = true
+          break
+        }
         if (e.message?.includes('401') || e.message?.includes('auth')) {
-          toast.error(t?.('toast.authErrorStop') || 'Authentication error')
+          toast.error(authErrorMessage())
           stopped = true
           break
         }
@@ -205,7 +230,7 @@ export function useStyleThumbnails(flowAPI) {
         console.log(`[StyleThumbnails] Generating custom style "${ref.name}": ${prompt}`)
 
         try {
-          const result = await flowAPI.generateImageDOM(prompt, [], { batchCount: 1 })
+          const result = await genAPI.generateImage(prompt, [], { batchCount: 1 })
 
           if (result.success && result.images?.length > 0) {
             const firstImage = result.images[0]
@@ -213,11 +238,27 @@ export function useStyleThumbnails(flowAPI) {
             const dataUrl = imageData.startsWith('data:') ? imageData : `data:image/png;base64,${imageData}`
             customResults.push({ refId: ref.id, data: dataUrl })
             generated++
+          } else if (!result.success && result.authFailed) {
+            // #R21-4: 인증 실패 → 즉시 중단.
+            toast.error(authErrorMessage())
+            window.dispatchEvent(new CustomEvent('flow-login-expired'))
+            stopped = true
+            break
+          } else if (!result.success && isQuotaExhaustedError(result.error)) {
+            emitQuotaStop({ scope: 'StyleThumbnails(custom)' })
+            stopped = true
+            break
           }
         } catch (e) {
           console.error(`[StyleThumbnails] Error generating custom "${ref.name}":`, e)
+          if (isQuotaExhaustedError(e)) {
+            emitQuotaStop({ scope: 'StyleThumbnails(custom)' })
+            stopped = true
+            break
+          }
           if (e.message?.includes('401') || e.message?.includes('auth')) {
-            toast.error(t?.('toast.authErrorStop') || 'Authentication error')
+            toast.error(authErrorMessage())
+            stopped = true
             break
           }
         }
@@ -241,7 +282,7 @@ export function useStyleThumbnails(flowAPI) {
     }
 
     return customResults  // 커스텀 스타일 결과 반환 → App에서 References 업데이트
-  }, [flowAPI, thumbnails])
+  }, [genAPI, thumbnails, flowProjectReady])
 
   const stopGenerating = useCallback(() => {
     stopRequestedRef.current = true

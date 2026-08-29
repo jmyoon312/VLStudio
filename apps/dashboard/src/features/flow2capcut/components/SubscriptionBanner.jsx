@@ -4,7 +4,7 @@
  * 체험판 남은 횟수/일수 또는 Pro 상태 표시
  */
 
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../hooks/useI18n'
 import { formatExpiryDate } from '../utils/formatters'
 import './SubscriptionBanner.css'

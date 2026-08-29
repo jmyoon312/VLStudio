@@ -108,6 +108,28 @@
   cursor: not-allowed;
 }
 
+/* #R34: Flow 일괄 동기화 — 미동기화(주의) 상태를 앰버 pill 로 표시. btn-generate-all 과 동일 형태. */
+.btn-sync-all {
+  padding: 6px 12px;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-sync-all:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.3);
+}
+
+.btn-sync-all:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-generate-all {
   padding: 6px 12px;
   border: 1px solid var(--primary-color);
@@ -327,7 +349,7 @@
 }
 
 .remove-menu button:hover {
-  background: #F3F4F6;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .remove-menu button:last-child:hover {
@@ -392,11 +414,17 @@
   font-size: 0.75rem;
 }
 
-.uploaded-badge {
+.uploaded-badge,
+.needs-sync-badge {
   position: absolute;
   top: 4px;
   right: 4px;
   font-size: 0.8rem;
+}
+
+/* 미동기화는 눈에 띄어야 한다 — 이 상태로 생성하면 @멘션이 조용히 안 붙는다. */
+.needs-sync-badge {
+  cursor: help;
 }
 
 .ref-name-input {

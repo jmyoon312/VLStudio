@@ -67,7 +67,7 @@
 }
 
 .summary-clickable:hover {
-  background: #F3F4F6;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .summary-label {
@@ -103,7 +103,7 @@
 .character-tag {
   font-size: 0.75rem;
   color: var(--text-primary);
-  background: #F3F4F6;
+  background: rgba(255, 255, 255, 0.08);
   padding: 3px 8px;
   border-radius: 4px;
   white-space: nowrap;
@@ -207,7 +207,7 @@
 }
 
 .voice-header:hover {
-  background: #F3F4F6;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .expand-icon {
@@ -234,7 +234,7 @@
 }
 
 .voice-file-item:nth-child(even) {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .voice-file-item:nth-child(odd):hover {
@@ -280,7 +280,7 @@
 }
 
 .voice-table-body {
-  max-height: 300px;
+  max-height: 35vh;
   overflow-y: auto;
 }
 
@@ -295,7 +295,7 @@
 }
 
 .voice-table-row:nth-child(even) {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .voice-table-row:nth-child(odd):hover {
@@ -419,7 +419,7 @@
 .sfx-category {
   font-size: 0.7rem;
   color: var(--text-secondary);
-  background: #F3F4F6;
+  background: rgba(255, 255, 255, 0.08);
   padding: 1px 6px;
   border-radius: 3px;
   white-space: nowrap;
@@ -430,7 +430,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  max-height: 200px;
+  max-height: 25vh;
   overflow-y: auto;
 }
 

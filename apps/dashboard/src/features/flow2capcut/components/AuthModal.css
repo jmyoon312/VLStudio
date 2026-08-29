@@ -15,14 +15,14 @@
 }
 
 .auth-modal {
-  background: #ffffff;
+  background: #1a1a2e;
   border-radius: 16px;
   width: 90%;
   max-width: 400px;
   padding: 32px;
   position: relative;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  border: 1px solid #F3F4F6;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .auth-modal-close {
@@ -167,7 +167,7 @@
 .auth-modal-footer {
   text-align: center;
   padding-top: 16px;
-  border-top: 1px solid #F3F4F6;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .auth-modal-footer p {

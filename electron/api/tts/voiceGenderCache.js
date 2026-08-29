@@ -1,0 +1,27 @@
+import nodeFs from 'node:fs'
+import path from 'node:path'
+import { voiceKey } from '../../../src/utils/voiceKey.js'
+
+// app-global 성별 캐시. 프로젝트 무관. corrupt/missing → {} degrade.
+export function createVoiceGenderCache({ filePath, fs = nodeFs }) {
+  function get() {
+    try {
+      if (!fs.existsSync(filePath)) return {}
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+      return parsed
+    } catch { return {} }
+  }
+  function tag({ provider, voiceId, gender, f0 = null, confidence = null, source }) {
+    const data = get()
+    const key = voiceKey(provider, voiceId)
+    const existing = data[key]
+    if (existing?.source === 'manual' && source === 'f0') return
+    data[key] = { gender, f0, confidence, source }
+    try {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true })
+      fs.writeFileSync(filePath, JSON.stringify(data), 'utf8')
+    } catch { /* best-effort persist */ }
+  }
+  return { get, tag }
+}

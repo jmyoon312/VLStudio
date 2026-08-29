@@ -8,6 +8,11 @@
 import { useEffect, useRef } from 'react'
 import { TIMING } from '../config/defaults'
 
+// Stable reference for the default srtTrack — using `= []` in the destructure
+// would mint a fresh array per render and falsely trigger the deps array,
+// breaking the "does not re-save when deps unchanged" guarantee.
+const EMPTY_SRT_TRACK = []
+
 /**
  * @param {object} params
  * @param {Array} params.scenes
@@ -25,6 +30,8 @@ import { TIMING } from '../config/defaults'
 export function useAutoSave({
   scenes, references, videoScenes, framePairs,
   selectedStyleRefId = null,
+  srtTrack = EMPTY_SRT_TRACK,
+  audioFolderPath = null,
   settings, generatingRefsCount, isRunning,
   isRestoringRef, saveCurrentProject, onSaveError = null
 }) {
@@ -32,17 +39,23 @@ export function useAutoSave({
   // 새 클로저여도 autosave 타이머가 재예약되지 않게.
   const onSaveErrorRef = useRef(onSaveError)
   onSaveErrorRef.current = onSaveError
+  // S2 review fix: saveCurrentProject 도 동일 패턴. useProjectData 가 매 render
+  // 새 closure 로 만드는데 deps 에 넣으면 매 render 마다 timer 재예약 → autosave
+  // 무력화. 안 넣으면 stale closure 위험. ref 로 최신성 유지하고 deps 에서 제외.
+  const saveCurrentProjectRef = useRef(saveCurrentProject)
+  saveCurrentProjectRef.current = saveCurrentProject
   // 저장 실패가 연속될 때 토스트 도배 방지 — 실패 streak 의 첫 건에서만 알린다.
   const saveFailedRef = useRef(false)
 
   useEffect(() => {
     if (generatingRefsCount > 0 || isRunning) return
     if (isRestoringRef?.current) return
-    if (scenes.length === 0 && references.length === 0 && videoScenes.length === 0) return
+    // 빈 프로젝트는 저장 안 함. 단 audioFolderPath만 있어도(audio-only) 저장 대상.
+    if (scenes.length === 0 && references.length === 0 && videoScenes.length === 0 && !audioFolderPath) return
     if (settings.saveMode === 'folder' && settings.projectName) {
       const timer = setTimeout(async () => {
         if (isRestoringRef?.current) return
-        const res = await saveCurrentProject()
+        const res = await saveCurrentProjectRef.current()
         if (res && res.success === false) {
           // 생성 직후 등 autosave 실패 — 조용히 묻으면 이미지는 있는데 메타가
           // 유실된다. 사용자에게 보이게 한다.
@@ -58,5 +71,9 @@ export function useAutoSave({
       }, TIMING.AUTO_SAVE_DEBOUNCE)
       return () => clearTimeout(timer)
     }
-  }, [scenes, references, videoScenes, framePairs, selectedStyleRefId, settings.projectName, settings.saveMode, settings.aspectRatio, generatingRefsCount, isRunning])
+    // C17 review fix: srtTrack 변경도 trigger — MCP update-srt-track 등 자막만
+    // 갱신하는 경로가 autosave 안 되면 종료 시 손실.
+    // B-phase fix: audioFolderPath도 trigger — mp3 드롭 직후 앱 종료해도 project.json
+    // 에 반영되도록.
+  }, [scenes, references, videoScenes, framePairs, selectedStyleRefId, srtTrack, audioFolderPath, settings.projectName, settings.saveMode, settings.aspectRatio, generatingRefsCount, isRunning])
 }

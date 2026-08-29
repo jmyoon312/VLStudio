@@ -23,99 +23,34 @@
 import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
-import os from 'os'
 import { execFile, execSync } from 'child_process'
-import { app, dialog, BrowserWindow } from 'electron'
+import { app, dialog } from 'electron'
 import { parseSfxList } from '../../apps/dashboard/src/features/flow2capcut/utils/parseSfxList.js'
 
 // ============================================================
 // Helper Functions
 // ============================================================
 
-/**
- * Pure JS parser to extract duration (ms) from MP3 file sizing and CBR header inspection.
- * Serves as an extremely robust fallback when ffprobe is missing on the host environment.
- */
-function getMp3DurationMsPure(filePath) {
-  try {
-    const fd = fsSync.openSync(filePath, 'r')
-    const stats = fsSync.statSync(filePath)
-    const fileSize = stats.size
-
-    const buffer = Buffer.alloc(4096)
-    const bytesRead = fsSync.readSync(fd, buffer, 0, 4096, 0)
-    fsSync.closeSync(fd)
-
-    if (bytesRead < 10) return null
-
-    let offset = 0
-    if (buffer.toString('ascii', 0, 3) === 'ID3') {
-      const sizeBytes = buffer.subarray(6, 10)
-      const id3Size = ((sizeBytes[0] & 0x7F) << 21) |
-                      ((sizeBytes[1] & 0x7F) << 14) |
-                      ((sizeBytes[2] & 0x7F) << 7) |
-                      (sizeBytes[3] & 0x7F)
-      offset = 10 + id3Size
-    }
-
-    let frameHeaderIndex = -1
-    for (let i = offset; i < bytesRead - 4; i++) {
-      if (buffer[i] === 0xFF && (buffer[i + 1] & 0xE0) === 0xE0) {
-        frameHeaderIndex = i
-        break
-      }
-    }
-
-    if (frameHeaderIndex === -1) {
-      const payloadSize = Math.max(0, fileSize - offset)
-      return Math.round((payloadSize / 16000) * 1000)
-    }
-
-    const header = buffer.readUInt32BE(frameHeaderIndex)
-    const mpegVersion = (header >> 19) & 0x03
-    const layer = (header >> 17) & 0x03
-    const bitrateIndex = (header >> 12) & 0x0F
-
-    const bitrateTableV1L3 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
-    const bitrateTableV2L3 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
-
-    let kbps = 128
-    if (mpegVersion === 3 && layer === 1) {
-      kbps = bitrateTableV1L3[bitrateIndex] || 128
-    } else {
-      kbps = bitrateTableV2L3[bitrateIndex] || 64
-    }
-
-    const bytesPerSecond = kbps * 125
-    const audioSize = Math.max(0, fileSize - frameHeaderIndex)
-    const durationMs = Math.round((audioSize / bytesPerSecond) * 1000)
-
-    console.log(`[MP3 Pure Parser] parsed duration: ${durationMs}ms, kbps: ${kbps}, file: ${path.basename(filePath)}`)
-    return durationMs
-  } catch (e) {
-    console.warn('[MP3 Pure Parser] failed to parse duration:', e.message)
-    return null
-  }
+// #R7-4: per-project.json write serialization. save-project-data 와 merge-project-data 가
+//   같은 파일을 read-modify-write 할 때 interleave 하지 않도록 경로별 promise chain 으로 직렬화한다.
+const projectWriteChains = new Map()
+function withProjectWriteLock(jsonPath, fn) {
+  const prev = projectWriteChains.get(jsonPath) || Promise.resolve()
+  const run = prev.then(fn, fn) // 이전 작업 성공/실패와 무관하게 직렬 실행
+  // 다음 caller 가 결과와 무관하게 대기하도록 항상 resolve 하는 guard 를 저장.
+  const guard = run.then(() => {}, () => {})
+  projectWriteChains.set(jsonPath, guard)
+  // #R11-12: 마지막 작업이면 map 엔트리 제거(누수 방지). 사이에 새 writer 가 끼면 get!==guard 라 보존.
+  guard.finally(() => { if (projectWriteChains.get(jsonPath) === guard) projectWriteChains.delete(jsonPath) })
+  return run
 }
 
 /**
  * 오디오 파일 재생 시간(ms) 추출 — ffprobe 사용 (WAV, MP3, OGG, M4A 등 모두 지원)
- * ffprobe 없으면 WAV는 헤더 파싱 폴백, MP3는 초고속 Pure JS Parser로 대응
+ * ffprobe 없으면 WAV는 헤더 파싱 폴백
  */
 function getAudioDurationMs(filePath) {
   return new Promise((resolve) => {
-    const ext = path.extname(filePath).toLowerCase()
-    
-    // 1. MP3 파일인 경우 초고속 자바스크립트 내장 엔진으로 즉각 연산
-    if (ext === '.mp3') {
-      const pureDuration = getMp3DurationMsPure(filePath)
-      if (pureDuration && pureDuration > 0) {
-        resolve(pureDuration)
-        return
-      }
-    }
-
-    // 2. ffprobe 시도
     execFile('ffprobe', [
       '-v', 'quiet',
       '-print_format', 'json',
@@ -133,16 +68,12 @@ function getAudioDurationMs(filePath) {
         } catch { /* fallthrough */ }
       }
 
-      // 3. ffprobe 실패 시 WAV 헤더 파싱 및 최종 크기 기반 폴백
+      // ffprobe 실패 시 WAV 헤더 폴백
+      const ext = path.extname(filePath).toLowerCase()
       if (ext === '.wav') {
         resolve(getWavDurationMs(filePath))
       } else {
-        try {
-          const stats = fsSync.statSync(filePath)
-          resolve(Math.round((stats.size / 16000) * 1000)) // 128kbps 기준 추산
-        } catch {
-          resolve(3000) // 진짜 최후의 최후 폴백 3초
-        }
+        resolve(null)
       }
     })
   })
@@ -152,14 +83,15 @@ function getAudioDurationMs(filePath) {
  * WAV 파일 헤더에서 재생 시간(ms) 추출 (ffprobe 폴백용)
  */
 function getWavDurationMs(filePath) {
+  // #R11-10: fd 를 try 밖에 두고 finally 에서 닫는다 — readSync 가 throw 해도 fd 누수 방지.
+  let fd = null
   try {
-    const fd = fsSync.openSync(filePath, 'r')
+    fd = fsSync.openSync(filePath, 'r')
     const header = Buffer.alloc(44)
     fsSync.readSync(fd, header, 0, 44, 0)
 
     if (header.toString('ascii', 0, 4) !== 'RIFF' ||
         header.toString('ascii', 8, 12) !== 'WAVE') {
-      fsSync.closeSync(fd)
       return null
     }
 
@@ -180,14 +112,14 @@ function getWavDurationMs(filePath) {
       offset += 8 + chunkSize
     }
 
-    fsSync.closeSync(fd)
-
     if (byteRate > 0 && dataSize > 0) {
       return Math.round((dataSize / byteRate) * 1000)
     }
     return null
   } catch {
     return null
+  } finally {
+    if (fd !== null) { try { fsSync.closeSync(fd) } catch { /* ignore */ } }
   }
 }
 
@@ -232,6 +164,25 @@ function base64ToBuffer(base64Data) {
   return Buffer.from(clean, 'base64')
 }
 
+function binaryPayloadToBuffer({ bytes, base64Data }) {
+  if (bytes != null) {
+    if (Buffer.isBuffer(bytes)) return Buffer.from(bytes)
+    if (bytes instanceof ArrayBuffer) return Buffer.from(bytes)
+    if (ArrayBuffer.isView(bytes)) {
+      return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    }
+    if (Array.isArray(bytes)) return Buffer.from(bytes)
+    throw new Error('Unsupported binary bytes payload')
+  }
+
+  if (typeof base64Data === 'string' && base64Data) {
+    const clean = base64Data.replace(/^data:[^;]+;base64,/, '')
+    return Buffer.from(clean, 'base64')
+  }
+
+  throw new Error('bytes or base64Data is required')
+}
+
 /**
  * Read a file from disk and return it as a data URL string.
  * e.g. "data:image/png;base64,iVBOR..."
@@ -266,6 +217,19 @@ async function pathExists(p) {
     return true
   } catch {
     return false
+  }
+}
+
+/**
+ * Read a JSON file, or null when it is missing or unparseable.
+ * 손상된 project.json 을 읽다 throw 하면 저장 자체가 실패한다 — 읽기 실패는 "이전 값 없음"으로
+ * 취급하고 쓰기는 진행한다(다음 쓰기가 파일을 정상화한다).
+ */
+async function readJsonOrNull(p) {
+  try {
+    return JSON.parse(await fs.readFile(p, 'utf-8'))
+  } catch {
+    return null
   }
 }
 
@@ -320,50 +284,32 @@ function getConfigPath() {
   return path.join(app.getPath('userData'), 'work-folder-config.json')
 }
 
-// 통합 미디어 폴더 경로를 안전하게 반환합니다.
-function getUnifiedMediaFolder() {
-  let localAppData = process.env.LOCALAPPDATA
-  if (!localAppData) {
-    try {
-      localAppData = path.join(os.homedir(), 'AppData', 'Local')
-    } catch {
-      try {
-        localAppData = app.getPath('userData')
-      } catch {
-        localAppData = os.tmpdir()
-      }
-    }
-  }
-  return path.join(localAppData, 'ViraLoop Studio', 'media')
-}
-
 async function readWorkFolderConfig() {
   try {
     const configPath = getConfigPath()
-    if (fsSync.existsSync(configPath)) {
-      const data = await fs.readFile(configPath, 'utf-8')
-      const config = JSON.parse(data)
-      if (config && config.path) {
-        return { path: config.path, name: config.name || path.basename(config.path) }
-      }
-    }
-  } catch (e) {
-    console.warn('[FS] Failed to read work folder config:', e.message)
+    const text = await fs.readFile(configPath, 'utf-8')
+    return JSON.parse(text)
+  } catch {
+    return null
   }
-
-  const unifiedPath = getUnifiedMediaFolder()
-  try { await fs.mkdir(unifiedPath, { recursive: true }) } catch {}
-  return { path: unifiedPath, name: 'ViraLoop Studio Media' }
 }
 
 async function writeWorkFolderConfig(workFolderPath, workFolderName) {
   try {
     const configPath = getConfigPath()
     await fs.writeFile(configPath, JSON.stringify({ path: workFolderPath, name: workFolderName }, null, 2), 'utf-8')
-    console.log('[FS] Work folder config saved:', workFolderPath)
+    // 경로엔 사용자 이름이 들어간다(PII) — 저장 여부만 남긴다.
+    console.log('[FS] Work folder config saved')
   } catch (e) {
     console.warn('[FS] Failed to save work folder config:', e.message)
   }
+}
+
+// 리소스 파일명 정규화. 저장(fs:save-resource)·읽기(fs:read-resource)·history 조회(fs:get-history)가
+// 반드시 같은 규칙을 써야 한다 — 다르면 '석준의 딸' 처럼 공백/특수문자가 든 이름의 파일을
+// 디스크에 써놓고도 앱이 못 찾는다(카드 이미지·history 가 사라진 것처럼 보인다).
+export function safeResourceName(name) {
+  return String(name).replace(/[^a-zA-Z0-9\uAC00-\uD7A3_-]/g, '_')
 }
 
 export function registerFilesystemIPC(ipcMain) {
@@ -389,21 +335,29 @@ export function registerFilesystemIPC(ipcMain) {
 
   // ----------------------------------------------------------
   // 0. fs:get-default-work-folder — 기본 작업 폴더 경로 반환 + 생성
+  //    Mac: ~/Documents/AutoFlowCut
+  //    Windows: C:\Users\{user}\Documents\AutoFlowCut
   // ----------------------------------------------------------
   ipcMain.handle('fs:get-default-work-folder', async () => {
     try {
-      const defaultFolder = getUnifiedMediaFolder()
+      const documentsPath = app.getPath('documents')
+      const defaultFolder = path.join(documentsPath, 'AutoFlowCut')
+
+      // 폴더가 없으면 생성
       await fs.mkdir(defaultFolder, { recursive: true })
-      return { success: true, path: defaultFolder, name: 'ViraLoop Studio Media' }
+
+      return { success: true, path: defaultFolder, name: 'AutoFlowCut' }
     } catch (error) {
       return { success: false, error: error.message }
     }
   })
 
+  // ----------------------------------------------------------
+  // 1. fs:select-work-folder
+  // ----------------------------------------------------------
   ipcMain.handle('fs:select-work-folder', async () => {
     try {
-      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
-      const result = await dialog.showOpenDialog(parentWindow, {
+      const result = await dialog.showOpenDialog({
         properties: ['openDirectory', 'createDirectory']
       })
 
@@ -415,66 +369,6 @@ export function registerFilesystemIPC(ipcMain) {
       const name = path.basename(selectedPath)
 
       return { success: true, path: selectedPath, name }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
-  })
-
-  // ----------------------------------------------------------
-  // 1b. fs:select-image-file — 이미지 파일 선택 탐색기 열기
-  // ----------------------------------------------------------
-  ipcMain.handle('fs:select-image-file', async () => {
-    try {
-      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
-      const result = await dialog.showOpenDialog(parentWindow, {
-        properties: ['openFile'],
-        filters: [
-          { name: 'Images', extensions: ['jpg', 'png', 'gif', 'webp', 'jpeg'] }
-        ]
-      })
-
-      if (result.canceled || result.filePaths.length === 0) {
-        return { success: false, error: 'cancelled' }
-      }
-
-      const selectedPath = result.filePaths[0]
-      const dataUrl = await fileToDataUrl(selectedPath)
-
-      return { 
-        success: true, 
-        path: selectedPath, 
-        data: dataUrl,
-        filename: path.basename(selectedPath)
-      }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
-  })
-
-  // ----------------------------------------------------------
-  // 1c. fs:select-video-file — 비디오 파일 선택 탐색기 열기
-  // ----------------------------------------------------------
-  ipcMain.handle('fs:select-video-file', async () => {
-    try {
-      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
-      const result = await dialog.showOpenDialog(parentWindow, {
-        properties: ['openFile'],
-        filters: [
-          { name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm'] }
-        ]
-      })
-
-      if (result.canceled || result.filePaths.length === 0) {
-        return { success: false, error: 'cancelled' }
-      }
-
-      const selectedPath = result.filePaths[0]
-
-      return { 
-        success: true, 
-        path: selectedPath, 
-        filename: path.basename(selectedPath)
-      }
     } catch (error) {
       return { success: false, error: error.message }
     }
@@ -521,17 +415,54 @@ export function registerFilesystemIPC(ipcMain) {
   // 4. fs:save-project-data
   // ----------------------------------------------------------
   ipcMain.handle('fs:save-project-data', async (_event, { workFolder, project, data }) => {
-    try {
-      const projectDir = path.join(workFolder, project)
-      await fs.mkdir(projectDir, { recursive: true })
+    const jsonPath = path.join(workFolder, project, 'project.json')
+    // #R7-4: project.json 쓰기를 경로별로 직렬화 — merge-project-data 와 interleave 방지.
+    return withProjectWriteLock(jsonPath, async () => {
+      try {
+        await fs.mkdir(path.join(workFolder, project), { recursive: true })
+        // flowProjectId 는 **merge 전용 키**다. full save 의 payload 는 renderer 가 payload 를
+        // 만든 시점의 값이라, write-lock 뒤에서 순서가 뒤집히면 그 사이 merge 로 저장된 최신
+        // 매핑을 옛 값(또는 키 누락)으로 덮어쓴다 — merge 성공을 보고 생성 게이트를 연 renderer
+        // 는 그걸 알 수 없다. 그래서 파일이 이미 있으면 디스크 값이 항상 이긴다. 설정/해제는
+        // 둘 다 merge-project-data 로만 한다(persistFlowProjectId / clearDeadFlowMapping).
+        const next = { ...data }
+        const prev = await readJsonOrNull(jsonPath)
+        if (prev) {
+          if ('flowProjectId' in prev) next.flowProjectId = prev.flowProjectId
+          else delete next.flowProjectId
+        }
+        await fs.writeFile(jsonPath, JSON.stringify(next, null, 2), 'utf-8')
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    })
+  })
 
-      const jsonPath = path.join(projectDir, 'project.json')
-      await fs.writeFile(jsonPath, JSON.stringify(data, null, 2), 'utf-8')
-
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
+  // 4b. fs:merge-project-data — project.json 의 최상위 키만 원자적으로 머지(read-modify-write).
+  //   #R7-4: write-lock 안에서 read+merge+write 를 수행해 autosave(save-project-data)와의
+  //   interleave 로 인한 clobber 를 막는다. patch 의 키만 갱신, 나머지 디스크 데이터는 보존.
+  ipcMain.handle('fs:merge-project-data', async (_event, { workFolder, project, patch }) => {
+    const jsonPath = path.join(workFolder, project, 'project.json')
+    return withProjectWriteLock(jsonPath, async () => {
+      try {
+        // 파일이 없으면 패치만으로 만든다. 반환값을 실패로 두면(옛 동작) 최초 저장이 실패한
+        // 프로젝트는 저장 재시도가 통과할 길이 없어 flowProjectReady 가 영구히 닫힌다.
+        // ⚠️ "없음"과 "깨짐"은 다르다 — 파싱 실패는 여기서 throw 되어 실패로 반환된다.
+        //    깨진 project.json 을 패치만 든 파일로 덮으면 씬/레퍼런스가 통째로 날아간다.
+        let data = {}
+        if (await pathExists(jsonPath)) {
+          data = JSON.parse(await fs.readFile(jsonPath, 'utf-8'))
+        } else {
+          await fs.mkdir(path.join(workFolder, project), { recursive: true })
+        }
+        const merged = { ...data, ...(patch || {}) }
+        await fs.writeFile(jsonPath, JSON.stringify(merged, null, 2), 'utf-8')
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    })
   })
 
   // ----------------------------------------------------------
@@ -543,7 +474,7 @@ export function registerFilesystemIPC(ipcMain) {
     try {
       // Detect MIME type and extension
       const { mimeType, ext } = detectMimeType(data)
-      const safeName = String(name).replace(/[^a-zA-Z0-9\uAC00-\uD7A3_-]/g, '_')
+      const safeName = safeResourceName(name)
       const filename = `${safeName}.${ext}`
 
       // Ensure resource and history directories exist
@@ -595,7 +526,7 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   ipcMain.handle('fs:read-resource', async (_event, { workFolder, project, resourceType, name }) => {
     try {
-      const safeName = String(name).replace(/[^a-zA-Z0-9\uAC00-\uD7A3_-]/g, '_')
+      const safeName = safeResourceName(name)
       const resourceDir = path.join(workFolder, project, resourceType)
 
       // Try common image + video extensions
@@ -607,7 +538,9 @@ export function registerFilesystemIPC(ipcMain) {
         }
       }
 
-      console.warn(`[FS] read-resource: not found ${safeName}.* in ${resourceDir}`)
+      // not-found 는 정상 케이스다 — 렌더러가 로드 시 모든 씬의 이미지/비디오를 프로브하므로
+      // 미생성 리소스(예: 비디오 미생성)가 대량으로 나온다. return 값으로만 알리고 로그는 남기지
+      // 않는다(console.warn 은 Sentry breadcrumb + 콘솔 도배가 된다).
       return { success: false, error: 'File not found' }
     } catch (error) {
       return { success: false, error: error.message }
@@ -619,7 +552,7 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   ipcMain.handle('fs:get-resource-path', async (_event, { workFolder, project, resourceType, name }) => {
     try {
-      const safeName = String(name).replace(/[^a-zA-Z0-9\uAC00-\uD7A3_-]/g, '_')
+      const safeName = safeResourceName(name)
       const resourceDir = path.join(workFolder, project, resourceType)
 
       for (const ext of ['png', 'jpg', 'jpeg', 'webp', 'gif', 'mp4', 'webm']) {
@@ -666,7 +599,9 @@ export function registerFilesystemIPC(ipcMain) {
         return { success: true, histories: [] }
       }
 
-      const prefix = baseName.replace(/\.[^/.]+$/, '') // strip extension if present
+      // 저장 파일명은 safeResourceName 로 정규화돼 있다 — 원본 이름으로 매칭하면 공백/특수문자가
+      //   든 카드의 history 가 영영 안 잡힌다.
+      const prefix = safeResourceName(baseName.replace(/\.[^/.]+$/, '')) // strip extension if present
       const mediaExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm']
       const entries = await fs.readdir(historyDir)
 
@@ -989,6 +924,7 @@ export function registerFilesystemIPC(ipcMain) {
       // Windows EPERM fallback (OneDrive 등 파일 잠금 시)
       if (process.platform === 'win32' && error.code === 'EPERM') {
         try {
+          // #R11-11: ESM 모듈이라 require 불가 — 모듈 스코프 import 된 execSync 사용.
           execSync(`rmdir /s /q "${path.join(workFolder, project)}"`, { windowsHide: true })
           return { success: true }
         } catch (fallbackErr) {
@@ -1136,9 +1072,8 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   ipcMain.handle('fs:scan-audio-package', async () => {
     try {
-      const parentWindow = BrowserWindow.getFocusedWindow() || global.mainWindow || null
       // 폴더 선택 다이얼로그
-      const result = await dialog.showOpenDialog(parentWindow, {
+      const result = await dialog.showOpenDialog({
         properties: ['openDirectory'],
         title: 'Select Audio Package Folder'
       })
@@ -1279,7 +1214,7 @@ export function registerFilesystemIPC(ipcMain) {
           if (!sfxEntry.isDirectory()) continue
           const sfxCatPath = path.join(sfxCatDir, sfxEntry.name)
           const sfxFiles = await fs.readdir(sfxCatPath)
-          const candidates = sfxFiles
+          const audioFiles = sfxFiles
             .filter(f => /\.(mp3|wav|m4a)$/i.test(f))
             .map(f => {
               const name = f.replace(/\.\w+$/, '')
@@ -1300,15 +1235,6 @@ export function registerFilesystemIPC(ipcMain) {
 
               return { path: path.join(sfxCatPath, f), filename: f, timecodeMs }
             })
-            .filter(f => f.timecodeMs !== null)
-
-          // 각 효과음 파일의 실제 재생 시간 읽기 (병렬)
-          const audioFiles = await Promise.all(
-            candidates.map(async (f) => {
-              const durationMs = await getAudioDurationMs(f.path)
-              return { ...f, durationMs }
-            })
-          )
 
           if (audioFiles.length > 0) {
             sfxCategories.push({
@@ -1570,6 +1496,160 @@ export function registerFilesystemIPC(ipcMain) {
   })
 
   // ----------------------------------------------------------
+  // 23-c. fs:probe-audio-file — 단일 오디오 파일 메타 측정 (드래그앤드롭 경로용)
+  // 파일 존재 확인 + 지원 확장자 체크 + duration 측정 + 부모 폴더 경로 반환.
+  // ----------------------------------------------------------
+  ipcMain.handle('fs:probe-audio-file', async (_event, { filePath }) => {
+    try {
+      if (!filePath || !(await pathExists(filePath))) {
+        return { success: false, error: 'File not found' }
+      }
+      const ext = path.extname(filePath).toLowerCase()
+      if (!['.mp3', '.wav', '.m4a', '.mp4'].includes(ext)) {
+        return { success: false, error: 'Unsupported format' }
+      }
+      const durationMs = await getAudioDurationMs(filePath)
+      return {
+        success: true,
+        path: filePath,
+        filename: path.basename(filePath),
+        folderPath: path.dirname(filePath),
+        durationMs: durationMs || null,
+      }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // ----------------------------------------------------------
+  // 23-d. fs:copy-dropped-audio — 드롭한 mp3를 오디오 패키지 폴더로 복사하여 영속화
+  // - audioFolderPath: 패키지 root. 없으면 IPC가 만들지 않음 (호출자가 결정).
+  // - trackType: 'narration' (→ media/) 또는 'sfx' (→ media/sfx/, 파일명에 timecode 인코딩)
+  // - 충돌 시 _1, _2 suffix
+  // ----------------------------------------------------------
+  ipcMain.handle('fs:copy-dropped-audio', async (_event, { sourcePath, audioFolderPath, trackType, timecodeMs }) => {
+    try {
+      if (!sourcePath || !(await pathExists(sourcePath))) {
+        return { success: false, error: 'Source file not found' }
+      }
+      if (!audioFolderPath) {
+        return { success: false, error: 'audioFolderPath required' }
+      }
+      if (!['narration', 'sfx'].includes(trackType)) {
+        return { success: false, error: `Unsupported trackType: ${trackType}` }
+      }
+      const ext = path.extname(sourcePath).toLowerCase()
+      if (!['.mp3', '.wav', '.m4a', '.mp4'].includes(ext)) {
+        return { success: false, error: 'Unsupported format' }
+      }
+
+      // 폴더 자동 생성 (audio/, audio/media[/sfx])
+      const mediaDir = path.join(audioFolderPath, 'media')
+      const destDir = trackType === 'sfx' ? path.join(mediaDir, 'sfx') : mediaDir
+      await fs.mkdir(destDir, { recursive: true })
+
+      // Narration은 "media/ 안 첫 mp3" 컨트랙트라 의미적으로 1개. 새 narration 드롭 시
+      // 기존 audio 파일들을 unlink — 안 그러면 readdir 알파벳 순서로 옛 파일이 다시
+      // narration으로 잡힘(예: intro.mp3가 그대로 있고 새 intro_1.mp3가 무시됨).
+      // SRT는 보존. source 파일이 media/ 안에 있다면(자기 자신 재드롭) skip해야 copy 가능.
+      const sourceResolved = path.resolve(sourcePath)
+      if (trackType === 'narration') {
+        try {
+          const existing = await fs.readdir(mediaDir)
+          for (const f of existing) {
+            const fext = path.extname(f).toLowerCase()
+            if (['.mp3', '.wav', '.m4a', '.mp4'].includes(fext)) {
+              const filePath = path.join(mediaDir, f)
+              if (path.resolve(filePath) === sourceResolved) continue // source 보존
+              await fs.unlink(filePath)
+            }
+          }
+        } catch (e) {
+          // 디렉토리 없거나 권한 문제 — copy 단계에서 다시 잡힘
+          console.warn('[FS] narration pre-clean failed:', e?.message)
+        }
+      }
+
+      // 파일명 결정
+      const origStem = path.basename(sourcePath, ext)
+      let destFilename
+      if (trackType === 'narration') {
+        // 원본 파일명 그대로 (timecode 인코딩 없음). pre-clean 했으므로 충돌 없음.
+        destFilename = `${origStem}${ext}`
+      } else {
+        // sfx — <stem>_<MMSS or HHMMSS>.mp3
+        const totalSec = Math.max(0, Math.floor((timecodeMs || 0) / 1000))
+        let tcStr
+        if (totalSec >= 3600) {
+          const hh = Math.floor(totalSec / 3600)
+          const mm = Math.floor((totalSec % 3600) / 60)
+          const ss = totalSec % 60
+          tcStr = `${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}${String(ss).padStart(2, '0')}`
+        } else {
+          const mm = Math.floor(totalSec / 60)
+          const ss = totalSec % 60
+          tcStr = `${String(mm).padStart(2, '0')}${String(ss).padStart(2, '0')}`
+        }
+        destFilename = `${origStem}_${tcStr}${ext}`
+      }
+
+      // 충돌 시 증분 suffix.
+      // SFX: scanner는 파일명의 **마지막** `_` 토큰을 timecode로 보므로 suffix는
+      //      timecode **앞에** 삽입해야 함. 예: boom_0005.mp3 → boom_1_0005.mp3.
+      //      `boom_0005_1.mp3`처럼 뒤에 붙으면 scanner가 마지막 `1`을 보고
+      //      timecodeMs를 null로 인식 → 타임라인에서 사라짐.
+      // Narration: 위에서 pre-clean으로 충돌 없음 (이 분기엔 안 옴).
+      // sourcePath === destPath(자기 자신 재드롭)는 "충돌"이 아니라 no-op로 처리.
+      let destPath = path.join(destDir, destFilename)
+      const isSelfCopy = path.resolve(destPath) === sourceResolved
+      if (!isSelfCopy && await pathExists(destPath)) {
+        if (trackType === 'sfx') {
+          // SFX: <stem>_<timecode>.<ext> → <stem>_<N>_<timecode>.<ext>
+          const tcWithExt = destFilename.slice(destFilename.lastIndexOf('_'))  // "_0005.mp3"
+          const stemPart = destFilename.slice(0, destFilename.lastIndexOf('_')) // "boom"
+          for (let n = 1; n < 1000; n++) {
+            const candidate = `${stemPart}_${n}${tcWithExt}`
+            const candPath = path.join(destDir, candidate)
+            if (!(await pathExists(candPath))) {
+              destFilename = candidate
+              destPath = candPath
+              break
+            }
+          }
+        } else {
+          // 안전망 — 사실 narration은 pre-clean으로 이 분기 안 옴
+          const baseNoExt = destFilename.slice(0, -ext.length)
+          for (let n = 1; n < 1000; n++) {
+            const candidate = `${baseNoExt}_${n}${ext}`
+            const candPath = path.join(destDir, candidate)
+            if (!(await pathExists(candPath))) {
+              destFilename = candidate
+              destPath = candPath
+              break
+            }
+          }
+        }
+      }
+
+      // sourcePath === destPath (자기 자신 재드롭, 같은 경로) — copy 자체가 no-op면 skip.
+      // OS에 따라 fs.copyFile에 같은 경로 주면 truncate 위험.
+      if (path.resolve(destPath) !== sourceResolved) {
+        await fs.copyFile(sourcePath, destPath)
+      }
+
+      return {
+        success: true,
+        destPath,
+        audioFolderPath,
+        filename: destFilename,
+      }
+    } catch (error) {
+      console.error('[FS] copy-dropped-audio error:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // ----------------------------------------------------------
   // 24. fs:read-file-absolute — 절대 경로로 파일 읽기 (base64)
   //     오디오 파일 등 workFolder 밖의 파일을 읽을 때 사용
   // ----------------------------------------------------------
@@ -1595,6 +1675,25 @@ export function registerFilesystemIPC(ipcMain) {
       return { success: true }
     } catch (error) {
       console.error('[FS] write-file-absolute error:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // ----------------------------------------------------------
+  // 26. fs:write-binary-file-absolute — 절대 경로로 바이너리 파일 쓰기
+  //     .vrew(zip)처럼 UTF-8 문자열로 쓰면 깨지는 파일에 사용
+  // ----------------------------------------------------------
+  ipcMain.handle('fs:write-binary-file-absolute', async (_event, { filePath, bytes, base64Data }) => {
+    try {
+      if (!filePath) {
+        return { success: false, error: 'filePath is required' }
+      }
+      const buffer = binaryPayloadToBuffer({ bytes, base64Data })
+      await fs.mkdir(path.dirname(filePath), { recursive: true })
+      await fs.writeFile(filePath, buffer)
+      return { success: true, targetPath: filePath }
+    } catch (error) {
+      console.error('[FS] write-binary-file-absolute error:', error)
       return { success: false, error: error.message }
     }
   })

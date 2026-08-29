@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '../contexts/AuthContext'
 import { useI18n } from '../hooks/useI18n'
 import { useModalVisibility } from '../hooks/useModalVisibility'
 import appIconUrl from '/assets/icon128.png'
@@ -41,7 +41,7 @@ export function AuthModal({ isOpen, onClose }) {
         </button>
 
         <div className="auth-modal-header">
-          <img className="auth-modal-logo" src={appIconUrl} alt="ViraLoop Studio" />
+          <img className="auth-modal-logo" src={appIconUrl} alt="AutoFlowCut" />
           <h2>{t('auth.title')}</h2>
           <p>{t('auth.subtitle')}</p>
         </div>
@@ -59,6 +59,10 @@ export function AuthModal({ isOpen, onClose }) {
             <div className="auth-feature">
               <span className="auth-feature-icon">⚡</span>
               <span>{t('auth.feature3')}</span>
+            </div>
+            <div className="auth-feature">
+              <span className="auth-feature-icon">📥</span>
+              <span>{t('auth.feature4')}</span>
             </div>
           </div>
 

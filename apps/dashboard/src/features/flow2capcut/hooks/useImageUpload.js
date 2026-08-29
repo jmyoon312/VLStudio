@@ -6,12 +6,26 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { cleanBase64 } from '../utils/urls'
+import { runFlowCharacterOperation } from '../utils/flowCharacterCoordinator'
 
 export function useImageUpload(options = {}) {
-  const { 
+  const {
     onUploadComplete,  // (data) => void - 업로드 완료 콜백
-    uploadToFlow,     // (base64, category) => Promise - Flow 업로드 함수
-    category = 'MEDIA_CATEGORY_SUBJECT'  // 기본 카테고리
+    onUploadStart,     // #R34: () => void - 업로드 "시작" 콜백(파일 확정 직후). 모달을 즉시 닫아
+                       //   Flow UI 진행을 보이게 하는 용도. 닫혀도 onUploadComplete 가 부모에 반영.
+    onUploadError,     // #R34-fix: (error) => void - 파일 처리(FileReader 등) 실패 콜백. onUploadStart 가
+                       //   부모를 syncing:true 로 바꾼 뒤 실패하면 onUploadComplete 가 호출되지 않아
+                       //   syncing 이 영구 고착되므로, 여기서 부모가 반드시 해제하도록 한다(scope-guard 적용).
+    uploadToFlow,     // (base64, meta) => Promise - Flow 업로드 함수
+    category = 'MEDIA_CATEGORY_SUBJECT',  // 기본 카테고리
+    uploadMeta = {},  // M4 T7: 추가 메타 (name, type, refId 등) — engineApi 정규화로 흘러감
+    // #R28-3: 업로드 시작/완료 시점의 "스코프 토큰"(예: `${mode}::${projectName}`)을 반환하는 함수.
+    //   업로드 await 동안 mode/project 가 바뀌면 토큰이 달라져, stale Flow 결과(mediaId/entity)를
+    //   새 프로젝트/모드의 ref 에 적용하는 것을 막는다. 미지정 시 가드 없음(기존 동작).
+    getScopeToken,
+    // Flow character 상세 모달의 직접 업로드를 sync/생성 경로와 같은 공유 flowView 락에 넣는다.
+    // task 안에 onUploadComplete(state publish)까지 포함해 stale mirror 재진입 창을 없앤다.
+    flowOperation,
   } = options
   
   const [isUploading, setIsUploading] = useState(false)
@@ -21,9 +35,13 @@ export function useImageUpload(options = {}) {
   // 파일 처리
   const processFile = useCallback(async (file) => {
     if (!file || !file.type.startsWith('image/')) return null
-    
+
     setIsUploading(true)
-    
+    // #R34: 파일 확정 직후 시작 콜백 — 호출측(모달)이 즉시 닫혀 Flow UI 진행을 볼 수 있게 한다.
+    if (typeof onUploadStart === 'function') { try { onUploadStart() } catch (e) { console.warn('[useImageUpload] onUploadStart error:', e?.message) } }
+    // #R28-3: 업로드 시작 시점 스코프 캡처 — 완료 시 비교해 stale apply 차단.
+    const startScope = typeof getScopeToken === 'function' ? getScopeToken() : null
+
     try {
       // base64로 변환
       const base64 = await new Promise((resolve, reject) => {
@@ -34,40 +52,94 @@ export function useImageUpload(options = {}) {
       })
       
       const cleanB64 = cleanBase64(base64)
-      
+
+      // #R34: 이름이 비어 있으면 업로드 파일명(확장자 제외)을 이름으로 쓴다 — Flow 등록명(displayName)
+      //   과 결과 양쪽에 반영(상세 모달 업로드도 카드와 동일하게 파일명으로 등록).
+      const fileBaseName = file?.name ? file.name.replace(/\.[^/.]+$/, '').trim() : ''
+      const metaName = (uploadMeta.name && String(uploadMeta.name).trim()) ? uploadMeta.name : fileBaseName
+
       let result = {
         data: base64,
         mediaId: null,
-        caption: null
+        caption: null,
+        name: metaName || null,   // 호출측이 빈 이름을 채울 수 있게 effective name 제공
+        fileName: fileBaseName || null,
+        // entity fields — populated when uploadResult carries them (Flow character upload)
+        entityId: null,
+        workflowId: null,
+        registered: null,
+        flowNameSyncStatus: null,
       }
-      
-      // Flow에 업로드 (함수가 있으면)
-      if (uploadToFlow) {
-        try {
-          const uploadResult = await uploadToFlow(cleanB64, category)
-          if (uploadResult.success) {
-            result.mediaId = uploadResult.mediaId
-            result.caption = uploadResult.caption || null
+
+      const uploadAndPublish = async () => {
+        // Flow에 업로드 (함수가 있으면)
+        if (uploadToFlow) {
+          try {
+            const uploadResult = await uploadToFlow(cleanB64, { category, ...uploadMeta, name: metaName })
+            if (uploadResult.success) {
+              result.mediaId = uploadResult.mediaId
+              result.caption = uploadResult.caption || null
+              // Propagate entity fields when Flow character upload returns them
+              // (API mode returns none → these remain null → no behavior change)
+              if (uploadResult.entityId != null) result.entityId = uploadResult.entityId
+              if (uploadResult.workflowId != null) result.workflowId = uploadResult.workflowId
+              if (uploadResult.registered != null) result.registered = uploadResult.registered
+              if (uploadResult.flowNameSyncStatus != null) result.flowNameSyncStatus = uploadResult.flowNameSyncStatus
+            }
+          } catch (e) {
+            console.warn('Flow upload failed:', e)
           }
-        } catch (e) {
-          console.warn('Flow upload failed:', e)
         }
+
+        // 완료 콜백 — #R28-3: 업로드 도중 mode/project 가 바뀌었으면 stale 결과를 적용하지 않는다.
+        if (onUploadComplete) {
+          const endScope = typeof getScopeToken === 'function' ? getScopeToken() : null
+          if (startScope !== endScope) {
+            console.warn('[useImageUpload] scope changed during upload — skipping stale onUploadComplete')
+          } else {
+            await onUploadComplete(result)
+          }
+        }
+        return result
       }
-      
-      // 완료 콜백
-      if (onUploadComplete) {
-        onUploadComplete(result)
+
+      if (flowOperation?.enabled) {
+        const coordinated = await runFlowCharacterOperation({
+          ref: flowOperation.ref || uploadMeta,
+          projectId: flowOperation.projectId,
+          scopeToken: flowOperation.scopeToken ?? startScope,
+          refIndex: flowOperation.refIndex,
+          operation: 'replace-upload',
+          timeoutMs: flowOperation.timeoutMs,
+          task: uploadAndPublish,
+        })
+        if (coordinated?.busy) {
+          const busyError = new Error(coordinated.error)
+          if (onUploadError) await onUploadError(busyError)
+          return null
+        }
+        return coordinated
       }
-      
-      return result
-      
+
+      return await uploadAndPublish()
+
     } catch (error) {
       console.error('File processing error:', error)
+      // #R34-fix: onUploadStart 가 syncing:true 로 만든 상태에서 실패했으므로 부모가 해제하게 알린다.
+      //   업로드 도중 mode/project 가 바뀌었으면(scope 변경) 새 프로젝트 ref 를 건드리지 않도록 스킵.
+      if (onUploadError) {
+        const endScope = typeof getScopeToken === 'function' ? getScopeToken() : null
+        if (startScope !== endScope) {
+          console.warn('[useImageUpload] scope changed during upload — skipping stale onUploadError')
+        } else {
+          try { onUploadError(error) } catch (e) { console.warn('[useImageUpload] onUploadError handler error:', e?.message) }
+        }
+      }
       return null
     } finally {
       setIsUploading(false)
     }
-  }, [uploadToFlow, category, onUploadComplete])
+  }, [uploadToFlow, category, uploadMeta, onUploadComplete, onUploadStart, onUploadError, getScopeToken, flowOperation])
   
   // 파일 선택 핸들러
   const handleFileSelect = useCallback((e) => {

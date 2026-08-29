@@ -18,20 +18,33 @@
  */
 
 import { STYLE_PRESETS } from '../config/defaults'
-import { findAutoStyle, previewStyleMatching } from './styleService'
+import { findAutoPromptStyle, findAutoStyle, findSceneTagStyle, inheritStyleIdFromCards, isStyleReference, previewStyleMatching } from './styleService'
 import { filterPendingScenes } from '../utils/sceneFilters'
 
 export function createStyleResolver({ activeTab, scenes = [], references = [], selectedStyleRefId, t, isKo }) {
   const isVideoText = activeTab === 'video-text'
 
+  const isVideoPromptStyleId = (id) => {
+    if (!id || id === 'none') return true
+    const styleId = String(id)
+    if (styleId.startsWith('preset:')) return true
+    if (!styleId.startsWith('ref:')) return true
+    const refId = styleId.replace('ref:', '')
+    return references.some(r => String(r.id) === refId && isStyleReference(r) && r.prompt)
+  }
+
+  const selectedStyleForContext = isVideoText && !isVideoPromptStyleId(selectedStyleRefId)
+    ? null
+    : selectedStyleRefId
+
   // image/list: generation 대상 씬에 매칭 가능한 게 있는지
   // 라벨 fallback은 모든 scenes로도 — 모두 완료된 상태에서 빈 라벨 회피
   const targetScenes = filterPendingScenes(scenes)
   const labelScenes = targetScenes.length > 0 ? targetScenes : scenes
-  const labelPreview = isVideoText ? null : previewStyleMatching(labelScenes, references)
-  const guardPreview = isVideoText ? null : previewStyleMatching(targetScenes, references)
+  const labelPreview = isVideoText ? null : previewStyleMatching(labelScenes, references, { isKo })
+  const guardPreview = isVideoText ? null : previewStyleMatching(targetScenes, references, { isKo })
 
-  const autoEffectiveStyleId = isVideoText ? findAutoStyle(references) : null
+  const autoEffectiveStyleId = isVideoText ? findAutoPromptStyle(references) : null
   const autoAvailable = isVideoText
     ? !!autoEffectiveStyleId
     : (guardPreview?.matches.length ?? 0) > 0
@@ -52,7 +65,8 @@ export function createStyleResolver({ activeTab, scenes = [], references = [], s
     }
     if (id.startsWith('ref:')) {
       const refId = id.replace('ref:', '')
-      const ref = references.find(r => String(r.id) === refId && r.type === 'style')
+      const ref = references.find(r => String(r.id) === refId && isStyleReference(r))
+      if (isVideoText && !ref?.prompt) return t('actions.styleNone')
       return ref?.name || refId
     }
     if (id.startsWith('preset:')) {
@@ -102,16 +116,46 @@ export function createStyleResolver({ activeTab, scenes = [], references = [], s
   const resolveEffectiveStyleId = (override) => {
     if (override !== undefined) {
       if (override === null) return isVideoText ? autoEffectiveStyleId : null
+      if (isVideoText && !isVideoPromptStyleId(override)) return null
       return override
     }
-    // undefined: UI 선택값 우선. 없을 때 video-text는 findAutoStyle fallback (라벨이 "자동: X"라
+    // undefined: UI 선택값 우선. 없을 때 video-text는 findAutoPromptStyle fallback (라벨이 "자동: X"라
     // 보여주므로 실제 적용도 X로 일치해야). image/list는 null로 둠 — useAutomation이 씬별
     // style_tag로 자동 매칭.
-    return selectedStyleRefId ?? (isVideoText ? autoEffectiveStyleId : null)
+    return selectedStyleForContext ?? (isVideoText ? autoEffectiveStyleId : null)
   }
 
+  const deriveStyleIdFromScenes = () => {
+    // Ref 스타일은 실제 이미지 생성 입력(prompt가 있는 씬)만 상속 근거로 삼는다.
+    // prompt가 있는 tagless 씬은 아래에서 null이 되어 unanimity를 계속 veto한다.
+    const sourceScenes = scenes.filter(scene => scene?.prompt)
+    if (sourceScenes.length === 0) return null
+
+    const styleIds = sourceScenes.map(scene => {
+      const match = findSceneTagStyle(scene?.style_tag, references)
+      if (match?.source === 'ref' && match.style.id != null) return `ref:${match.style.id}`
+      // resolveSceneStyle도 prompt_en이 있어야 실제로 preset을 적용한다.
+      if (match?.source === 'preset' && match.style.prompt_en) return `preset:${match.style.id}`
+      return null
+    })
+    const firstStyleId = styleIds[0]
+    if (!firstStyleId || !styleIds.every(id => id === firstStyleId)) return null
+    return firstStyleId
+  }
+
+  // 우선순위: override(명시적) → selectedStyleRefId(프로젝트 전체 스타일) → 명시(non-null) 카드 기억 →
+  //   씬들의 단일 effective style 파생 → null 카드 기억(무스타일 fallback) → findAutoStyle.
+  // null 기억은 파생할 씬 스타일이 없을 때만 존중하고, non-null 기억은 의도적 선택이라 파생보다 우선한다.
   const resolveEffectiveStyleIdForRef = (override) => {
-    return override ?? selectedStyleRefId ?? findAutoStyle(references)
+    if (override != null) return override
+    if (selectedStyleRefId != null) return selectedStyleRefId
+    const inherited = inheritStyleIdFromCards(references)
+    if (inherited.found && inherited.styleId != null) return inherited.styleId
+    const derivedStyleId = deriveStyleIdFromScenes()
+    if (derivedStyleId) return derivedStyleId
+    // 파생이 abstain한 프로젝트에서는 styleId:null도 정당한 기억("무스타일로 생성됨")이다.
+    if (inherited.found) return inherited.styleId
+    return findAutoStyle(references)
   }
 
   return {

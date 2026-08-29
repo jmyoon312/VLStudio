@@ -15,6 +15,7 @@ import { fileSystemAPI } from './useFileSystem'
 import { toast } from '../components/Toast'
 import { retryVideoDownload } from '../services/videoRecovery'
 import { pickVideoMetadata, buildVideoMetaPatch } from '../utils/videoMetadata'
+import { isQuotaExhaustedError, emitQuotaStop } from '../utils/quotaStop'
 
 // 유틸: 랜덤 대기
 const randomSleep = (min, max) =>
@@ -22,7 +23,13 @@ const randomSleep = (min, max) =>
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
-export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null, generationQueue = null) {
+// Auth failures are handled centrally by useFlowAPI's withAuthRetry wrapper
+// (see useFlowAPI.js — wrapper shim calls clearTokenCache + the App-level
+// handleAuthError on 2nd 401). This hook only consumes the `authFailed` sentinel
+// returned by wrapped API calls and translates it into batch-level break/error.
+// Previously took an `onAuthError` param that was never invoked after the inline
+// 401 string-match was removed — dropped to keep the responsibility boundary clean.
+export function useVideoAutomation(flowAPI, t = (key) => key, generationQueue = null) {
   const [isRunning, setIsRunning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0, percent: 0, errorCount: 0, startedAt: null })
@@ -31,6 +38,17 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
 
   const stopRequestedRef = useRef(false)
   const pausedRef = useRef(false)
+  // 이번 batch 가 quota 로 멈췄는지 — start() 마다 reset. isQuotaBlocked() race 회피
+  // (사용자가 모달을 빨리 dismiss 하면 전역 block flag 가 false 로 돌아가도 이 ref 는 유지).
+  const quotaStoppedRef = useRef(false)
+
+  // quota stop 공통 모듈 위임 — queue clear 는 useGenerationQueue 가 직접 subscribe 함.
+  const _maybeTriggerQuotaStop = (err) => {
+    if (!isQuotaExhaustedError(err)) return false
+    quotaStoppedRef.current = true
+    emitQuotaStop({ stopRequestedRef, scope: 'VideoAutomation' })
+    return true
+  }
 
   const { generateVideoT2V, generateVideoI2V, checkVideoStatus, upscaleVideo, fetchMedia, getAccessToken } = flowAPI
 
@@ -209,7 +227,9 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
     }
 
     stopRequestedRef.current = false
+    quotaStoppedRef.current = false
     pausedRef.current = false
+    let authStopped = false   // set true on authFailed break — prevents fall-through 'done' status
     setIsRunning(true)
     setIsPaused(false)
     setStatus('running')
@@ -346,7 +366,6 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
     // ═══════════════════════════════════════════
     const submissions = inFlight.map(it => ({ itemId: it.id, generationId: it.generationId }))
     let completedCount = 0
-    let throttleStrikes = 0 // [Phase 3] 429/reCAPTCHA 차단 횟수 추적
 
     for (let i = 0; i < freshGen.length; i++) {
       if (stopRequestedRef.current) break
@@ -361,7 +380,6 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
       })
 
       if (genResult.success && genResult.generationId) {
-        throttleStrikes = 0
         submissions.push({ itemId: item.id, generationId: genResult.generationId })
         // Persist generationId + 메타(seed/model) 를 즉시 state 에 박는다.
         // app-kill → reload → recovery 시 videoRecovery 가 item.model/seed 를 읽어
@@ -383,83 +401,33 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
         })
         console.log(`[VideoAutomation] ✅ Submitted ${i + 1}/${total}: ${genResult.generationId.substring(0, 16)}...`)
       } else {
-        const errStr = String(genResult.error || '')
-        
-        // [Phase 3] 크레딧 고갈 시 즉시 중단 (Quota Exhaustion)
-        if (errStr.includes('out_of_credits')) {
-          console.error('[VideoAutomation] Quota exhausted (out_of_credits), stopping batch immediately.')
-          toast.error('크레딧이 모두 소진되어 자동화를 즉시 중지합니다.')
-          onItemUpdate?.(item.id, 'error', { error: 'Out of credits' })
-          break
-        }
-        
-        // [Phase 3] 구글 차단 (429/reCAPTCHA/253) 감지 시 스마트 대기 (Backoff)
-        const isRateLimit = errStr.includes('429') || errStr.toLowerCase().includes('recaptcha') || errStr.includes('253')
-        // 403은 키워드 불문 전부 이상활동 차단으로 처리 (PERMISSION_DENIED, unusual, 기타 모두 포함)
-        const isUnusualActivity = /^403[:\s]/.test(errStr) || errStr.includes('PERMISSION_DENIED') || errStr.includes('비정상 활동')
-        if (isRateLimit || isUnusualActivity) {
-          const blockType = isUnusualActivity ? '⛔ 이상활동 감지 차단' : '🚫 요청한도 차단'
-          
-          if (isUnusualActivity && throttleStrikes === 0) {
-            // Strike 1: 즉시 해당 항목 스킵 → 다음 항목으로 (계속 차단이면 나중에 처리)
-            // 대기하지 않고 빠르게 다음 계정/프로젝트로 넘어가는 것이 더 효율적
-            console.warn(`[VideoAutomation] ${blockType} — Strike 1: 항목 스킵 후 다음으로 진행`)
-            toast.error(`${blockType}: 이 항목을 스킵하고 다음으로 진행합니다.`, { duration: 4000 })
-            onItemUpdate?.(item.id, 'error', { error: genResult.error })
+        // Auth errors now handled via withAuthRetry's authFailed sentinel (see below).
+        // Inline 401 string-match removed to avoid duplicate onAuthError firing.
+        if (genResult?.authFailed) {
+          const authErr = genResult.error || 'Auth expired — please re-login to Flow'
+          onItemUpdate?.(item.id, 'error', {
+            error: authErr,
+            errorKind: 'auth',
+          })
+          videoErrorCount++
+          // Mark all remaining un-submitted items with the same auth error
+          for (let j = i + 1; j < freshGen.length; j++) {
+            onItemUpdate?.(freshGen[j].id, 'error', {
+              error: authErr,
+              errorKind: 'auth',
+            })
             videoErrorCount++
-            throttleStrikes++
-            // 30초만 대기 후 다음 항목 시도 (페이지 리로드 대기)
-            let waitSec = 30
-            while (waitSec > 0 && !stopRequestedRef.current) {
-              setStatusMessage(`⏳ ${blockType} — ${waitSec}초 후 다음 항목 시작 (페이지 리로드 대기)`)
-              await sleep(1000)
-              waitSec--
-            }
-            if (stopRequestedRef.current) break
-            continue
           }
-          
-          // Strike 2+: 짧은 대기 후 동일 항목 재시도
-          const waitMinutes = isUnusualActivity
-            ? (throttleStrikes === 1 ? 5 : 15)  // 5분 → 15분
-            : (throttleStrikes === 0 ? 5 : throttleStrikes === 1 ? 10 : 30)
-          console.warn(`[VideoAutomation] ${blockType} (Strike ${throttleStrikes + 1}). Waiting ${waitMinutes} minutes before retry...`)
-          console.warn(`[VideoAutomation] Error was: ${errStr}`)
-          
-          if (Notification.permission === 'granted') {
-            new Notification('ViraLoop Studio', { body: `${blockType}: ${waitMinutes}분 후 자동 재시도합니다.` })
-          }
-          
-          let secondsLeft = waitMinutes * 60
-          while (secondsLeft > 0 && !stopRequestedRef.current) {
-            const mins = Math.floor(secondsLeft / 60)
-            const secs = secondsLeft % 60
-            setStatusMessage(`⏳ ${blockType} — ${mins}분 ${secs}초 후 자동 재시도 (Strike ${throttleStrikes + 1})`)
-            await sleep(1000)
-            secondsLeft--
-          }
-          
-          if (stopRequestedRef.current) break
-          
-          throttleStrikes++
-          if (throttleStrikes >= 3) {
-             console.error('[VideoAutomation] 3번 연속 차단되어 대기를 포기하고 자동화를 중지합니다.')
-             toast.error('구글 차단이 지속되어 안전을 위해 비디오 자동화를 중지했습니다.')
-             break
-          }
-          // 동일 아이템 재시도를 위해 인덱스 복구
-          i--
-          continue
-        }
-
-
-        // 401 인증 에러 감지
-        if (errStr.includes('401') || errStr.includes('auth')) {
-          onAuthError?.()
+          console.warn(`[VideoAutomation] ❌ Submit authFailed: token dead, stopping batch`)
+          authStopped = true
+          setStatus('error')
+          setStatusMessage(`🔐 ${t('toast.authErrorStop') || 'Auth expired — please re-login to Flow'}`)
+          break
         }
         onItemUpdate?.(item.id, 'error', { error: genResult.error })
         videoErrorCount++
         console.warn(`[VideoAutomation] ❌ Submit failed ${i + 1}/${total}:`, genResult.error)
+        if (_maybeTriggerQuotaStop(genResult.error)) break
       }
 
       // 다음 제출 전 랜덤 대기 (마지막 아이템 제외)
@@ -471,10 +439,37 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
     }
 
     if (submissions.length === 0) {
-      // 모든 제출 실패 + in-flight 도 없음
+      // 모든 제출 실패 + in-flight 도 없음 — auth/quota/일반 실패 구분.
+      // auth 면 status 와 메시지가 이미 break 시점에 설정돼 있으므로 덮어쓰지 않는다.
       setIsRunning(false)
-      setStatus('done')
-      setStatusMessage(`❌ ${t('videoAutomation.allFailed') || 'All submissions failed'}`)
+      if (authStopped) {
+        // Status + message already set at the break site — do not overwrite.
+      } else if (quotaStoppedRef.current) {
+        // local ref — 모달 dismiss 와 무관하게 이번 batch 의 stop 사유를 정확히 판별.
+        // 전역 isQuotaBlocked() 보면 사용자가 모달을 1초 안에 닫는 경우 race 로 'done' 표시되는 회귀.
+        setStatus('stopped')
+        setStatusMessage(`⛔ ${t('videoAutomation.quotaStopped') || 'Flow generation limit reached — stopped'}`)
+      } else {
+        setStatus('done')
+        setStatusMessage(`❌ ${t('videoAutomation.allFailed') || 'All submissions failed'}`)
+      }
+      return
+    }
+
+    // Auth died mid-submit AND some items had already been submitted before the break.
+    // The token is dead — polling those generationIds would just hit 401 every iteration
+    // until the poll loop itself broke on authFailed (relying on it is fragile and the test
+    // had to mock checkVideoStatus authFailed too to exit cleanly). Abandon the batch now,
+    // marking the already-submitted items with the same auth error so the user sees a
+    // consistent end state across all items.
+    if (authStopped) {
+      const authMsg = t('toast.authErrorStop') || 'Auth expired — please re-login to Flow'
+      for (const sub of submissions) {
+        onItemUpdate?.(sub.itemId, 'error', { error: authMsg, errorKind: 'auth' })
+        videoErrorCount++
+      }
+      setIsRunning(false)
+      // status/statusMessage already set at the submit break site — do not overwrite.
       return
     }
 
@@ -508,6 +503,28 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
       const genIds = pendingEntries.map(([_, s]) => s.generationId)
       const result = await checkVideoStatus(genIds)
 
+      // Top-level fail handling: auth-failed takes precedence over quota detection.
+      // The wrapper already fired onAuthError + cleared cache. Mark all pending items
+      // as auth-error and break immediately — no point polling on a dead token.
+      if (result?.authFailed) {
+        const authErr = result.error || 'Auth expired — please re-login to Flow'
+        for (const [itemId] of pending) {
+          onItemUpdate?.(itemId, 'error', {
+            error: authErr,
+            errorKind: 'auth',
+          })
+        }
+        pending.clear()
+        authStopped = true
+        setStatus('error')
+        setStatusMessage(`🔐 ${t('toast.authErrorStop') || 'Auth expired — please re-login to Flow'}`)
+        break
+      }
+      // Top-level fail (예: { success: false, error: "RESOURCE_EXHAUSTED..." }) — quota 검사 후 break.
+      // statuses[] 내부 'failed' 만 보는 기존 코드는 batch 전체가 server-side 에러로 떨어진
+      // 경우를 못 잡아 max polls 까지 무한정 polling 후 timeout 처리.
+      if (!result.success && _maybeTriggerQuotaStop(result.error)) break
+
       if (result.success && result.statuses) {
         // statuses 배열은 genIds 순서와 동일 → 인덱스로 매칭
         for (let si = 0; si < result.statuses.length; si++) {
@@ -536,6 +553,9 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
                 generationId: submission.generationId,
                 duration,
                 mode,
+                // 이전 실패에서 남은 error 메시지 clear (success 이후 stale 표시 방지)
+                error: null,
+                errorKind: null,
               })
               completedCount++
               console.log(`[VideoAutomation] ✅ Downloaded & saved: ${itemId}`)
@@ -561,6 +581,15 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
             }
             pending.delete(itemId)
 
+            // 만약 다음 루프에서 처리할 완료된 다운로드가 남아있다면 대기 (reCAPTCHA 우회용 randomized sleep)
+            const hasMoreComplete = result.statuses.slice(si + 1).some(s => s.status === 'complete' && s.mediaId)
+            if (hasMoreComplete && !stopRequestedRef.current) {
+              const downloadDelay = Math.floor(Math.random() * (12000 - 8000 + 1)) + 8000 // 8초~12초 대기
+              console.log(`[VideoAutomation] Waiting ${downloadDelay}ms between downloads to prevent reCAPTCHA block...`)
+              setStatusMessage(`⏱️ Waiting ${Math.round(downloadDelay / 1000)}s before next download...`)
+              await sleep(downloadDelay)
+            }
+
           } else if (statusInfo.status === 'failed') {
             // 서버 generation 자체 실패 — download-only retry 는 의미 없지만, 사용자가
             // 같은 model/seed 로 수동 재시도할 수 있게 메타 보존.
@@ -572,13 +601,16 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
             })
             pending.delete(itemId)
             console.warn(`[VideoAutomation] ❌ Generation failed: ${submission.generationId.substring(0, 16)}`)
+            _maybeTriggerQuotaStop(statusInfo.error)
           }
           // else: 'pending' / 'processing' → 계속 폴링
         }
       }
 
       pollCount++
-      if (pending.size > 0) {
+      // sleep 전 stop 재확인 — quota 감지(_maybeTriggerQuotaStop) 직후 불필요한
+      // 10초 sleep 을 피해 즉시 루프 빠져나가도록.
+      if (pending.size > 0 && !stopRequestedRef.current) {
         await sleep(TIMING.VIDEO_POLL_INTERVAL)
       }
     }
@@ -597,9 +629,17 @@ export function useVideoAutomation(flowAPI, t = (key) => key, onAuthError = null
     setIsPaused(false)
     setProgress({ current: total, total, percent: 100, errorCount: videoErrorCount, startedAt: batchStartedAt, endedAt: Date.now() })
 
-    if (stopRequestedRef.current) {
+    if (authStopped) {
+      // Status + message already set at the break site — do not overwrite.
+    } else if (stopRequestedRef.current) {
       setStatus('stopped')
-      setStatusMessage(t('status.stopped'))
+      // poll 단계에서 quota 로 멈춘 경우에도 첫 submit path 와 동일한 quotaStopped 메시지.
+      // quotaStoppedRef 는 batch 동안만 유지되어 사용자 수동 stop 과 안전하게 구분된다.
+      if (quotaStoppedRef.current) {
+        setStatusMessage(`⛔ ${t('videoAutomation.quotaStopped') || 'Flow generation limit reached — stopped'}`)
+      } else {
+        setStatusMessage(t('status.stopped'))
+      }
     } else {
       setStatus('done')
       const parts = []

@@ -79,18 +79,104 @@ function asDate(v) {
  *   effectiveRemaining: number,
  * }}
  */
-export function computeQuotaState(appData, now) {
-  // [ViraLoop Studio] 로컬 환경 우회(Bypass)
-  // 요금제/인증 제한을 무력화하고 항상 최상위 권한(Pro)으로 인식하게 합니다.
-  return {
-    isActive: true,
-    isExpired: false,
-    subscriptionStatus: 'active',
-    bonusRemaining: Infinity,
-    monthlyUsed: 0,
-    monthlyQuota: Infinity,
-    monthlyRemaining: Infinity,
-    effectiveRemaining: Infinity,
+/**
+ * 무제한 구독 혜택을 받는 상태인지 판단. (GCF `src/quota.js` 의 hasUnlimitedAccess 와 동일)
+ *
+ * - 'active': 정상 구독 → 무제한
+ * - 'cancelled': 갱신 취소했지만 subscriptionEndDate(=ends_at) 까지는 유효 → now < endDate 면 무제한.
+ *   endDate 를 진실의 원천으로 삼아 expired webhook 누락에도 날짜로 자동 차단.
+ *
+ * @param {object} appData
+ * @param {Date} now
+ * @returns {boolean}
+ */
+export function hasUnlimitedAccess(appData, now) {
+  const status = appData?.subscriptionStatus
+  if (status === 'active') return true
+  if (status === 'cancelled') {
+    const endDate = asDate(appData.subscriptionEndDate)
+    return !!endDate && now < endDate
   }
+  return false
 }
 
+/** 배치 다운로드 월 quota */
+export const BATCH_MONTHLY_QUOTA = 5
+
+/** 배치 다운로드 가입 시 부여 보너스 */
+export const BATCH_BONUS_GRANT = 5
+
+/**
+ * 배치 다운로드 풀 — GCF computePoolState(BATCH_POOL) 의 클라 미러.
+ *
+ * @param {object|null|undefined} appData - Firestore subscription doc data
+ * @param {Date} now
+ * @returns {{ isActive: boolean, bonusRemaining: number, monthlyUsed: number, effectiveRemaining: number }}
+ */
+export function computeBatchQuotaState(appData, now) {
+  if (!appData) {
+    return { isActive: false, bonusRemaining: BATCH_BONUS_GRANT, monthlyUsed: 0,
+      effectiveRemaining: BATCH_BONUS_GRANT + BATCH_MONTHLY_QUOTA }
+  }
+  if (hasUnlimitedAccess(appData, now)) {
+    return { isActive: true, bonusRemaining: appData.batchBonusRemaining ?? 0,
+      monthlyUsed: appData.batchMonthlyUsed ?? 0, effectiveRemaining: Infinity }
+  }
+  const bonusRemaining = appData.batchBonusRemaining ?? BATCH_BONUS_GRANT
+  const storedPeriodStart = asDate(appData.batchQuotaPeriodStart)
+  const needsReset = !storedPeriodStart || !sameUtcMonth(storedPeriodStart, now)
+  const monthlyUsed = needsReset ? 0 : (appData.batchMonthlyUsed ?? 0)
+  const monthlyRemaining = Math.max(0, BATCH_MONTHLY_QUOTA - monthlyUsed)
+  return { isActive: false, bonusRemaining, monthlyUsed, effectiveRemaining: bonusRemaining + monthlyRemaining }
+}
+
+export function computeQuotaState(appData, now) {
+  // 신규 사용자 (doc 없음)
+  if (!appData) {
+    return {
+      isActive: false,
+      isExpired: false,
+      subscriptionStatus: 'trial',
+      bonusRemaining: BONUS_GRANT,
+      monthlyUsed: 0,
+      monthlyQuota: MONTHLY_QUOTA,
+      monthlyRemaining: MONTHLY_QUOTA,
+      effectiveRemaining: BONUS_GRANT + MONTHLY_QUOTA,
+    }
+  }
+
+  // 활성 구독자 (active, 또는 cancelled+grace) — 무제한.
+  // grace period 도 'active' 로 정규화 → 호출자(calculateTrialStatus 등) 무제한 분기 그대로.
+  if (hasUnlimitedAccess(appData, now)) {
+    return {
+      isActive: true,
+      isExpired: false,
+      subscriptionStatus: 'active',
+      bonusRemaining: appData.bonusRemaining ?? 0,
+      monthlyUsed: appData.monthlyUsed ?? 0,
+      monthlyQuota: Infinity,
+      monthlyRemaining: Infinity,
+      effectiveRemaining: Infinity,
+    }
+  }
+
+  // 무료 사용자 — B-3 quota 계산
+  const bonusRemaining = appData.bonusRemaining ?? BONUS_GRANT  // lazy migrate
+  const storedPeriodStart = asDate(appData.quotaPeriodStart)
+  const inSamePeriod = sameUtcMonth(storedPeriodStart, now)
+  const monthlyUsed = inSamePeriod ? (appData.monthlyUsed ?? 0) : 0
+  const monthlyRemaining = Math.max(0, MONTHLY_QUOTA - monthlyUsed)
+  const effectiveRemaining = bonusRemaining + monthlyRemaining
+  const isExpired = effectiveRemaining <= 0
+
+  return {
+    isActive: !isExpired,
+    isExpired,
+    subscriptionStatus: isExpired ? 'expired' : 'trial',
+    bonusRemaining,
+    monthlyUsed,
+    monthlyQuota: MONTHLY_QUOTA,
+    monthlyRemaining,
+    effectiveRemaining,
+  }
+}

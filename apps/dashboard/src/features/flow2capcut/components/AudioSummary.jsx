@@ -301,7 +301,7 @@ export default function AudioSummary({
           <li>
             <strong>{t('audioTab.guideStep3Title')}</strong> ({t('audioTab.guideStep3Once')})<br/>
             <a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank" rel="noreferrer">Claude Code</a> {t('audioTab.guideStep3Desc')}<br/>
-            <code>claude mcp add viraloop node mcp-server/index.js</code><br/>
+            <code>claude mcp add autoflowcut node mcp-server/index.js</code><br/>
             <span className="audio-guide-note">* {t('audioTab.guideStep3Note')}</span>
           </li>
           <li>{t('audioTab.guideStep4')}</li>

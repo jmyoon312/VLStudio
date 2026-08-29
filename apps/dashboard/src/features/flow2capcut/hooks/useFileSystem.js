@@ -86,7 +86,7 @@ export const fileSystemAPI = {
     const path = localStorage.getItem('workFolderPath')
     const name = localStorage.getItem('workFolderName')
 
-    if (!path || path === 'undefined') {
+    if (!path) {
       return { success: false, error: 'not_set', hasPermission: false }
     }
 
@@ -110,7 +110,7 @@ export const fileSystemAPI = {
   async requestPermission() {
     const path = localStorage.getItem('workFolderPath')
 
-    if (!path || path === 'undefined') {
+    if (!path) {
       return { success: false, error: 'not_set' }
     }
 
@@ -121,17 +121,15 @@ export const fileSystemAPI = {
    * Ensure permission — workFolder가 없으면:
    * 1. main process config 파일에서 복원 시도
    * 2. 없으면 기본 폴더 자동 설정
-   * 기본 경로: Mac ~/Documents/ViraLoop Studio, Windows Documents\ViraLoop Studio
+   * 기본 경로: Mac ~/Documents/AutoFlowCut, Windows Documents\AutoFlowCut
    */
   async ensurePermission() {
     const existing = localStorage.getItem('workFolderPath')
-    if (!existing || existing === 'undefined') {
-      localStorage.removeItem('workFolderPath')
-      localStorage.removeItem('workFolderName')
+    if (!existing) {
       // 1단계: main process config 파일에서 이전 설정 복원
       try {
         const saved = await window.electronAPI.getSavedWorkFolder()
-        if (saved?.success && saved.path && saved.path !== 'undefined') {
+        if (saved?.success && saved.path) {
           localStorage.setItem('workFolderPath', saved.path)
           localStorage.setItem('workFolderName', saved.name || '')
           console.log('[FileSystem] Restored work folder from config:', saved.path)
@@ -144,7 +142,7 @@ export const fileSystemAPI = {
       // 2단계: config도 없으면 기본 폴더 자동 설정
       try {
         const result = await window.electronAPI.getDefaultWorkFolder()
-        if (result?.success && result.path && result.path !== 'undefined') {
+        if (result?.success) {
           localStorage.setItem('workFolderPath', result.path)
           localStorage.setItem('workFolderName', result.name)
           // 기본 폴더도 config에 저장
@@ -662,6 +660,28 @@ export const fileSystemAPI = {
       })
     } catch (error) {
       console.error('[FileSystem] Save project data error:', error)
+      return { success: false, error: error.message }
+    }
+  },
+
+  /**
+   * Atomically merge top-level keys into project.json (#R7-4).
+   * read-modify-write happens in main under a per-path write lock, so it does not
+   * clobber a concurrent autosave (saveProjectData). Only `patch` keys change.
+   */
+  async mergeProjectData(projectName, patch) {
+    try {
+      const workFolder = localStorage.getItem('workFolderPath')
+      if (!workFolder) {
+        return { success: false, error: 'not_set' }
+      }
+      return await window.electronAPI.mergeProjectData({
+        workFolder,
+        project: projectName,
+        patch
+      })
+    } catch (error) {
+      console.error('[FileSystem] Merge project data error:', error)
       return { success: false, error: error.message }
     }
   },

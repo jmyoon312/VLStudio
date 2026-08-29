@@ -230,20 +230,6 @@ export function useExport({
           console.warn('[Export] Failed to open CapCut exception:', openError)
           toast.warning(t('toast.exportCapcutFailed') || 'CapCut을 자동으로 시작하지 못했습니다. 수동으로 실행해 주세요!', 6000)
         }
-      } else {
-        // 웹 / 모바일 브라우저 환경: 호스트 PC 백엔드로 CapCut 실행 트리거
-        try {
-          const openResp = await fetch('/api/capcut/open', { method: 'POST' });
-          const openResult = await openResp.json();
-          if (openResult && openResult.success) {
-            console.log('[Export] Host PC CapCut app opened via remote API');
-            toast.info('🖥️ 호스트 컴퓨터의 CapCut 앱이 실행되었습니다!', 5000);
-          } else {
-            console.warn('[Export] Host PC CapCut launch skipped/not found');
-          }
-        } catch (e) {
-          console.warn('[Export] Failed remote CapCut open request:', e);
-        }
       }
 
       // 1.5초 대기 후 모달 닫기 (사용자에게 상태 전환을 보여줌)

@@ -1,0 +1,247 @@
+/**
+ * codex 런타임 헬퍼 — 바이너리 경로, 격리된 CODEX_HOME/작업 폴더, 로그인 검증, 에러 매핑.
+ * 트랜스포트는 codexAppServer.js(app-server JSON-RPC)가 담당한다.
+ */
+import os from 'node:os'
+import path from 'node:path'
+import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { promisify } from 'node:util'
+import { createRequire } from 'node:module'
+import { copyFile, mkdtemp, rm } from 'node:fs/promises'
+
+const execFileAsync = promisify(execFile)
+
+const SAFE_ENV_KEYS = [
+  'HOME', 'PATH', 'Path', 'SHELL', 'LANG', 'LC_ALL', 'TMPDIR', 'TEMP', 'TMP', 'USER', 'USERNAME', 'LOGNAME',
+  'CODEX_HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'ComSpec',
+]
+const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
+const AUTH_CHECK_TIMEOUT_MS = 15 * 1000
+const LOGIN_HINT = 'Claude SDK failed: Authentication required. If using Claude Code, please authenticate via CLI. (Note: legacy app-server is deprecated)'
+export const STORY_INSTRUCTIONS_TEXT = [
+  'AutoFlowCut Story backend.',
+  'Return only the requested story content or JSON.',
+  'Do not inspect files, call tools, browse, or modify the workspace.',
+].join('\n')
+const TOOL_FEATURE_OVERRIDES = Object.freeze({
+  shell_tool: false,
+  shell_snapshot: false,
+  unified_exec: false,
+  unified_exec_zsh_fork: false,
+  shell_zsh_fork: false,
+  browser_use: false,
+  browser_use_external: false,
+  browser_use_full_cdp_access: false,
+  in_app_browser: false,
+  computer_use: false,
+  image_generation: false,
+  plugins: false,
+  plugin_sharing: false,
+  multi_agent: false,
+  apps: false,
+  workspace_dependencies: false,
+  tool_suggest: false,
+})
+const PLATFORM_PACKAGE_BY_TARGET = {
+  'x86_64-unknown-linux-musl': '@openai/codex-linux-x64',
+  'aarch64-unknown-linux-musl': '@openai/codex-linux-arm64',
+  'x86_64-apple-darwin': '@openai/codex-darwin-x64',
+  'aarch64-apple-darwin': '@openai/codex-darwin-arm64',
+  'x86_64-pc-windows-msvc': '@openai/codex-win32-x64',
+  'aarch64-pc-windows-msvc': '@openai/codex-win32-arm64',
+}
+
+function plainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+export function buildCodexClientOptions({ env = process.env, config = {} } = {}) {
+  const safeEnv = {}
+  for (const key of SAFE_ENV_KEYS) {
+    if (env?.[key] != null) safeEnv[key] = String(env[key])
+  }
+  const callerConfig = plainObject(config)
+  return {
+    env: safeEnv,
+    config: {
+      ...callerConfig,
+      features: {
+        ...plainObject(callerConfig.features),
+        ...TOOL_FEATURE_OVERRIDES,
+      },
+      skills: {
+        ...plainObject(callerConfig.skills),
+        include_instructions: false,
+      },
+      forced_login_method: 'chatgpt',
+      include_permissions_instructions: false,
+      include_environment_context: false,
+      include_apps_instructions: false,
+      include_collaboration_mode_instructions: false,
+      mcp_servers: {},
+      hooks: {},
+      sandbox_permissions: [],
+      shell_environment_policy: { inherit: 'none' },
+    },
+  }
+}
+
+function resolveCodexHome(env = process.env) {
+  if (env?.CODEX_HOME) return env.CODEX_HOME
+  const home = env?.HOME || env?.USERPROFILE || os.homedir()
+  // Migrate from .codex to .claude directory name if needed.
+  // Claude Code now uses ~/.claude.
+  const claudeHome = path.join(home, '.claude')
+  if (require('fs').existsSync(claudeHome)) {
+    return claudeHome
+  }
+  return path.join(home, '.codex')
+}
+
+async function copyIfPresent(src, dest, { copyFileImpl = copyFile } = {}) {
+  try {
+    await copyFileImpl(src, dest)
+  } catch (err) {
+    if (err?.code !== 'ENOENT') throw err
+  }
+}
+
+export async function prepareCodexRuntimeHome({
+  env = process.env,
+  mkdtempImpl = mkdtemp,
+  copyFileImpl = copyFile,
+  rmImpl = rm,
+} = {}) {
+  const codexHome = await mkdtempImpl(path.join(os.tmpdir(), 'autoflowcut-codex-home-'))
+  const cleanup = () => rmImpl(codexHome, { recursive: true, force: true })
+  try {
+    const sourceHome = resolveCodexHome(env)
+    // Claude Code might use session.json or other files, so we copy all known possible auth files
+    await copyIfPresent(path.join(sourceHome, 'auth.json'), path.join(codexHome, 'auth.json'), { copyFileImpl })
+    await copyIfPresent(path.join(sourceHome, 'session.json'), path.join(codexHome, 'session.json'), { copyFileImpl })
+    // Also copy the .claude.json config if it exists in the home dir
+    const homeDir = env?.HOME || env?.USERPROFILE || os.homedir()
+    await copyIfPresent(path.join(homeDir, '.claude.json'), path.join(homeDir, '.claude.json'), { copyFileImpl }).catch(() => {})
+    return {
+      codexHome,
+      env: { ...(env || {}), CODEX_HOME: codexHome },
+      cleanup,
+    }
+  } catch (err) {
+    await cleanup()
+    throw err
+  }
+}
+
+function targetTriple({ platform = process.platform, arch = process.arch } = {}) {
+  if ((platform === 'linux' || platform === 'android') && arch === 'x64') return 'x86_64-unknown-linux-musl'
+  if ((platform === 'linux' || platform === 'android') && arch === 'arm64') return 'aarch64-unknown-linux-musl'
+  if (platform === 'darwin' && arch === 'x64') return 'x86_64-apple-darwin'
+  if (platform === 'darwin' && arch === 'arm64') return 'aarch64-apple-darwin'
+  if (platform === 'win32' && arch === 'x64') return 'x86_64-pc-windows-msvc'
+  if (platform === 'win32' && arch === 'arm64') return 'aarch64-pc-windows-msvc'
+  throw new Error(`Unsupported Codex platform: ${platform} (${arch})`)
+}
+
+export function resolveCodexExecutablePath({ platform = process.platform, arch = process.arch } = {}) {
+  const pkg = PLATFORM_PACKAGE_BY_TARGET[targetTriple({ platform, arch })]
+  const dir = path.dirname(require.resolve(`${pkg}/package.json`))
+  // The actual binary path varies depending on OS
+  if (platform === 'win32') {
+    return path.join(dir, 'vendor', targetTriple({ platform, arch }), 'bin', 'codex.exe')
+  }
+  return path.join(dir, 'vendor', targetTriple({ platform, arch }), 'bin', 'codex')
+}
+
+export async function defaultAuthCheck({ env, execFileImpl = execFileAsync, codexPath = resolveCodexExecutablePath() }) {
+  // Claude Code auth status check.
+  // Instead of `login status`, we can run `auth status`. But since Claude Code handles OAuth and doesn't exactly fail like Codex did with a simple command, we will check `auth status`.
+  const { stdout, stderr } = await execFileImpl(codexPath, ['auth', 'status'], {
+    env,
+    shell: process.platform === 'win32',
+    timeout: AUTH_CHECK_TIMEOUT_MS,
+    maxBuffer: 256 * 1024,
+  }).catch(err => {
+    return { stdout: err.stdout || '', stderr: err.stderr || String(err.message || err) }
+  })
+  return `${stdout || ''}\n${stderr || ''}`
+}
+
+function isAuthStatusOk(status) {
+  const text = (typeof status === 'string' ? status : `${status?.stdout || ''}\n${status?.stderr || ''}`).toLowerCase()
+  
+  if (text.includes('"loggedin": true') || text.includes('"loggedin":true')) return true
+  
+  // claude code simply returns ok or errors. If it explicitly complains about auth, fail.
+  if (/not logged in|unauthorized|authentication required|please authenticate/i.test(text)) return false
+  
+  // As a fallback, check if there's any sign of success, or just assume ok if it didn't error out with an auth keyword.
+  return true
+}
+
+export function mapCodexError(err, { timedOut = false, parentSignal } = {}) {
+  if (timedOut) return new Error(`LLM Engine timed out after ${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s. The legacy app-server mode is not supported by recent Claude Code versions.`)
+  if (parentSignal?.aborted) return new Error('Aborted')
+  const msg = String(err?.message || err || '')
+  if (/not logged in|login required|unauthorized|401|403|access token|chatgpt login|authentication/i.test(msg)) {
+    return new Error(LOGIN_HINT)
+  }
+  return err instanceof Error ? err : new Error(msg || 'Codex SDK failed')
+}
+
+export async function assertCodexChatGptLogin({ env, authCheck }) {
+  const check = authCheck || defaultAuthCheck
+  let status
+  try {
+    status = await check({ env })
+  } catch (err) {
+    throw mapCodexError(err)
+  }
+  if (!isAuthStatusOk(status)) throw new Error(LOGIN_HINT)
+}
+
+export function createRunSignal(parentSignal, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const controller = new AbortController()
+  let timedOut = false
+  const onAbort = () => controller.abort(parentSignal?.reason)
+  if (parentSignal) {
+    if (parentSignal.aborted) onAbort()
+    else parentSignal.addEventListener('abort', onAbort, { once: true })
+  }
+  const timer = Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, timeoutMs)
+    : null
+  return {
+    signal: controller.signal,
+    timedOut: () => timedOut,
+    cleanup: () => {
+      if (timer) clearTimeout(timer)
+      if (parentSignal) parentSignal.removeEventListener?.('abort', onAbort)
+    },
+  }
+}
+
+export async function prepareCodexWorkingDirectory({
+  mkdtempImpl = mkdtemp,
+  rmImpl = rm,
+} = {}) {
+  const workingDirectory = await mkdtempImpl(path.join(os.tmpdir(), 'autoflowcut-story-codex-'))
+  return {
+    workingDirectory,
+    cleanup: () => rmImpl(workingDirectory, { recursive: true, force: true }),
+  }
+}
+
+export function parseCodexJson(text) {
+  let t = String(text || '').trim()
+  const fence = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/)
+  if (fence) t = fence[1].trim()
+  const start = t.indexOf('{')
+  const end = t.lastIndexOf('}')
+  if (start >= 0 && end > start) t = t.slice(start, end + 1)
+  return JSON.parse(t)
+}

@@ -15,37 +15,10 @@
  */
 
 import { useMemo, useEffect, useRef, useState, useCallback } from 'react'
-import { resolveImageSrc, formatElapsed } from '../utils/formatters'
-import { useElapsedTimer } from '../hooks/useElapsedTimer'
+import { resolveImageSrc } from '../utils/formatters'
 import useFlowArchiveBrowser, { ARCHIVE_LABELS } from '../hooks/useFlowArchiveBrowser'
-
-/** 초시계 아이콘 — 초침이 실시간 회전 */
-function StopwatchIcon({ size = 16 }) {
-  const r = size / 2
-  const cx = r, cy = r
-  const handLen = r * 0.6
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="stopwatch-icon">
-      <circle cx={cx} cy={cy} r={r - 1.5} fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <line x1={cx} y1={cy - r + 1.5} x2={cx} y2={cy - r + 3.5} stroke="currentColor" strokeWidth="1.2" />
-      <rect x={cx - 1} y={0} width={2} height={2} rx={0.5} fill="currentColor" />
-      <line
-        className="stopwatch-hand"
-        x1={cx} y1={cy}
-        x2={cx} y2={cy - handLen}
-        stroke="var(--accent, #3b82f6)" strokeWidth="1.5" strokeLinecap="round"
-        style={{ transformOrigin: `${cx}px ${cy}px` }}
-      />
-      <circle cx={cx} cy={cy} r={1.2} fill="var(--accent, #3b82f6)" />
-    </svg>
-  )
-}
-
-/** 경과 시간 표시 (1초마다 업데이트, endedAt 있으면 멈춤) */
-function ElapsedTime({ startedAt, endedAt }) {
-  const elapsed = useElapsedTimer(startedAt, endedAt)
-  return <span>{formatElapsed(elapsed)}</span>
-}
+import { toast } from './Toast'
+import { StopwatchIcon, ElapsedTime } from './StopwatchIcon'
 
 // 갤러리 ID prefix
 const GALLERY_PREFIX = 'gallery::'
@@ -457,9 +430,15 @@ export { GALLERY_PREFIX }
 
 export default function FrameToVideoPanel({
   scenes, videoScenes = [], framePairs, onUpdate, promptSource = 'image', onPromptSourceChange,
+  onScenePromptUpdate,  // image 모드 input 편집을 scene 본체로 라우팅 (단일 진실 소스 = scene.prompt)
+  onSceneVideoPromptUpdate,  // video 모드 input 편집을 scene.videoT2VPrompt 로 라우팅 (단일 진실 소스 = T2V prompt)
   onShowSceneDetail, onVideoRetry, disabled, t, galleryItems, galleryLoading, onLoadGallery,
   onUploadFromDisk, onListFlowProjects, onFetchProjectGallery, onPickArchiveImage,
+  hasFlowArchive = false,
   seedNo = null, seedLocked = false, onSeedChange, onSeedLockToggle, onSeedRandom,
+  onRequestNewScene,
+  onRequestSceneTrim,
+  endImageDisabled = false,  // OmniFlash 는 종료프레임 미지원 → End Image 선택 비활성화
 }) {
   const showSeedUI = typeof onSeedChange === 'function'
   const handleSeedInputChange = (e) => {
@@ -471,10 +450,23 @@ export default function FrameToVideoPanel({
     if (Number.isFinite(num)) onSeedChange?.(num)
   }
 
-  // mediaId 있는 씬만 드롭다운에 표시
+  // 생성 이미지가 있는 씬만 드롭다운에 표시.
+  // cloud(Veo): imagePath(디스크)/image(메모리) 기준. legacy Flow: mediaId 도 허용.
   const availableScenes = useMemo(
-    () => scenes.filter(s => s.mediaId),
+    () => scenes.filter(s => s.mediaId || s.imagePath || s.image),
     [scenes]
+  )
+
+  // 한 씬당 1개 owning row invariant — addRow/autoBatch/auto-add 가드 + 버튼
+  // disabled 상태가 모두 같은 데이터를 본다. useMemo로 한 번만 계산해 재렌더
+  // 마다 Set 새로 만드는 부담 제거.
+  const usedOwners = useMemo(
+    () => new Set(framePairs.map(p => p.ownerSceneId).filter(Boolean)),
+    [framePairs]
+  )
+  const hasUnusedScene = useMemo(
+    () => availableScenes.some(s => !usedOwners.has(s.id)),
+    [availableScenes, usedOwners]
   )
 
   // 마운트 시점에 기존 저장된 framePairs에 중복 ID가 있으면 정제.
@@ -501,11 +493,18 @@ export default function FrameToVideoPanel({
 
   // 새로운 이미지 씬이 생기면 자동으로 프레임 페어 추가 (unselected)
   // strict-mode 이중 실행에도 안전하도록 함수형 setter + 중복 ID 가드 사용
-  const prevAvailableCountRef = useRef(availableScenes.length)
   useEffect(() => {
     onUpdate(prev => {
-      const usedStart = new Set(prev.map(p => p.startSceneId))
-      const unusedScenes = availableScenes.filter(s => !usedStart.has(s.id))
+      // Dedup by ownerSceneId (immutable row-to-scene binding) not startSceneId
+      // (mutable input field). Without this, a row whose start image was changed
+      // would no longer count as "owning" its original scene, and auto-add would
+      // re-create a duplicate row.
+      //
+      // NOTE: usedOwners is also memoized at component scope for addRow/autoBatch/
+      // button-disabled. Recomputed here from `prev` (functional updater) to avoid
+      // stale closure — render-scope memo could lag a render behind setState batches.
+      const usedOwners = new Set(prev.map(p => p.ownerSceneId).filter(Boolean))
+      const unusedScenes = availableScenes.filter(s => !usedOwners.has(s.id))
 
       if (unusedScenes.length === 0) return prev
 
@@ -519,7 +518,8 @@ export default function FrameToVideoPanel({
         const nextScene = globalIdx >= 0 ? availableScenes[globalIdx + 1] : null
         return {
           id,
-          startSceneId: scene.id,
+          ownerSceneId: scene.id,    // immutable owner — never changed by dropdowns
+          startSceneId: scene.id,    // mutable input; user can repoint via dropdown
           endSceneId: nextScene?.id || '',
           prompt: scene.prompt || '',
           videoPrompt: '',
@@ -530,7 +530,6 @@ export default function FrameToVideoPanel({
       })
       return [...prev, ...newPairs]
     })
-    prevAvailableCountRef.current = availableScenes.length
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableScenes.length]) // 이미지 씬 수가 바뀔 때만
 
@@ -545,6 +544,8 @@ export default function FrameToVideoPanel({
     onUpdate(framePairs.map(p => ({ ...p, selected: !allSelected })))
   }
 
+  // Mutates only the named field. `ownerSceneId` is intentionally NOT exposed via
+  // any dropdown — it stays whatever auto-add set at row creation.
   const updatePair = (index, field, value) => {
     const updated = [...framePairs]
     updated[index] = { ...updated[index], [field]: value }
@@ -553,10 +554,35 @@ export default function FrameToVideoPanel({
 
   const addRow = () => {
     // 기본값: 순서대로 자동 채움
-    const usedStart = new Set(framePairs.map(p => p.startSceneId))
-    const nextStart = availableScenes.find(s => !usedStart.has(s.id))
-    const nextStartId = nextStart?.id || ''
+    const nextStart = availableScenes.find(s => !usedOwners.has(s.id))
+    if (!nextStart) {
+      // 모든 씬이 owned → 새 씬을 만들고 그 씬을 owner 로 하는 F→V 행을 즉시 생성.
+      // 새 씬은 mediaId 가 없어서 availableScenes 필터에서 빠짐 → start/end image dropdown
+      // 에선 안 보이지만, 행 자체는 시각적으로 즉시 추가됨.
+      const newSceneId = onRequestNewScene?.()
+      if (!newSceneId) {
+        toast.warning(t('frameToVideo.addRowFail'))
+        return
+      }
+      onUpdate([
+        ...framePairs,
+        {
+          id: `fp_${getNextPairId(framePairs)}`,
+          ownerSceneId: newSceneId,
+          startSceneId: '',
+          endSceneId: '',
+          prompt: '',
+          videoPrompt: '',
+          customPrompt: '',
+          status: 'waiting',
+          selected: false,
+        },
+      ])
+      toast.info(t('frameToVideo.addRowNewScene'))
+      return
+    }
 
+    const nextStartId = nextStart.id
     const startIdx = availableScenes.findIndex(s => s.id === nextStartId)
     const nextEnd = startIdx >= 0 ? availableScenes[startIdx + 1] : null
 
@@ -564,30 +590,36 @@ export default function FrameToVideoPanel({
       ...framePairs,
       {
         id: `fp_${getNextPairId(framePairs)}`,
+        ownerSceneId: nextStartId,
         startSceneId: nextStartId,
         endSceneId: nextEnd?.id || '',
-        prompt: nextStart?.prompt || '',
+        prompt: nextStart.prompt || '',
         videoPrompt: '',
         customPrompt: '',
         status: 'waiting',
       },
     ])
+    toast.success(t('frameToVideo.addRowOk'))
   }
 
   // Auto Batch — 아직 배치 안 된 씬 전부를 프레임 페어로 자동 생성
   const autoBatch = () => {
-    const usedStart = new Set(framePairs.map(p => p.startSceneId))
-    const unusedScenes = availableScenes.filter(s => !usedStart.has(s.id))
+    const unusedScenes = availableScenes.filter(s => !usedOwners.has(s.id))
 
-    if (unusedScenes.length === 0) return
+    if (unusedScenes.length === 0) {
+      // 모든 씬에 이미 F→V 행이 있음. silently no-op 대신 toast 로 알려줌.
+      toast.info(t('frameToVideo.autoBatchNoop'))
+      return
+    }
 
     let nextId = getNextPairId(framePairs)
-    const newPairs = unusedScenes.map((scene, i) => {
+    const newPairs = unusedScenes.map((scene) => {
       const globalIdx = availableScenes.indexOf(scene)
       const nextScene = globalIdx >= 0 ? availableScenes[globalIdx + 1] : null
       return {
         id: `fp_${nextId++}`,
-        startSceneId: scene.id,
+        ownerSceneId: scene.id,    // immutable owner — never changed by dropdowns
+        startSceneId: scene.id,    // mutable input; user can repoint via dropdown
         endSceneId: nextScene?.id || '',
         prompt: scene.prompt || '',
         videoPrompt: '',
@@ -598,10 +630,17 @@ export default function FrameToVideoPanel({
     })
 
     onUpdate([...framePairs, ...newPairs])
+    toast.success(t('frameToVideo.autoBatchOk', { count: newPairs.length }))
   }
 
   const removeRow = (index) => {
-    onUpdate(framePairs.filter((_, i) => i !== index))
+    const updated = framePairs.filter((_, i) => i !== index)
+    onUpdate(updated)
+    // After the framePair removal, ask parent to re-evaluate trim — the row's
+    // owner scene may now be fully empty (no image/video/subtitle, no F→V row),
+    // in which case trim removes it. Non-empty scenes survive because the
+    // auto-add useEffect immediately re-creates a row owning them.
+    onRequestSceneTrim?.(updated)
   }
 
   const getSceneLabel = (scene) => {
@@ -609,21 +648,26 @@ export default function FrameToVideoPanel({
     return `#${idx} ${scene.prompt?.substring(0, 25) || scene.id}`
   }
 
+  // §3.1.2: archive 버튼은 hasFlowArchive=true (Flow 모드)일 때만 표시.
+  const archiveListProjects = hasFlowArchive ? onListFlowProjects : undefined
+  const archiveFetchGallery = hasFlowArchive ? onFetchProjectGallery : undefined
+
   if (availableScenes.length === 0 && framePairs.length === 0) {
     return (
       <div className="video-panel-empty">
         <p>🎞️ {t('frameToVideo.noScenesWithMedia')}</p>
-        {(onUploadFromDisk || onListFlowProjects) && (
+        {(onUploadFromDisk || archiveListProjects) && (
           <EmptyStateUpload
             onUploadFromDisk={onUploadFromDisk}
-            onListFlowProjects={onListFlowProjects}
-            onFetchProjectGallery={onFetchProjectGallery}
+            onListFlowProjects={archiveListProjects}
+            onFetchProjectGallery={archiveFetchGallery}
             disabled={disabled}
             onAdded={(item) => {
               // archive에서 픽한 항목이면 galleryItems에도 추가 (트리거 라벨 렌더용)
               if (item.url && onPickArchiveImage) onPickArchiveImage(item)
               onUpdate([{
                 id: `fp_${getNextPairId([])}`,
+                ownerSceneId: null,  // gallery-rooted: no owning project scene
                 startSceneId: GALLERY_PREFIX + item.mediaId,
                 endSceneId: '',
                 prompt: '',
@@ -681,7 +725,13 @@ export default function FrameToVideoPanel({
               onChange={() => toggleSelect(pair.id)}
               disabled={disabled}
             /></span>
-            <span className="mapping-col col-num">{index + 1}</span>
+            <span className="mapping-col col-num">
+              {(() => {
+                if (!pair.ownerSceneId) return '—'
+                const idx = scenes.findIndex(s => s.id === pair.ownerSceneId)
+                return idx >= 0 ? `#${idx + 1}` : '⚠'
+              })()}
+            </span>
 
             {/* Start Image 드롭다운 */}
             <div className="mapping-col col-image">
@@ -700,19 +750,19 @@ export default function FrameToVideoPanel({
                 galleryLoading={galleryLoading}
                 onLoadGallery={onLoadGallery}
                 onUploadFromDisk={onUploadFromDisk}
-                onListFlowProjects={onListFlowProjects}
-                onFetchProjectGallery={onFetchProjectGallery}
+                onListFlowProjects={archiveListProjects}
+                onFetchProjectGallery={archiveFetchGallery}
                 onPickArchiveImage={onPickArchiveImage}
               />
             </div>
 
-            {/* End Image 드롭다운 */}
-            <div className="mapping-col col-image">
+            {/* End Image 드롭다운 — OmniFlash 는 종료프레임 미지원이라 비활성화 */}
+            <div className="mapping-col col-image" title={endImageDisabled ? (t('frameToVideo.omniNoEndImage') || 'OmniFlash는 종료 프레임을 지원하지 않습니다') : undefined}>
               <SceneSelect
-                value={pair.endSceneId}
+                value={endImageDisabled ? '' : pair.endSceneId}
                 onChange={(val) => updatePair(index, 'endSceneId', val)}
-                placeholder={t('frameToVideo.noEndImage')}
-                disabled={disabled || pair.status === 'generating'}
+                placeholder={endImageDisabled ? (t('frameToVideo.omniNoEndImage') || 'OmniFlash 미지원') : t('frameToVideo.noEndImage')}
+                disabled={disabled || pair.status === 'generating' || endImageDisabled}
                 options={availableScenes}
                 getLabel={getSceneLabel}
                 onThumbClick={(sceneId) => {
@@ -723,39 +773,70 @@ export default function FrameToVideoPanel({
                 galleryLoading={galleryLoading}
                 onLoadGallery={onLoadGallery}
                 onUploadFromDisk={onUploadFromDisk}
-                onListFlowProjects={onListFlowProjects}
-                onFetchProjectGallery={onFetchProjectGallery}
+                onListFlowProjects={archiveListProjects}
+                onFetchProjectGallery={archiveFetchGallery}
                 onPickArchiveImage={onPickArchiveImage}
               />
             </div>
 
             {/* 프롬프트 — 이미지/비디오/직접입력 모드 */}
             <div className="mapping-col col-prompt">
-              {promptSource === 'image' && (
-                <textarea
-                  value={pair.prompt || ''}
-                  onChange={(e) => updatePair(index, 'prompt', e.target.value)}
-                  disabled={disabled || pair.status === 'generating'}
-                  placeholder={t('frameToVideo.promptPlaceholder')}
-                  className="mapping-prompt-textarea"
-                />
-              )}
-              {promptSource === 'video' && (
-                <textarea
-                  value={pair.videoPrompt || videoScenes[index]?.prompt || ''}
-                  onChange={(e) => updatePair(index, 'videoPrompt', e.target.value)}
-                  disabled={disabled || pair.status === 'generating'}
-                  placeholder={t('frameToVideo.videoPromptPlaceholder')}
-                  className="mapping-prompt-textarea"
-                />
-              )}
+              {promptSource === 'image' && (() => {
+                // Image 모드의 단일 진실 소스 = owner scene.prompt. 행 생성 시 pair.prompt 가
+                // 스냅샷으로 복사돼서 이후 scene 쪽에서 prompt 가 바뀌면 pair.prompt 가 stale.
+                // 따라서 scene-bound 행은 항상 owner scene 의 현재 prompt 를 표시/편집하고,
+                // gallery-rooted (ownerSceneId=null) 행만 pair.prompt 를 폴백으로 사용.
+                const ownerScene = pair.ownerSceneId ? scenes.find(s => s.id === pair.ownerSceneId) : null
+                const value = ownerScene ? (ownerScene.prompt || '') : (pair.prompt || '')
+                const handleChange = (v) => {
+                  if (ownerScene && onScenePromptUpdate) onScenePromptUpdate(ownerScene.id, v)
+                  else updatePair(index, 'prompt', v)
+                }
+                return (
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => handleChange(e.target.value)}
+                    disabled={disabled || pair.status === 'generating'}
+                    placeholder={t('frameToVideo.promptPlaceholder')}
+                  />
+                )
+              })()}
+              {promptSource === 'video' && (() => {
+                // Video 모드의 단일 진실 소스 = owner scene.videoT2VPrompt. T2V 탭에서 video
+                // prompt 를 수정하면 F→V 에도 즉시 sync. legacy pair.videoPrompt 는 scene 에
+                // videoT2VPrompt 필드 자체가 없을 때만 fallback (legacy/image-only scene 케이스).
+                // owner-binding: startSceneId 가 아닌 ownerSceneId 기준이어야 dropdown 만 바꿔도
+                // video prompt 가 다른 씬 것으로 튀지 않음.
+                //
+                // 주의: useVideoScenes 의 derived videoScenes 는 truthy 필터(s.videoT2VPrompt)
+                // 라 빈 문자열이면 vscene 이 사라진다. 따라서 derived 가 아니라 owner scene 자체에서
+                // videoT2VPrompt 를 lookup — '필드가 string 으로 정의됨' 을 authoritative 로 판단해야
+                // 사용자가 prompt 를 "지우면" 진짜 비어 보이고 legacy pair.videoPrompt 가 부활 안 함.
+                const ownerScene = pair.ownerSceneId ? scenes.find(s => s.id === pair.ownerSceneId) : null
+                const sceneT2VDefined = ownerScene && typeof ownerScene.videoT2VPrompt === 'string'
+                const value = sceneT2VDefined ? ownerScene.videoT2VPrompt : (pair.videoPrompt || '')
+                const handleChange = (v) => {
+                  if (ownerScene && onSceneVideoPromptUpdate) onSceneVideoPromptUpdate(ownerScene.id, v)
+                  else updatePair(index, 'videoPrompt', v)
+                }
+                return (
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => handleChange(e.target.value)}
+                    disabled={disabled || pair.status === 'generating'}
+                    placeholder={t('frameToVideo.videoPromptPlaceholder')}
+                  />
+                )
+              })()}
               {promptSource === 'none' && (
-                <textarea
+                <input
+                  type="text"
                   value={pair.customPrompt || ''}
                   onChange={(e) => updatePair(index, 'customPrompt', e.target.value)}
                   disabled={disabled || pair.status === 'generating'}
                   placeholder={t('frameToVideo.customPromptPlaceholder')}
-                  className="mapping-prompt-textarea"
                 />
               )}
             </div>
@@ -767,17 +848,19 @@ export default function FrameToVideoPanel({
                   <StopwatchIcon size={16} /> <ElapsedTime startedAt={pair.generatingStartedAt} endedAt={pair.generatingEndedAt} />
                 </span>
               ) : pair.status === 'error' ? (
-                <span className="status error-wrap">
-                  <span className="status error" title={pair.error}>
+                // 에러 배지 + 재시도 버튼 한 그룹. 인라인 style 대신 CSS 클래스로 통일 —
+                // btn-icon-retry 가 btn-remove (✕) 와 동일한 크기/스타일 베이스를 공유해
+                // 행 우측 액션 버튼들이 시각적으로 정렬됨.
+                <span className="status-error-group">
+                  <span className="status error status-badge" title={pair.error}>
                     {STATUS_ICONS.error} {t(`frameToVideo.${pair.status}`)}
                   </span>
                   {onVideoRetry && !disabled && (
                     <button
                       type="button"
-                      className="retry-btn-inline"
+                      className="btn-icon-retry"
                       onClick={() => onVideoRetry(pair)}
                       title={pair.error || t('actions.retryDownload') || 'Retry download'}
-                      style={{ marginLeft: '6px', padding: '2px 6px', border: '1px solid #888', borderRadius: '3px', background: 'transparent', cursor: 'pointer' }}
                     >
                       🔄
                     </button>
@@ -811,13 +894,14 @@ export default function FrameToVideoPanel({
           className="btn-add-row"
           onClick={addRow}
           disabled={disabled}
+          title={t('frameToVideo.addRowHint')}
         >
           {t('frameToVideo.addRow')}
         </button>
         <button
           className="btn-add-row btn-auto-batch"
           onClick={autoBatch}
-          disabled={disabled || availableScenes.filter(s => !new Set(framePairs.map(p => p.startSceneId)).has(s.id)).length === 0}
+          disabled={disabled}
           title={t('frameToVideo.autoBatchHint')}
         >
           {t('frameToVideo.autoBatch')}

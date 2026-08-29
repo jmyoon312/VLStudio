@@ -26,21 +26,127 @@ export function normalizeStyleId(styleId) {
 }
 
 /**
+ * 프리셋 styleId → 씬 style_tag 에 stamp 할 canonical 표시명 (Issue #3).
+ *
+ * 배치가 전역 프리셋 스타일을 적용했을 때 각 씬의 style_tag 를 채워, 상세 모달이
+ * 적용된 스타일을 보여주고 모달 재생성이 동일 스타일을 재현하도록 한다.
+ * ref: 스타일(이미지 레퍼런스)은 태그로 표현하지 않으므로 null.
+ *
+ * @param {string|number|null|undefined} styleId - 'preset:<id>' / plain id / 'ref:*' / 'none'
+ * @returns {string|null} name_en(||name_ko||id) 또는 null
+ */
+export function presetTagForStyleId(styleId) {
+  // 'none'(스타일 미적용)·'auto'(자동 매칭) sentinel 은 프리셋이 아니다 — 명시적으로 제외
+  //   (normalizeStyleId 가 'preset:none' 으로 감싸 우연히 miss→null 되는 것에 의존하지 않는다).
+  if (styleId === 'none' || styleId === 'auto') return null
+  const normalized = normalizeStyleId(styleId)
+  if (!normalized || !normalized.startsWith('preset:')) return null
+  const presetId = normalized.slice('preset:'.length)
+  const preset = STYLE_PRESETS?.styles?.find(s => s.id === presetId)
+  if (!preset) return null
+  return preset.name_en || preset.name_ko || preset.id
+}
+
+export function isStyleReference(ref) {
+  const type = String(ref?.type || '').toLowerCase()
+  const category = String(ref?.category || '').toLowerCase()
+  const referenceType = String(ref?.referenceType || '').toLowerCase()
+  return referenceType === 'style' || type === 'style' || category === 'style' || category === 'media_category_style'
+}
+
+function hasGenAIStyleImage(ref) {
+  return !!(ref?.data || ref?.filePath)
+}
+
+/**
  * 등록된 스타일 카드 자동 탐색.
  *
- * "사용 가능한 스타일 카드" 기준: prompt 또는 mediaId 중 하나라도 있어야 함.
+ * "사용 가능한 스타일 카드" 기준: prompt 또는 이미지 소스 중 하나라도 있어야 함.
  * 둘 다 없는 placeholder 카드는 production 적용 path가 아무것도 안 하므로 제외.
  *
  * 둘 다 잡는 이유: production applyStyle / _prepareStyleRefs는 prompt만 있어도
- * styledPrompt를 합성하고, mediaId만 있어도 image ref로 주입한다. mediaId만 보면
+ * styledPrompt를 합성하고, GenAI에서 해석 가능한 이미지 소스가 있으면 image ref로 주입한다. mediaId만 보면
  * 사용자가 prompt로만 만든 스타일 카드를 누락 — preview/MCP 자동 모드가 잘못된 결과.
  *
  * @param {Array} references - 레퍼런스 배열
  * @returns {string|null} 'ref:{id}' 형태 또는 null
  */
+/**
+ * 카드들이 이미 기억하는 프로젝트의 스타일.
+ *
+ * 새로 추가한 카드는 styleId 기억이 없다. 그때 findAutoStyle(references 의 "첫 번째" 스타일 카드)
+ * 로 떨어지면, 스타일 카드를 추가하거나 순서가 바뀌는 것만으로 새 카드가 조용히 다른 스타일로
+ * 생성된다. 사용자가 의도적으로 다른 걸 고르지 않는 한 프로젝트가 쓰던 스타일을 물려받아야 한다.
+ *
+ * 가장 최근에 생성된 카드의 기억을 쓴다(배치는 모두 같은 값을 찍으므로 대개 동일).
+ * styleId:undefined 는 기억 없음, null 은 "무스타일로 생성됨"이라는 정당한 기억이다 — 값으로 판정한다
+ * (상세 모달의 prop 동기화가 styleId:undefined 로 키를 만들기 때문에 키 존재로 판정하면 안 된다).
+ * 스타일 카드 자신은 배치에서 null 을 찍히므로 제외한다 — 물려받으면 전부 무스타일이 된다.
+ *
+ * @returns {{found: boolean, styleId: string|null}}
+ */
+export function inheritStyleIdFromCards(references) {
+  let best = null
+  for (const r of references || []) {
+    if (!r || isStyleReference(r)) continue
+    // 키 존재가 아니라 값으로 판정한다 — 상세 모달의 prop 동기화가 styleId:undefined 로 키를 만든다.
+    //   undefined = 기억 없음, null = '무스타일로 생성됨'이라는 정당한 기억.
+    if (r.styleId === undefined) continue
+    if (!best || (r.generatedAt || 0) >= (best.generatedAt || 0)) best = r
+  }
+  return best ? { found: true, styleId: best.styleId } : { found: false, styleId: null }
+}
+
 export function findAutoStyle(references) {
-  const autoStyle = references.find(r => r.type === 'style' && (r.prompt || r.mediaId))
+  const autoStyle = references.find(r => isStyleReference(r) && (
+    r.prompt || hasGenAIStyleImage(r)
+  ))
   return autoStyle ? `ref:${autoStyle.id}` : null
+}
+
+/**
+ * 비디오 T2V 자동 스타일 탐색.
+ *
+ * Veo 3.1은 style reference image를 지원하지 않으므로, 비디오 자동 스타일은 실제로
+ * 프롬프트를 바꿀 수 있는 prompt 보유 스타일 카드만 사용한다.
+ */
+export function findAutoPromptStyle(references) {
+  const autoStyle = references.find(r => isStyleReference(r) && r.prompt)
+  return autoStyle ? `ref:${autoStyle.id}` : null
+}
+
+/**
+ * scene.style_tag를 preset으로 해석하는 공용 파서.
+ * resolveSceneStyle, preview, Ref 파생이 모두 같은 splitTags/첫 매칭 규칙을 쓴다.
+ */
+export function findPresetForStyleTag(styleTag, presets = STYLE_PRESETS?.styles || []) {
+  const tokens = splitTags(styleTag)
+  if (tokens.length === 0) return null
+  return presets.find(preset =>
+    tokens.includes(preset.id?.toLowerCase()) ||
+    tokens.includes(preset.name_ko?.toLowerCase()) ||
+    tokens.includes(preset.name_en?.toLowerCase())
+  ) || null
+}
+
+/**
+ * scene.style_tag가 실제로 가리키는 스타일을 preview와 Ref 파생이 같은 순서로 해석한다.
+ * usable custom style ref가 preset보다 우선한다.
+ */
+export function findSceneTagStyle(styleTag, references = [], presets = STYLE_PRESETS?.styles || []) {
+  const tags = splitTags(styleTag)
+  if (tags.length === 0) return null
+
+  const ref = references.find(item =>
+    isStyleReference(item) &&
+    item.name &&
+    (item.prompt || item.data || item.filePath) &&
+    tags.includes(item.name.toLowerCase())
+  )
+  if (ref) return { source: 'ref', style: ref }
+
+  const preset = findPresetForStyleTag(styleTag, presets)
+  return preset ? { source: 'preset', style: preset } : null
 }
 
 /**
@@ -62,13 +168,29 @@ export function applyStyle(prompt, styleId, references, existingMatchedRefs = []
 
   if (styleId.startsWith('ref:')) {
     const refId = styleId.replace('ref:', '')
-    const styleRef = references.find(r => r.id == refId && r.type === 'style')
+    const styleRef = references.find(r => r.id == refId && isStyleReference(r))
     if (styleRef) {
       if (styleRef.prompt) {
         styledPrompt = `${prompt}, ${styleRef.prompt}`
       }
-      if (styleRef.mediaId && !existingMatchedRefs.some(r => r.mediaId === styleRef.mediaId)) {
-        styleRefImages.push({ category: styleRef.category || 'style', mediaId: styleRef.mediaId, caption: styleRef.caption || '' })
+      // mediaId(Flow), filePath/name(공식 API 디스크 해석), data(메모리 inline) 중 하나라도
+      // 있으면 image ref 로 주입.
+      if (styleRef.mediaId || styleRef.name || styleRef.data || styleRef.filePath) {
+        const dup = existingMatchedRefs.some(r =>
+          (styleRef.mediaId && r.mediaId === styleRef.mediaId) ||
+          (styleRef.name && r.name === styleRef.name) ||
+          (styleRef.filePath && r.filePath === styleRef.filePath))
+        if (!dup) {
+          styleRefImages.push({
+            id: styleRef.id,
+            category: styleRef.category || 'style',
+            mediaId: styleRef.mediaId || null,
+            caption: styleRef.caption || '',
+            name: styleRef.name,
+            data: styleRef.data || null,
+            filePath: styleRef.filePath || null,
+          })
+        }
       }
     }
   } else if (styleId.startsWith('preset:')) {
@@ -104,7 +226,7 @@ export function resolveSceneStyle(prompt, allMatched, selectedStyleRefId, refere
   }
 
   // 1a. 태그 매칭으로 스타일 레퍼런스가 있으면 자동 적용
-  const matchedStyleRef = allMatched.find(r => r.type === 'style' && r.prompt)
+  const matchedStyleRef = allMatched.find(r => isStyleReference(r) && r.prompt)
   if (matchedStyleRef) {
     styledPrompt = `${prompt}, ${matchedStyleRef.prompt}`
     appliedStyle = `auto:${matchedStyleRef.name || matchedStyleRef.id}`
@@ -113,12 +235,7 @@ export function resolveSceneStyle(prompt, allMatched, selectedStyleRefId, refere
   // 1b. 매칭 레퍼런스 없으면 splitTags 토큰 기반으로 프리셋에서 찾기
   // (multi-tag `'cinematic, noir'`에서도 각 토큰이 preset과 매칭되면 첫 매칭 적용)
   if (appliedStyle === 'none' && styleTag) {
-    const tokens = splitTags(styleTag)
-    const preset = (STYLE_PRESETS?.styles || []).find(s =>
-      tokens.includes(s.id?.toLowerCase()) ||
-      tokens.includes(s.name_ko?.toLowerCase()) ||
-      tokens.includes(s.name_en?.toLowerCase())
-    )
+    const preset = findPresetForStyleTag(styleTag)
     if (preset?.prompt_en) {
       styledPrompt = `${prompt}, ${preset.prompt_en}`
       appliedStyle = `preset:${preset.id}`
@@ -130,11 +247,13 @@ export function resolveSceneStyle(prompt, allMatched, selectedStyleRefId, refere
     const { styledPrompt: sp, styleRefImages } = applyStyle(prompt, selectedStyleRefId, references, matchedRefs)
     styledPrompt = sp
     appliedStyle = selectedStyleRefId
-    // styleRefImages를 matchedRefs에 추가
+    // styleRefImages를 matchedRefs에 추가 (mediaId 또는 name 기준 dedup)
     for (const img of styleRefImages) {
-      if (!matchedRefs.some(r => r.mediaId === img.mediaId)) {
-        matchedRefs.push(img)
-      }
+      const dup = matchedRefs.some(r =>
+        (img.mediaId && r.mediaId === img.mediaId) ||
+        (img.name && r.name === img.name) ||
+        (img.filePath && r.filePath === img.filePath))
+      if (!dup) matchedRefs.push(img)
     }
   }
 
@@ -162,7 +281,7 @@ export function resolveSeed(settings) {
  *
  * @param {Array} scenes - 씬 배열 ({id, style_tag})
  * @param {Array} references - 레퍼런스 배열
- * @param {object} [opts] - { presets } — 테스트 주입용
+ * @param {object} [opts] - { presets, isKo } — 테스트 주입/표시 언어용
  * @returns {{
  *   matches: Array<{ sceneId, styleName, source: 'ref'|'preset' }>,
  *   unmatched: Array<string|number>,
@@ -171,11 +290,7 @@ export function resolveSeed(settings) {
  */
 export function previewStyleMatching(scenes, references, opts = {}) {
   const presets = opts.presets ?? (STYLE_PRESETS?.styles || [])
-  // Production applies a style ref via either:
-  //   - resolveSceneStyle when r.prompt exists (concatenates into the prompt)
-  //   - matchedRefs injection when r.mediaId exists (image ref into Flow API)
-  // A ref with neither contributes nothing — drop it from preview.
-  const styleRefs = references.filter(r => r.type === 'style' && r.name && (r.prompt || r.mediaId))
+  const isKo = opts.isKo !== false
 
   const matches = []
   const unmatched = []
@@ -187,22 +302,23 @@ export function previewStyleMatching(scenes, references, opts = {}) {
       continue
     }
 
-    const refMatch = styleRefs.find(r => tags.includes(r.name?.toLowerCase()))
-    if (refMatch) {
-      matches.push({ sceneId: scene.id, styleName: refMatch.name, source: 'ref' })
+    // Production applies a style ref via prompt 합성 또는 GenAI-readable image injection.
+    // 어느 쪽도 못 하는 placeholder는 preset fallback을 막지 않는다.
+    const tagStyle = findSceneTagStyle(scene.style_tag, references, presets)
+    if (tagStyle?.source === 'ref') {
+      matches.push({ sceneId: scene.id, styleName: tagStyle.style.name, source: 'ref' })
       continue
     }
 
     // Preset 매칭은 splitTags 토큰 기반 — multi-tag (`'cinematic, noir'`)에서도
     // 각 토큰이 preset과 매칭되면 첫 매칭 preset을 적용. 이전엔 raw `scene.style_tag`
     // 전체를 통째로 비교해 multi-tag preset이 누락됐다.
-    const preset = presets.find(p =>
-      tags.includes(p.id?.toLowerCase()) ||
-      tags.includes(p.name_ko?.toLowerCase()) ||
-      tags.includes(p.name_en?.toLowerCase())
-    )
+    const preset = tagStyle?.source === 'preset' ? tagStyle.style : null
     if (preset) {
-      matches.push({ sceneId: scene.id, styleName: preset.name_ko || preset.name_en, source: 'preset' })
+      const styleName = isKo
+        ? (preset.name_ko || preset.name_en || preset.id)
+        : (preset.name_en || preset.name_ko || preset.id)
+      matches.push({ sceneId: scene.id, styleName, source: 'preset' })
       continue
     }
 

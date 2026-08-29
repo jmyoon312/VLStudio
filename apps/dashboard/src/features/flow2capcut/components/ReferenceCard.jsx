@@ -4,37 +4,15 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { REFERENCE_TYPES } from '../config/defaults'
-import { getRatioClass, resolveImageSrc, hasImageData, formatElapsed } from '../utils/formatters'
-import { useElapsedTimer } from '../hooks/useElapsedTimer'
+import { getRatioClass, resolveImageSrc, hasImageData } from '../utils/formatters'
+import { fileSystemAPI } from '../hooks/useFileSystem'
+import { applyEntityRegistrationPatch, clearedImageFields } from '../utils/refEntityRegistration'
+import { needsComposerRefresh, refBadgeState, isSyncInFlight } from '../utils/flowCharacterSync'
+import { runFlowCharacterOperation, runFlowComposerRefresh } from '../utils/flowCharacterCoordinator'
 import HoverImageBalloon from './HoverImageBalloon'
-
-// 초시계 아이콘 — ResultsTable / FrameToVideoPanel 과 동일 스타일
-function StopwatchIcon({ size = 16 }) {
-  const r = size / 2
-  const cx = r, cy = r
-  const handLen = r * 0.6
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="stopwatch-icon">
-      <circle cx={cx} cy={cy} r={r - 1.5} fill="none" stroke="currentColor" strokeWidth="1.5" />
-      <line x1={cx} y1={cy - r + 1.5} x2={cx} y2={cy - r + 3.5} stroke="currentColor" strokeWidth="1.2" />
-      <rect x={cx - 1} y={0} width={2} height={2} rx={0.5} fill="currentColor" />
-      <line
-        className="stopwatch-hand"
-        x1={cx} y1={cy}
-        x2={cx} y2={cy - handLen}
-        stroke="var(--accent, #3b82f6)" strokeWidth="1.5" strokeLinecap="round"
-        style={{ transformOrigin: `${cx}px ${cy}px` }}
-      />
-      <circle cx={cx} cy={cy} r={1.2} fill="var(--accent, #3b82f6)" />
-    </svg>
-  )
-}
-
-// 경과 시간 — generatingStartedAt 가 있으면 1초마다 업데이트, generatingEndedAt 있으면 멈춤
-function ElapsedTime({ startedAt, endedAt }) {
-  const elapsed = useElapsedTimer(startedAt, endedAt)
-  return <span>{formatElapsed(elapsed)}</span>
-}
+import LazyImage from './LazyImage'
+import { StopwatchIcon, ElapsedTime } from './StopwatchIcon'
+import { toast } from './Toast'
 
 export default function ReferenceCard({
   reference,
@@ -46,14 +24,24 @@ export default function ReferenceCard({
   aspectRatio,
   t,
   isGenerating,
-  onShowDetail
+  onShowDetail,
+  projectName,
+  getScopeToken,  // #R34-fix: live 스코프 토큰(부모 ReferencePanel 제공). 업로드 중 프로젝트/모드 전환 감지.
+  appMode,        // 배지 판정용 — Flow 엔티티 동기화는 flow 모드의 character 에만 의미가 있다.
+  flowProjectId = null,
+  refBatchRunning = false,
 }) {
   const cardRef = useRef(null)
   const fileInputRef = useRef(null)
+  // 빈 카드 단/더블 클릭 구분용 타이머 — 단일=상세(지연), 더블=업로드(타이머 취소).
+  const clickTimerRef = useRef(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const [hoverPreview, setHoverPreview] = useState(null) // { x, y }
   const [showRemoveMenu, setShowRemoveMenu] = useState(false)
+
+  // 언마운트 시 대기 중인 단일클릭 타이머 정리
+  useEffect(() => () => { if (clickTimerRef.current) clearTimeout(clickTimerRef.current) }, [])
 
   // 생성 시작되면 카드가 보이도록 자동 스크롤
   useEffect(() => {
@@ -67,34 +55,176 @@ export default function ReferenceCard({
   // 파일 처리 공통 함수
   const processFile = async (file) => {
     if (!file || !file.type.startsWith('image/')) return
-    
+    if (refBatchRunning) {
+      console.warn('[ReferenceCard] ref batch running — ignoring direct upload:', reference?.name)
+      toast.info(t('reference.batchUploadBlocked'))
+      return
+    }
+    // #R37: 이 ref 의 동기화/업로드가 이미 진행 중이면 새 업로드를 시작하지 않는다. 진행 중인 캐릭터
+    //   sync 위로 파일을 드롭하거나 빠르게 두 번 드롭하면 /characters 업로드가 겹쳐 Flow 가 동명의
+    //   entity 를 하나 더 만든다(중복의 또 다른 출구). 공유 flowView DOM 충돌(ERR_ABORTED)도 막는다.
+    //   isUploading(로컬 state)만으로는 부족하다 — 패널/게이트가 시작한 flight 는 안 보인다.
+    const startScope = typeof getScopeToken === 'function' ? getScopeToken() : null
+    const flowOperationOpts = { projectId: flowProjectId, scopeToken: startScope, refIndex: index }
+    const isFlowCharacter = appMode === 'flow' && reference.type === 'character'
+    if (isUploading || reference.syncing || (isFlowCharacter && isSyncInFlight(reference, flowOperationOpts))) {
+      console.warn('[ReferenceCard] upload already in flight — ignoring:', reference?.name)
+      return
+    }
+
     setIsUploading(true)
-    
+    const finishUpload = () => { setIsUploading(false) }
+    // #R34-fix: 업로드(특히 await onUpload)는 시간이 걸린다. 그 사이 프로젝트/모드가 바뀌면 완료 패치가
+    //   현재(새) 프로젝트의 같은 index/id 에 stale 결과를 덮어쓴다(ref id 는 프로젝트별로 1부터 재사용).
+    //   시작 스코프를 캡처해 완료 직전 현재 스코프와 다르면 적용을 스킵한다.
+    const scopeChanged = () => typeof getScopeToken === 'function' && getScopeToken() !== startScope
+
     const reader = new FileReader()
+    // #R34-fix: FileReader 실패/중단 시에도 업로드 상태 고착 방지.
+    reader.onerror = () => { console.warn('[ReferenceCard] FileReader error'); finishUpload() }
+    reader.onabort = () => { finishUpload() }
     reader.onloadend = async () => {
+     const uploadAndPublish = async () => {
       const base64 = reader.result
-      
-      onUpdate(index, { 
-        ...reference, 
+      if (!base64) return
+
+      // 즉시 표시 — #R34-fix: 미리보기 패치도 scope 변경 시(프로젝트 전환) 현재 refs 오염 방지.
+      if (scopeChanged()) { console.warn('[ReferenceCard] scope changed before preview — skipping'); return }
+      onUpdate(index, {
+        ...reference,
         data: base64,
-        mimeType: file.type
+        mimeType: file.type,
       })
-      
-      // API 업로드
+
+      // R30 review fix: 디스크에도 저장해서 filePath 확보 — autosave 가 data 를
+      // strip 해도 reload 시 references/{name} 파일에서 복구 가능. projectName
+      // 이 없거나 권한이 없으면 기존 동작 (메모리만) 유지.
+      // R33 review fix: name 비어 있으면 imported_{id} fallback 으로 저장 — 사용자가
+      // 이름 입력 전 업로드해도 디스크에 영속화되어 reload 시 복구 가능. ref.id 는
+      // ReferencePanel.handleAdd 가 항상 발급. 이름은 patch 에도 반영해 후속 autosave
+      // 가 같은 saveName 으로 일관 유지.
+      // M4 T7: effectiveName 을 업로드 *전*에 확정 — uploadReference 메타에도 포함.
+      // #R34: 이름이 비어 있으면 업로드한 파일명(확장자 제외)을 이름으로 쓴다. 안 그러면
+      //   imported_<id> 같은 엉뚱한 이름으로 Flow 에 등록된다. 파일명도 없을 때만 imported fallback.
+      const fileBaseName = file?.name ? file.name.replace(/\.[^/.]+$/, '').trim() : ''
+      const effectiveName = (reference.name && String(reference.name).trim())
+        ? reference.name
+        : (fileBaseName || (reference.id != null ? `imported_${reference.id}` : null))
+
+      let uploadedMediaId = null
+      let uploadedCaption = null
+      let entityPatch = null
+      let uploadResult = null
       if (onUpload) {
         const cleanBase64 = base64.split(',')[1]
-        const result = await onUpload(cleanBase64, reference.category)
+        const result = await onUpload(cleanBase64, { category: reference.category, name: effectiveName, type: reference.type, refId: reference.id })
+        uploadResult = result
         if (result.success) {
-          onUpdate(index, {
-            ...reference,
-            data: base64,
-            mediaId: result.mediaId,
-            caption: result.caption
-          })
+          uploadedMediaId = result.mediaId
+          uploadedCaption = result.caption
+          // Propagate Flow entity fields (entityId, workflowId, registered, flowNameSyncStatus)
+          // when the upload returned them (Flow character upload). API mode returns no entity
+          // fields → applyEntityRegistrationPatch produces only mediaId-ish / no entityId.
+          const hasEntityFields = result.entityId != null || result.workflowId != null
+          if (hasEntityFields) {
+            entityPatch = applyEntityRegistrationPatch(reference, result, true)
+          }
         }
       }
-      
-      setIsUploading(false)
+      let savedFilePath = null
+      let saveAttempted = false
+      let saveErrorMessage = null
+      if (projectName && effectiveName) {
+        saveAttempted = true
+        try {
+          const permission = await fileSystemAPI.checkPermission()
+          if (permission?.hasPermission) {
+            const metadata = {
+              mediaId: uploadedMediaId,
+              caption: uploadedCaption,
+              category: reference.category,
+            }
+            const saveResult = await fileSystemAPI.saveReference(
+              projectName, effectiveName, base64, 'imported', metadata
+            )
+            if (saveResult?.success) {
+              savedFilePath = saveResult.path
+            } else {
+              saveErrorMessage = saveResult?.error || 'reference.saveFailed'
+            }
+          } else {
+            saveErrorMessage = 'reference.noPermission'
+          }
+        } catch (e) {
+          console.warn('[ReferenceCard] saveReference failed:', e?.message || e)
+          saveErrorMessage = e?.message || 'reference.saveFailed'
+        }
+      }
+
+      // R35 review fix: save 가 시도되었는데 실패하면 'error' — autosave 가 data 를
+      // strip 한 뒤 reload 하면 'done인데 파일 없음' orphan 상태가 됨. save 가
+      // 스킵된 경우 (projectName 없거나 name 못 만들 때) 는 memory-only 로 'done'
+      // 유지 (기존 폴백 동작).
+      const saveFailedAfterAttempt = saveAttempted && !savedFilePath
+      const finalStatus = saveFailedAfterAttempt ? 'error' : 'done'
+      const finalErrorMessage = saveFailedAfterAttempt ? saveErrorMessage : null
+
+      // #R34-fix: 업로드 도중 프로젝트/모드가 바뀌었으면 결과를 현재(다른) 프로젝트 ref 에 적용하지 않는다.
+      if (scopeChanged()) {
+        console.warn('[ReferenceCard] scope changed during upload — skipping stale apply')
+        return
+      }
+
+      onUpdate(index, {
+        ...reference,
+        name: effectiveName || reference.name,
+        // R36 fix: 디스크 저장 성공 시 base64 메모리 해제. useAutomation.js 는
+        // ref.data 없으면 ref.filePath 에서 readFileByPath fallback 이 있음.
+        data: savedFilePath ? null : base64,
+        mediaId: uploadedMediaId,
+        caption: uploadedCaption,
+        filePath: savedFilePath,
+        dataStorage: savedFilePath ? 'file' : 'base64',
+        // Codex #3: propagate Flow entity fields so manual upload yields mention-eligible ref.
+        // #R31-3: fresh entity 가 없으면(API 모드/엔티티 미반환 업로드) 옛 entityId/flowNameSyncStatus 를
+        //   비운다 — 안 그러면 ...reference 로 살아남아 새 이미지 ref 가 옛 캐릭터로 @mention 된다
+        //   (ReferenceDetailModal R16-3 정책과 동일).
+        ...(entityPatch || { entityId: null, workflowId: null, registered: null, flowNameSyncStatus: null }),
+        // R27 review fix 와 일관: 캐시 무효화용 timestamp
+        generatedAt: Date.now(),
+        // R34 + R35 review fix: 성공/스킵 시 'done', 실패 시 'error'.
+        status: finalStatus,
+        errorMessage: finalErrorMessage,
+      })
+
+      // #R33: 캐릭터 entity 등록 직후 목록 캐시/멘션 피커의 옛 이름 방지(비차단).
+      //   상세 DOM 반영 성공값만으로 마지막 목록 캐시까지 갱신됐다고 보지 않는다.
+      if (needsComposerRefresh(reference, uploadResult)) {
+        // 현재 replace-upload 작업이 tail 을 놓은 뒤 실행돼야 하므로 여기서는 예약만 한다.
+        void runFlowComposerRefresh({
+          ...flowOperationOpts,
+          shouldRun: typeof getScopeToken === 'function' ? () => getScopeToken() === startScope : undefined,
+        }).catch(() => {})
+      }
+     }
+     // #R34-fix: onUpload reject/예외 시에도 finishUpload() 보장 + unhandled rejection 방지.
+     try {
+       if (isFlowCharacter) {
+         const coordinated = await runFlowCharacterOperation({
+           ref: reference,
+           ...flowOperationOpts,
+           operation: 'replace-upload',
+           task: uploadAndPublish,
+         })
+         if (coordinated?.busy) console.warn('[ReferenceCard] Flow operation already in flight:', reference?.name)
+       } else {
+         await uploadAndPublish()
+       }
+     } catch (e) {
+       console.warn('[ReferenceCard] upload processing failed:', e?.message || e)
+     } finally {
+       finishUpload()
+     }
     }
     reader.readAsDataURL(file)
   }
@@ -129,7 +259,12 @@ export default function ReferenceCard({
   
   const typeInfo = REFERENCE_TYPES.find(t => t.value === reference.type) || REFERENCE_TYPES[0]
   const hasPrompt = reference.prompt && reference.prompt.trim().length > 0
-  const isBusy = isUploading || isGenerating
+  // #R34: reference.syncing 은 모달/일괄 동기화가 백그라운드로 업로드 중일 때 카드에 동일한
+  //   업로드 스피너(⏳)를 보이게 하는 전이 플래그(완료 시 false 로 해제).
+  const isBusy = isUploading || isGenerating || !!reference.syncing
+  // Sync 버튼/생성 게이트와 같은 술어를 쓴다 — 카드가 "성공"이라 하고 배지가 "미동기화"라 하는
+  //   모순이 구조적으로 불가능해진다.
+  const badgeState = refBadgeState(reference, appMode)
   const hasRefImage = hasImageData(reference)
   const refImgSrc = resolveImageSrc(reference)
 
@@ -139,6 +274,7 @@ export default function ReferenceCard({
         type="file"
         ref={fileInputRef}
         accept="image/*"
+        disabled={refBatchRunning}
         onChange={handleFileSelect}
         style={{ display: 'none' }}
       />
@@ -172,7 +308,9 @@ export default function ReferenceCard({
           </button>
           {showRemoveMenu && (
             <div className="remove-menu" onMouseLeave={() => setShowRemoveMenu(false)}>
-              <button onClick={() => { setShowRemoveMenu(false); onUpdate(index, { ...reference, data: null, filePath: null, mediaId: null, caption: null, dataStorage: null }) }}>
+              <button onClick={() => { setShowRemoveMenu(false); onUpdate(index, { ...reference, ...clearedImageFields() }) }}>
+                {/* #R29-1: 이미지 제거 시 Flow 캐릭터 엔티티 필드도 비운다 — 안 그러면 sceneMentions 가
+                    여전히 mention-eligible 로 보고 @name 이 옛 캐릭터를 주입한다(ReferenceDetailModal 과 동일 정책). */}
                 {t('reference.clearImage') || '이미지만 제거'}
               </button>
               <button onClick={() => { setShowRemoveMenu(false); onRemove(index) }}>
@@ -188,10 +326,20 @@ export default function ReferenceCard({
         onClick={() => {
           if (isBusy) return
           if (hasRefImage) {
-            onShowDetail(index) // 이미지 있으면 상세카드
-          } else {
-            fileInputRef.current?.click() // 없으면 파일 선택
+            onShowDetail(index) // 이미지 있으면 1클릭=상세카드
+            return
           }
+          // 빈 카드: 1클릭=상세(지연 — 더블클릭이면 취소), 더블클릭=업로드.
+          if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+          clickTimerRef.current = setTimeout(() => {
+            clickTimerRef.current = null
+            onShowDetail(index)
+          }, 250)
+        }}
+        onDoubleClick={() => {
+          if (isBusy || hasRefImage) return
+          if (clickTimerRef.current) { clearTimeout(clickTimerRef.current); clickTimerRef.current = null }
+          fileInputRef.current?.click() // 빈 카드 더블클릭=파일 선택
         }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -212,7 +360,7 @@ export default function ReferenceCard({
             )}
           </div>
         ) : hasRefImage ? (
-          <img
+          <LazyImage
             src={refImgSrc}
             alt={reference.name || 'Reference'}
             onMouseEnter={(e) => {
@@ -226,12 +374,15 @@ export default function ReferenceCard({
         ) : (
           <div className="ref-placeholder">
             <span className="icon">{typeInfo.label.split(' ')[0]}</span>
-            <span>{t('reference.upload')}</span>
+            <span>{t('reference.uploadHint') || t('reference.upload')}</span>
           </div>
         )}
         
-        {reference.mediaId && (
+        {badgeState === 'ok' && (
           <span className="uploaded-badge" title={t('reference.uploadedToFlow')}>✅</span>
+        )}
+        {badgeState === 'needs-sync' && (
+          <span className="needs-sync-badge" title={t('reference.needsFlowSync')}>⚠️</span>
         )}
       </div>
       

@@ -1,7 +1,3 @@
-/* =========================================================
-   ViraLoop Premium Sophisticated Light-White Theme
-   ========================================================= */
-
 /* Export Modal Overlay */
 .export-modal-overlay {
   position: fixed;
@@ -9,27 +5,26 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 23, 42, 0.35);
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(4px);
 }
 
 /* Export Modal Container */
 .export-modal {
-  background: #FFFFFF;
-  border-radius: 16px;
+  background: #1e1e1e;
+  border-radius: 12px;
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  border: 1px solid #E5E7EB;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid #333;
   position: relative;
 }
 
@@ -40,12 +35,12 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(30, 30, 30, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 .export-loading-content {
@@ -59,8 +54,8 @@
 .export-loading-spinner {
   width: 48px;
   height: 48px;
-  border: 4px solid #F3F4F6;
-  border-top-color: #3B82F6;
+  border: 4px solid #333;
+  border-top-color: #0084ff;
   border-radius: 50%;
   animation: export-spin 1s linear infinite;
 }
@@ -75,12 +70,12 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #1F2937;
+  color: #fff;
 }
 
 .export-loading-hint {
   font-size: 0.85rem;
-  color: #6B7280;
+  color: #888;
 }
 
 /* Export Modal Header */
@@ -89,8 +84,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #E5E7EB;
-  background: #F8F9FC;
+  border-bottom: 1px solid #333;
+  background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
 }
 
 .header-title-wrap {
@@ -102,26 +97,25 @@
 .export-modal-header h2 {
   margin: 0;
   font-size: 1.25rem;
-  font-weight: 700;
-  color: #1F2937;
+  color: #fff;
 }
 
 .header-trial-badge {
-  font-size: 0.72rem;
-  color: #D97706;
-  font-weight: 600;
+  font-size: 0.65rem;
+  color: #fbbf24;
+  font-weight: 400;
 }
 
 .header-pro-badge {
-  font-size: 0.72rem;
-  color: #4F46E5;
-  font-weight: 600;
+  font-size: 0.65rem;
+  color: #a78bfa;
+  font-weight: 400;
 }
 
 .export-modal-header .close-btn {
   background: transparent;
   border: none;
-  color: #9CA3AF;
+  color: #999;
   font-size: 1.25rem;
   cursor: pointer;
   padding: 0.5rem;
@@ -130,7 +124,7 @@
 }
 
 .export-modal-header .close-btn:hover {
-  color: #1F2937;
+  color: #fff;
   transform: rotate(90deg);
 }
 
@@ -144,14 +138,46 @@
   gap: 1rem;
 }
 
+/* Format Tabs — CapCut / Premiere 세그먼트 선택 */
+.export-format-tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: #1a1a1a;
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.export-format-tab {
+  flex: 1;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #aaa;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.export-format-tab:hover {
+  color: #fff;
+}
+
+.export-format-tab.active {
+  background: rgba(0, 132, 255, 0.18);
+  color: #fff;
+  box-shadow: inset 0 0 0 1.5px #0084ff;
+}
+
 /* Format Card */
 .export-format-card {
-  background: #FFFFFF;
-  border: 2px solid #3B82F6;
-  border-radius: 12px;
-  padding: 1.1rem;
-  background: rgba(59, 130, 246, 0.03);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+  background: #2a2a2a;
+  border: 2px solid #0084ff;
+  border-radius: 8px;
+  padding: 1rem;
+  background: rgba(0, 132, 255, 0.1);
 }
 
 .format-header {
@@ -173,20 +199,19 @@
 .format-info h3 {
   margin: 0 0 0.25rem 0;
   font-size: 1rem;
-  font-weight: 700;
-  color: #1F2937;
+  color: #fff;
 }
 
 .format-description {
   margin: 0;
   font-size: 0.8rem;
-  color: #4B5563;
+  color: #999;
 }
 
 .format-details {
   padding-left: 2.5rem;
   font-size: 0.85rem;
-  color: #4B5563;
+  color: #aaa;
 }
 
 .format-details p {
@@ -201,61 +226,59 @@
 
 .output-label {
   font-weight: 600;
-  color: #4B5563;
+  color: #999;
   font-size: 0.8rem;
 }
 
 .format-output code {
-  background: rgba(59, 130, 246, 0.08);
-  color: #2563EB;
+  background: rgba(0, 132, 255, 0.15);
+  color: #0084ff;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   font-size: 0.8rem;
-  font-weight: 600;
 }
 
 /* Option Sections */
 .export-option-section {
-  background: #F8F9FC;
-  border-radius: 12px;
-  padding: 1.1rem;
-  border: 1px solid #E5E7EB;
+  background: #2a2a2a;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #333;
 }
 
 .option-label {
   display: block;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
   margin-bottom: 0.5rem;
-  color: #374151;
+  color: #ccc;
 }
 
 .folder-input {
   width: 100%;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #D1D5DB;
-  border-radius: 8px;
+  border: 1px solid #444;
+  border-radius: 6px;
   font-size: 0.85rem;
   font-family: monospace;
-  background: #FFFFFF;
-  color: #1F2937;
+  background: #1a1a1a;
+  color: #fff;
   box-sizing: border-box;
 }
 
 .folder-input:focus {
   outline: none;
-  border-color: #3B82F6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #0084ff;
 }
 
 .folder-input::placeholder {
-  color: #9CA3AF;
+  color: #666;
 }
 
 .option-hint {
   font-size: 0.75rem;
-  color: #6B7280;
+  color: #888;
   margin: 0.5rem 0 0 0;
   line-height: 1.5;
 }
@@ -266,14 +289,13 @@
   gap: 0.5rem;
   cursor: pointer;
   font-size: 0.9rem;
-  font-weight: 500;
-  color: #374151;
+  color: #ccc;
 }
 
 .checkbox-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: #3B82F6;
+  accent-color: #0084ff;
   cursor: pointer;
 }
 
@@ -291,237 +313,26 @@
   gap: 4px;
   cursor: pointer;
   font-size: 0.85rem;
-  color: #374151;
+  color: #ccc;
 }
 
 .radio-label input[type="radio"] {
-  accent-color: #F59E0B;
+  accent-color: #ffc107;
   cursor: pointer;
 }
 
-/* Path Preview Card - Accent success & custom */
-.path-preview-card {
-  background: #FFFFFF;
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
-  box-sizing: border-box;
-}
-
-.path-preview-card.accent-success {
-  border: 1px solid #BBF7D0;
-  background: #F0FDF4;
-}
-
-.path-preview-card.accent-custom {
-  border: 1px solid #C7D2FE;
-  background: #EEF2FF;
-}
-
-.path-preview-label {
-  font-size: 0.85em;
-  font-weight: 700;
-}
-
-.path-preview-card.accent-success .path-preview-label {
-  color: #15803D;
-}
-
-.path-preview-card.accent-custom .path-preview-label {
-  color: #4338CA;
-}
-
-/* Reset Path Button */
-.path-reset-btn {
-  font-size: 0.75em;
-  padding: 3px 10px;
-  border: 1px solid #D1D5DB;
-  border-radius: 4px;
-  background: #FFFFFF;
-  color: #4B5563;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.path-reset-btn:hover {
-  background: #F9FAFB;
-  color: #1F2937;
-  border-color: #9CA3AF;
-}
-
-/* Preset Selectors inside Card */
-.path-preset-btn {
-  padding: 4px 12px;
-  font-size: 0.78em;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-sizing: border-box;
-}
-
-.path-preset-btn.active {
-  border: 2px solid #4F46E5;
-  background: #EEF2FF;
-  color: #4338CA;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.05);
-}
-
-.path-preset-btn.inactive {
-  border: 1px solid #D1D5DB;
-  background: #FFFFFF;
-  color: #4B5563;
-  font-weight: 400;
-}
-
-.path-preset-btn.inactive:hover {
-  border-color: #9CA3AF;
-  color: #1F2937;
-}
-
-/* Input Fields & Textareas (Sleek light-white inputs) */
-.path-input-field {
-  flex: 1;
-  font-size: 0.85em;
-  color: #1F2937;
-  font-weight: 500;
-  background: #FFFFFF;
-  border: 1px solid #D1D5DB;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-family: monospace;
-  box-sizing: border-box;
-}
-
-.path-input-field:focus {
-  outline: none;
-  border-color: #4F46E5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-/* Copy Button */
-.path-copy-btn {
-  padding: 8px 12px;
-  border: 1px solid #D1D5DB;
-  border-radius: 8px;
-  background: #FFFFFF;
-  cursor: pointer;
-  font-size: 0.9em;
-  color: #1F2937;
-  transition: all 0.2s ease;
-}
-
-.path-copy-btn:hover {
-  background: #F9FAFB;
-  border-color: #9CA3AF;
-}
-
-/* Path Search Commands Guide Card */
-.path-guide-card {
-  background: #F9FAFB;
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1px solid #E5E7EB;
-  font-size: 0.8em;
-  color: #4B5563;
-}
-
-.path-guide-card-title {
-  margin: 0 0 6px 0;
-  font-size: 0.9em;
-  color: #C2410C;
-  font-weight: 700;
-}
-
-.path-guide-card code {
-  display: block;
-  background: #F3F4F6;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 0.9em;
-  word-break: break-all;
-  color: #B91C1C;
-  user-select: all;
-  cursor: text;
-  border: 1px solid #E5E7EB;
-}
-
-/* Dropdowns & Select elements */
-.export-option-section select {
-  border: 1px solid #D1D5DB;
-  background: #FFFFFF;
-  color: #1F2937;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  width: 100%;
-}
-
-.export-option-section select:focus {
-  outline: none;
-  border-color: #3B82F6;
-}
-
-/* Ken Burns Option Form Fields */
-.kb-dropdown {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #D1D5DB;
-  background: #FFFFFF;
-  color: #1F2937;
-  font-size: 0.88rem;
-}
-
-.kb-dropdown:focus {
-  outline: none;
-  border-color: #4F46E5;
-}
-
-.kb-number-input {
-  width: 65px;
-  padding: 6px;
-  border-radius: 6px;
-  border: 1px solid #D1D5DB;
-  background: #FFFFFF;
-  color: #1F2937;
-  text-align: center;
-  font-size: 0.88rem;
-}
-
-.kb-number-input:focus {
-  outline: none;
-  border-color: #4F46E5;
-}
-
-.kb-param-label {
-  font-size: 0.88rem;
-  color: #374151;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-}
-
-.kb-param-span {
-  color: #374151;
-  font-size: 0.88rem;
-  font-weight: 500;
-}
-
-/* modernized export guide card info box */
+/* Export Info */
 .export-info {
-  background: rgba(59, 130, 246, 0.03);
-  border-radius: 12px;
-  padding: 1.25rem;
-  border: 1px solid #BFDBFE;
+  background: rgba(0, 132, 255, 0.05);
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid rgba(0, 132, 255, 0.2);
 }
 
 .export-info h4 {
-  color: #1E40AF;
-  font-weight: 700;
   margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  color: #0084ff;
 }
 
 .export-info ul {
@@ -531,33 +342,16 @@
 }
 
 .export-info li {
-  color: #374151;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  font-size: 0.82rem;
-}
-
-.export-info li.highlight-path {
-  color: #C2410C;
-  font-weight: 700;
-}
-
-.export-tip {
-  margin-top: 12px;
-  font-size: 0.8em;
-  color: #4B5563;
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
-  padding: 8px 12px;
-  border-radius: 8px;
-  line-height: 1.5;
+  margin-bottom: 0.35rem;
+  color: #aaa;
+  font-size: 0.8rem;
 }
 
 /* Export Modal Footer */
 .export-modal-footer {
   padding: 1rem 1.25rem;
-  border-top: 1px solid #E5E7EB;
-  background: #F8F9FC;
+  border-top: 1px solid #333;
+  background: #1a1a1a;
 }
 
 .export-actions {
@@ -589,33 +383,28 @@
 }
 
 .subscription-badge.pro {
-  background: #EEF2FF;
-  color: #4338CA;
-  border: 1px solid #C7D2FE;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2));
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.4);
 }
 
 .export-btn-upgrade {
-  background: linear-gradient(135deg, #4F46E5, #6366F1);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: #fff;
   font-size: 0.75rem;
   padding: 0.4rem 0.75rem;
   white-space: nowrap;
-  border-radius: 6px;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
 
 .export-btn-upgrade:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
 
 .export-btn {
   padding: 0.6rem 1.25rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -623,34 +412,31 @@
 }
 
 .export-btn-cancel {
-  background: #FFFFFF;
-  color: #4B5563;
-  border: 1px solid #D1D5DB;
+  background: #333;
+  color: #999;
   white-space: nowrap;
 }
 
 .export-btn-cancel:hover {
-  background: #F9FAFB;
-  color: #1F2937;
-  border-color: #9CA3AF;
+  background: #444;
+  color: #fff;
 }
 
 .export-btn-export {
-  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  background: linear-gradient(135deg, #0084ff 0%, #0070dd 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 132, 255, 0.3);
   white-space: nowrap;
 }
 
 .export-btn-export:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+  background: linear-gradient(135deg, #0070dd 0%, #005fbb 100%);
+  box-shadow: 0 4px 8px rgba(0, 132, 255, 0.4);
   transform: translateY(-1px);
 }
 
 .export-btn-export:disabled {
-  background: #E5E7EB;
-  color: #9CA3AF;
+  background: #555;
   cursor: not-allowed;
   box-shadow: none;
   opacity: 0.6;
@@ -662,14 +448,72 @@
 }
 
 .export-modal-content::-webkit-scrollbar-track {
-  background: #FFFFFF;
+  background: #1a1a1a;
 }
 
 .export-modal-content::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: #444;
   border-radius: 3px;
 }
 
 .export-modal-content::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: #555;
+}
+
+/* ── pending 씬 포함/배제 다이얼로그 ──────────────────────────────────
+   내보내기 모달 위에 겹쳐 뜬다. 형제로 나란히 놓이면 뒤의 옵션이 계속
+   클릭 가능해서, preflight 때 캡처한 옵션과 사용자가 나중에 바꾼 값이
+   갈린다 — 그래서 자체 백드롭으로 덮는다. */
+.pending-choice-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 20px;
+}
+
+.pending-choice {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.pending-choice-message {
+  margin: 0 0 8px;
+  color: #eee;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* 낡은 이미지일 수 있다는 경고 — 결정에 필요한 정보라 죽이지 않되,
+   본문보다는 한 단계 낮춘다. */
+.pending-choice-caveat {
+  margin: 0 0 20px;
+  color: #b0b0b0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pending-choice-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.pending-choice-actions .export-btn {
+  flex: 1 1 auto;
+  min-width: 88px;
 }

@@ -121,7 +121,14 @@
         "xlsx": "^0.18.5",
         "zod": "^3.22.4",
         "zundo": "^2.3.0",
-        "zustand": "^4.4.7"
+        "zustand": "^4.4.7",
+        "@lexical/react": "^0.45.0",
+        "lexical": "^0.45.0",
+        "lexical-beautiful-mentions": "^0.1.48",
+        "mpg123-decoder": "^1.0.3",
+        "music-metadata": "^11.13.0",
+        "@tanstack/react-virtual": "^3.14.6",
+        "react-error-boundary": "^4.1.2"
     },
     "overrides": {
         "remotion": "^4.0.475",

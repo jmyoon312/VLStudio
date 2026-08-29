@@ -1,0 +1,2507 @@
+/* ============================================
+   App Root (Split mode only — no tab bar)
+   ============================================ */
+
+.app-root {
+  height: 100vh;
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+/* ============================================
+   Split View Layout
+   ============================================ */
+
+.shell-root {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-content-split {
+  height: 100%;
+  overflow: hidden;
+  background: #1a1a2e;
+}
+
+.app-content-split .app-root {
+  padding-top: 0;
+  height: 100%;
+}
+
+.app-content-split .app {
+  height: calc(100% - 4px);
+}
+
+/* Resizer */
+.split-resizer {
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.split-resizer:hover,
+.split-resizer:active {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.split-resizer-handle {
+  position: absolute;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.15s;
+}
+
+.split-resizer:hover .split-resizer-handle,
+.split-resizer:active .split-resizer-handle {
+  background: rgba(99, 102, 241, 0.8);
+}
+
+/* 좌우 분할 시 handle */
+.shell-root.split-mode .split-resizer[style*="col-resize"] .split-resizer-handle {
+  width: 2px;
+  height: 40px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* 상하 분할 시 handle */
+.shell-root.split-mode .split-resizer[style*="row-resize"] .split-resizer-handle {
+  width: 40px;
+  height: 2px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ============================================
+   AutoFlowCut - Global & Layout Styles
+   (from Chrome extension App.css)
+   ============================================ */
+
+/* ============================================
+   CSS Variables & Reset
+   ============================================ */
+
+:root {
+  --bg-color: #1a202c;
+  --bg-secondary: #2d3748;
+  --text-color: #e2e8f0;
+  --text-secondary: #a0aec0;
+  --primary-color: #4299e1;
+  --success-color: #48bb78;
+  --warning-color: #ecc94b;
+  --error-color: #f56565;
+  --border-color: #4a5568;
+  --border-radius: 8px;
+  --font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
+  --gutter-w: 2rem;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: var(--font-family);
+  font-size: 14px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  /* 뷰포트를 꽉 채운다. (옛 -40px 는 제거된 하단 footer/StatusBar 잔재 — 지금 StatusBar 는
+     bottom-panel 안에 있어 그 자리를 쓰는 요소가 없었고, API 모드에서만 40px 빈 하단마진이 남았다.
+     flow 모드는 .app-content-split .app 가 100%-4px 로 채워 갭이 없었다.) */
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ============================================
+   Flow mode split-view layout (§3.4)
+   Flow WebContentsView occupies the RIGHT 50%.
+   The renderer content is constrained to the LEFT half
+   so it does not overlap the overlaid Flow view.
+   api mode = unchanged full-width (no class applied).
+   ============================================ */
+/* flow 모드: split 박스 크기는 Shell(.app-content-split, splitAppStyle)이 제어한다.
+   App 은 그 박스를 100% 채운다 (예전의 width:50% 이중 축소 제거 — Shell 리사이저 복원). */
+.app.mode-flow-split {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Project Loading Overlay */
+.project-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ccc;
+  font-size: 14px;
+  backdrop-filter: blur(2px);
+}
+.project-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ============================================
+   Main Panel & Tabs
+   ============================================ */
+
+/* Main Panel */
+.main-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  overflow: hidden;
+  min-height: 0;
+  container-type: inline-size;
+  container-name: main-panel;
+}
+
+/* Story 뷰 가드 (로컬 저장 모드 안내) */
+.story-guard {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+/* Tabs */
+.tabs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+/* 고정 탭 (프롬프트, 가져오기) — 텍스트 포함, 줄어들지 않음 */
+.tab-fixed {
+  flex-shrink: 0;
+}
+
+/* 왼쪽 그룹: 생성 탭 (프롬프트, 비디오, F→V, R→V) */
+.tabs-left {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* 오른쪽 그룹: 관리 탭 (씬목록, Ref, 가져오기) */
+.tabs-right {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tab {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 아이콘만 표시하는 탭 — 컴팩트 */
+.tab.tab-icon {
+  padding: 8px 12px;
+  font-size: 1rem;
+}
+
+.tab.active {
+  background: var(--bg-secondary);
+  color: var(--primary-color);
+  border-bottom-color: var(--bg-secondary);
+}
+
+/* 탭 텍스트 라벨 — 좁으면 숨김 */
+.tab-label {
+  display: inline;
+}
+
+.btn-icon {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-color);
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   Tab Content & Prompt Input
+   ============================================ */
+
+/* Tab Content */
+.tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-content-inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 편집 영역(좌: 콘텐츠+액션버튼) | 프리뷰 모니터(우). 모니터가 둘을 아우르는 우측 컬럼. */
+.editor-row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  /* row-reverse: 프리뷰 모니터를 좌측, board(콘텐츠+액션) 를 우측으로. resizer 수학도 left 기준으로 flip. */
+  flex-direction: row-reverse;
+}
+.editor-col {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.content-monitor {
+  flex: 0 0 auto; /* 폭은 inline style(monitorWidth) */
+  /* 저장된 큰 폭(예: 큰 화면에서 2000px)이 작은 창에서 패널을 밀어내지 않도록 렌더 시
+     캡 — 드래그 상한(90%)과 동일. JS 재-clamp 없이 레이아웃 안전 보장. */
+  max-width: 90%;
+  align-self: stretch;
+  min-height: 180px;
+  background: #0d0d0d;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative; /* content-monitor-tools(absolute) 기준 */
+}
+/* 모니터 우상단 도구(전체화면 ⛶ · flow 닫기 ✕) */
+.content-monitor-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+}
+.content-monitor-tool {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.6);
+  color: #ddd;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.content-monitor-tool:hover {
+  border-color: #4a9eff;
+  color: #fff;
+}
+/* 프리뷰 마스터 볼륨 슬라이더 — 도구모음에 컴팩트하게. accent-color 로 Chromium 트랙/썸 색만. */
+.content-monitor-volume {
+  width: 64px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: #4a9eff;
+  vertical-align: middle;
+}
+/* 모니터 전체화면(CSS maximize) — 윈도우 전체를 덮는다. Flow 뷰는 setModalVisible 로 접혀 있어
+   가리지 않는다. DOM Fullscreen API 미사용(복원 race 회피). */
+.content-monitor--max {
+  position: fixed;
+  inset: 0;
+  width: 100% !important;
+  height: 100vh;
+  max-width: none;
+  border-radius: 0;
+  /* 앱 모달(.modal-overlay z:1000)보다 아래 — 전체화면 중 모달이 떠도 모달이 위에 보이게. */
+  z-index: 990;
+  background: #000;
+}
+/* 전체화면 모니터 하단 트랜스포트(재생/정지) */
+.content-monitor-transport {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.8);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(4px);
+}
+.content-monitor-tbtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.content-monitor-tbtn:hover {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.2);
+}
+/* 전체화면 트랜스포트 안의 뮤트/볼륨 — 재생 버튼(40px 원형)과 정렬·크기 맞춤. */
+.content-monitor-transport {
+  align-items: center;
+}
+.content-monitor-transport .content-monitor-mute {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.content-monitor-transport .content-monitor-mute:hover {
+  border-color: #4a9eff;
+  background: rgba(74, 158, 255, 0.2);
+}
+.content-monitor-transport .content-monitor-volume {
+  width: 100px;
+  height: 40px;
+}
+/* 패널 ↔ 모니터 좌우 리사이저 */
+.content-monitor-resizer {
+  flex: 0 0 8px;
+  cursor: col-resize;
+  position: relative;
+  background: transparent;
+}
+/* 보이는 그립은 가로 리사이저처럼 짧게(중앙). 드래그 히트영역은 전체 높이(.content-monitor-resizer). */
+.content-monitor-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+  background: var(--border-color);
+  transition: background 0.15s, height 0.15s;
+}
+.content-monitor-resizer:hover::after {
+  background: var(--text-secondary);
+  height: 60px;
+}
+
+/* Prompt Input */
+.prompt-input-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── 프롬프트 입력창 윤기/광택 — "등장 인트로" (처음 ~2.6초만 반짝) ─────
+   처음 보일 때만 테두리 글로우 링이 돌고, 외곽 bloom + 표면 sheen 이 흐른다.
+   인트로(.intro)가 끝나면(JS 가 2.6초 뒤 클래스 제거) 원래 입력창 그대로.
+   Electron(Chromium) 전용 — @property / conic-gradient / mask 사용. */
+@property --af-gloss-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.prompt-textarea-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--border-radius);
+  isolation: isolate;
+}
+
+/* 도는 하이라이트 테두리 (mask 로 1.5px 링만 남김) — 기본은 숨김 */
+.prompt-textarea-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;                 /* textarea 모서리 위에 링을 그린다 */
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--af-gloss-angle),
+    rgba(255, 255, 255, 0.06),
+    #6ee7ff 0.16turn,
+    #a78bfa 0.30turn,
+    #f0abfc 0.44turn,
+    rgba(255, 255, 255, 0.06) 0.6turn,
+    rgba(255, 255, 255, 0.06)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+          mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+/* 부드러운 외곽 글로우 — 기본은 숨김 */
+.prompt-textarea-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 16px 0 rgba(124, 134, 255, 0.22);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+/* ── 인트로: 처음 ~2.6초만 반짝 ── */
+.prompt-textarea-wrap.intro::before {
+  opacity: 1;
+  animation: af-gloss-spin 2.5s linear infinite;
+}
+.prompt-textarea-wrap.intro::after {
+  opacity: 1;
+  animation: af-gloss-breathe 3.4s ease-in-out infinite;
+}
+
+/* Lexical contentEditable — textarea 와 동일한 시각 metric 유지 */
+.prompt-textarea-content {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.prompt-textarea {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 12px 12px 12px calc(var(--gutter-w, 2rem) + 12px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  font-family: inherit;
+  outline: none;
+  overflow-y: auto;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  /* §3.5.1 줄번호 거터: counter-reset 은 editor root 에 선언 — paragraph 들이 1부터 증가 */
+  counter-reset: scene-line;
+}
+.prompt-textarea:focus {
+  border-color: var(--primary-color);
+}
+/* compact(상세/Ref 모달): 단일 프롬프트라 줄번호 거터 불필요 — 번호 숨김 + 왼쪽 패딩 정상화. */
+.prompt-textarea-wrap.compact .prompt-textarea {
+  padding-left: 12px;
+}
+.prompt-textarea-wrap.compact .prompt-paragraph::before {
+  content: none;
+}
+.prompt-textarea-wrap.disabled .prompt-textarea {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+/* paragraph 사이 간격 — 기본 0 (textarea 시절과 시각 동등). 줄바꿈은 새 paragraph 가 만든다. */
+/* §3.5.1: 줄번호 거터 — counter-increment 로 씬 번호(1·2·3…)를 자동 부여. */
+.prompt-paragraph {
+  margin: 0;
+  position: relative;
+  counter-increment: scene-line;
+}
+/* 씬 번호 — paragraph 의 첫 줄 왼쪽 거터에 표시. wrap 된 긴 줄은 첫 줄에만 붙음(::before = block start). */
+.prompt-paragraph::before {
+  content: counter(scene-line);
+  position: absolute;
+  left: calc(-1 * (var(--gutter-w, 2rem) + 12px - 4px));
+  top: 0;
+  width: calc(var(--gutter-w, 2rem) - 4px);
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-secondary, #888);
+  opacity: 0.5;
+  user-select: none;
+  pointer-events: none;
+}
+/* 숫자를 가운데 정렬(::before)하고, 링을 번호 박스 중심에 동심으로 맞춘다. 번호 박스는
+   left = -(gutter-w+8), width = gutter-w-4 → 중심 = -(gutter-w/2 + 10). 링(18px)의 중심을
+   그 지점에 두면(left = 중심 - 9) 한 자리/두 자리 무관하게 숫자가 링 정중앙에 온다. */
+.prompt-paragraph.is-busy::after {
+  content: '';
+  position: absolute;
+  left: calc(-1 * (var(--gutter-w, 2rem) / 2 + 19px));
+  top: 0;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--border-color);
+  border-top-color: var(--warning-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  pointer-events: none;
+}
+/* placeholder — RichTextPlugin 이 빈 상태에서만 표시 */
+/* §3.5.1: 거터 폭만큼 left 보정 — 텍스트와 동일한 x 위치에 정렬. */
+.prompt-placeholder {
+  position: absolute;
+  top: 13px;
+  left: calc(var(--gutter-w, 2rem) + 13px);
+  /* 플레이스홀더는 여러 줄(예시 3줄)이다. 아래/오른쪽 경계와 클리핑이 없으면 wrap 을 넘쳐
+     바로 아래 .prompt-input-footer(줄 수 · Seed · Tip) 글자 위에 겹쳐 그려진다.
+     textarea 안쪽 여백(padding 12px + border 1px)에 맞춰 가둔다. */
+  right: 13px;
+  bottom: 13px;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  color: var(--text-secondary, #888);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  z-index: 2;
+}
+
+/* ── Mention chip — 인라인, 썸네일 + 이름. Backspace 한 번에 통째 삭제 (Lexical decorator). */
+.mention-chip-base {
+  /* BeautifulMentionsPlugin theme 가 노드에 항상 부여 — 자체 스타일은 거의 없음.
+     실제 시각은 chip 컴포넌트의 .mention-chip 이 담당. */
+  display: inline;
+}
+.mention-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px 1px 2px;
+  margin: 0 1px;
+  background: rgba(110, 231, 255, 0.18);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  vertical-align: baseline;
+  white-space: nowrap;
+  user-select: all; /* 통째 선택 — backspace 시 chip 단위 삭제 */
+}
+/* chip 썸네일 — height 고정, width auto 로 원본 비율 유지 (16:9 / 9:16 등).
+   max-width 로 너무 길어지는 가로 이미지는 캡, min-width 로 너무 가는 세로
+   이미지는 최소 폭 확보. */
+.mention-chip-thumb {
+  height: 16px;
+  width: auto;
+  min-width: 12px;
+  max-width: 32px;
+  object-fit: contain;
+  border-radius: 2px;
+  background: var(--bg, #1a1a1a);
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.mention-chip-thumb.empty {
+  display: inline-block;
+  width: 16px;
+  background: var(--bg-tertiary, #222);
+}
+.mention-chip-label {
+  color: var(--text-color);
+}
+.mention-chip-base-focused .mention-chip {
+  outline: 2px solid var(--primary-color, #6ee7ff);
+}
+
+/* unmatched @xxx — Phase A 의 빨간 wavy underline 을 Lexical 노드로 복원.
+   UnknownMentionTextNode 가 createDOM 에서 이 클래스를 부여한다. */
+.prompt-textarea .unknown-mention {
+  text-decoration: underline wavy var(--danger-color, #e5484d);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+/* ── Mention menu — `@` 입력 시 드롭다운 */
+.mention-menu {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  background: var(--bg-secondary, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  max-height: 320px;
+  overflow-y: auto;
+  /* position 이 없으면 z-index 가 무시돼(static), 상세 모달의 .modal-overlay(z-index:1000)
+     반투명 배경 뒤로 메뉴가 가려진다. relative 로 z-index 를 활성화해 오버레이 위로 띄운다. */
+  position: relative;
+  z-index: 10003;
+  min-width: 200px;
+  max-width: 380px;
+}
+.mention-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-color, #ddd);
+}
+.mention-menu-item.selected,
+.mention-menu-item:hover {
+  background: var(--bg-hover, #3a3a3a);
+}
+.mention-menu-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--bg, #1a1a1a);
+  border: 1px solid var(--border-color, #444);
+  flex-shrink: 0;
+}
+.mention-menu-thumb.empty {
+  background: var(--bg-tertiary, #222);
+  display: inline-block;
+}
+.mention-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.mention-menu-type {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  text-transform: lowercase;
+}
+
+/* 인트로 동안만 표면 윤기: ① 흐르는 대각선 sheen ② 위 광택 ③ 베이스색
+   (모두 background 레이어 = 텍스트 뒤라 가독성 유지) */
+.prompt-textarea-wrap.intro .prompt-textarea {
+  border-color: transparent;   /* 인트로 땐 글로우 링이 테두리 역할 */
+  background:
+    linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.10) 50%, transparent 58%) 0 0 / 250% 100% no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 42%) 0 0 / 100% 100% no-repeat,
+    var(--bg-secondary);
+  animation: af-surface-sheen 1.3s ease-in-out infinite;
+}
+
+.prompt-textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.prompt-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+@keyframes af-gloss-spin {
+  to { --af-gloss-angle: 360deg; }
+}
+
+@keyframes af-gloss-breathe {
+  0%, 100% { box-shadow: 0 0 13px 0 rgba(110, 231, 255, 0.16); }
+  50%      { box-shadow: 0 0 22px 2px rgba(167, 139, 250, 0.30); }
+}
+
+/* 표면 sheen 이 좌우로 흐른다 (3개 background 레이어 → position 3개) */
+@keyframes af-surface-sheen {
+  0%   { background-position: 150% 0, 0 0, 0 0; }
+  100% { background-position: -150% 0, 0 0, 0 0; }
+}
+
+/* 모션 최소화 선호 시 애니메이션 정지 */
+@media (prefers-reduced-motion: reduce) {
+  .prompt-textarea-wrap.intro::before,
+  .prompt-textarea-wrap.intro::after,
+  .prompt-textarea-wrap.intro .prompt-textarea {
+    animation: none;
+  }
+  .prompt-paragraph.is-busy::after {
+    animation: none;
+  }
+}
+
+.prompt-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  row-gap: 6px;
+  padding: 8px 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  /* 창이 짧아지면 footer 가 눌려(flex-shrink 기본 1) 내용이 박스 밖으로 넘치고, align-items:center
+     때문에 위로 넘친 부분이 프롬프트 박스 뒤로 숨는다. 줄어들지 않게 고정한다. */
+  flex: 0 0 auto;
+  /* .prompt-textarea-wrap 은 position:relative(positioned)라 페인트 순서상 비-positioned 형제인
+     footer 의 인라인 콘텐츠보다 나중에 그려진다(DOM 순서 무관). 겹치는 순간 Seed 행이 박스 뒤로
+     사라지므로 footer 도 stacking 에 참여시켜 위로 올린다. */
+  position: relative;
+  z-index: 2;
+}
+
+.prompt-input-footer .prompt-footer-extra {
+  display: inline-flex;
+  align-items: center;
+}
+
+.prompt-input-footer .line-count {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Tip: 한 줄이면 space-between 으로 오른쪽 끝에 붙고, 다 못 들어가면 flex-wrap 으로 자체 줄로
+   내려가 2줄 wrap (좁은 Flow split pane 에서 seed 컨트롤과 겹치던 회귀 차단).
+   flex-grow:0 라 한 줄일 때 남는 공간을 채우지 않아 우측 정렬 유지. */
+.prompt-input-footer .hint {
+  flex: 0 1 auto;
+  white-space: normal;
+}
+
+/* ── PromptInput @ mention dropdown ──────────────────────────────────
+   `@` 입력 시 references 목록을 썸네일과 함께 노출. portal → document.body
+   로 렌더되므로 textarea 의 overflow 컨테이너에 안 잘림. */
+.prompt-mention-dropdown {
+  z-index: 10003;
+  background: var(--bg-secondary, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+}
+.prompt-mention-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-color, #ddd);
+}
+.prompt-mention-option:hover,
+.prompt-mention-option.highlighted {
+  background: var(--bg-hover, #3a3a3a);
+}
+.prompt-mention-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--bg, #1a1a1a);
+  border: 1px solid var(--border-color, #444);
+}
+.prompt-mention-thumb.empty {
+  background: var(--bg-tertiary, #222);
+}
+.prompt-mention-option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.prompt-mention-type {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  text-transform: lowercase;
+}
+
+/* Seed control (between line-count and hint) */
+.seed-control {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.seed-control .seed-label {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  user-select: none;
+}
+
+.seed-control .seed-input {
+  width: 88px;
+  min-width: 60px;
+  padding: 3px 6px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 4px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.05));
+  color: var(--text-primary, inherit);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.seed-control .seed-input::placeholder {
+  opacity: 0.4;
+  font-style: italic;
+}
+
+.seed-control .seed-input:focus {
+  outline: none;
+  border-color: var(--accent, #4a9eff);
+}
+
+.seed-control .seed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.seed-control .seed-btn:hover:not(:disabled) {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.seed-control .seed-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.seed-control .seed-lock.locked {
+  opacity: 1;
+  background: rgba(74, 158, 255, 0.18);
+  border-color: rgba(74, 158, 255, 0.45);
+}
+
+/* ============================================
+   Video Panel (FrameToVideo / RefToVideo)
+   ============================================ */
+
+.video-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.video-panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.video-panel-header {
+  flex-shrink: 0;
+}
+
+.video-panel-description {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+/* Mapping Table */
+.video-mapping-table {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mapping-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--border-radius);
+  background: var(--bg-secondary);
+}
+
+.mapping-row.mapping-header {
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 4px 8px;
+}
+
+.mapping-col {
+  flex-shrink: 0;
+}
+
+.col-num {
+  width: 24px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.col-image {
+  width: 140px;
+}
+
+.col-refs {
+  width: 240px;
+}
+
+.col-prompt {
+  flex: 1;
+  min-width: 0;
+}
+
+.col-prompt input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.82rem;
+}
+
+.prompt-source-toggle {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  cursor: pointer;
+  /* col-prompt(flex:1, min-width:0)가 좁아지면 행의 input(width:100%)처럼 select 도 같이 줄어
+     col-status 헤더와 겹치지 않게. (없으면 select 고유폭이 박스를 오버플로우.) */
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.prompt-source-toggle:hover {
+  border-color: var(--accent-color, #6495ed);
+}
+
+.col-status {
+  /* 에러 상태에선 배지 + 재시도 버튼이 inline 으로 들어가므로 80px 로는 부족.
+     auto 폭 + min-width 로 정상 상태(텍스트) 와 에러 상태(배지+버튼) 양쪽 다 깔끔하게. */
+  min-width: 110px;
+  font-size: 0.78rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 에러 배지 + 재시도 버튼 그룹 — 같은 행, 일정한 gap, 가운데 정렬 */
+.status-error-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* 클릭 불가한 status badge — .status.error 베이스가 cursor:pointer 라 misleading.
+   .status-badge 변형은 단순 표시용이므로 default cursor 로 되돌린다. */
+.status.status-badge {
+  cursor: default;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 재시도 아이콘 버튼 — btn-remove (✕) 와 동일한 24x24 베이스로 행 우측 액션들이
+   시각적으로 정렬됨. hover 는 accent 강조 (btn-remove 의 destructive red 와 구분). */
+.btn-icon-retry {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.btn-icon-retry:hover:not(:disabled) {
+  border-color: var(--accent, #3b82f6);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.btn-icon-retry:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.col-action {
+  width: 28px;
+}
+
+/* Scene Select with Thumbnail */
+.scene-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scene-select-wrapper select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.78rem;
+}
+
+.scene-thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.scene-thumb-clickable {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.scene-thumb-clickable:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 6px rgba(100, 149, 237, 0.6);
+  border-radius: 3px;
+}
+
+/* Custom Scene Dropdown (with thumbnails) */
+.scene-dropdown {
+  position: relative;
+  width: 100%;
+}
+.scene-dropdown.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.scene-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  cursor: pointer;
+  min-height: 30px;
+  font-size: 0.78rem;
+  color: var(--text-color);
+}
+.scene-dropdown.open .scene-dropdown-trigger {
+  border-color: cornflowerblue;
+  box-shadow: 0 0 0 1px cornflowerblue;
+}
+.scene-dropdown-trigger:hover {
+  border-color: var(--text-secondary);
+}
+.scene-dropdown-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.scene-dropdown-thumb-clickable {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.scene-dropdown-thumb-clickable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 6px rgba(100, 149, 237, 0.6);
+}
+.scene-dropdown-empty-thumb {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+.scene-dropdown-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scene-dropdown-arrow {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+.scene-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  min-width: 180px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  z-index: 100;
+  padding: 3px;
+}
+.scene-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-color);
+  transition: background 0.1s;
+}
+.scene-dropdown-item:hover {
+  background: var(--hover-bg, rgba(100, 149, 237, 0.15));
+}
+.scene-dropdown-item.selected {
+  background: rgba(100, 149, 237, 0.35);
+  font-weight: 600;
+  border-left: 3px solid cornflowerblue;
+  padding-left: 3px;
+}
+.scene-dropdown-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dropdown Gallery Section */
+.scene-dropdown-divider {
+  padding: 4px 8px;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-color);
+  margin-top: 4px;
+  padding-top: 6px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.scene-dropdown-item.gallery-item {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.scene-dropdown-item.gallery-load-btn {
+  color: cornflowerblue;
+  font-style: italic;
+  cursor: pointer;
+}
+.scene-dropdown-item.gallery-load-btn:hover {
+  background: rgba(100, 149, 237, 0.15);
+}
+.scene-dropdown-item.gallery-loading {
+  color: var(--text-secondary);
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* Reference Chips */
+.ref-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ref-chip.selected {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.ref-chip-thumb {
+  width: 16px;
+  height: 16px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.ref-chip-remove {
+  font-size: 0.65rem;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+
+.ref-chip:hover .ref-chip-remove {
+  opacity: 1;
+}
+
+.ref-add-select {
+  padding: 2px 6px;
+  border: 1px dashed var(--border-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  min-width: 100px;
+}
+
+/* Add Row / Remove Buttons */
+.btn-add-row {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: all 0.2s;
+}
+
+.btn-add-row:hover:not(:disabled) {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.video-panel-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-auto-batch {
+  border-style: solid !important;
+  background: var(--bg-secondary) !important;
+}
+
+.btn-auto-batch:hover:not(:disabled) {
+  background: var(--primary-color) !important;
+  color: white !important;
+  border-color: var(--primary-color) !important;
+}
+
+.btn-remove {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.btn-remove:hover:not(:disabled) {
+  background: var(--error-color);
+  color: #fff;
+}
+
+/* ============================================
+   Responsive Main Panel - Container Queries
+   ============================================ */
+
+/* < 550px: 중간 탭 아이콘만 표시 */
+@container main-panel (max-width: 549px) {
+  .tab {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  .tab-label {
+    display: none;
+  }
+  .tab.tab-icon {
+    padding: 6px 10px;
+  }
+  .col-image { width: 110px; }
+  .col-refs { width: 180px; }
+}
+
+/* < 450px: config-row 줄바꿈, 버튼 텍스트 축소, 탭 축소 */
+@container main-panel (max-width: 449px) {
+  .config-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  /* 수직 나열 시 라벨 정렬: 입력창 시작점 통일 */
+  .config-item {
+    width: 100%;
+  }
+  .config-item label {
+    min-width: 3.2em;
+    text-align: right;
+  }
+  .config-item select,
+  .seed-input-group {
+    flex: 1;
+  }
+  .seed-input {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+  }
+  .action-buttons {
+    gap: 6px;
+  }
+  .btn-primary, .btn-secondary, .btn-danger, .btn-warning, .btn-success, .btn-upgrade {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+  .tab {
+    padding: 5px 8px;
+    font-size: 0.75rem;
+  }
+  .btn-icon {
+    padding: 5px 8px;
+    font-size: 0.78rem;
+  }
+  .tabs-header {
+    margin-bottom: 8px;
+  }
+  .col-image { width: 90px; }
+  .col-refs { width: 150px; }
+  .col-status { width: 60px; font-size: 0.72rem; }
+}
+
+/* < 350px: 버튼 더 축소, 탭 더 축소 */
+@container main-panel (max-width: 349px) {
+  .btn-primary, .btn-secondary, .btn-danger, .btn-warning, .btn-success, .btn-upgrade {
+    padding: 8px 8px;
+    font-size: 0.8rem;
+  }
+  .config-row {
+    gap: 6px;
+    padding: 8px 0;
+  }
+  .config-item label {
+    font-size: 0.75rem;
+  }
+  .config-item select {
+    padding: 4px 6px;
+    font-size: 0.75rem;
+  }
+  .tab {
+    padding: 5px 8px;
+    font-size: 0.75rem;
+  }
+  .btn-icon {
+    padding: 4px 6px;
+    font-size: 0.72rem;
+  }
+  .tabs-left,
+  .tabs-right {
+    gap: 2px;
+  }
+  .tabs-header {
+    gap: 4px;
+  }
+}
+
+/* ============================================
+   Config Row & Action Buttons
+   ============================================ */
+
+/* Config Row */
+.config-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  flex-shrink: 0;
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-item label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.config-item select {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-size: 0.85rem;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;   /* 버튼이 한 행에 안 들어가면(예: 에러 재시도로 3개) 자동 줄바꿈 */
+  gap: 8px;
+  padding: 12px 0;
+  flex-shrink: 0;
+}
+/* 이 폭 미만으로 좁아지면 다음 줄로 wrap (Start 라벨은 그 전에 startButtonTier 로 축약됨). */
+.action-buttons > * {
+  min-width: 140px;
+}
+
+.btn-primary, .btn-secondary, .btn-danger, .btn-warning, .btn-upgrade {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upgrade {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  color: white;
+  animation: upgrade-pulse 2s ease-in-out infinite;
+}
+
+.btn-upgrade:hover {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+@keyframes upgrade-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(139, 92, 246, 0); }
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #3182ce;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary.running {
+  background: var(--warning-color);
+  color: #1a202c;
+}
+
+.btn-primary.paused {
+  background: var(--success-color);
+}
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.btn-danger {
+  background: var(--error-color);
+  color: white;
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-warning {
+  background: var(--warning-color);
+  color: #1a202c;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #d69e2e;
+}
+
+.btn-warning:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   Bottom Panel, Status Bar & Results Table
+   ============================================ */
+
+/* Bottom Panel */
+.bottom-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+/* Status Bar */
+.status-bar {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.status-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.status-progress progress {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.status-progress progress::-webkit-progress-bar {
+  background: var(--bg-color);
+  border-radius: 4px;
+}
+
+.status-progress progress::-webkit-progress-value {
+  background: var(--primary-color);
+  border-radius: 4px;
+}
+
+.progress-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  min-width: 100px;
+}
+
+.status-message {
+  font-size: 0.9rem;
+}
+
+/* 레퍼런스 업로드 프로그레스 바 (보라색) */
+.status-bar.uploading .status-progress progress::-webkit-progress-value {
+  background: #a855f7;
+}
+.status-bar.uploading .status-message { color: #a855f7; }
+
+.status-bar.success .status-message { color: var(--success-color); }
+.status-bar.warning .status-message { color: var(--warning-color); }
+.status-bar.error .status-message { color: var(--error-color); }
+
+.progress-text .error-count { color: #ef4444; font-weight: 600; }
+.progress-text .elapsed-time { color: var(--text-tertiary, #888); margin-left: 4px; }
+
+/* Results Table */
+.results-table-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  container-type: inline-size;
+  container-name: results-table;
+}
+
+.results-table-header {
+  flex-shrink: 0;
+}
+
+.results-table-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.results-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.results-summary {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.error-count {
+  color: var(--error-color);
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  table-layout: fixed;
+}
+
+.results-table th {
+  text-align: left;
+  padding: 8px 8px;
+  background: #1a1a2e;
+  font-weight: 600;
+}
+
+.results-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.results-table .col-id { width: 28px; text-align: center; }
+.results-table .col-img { width: 72px; }
+.results-table .col-model {
+  width: 104px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary, #9aa0b4);
+}
+.results-table .col-status { width: 90px; }
+.results-table col.col-status { min-width: 0; }
+
+.results-table tr.status-generating {
+  animation: gold-glow 1.5s ease-in-out infinite;
+}
+
+.results-table tr.status-done {
+  background: rgba(72, 187, 120, 0.05);
+}
+
+.results-table tr.status-error {
+  background: rgba(245, 101, 101, 0.05);
+}
+
+.prompt-preview {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 프롬프트 칸 아래 인라인 에러 (1줄, ellipsis, hover 시 전체) */
+.prompt-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: #f87171;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt-error::before {
+  content: '⚠ ';
+  margin-right: 2px;
+}
+
+.result-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+/* ============================================
+   결과 그리드 (ResultsTable layout="grid")
+   결과표와 동일한 데이터를 카드형으로. .image-cell/.btn-clear-media/
+   .play-button-overlay 등은 SceneList.css(전역)에서 재사용.
+   ============================================ */
+.results-grid-container {
+  padding: 0;
+}
+
+.results-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  align-content: start;
+}
+
+.results-grid.ratio-landscape { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.results-grid.ratio-portrait  { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+.results-grid.ratio-square    { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+
+/* threshold 양쪽에서 같은 row/card 부모 구조를 유지해 focus와 hover DOM을 보존한다. */
+.results-grid.has-grid-rows {
+  display: block;
+}
+
+/* 큰 결과 grid는 카드가 아니라 측정된 grid row를 세로 virtualize한다. 바깥쪽은
+   scroll/spacer만 담당하고 각 .results-grid-row가 기존 column 배치를 재현한다. */
+.results-grid.is-virtualized {
+  display: block;
+  padding: 0 10px;
+}
+
+.results-grid-row {
+  display: grid;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.result-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.result-card.status-generating { animation: gold-glow 1.5s ease-in-out infinite; }
+.result-card.status-done  { border-color: rgba(72, 187, 120, 0.3); }
+.result-card.status-error { border-color: rgba(245, 101, 101, 0.35); }
+.result-card.deselected { opacity: 0.45; }
+
+/* 카드 안에서 셀은 카드 폭을 채우고 종횡비를 따른다.
+   SceneList.css 의 .image-cell.ratio-* (고정 px) 와 specificity 동점이 되지 않도록
+   ratio 클래스까지 셀렉터에 포함해 확실히 오버라이드한다. */
+.results-grid.ratio-landscape .image-cell.ratio-landscape,
+.results-grid.ratio-portrait  .image-cell.ratio-portrait,
+.results-grid.ratio-square    .image-cell.ratio-square {
+  width: 100%;
+  height: auto;
+}
+.results-grid.ratio-landscape .image-cell.ratio-landscape { aspect-ratio: 16 / 9; }
+.results-grid.ratio-portrait  .image-cell.ratio-portrait  { aspect-ratio: 9 / 16; }
+.results-grid.ratio-square    .image-cell.ratio-square    { aspect-ratio: 1 / 1; }
+
+.result-card .card-check {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  z-index: 3;
+  cursor: pointer;
+}
+
+.result-card .card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.75rem;
+}
+
+.result-card .card-id {
+  color: var(--text-secondary, #9aa0b4);
+  flex-shrink: 0;
+}
+
+.result-card .card-error {
+  margin-top: 0;
+}
+
+.results-grid-container .results-summary {
+  padding: 8px 10px 0;
+  margin-bottom: 0;
+}
+
+.grid-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.generating-indicator {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Infinity loader — 빛이 ∞ 경로를 따라 이동 + 춤추듯 흔들림 */
+.infinity-loader {
+  opacity: 0.9;
+  animation: infinity-dance 3s ease-in-out infinite;
+}
+
+.infinity-light {
+  animation: infinity-dash 2s linear infinite;
+}
+
+@keyframes infinity-dash {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -92; }
+}
+
+
+@keyframes infinity-dance {
+  0%   { transform: perspective(80px) rotateX(0deg) rotateY(0deg) rotate(-6deg); }
+  20%  { transform: perspective(80px) rotateX(15deg) rotateY(-10deg) rotate(4deg); }
+  40%  { transform: perspective(80px) rotateX(-10deg) rotateY(15deg) rotate(-3deg); }
+  60%  { transform: perspective(80px) rotateX(12deg) rotateY(-8deg) rotate(5deg); }
+  80%  { transform: perspective(80px) rotateX(-8deg) rotateY(12deg) rotate(-4deg); }
+  100% { transform: perspective(80px) rotateX(0deg) rotateY(0deg) rotate(-6deg); }
+}
+
+/* Stopwatch icon */
+.stopwatch-icon {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.stopwatch-hand {
+  animation: stopwatch-tick 60s linear infinite;
+}
+
+@keyframes stopwatch-tick {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.status.pending { color: var(--text-secondary); }
+.status.generating { color: var(--primary-color); }
+.status.done { color: var(--success-color); }
+.status.error {
+  color: var(--error-color);
+  background: rgba(245, 101, 101, 0.2);
+  cursor: pointer;
+  border: none;
+}
+
+.retry-btn:hover {
+  background: rgba(245, 101, 101, 0.3);
+}
+
+.error-detail {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-muted, #999);
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+/* ============================================
+   Responsive Results Table - Container Queries
+   ============================================ */
+
+/* < 400px: Status/모델 컬럼 숨김 → 프롬프트 + 이미지 유지 */
+@container results-table (max-width: 399px) {
+  .results-table .col-status,
+  .results-table .col-model {
+    display: none;
+  }
+  .results-table td,
+  .results-table th {
+    padding: 4px 6px;
+  }
+}
+
+/* < 300px: 패딩 더 축소 */
+@container results-table (max-width: 299px) {
+  .results-table {
+    font-size: 0.75rem;
+  }
+  .results-table .col-id {
+    width: 24px;
+  }
+}
+
+/* ============================================
+   Modal Base Styles
+   ============================================ */
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Import work mounts and paints this compositor layer before synchronous parsing begins.
+   Fast imports remove it before the delayed reveal, so they never flash a spinner. */
+.import-processing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+  animation: import-processing-reveal 1ms step-end 150ms forwards;
+}
+
+.import-processing-overlay.is-visible {
+  opacity: 1;
+  animation: none;
+}
+
+.import-processing-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.import-processing-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: import-processing-spin 0.8s linear infinite;
+}
+
+@keyframes import-processing-reveal {
+  to { opacity: 1; }
+}
+
+@keyframes import-processing-spin {
+  to { transform: rotate(360deg); }
+}
+
+.modal {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--border-color);
+  position: relative;
+  z-index: 100;
+  background: var(--bg-color);
+}
+
+.ref-detail-modal .modal-footer {
+  justify-content: stretch;
+}
+
+.ref-detail-modal .modal-footer button {
+  flex: 1;
+}
+
+/* 생성 버튼 내 스타일 링크 */
+.btn-style-link {
+  cursor: pointer;
+  font-size: 0.8em;
+  opacity: 0.85;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  margin-left: 4px;
+  transition: opacity 0.15s;
+}
+.btn-style-link:hover {
+  opacity: 1;
+}
+
+/* Stop 버튼 내 스타일 표시 (read-only — 클릭/언더라인 없음) */
+.btn-style-display {
+  font-size: 0.8em;
+  opacity: 0.75;
+  margin-left: 4px;
+  cursor: default;
+}
+
+/* StylePicker 모달 */
+.style-picker-modal {
+  max-width: 800px;
+}
+.style-picker-modal .modal-body {
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* VoicePicker 모달 (Task 11) */
+.voice-picker-modal {
+  max-width: 800px;
+}
+.voice-picker-modal .modal-body {
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* StylePicker 팝업 (레퍼런스 상세 모달 내) */
+.style-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(24, 24, 28, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.style-picker-popup {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  width: 90vw;
+  max-width: 640px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.style-picker-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+}
+
+.style-picker-popup-header button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 4px 8px;
+}
+
+.style-picker-popup .sp-container {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ============================================
+   Scrollbar Styles
+   ============================================ */
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ============================================
+   Pending Saves Notice & Seed Config
+   ============================================ */
+
+/* Pending saves notice */
+.pending-saves-notice {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.3);
+  border-radius: 6px;
+  color: #ffb74d;
+  font-size: 13px;
+}
+
+
+/* Seed 설정 */
+.seed-config {
+  flex: 0 1 auto;
+}
+
+.seed-input-group {
+  display: flex;
+  gap: 4px;
+}
+
+.seed-input {
+  width: 90px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.seed-input::placeholder {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.seed-btn {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.seed-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.seed-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.seed-btn.locked {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: #4caf50;
+}
+
+/* ============================================
+   Custom Tooltip (아래쪽 표시)
+   ============================================ */
+
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-bottom-color: #fef3c7;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 위쪽 방향 툴팁 (overflow 영역에서 사용) */
+[data-tooltip-top] {
+  position: relative;
+}
+
+[data-tooltip-top]::after {
+  content: attr(data-tooltip-top);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: pre-wrap;
+  max-width: 240px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+[data-tooltip-top]::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #fef3c7;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+[data-tooltip-top]:hover::after,
+[data-tooltip-top]:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Checkbox column for ResultsTable / FrameToVideo / RefToVideo tables */
+.col-check {
+  width: 32px;
+  text-align: center;
+}
+
+.col-check input[type="checkbox"] {
+  cursor: pointer;
+  /* 명시적 accent-color — 체크 상태는 강조색, 미체크는 브라우저 기본 (회색 박스) 대신
+     보더가 살아나도록 약간 더 큰 사이즈 + 강조. dim 처리된 행에서도 "클릭 가능" 으로
+     읽히게 한다. */
+  accent-color: var(--accent, #3b82f6);
+  width: 16px;
+  height: 16px;
+}
+
+.col-check input[type="checkbox"]:hover {
+  outline: 2px solid var(--accent, #3b82f6);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+/* Inline prompt editing in ResultsTable */
+.prompt-edit-input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  padding: 2px 4px;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.prompt-edit-input:focus {
+  border-color: var(--accent, #3b82f6);
+  background: var(--bg-secondary, #1a1a2e);
+  outline: none;
+}
+
+/* Deselected row — visual dim 제거.
+   체크 해제는 "다음 배치 제외" 상태일 뿐 행 자체는 완전 인터랙티브(프롬프트 편집,
+   미디어 클릭으로 상세 보기 등 모두 가능). opacity 0.4 는 "비활성/수정 불가" 로
+   잘못 읽혀 사용자에게 혼란을 줬다. 선택 상태는 체크박스만으로 충분히 전달된다. */
+
+/* ── LazyImage — viewport-aware image loading (R37) ─────────────────────────
+   wrapper 가 부모를 꽉 채우고, 내부 img 도 fill + cover 보장.
+   부모 컨테이너(.media-thumb, .sp-thumb 등) 는 overflow:hidden 으로
+   넘침을 제어. placeholder 도 동일 크기 유지해 레이아웃 shift 방지. */
+.lazy-image-wrapper {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lazy-image-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.lazy-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 모델 출처 배지 (설정 씬탭 모델 타이틀) — Flow/API 구분 */
+.model-mode-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  vertical-align: middle;
+  margin-left: 6px;
+  letter-spacing: 0.3px;
+}
+.model-mode-flow { background: #6366f1; color: #fff; }
+.model-mode-api { background: #2d8a4e; color: #fff; }

@@ -5,7 +5,22 @@
  * and video status polling.
  */
 
-import { acquireGlobalThrottle } from '../throttleManager.js'
+import { screen } from 'electron'
+import { updateBounds } from './layout.js'
+import { extractServerErrorMessage } from './videoErrorExtractor.js'
+import { computeOffscreenBounds } from '../offscreen-bounds.js'
+import { GENERATED_VIDEO_PROBE } from '../flow-media-collect.js'
+import { collectAgentDomVideos } from '../flow-agent-collect.js'
+import { SUBMIT_PROBE, shouldProceed } from '../flow-submit-gate.js'
+import { COMPOSE_EDITOR_READY } from '../flow-compose-editor.js'
+import { AGENT_CHAT_CLOSE_SELECTOR } from '../flow-agent-toggle.js'
+import { isOmniFlashModel } from '../video-model-rules.js'
+import { injectComposeSegments } from '../flow-compose-mention.js'
+
+// #R36: 비디오 제출 응답(batchAsyncGenerateVideo* → operation id) 캡처 타임아웃. 원래 30s 였으나
+//   @멘션(entity 참조) 비디오 등에서 초기 응답이 30s 를 넘겨 조기 실패(멈춤)하는 사례가 있어, 이미지
+//   캡처(120s)와 동일하게 여유를 둔다. (초기 ack 만 기다림 — 실제 생성/upscale 은 status 폴링이 처리.)
+const VIDEO_RESPONSE_TIMEOUT_MS = 120000
 
 /**
  * Register video-generation-related IPC handlers.
@@ -16,14 +31,33 @@ import { acquireGlobalThrottle } from '../throttleManager.js'
 export function registerVideoIPC(ipcMain, deps) {
   const {
     getFlowView, getMainWindow, trustedClickOnFlowView, sessionFetch, flowPageFetch,
-    parseFlowResponse, getRecaptchaToken, configureFlowMode, switchFlowToVideoMode,
+    parseFlowResponse, getRecaptchaToken, configureFlowMode, switchFlowToVideoMode, ensureAgentOff, ensureAgentOn, ensureOnProjectComposer, applyAgentDefaults,
+    getFlowAgentOn,
     getCapturedProjectId, setCapturedProjectId,
     getPendingVideoGeneration, setPendingVideoGeneration,
-    getPendingI2VInjection, setPendingI2VInjection,
-    setPendingSeedValue,
+    setFlowPageInject, clearFlowPageInject,
+    getCurrentMode,
+    getApiBase, // #R33: region 대응 동적 API base (video i2v/status/upscale 호스트)
     SESSION_URL, VIDEO_T2V_URL, VIDEO_I2V_URL, VIDEO_I2V_START_END_URL, VIDEO_STATUS_URL, VIDEO_UPSCALE_URL,
     API_HEADERS, FLOW_URL,
   } = deps
+  // #R33: video 직접 호출 엔드포인트 — 캡처된 region origin 우선, 없으면 하드코딩 fallback.
+  const videoUrls = async () => {
+    const base = getApiBase ? await getApiBase() : null
+    return base ? {
+      i2v: `${base}/video:batchAsyncGenerateVideoStartImage`,
+      i2vStartEnd: `${base}/video:batchAsyncGenerateVideoStartAndEndImage`,
+      status: `${base}/video:batchCheckAsyncVideoGenerationStatus`,
+      upscale: `${base}/video:batchAsyncGenerateVideoUpsampleVideo`,
+    } : {
+      i2v: VIDEO_I2V_URL, i2vStartEnd: VIDEO_I2V_START_END_URL,
+      status: VIDEO_STATUS_URL, upscale: VIDEO_UPSCALE_URL,
+    }
+  }
+
+  // #R25-4: API 모드 전환 후에도 flowView 는 보존되므로 stale 호출이 Flow quota 를 쓸 수 있다.
+  //   quota 를 쓰는 비디오 submit/upscale 핸들러는 현재 모드가 'flow' 일 때만 진행한다.
+  const flowActive = () => !getCurrentMode || getCurrentMode() === 'flow'
 
   // LOCAL helper — 비디오 응답에서 generation ID (UUID) 추출
   function extractVideoGenerationId(data) {
@@ -48,215 +82,223 @@ export function registerVideoIPC(ipcMain, deps) {
       || null
   }
 
-  // Google Flow Approve 버튼 감지 및 자동 클릭 헬퍼 함수
-  async function clickApproveButtonIfPresent(flowView, profileId) {
-    console.log('[Flow Video] [ApproveCheck] Checking for Approve button...');
-    const maxAttempts = 20; // 20 * 500ms = 10초 대기
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const btnCheck = await flowView.webContents.executeJavaScript(`
-        (function() {
-          const els = Array.from(document.querySelectorAll('button, [role="button"], div, span, p, a'));
-          for (const el of els) {
-            const text = el.textContent.trim().toLowerCase();
-            if (text.includes('approve') || text.includes('승인')) {
-              const rect = el.getBoundingClientRect();
-              if (rect.width > 0 && rect.height > 0) {
-                return { found: true, disabled: el.disabled || false };
-              }
-            }
-          }
-          return { found: false };
-        })()
-      `).catch(() => ({ found: false }));
+  // 공유 DOM 수집 de-dup(이미지 비동기/동기 경로와 같은 set — cross-grab 방지).
+  const collectedMediaIds = deps.collectedMediaIds || new Set()
 
-      if (btnCheck.found) {
-        if (btnCheck.disabled) {
-          console.log('[Flow Video] [ApproveCheck] Approve button found but disabled, waiting 500ms...');
-        } else {
-          console.log('[Flow Video] [ApproveCheck] Approve button found active. Clicking...');
-          const approveBtnSelector = `(function() {
-            const els = Array.from(document.querySelectorAll('button, [role="button"], div, span, p, a'));
-            for (const el of els) {
-              const text = el.textContent.trim().toLowerCase();
-              if (text.includes('approve') || text.includes('승인')) {
-                const rect = el.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) return el;
-              }
-            }
-            return null;
-          })()`;
-          const clickRes = await trustedClickOnFlowView(approveBtnSelector, profileId);
-          console.log('[Flow Video] [ApproveCheck] Trusted click on Approve button result:', clickRes);
-          return { success: clickRes?.success ?? false, clicked: true };
-        }
-      }
-      await new Promise(r => setTimeout(r, 500));
+  // Agent ON idle-gate — 직전 에이전트 생성이 끝날 때까지(arrow_forward enable) 대기 후 챗 패널
+  //   가림을 해제한다. streamChat 은 순차라 직전 작업이 끝나야 컴포저가 보인다.
+  //   (character.js generate-scene 의 idle-gate 와 동일 패턴.)
+  async function waitAgentIdle(flowView, logTag) {
+    const SUBMIT_POLL = 1500
+    const SUBMIT_MAX_WAIT = 180000 // 에이전트 생성이 길 수 있어 최대 3분
+    let submitState = 'absent'
+    let gwaited = 0
+    while (gwaited <= SUBMIT_MAX_WAIT) {
+      submitState = await flowView.webContents.executeJavaScript(SUBMIT_PROBE).catch(() => 'error')
+      if (shouldProceed(submitState)) break
+      if (gwaited === 0) console.log(logTag + ' (Agent ON) agent not idle (' + submitState + ') — waiting for ready...')
+      await new Promise(r => setTimeout(r, SUBMIT_POLL))
+      gwaited += SUBMIT_POLL
     }
-    console.log('[Flow Video] [ApproveCheck] Approve button not found or did not become active within timeout.');
-    return { success: true, clicked: false };
-  }
-
-  // Helper to ensure Flow is on a project page. If on landing page, click "+ New project" or equivalent.
-  async function ensureOnProjectPage(flowView) {
-    // 1. Auto dismiss cookies/consent banners if found
-    await flowView.webContents.executeJavaScript(`
-      (function() {
-        const dismissBtns = Array.from(document.querySelectorAll('button'));
-        const agreeBtn = dismissBtns.find(b => b.textContent.trim().toLowerCase() === 'agree' || b.textContent.trim().toLowerCase() === 'agree & proceed');
-        if (agreeBtn) {
-          agreeBtn.click();
-          console.log('[DOM] Auto-clicked Cookie Agree button');
-          return;
-        }
-        const noThanksBtn = dismissBtns.find(b => b.textContent.trim().toLowerCase() === 'no thanks');
-        if (noThanksBtn) {
-          noThanksBtn.click();
-          console.log('[DOM] Auto-clicked No thanks button');
-          return;
-        }
-        const dismissBtn = dismissBtns.find(b => b.textContent.trim().toLowerCase().includes('dismiss') || b.textContent.trim().toLowerCase() === 'close');
-        if (dismissBtn) {
-          dismissBtn.click();
-          console.log('[DOM] Auto-clicked Dismiss/Close button');
-        }
-      })()
-    `).catch(() => {});
-
-    const currentUrl = flowView.webContents.getURL()
-    console.log('[Flow Video] ensureOnProjectPage checking URL:', currentUrl)
-    
-    if (currentUrl.includes('/project/') || currentUrl.includes('/tools/flow/')) {
-      return { success: true }
+    if (submitState !== 'idle') {
+      console.warn(logTag + ' (Agent ON) agent never idle (last=' + submitState + ', ' + Math.round(gwaited / 1000) + 's)')
+      return { ok: false, error: 'Agent not ready (' + submitState + ') after 180s' }
     }
-
-    // If we're not even on labs.google/fx, load it
-    if (!currentUrl.includes('labs.google/fx')) {
-      console.log('[Flow Video] Not on Flow. Loading URL:', FLOW_URL)
-      await flowView.webContents.loadURL(FLOW_URL)
-      await new Promise(r => setTimeout(r, 4000))
+    if (gwaited > 0) console.log(logTag + ' (Agent ON) agent idle after', Math.round(gwaited / 1000), 's')
+    // idle 인데도 챗 패널이 컴포저를 가리면 닫는다(no-op if 없음).
+    for (let i = 0; i < 3; i++) {
+      const r = await flowView.webContents.executeJavaScript(COMPOSE_EDITOR_READY).catch(() => false)
+      if (r) break
+      await trustedClickOnFlowView(AGENT_CHAT_CLOSE_SELECTOR).catch(() => {})
+      await new Promise(r => setTimeout(r, 350))
     }
-
-    // Try to click New project button
-    console.log('[Flow Video] Attempting to click New project button...')
-    const clicked = await flowView.webContents.executeJavaScript(`
-      (function() {
-        for (const b of document.querySelectorAll('button')) {
-          const text = b.textContent.trim().toLowerCase();
-          if (text.includes('new project') || text.includes('새 프로젝트') || text.includes('새프로젝트') || text.includes('add_2')) {
-            b.click();
-            return 'button_clicked';
-          }
-        }
-        for (const b of document.querySelectorAll('button')) {
-          if (b.textContent.includes('+')) {
-            b.click();
-            return 'plus_button_clicked';
-          }
-        }
-        return null;
-      })()
-    `).catch(() => null)
-
-    if (clicked) {
-      console.log('[Flow Video] New project click result:', clicked)
-      // Wait up to 15 seconds for project URL redirection
-      for (let w = 0; w < 30; w++) {
-        await new Promise(r => setTimeout(r, 500))
-        const checkUrl = flowView.webContents.getURL()
-        if (checkUrl.includes('/project/') || checkUrl.includes('/tools/flow/')) {
-          console.log('[Flow Video] Successfully redirected to project:', checkUrl)
-          return { success: true }
-        }
-      }
-      return { success: false, error: 'Timed out waiting for project creation/redirection' }
-    }
-
-    return { success: false, error: 'Failed to find and click New project button' }
+    return { ok: true }
   }
 
   // Text-to-Video generation (DOM 자동화 — 페이지가 reCAPTCHA 자체 처리)
   ipcMain.handle('flow:generate-video-t2v', async (event, {
-    token, prompt, projectId, model, aspectRatio, duration, videoBatchCount, seed, profileId
+    token, prompt, projectId, model, aspectRatio, duration, videoBatchCount, seed, segments
   }) => {
-    // Enforce global rate-limit throttling
-    await acquireGlobalThrottle()
-
-    const flowView = getFlowView(profileId)
+    if (!flowActive()) return { success: false, error: 'Flow inactive (API mode)' }  // #R25-4
+    // #R36: @멘션 T2V — segments 가 있으면 컴포저 @칩(injectComposeSegments)으로 캐릭터 entity 를 넣는다.
+    const _segments = Array.isArray(segments) && segments.length > 0 ? segments : null
+    const flowView = getFlowView()
     const mainWindow = getMainWindow()
     if (!prompt) return { success: false, error: 'No prompt' }
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
-    // Seed: page-level fetch patch injection
-    if (global.setFlowPageInject) {
-      global.setFlowPageInject(profileId, {
-        seed: typeof seed === 'number' && Number.isFinite(seed) ? seed : null,
-        aspectRatio: null,
-        references: null,
-        i2v: null
-      })
-    }
+    // Seed: 숫자면 monkey-patch inject가 batchAsyncGenerateVideoText 요청에 주입,
+    //       null/undefined면 Flow 자체 랜덤 seed 유지
+    const hasUserSeed = typeof seed === 'number' && Number.isFinite(seed)
+    const _seedValue  = hasUserSeed ? seed : null
 
-    console.log('[Flow Video T2V] Starting DOM-triggered video generation:', prompt?.substring(0, 50), seed != null ? `(seed: ${seed})` : '(seed: random)')
+    // #R8-8: seed inject 는 ensureOnProjectComposer(아래)의 네비게이션이 페이지를 reload 해
+    //   __autoflowcut_inject__ 를 지운 뒤에 설정해야 한다 → 네비/모드전환 후로 이동.
+
+    // R10-P2: arm-before-click 으로 둔 pending/timeout 을 try 밖에 선언 — 클릭/주입이 throw 하면
+    //   finally 에서 자기 pending(identity)만 정리한다. 안 그러면 stale pending 이 남아 다음 영상
+    //   응답을 잘못 받는다.
+    let videoTimeout = null
+    let videoOwnPending = null
+    // #R7-10(R6-13 sibling): hoist so the finally always restores temp-shown bounds, even on throw.
+    let promptWasHidden = false
+    let promptBounds = null
+
+    // 프롬프트 본문은 안 찍는다 — Sentry consoleIntegration 이 main 콘솔을 breadcrumb 으로 걷어간다.
+    console.log('[Flow Video T2V] Starting DOM-triggered video generation: promptLen=', prompt?.length ?? 0, hasUserSeed ? `(seed: ${seed})` : '(seed: random)')
 
     try {
-      // 0. Flow 프로젝트 페이지 확인 및 자동 진입
-      const pageCheck = await ensureOnProjectPage(flowView)
-      if (!pageCheck.success) {
-        return { success: false, error: pageCheck.error || 'Not on Flow project page. Please open a Flow project first.' }
+      // 0. Codex #R4-4: enforce Flow page is on the TARGET project before DOM mutation.
+      const projectCheck = await ensureOnProjectComposer(flowView, projectId)
+      if (!projectCheck.ok) {
+        return { success: false, errorKind: projectCheck.errorKind, error: projectCheck.error }
       }
 
-      // 1. 비디오 모드로 전환 (배치 카운트 적용)
-      const effectiveBatchCount = Math.max(1, Math.min(4, videoBatchCount || 1))
-      const modeResult = await configureFlowMode('VIDEO', effectiveBatchCount, profileId)
-      if (!modeResult.success) {
-        return { success: false, error: modeResult.error || 'Failed to switch to video mode' }
+      // 1.5. Agent 토글 — flowAgentOn(설정) 이면 ON(autoApprove), 아니면 OFF(직접 API).
+      const agentOn = !!(getFlowAgentOn && getFlowAgentOn())
+      if (!agentOn) {
+      let agentOff = false
+      try { const r = await ensureAgentOff(); agentOff = !!(r && r.success) } catch (e) { console.warn('[Flow Video T2V] ensureAgentOff skipped:', e.message) }
+      // [P1] Agent OFF 보장 실패 시 중단(fail-closed) — Agent ON 이면 batchAsyncGenerateVideo*
+      //   캡처 전제가 깨져 timeout/오동작한다. (already_off 도 success=true 라 정상은 안 막음)
+      if (!agentOff) {
+        return {
+          success: false,
+          errorKind: 'flow-agent-off-failed',
+          error: 'Could not turn Flow Agent off',
+        }
       }
-      console.log('[Flow Video T2V] Video mode active:', modeResult.method)
+
+      // 1.6. 동영상 모드로 전환 — 이미지/동영상 모드 탭은 컴포즈 하단 칩 팝오버
+      //      (button[aria-haspopup='menu'])  안에 있다. configureFlowMode 가 칩을 눌러
+      //      팝오버를 연 뒤 동영상 탭을 클릭한다(Step1~3). [P2] 배치 카운트(videoBatchCount) 전달.
+      // #R30-1: 모드 전환이 (내부 재시도 소진 후) 명시적 {success:false} 면 컴포저가 IMAGE 모드일 수
+      //   있어 비디오 제출이 이미지 요청으로 나가 잘못된 quota 소비 + capture timeout 을 유발한다 →
+      //   제출 전에 중단한다(아직 inject/pending 미설정이라 plain return 안전). throw 는 기존대로 관용.
+      // #R31-1: Flow 비디오 배치는 1 로 고정한다. configureFlowMode 가 N>1 칩을 켜면 Flow 가 N 개
+      //   영상을 생성하지만 extractVideoGenerationId 는 1 개 id 만 회수해 나머지 유료 결과가 추적/복구
+      //   불가로 유실된다(quota 낭비). 멀티-비디오 캡처가 구현되기 전까진 1 로 클램프.
+      let _vmodeRes = null
+      // #aspect: 화면비(설정>씬)를 여기서 적용한다 — configureFlowMode 는 설정 메뉴를 연 채로
+      //   모드/배치/화면비 탭을 한 번에 클릭하는, Flow 새 통합 패널에서도 작동하는 경로다.
+      //   (applyAgentDefaults/findAgentSettingsPanel 은 새 패널에서 panel_not_found 로 죽는다.)
+      try { _vmodeRes = await configureFlowMode("VIDEO", 1, aspectRatio) } catch (e) { console.warn("[Flow Video] configureFlowMode skipped:", e.message) }
+      if (_vmodeRes && _vmodeRes.success === false) {
+        return { success: false, error: `Flow VIDEO mode switch failed: ${_vmodeRes.error || 'unknown'}`, retry: true }
+      }
+      // 화면비는 이 DOM 클릭이 유일한 수단이다(CDP 사용 금지 — request injection 백업이 없다).
+      //   못 찾거나 클릭이 안 먹은 채로 제출하면 9:16 배치가 통째로 패널의 옛 화면비로 생성된다.
+      //   유료 생성이라 조용한 오출력보다 멈추는 편이 낫다. tab_not_found 는 Flow UI 가 또 바뀐
+      //   구조적 실패라 재시도해도 같으므로 retry 하지 않는다.
+      if (_vmodeRes && (_vmodeRes.aspect === 'tab_not_found' || _vmodeRes.aspect === 'click_unconfirmed')) {
+        return {
+          success: false,
+          error: `Flow aspect ratio not applied (${_vmodeRes.aspect}) — refusing to generate at the wrong aspect`,
+          retry: _vmodeRes.aspect === 'click_unconfirmed',
+        }
+      }
+
+      // 화면비(설정>씬)는 위 configureFlowMode 가 같은 열린 메뉴에서 적용한다(Flow 새 통합 패널에서
+      //   작동하는 경로). 비디오 모델은 요청 주입(videoModel/OmniFlash)이 담당한다. 구
+      //   applyAgentDefaults(video) 는 새 패널에서 findAgentSettingsPanel 이 panel_not_found 로 죽어
+      //   (매 생성마다 3회 재시도 지연/로그 노이즈) 화면비·모델 어느 것도 적용하지 못했으므로 제거했다.
+      } else {
+        // [Agent ON — Maps 그라운딩/주소 기반] 토글 ON 유지 + autoApprove. 모드 탭 없어 configureFlowMode 생략.
+        // ⚠️ 라이브 검증 필요(셀렉터/타이밍/DOM 수집).
+        let onOk = false
+        try { const r = await ensureAgentOn(); onOk = !!(r && r.success) } catch (e) { console.warn('[Flow Video T2V] ensureAgentOn skipped:', e.message) }
+        if (!onOk) {
+          return {
+            success: false,
+            errorKind: 'flow-agent-on-failed',
+            error: 'Could not turn Flow Agent on',
+          }
+        }
+        if (applyAgentDefaults) {
+          // #R33: Agent ON 도 화면비(설정>씬) 적용 — video.aspectRatio 전달. #R34-fix(2): best-effort(warn).
+          try {
+            const _md = await applyAgentDefaults({ video: { model, aspectRatio }, autoApprove: true })
+            if (!_md?.success) console.warn('[Flow Video T2V] applyAgentDefaults not applied:', _md?.error)
+            else if (_md.applied === false) console.warn('[Flow Video T2V] applyAgentDefaults: panel found but not fully applied')
+          } catch (e) { console.warn('[Flow Video T2V] applyAgentDefaults error:', e.message) }
+        }
+        // 타입 강제(이미지로 빠지지 않게) — 명시 지시로 감싼다.
+        prompt = `Generate a video: ${prompt}`
+        // 직전 에이전트 생성이 진행 중이면 컴포저가 가려진다 → idle 까지 대기 후 주입.
+        const idle = await waitAgentIdle(flowView, '[Flow Video T2V]')
+        if (!idle.ok) return { success: false, error: idle.error, retry: true }
+      }
+
+      // #R8-8: seed monkey-patch inject 는 네비게이션/모드전환 이후(reload 가 끝난 뒤)에 설정 —
+      //   클릭으로 발사될 batchAsyncGenerateVideoText 요청이 이 seed 를 확실히 싣는다.
+      // #R15-5: arming 실패 시 중단(미주입 seed 로 생성 방지).
+      { const _ir = await setFlowPageInject?.({ seed: _seedValue, aspectRatio: null, references: null, i2v: null, duration, videoModel: model })
+        if (_ir && _ir.success === false) return { success: false, error: `Flow inject arming failed: ${_ir.error || 'unknown'}`, retry: true } }
 
       // 2. 프롬프트 입력 (이미지와 동일한 Slate 에디터 사용)
-      const promptBounds = flowView.getBounds()
-      const promptWasHidden = (promptBounds.width === 0 || promptBounds.height === 0)
+      promptBounds = flowView.getBounds()
+      promptWasHidden = (promptBounds.width === 0 || promptBounds.height === 0)
       if (promptWasHidden) {
         const { width, height } = mainWindow.getContentBounds()
-        flowView.setBounds({ x: width + 5000, y: 0, width, height })
+        flowView.setBounds(computeOffscreenBounds(screen.getAllDisplays(), mainWindow.getBounds().x, width, height))
         await new Promise(r => setTimeout(r, 300))
       }
 
-      const promptResult = await flowView.webContents.executeJavaScript(`
+      // 2-pre. 에디터 포커스 확보 (이미지와 동일) — webContents.focus() + 에디터 trusted-click.
+      // 이게 없으면 editor.focus()/execCommand 가 무시되어(activeEl=body) 프롬프트가 안 박힌다.
+      try { flowView.webContents.focus() } catch (e) { console.warn('[Flow Video T2V] webContents.focus failed:', e.message) }
+      await new Promise(r => setTimeout(r, 120))
+      const vEditorFocusSelector = `(function(){
+        return document.querySelector("[data-slate-editor='true']")
+          || document.querySelector("div[role='textbox'][contenteditable='true']:not(#af-bot-panel *)")
+          || document.querySelector('[contenteditable="true"]:not([aria-hidden])')
+          || document.querySelector('textarea');
+      })()`
+      try {
+        const ef = await trustedClickOnFlowView(vEditorFocusSelector)
+        console.log('[Flow Video T2V] Editor focus click:', ef?.success)
+      } catch (e) { console.warn('[Flow Video T2V] editor focus click failed:', e.message) }
+      await new Promise(r => setTimeout(r, 120))
+
+      // #R36: @멘션 T2V — segments 가 있으면 컴포저 칩 삽입(이미지 씬과 동일 헬퍼). 없으면 기존 텍스트 주입.
+      //   #R36-fix(Codex R1[4]): Agent ON 은 모드 탭이 없어 "Generate a video:" 프리픽스로 타입을 강제한다.
+      //   plain 프롬프트 경로는 위에서 prompt 에 붙였지만, segments(칩) 경로엔 텍스트 세그먼트로 앞에 붙인다.
+      const _injSegments = _segments && agentOn
+        ? [{ type: 'text', text: 'Generate a video: ' }, ..._segments]
+        : _segments
+      const promptResult = _injSegments
+        ? await (async () => {
+            const _si = await injectComposeSegments(flowView, _injSegments, trustedClickOnFlowView)
+            console.log('[Flow Video T2V] segments injected (chips):', _segments.filter(s => s.type === 'mention').length, '→', _si.ok)
+            return _si.ok
+              ? { success: true }
+              : {
+                  success: false,
+                  errorKind: _si.errorKind,
+                  error: _si.error,
+                  ...(_si.mentionFailure ? { mentionFailure: _si.mentionFailure } : {}),
+                  ...(_si.staleMention ? { staleMention: _si.staleMention } : {}),
+                }
+          })()
+        : await flowView.webContents.executeJavaScript(`
         (async function() {
           const promptText = ${JSON.stringify(prompt)};
           const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-          // Slate editor 찾기 (사이드바, 에이전트, 서브패널 배제)
-          let editor = document.querySelector(".composer-container [data-slate-editor='true'], .prompt-container [data-slate-editor='true'], [data-slate-editor='true']:not([class*='sidebar'] *):not([class*='agent'] *):not(#af-bot-panel *)");
-          
-          if (!editor) {
-            const candidates = Array.from(document.querySelectorAll("div[role='textbox'][contenteditable='true'], [contenteditable='true']:not([aria-hidden])"));
-            editor = candidates.find(el => {
-              let parent = el.parentElement;
-              while (parent) {
-                const id = (parent.id || '').toLowerCase();
-                const cls = (parent.className || '').toString().toLowerCase();
-                if (
-                  id.includes('sidebar') || id.includes('agent') || id.includes('instruction') || id.includes('drawer') || id.includes('panel') ||
-                  cls.includes('sidebar') || cls.includes('agent') || cls.includes('instruction') || cls.includes('drawer') || cls.includes('panel') ||
-                  cls.includes('chat-history') || cls.includes('history')
-                ) {
-                  return false;
-                }
-                parent = parent.parentElement;
-              }
-              const rect = el.getBoundingClientRect();
-              return rect.width > 100 && rect.height > 20;
-            });
-          }
+          // Slate editor 찾기
+          let editor = document.querySelector("[data-slate-editor='true']");
+          if (!editor) editor = document.querySelector("div[role='textbox'][contenteditable='true']:not(#af-bot-panel *)");
+          if (!editor) editor = document.querySelector('[contenteditable="true"]:not([aria-hidden])');
 
           if (!editor) return { success: false, error: 'Editor not found' };
 
           const isSlate = !!(editor.matches?.("[data-slate-editor='true']") || editor.querySelector?.("[data-slate-node]"));
 
           // Slate React API로 프롬프트 주입
-          let injected = false;
+          // #R32-1: 프롬프트가 비어도(F2V 'none' 소스 → I2V) 유효하다 — 이미지가 생성을 주도.
+          //   빈 프롬프트는 주입할 게 없으니 injected=true 로 시작해, 비-빈 modelText 요구(아래 verifier)
+          //   때문에 'Prompt injection failed' 로 막히지 않게 한다(API 모드는 빈 프롬프트 허용 — 모드 일치).
+          let injected = !promptText;
           if (isSlate) {
             try {
               const reactKeys = Object.keys(editor).filter(k => k.startsWith('__react'));
@@ -331,29 +373,25 @@ export function registerVideoIPC(ipcMain, deps) {
       `)
 
       if (promptWasHidden) {
-        flowView.setBounds(promptBounds)
+        updateBounds(getMainWindow(), flowView)
         await new Promise(r => setTimeout(r, 200))
       }
 
       if (!promptResult?.success) {
-        return { success: false, error: promptResult?.error || 'Prompt injection failed' }
+        // segment 주입 실패는 모두 재시도 가능하다. staleMention 은 option-not-found 인 경우에만
+        // injectComposeSegments 가 넣으므로, 칩/다이얼로그 실패가 렌더러 재등록 루프로 번지지 않는다.
+        return {
+          success: false,
+          errorKind: promptResult?.errorKind,
+          error: promptResult?.error || 'Prompt injection failed',
+          ...(_injSegments ? { retry: true } : {}),
+          ...(promptResult?.mentionFailure ? { mentionFailure: promptResult.mentionFailure } : {}),
+          ...(promptResult?.staleMention ? { staleMention: promptResult.staleMention } : {}),
+        }
       }
       console.log('[Flow Video T2V] Prompt injected successfully')
 
-      // 3. CDP 비디오 응답 캡처 Promise 설정
-      let resolveVideo = null
-      let videoTimeout = null
-      const videoResponsePromise = new Promise((resolve) => {
-        videoTimeout = setTimeout(() => {
-          if (getPendingVideoGeneration()) {
-            setPendingVideoGeneration(null)
-            resolve({ error: true, message: 'Video response timeout (30s)' })
-          }
-        }, 30000) // 비디오 제출은 이미지보다 빠름 (초기 응답만 캡처)
-        resolveVideo = resolve
-      })
-
-      // 4. Generate 버튼 Trusted Click
+      // 4. Generate 버튼 셀렉터 (Agent ON/OFF 공통)
       const generateBtnSelector = `(function() {
         try {
           const xr = document.evaluate("//button[.//i[text()='arrow_forward']]",
@@ -368,124 +406,71 @@ export function registerVideoIPC(ipcMain, deps) {
         return null;
       })()`
 
-      // 4-a. 클릭 전 인간 행동 시뮬레이션 (reCAPTCHA 점수 향상)
-      try {
-        await flowView.webContents.executeJavaScript(`
-          (async () => {
-            try {
-              const moves = 3 + Math.floor(Math.random() * 3)
-              for (let i = 0; i < moves; i++) {
-                document.dispatchEvent(new MouseEvent('mousemove', {
-                  clientX: 200 + Math.random() * 800,
-                  clientY: 100 + Math.random() * 500,
-                  bubbles: true
-                }))
-                await new Promise(r => setTimeout(r, 120 + Math.random() * 180))
-              }
-              const scrollAmt = 30 + Math.random() * 60
-              window.scrollBy(0, scrollAmt)
-              await new Promise(r => setTimeout(r, 150 + Math.random() * 250))
-              window.scrollBy(0, -scrollAmt * 0.6)
-              await new Promise(r => setTimeout(r, 100 + Math.random() * 150))
-              const btn = (() => { for(const b of document.querySelectorAll('button')) { for(const i of b.querySelectorAll('i')) { if(i.textContent.trim()==='arrow_forward') return b } } return null })()
-              if (btn) {
-                const rect = btn.getBoundingClientRect()
-                btn.dispatchEvent(new MouseEvent('mousemove', {
-                  clientX: rect.left + rect.width * (0.3 + Math.random() * 0.4),
-                  clientY: rect.top  + rect.height * (0.3 + Math.random() * 0.4),
-                  bubbles: true
-                }))
-                btn.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
-                await new Promise(r => setTimeout(r, 200 + Math.random() * 300))
-              }
-            } catch(e) {}
-          })()
-        `)
-        console.log('[Flow Video T2V] Human behavior simulation complete')
-      } catch (simErr) { /* non-fatal */ }
-
-      // ★ 클릭 전 pendingVideoGeneration을 먼저 무장(Arm)하여 레이스 컨디션 방지!
-      const videoSetAt = Date.now() / 1000 - 5
-      setPendingVideoGeneration({
-        setAt: videoSetAt,
-        resolve: (result) => {
-          clearTimeout(videoTimeout)
-          resolveVideo(result)
+      // [Agent ON] streamChat 은 batchAsyncGenerateVideoText 를 안 보내 intercept 로 못 받는다 →
+      //   제출 전 스냅샷 후 클릭하고 DOM 의 "새" 결과 <video>(media.getMediaUrlRedirect?name=) 를 수집한다.
+      //   base64 가 아닌 mediaId 를 generationId 로 반환 → 렌더러의 기존 check-video-status→download 파이프가 이어받는다.
+      if (agentOn) {
+        let existingGenMediaIds = []
+        try {
+          const _pre = await flowView.webContents.executeJavaScript(GENERATED_VIDEO_PROBE)
+          if (Array.isArray(_pre)) existingGenMediaIds = _pre.map(v => v && v.mediaId).filter(Boolean)
+        } catch {}
+        const aClick = await trustedClickOnFlowView(generateBtnSelector, { required: true, step: 'video-submit' })
+        if (!aClick?.success) return { success: false, error: aClick?.error || 'Failed to click Generate button' }
+        console.log('[Flow Video T2V] (Agent ON) clicked, collecting DOM <video>...')
+        const col = await collectAgentDomVideos({
+          scan: () => flowView.webContents.executeJavaScript(GENERATED_VIDEO_PROBE),
+          sleep: (ms) => new Promise(r => setTimeout(r, ms)),
+          // 제출 전 스냅샷 + 다른 경로가 이미 수집한 것 제외 → 결과만.
+          existingMediaIds: [...existingGenMediaIds, ...collectedMediaIds], want: 1,
+          markCollected: (mid) => collectedMediaIds.add(mid),
+        })
+        if (!col.success) {
+          return { success: false, errorKind: col.errorKind, error: col.error, retry: true }
         }
-      })
-      console.log('[Flow Video T2V] pendingVideoGeneration armed before click...')
+        const mediaId = col.videos[0] && col.videos[0].mediaId
+        console.log('[Flow Video T2V] (Agent ON) collected video mediaId:', mediaId)
+        return { success: true, generationId: mediaId }
+      }
 
-      const clickResult = await trustedClickOnFlowView(generateBtnSelector, profileId)
+      // 3. (Agent OFF) CDP 비디오 응답 캡처 Promise 설정 (resolve 만 캡처 — 타이머/arm 은 클릭 직전에)
+      let resolveVideo = null
+      const videoResponsePromise = new Promise((resolve) => { resolveVideo = resolve })
+
+      // R9-P1: arm-before-click — main 의 캡처는 pendingVideoGeneration 이 non-null 일 때만 동작한다.
+      //   클릭 후 arm 하면 매우 빠른 응답/에러가 arm 전에 도착해 캡처를 놓치고 false 30s timeout 으로 빠진다.
+      //   setAt=now(백데이트 제거): 클릭으로 시작될 요청은 이 setAt 이후 reqSentAt 을 가진다.
+      //   timeout/click 실패 정리는 자기 pending(videoOwnPending)만 identity 로 건드린다.
+      const videoSetAt = Date.now() / 1000
+      videoOwnPending = {
+        setAt: videoSetAt,
+        resolve: (result) => { clearTimeout(videoTimeout); resolveVideo(result) }
+      }
+      setPendingVideoGeneration(videoOwnPending)
+      videoTimeout = setTimeout(() => {
+        if (getPendingVideoGeneration() === videoOwnPending) {
+          setPendingVideoGeneration(null)
+          resolveVideo({ error: true, message: `Video response timeout (${Math.round(VIDEO_RESPONSE_TIMEOUT_MS / 1000)}s)` })
+        }
+      }, VIDEO_RESPONSE_TIMEOUT_MS) // #R36: 초기 ack 캡처(생성/upscale 은 status 폴링)
+
+      const clickResult = await trustedClickOnFlowView(generateBtnSelector, { required: true, step: 'video-submit' })
       console.log('[Flow Video T2V] Trusted click result:', clickResult)
 
       if (!clickResult?.success) {
-        setPendingVideoGeneration(null)
         clearTimeout(videoTimeout)
+        if (getPendingVideoGeneration() === videoOwnPending) setPendingVideoGeneration(null)
         return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
       }
-
-      // ==== AUTO-APPROVE AUTOMATION ====
-      // Click Approve if it appears after the Generate click
-      const approveRes = await clickApproveButtonIfPresent(flowView, profileId).catch(err => {
-        console.error('[Flow Video T2V] Approve button automation failed:', err.message);
-        return { success: false };
-      });
-      if (approveRes && approveRes.clicked) {
-        // Reset the timeout timer to allow full 30s after the click
-        clearTimeout(videoTimeout);
-        videoTimeout = setTimeout(() => {
-          if (getPendingVideoGeneration()) {
-            setPendingVideoGeneration(null)
-            resolveVideo({ error: true, message: 'Video response timeout (30s)' })
-          }
-        }, 30000);
-        console.log('[Flow Video T2V] Reset videoTimeout after Approve button click');
-      }
+      console.log('[Flow Video T2V] pendingVideoGeneration armed BEFORE click, waiting for CDP capture...')
 
       // 5. 비디오 API 응답 대기
       const netResult = await videoResponsePromise
 
       if (netResult.error) {
-        const statusCode = netResult.status
-        const rawBody = netResult.body || ''
-        console.warn('[Flow Video T2V] Video API failed: HTTP', statusCode)
-        console.warn('[Flow Video T2V] Response body:', rawBody?.substring(0, 500))
-
-        // Google 에러 body 파싱해서 실제 원인 추출
-        let googleErrorMsg = null
-        try {
-          const errData = JSON.parse(rawBody)
-          googleErrorMsg = errData?.error?.message || errData?.error?.status || null
-        } catch {}
-
-        let errorStr
-        if (statusCode === 403) {
-          // 403 = PERMISSION_DENIED — unusual activity 또는 세션 만료
-          const isUnusualActivity = rawBody.includes('unusual') || rawBody.includes('PERMISSION_DENIED')
-            || rawBody.includes('safety') || rawBody.includes('policy')
-          if (isUnusualActivity) {
-            errorStr = '403: Google이 비정상 활동을 감지했습니다. Flow 페이지를 새로 고침하거나 잠시 후 다시 시도하세요.'
-          } else if (googleErrorMsg) {
-            errorStr = `403: ${googleErrorMsg}`
-          } else {
-            errorStr = '403: PERMISSION_DENIED — 계정 세션을 확인하세요.'
-          }
-
-          // 403 차단 감지 시 Flow 페이지 자동 새로고침 (이상활동 배너 해제 시도)
-          try {
-            console.warn('[Flow Video T2V] 403 차단 감지 → Flow 페이지 자동 새로고침')
-            flowView.webContents.reload()
-          } catch (reloadErr) {
-            console.warn('[Flow Video T2V] 페이지 새로고침 실패:', reloadErr.message)
-          }
-        } else if (statusCode === 429) {
-          errorStr = '429: 요청 한도 초과. 잠시 후 재시도합니다.'
-        } else {
-          errorStr = googleErrorMsg || netResult.message || `HTTP ${statusCode}: Video generation failed`
-        }
-
-        console.warn('[Flow Video T2V] Parsed error:', errorStr)
-        return { success: false, error: errorStr }
+        const errMsg = extractServerErrorMessage(netResult, parseFlowResponse)
+        console.warn('[Flow Video T2V] Video API failed:', errMsg)
+        return { success: false, error: errMsg }
       }
 
       // 6. 응답에서 generation ID 추출
@@ -502,9 +487,14 @@ export function registerVideoIPC(ipcMain, deps) {
       console.error('[Flow Video T2V] Error:', e.message)
       return { success: false, error: e.message }
     } finally {
-      if (global.clearFlowPageInject) {
-        global.clearFlowPageInject(profileId)
-      }
+      // R10-P2: throw 등 어떤 종료 경로든 arm 한 pending/timeout 을 정리 — 자기 pending(identity)만.
+      //   (성공 경로는 응답이 이미 pending 을 비웠으므로 no-op.)
+      if (videoTimeout) clearTimeout(videoTimeout)
+      if (videoOwnPending && getPendingVideoGeneration() === videoOwnPending) setPendingVideoGeneration(null)
+      // #R7-10: 주입 중 throw 해도 임시로 보인 flowView 를 원복(성공 경로는 이미 hidden → no-op).
+      if (promptWasHidden) { try { updateBounds(getMainWindow(), flowView) } catch {} }
+      // Monkey-patch inject 정리 (항상 실행)
+      await clearFlowPageInject?.()
     }
   })
 
@@ -512,57 +502,94 @@ export function registerVideoIPC(ipcMain, deps) {
   // T2V와 동일한 DOM 흐름: 프롬프트 주입 → Generate 클릭 → CDP 응답 캡처
   // 차이점: CDP Fetch로 나가는 T2V 요청을 가로채서 startImage 주입 + URL을 I2V 엔드포인트로 변경
   ipcMain.handle('flow:generate-video-i2v', async (event, {
-    token, prompt, startImageMediaId, endImageMediaId, projectId, model, aspectRatio, duration, videoBatchCount, seed, profileId
+    token, prompt, startImageMediaId, endImageMediaId, projectId, model, aspectRatio, duration, videoBatchCount, seed
   }) => {
-    // Enforce global rate-limit throttling
-    await acquireGlobalThrottle()
-
-    const flowView = getFlowView(profileId)
+    if (!flowActive()) return { success: false, error: 'Flow inactive (API mode)' }  // #R25-4
+    const flowView = getFlowView()
     const mainWindow = getMainWindow()
     if (!startImageMediaId) return { success: false, error: 'No start image mediaId' }
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
-    const hasEndImage = !!endImageMediaId
+    // Seed: 숫자면 monkey-patch inject가 video 요청에 주입,
+    //       null/undefined면 Flow 자체 랜덤 seed 유지
+    const hasUserSeed = typeof seed === 'number' && Number.isFinite(seed)
+    const _seedValue  = hasUserSeed ? seed : null
+
+    // OmniFlash i2v 는 종료프레임 미지원 — 종료이미지가 있어도 무시한다(start-only). 안 그러면
+    //   URL 은 StartAndEndImage 로 가는데 body 엔 endImage 가 없어 HTTP 400 INVALID_ARGUMENT.
+    if (endImageMediaId && isOmniFlashModel(model)) {
+      console.log('[Flow Video I2V] OmniFlash 는 종료프레임 미지원 → endImage 무시(start-only)')
+    }
+    const hasEndImage = !!endImageMediaId && !isOmniFlashModel(model)
     console.log('[Flow Video I2V] Starting DOM-triggered I2V generation, start:', startImageMediaId?.substring(0, 8),
       hasEndImage ? ', end: ' + endImageMediaId?.substring(0, 8) : '(start only)',
-      seed != null ? `(seed: ${seed})` : '(seed: random)')
+      hasUserSeed ? `(seed: ${seed})` : '(seed: random)')
 
-    // Seed/I2V page-level fetch patch injection
-    if (global.setFlowPageInject) {
-      global.setFlowPageInject(profileId, {
-        seed: typeof seed === 'number' && Number.isFinite(seed) ? seed : null,
-        aspectRatio: null,
-        references: null,
-        i2v: {
-          startImageMediaId,
-          endImageMediaId: hasEndImage ? endImageMediaId : null,
-          i2vUrl: VIDEO_I2V_URL,
-          i2vStartEndUrl: VIDEO_I2V_START_END_URL
-        }
-      })
-    }
+    // R10-P2: arm-before-click pending/timeout 을 try 밖에 선언 — throw 시 finally 에서 identity 정리.
+    let videoTimeout = null
+    let videoOwnPending = null
+    // #R7-10(R6-13 sibling): hoist so the finally always restores temp-shown bounds, even on throw.
+    let promptWasHidden = false
+    let promptBounds = null
 
     try {
-      // 0. Flow 프로젝트 페이지 확인 및 자동 진입
-      const pageCheck = await ensureOnProjectPage(flowView)
-      if (!pageCheck.success) {
-        return { success: false, error: pageCheck.error || 'Not on Flow project page. Please open a Flow project first.' }
+      // 0. Codex #R4-4: enforce Flow page is on the TARGET project before DOM mutation.
+      const projectCheck = await ensureOnProjectComposer(flowView, projectId)
+      if (!projectCheck.ok) {
+        return { success: false, errorKind: projectCheck.errorKind, error: projectCheck.error }
       }
 
-      // 1. 비디오 모드로 전환 (배치 카운트 적용)
-      const effectiveBatchCount = Math.max(1, Math.min(4, videoBatchCount || 1))
-      const modeResult = await configureFlowMode('VIDEO', effectiveBatchCount, profileId)
-      if (!modeResult.success) {
-        return { success: false, error: modeResult.error || 'Failed to switch to video mode' }
+      // 1.5. Agent 토글 — i2v 는 시작 이미지(startImageMediaId)를 monkey-patch 로 비디오 요청에
+      //   주입하는데, Agent ON(streamChat)은 그 요청 자체를 안 보내 주입 통로가 없다(Agent ON 컴포저에
+      //   이미지 첨부 자동화도 없음). 그래서 사용자가 Agent ON 으로 설정했어도 i2v 는 항상 Agent OFF
+      //   경로(intercept)로 fallback 한다. t2v 와 달리 DOM 수집으로 살릴 수 없는 입력단 한계.
+      if (getFlowAgentOn && getFlowAgentOn()) {
+        console.log('[Flow Video I2V] Agent ON 설정이나 i2v 는 시작 이미지 주입(intercept) 필요 → Agent OFF 경로로 fallback')
       }
-      console.log('[Flow Video I2V] Video mode active:', modeResult.method)
+      let agentOff = false
+      try { const r = await ensureAgentOff(); agentOff = !!(r && r.success) } catch (e) { console.warn('[Flow Video I2V] ensureAgentOff skipped:', e.message) }
+      // [P1] Agent OFF 보장 실패 시 중단(fail-closed) — t2v 와 동일 이유.
+      if (!agentOff) {
+        return {
+          success: false,
+          errorKind: 'flow-agent-off-failed',
+          error: 'Could not turn Flow Agent off',
+        }
+      }
+
+      // 1.6. 동영상 모드로 전환 — t2v 와 동일하게 configureFlowMode 가 컴포즈 칩 팝오버를
+      //      열고 동영상 탭을 클릭한다. [P2] 배치 카운트(videoBatchCount) 전달.
+      // #R30-1: 모드 전환 명시적 {success:false} 면 제출 중단(t2v 와 동일 — 잘못된 quota/timeout 방지).
+      // #R31-1: 배치 1 로 고정(멀티-비디오 결과 미추적 → 유료 유실 방지, t2v 와 동일).
+      let _vmodeRes = null
+      // #aspect: 화면비(설정>씬)를 여기서 적용한다 — configureFlowMode 는 설정 메뉴를 연 채로
+      //   모드/배치/화면비 탭을 한 번에 클릭하는, Flow 새 통합 패널에서도 작동하는 경로다.
+      //   (applyAgentDefaults/findAgentSettingsPanel 은 새 패널에서 panel_not_found 로 죽는다.)
+      try { _vmodeRes = await configureFlowMode("VIDEO", 1, aspectRatio) } catch (e) { console.warn("[Flow Video] configureFlowMode skipped:", e.message) }
+      if (_vmodeRes && _vmodeRes.success === false) {
+        return { success: false, error: `Flow VIDEO mode switch failed: ${_vmodeRes.error || 'unknown'}`, retry: true }
+      }
+      // 화면비는 이 DOM 클릭이 유일한 수단이다(CDP 사용 금지 — request injection 백업이 없다).
+      //   못 찾거나 클릭이 안 먹은 채로 제출하면 9:16 배치가 통째로 패널의 옛 화면비로 생성된다.
+      //   유료 생성이라 조용한 오출력보다 멈추는 편이 낫다. tab_not_found 는 Flow UI 가 또 바뀐
+      //   구조적 실패라 재시도해도 같으므로 retry 하지 않는다.
+      if (_vmodeRes && (_vmodeRes.aspect === 'tab_not_found' || _vmodeRes.aspect === 'click_unconfirmed')) {
+        return {
+          success: false,
+          error: `Flow aspect ratio not applied (${_vmodeRes.aspect}) — refusing to generate at the wrong aspect`,
+          retry: _vmodeRes.aspect === 'click_unconfirmed',
+        }
+      }
+
+      // 화면비는 위 configureFlowMode 가 적용(t2v 와 동일). 구 applyAgentDefaults(video) 는 새
+      //   통합 패널에서 panel_not_found 로 죽어 아무것도 적용 못 했으므로 제거했다.
 
       // 2. 프롬프트 입력 (T2V와 동일한 Slate 에디터 사용)
-      const promptBounds = flowView.getBounds()
-      const promptWasHidden = (promptBounds.width === 0 || promptBounds.height === 0)
+      promptBounds = flowView.getBounds()
+      promptWasHidden = (promptBounds.width === 0 || promptBounds.height === 0)
       if (promptWasHidden) {
         const { width, height } = mainWindow.getContentBounds()
-        flowView.setBounds({ x: width + 5000, y: 0, width, height })
+        flowView.setBounds(computeOffscreenBounds(screen.getAllDisplays(), mainWindow.getBounds().x, width, height))
         await new Promise(r => setTimeout(r, 300))
       }
 
@@ -571,36 +598,20 @@ export function registerVideoIPC(ipcMain, deps) {
           const promptText = ${JSON.stringify(prompt || '')};
           const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-          // Slate editor 찾기 (사이드바, 에이전트, 서브패널 배제)
-          let editor = document.querySelector(".composer-container [data-slate-editor='true'], .prompt-container [data-slate-editor='true'], [data-slate-editor='true']:not([class*='sidebar'] *):not([class*='agent'] *):not(#af-bot-panel *)");
-          
-          if (!editor) {
-            const candidates = Array.from(document.querySelectorAll("div[role='textbox'][contenteditable='true'], [contenteditable='true']:not([aria-hidden])"));
-            editor = candidates.find(el => {
-              let parent = el.parentElement;
-              while (parent) {
-                const id = (parent.id || '').toLowerCase();
-                const cls = (parent.className || '').toString().toLowerCase();
-                if (
-                  id.includes('sidebar') || id.includes('agent') || id.includes('instruction') || id.includes('drawer') || id.includes('panel') ||
-                  cls.includes('sidebar') || cls.includes('agent') || cls.includes('instruction') || cls.includes('drawer') || cls.includes('panel') ||
-                  cls.includes('chat-history') || cls.includes('history')
-                ) {
-                  return false;
-                }
-                parent = parent.parentElement;
-              }
-              const rect = el.getBoundingClientRect();
-              return rect.width > 100 && rect.height > 20;
-            });
-          }
+          // Slate editor 찾기
+          let editor = document.querySelector("[data-slate-editor='true']");
+          if (!editor) editor = document.querySelector("div[role='textbox'][contenteditable='true']:not(#af-bot-panel *)");
+          if (!editor) editor = document.querySelector('[contenteditable="true"]:not([aria-hidden])');
 
           if (!editor) return { success: false, error: 'Editor not found' };
 
           const isSlate = !!(editor.matches?.("[data-slate-editor='true']") || editor.querySelector?.("[data-slate-node]"));
 
           // Slate React API로 프롬프트 주입
-          let injected = false;
+          // #R32-1: 프롬프트가 비어도(F2V 'none' 소스 → I2V) 유효하다 — 이미지가 생성을 주도.
+          //   빈 프롬프트는 주입할 게 없으니 injected=true 로 시작해, 비-빈 modelText 요구(아래 verifier)
+          //   때문에 'Prompt injection failed' 로 막히지 않게 한다(API 모드는 빈 프롬프트 허용 — 모드 일치).
+          let injected = !promptText;
           if (isSlate) {
             try {
               const reactKeys = Object.keys(editor).filter(k => k.startsWith('__react'));
@@ -675,7 +686,7 @@ export function registerVideoIPC(ipcMain, deps) {
       `)
 
       if (promptWasHidden) {
-        flowView.setBounds(promptBounds)
+        updateBounds(getMainWindow(), flowView)
         await new Promise(r => setTimeout(r, 200))
       }
 
@@ -684,18 +695,31 @@ export function registerVideoIPC(ipcMain, deps) {
       }
       console.log('[Flow Video I2V] Prompt injected successfully')
 
-      // 4. CDP 비디오 응답 캡처 Promise 설정
-      let resolveVideo = null
-      let videoTimeout = null
-      const videoResponsePromise = new Promise((resolve) => {
-        videoTimeout = setTimeout(() => {
-          if (getPendingVideoGeneration()) {
-            setPendingVideoGeneration(null)
-            resolve({ error: true, message: 'Video response timeout (30s)' })
-          }
-        }, 30000)
-        resolveVideo = resolve
+      // 3. Set inject state for monkey-patch path
+      // #R33: i2v 엔드포인트를 region 캡처 origin 으로 해석(없으면 하드코딩 fallback).
+      const _vu = await videoUrls()
+      const i2vConfig = {
+        startImageMediaId,
+        endImageMediaId: hasEndImage ? endImageMediaId : null,
+        i2vUrl: _vu.i2v,
+        i2vStartEndUrl: _vu.i2vStartEnd,
+        duration,    // OmniFlash i2v 길이 접미사 최적화용
+        videoModel: model,  // 앱이 OmniFlash 면 injectI2VBody 가 abra i2v 키로 강제(패널 우회)
+      }
+      // Monkey-patch path: write into Flow page — #R15-5: arming 실패 시 중단(미주입 i2v 방지).
+      const _i2vInjRes = await setFlowPageInject?.({
+        seed:        _seedValue,
+        aspectRatio: null,
+        references:  null,
+        i2v:         i2vConfig,
       })
+      if (_i2vInjRes && _i2vInjRes.success === false) {
+        return { success: false, error: `Flow inject arming failed: ${_i2vInjRes.error || 'unknown'}`, retry: true }
+      }
+
+      // 4. 비디오 응답 캡처 Promise 설정 (resolve 만 캡처 — 타이머/arm 은 클릭 직전에)
+      let resolveVideo = null
+      const videoResponsePromise = new Promise((resolve) => { resolveVideo = resolve })
 
       // 5. Generate 버튼 Trusted Click
       const generateBtnSelector = `(function() {
@@ -712,115 +736,38 @@ export function registerVideoIPC(ipcMain, deps) {
         return null;
       })()`
 
-      // 5-a. 클릭 전 인간 행동 시뮬레이션 (reCAPTCHA 점수 향상)
-      // Generate 버튼 위로 마우스를 자연스럽게 이동시키고 스크롤을 살짝 움직여
-      // Google의 행동 기반 reCAPTCHA 점수를 높임
-      try {
-        await flowView.webContents.executeJavaScript(`
-          (async () => {
-            try {
-              // 랜덤 마우스 이동 (페이지 전체 범위)
-              const moves = 3 + Math.floor(Math.random() * 3)
-              for (let i = 0; i < moves; i++) {
-                const x = 200 + Math.random() * 800
-                const y = 100 + Math.random() * 500
-                document.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }))
-                await new Promise(r => setTimeout(r, 120 + Math.random() * 180))
-              }
-              // 미세 스크롤 (사람처럼 조금 내렸다 올림)
-              const scrollAmt = 30 + Math.random() * 60
-              window.scrollBy(0, scrollAmt)
-              await new Promise(r => setTimeout(r, 150 + Math.random() * 250))
-              window.scrollBy(0, -scrollAmt * 0.6)
-              await new Promise(r => setTimeout(r, 100 + Math.random() * 150))
-              // Generate 버튼 근처로 호버
-              const btn = document.querySelector('button [data-icon="arrow_forward"]')?.closest('button')
-                || (() => { for(const b of document.querySelectorAll('button')) { for(const i of b.querySelectorAll('i')) { if(i.textContent.trim()==='arrow_forward') return b } } return null })()
-              if (btn) {
-                const rect = btn.getBoundingClientRect()
-                const cx = rect.left + rect.width * (0.3 + Math.random() * 0.4)
-                const cy = rect.top  + rect.height * (0.3 + Math.random() * 0.4)
-                btn.dispatchEvent(new MouseEvent('mousemove', { clientX: cx, clientY: cy, bubbles: true }))
-                btn.dispatchEvent(new MouseEvent('mouseenter', { clientX: cx, clientY: cy, bubbles: true }))
-                await new Promise(r => setTimeout(r, 200 + Math.random() * 300))
-              }
-            } catch(e) {}
-          })()
-        `)
-        console.log('[Flow Video I2V] Human behavior simulation complete')
-      } catch (simErr) {
-        // non-fatal
-      }
-
-      // ★ 클릭 전 pendingVideoGeneration을 먼저 무장(Arm)하여 레이스 컨디션 방지!
-      const videoSetAt = Date.now() / 1000 - 5
-      setPendingVideoGeneration({
+      // R9-P1: arm-before-click(이미지/ T2V 와 동일) — 클릭 후 arm 하면 빠른 응답/에러를 놓쳐
+      //   false 30s timeout 으로 빠진다. setAt=now, 정리는 자기 pending 만 identity 로.
+      const videoSetAt = Date.now() / 1000
+      videoOwnPending = {
         setAt: videoSetAt,
-        resolve: (result) => {
-          clearTimeout(videoTimeout)
-          resolveVideo(result)
+        resolve: (result) => { clearTimeout(videoTimeout); resolveVideo(result) }
+      }
+      setPendingVideoGeneration(videoOwnPending)
+      videoTimeout = setTimeout(() => {
+        if (getPendingVideoGeneration() === videoOwnPending) {
+          setPendingVideoGeneration(null)
+          resolveVideo({ error: true, message: `Video response timeout (${Math.round(VIDEO_RESPONSE_TIMEOUT_MS / 1000)}s)` })
         }
-      })
-      console.log('[Flow Video I2V] pendingVideoGeneration armed before click...')
+      }, VIDEO_RESPONSE_TIMEOUT_MS)
 
-      const clickResult = await trustedClickOnFlowView(generateBtnSelector, profileId)
+      const clickResult = await trustedClickOnFlowView(generateBtnSelector, { required: true, step: 'video-submit' })
       console.log('[Flow Video I2V] Trusted click result:', clickResult)
 
       if (!clickResult?.success) {
-        setPendingVideoGeneration(null)
         clearTimeout(videoTimeout)
+        if (getPendingVideoGeneration() === videoOwnPending) setPendingVideoGeneration(null)
         return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
       }
-
-      // ==== AUTO-APPROVE AUTOMATION ====
-      // Click Approve if it appears after the Generate click
-      const approveRes = await clickApproveButtonIfPresent(flowView, profileId).catch(err => {
-        console.error('[Flow Video I2V] Approve button automation failed:', err.message);
-        return { success: false };
-      });
-      if (approveRes && approveRes.clicked) {
-        // Reset the timeout timer to allow full 30s after the click
-        clearTimeout(videoTimeout);
-        videoTimeout = setTimeout(() => {
-          if (getPendingVideoGeneration()) {
-            setPendingVideoGeneration(null)
-            resolveVideo({ error: true, message: 'Video response timeout (30s)' })
-          }
-        }, 30000);
-        console.log('[Flow Video I2V] Reset videoTimeout after Approve button click');
-      }
+      console.log('[Flow Video I2V] pendingVideoGeneration armed BEFORE click, waiting for CDP capture...')
 
       // 6. 비디오 API 응답 대기
       const netResult = await videoResponsePromise
 
       if (netResult.error) {
-        const statusCode = netResult.status
-        const rawBody = netResult.body || ''
-        console.warn('[Flow Video I2V] Video API failed: HTTP', statusCode)
-        console.warn('[Flow Video I2V] Response body:', rawBody?.substring(0, 500))
-        let googleErrorMsg = null
-        try { const errData = JSON.parse(rawBody); googleErrorMsg = errData?.error?.message || errData?.error?.status || null } catch {}
-        let errorStr
-        if (statusCode === 403) {
-          const isUnusualActivity = rawBody.includes('unusual') || rawBody.includes('PERMISSION_DENIED') || rawBody.includes('safety') || rawBody.includes('policy')
-          errorStr = isUnusualActivity
-            ? '403: Google이 비정상 활동을 감지했습니다. Flow 페이지를 새로 고침하거나 잠시 후 다시 시도하세요.'
-            : (googleErrorMsg ? `403: ${googleErrorMsg}` : '403: PERMISSION_DENIED — 계정 세션을 확인하세요.')
-
-          // 403 차단 감지 시 Flow 페이지 자동 새로고침 (이상활동 배너 해제 시도)
-          try {
-            console.warn('[Flow Video I2V] 403 차단 감지 → Flow 페이지 자동 새로고침')
-            flowView.webContents.reload()
-          } catch (reloadErr) {
-            console.warn('[Flow Video I2V] 페이지 새로고침 실패:', reloadErr.message)
-          }
-        } else if (statusCode === 429) {
-          errorStr = '429: 요청 한도 초과. 잠시 후 재시도합니다.'
-        } else {
-          errorStr = googleErrorMsg || netResult.message || `HTTP ${statusCode}: Video generation failed`
-        }
-        console.warn('[Flow Video I2V] Parsed error:', errorStr)
-        return { success: false, error: errorStr }
+        const errMsg = extractServerErrorMessage(netResult, parseFlowResponse)
+        console.warn('[Flow Video I2V] Video API failed:', errMsg)
+        return { success: false, error: errMsg }
       }
 
       // 7. 응답에서 generation ID 추출
@@ -837,9 +784,13 @@ export function registerVideoIPC(ipcMain, deps) {
       console.error('[Flow Video I2V] Error:', e.message)
       return { success: false, error: e.message }
     } finally {
-      if (global.clearFlowPageInject) {
-        global.clearFlowPageInject(profileId)
-      }
+      // R10-P2: throw 등 어떤 종료 경로든 arm 한 pending/timeout 정리 — 자기 pending(identity)만.
+      if (videoTimeout) clearTimeout(videoTimeout)
+      if (videoOwnPending && getPendingVideoGeneration() === videoOwnPending) setPendingVideoGeneration(null)
+      // #R7-10: 주입 중 throw 해도 임시로 보인 flowView 를 원복(성공 경로는 이미 hidden → no-op).
+      if (promptWasHidden) { try { updateBounds(getMainWindow(), flowView) } catch {} }
+      // Monkey-patch inject 정리 (항상 실행)
+      await clearFlowPageInject?.()
     }
   })
 
@@ -850,6 +801,7 @@ export function registerVideoIPC(ipcMain, deps) {
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
     const pid = projectId || getCapturedProjectId() || ''
+    const _statusUrl = (await videoUrls()).status  // #R33: region 대응 status 엔드포인트
 
     try {
       // 페이지 컨텍스트에서 fetch 실행 (AutoFlow 동일 바디 구조)
@@ -861,7 +813,7 @@ export function registerVideoIPC(ipcMain, deps) {
             const pid = ${JSON.stringify(pid)};
             const media = ids.map(name => pid ? { name, projectId: pid } : { name });
             const body = { media };
-            const resp = await fetch('${VIDEO_STATUS_URL}', {
+            const resp = await fetch('${_statusUrl}', {
               method: 'POST',
               mode: 'cors',
               credentials: 'include',
@@ -879,7 +831,8 @@ export function registerVideoIPC(ipcMain, deps) {
       console.log('[Flow VideoStatus] HTTP', result.status, 'body length:', result.text?.length || 0)
 
       if (!result.ok) {
-        console.warn('[Flow VideoStatus] Error:', result.text?.substring(0, 300))
+        // 응답 본문은 프롬프트·이름을 되돌려줄 수 있다 — 길이만.
+        console.warn('[Flow VideoStatus] Error: bodyLen=', (result.text || '').length)
         return { success: false, error: `HTTP ${result.status}: ${(result.text || '').substring(0, 200)}` }
       }
 
@@ -910,7 +863,7 @@ export function registerVideoIPC(ipcMain, deps) {
               return urls
             }
             const allUrls = findUrls(m, 'media')
-            console.log('[Flow VideoStatus] ✅ URLs in response:', JSON.stringify(allUrls))
+            console.log('[Flow VideoStatus] ✅ URLs in response:', allUrls.length)   // URL 은 사용자 생성물 주소 — 개수만
             console.log('[Flow VideoStatus] ✅ mediaMetadata keys:', JSON.stringify(Object.keys(m?.mediaMetadata || {})))
 
             // AutoFlow: 비디오 URL은 status 응답에서 직접 추출
@@ -929,9 +882,16 @@ export function registerVideoIPC(ipcMain, deps) {
             console.log('[Flow VideoStatus] ✅ Complete! videoUrl:', videoUrl?.substring(0, 80))
             statuses.push({ status: 'complete', mediaId, videoUrl })
           } else if (genStatus.includes('FAILED') || genStatus.includes('ERROR')) {
-            console.warn('[Flow VideoStatus] ❌ FAILED media detail:', JSON.stringify(m).substring(0, 1000))
-            const failReason = m?.mediaMetadata?.mediaStatus?.failureReason
-              || m?.mediaMetadata?.mediaStatus?.errorMessage
+            console.warn('[Flow VideoStatus] ❌ FAILED media detail: keys=', Object.keys(m || {}))
+            // 실제 실패 사유를 우선 추출 ("Media not found." 등). 구조:
+            //   mediaMetadata.mediaStatus.error.message / .failureReasons[0]
+            // 이게 stale("Media not found") 자동복구 판정(isStaleVideoStatus)의 입력이므로
+            // enum(MEDIA_GENERATION_STATUS_FAILED)으로 폴백하면 복구가 안 된다.
+            const ms = m?.mediaMetadata?.mediaStatus
+            const failReason = ms?.error?.message
+              || (Array.isArray(ms?.failureReasons) ? ms.failureReasons[0] : null)
+              || ms?.failureReason
+              || ms?.errorMessage
               || m?.error?.message
               || genStatus
             statuses.push({ status: 'failed', error: failReason })
@@ -976,6 +936,7 @@ export function registerVideoIPC(ipcMain, deps) {
   // AutoFlow 10.7.58 역공학: upscaleVideoDirect (sidepanel.js:20223)
   // mediaId → workflowId 조회 → reCAPTCHA → upscale 제출 → resultMediaName 반환
   ipcMain.handle('flow:upscale-video', async (event, { token, mediaId, projectId, resolution, aspectRatio }) => {
+    if (!flowActive()) return { success: false, error: 'Flow inactive (API mode)' }  // #R25-4
     const flowView = getFlowView()
     if (!token) return { success: false, error: 'No token' }
     if (!mediaId) return { success: false, error: 'No mediaId' }
@@ -985,6 +946,8 @@ export function registerVideoIPC(ipcMain, deps) {
     const resolutionEnum = normalizedRes === '4k' ? 'VIDEO_RESOLUTION_4K' : 'VIDEO_RESOLUTION_1080P'
     const modelKey = normalizedRes === '4k' ? 'veo_3_1_upsampler_4k' : 'veo_3_1_upsampler_1080p'
     const pid = projectId || getCapturedProjectId() || ''
+
+    const _upscaleUrl = (await videoUrls()).upscale  // #R33: region 대응 upscale 엔드포인트
 
     console.log('[Flow Upscale] Starting upscale — mediaId:', mediaId?.substring(0, 20),
       'resolution:', normalizedRes, 'projectId:', pid?.substring(0, 8))
@@ -997,7 +960,7 @@ export function registerVideoIPC(ipcMain, deps) {
             const mediaId = ${JSON.stringify(mediaId)};
             const pid = ${JSON.stringify(pid)};
             const token = ${JSON.stringify(token)};
-            const endpoint = ${JSON.stringify(VIDEO_UPSCALE_URL)};
+            const endpoint = ${JSON.stringify(_upscaleUrl)};
             const resolutionEnum = ${JSON.stringify(resolutionEnum)};
             const modelKey = ${JSON.stringify(modelKey)};
             const videoAspectRatio = ${JSON.stringify(aspectRatio || 'VIDEO_ASPECT_RATIO_LANDSCAPE')};

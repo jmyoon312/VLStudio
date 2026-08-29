@@ -9,9 +9,19 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { parseSRT, parseSfxTimecodes, buildAudioTracks } from '../utils/audioTimeline'
 import { toast } from '../components/Toast'
 
-export function useAudioImport(t) {
+export function useAudioImport(t, { onAudioSrtAbsorbed = null } = {}) {
+  // C10 review fix: importAudioPackage 는 useCallback 으로 메모이즈되어 첫 render
+  // 의 onAudioSrtAbsorbed 클로저에 고정. App.jsx 가 매 render 다른 콜백 (다른
+  // scenesHook.srtTrack 클로저) 을 전달해도 옛 콜백이 호출됨. ref 로 항상 최신
+  // 콜백 사용 → 콜백 내부 closure 의 srtTrack 도 최신값.
+  const onAudioSrtAbsorbedRef = useRef(onAudioSrtAbsorbed)
+  onAudioSrtAbsorbedRef.current = onAudioSrtAbsorbed
   const [audioPackage, setAudioPackage] = useState(null)
   const [audioTracks, setAudioTracks] = useState(null)
+  // 비동기 op(드롭 등)가 setAudioPackage updater 전에 현재 folderPath를 알아야 할 때 사용.
+  // React setState updater는 sync여야 하므로 IPC를 그 안에서 await 못 함.
+  const audioPackageRef = useRef(null)
+  useEffect(() => { audioPackageRef.current = audioPackage }, [audioPackage])
   const [importing, setImporting] = useState(false)
   // refreshing: 폴더 재스캔(refreshReviews) / 자동 로드(importByPath) 진행 중 표시.
   // 여러 op가 동시에 setRefreshing(true/false)하면 race로 stale clear → counter로 추적.
@@ -121,25 +131,18 @@ export function useAudioImport(t) {
   const applyOverrides = (pkg, overrides) => {
     if (!pkg || !overrides || Object.keys(overrides).length === 0) return pkg
     const apply = (rel, file) => {
-      const normalizedRel = rel.replace(/\\/g, '/')
-      const o = overrides[normalizedRel]
-      if (o?.timecodeMs != null) {
-        file.timecodeMs = o.timecodeMs
-        console.log('[AudioOverride] Applied sync match for:', normalizedRel, '->', o.timecodeMs)
-      }
+      const o = overrides[rel]
+      if (o?.timecodeMs != null) file.timecodeMs = o.timecodeMs
     }
-    const folderPathNormalized = (pkg.folderPath || '').replace(/\\/g, '/')
     for (const v of (pkg.voices || [])) {
       for (const f of v.files) {
-        const pathNormalized = (f.path || '').replace(/\\/g, '/')
-        const rel = pathNormalized.replace(folderPathNormalized + '/', '')
+        const rel = f.path.replace(pkg.folderPath + '/', '')
         apply(rel, f)
       }
     }
     for (const cat of (pkg.sfx || [])) {
       for (const f of cat.files) {
-        const pathNormalized = (f.path || '').replace(/\\/g, '/')
-        const rel = pathNormalized.replace(folderPathNormalized + '/', '')
+        const rel = f.path.replace(pkg.folderPath + '/', '')
         apply(rel, f)
       }
     }
@@ -235,9 +238,27 @@ export function useAudioImport(t) {
     if (!shouldCommit()) return null
     setAudioPackage(pkg)
 
+    // Phase 12: 폴더 SRT 를 project.srtTrack 으로 흡수. C10 review fix: ref 통해
+    // 최신 콜백 사용 (memoized importAudioPackage closure 의 stale callback 회피).
+    const cb = onAudioSrtAbsorbedRef.current
+    if (cb && srtEntries.length > 0) {
+      try {
+        // parseSRT 는 startMs/endMs (ms 단위). srtTrack 은 startTime/endTime (초 단위).
+        const srtTrack = srtEntries.map((entry, i) => ({
+          id: `sub_${i + 1}`,
+          startTime: (entry.startMs ?? 0) / 1000,
+          endTime: (entry.endMs ?? 0) / 1000,
+          text: entry.text || '',
+        }))
+        cb(srtTrack)
+      } catch (e) {
+        console.warn('[useAudioImport] onAudioSrtAbsorbed failed:', e)
+      }
+    }
+
     // 프로젝트별 audioFolderPath 저장 — stale write가 다른 프로젝트 경로를 덮지 않도록 가드
     if (!shouldCommit()) return null
-    const projectName = localStorage.getItem('viraloop_settings') ? JSON.parse(localStorage.getItem('viraloop_settings')).projectName : null
+    const projectName = localStorage.getItem('autoflowcut_settings') ? JSON.parse(localStorage.getItem('autoflowcut_settings')).projectName : null
     if (projectName) {
       const audioMap = JSON.parse(localStorage.getItem('audioFolderPaths') || '{}')
       audioMap[projectName] = result.folderPath
@@ -338,6 +359,159 @@ export function useAudioImport(t) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
+   * 드래그앤드롭으로 mp3 한 파일을 특정 트랙(narration/sfx)에 추가/교체.
+   * - narration: media.video 교체 (1개만)
+   * - sfx: sfx[]에 '_dropped' 카테고리로 누적, timecodeMs는 드롭 x좌표
+   *
+   * 영속성: 드롭한 mp3는 audioFolderPath/media[/sfx]/로 복사되어 디스크에 저장됨.
+   * 다음 폴더 import/rescan이 자동으로 픽업.
+   *
+   * @param fallbackFolderPath 현재 audioPackage가 없을 때 사용할 폴더 (예: <work>/<project>/audio).
+   *                           없으면 IPC가 'audioFolderPath required' 에러 반환.
+   */
+  const importMp3ToTrack = useCallback(async ({ mp3Path, trackType, timecodeMs, fallbackFolderPath }) => {
+    if (!mp3Path) return null
+    if (!['narration', 'sfx'].includes(trackType)) return null
+    if (!window.electronAPI?.probeAudioFile || !window.electronAPI?.copyDroppedAudio) {
+      toast.error(t('audioImport.electronRequired'))
+      return null
+    }
+
+    // import/refresh와 같은 토큰 시스템에 참여 — async op 중 프로젝트 전환 시 stale commit 차단
+    const myVersion = ++opVersionRef.current
+    const shouldCommit = () => myVersion === opVersionRef.current
+
+    const probe = await window.electronAPI.probeAudioFile({ filePath: mp3Path })
+    if (!shouldCommit()) return null
+    if (!probe?.success) {
+      toast.error(
+        (t('audioImport.probeFailed') || 'Probe failed: {error}')
+          .replace('{error}', probe?.error || 'unknown')
+      )
+      return null
+    }
+
+    // 복사 대상 폴더: 기존 audioPackage 폴더 우선, 없으면 호출자가 준 fallback
+    const targetFolder = audioPackageRef.current?.folderPath || fallbackFolderPath
+    const copyResult = await window.electronAPI.copyDroppedAudio({
+      sourcePath: mp3Path,
+      audioFolderPath: targetFolder,
+      trackType,
+      timecodeMs: Math.max(0, Math.round(timecodeMs || 0)),
+    })
+    if (!shouldCommit()) return null
+    if (!copyResult?.success) {
+      toast.error(
+        (t('audioImport.copyFailed') || 'Copy failed: {error}')
+          .replace('{error}', copyResult?.error || 'unknown')
+      )
+      return null
+    }
+    // 복사 결과의 디스크 경로를 이후 setAudioPackage에서 사용
+    const destPath = copyResult.destPath
+    const destFilename = copyResult.filename
+    const resolvedFolderPath = copyResult.audioFolderPath
+
+    // 기본 summary — AudioSummary가 직접 접근하는 모든 필드 채움 (NPE 방어).
+    // 드롭은 임시 상태라 정확한 카운트보다 "구조적으로 안전한 0값"이 목적.
+    const emptySummary = {
+      characters: [],
+      totalVoiceFiles: 0,
+      totalSfxCategories: 0,
+      totalSfxFiles: 0,
+      hasSrt: false,
+      hasMedia: false,
+      hasSfxTimecodes: false,
+      hasSfxPrompts: false,
+    }
+
+    setAudioPackage(prev => {
+      if (!shouldCommit()) return prev
+      const base = prev || {
+        folderPath: resolvedFolderPath,
+        media: { video: null, srt: null },
+        voices: [],
+        sfx: [],
+        srtEntries: [],
+        srtContent: null,
+        sfxTimecodes: [],
+        summary: { ...emptySummary },
+      }
+      // 기존 summary가 부분만 있으면 빈 필드 채움 (legacy / synthetic 둘 다 안전).
+      const mergedSummary = { ...emptySummary, ...(base.summary || {}) }
+
+      if (trackType === 'narration') {
+        return {
+          ...base,
+          media: {
+            ...(base.media || {}),
+            video: {
+              path: destPath,
+              filename: destFilename,
+              durationMs: probe.durationMs,
+            },
+          },
+          summary: { ...mergedSummary, hasMedia: true },
+        }
+      }
+
+      // sfx — '_dropped' 카테고리에 누적
+      const sfxList = base.sfx || []
+      const idx = sfxList.findIndex(c => c.category === '_dropped')
+      const newFile = {
+        path: destPath,
+        filename: destFilename,
+        timecodeMs: Math.max(0, Math.round(timecodeMs || 0)),
+        durationMs: probe.durationMs,
+      }
+      let newSfx
+      if (idx === -1) {
+        newSfx = [...sfxList, { category: '_dropped', files: [newFile] }]
+      } else {
+        const updatedCat = { ...sfxList[idx], files: [...(sfxList[idx].files || []), newFile] }
+        newSfx = [...sfxList]
+        newSfx[idx] = updatedCat
+      }
+      const totalSfxFiles = newSfx.reduce((sum, c) => sum + c.files.length, 0)
+      return {
+        ...base,
+        sfx: newSfx,
+        summary: {
+          ...mergedSummary,
+          totalSfxCategories: newSfx.length,
+          totalSfxFiles,
+          hasSfxTimecodes: newSfx.some(c => c.files.some(f => f.timecodeMs != null)),
+        },
+      }
+    })
+
+    // 영속성: 다음 앱 시작 시 폴더 import 자동 로드가 이 폴더를 잡도록 localStorage에 기록.
+    // 프로젝트별 audioFolderPaths 맵도 갱신 (다른 import 경로와 동일 패턴).
+    try {
+      localStorage.setItem('audioFolderPath', resolvedFolderPath)
+      const settingsRaw = localStorage.getItem('autoflowcut_settings')
+      const projectName = settingsRaw ? JSON.parse(settingsRaw).projectName : null
+      if (projectName) {
+        const audioMap = JSON.parse(localStorage.getItem('audioFolderPaths') || '{}')
+        audioMap[projectName] = resolvedFolderPath
+        localStorage.setItem('audioFolderPaths', JSON.stringify(audioMap))
+      }
+    } catch (e) {
+      console.warn('[importMp3ToTrack] localStorage write failed:', e)
+    }
+
+    return { success: true, probe, destPath, audioFolderPath: resolvedFolderPath }
+  }, [t])
+
+  // audioPackage 변경 시 audioTracks 재빌드 (드롭/오버라이드/import 모두 커버).
+  // 초기 mount 시 audioPackage=null이면 buildAudioTracks 호출 skip.
+  useEffect(() => {
+    if (!audioPackage) return
+    const tracks = buildAudioTracks(audioPackage, audioPackage.srtEntries || [])
+    setAudioTracks(tracks)
+  }, [audioPackage])
+
+  /**
    * 오디오 패키지 초기화 — 프로젝트 전환 시 즉시 비우고 다음 import 호출.
    * opVersion을 bump해서 in-flight import가 클리어 직후 자기 데이터를 다시 commit하지 못하게 한다.
    */
@@ -345,18 +519,6 @@ export function useAudioImport(t) {
     ++opVersionRef.current
     setAudioPackage(null)
     setAudioTracks(null)
-    localStorage.removeItem('audioFolderPath')
-    try {
-      const settingsRaw = localStorage.getItem('viraloop_settings')
-      const projectName = settingsRaw ? JSON.parse(settingsRaw)?.projectName : null
-      if (projectName) {
-        const audioMap = JSON.parse(localStorage.getItem('audioFolderPaths') || '{}')
-        delete audioMap[projectName]
-        localStorage.setItem('audioFolderPaths', JSON.stringify(audioMap))
-      }
-    } catch (e) {
-      console.warn('[AudioClear] failed to clean audioFolderPaths:', e)
-    }
   }, [])
 
   /**
@@ -477,6 +639,7 @@ export function useAudioImport(t) {
     saveBulkReviews,
     loadReviews,
     refreshReviews,
-    saveTimecodeOverride
+    saveTimecodeOverride,
+    importMp3ToTrack,
   }
 }

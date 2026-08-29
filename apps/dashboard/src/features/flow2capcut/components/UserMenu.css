@@ -109,8 +109,8 @@
   top: calc(100% + 8px);
   right: 0;
   width: 240px;
-  background: #ffffff;
-  border: 1px solid #F3F4F6;
+  background: #1a1a2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   overflow: hidden;
@@ -119,7 +119,7 @@
 
 .user-menu-header {
   padding: 16px;
-  border-bottom: 1px solid #F3F4F6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .user-info {
@@ -141,7 +141,7 @@
 
 .user-menu-status {
   padding: 12px 16px;
-  border-bottom: 1px solid #F3F4F6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .status-item {
@@ -188,7 +188,7 @@
 }
 
 .user-menu-item:hover:not(:disabled) {
-  background: #F3F4F6;
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
 

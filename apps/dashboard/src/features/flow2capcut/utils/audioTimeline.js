@@ -5,6 +5,8 @@
  * 원본 오디오 컷 구간 계산, 음성 중앙 정렬 등을 처리.
  */
 
+import { normalizeSrtText } from './parsers'
+
 /**
  * 파일명에서 타임코드(ms) 추출
  * - 4자리: `소은_01_0159` → 01:59 (1분 59초)
@@ -57,10 +59,9 @@ export function parseSrtTimecode(timecode) {
  * @returns {Array<{ index: number, startMs: number, endMs: number, text: string }>}
  */
 export function parseSRT(srtText) {
-  // Normalize CRLF to LF to prevent parsing issues on Windows
-  const normalizedText = srtText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const entries = []
-  const blocks = normalizedText.trim().split(/\n\s*\n/)
+  // Windows SRT 는 CRLF 다 — \r 을 남기면 자막 텍스트 끝에 붙어 들어온다.
+  const blocks = normalizeSrtText(srtText).trim().split(/\n\s*\n/)
 
   for (const block of blocks) {
     const lines = block.trim().split('\n')
@@ -226,11 +227,20 @@ export function buildAudioTracks(audioPackage, srtEntries) {
   // 원본 오디오 컷 구간 계산
   const cutSegments = calculateCutSegments(srtEntries, allVoices)
 
-  // 음성 배치 위치 계산 (수동/자동 overrides 보정값이 적용된 원래 timecodeMs에 100% 직접 배치)
+  // 음성 배치 위치 계산 (컷 구간 중앙 정렬)
   const voiceTrackItems = allVoices.map(voice => {
+    const segment = findSrtSegment(srtEntries, voice.timecodeMs)
+    const cutSeg = cutSegments.find(
+      c => segment && c.startMs <= segment.startMs && c.endMs >= segment.endMs
+    ) || (segment ? { startMs: segment.startMs, endMs: segment.endMs } : null)
+
+    const placementMs = cutSeg
+      ? alignVoiceToCenter(voice, cutSeg)
+      : voice.timecodeMs
+
     return {
       ...voice,
-      placementMs: voice.timecodeMs
+      placementMs
     }
   })
 

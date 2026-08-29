@@ -11,7 +11,7 @@ import appIconUrl from '/assets/icon128.png'
 
 // 앱 아이콘 컴포넌트 (One Click 마우스)
 const AppIcon = ({ size = 32 }) => (
-  <img src={appIconUrl} alt="ViraLoop Studio" width={size} height={size} style={{ borderRadius: '6px' }} />
+  <img src={appIconUrl} alt="AutoFlowCut" width={size} height={size} style={{ borderRadius: '6px' }} />
 )
 
 // Vite에서 주입되는 버전 (vite.config.js의 define 참조)
@@ -65,7 +65,7 @@ function PortalTooltip({ text, position }) {
 // 가이드 URL 생성 (언어별)
 const getGuideUrl = (lang) => {
   const langCode = lang === 'ko' ? 'ko' : lang === 'ja' ? 'ja' : lang === 'de' ? 'de' : 'en'
-  return `https://touchizen.com/guide/${langCode}/viraloop`
+  return `https://touchizen.com/guide/${langCode}/autoflowcut`
 }
 
 // YouTube 채널 URL (한국어는 @터치즌, 그 외는 @touchizen)
@@ -101,7 +101,7 @@ export function SideDrawer({ isOpen, onClose }) {
     {
       icon: '🪄',
       label: t('drawer.flow'),
-      url: 'https://labs.google/fx/tools/flow',
+      url: 'https://aistudio.google.com/app/apikey',
       description: t('drawer.flowDesc')
     },
     {
@@ -149,7 +149,7 @@ export function SideDrawer({ isOpen, onClose }) {
     {
       icon: '📦',
       label: t('drawer.sourceCode'),
-      url: 'https://github.com/touchizen/ViraLoop Studio',
+      url: 'https://github.com/touchizen/AutoFlowCut',
       description: t('drawer.sourceCodeDesc')
     }
   ]
@@ -172,7 +172,7 @@ export function SideDrawer({ isOpen, onClose }) {
           <div className="drawer-logo">
             <AppIcon size={32} />
             <div className="drawer-logo-text">
-              <h2>ViraLoop Studio</h2>
+              <h2>AutoFlowCut</h2>
               <span className="drawer-version">v{APP_VERSION}{BUILD_NUMBER ? ` (${BUILD_NUMBER})` : ''}{BUILD_TIME ? ` · ${BUILD_TIME}` : ''}</span>
             </div>
           </div>

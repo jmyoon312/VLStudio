@@ -51,19 +51,16 @@ export default function TagValidationModal({ errors, onProceed, onCancel, t }) {
               #{sceneIndex + 1}
             </div>
             <div className="tag-validation-errors">
-              {sceneErrors.map(({ type, unmatchedTags }) => {
-                const translationKey = type === 'scene' ? 'background' : type
-                return (
-                  <div key={type} className="tag-validation-error">
-                    <span className="tag-validation-type">
-                      {TYPE_ICONS[type]} {t(`sceneList.${translationKey}`)}
-                    </span>
-                    <span className="tag-validation-tags">
-                      {unmatchedTags.join(', ')}
-                    </span>
-                  </div>
-                )
-              })}
+              {sceneErrors.map(({ type, unmatchedTags }) => (
+                <div key={type} className="tag-validation-error">
+                  <span className="tag-validation-type">
+                    {TYPE_ICONS[type]} {t(`sceneList.${type}`)}
+                  </span>
+                  <span className="tag-validation-tags">
+                    {unmatchedTags.join(', ')}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         ))}

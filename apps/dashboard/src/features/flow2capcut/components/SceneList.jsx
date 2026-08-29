@@ -2,31 +2,45 @@
  * SceneList Component - 목록 탭 (시간 + 자막 + 미디어 선택 + 히스토리)
  */
 
-import { useState, useRef, useEffect } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { useI18n } from '../hooks/useI18n'
 import { formatTime, getRatioClass, resolveImageSrc, hasImageData } from '../utils/formatters'
 import { checkTagMatch } from '../utils/tagMatch'
-import { resolveExportMediaChoice } from '../utils/sceneMedia'
-import { resolveVideoSrc, ensureBase64DataUrl } from '../utils/videoSrc'
+import { resolveExportVideos, hasExportableMedia, buildVideoRestorePatch, buildFramePairVideoPatch } from '../utils/sceneMedia'
+import { resolveVideoSrc } from '../utils/videoSrc'
 import { UI, STYLE_PRESETS } from '../config/defaults'
 import SceneDetailModal from './SceneDetailModal'
 import VideoDetailModal from './VideoDetailModal'
 import TagBatchModal from './TagBatchModal'
+import LazyImage from './LazyImage'
 import TagInputAutocomplete from './TagInputAutocomplete'
 import InfinityLoader from './InfinityLoader'
 import HoverImageBalloon from './HoverImageBalloon'
 import './SceneList.css'
 
-function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, onShowDetail, onShowVideoDetail, references, onOpenTag, styleThumbnails = {} }) {
-  const rowRef = useRef(null)
-  const [hoverPreview, setHoverPreview] = useState(null)
+const VIRTUALIZATION_THRESHOLD = 200
+const SCENE_ROW_ESTIMATE = 96
+const VIRTUAL_OVERSCAN = 8
 
-  // 생성 중이면 자동 스크롤
-  useEffect(() => {
-    if (scene.status === 'generating' && rowRef.current) {
-      rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    }
-  }, [scene.status])
+function measureSceneRow(element) {
+  return Math.round(element.getBoundingClientRect().height)
+}
+
+function getSceneSubtitleFromMap(scene, srtLineById) {
+  const texts = []
+  for (const id of scene.srtLineIds || []) {
+    const line = srtLineById.get(id)
+    if (line) texts.push(line.text ?? '')
+  }
+  return texts.join('\n')
+}
+
+const SceneRow = memo(function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, onShowDetail, onShowVideoDetail, references, onOpenTag, styleThumbnails = {}, framePairs = [], srtSubtitle = null, onUpdateSrtLine = null, measureRef = null, virtualIndex }) {
+  const [hoverPreview, setHoverPreview] = useState(null)
+  // R26 review fix: 비디오 mount 를 hover 시점으로 미룸. duration 캐시 유무와 무관
+  // 하게 첫 로드 VRAM burst 차단 ('t2v' | 'i2v' | null).
+  const [hoveredVideo, setHoveredVideo] = useState(null)
 
   const statusIcon = {
     pending: '⏳',
@@ -40,14 +54,21 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
   const sceneMatch = checkTagMatch(scene.scene_tag, references, 'scene')
   const styleMatch = checkTagMatch(scene.style_tag, references, 'style')
 
-  // 현재 export 미디어 결정 (useExport 와 동일 로직 — 시각이 실제 export 결과를 정확히 반영)
-  const activeMedia = resolveExportMediaChoice(scene)
-  const isSelected = (type) => activeMedia === type ? 'selected' : ''
-
-  // 미디어 개수 (선택 UI 필요 여부)
   const hasImage = hasImageData(scene)
   const imgSrc = resolveImageSrc(scene)
-  const mediaCount = [hasImage, scene.videoT2V || scene.videoT2VPath, scene.videoI2V || scene.videoI2VPath].filter(Boolean).length
+  const mediaCount = [hasImage, scene.videoT2V || scene.videoT2VPath, scene.videoI2V || scene.videoI2VPath].filter(Boolean).length // 라벨 표시 여부
+
+  // B1: export 는 "있는 영상 다" 내보냄(어느 take 쓸지는 CapCut 에서 큐레이션).
+  // 이미지는 항상 베이스 트랙으로 나감. → Media 컬럼은 "export 에 포함됨"을 ✓/selected 로
+  // 보여주는 표시 전용이고, 클릭은 미리보기만(아래 onClick) — export 선택을 바꾸지 않는다.
+  // ⚠️ exporter contract: 이미지 없는 씬은 hasExportableMedia=false → useExport 가 통째로
+  // drop. 그러므로 export 불가 씬은 영상이 있어도 ✓ 표시 안 함(거짓 ✓ 방지).
+  const sceneExportable = hasExportableMedia(scene)
+  const exportedSources = new Set(resolveExportVideos(scene).map(v => v.source))
+  const imageOnly = exportedSources.size === 0 // 영상 없이 이미지만 (duration 핸들러용)
+  const isIncluded = (type) => sceneExportable && (type === 'image' ? hasImage : exportedSources.has(type))
+  const isSelected = (type) => isIncluded(type) ? 'selected' : ''
+  const exportMark = (type) => isIncluded(type) ? ' ✓' : ''
 
   // 매칭 상태 아이콘 (클릭 가능 — 태그 선택 모달 열기)
   const MatchIndicator = ({ match, tagType }) => {
@@ -74,25 +95,7 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
   }
 
   // 비디오 src 생성 헬퍼 — 공용 utils/videoSrc 로 통합 (cache busting/Windows 경로/data URL 일관 처리)
-  const toVideoSrc = (data, filePath) => resolveVideoSrc(data, filePath) || ''
-
-  // 비디오 duration 감지 (Promise) — base64 데이터에서 즉시 감지
-  const detectVideoDuration = (videoData) => {
-    return new Promise((resolve) => {
-      if (!videoData) return resolve(null)
-      const vid = document.createElement('video')
-      vid.preload = 'metadata'
-      vid.muted = true
-      vid.onloadedmetadata = () => {
-        const dur = Math.round(vid.duration * 10) / 10
-        resolve(dur > 0 ? dur : null)
-        vid.src = ''
-      }
-      vid.onerror = () => resolve(null)
-      vid.src = ensureBase64DataUrl(videoData) || ''
-      setTimeout(() => resolve(null), 3000) // 3초 타임아웃
-    })
-  }
+  const toVideoSrc = (data, filePath, version) => resolveVideoSrc(data, filePath, { version }) || ''
 
   // 비디오 메타데이터 로드 → duration 감지 및 저장 (썸네일 onLoadedMetadata 백업용)
   const handleVideoMetadata = (e, type) => {
@@ -115,25 +118,8 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
     onUpdate(scene.id, updates)
   }
 
-  // Export 미디어 전환 (duration은 CSV 기준 유지, 변경 안 함)
-  const switchExportMedia = async (type) => {
-    const updates = { exportMedia: type }
-
-    if (type !== 'image') {
-      // 비디오 duration 캐시만 (씬 duration은 건드리지 않음)
-      const videoData = type === 't2v' ? scene.videoT2V : scene.videoI2V
-      const durationField = type === 't2v' ? 'videoT2VDuration' : 'videoI2VDuration'
-      if (!scene[durationField] && videoData) {
-        const videoDur = await detectVideoDuration(videoData)
-        if (videoDur) updates[durationField] = videoDur
-      }
-    }
-
-    onUpdate(scene.id, updates)
-  }
-
   return (
-    <tr ref={rowRef} className={`scene-row status-${scene.status}`}>
+    <tr ref={measureRef} data-index={virtualIndex} className={`scene-row status-${scene.status}`}>
       <td className="col-id">
         {index + 1}
       </td>
@@ -152,8 +138,8 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
               duration,
               endTime: scene.startTime + duration
             }
-            // 이미지 모드에서 수동 변경 → imageDuration도 업데이트
-            if (activeMedia === 'image') {
+            // 이미지 모드(영상 export 없음)에서 수동 변경 → imageDuration도 업데이트
+            if (imageOnly) {
               updates.imageDuration = duration
             }
             onUpdate(scene.id, updates)
@@ -166,15 +152,36 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
         />
       </td>
 
-      {/* 자막 컬럼 (프롬프트 제거, 자막만 표시) */}
+      {/* 자막 컬럼 — srtLineIds 있으면 srtTrack 에서 묶음 자막 표시 (Phase 6).
+          R3 review fix: 단일 srtLine 은 그 라인 inline 편집, 묶음은 read-only.
+          legacy (srtLineIds 없음) 는 기존대로 scene.subtitle 편집. */}
       <td className="col-subtitle">
-        <textarea
-          value={scene.subtitle || ''}
-          onChange={(e) => onUpdate(scene.id, { subtitle: e.target.value })}
-          disabled={disabled}
-          rows={2}
-          placeholder={t('sceneList.subtitlePlaceholder')}
-        />
+        {(() => {
+          const lineIds = scene.srtLineIds || []
+          const hasLineIds = lineIds.length > 0 && srtSubtitle != null
+          const isBundled = lineIds.length > 1
+          const value = hasLineIds
+            ? srtSubtitle
+            : (scene.subtitle || '')
+          return (
+            <textarea
+              value={value}
+              onChange={(e) => {
+                if (isBundled) return // read-only for bundled scenes
+                if (hasLineIds && onUpdateSrtLine) {
+                  onUpdateSrtLine(lineIds[0], e.target.value)
+                } else {
+                  onUpdate(scene.id, { subtitle: e.target.value })
+                }
+              }}
+              readOnly={isBundled}
+              title={isBundled ? t('sceneList.bundledSubtitleReadonly') : undefined}
+              disabled={disabled}
+              rows={2}
+              placeholder={t('sceneList.subtitlePlaceholder')}
+            />
+          )
+        })()}
       </td>
 
       <td className="col-tags">
@@ -236,16 +243,13 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
               className={`media-thumb ${isSelected('image')} clickable`}
               onClick={(e) => {
                 e.stopPropagation()
-                if (mediaCount > 1) {
-                  switchExportMedia('image')
-                } else {
-                  onShowDetail(scene)
-                }
+                onShowDetail(scene)
               }}
               onDoubleClick={() => onShowDetail(scene)}
-              title={`IMG${activeMedia === 'image' ? ' ✓' : ''}`}
+              title={`IMG${exportMark('image')}`}
             >
-              <img
+              {/* R37 fix: LazyImage — 뷰포트 이탈 시 img 언마운트해 VRAM 회수 */}
+              <LazyImage
                 src={imgSrc}
                 alt={`Scene ${index + 1}`}
                 onMouseEnter={(e) => {
@@ -264,66 +268,87 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
           {(scene.videoT2V || scene.videoT2VPath) && (
             <div
               className={`media-thumb ${isSelected('t2v')} clickable`}
+              onMouseEnter={() => setHoveredVideo('t2v')}
+              onMouseLeave={() => setHoveredVideo(null)}
               onClick={(e) => {
                 e.stopPropagation()
-                if (mediaCount > 1) {
-                  switchExportMedia('t2v')
-                } else {
-                  onShowVideoDetail({
-                    id: `t2v_${scene.id.replace('scene_', '')}`,
-                    prompt: scene.prompt,
-                    video: scene.videoT2V,
-                    videoPath: scene.videoT2VPath,
-                    status: 'complete',
-                  })
-                }
+                onShowVideoDetail({
+                  id: `t2v_${scene.id.replace('scene_', '')}`,
+                  prompt: scene.videoT2VPrompt || '', // 이미지 프롬프트 아님 — T2V 전용 프롬프트로 seed
+                  video: scene.videoT2V,
+                  videoPath: scene.videoT2VPath,
+                  status: 'complete',
+                  sceneId: scene.id, source: 't2v', // 저장(history 복원) 시 disabled 리셋용
+                })
               }}
               onDoubleClick={() => onShowVideoDetail({
                 id: `t2v_${scene.id.replace('scene_', '')}`,
-                prompt: scene.prompt,
+                prompt: scene.videoT2VPrompt || '',
                 video: scene.videoT2V,
                 videoPath: scene.videoT2VPath,
                 status: 'complete',
+                sceneId: scene.id, source: 't2v',
               })}
-              title={`T2V${activeMedia === 't2v' ? ' ✓' : ''} — ${t('sceneList.dblClickToView') || 'Double-click to view'}`}
+              title={`T2V${exportMark('t2v')} — ${t('sceneList.dblClickToView') || 'Double-click to view'}`}
             >
-              <video src={toVideoSrc(scene.videoT2V, scene.videoT2VPath)} muted preload="metadata" onLoadedMetadata={(e) => handleVideoMetadata(e, 't2v')} />
+              {/* R26 review fix: hover 시점에만 <video> mount. duration 추출도 hover
+                  순간 onLoadedMetadata 로. 첫 로드 VRAM burst 없음. */}
+              {hoveredVideo === 't2v' ? (
+                <video src={toVideoSrc(scene.videoT2V, scene.videoT2VPath, scene.videoT2VGeneratedAt)} muted preload="metadata" onLoadedMetadata={(e) => handleVideoMetadata(e, 't2v')} />
+              ) : (
+                imgSrc ? <LazyImage src={imgSrc} alt="T2V poster" /> : <div className="video-placeholder" />
+              )}
               <div className="play-button-overlay mini">▶</div>
               {mediaCount > 1 && <span className="media-label">T2V</span>}
             </div>
           )}
           {/* I2V 비디오 */}
-          {(scene.videoI2V || scene.videoI2VPath) && (
+          {(scene.videoI2V || scene.videoI2VPath) && (() => {
+            // ownerSceneId 로 owning framePair 를 해석한다.
+            // 과거 `i2v_${scene.id.replace('scene_', '')}` (= i2v_3) 패턴은 fp.id 가 scene
+            // 번호와 1:1 매칭일 때만 우연히 동작 — stable ID + 삭제 갭이 생기면 깨진다.
+            // owning fp 가 있으면 그 fp.id 로 i2v_N 을 만들고, 없으면 scene.id 폴백.
+            const ownerFp = framePairs.find(fp => fp.ownerSceneId === scene.id)
+            const i2vId = ownerFp?.id
+              ? `i2v_${ownerFp.id.replace('fp_', '')}`
+              : `i2v_${scene.id.replace('scene_', '')}`
+            return (
             <div
               className={`media-thumb ${isSelected('i2v')} clickable`}
+              onMouseEnter={() => setHoveredVideo('i2v')}
+              onMouseLeave={() => setHoveredVideo(null)}
               onClick={(e) => {
                 e.stopPropagation()
-                if (mediaCount > 1) {
-                  switchExportMedia('i2v')
-                } else {
-                  onShowVideoDetail({
-                    id: `i2v_${scene.id.replace('scene_', '')}`,
-                    prompt: scene.prompt,
-                    video: scene.videoI2V,
-                    videoPath: scene.videoI2VPath,
-                    status: 'complete',
-                  })
-                }
+                onShowVideoDetail({
+                  id: i2vId,
+                  prompt: scene.videoI2VPrompt ?? ownerFp?.prompt ?? '', // 이미지 프롬프트 아님 — I2V 전용 → owning framePair 순으로 seed
+                  video: scene.videoI2V,
+                  videoPath: scene.videoI2VPath,
+                  status: 'complete',
+                  sceneId: scene.id, source: 'i2v', fpId: ownerFp?.id, // 저장(복원) 시 disabled 리셋 + framePair 메타 갱신용
+                })
               }}
               onDoubleClick={() => onShowVideoDetail({
-                id: `i2v_${scene.id.replace('scene_', '')}`,
-                prompt: scene.prompt,
+                id: i2vId,
+                prompt: scene.videoI2VPrompt ?? ownerFp?.prompt ?? '',
                 video: scene.videoI2V,
                 videoPath: scene.videoI2VPath,
                 status: 'complete',
+                sceneId: scene.id, source: 'i2v', fpId: ownerFp?.id,
               })}
-              title={`I2V${activeMedia === 'i2v' ? ' ✓' : ''} — ${t('sceneList.dblClickToView') || 'Double-click to view'}`}
+              title={`I2V${exportMark('i2v')} — ${t('sceneList.dblClickToView') || 'Double-click to view'}`}
             >
-              <video src={toVideoSrc(scene.videoI2V, scene.videoI2VPath)} muted preload="metadata" onLoadedMetadata={(e) => handleVideoMetadata(e, 'i2v')} />
+              {/* R26 review fix: hover 시점에만 <video> mount (T2V 와 동일) */}
+              {hoveredVideo === 'i2v' ? (
+                <video src={toVideoSrc(scene.videoI2V, scene.videoI2VPath, scene.videoI2VGeneratedAt)} muted preload="metadata" onLoadedMetadata={(e) => handleVideoMetadata(e, 'i2v')} />
+              ) : (
+                imgSrc ? <LazyImage src={imgSrc} alt="I2V poster" /> : <div className="video-placeholder" />
+              )}
               <div className="play-button-overlay mini">▶</div>
               {mediaCount > 1 && <span className="media-label">I2V</span>}
             </div>
-          )}
+            )
+          })()}
           {/* 미디어 없음 → 상태 아이콘 */}
           {mediaCount === 0 && (
             <div
@@ -344,7 +369,7 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
       <td className="col-actions">
         <button
           className="btn-delete"
-          onClick={() => onDelete(scene.id)}
+          onClick={() => onDelete(scene.id, index)}
           disabled={disabled || scene.status === 'generating'}
           title={t('common.delete')}
         >
@@ -362,11 +387,15 @@ function SceneRow({ scene, index, onUpdate, onDelete, disabled, ratioClass, t, o
       )}
     </tr>
   )
-}
+})
 
 export default function SceneList({
   scenes,
+  srtTrack = [],
+  framePairs = [],
   onUpdate,
+  onUpdateFramePair = null,
+  onUpdateSrtLine = null,
   onDelete,
   onAdd,
   onClearAll,
@@ -384,6 +413,78 @@ export default function SceneList({
   const [videoDetailModal, setVideoDetailModal] = useState({ open: false, video: null })
   // tagBatchModal: null | { type: 'character'|'scene'|'style', sceneIndex?: number }
   const [tagBatchModal, setTagBatchModal] = useState(null)
+  const scrollElementRef = useRef(null)
+  const tableHeaderRef = useRef(null)
+  const previousStatusesRef = useRef(null)
+  const [tableHeaderHeight, setTableHeaderHeight] = useState(null)
+
+  const hasScenes = scenes.length > 0
+  const shouldVirtualize = scenes.length > VIRTUALIZATION_THRESHOLD
+  const scrollMargin = tableHeaderHeight ?? 0
+  const srtLineById = useMemo(
+    () => new Map(srtTrack.map(line => [line.id, line])),
+    [srtTrack]
+  )
+  const getItemKey = useCallback(
+    (index) => scenes[index]?.id ?? index,
+    [scenes]
+  )
+  const virtualizer = useVirtualizer({
+    count: scenes.length,
+    getScrollElement: () => scrollElementRef.current,
+    estimateSize: () => SCENE_ROW_ESTIMATE,
+    getItemKey,
+    measureElement: measureSceneRow,
+    overscan: VIRTUAL_OVERSCAN,
+    scrollMargin,
+    enabled: hasScenes,
+  })
+
+  useLayoutEffect(() => {
+    if (!hasScenes) {
+      setTableHeaderHeight(null)
+      return undefined
+    }
+    const tableHeader = tableHeaderRef.current
+    if (!tableHeader) return undefined
+
+    const measureTableHeader = () => {
+      const nextHeight = Math.round(tableHeader.getBoundingClientRect().height)
+      setTableHeaderHeight(currentHeight => (
+        currentHeight === nextHeight ? currentHeight : nextHeight
+      ))
+    }
+    measureTableHeader()
+
+    const resizeObserver = new ResizeObserver(measureTableHeader)
+    resizeObserver.observe(tableHeader)
+    return () => resizeObserver.disconnect()
+  }, [hasScenes])
+
+  // 같은 업데이트에서 여러 씬이 generating 으로 바뀌면 배열상 마지막 씬을 따른다.
+  useEffect(() => {
+    if (tableHeaderHeight == null) return
+
+    const previousStatuses = previousStatusesRef.current
+    let latestGeneratingIndex = -1
+    for (let index = 0; index < scenes.length; index++) {
+      const scene = scenes[index]
+      // 처음 본 generating id도 전환으로 취급한다. 빈 목록 import/새 씬 삽입도
+      // 기존 pending→generating 전환과 똑같이 자동 스크롤해야 한다.
+      const becameGenerating = scene.status === 'generating' && (
+        !previousStatuses
+        || !previousStatuses.has(scene.id)
+        || previousStatuses.get(scene.id) !== 'generating'
+      )
+      if (becameGenerating) {
+        latestGeneratingIndex = index
+      }
+    }
+    if (latestGeneratingIndex >= 0) {
+      virtualizer.scrollToIndex(latestGeneratingIndex, { align: 'auto' })
+    }
+    previousStatusesRef.current = new Map(scenes.map(scene => [scene.id, scene.status]))
+  }, [scenes, tableHeaderHeight, virtualizer])
 
   // 태그 적용 (single / batch 공통)
   const handleTagBatchApply = (field, value, startIdx, endIdx) => {
@@ -396,23 +497,23 @@ export default function SceneList({
   }
 
   // 캐릭터/씬: 개별(single), 스타일: 일괄(batch)
-  const openTag = (type, sceneIndex) => {
+  const openTag = useCallback((type, sceneIndex) => {
     if (type === 'style') {
       setTagBatchModal({ type }) // batch 모드 (범위 지정)
     } else {
       setTagBatchModal({ type, sceneIndex }) // single 모드
     }
-  }
+  }, [])
 
   // 이미지 상세 모달 열기
-  const handleShowDetail = (scene) => {
+  const handleShowDetail = useCallback((scene) => {
     setDetailModal({ open: true, scene })
-  }
+  }, [])
 
   // 비디오 상세 모달 열기
-  const handleShowVideoDetail = (videoData) => {
+  const handleShowVideoDetail = useCallback((videoData) => {
     setVideoDetailModal({ open: true, video: videoData })
-  }
+  }, [])
 
   // 모달에서 업데이트
   const handleUpdateFromModal = (sceneId, data) => {
@@ -436,6 +537,49 @@ export default function SceneList({
   const totalDuration = scenes.reduce((sum, s) => sum + (parseFloat(s.duration) || 0), 0)
 
   const ratioClass = getRatioClass(aspectRatio)
+  const virtualItems = shouldVirtualize ? virtualizer.getVirtualItems() : []
+  const topSpacerHeight = shouldVirtualize && virtualItems.length > 0
+    ? Math.max(0, virtualItems[0].start - scrollMargin)
+    : 0
+  const bottomSpacerHeight = shouldVirtualize
+    ? (
+        virtualItems.length > 0
+          ? Math.max(
+              0,
+              virtualizer.getTotalSize()
+                - (virtualItems[virtualItems.length - 1].end - scrollMargin)
+            )
+          : virtualizer.getTotalSize()
+      )
+    : 0
+
+  const renderSceneRow = (scene, index, virtualIndex) => {
+    const srtSubtitle = (scene.srtLineIds?.length ?? 0) > 0 && srtLineById.size > 0
+      ? getSceneSubtitleFromMap(scene, srtLineById)
+      : null
+    return (
+      <SceneRow
+        key={scene.id}
+        scene={scene}
+        index={index}
+        virtualIndex={virtualIndex}
+        measureRef={virtualizer.measureElement}
+        onUpdate={onUpdate}
+        onUpdateSrtLine={onUpdateSrtLine}
+        onDelete={onDelete}
+        disabled={disabled}
+        ratioClass={ratioClass}
+        framePairs={framePairs}
+        t={t}
+        onShowDetail={handleShowDetail}
+        onShowVideoDetail={handleShowVideoDetail}
+        references={references}
+        onOpenTag={openTag}
+        styleThumbnails={styleThumbnails}
+        srtSubtitle={srtSubtitle}
+      />
+    )
+  }
 
   // 현재 선택된 씬의 최신 상태 가져오기
   const currentScene = detailModal.scene
@@ -471,9 +615,9 @@ export default function SceneList({
         </div>
       </div>
 
-      <div className="scene-table-wrapper">
+      <div ref={scrollElementRef} className="scene-table-wrapper">
         <table className="scene-table">
-          <thead>
+          <thead ref={tableHeaderRef}>
             <tr>
               <th className="col-id">#</th>
               <th className="col-time">{t('sceneList.time')}</th>
@@ -513,23 +657,15 @@ export default function SceneList({
             </tr>
           </thead>
           <tbody>
-            {scenes.map((scene, index) => (
-              <SceneRow
-                key={scene.id}
-                scene={scene}
-                index={index}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                disabled={disabled}
-                ratioClass={ratioClass}
-                t={t}
-                onShowDetail={handleShowDetail}
-                onShowVideoDetail={handleShowVideoDetail}
-                references={references}
-                onOpenTag={openTag}
-                styleThumbnails={styleThumbnails}
-              />
-            ))}
+            <tr data-virtual-spacer="top">
+              <td colSpan={6} style={{ height: topSpacerHeight, padding: 0, border: 0 }} />
+            </tr>
+            {shouldVirtualize
+              ? virtualItems.map(item => renderSceneRow(scenes[item.index], item.index, item.index))
+              : scenes.map((scene, index) => renderSceneRow(scene, index, index))}
+            <tr data-virtual-spacer="bottom">
+              <td colSpan={6} style={{ height: bottomSpacerHeight, padding: 0, border: 0 }} />
+            </tr>
           </tbody>
         </table>
       </div>
@@ -572,6 +708,33 @@ export default function SceneList({
           onClose={() => setVideoDetailModal({ open: false, video: null })}
           t={t}
           projectName={projectName}
+          references={references}
+          onPromptSave={(_videoId, prompt) => {
+            // 프롬프트 편집 저장 — 모달에 실어둔 sceneId/source 로 canonical prompt 필드 갱신.
+            const v = videoDetailModal.video
+            if (!v?.sceneId || typeof onUpdate !== 'function') return
+            const field = v.source === 'i2v' ? 'videoI2VPrompt' : 'videoT2VPrompt'
+            onUpdate(v.sceneId, { [field]: prompt })
+            if (v.source === 'i2v' && v.fpId && typeof onUpdateFramePair === 'function') {
+              onUpdateFramePair(v.fpId, { prompt })
+            }
+          }}
+          onUpdate={(_videoId, patch) => {
+            // history 복원 저장 → 해당 씬의 video* 갱신 + per-clip disabled 리셋(새 영상=enabled).
+            // 모달 open 시 실어둔 sceneId/source 로 바로 타겟(App id 라우팅 중복 회피).
+            // 메타는 buildVideoRestorePatch 가 source-specific(videoT2V*/videoI2V*)로 매핑 →
+            // scene 의 이미지 메타(seed/generatedAt/model) 오염 방지 + 캐시버스터 갱신.
+            const v = videoDetailModal.video
+            if (!v?.sceneId || typeof onUpdate !== 'function') return
+            onUpdate(v.sceneId, buildVideoRestorePatch(v.source, patch))
+            // I2V 의 권위 source 는 framePair. (1) reload 시 mediaSync 가 framePair.generatedAt 으로
+            // scene.videoI2VGeneratedAt 을 다시 덮으므로 영속을 위해, (2) F→V 결과표/fp 상세는 framePair
+            // base64 를 우선 렌더하므로 현재 세션 일관성을 위해 — video/base64/videoPath + 메타까지 갱신.
+            // (App fp_ 복원 경로와 동일 shape)
+            if (v.source === 'i2v' && v.fpId && typeof onUpdateFramePair === 'function') {
+              onUpdateFramePair(v.fpId, buildFramePairVideoPatch(patch))
+            }
+          }}
         />
       )}
 

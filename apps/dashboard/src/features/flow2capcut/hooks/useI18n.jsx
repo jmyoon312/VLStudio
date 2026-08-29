@@ -5,8 +5,8 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import ko from '@/locales/ko'
-import en from '@/locales/en'
+import ko from '../locales/ko'
+import en from '../locales/en'
 
 // 지원 언어
 // name: 언어 코드 (EN / KO) — 텍스트
@@ -54,7 +54,7 @@ function detectBrowserLanguage() {
 // 저장된 언어 가져오기
 function getSavedLanguage() {
   try {
-    return localStorage.getItem('viraloop_lang')
+    return localStorage.getItem('autoflowcut_lang')
   } catch {
     return null
   }
@@ -63,7 +63,7 @@ function getSavedLanguage() {
 // 언어 저장
 function saveLanguage(lang) {
   try {
-    localStorage.setItem('viraloop_lang', lang)
+    localStorage.setItem('autoflowcut_lang', lang)
   } catch {}
 }
 
@@ -90,6 +90,11 @@ export function I18nProvider({ children }) {
       saveLanguage(newLang)
     }
   }, [])
+
+  // 현재 언어를 main 프로세스에 push → 네이티브 앱 메뉴 라벨 현지화 (초기 + 변경 시).
+  useEffect(() => {
+    window.electronAPI?.setLocale?.({ lang })
+  }, [lang])
   
   // 문자열 가져오기 (dot notation 지원)
   const t = useCallback((key, params = {}) => {
@@ -148,6 +153,10 @@ export function useI18n() {
     throw new Error('useI18n must be used within I18nProvider')
   }
   return context
+}
+
+export function useOptionalI18n() {
+  return useContext(I18nContext)
 }
 
 export default useI18n

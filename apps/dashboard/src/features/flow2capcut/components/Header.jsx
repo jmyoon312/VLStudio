@@ -2,216 +2,42 @@
  * Header Component - 상단 바
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
-import { useI18n, LANGUAGES } from '../hooks/useI18n'
+import { useState, useEffect, useRef } from 'react'
+import { useI18n } from '../hooks/useI18n'
 import { TIMING } from '../config/defaults'
 import { fileSystemAPI } from '../hooks/useFileSystem'
+import { useMode } from '../contexts/ModeContext'
+import { flowLayoutForMode } from '../utils/appLayout'
 import { UserMenu } from './UserMenu'
+import ModeToggle from './ModeToggle'
+import LanguagePicker from './LanguagePicker'
 import { SideDrawer } from './SideDrawer'
 import Modal from './Modal'
+import ExportSplitButton from './ExportSplitButton'
+import { toast } from './Toast'
 import './Header.css'
-
-// ============================================================
-// LayoutPicker — 헤더 인라인 레이아웃 컨트롤
-// 방향(좌/우/상/하) + 비율 슬라이더를 드롭다운으로 표시
-// ============================================================
-const LAYOUT_MODES = [
-  { value: 'split-left',   icon: '⬅', label: 'Flow 좌측' },
-  { value: 'split-right',  icon: '➡', label: 'Flow 우측' },
-  { value: 'split-top',    icon: '⬆', label: 'Flow 상단' },
-  { value: 'split-bottom', icon: '⬇', label: 'Flow 하단' },
-]
-
-function LayoutPicker() {
-  const [open, setOpen] = useState(false)
-  const [mode, setMode] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('layoutSettings') || '{}').mode || 'split-left' } catch { return 'split-left' }
-  })
-  const [ratio, setRatio] = useState(() => {
-    try { return Math.round((JSON.parse(localStorage.getItem('layoutSettings') || '{}').ratio || 0.5) * 100) } catch { return 50 }
-  })
-  const ref = useRef(null)
-
-  // 외부 클릭 시 닫기
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  // 외부에서 layout-changed 이벤트 수신 시 동기화
-  useEffect(() => {
-    const handler = window.electronAPI?.onLayoutChanged
-    if (handler) {
-      return handler(({ mode: m, splitRatio: r }) => {
-        setMode(m)
-        setRatio(Math.round((r || 0.5) * 100))
-      })
-    }
-  }, [])
-
-  const applyLayout = useCallback((newMode, newRatioInt) => {
-    const r = newRatioInt / 100
-    localStorage.setItem('layoutSettings', JSON.stringify({ mode: newMode, ratio: r }))
-    window.electronAPI?.setLayout?.({ mode: newMode, ratio: r })
-  }, [])
-
-  const handleModeChange = (newMode) => {
-    setMode(newMode)
-    applyLayout(newMode, ratio)
-  }
-
-  const handleRatioChange = (e) => {
-    const v = parseInt(e.target.value)
-    setRatio(v)
-    // 슬라이더는 드래그 중에도 실시간 적용
-    const r = v / 100
-    localStorage.setItem('layoutSettings', JSON.stringify({ mode, ratio: r }))
-    window.electronAPI?.updateSplit?.({ ratio: r })
-  }
-
-  const currentMode = LAYOUT_MODES.find(m => m.value === mode) || LAYOUT_MODES[0]
-
-  return (
-    <div className="layout-picker" ref={ref}>
-      <button
-        type="button"
-        className="layout-picker-btn"
-        onClick={() => setOpen(v => !v)}
-        title="화면 레이아웃 변경"
-      >
-        <span className="layout-picker-icon">{currentMode.icon}</span>
-        <span className="layout-picker-label">{ratio}%</span>
-        <svg className="layout-picker-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="layout-picker-menu">
-          <div className="layout-picker-title">📐 화면 배치</div>
-          {/* 방향 버튼 */}
-          <div className="layout-mode-grid">
-            {LAYOUT_MODES.map(m => (
-              <button
-                key={m.value}
-                type="button"
-                className={`layout-mode-btn ${mode === m.value ? 'active' : ''}`}
-                onClick={() => handleModeChange(m.value)}
-                title={m.label}
-              >
-                <span className="lm-icon">{m.icon}</span>
-                <span className="lm-label">{m.label}</span>
-              </button>
-            ))}
-          </div>
-          {/* 비율 슬라이더 */}
-          <div className="layout-ratio-row">
-            <span className="layout-ratio-label">Flow 크기</span>
-            <div className="layout-ratio-slider-wrap">
-              <span className="layout-ratio-edge">20%</span>
-              <input
-                type="range"
-                min="20" max="80" step="5"
-                value={ratio}
-                onChange={handleRatioChange}
-                className="layout-ratio-slider"
-              />
-              <span className="layout-ratio-edge">80%</span>
-            </div>
-            <span className="layout-ratio-val">{ratio}%</span>
-          </div>
-          {/* 더블클릭 힌트 */}
-          <div className="layout-picker-hint">💡 경계선 더블클릭 → 50:50 리셋</div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * FlagIcon — flag-icons CSS 라이브러리 클래스 사용
- * Vite가 node_modules/flag-icons/flags 의 SVG 자산을 번들링
- */
-function FlagIcon({ country, className = 'lang-flag' }) {
-  if (!country) return <span className={className} />
-  return <span className={`fi fi-${country} ${className}`} aria-hidden="true" />
-}
-
-/**
- * LanguagePicker — 커스텀 언어 드롭다운 (인라인 SVG 국기 + 언어코드)
- */
-function LanguagePicker({ current, languages, onChange, tooltip }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const currentLang = languages.find((l) => l.code === current) || languages[0]
-
-  return (
-    <div className="lang-picker" ref={ref} data-tooltip={tooltip}>
-      <button
-        type="button"
-        className="lang-picker-button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-label={tooltip}
-      >
-        <FlagIcon country={currentLang.country} />
-        <span className="lang-code">{currentLang.name}</span>
-        <svg className="lang-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <div className="lang-picker-menu">
-          {languages.map((l) => (
-            <button
-              type="button"
-              key={l.code}
-              className={`lang-picker-item ${l.code === current ? 'active' : ''}`}
-              onClick={() => {
-                onChange(l.code)
-                setOpen(false)
-              }}
-            >
-              <FlagIcon country={l.country} />
-              <span className="lang-code">{l.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function Header({
   onSettings,
   onExport,
+  exportFormat = 'capcut',
   hasImages,
   getAccessToken,
-  clearTokenCache,
   authReady,
-  setAuthReady,
+  onAuthRecovered,  // App.authReady=false 후 re-auth 성공 시 호출 — App이 invalidation 풀고 authReady=true 복구
   projectName,
   onProjectChange,
   onNewProject,
   saveMode,
   onLoginClick,
   onUpgradeClick,
-  disabled = false  // 생성 중일 때 프로젝트 전환 비활성화
+  disabled = false,  // 생성 중일 때 프로젝트 전환 비활성화
+  modeBusy = false,  // 배치 생성 중일 때 모드 전환 차단
+  storyActive = false,   // Story 뷰 진입 상태(버튼 active 표시)
+  onStoryClick,           // Story 뷰 진입/복귀 토글
 }) {
-  const navigate = useNavigate()
   const { t, lang, changeLang, languages } = useI18n()
+  const { mode } = useMode()
   const [authStatus, setAuthStatus] = useState('checking') // 'checking' | 'authenticated' | 'unauthenticated' | 'waiting'
   const [showProjectDropdown, setShowProjectDropdown] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
@@ -219,106 +45,59 @@ export default function Header({
   const [deleteTarget, setDeleteTarget] = useState(null) // Confirm 모달용
   const dropdownRef = useRef(null)
   const pollingRef = useRef(null)
-  
-  // -------------------------------------------------------------
-  // Flow Multi-Profile Manager States & Handlers
-  // -------------------------------------------------------------
-  const [profileConfig, setProfileConfig] = useState({ activeProfileId: 'default', profiles: [] })
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
-  const [showProfileModal, setShowProfileModal] = useState(false)
-  const [newProfileName, setNewProfileName] = useState('')
-  const [newProfileEmail, setNewProfileEmail] = useState('')
-  const profileDropdownRef = useRef(null)
-  const loadFlowProfiles = async () => {
-    try {
-      const config = await window.electronAPI.loadProfiles()
-      if (config) {
-        setProfileConfig(config)
-      }
-    } catch (err) {
-      console.error('Failed to load flow profiles:', err)
-    }
-  }
-
-  // 프로필 전환 처리
-  const handleProfileSwitch = async (profileId) => {
-    setShowProfileDropdown(false)
-    try {
-      setAuthStatus('checking')
-      clearTokenCache?.()
-      setAuthReady?.(false)
-      const result = await window.electronAPI.switchProfile({ profileId })
-      if (result.success) {
-        await loadFlowProfiles()
-        // 웹뷰 전환 완료 후 로그인 상태 재검증 폴링 대기
-        setTimeout(() => checkAuth(true), 2500)
-      } else {
-        alert(`프로필 전환 실패: ${result.error}`)
-      }
-    } catch (err) {
-      alert(`프로필 전환 에러: ${err.message}`)
-    }
-  }
-
-  // 기존 프로필 삭제
-  const handleDeleteProfile = async (profileId) => {
-    const activeProfile = profileConfig.profiles.find(p => p.id === profileId)
-    const confirmDelete = window.confirm(
-      lang === 'ko'
-        ? `정말 "${activeProfile?.name || '선택한'}" 프로필을 삭제하시겠습니까?\n해당 프로필에 연결된 구글 로그인 세션 및 쿠키 정보가 영구 파괴됩니다.`
-        : `Are you sure you want to delete "${activeProfile?.name || 'selected'}"?\nAll associated session data and cookies will be permanently lost.`
-    )
-    if (!confirmDelete) return
-
-    try {
-      const result = await window.electronAPI.deleteProfile({ profileId })
-      if (result.success) {
-        await loadFlowProfiles()
-      } else {
-        alert(`프로필 삭제 실패: ${result.error}`)
-      }
-    } catch (err) {
-      alert(`프로필 삭제 에러: ${err.message}`)
-    }
-  }
-
-  // 마운트 시 프로필 설정 로드 및 드롭다운 외부 클릭 클리너
-  useEffect(() => {
-    loadFlowProfiles()
-    
-    const handleClickOutsideProfile = (e) => {
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
-        setShowProfileDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutsideProfile)
-    return () => document.removeEventListener('mousedown', handleClickOutsideProfile)
-  }, [])
+  // #R8-7: checkAuth 의 비동기 결과를 적용하기 전 가드용 — 언마운트/모드변경 감지.
+  const mountedRef = useRef(true)
+  // #R11-7: 겹치는 auth 폴링 중 최신 호출만 반영하기 위한 시퀀스 카운터.
+  const authCheckSeqRef = useRef(0)
+  // #R14-5: flow 지역 제한(unavailable) sticky 플래그 — flow 모드에서 폴링/authReady 가 덮지 않게.
+  const flowUnavailableRef = useRef(false)
+  const modeRef = useRef(mode)
+  useEffect(() => { modeRef.current = mode }, [mode])
+  // #R9-7: setup 에서 true 로 되돌린다 — StrictMode 의 cleanup→재실행 후에도 mounted 가 false 로
+  //   고착되지 않게(고착되면 dev 에서 checkAuth 결과가 버려지고 onAuthRecovered 가 안 뜬다).
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
 
   // authReady가 바뀌면 상태 동기화
   useEffect(() => {
+    // #R12-5: authReady 변경 시 진행 중인 auth 폴링을 무효화 — 오래된 폴링 결과가 배지를
+    //   복구된 상태에서 다시 unauthenticated 로 뒤집지 못하게 한다.
+    authCheckSeqRef.current += 1
+    // #R14-5: flow 모드의 unavailable(지역 제한)은 authReady/폴링으로 덮지 않는다(sticky).
+    if (flowUnavailableRef.current && mode === 'flow') return
     if (authReady) {
       setAuthStatus('authenticated')
       stopPolling()
     } else {
       setAuthStatus('unauthenticated')
     }
-  }, [authReady])
+  }, [authReady, mode])
 
-  // Flow 지역 제한 감지
+  // Flow 지역 제한 감지 — #R7-17: flow 모드일 때만 반영(늦게 도착한 unavailable 이 api 모드 배지를
+  //   가리지 않게). mode 를 dep 에 넣어 재구독 + 핸들러가 현재 mode 를 본다.
   useEffect(() => {
     const handleFlowStatus = (data) => {
-      if (data?.unavailable) {
+      if (data?.unavailable && mode === 'flow') {
+        flowUnavailableRef.current = true // #R14-5: sticky
+        authCheckSeqRef.current += 1       // 진행 중인 폴링 결과 무효화
         setAuthStatus('unavailable')
         stopPolling()
       }
     }
-    const unsub = window.electronAPI?.onFlowStatus?.(handleFlowStatus)
+    // preload 가 반환하는 unsubscribe 를 cleanup 에서 호출 — listener leak 방지.
+    const off = window.electronAPI?.onFlowStatus?.(handleFlowStatus)
     return () => {
-      if (unsub) unsub()
+      off?.()
       stopPolling()
     }
-  }, [])
+  }, [mode])
+
+  // #R7-17: API 모드로 전환 시 flow-unavailable 잔상 제거 → authReady 기준으로 되돌린다.
+  useEffect(() => {
+    if (mode !== 'flow') {
+      flowUnavailableRef.current = false // #R14-5: flow 떠나면 sticky 해제
+      setAuthStatus(s => (s === 'unavailable' ? (authReady ? 'authenticated' : 'unauthenticated') : s))
+    }
+  }, [mode, authReady])
   
   // authReady prop에만 의존 — 독립적인 checkAuth 제거
   // (기존: !authReady일 때 quickCheck → 캐시된 만료 토큰을 유효로 오판하는 경합 조건 발생)
@@ -366,26 +145,30 @@ export default function Header({
   }, [projectName])
   
   const checkAuth = async (quickCheck = false) => {
+    // #R15-3: flow 모드의 sticky unavailable 은 'checking' 으로도 덮지 않는다(조기 반환).
+    if (flowUnavailableRef.current && modeRef.current === 'flow') return
     if (!getAccessToken) {
       setAuthStatus('unauthenticated')
-      setAuthReady?.(false)
       return
     }
-    
+
+    const startMode = modeRef.current
+    // #R11-7: 폴링이 겹칠 때 오래된 결과가 새 결과를 덮지 않도록 seq 가드 — 최신 호출만 반영.
+    const mySeq = ++authCheckSeqRef.current
     setAuthStatus('checking')
     try {
       // quickCheck: 탭 열기/대기 없이 빠르게 확인만
       const token = await getAccessToken(false, quickCheck)
-      if (token) {
-        setAuthStatus('authenticated')
-        setAuthReady?.(true)
-      } else {
-        setAuthStatus('unauthenticated')
-        setAuthReady?.(false)
-      }
+      // #R8-7/#R11-7/#R14-5: 언마운트/모드변경/오래된 호출/flow-unavailable 이면 결과 무시.
+      if (!mountedRef.current || modeRef.current !== startMode || mySeq !== authCheckSeqRef.current) return
+      if (flowUnavailableRef.current && modeRef.current === 'flow') return
+      setAuthStatus(token ? 'authenticated' : 'unauthenticated')
+      // Token came back via badge-click re-check → tell App so authReady recovers.
+      if (token) onAuthRecovered?.()
     } catch (e) {
+      if (!mountedRef.current || modeRef.current !== startMode || mySeq !== authCheckSeqRef.current) return
+      if (flowUnavailableRef.current && modeRef.current === 'flow') return // #R15-3
       setAuthStatus('unauthenticated')
-      setAuthReady?.(false)
     }
   }
   
@@ -397,24 +180,48 @@ export default function Header({
     }
   }
 
-  // Flow 사이트 열기 + 로그인 대기 폴링
-  const openFlow = () => {
-    if (window.electronAPI?.switchTab) {
-      window.electronAPI.switchTab('flow')
-    }
-    setAuthStatus('waiting')
-    setAuthReady?.(false)
-    stopPolling()
-    pollingRef.current = setInterval(async () => {
+  // 인증 미완 배지 클릭 핸들러 — 모드에 따라 분기.
+  // API 모드: API Key 설정 탭을 연다 (BYOK). 폴링 없음 — 키 저장 시 useApiKey 가 쏘는
+  //   'byok-key-changed' 이벤트를 App 이 받아 authReady 를 갱신하면, authReady
+  //   동기화 effect 가 배지를 🟢 로 바꾼다.
+  // Flow 모드: Flow WebContentsView 를 재연결하고 split 레이아웃을 보이도록 하여
+  //   사용자가 Flow 창에서 직접 Google 계정으로 로그인할 수 있게 안내한다.
+  //   useFlowEvents 가 'flow-login-expired' 이벤트를 무시하므로 직접 IPC 호출.
+  const openFlow = async () => {
+    if (mode === 'flow') {
+      // Re-attach Flow WebContentsView and ensure split layout is visible.
+      // 레이아웃은 flowLayoutForMode 기본값(split-left = Flow 왼쪽). Shell 이 단일 소유자.
+      // #R14-10: setMode/setLayout 을 await 하고, 실패 시 안내/폴링을 시작하지 않는다(뷰 미부착 상태에서
+      //   로그인 안내/폴링은 오해를 부른다). 실패는 toast 로 알린다.
       try {
-        const token = await getAccessToken(true)
-        if (token) {
-          setAuthStatus('authenticated')
-          setAuthReady?.(true)
-          stopPolling()
-        }
-      } catch {}
-    }, TIMING.AUTH_POLL_INTERVAL || 2000)
+        await window.electronAPI?.setMode?.({ mode: 'flow' })
+        const layout = flowLayoutForMode('flow')
+        if (layout) await window.electronAPI?.setLayout?.(layout)
+      } catch (e) {
+        console.warn('[Header] flow re-attach failed:', e?.message)
+        toast.error?.(t('toast.flowReattachFailed'))
+        return
+      }
+      // #R15-2: await 동안 모드 전환/언마운트됐으면 안내/폴링을 시작하지 않는다(stale flow polling 방지).
+      if (!mountedRef.current || modeRef.current !== 'flow') return
+      toast.info(t('toast.flowLoginHint'))
+      // #R7-16: 재연결 후 인증 상태를 능동적으로 폴링 — flow-status 이벤트가 안 와도
+      //   사용자가 Flow 창에서 로그인 완료하면 배지가 🟢 로 회복되도록.
+      startAuthPolling()
+    } else {
+      onSettings?.('apiKey')
+    }
+  }
+
+  // #R7-16: Flow 로그인 회복용 짧은 인증 폴링. 인증되면 authReady→effect 가 stopPolling.
+  const startAuthPolling = () => {
+    stopPolling()
+    let attempts = 0
+    pollingRef.current = setInterval(() => {
+      attempts += 1
+      if (attempts > 20) { stopPolling(); return } // ~60s 후 포기
+      checkAuth(true)
+    }, 3000)
   }
   
   const handleProjectSelect = (name) => {
@@ -447,42 +254,15 @@ export default function Header({
         }
       }
     } else {
-      alert(`삭제 실패: ${result.error || 'Unknown error'}`)
+      alert(t('header.projectDeleteFailed', { error: result.error || 'Unknown error' }))
     }
     setDeleteTarget(null)
     setShowProjectDropdown(false)
   }
 
-  // 구글/Flow 로그인 세션 강제 초기화 및 청소 (이전 인증 찌꺼기 완벽 박멸)
-  const handleFlowReset = async () => {
-    const confirmReset = window.confirm(
-      lang === 'ko'
-        ? '정말 구글/Flow 로그인 세션을 완전히 삭제하고 초기화하시겠습니까?\n이전 계정의 캐시 및 쿠키 정보가 모두 깨끗이 지워지며, 새로운 구글 계정으로 로그인할 수 있게 됩니다.'
-        : 'Are you sure you want to completely purge and reset your Google/Flow login session?\nAll cached credentials and cookies will be cleared, allowing you to log in with a fresh Google account.'
-    )
-    if (!confirmReset) return
-
-    try {
-      setAuthStatus('checking')
-      clearTokenCache?.()
-      const result = await window.electronAPI.clearFlowSession()
-      if (result?.success) {
-        setAuthStatus('unauthenticated')
-        setAuthReady?.(false)
-        alert(
-          lang === 'ko'
-            ? '구글/Flow 세션이 완전히 초기화되었습니다. 새로운 구글 계정으로 로그인해 주세요!'
-            : 'Google/Flow session cleared successfully. Please log in with a new Google account!'
-        )
-      } else {
-        setAuthStatus('authenticated')
-        alert(`초기화 실패: ${result?.error || 'Unknown error'}`)
-      }
-    } catch (err) {
-      setAuthStatus('authenticated')
-      alert(`초기화 에러: ${err.message}`)
-    }
-  }
+  const authActionLabel = mode === 'flow' ? t('header.flowLogin') : t('header.apiKey')
+  const authActionIcon = mode === 'flow' ? '👤' : '🔑'
+  const authenticatedLabel = mode === 'flow' ? t('header.flowAuthenticated') : t('header.apiAuthenticated')
   
   return (
     <>
@@ -495,13 +275,12 @@ export default function Header({
         >
           <span className="hamburger-icon">☰</span>
         </button>
-
         <h1 className="logo">
           <span className="logo-text">{t('appName')}</span>
         </h1>
         
-        {/* 프로젝트 선택기 (폴더 모드 + 로그인 상태일 때만) */}
-        {saveMode === 'folder' && authStatus === 'authenticated' && (
+        {/* 프로젝트 선택기 (폴더 모드면 표시 — 프로젝트는 로컬이라 API 키와 무관) */}
+        {saveMode === 'folder' && (
           <div className={`project-selector-header ${disabled ? 'disabled' : ''}`} ref={dropdownRef}>
             <button
               className="project-current"
@@ -547,80 +326,62 @@ export default function Header({
             )}
           </div>
         )}
+        
+        {/* 토큰 상태 표시 */}
+        <div className="auth-status">
+          {authStatus === 'checking' && (
+            <span className="auth-badge checking" data-tooltip={t('header.checking')}>⏳</span>
+          )}
+          {authStatus === 'authenticated' && (
+            <span className="auth-badge authenticated" data-tooltip={authenticatedLabel} onClick={checkAuth}>🟢</span>
+          )}
+          {authStatus === 'unavailable' && (
+            <span className="auth-badge unavailable" data-tooltip={t('header.unavailable')}>
+              🌍 {t('header.unavailable')}
+            </span>
+          )}
+          {authStatus === 'waiting' && (
+            <span className="auth-badge waiting" data-tooltip={t('header.waitingLogin')}>
+              ⏳ {t('header.waitingLogin')}
+            </span>
+          )}
+          {authStatus === 'unauthenticated' && (
+            <button className="auth-btn" onClick={openFlow} data-tooltip={authActionLabel}>
+              {authActionIcon} {authActionLabel}
+            </button>
+          )}
+        </div>
       </div>
       
       <div className="header-right">
-        <button
-          className="btn-export"
-          onClick={onExport}
-          disabled={!hasImages}
-          data-tooltip={t('header.export')}
-        >
-          <span className="btn-emoji">📦</span>
-          <span className="btn-text">{t('header.export')}</span>
-        </button>
+        {/* 언어 선택 (커스텀 드롭다운 — flag-icons SVG + 언어코드) */}
+        <LanguagePicker
+          current={lang}
+          languages={languages}
+          onChange={changeLang}
+          tooltip={t('header.language')}
+        />
 
-        <button
-          className="btn-flow-reset"
-          onClick={handleFlowReset}
-          title={lang === 'ko' ? 'Flow 계정 및 로그인 세션 완전 초기화' : 'Complete Purge & Reset Flow Session'}
-        >
-          <span className="btn-emoji">♻️</span>
-          <span className="btn-text">{lang === 'ko' ? 'Flow 초기화' : 'Reset Flow'}</span>
-        </button>
+        <ModeToggle busy={modeBusy} />
 
-        {/* 👤 Flow Multi-Profile Selector Dropdown */}
-        <div className="flow-profile-container" ref={profileDropdownRef}>
+        {onStoryClick && (
           <button
-            className={`btn-profile-selector ${showProfileDropdown ? 'active' : ''}`}
-            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-            title={lang === 'ko' ? 'Flow 구글 멀티 프로필 계정 관리' : 'Manage Flow Multi Profiles'}
+            type="button"
+            className={`btn-settings ${storyActive ? 'active' : ''}`}
+            onClick={onStoryClick}
+            data-tooltip={t('header.story') || 'Story'}
           >
-            <span className="btn-emoji">👤</span>
-            <span className="btn-text">
-              {profileConfig.profiles.find(p => p.id === profileConfig.activeProfileId)?.name || (lang === 'ko' ? '프로필' : 'Profile')}
-            </span>
-            <span className="arrow-icon">{showProfileDropdown ? '▲' : '▼'}</span>
+            📖 Story
           </button>
+        )}
 
-          {showProfileDropdown && (
-            <div className="profile-dropdown-menu">
-              <div className="dropdown-title">
-                {lang === 'ko' ? '구글 계정 프로필 선택' : 'Google Profiles'}
-              </div>
-              <div className="profile-list-scroll">
-                {profileConfig.profiles.map(prof => (
-                  <div
-                    key={prof.id}
-                    className={`profile-item-option ${prof.id === profileConfig.activeProfileId ? 'active' : ''}`}
-                    onClick={() => handleProfileSwitch(prof.id)}
-                  >
-                    <div className="profile-item-left">
-                      <span className="status-dot">🟢</span>
-                      <div className="profile-details-text">
-                        <span className="profile-item-name">{prof.name}</span>
-                        {prof.email && <span className="profile-item-email">{prof.email}</span>}
-                        <span className="profile-item-gpu">💻 {prof.hardware.renderer.split('(')[1]?.split(')')[0] || 'GPU'}</span>
-                      </div>
-                    </div>
-                    {prof.id !== 'default' && (
-                      <button
-                        className="profile-delete-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteProfile(prof.id)
-                        }}
-                        title={lang === 'ko' ? '프로필 삭제' : 'Delete Profile'}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <ExportSplitButton
+          format={exportFormat}
+          onSelect={onExport}
+          disabled={!hasImages}
+          className="btn-export"
+          direction="down"
+        />
 
         <button
           className="btn-settings"
@@ -629,6 +390,9 @@ export default function Header({
         >
           ⚙️
         </button>
+
+        {/* 사용자 메뉴 (Firebase 인증) */}
+        <UserMenu onLoginClick={onLoginClick} onUpgradeClick={onUpgradeClick} />
       </div>
     </header>
 

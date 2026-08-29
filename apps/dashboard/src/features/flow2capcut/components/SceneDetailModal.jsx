@@ -13,6 +13,7 @@ import ErrorSection from './ErrorSection'
 import MediaMetaBar from './MediaMetaBar'
 import { fetchLatestHistoryMeta } from '../utils/mediaMeta'
 import TagInputAutocomplete from './TagInputAutocomplete'
+import PromptInput from './PromptInput'
 import './SceneDetailModal.css'
 
 export default function SceneDetailModal({
@@ -145,6 +146,9 @@ export default function SceneDetailModal({
         seed: restoredSeed,
         generatedAt: restoredAt,
         model: restoredModel,
+        // 복원한 이미지의 생성 프롬프트가 새 baseline(되돌림 done 복원 기준). 메타에 없으면
+        // null 로 명시 — 직전 세대의 stale donePrompt 가 다른 프롬프트 이미지에 남지 않게.
+        donePrompt: meta.prompt ?? null,
         ...(meta.mediaId ? { mediaId: meta.mediaId } : {}),
       }))
       // restoredMeta 가 set 됐다는 건 "사용자가 history 복원했음" — 렌더 시 backfill 폴백 차단.
@@ -166,51 +170,17 @@ export default function SceneDetailModal({
     onClose()
   }
   
-  // 재생성
+  // 재생성 — 생성은 백그라운드로 계속되고 모달은 즉시 닫힘 (§3.8)
   const handleRegenerate = () => {
     console.log('[SceneDetail] Regenerate clicked')
-    if (onGenerate) {
-      onGenerate(scene.id)
-    }
-  }
-  
-  // 로컬 이미지 선택
-  const handleSelectLocalImage = async () => {
-    try {
-      if (!window.electronAPI?.selectImageFile) {
-        toast.error('이 기능은 데스크톱 앱에서만 사용할 수 있습니다.')
-        return
-      }
-      const result = await window.electronAPI.selectImageFile()
-      if (result.success) {
-        // 선택한 이미지를 즉시 프로젝트 scenes 폴더에 물리 파일로 복사(귀속)하여 저장합니다!
-        // 이렇게 해 두어야 껐다 켜서 자동 복원(Self-healing)할 때 언제나 Done 상태로 정상 자동 로드됩니다!
-        const saveResult = await fileSystemAPI.saveImage(projectName, scene.id, result.data, 'local')
-        if (saveResult.success) {
-          setEditData(prev => ({
-            ...prev,
-            image: null, // base64 메모리는 최적화를 위해 비우고
-            imagePath: saveResult.path, // 물리 저장된 프로젝트 내부 경로 지정!
-            status: 'done'
-          }))
-          toast.success('이미지를 불러와 프로젝트에 영구 저장했습니다.')
-        } else {
-          // 폴백: 저장 실패 시 임시 메모리 데이터로 로드
-          setEditData(prev => ({
-            ...prev,
-            image: result.data,
-            imagePath: result.path,
-            status: 'done'
-          }))
-          toast.info('이미지를 불러왔으나 프로젝트 폴더 저장에는 실패했습니다.')
-        }
-        // 수동으로 넣은 이미지이므로 기존 메타데이터(seed 등)는 리셋
-        setRestoredMeta(null)
-      }
-    } catch (err) {
-      console.error('[SceneDetail] Select image failed:', err)
-      toast.error('이미지 선택에 실패했습니다.')
-    }
+    if (!onGenerate) return
+    // Issue #4: 모달에서 편집한 내용(prompt/characters/style_tag 등)을 먼저 영속 — 재생성이 저장을
+    //   안 하면 편집이 사라지고 모달을 다시 열면 옛 값이 보인다.
+    if (onUpdate) onUpdate(scene.id, editData)
+    // Issue #4/#5: 편집 스냅샷을 명시 전달 — onUpdate 직후라 scenes 클로저가 stale 이면 생성이
+    //   옛 prompt/style_tag 를 읽어(스타일은 항상 실사, 프롬프트는 편집 전 값) 나오는 race 를 피한다.
+    onGenerate(scene.id, undefined, editData)
+    onClose()
   }
   
   const ratioClass = getRatioClass(aspectRatio)
@@ -227,6 +197,8 @@ export default function SceneDetailModal({
     }
   }
   
+  // 이미지가 아직 없는 씬은 '재생성'이 아니라 '생성' — 라벨이 실제 동작을 말해야 한다.
+  const hasGeneratedImage = !!(editData.image || editData.imagePath)
   const footer = (
     <>
       <button className="btn-secondary" onClick={onClose}>{t('sceneDetail.cancel')}</button>
@@ -235,8 +207,12 @@ export default function SceneDetailModal({
           className="btn-warning"
           onClick={handleRegenerate}
           disabled={isGenerating || !editData.prompt}
+          // 프롬프트가 없어 disabled 면 이유를 tooltip 으로 — 침묵 disabled 는 "생성이 안 된다"로 보인다.
+          title={!editData.prompt ? t('toast.noPrompt') : undefined}
         >
-          {isGenerating ? t('sceneDetail.generating') : t('sceneDetail.regenerate')}
+          {isGenerating
+            ? t('sceneDetail.generating')
+            : hasGeneratedImage ? t('sceneDetail.regenerate') : t('sceneDetail.generate')}
         </button>
       )}
       <button className="btn-primary" onClick={handleSave}>{t('sceneDetail.save')}</button>
@@ -266,9 +242,6 @@ export default function SceneDetailModal({
                   src={resolveImageSrc(editData)}
                   alt={`Scene ${scene.id}`}
                   onLoad={(e) => setImageSize({ width: e.target.naturalWidth, height: e.target.naturalHeight })}
-                  onClick={handleSelectLocalImage}
-                  style={{ cursor: 'pointer' }}
-                  title="클릭하여 이미지 교체"
                 />
                 <button
                   className="btn-clear-image"
@@ -279,17 +252,11 @@ export default function SceneDetailModal({
                   }}
                   title={t('reference.clearImage') || '이미지 제거'}
                 >✕</button>
-                <div className="preview-overlay-btn" onClick={handleSelectLocalImage}>
-                  <span>🔄 이미지 교체</span>
-                </div>
               </>
             ) : (
-              <div className="ref-placeholder" onClick={handleSelectLocalImage} style={{ cursor: 'pointer' }}>
+              <div className="ref-placeholder">
                 <span className="icon">🖼️</span>
                 <span>{t('sceneDetail.noImage')}</span>
-                <span style={{ fontSize: '0.8rem', marginTop: '8px', opacity: 0.7 }}>
-                  (클릭하여 이미지 불러오기)
-                </span>
               </div>
             )}
           </div>
@@ -324,11 +291,12 @@ export default function SceneDetailModal({
                 >⧉</button>
               )}
             </label>
-            <textarea
+            <PromptInput
               value={editData.prompt || ''}
-              onChange={(e) => setEditData({ ...editData, prompt: e.target.value })}
+              onChange={(text) => setEditData({ ...editData, prompt: text })}
+              references={references}
               placeholder={t('sceneDetail.promptPlaceholder')}
-              rows={3}
+              hideFooter
             />
           </div>
           
@@ -345,13 +313,26 @@ export default function SceneDetailModal({
                 >⧉</button>
               )}
             </label>
-            <textarea
-              value={editData.subtitle || ''}
-              onChange={(e) => setEditData({ ...editData, subtitle: e.target.value })}
-              placeholder={t('sceneDetail.subtitlePlaceholder')}
-              rows={2}
-              className="subtitle-input"
-            />
+            {(() => {
+              // R20 review fix: 묶음 자막 (>1 srtLine) 은 readOnly — 어느 라인이 바뀐
+              // 건지 모호해 저장해도 다음 render 에 srtTrack 으로 덮어씌워짐.
+              // SceneList textarea (R3 fix) 와 동일 정책.
+              const isBundled = (scene?.srtLineIds || []).length > 1
+              return (
+                <textarea
+                  value={editData.subtitle || ''}
+                  onChange={(e) => {
+                    if (isBundled) return
+                    setEditData({ ...editData, subtitle: e.target.value })
+                  }}
+                  readOnly={isBundled}
+                  title={isBundled ? t('sceneList.bundledSubtitleReadonly') : undefined}
+                  placeholder={t('sceneDetail.subtitlePlaceholder')}
+                  rows={2}
+                  className="subtitle-input"
+                />
+              )
+            })()}
           </div>
           
           {/* 시간 정보 */}

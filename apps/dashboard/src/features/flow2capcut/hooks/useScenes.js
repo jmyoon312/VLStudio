@@ -2,21 +2,33 @@
  * Scenes Hook - 씬 데이터 관리
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { DEFAULTS } from '../config/defaults'
 import {
   parseTextToScenes,
   parseCSVToScenes,
   parseSRTToScenes,
+  parseSRTToTrack,
+  parseSceneCSVToTracks,
+  isNewSceneCSVFormat,
+  mergeTextIntoScenes,
+  mergeCSVIntoScenes,
+  mergeSRTIntoScenes,
   parseReferencesCSV,
   mergeReferences,
   findDuplicateReferenceNames,
   parseTimeToSeconds
 } from '../utils/parsers'
+import { createSrtTrackFromScenes, pruneSrtTrackToScenes } from '../utils/srtTrack'
+import { matchSrtLines } from '../utils/srtLineMatcher'
+import { trimTrailingEmptyScenes } from '../utils/sceneTrim'
 import { fileSystemAPI } from './useFileSystem'
-import { splitTags } from '../utils/tagMatch'
+import { normalizeTagKey, splitTags } from '../utils/tagMatch'
+import { resolveMentions } from '../utils/mentionParser'
+import { isStyleReference } from '../services/styleService'
+import { hasImageData } from '../utils/formatters'
 
-// snake_case → camelCase 변환 + 숫자 변환
+// snake_case → camelCase 변환 + 숫자 변환 + videoT2V/I2V prompt 필드 기본값 보장
 function normalizeScene(s, i) {
   const rawStart = s.start_time !== undefined ? s.start_time : s.startTime
   const parsedStart = parseTimeToSeconds(rawStart)
@@ -26,6 +38,8 @@ function normalizeScene(s, i) {
   const parsedEnd = parseTimeToSeconds(rawEnd)
   const endTime = !isNaN(parsedEnd) ? parsedEnd : (startTime + duration)
   return {
+    videoT2VPrompt: '',
+    videoI2VPrompt: '',
     ...s,
     id: s.id || `scene_${i + 1}`,
     startTime,
@@ -37,50 +51,406 @@ function normalizeScene(s, i) {
 export function useScenes() {
   const [scenes, _setScenes] = useState([])
   const [references, setReferences] = useState([])
+  const [srtTrack, _setSrtTrack] = useState([])
+
+  // scenes/srtTrack 의 최신 스냅샷을 동기 읽기용 ref. R6 review fix: setter
+  // wrapper 가 _setReact 호출 BEFORE 에 ref 를 동기 갱신하므로 같은 tick 에
+  // back-to-back parseFromCSV/SRT 가 첫 호출 결과 본다 (useEffect 만으로는
+  // commit 후에야 sync 되어 stale 한 문제). useEffect 동기화는 safety net 으로
+  // 유지 — setter wrapper 외부에서 state 가 어떻게든 바뀌면 ref 가 따라옴.
+  const scenesRef = useRef(scenes)
+  useEffect(() => { scenesRef.current = scenes }, [scenes])
+  const srtTrackRef = useRef(srtTrack)
+  useEffect(() => { srtTrackRef.current = srtTrack }, [srtTrack])
+
+  // ── Stable ID counter ──────────────────────────────────────────────────────
+  const nextSceneIdRef = useRef(1)
+
+  /**
+   * Align counter to match a scenes array.
+   *
+   *   - reset=true  → counter SET to max(IDs)+1 exactly.
+   *     Used on project replacement (direct setScenes(arr)) so opening project B
+   *     after project A with scene_100 doesn't leak scene_101 into project B.
+   *
+   *   - reset=false → counter only ADVANCES if input has a higher max.
+   *     Used on functional setScenes(prev => ...) — incremental edits within
+   *     the current project must preserve monotonicity (never reuse).
+   */
+  const syncCounterFromScenes = (scenesArr, { reset = false } = {}) => {
+    let maxId = 0
+    for (const s of scenesArr || []) {
+      const m = /^scene_(\d+)$/.exec(s.id || '')
+      if (m) {
+        const n = parseInt(m[1], 10)
+        if (n > maxId) maxId = n
+      }
+    }
+    if (reset) {
+      // Project switch / replacement: rebase counter to this project's max.
+      nextSceneIdRef.current = maxId + 1
+    } else if (maxId + 1 > nextSceneIdRef.current) {
+      // In-session: only advance.
+      nextSceneIdRef.current = maxId + 1
+    }
+  }
+
+  const allocateSceneId = useCallback(() => `scene_${nextSceneIdRef.current++}`, [])
+  // ── End stable ID counter ──────────────────────────────────────────────────
 
   const setScenes = useCallback((valueOrFn) => {
-    _setScenes(prev => {
-      const next = typeof valueOrFn === 'function' ? valueOrFn(prev) : valueOrFn
-      // 동일 reference 반환 시 정규화 스킵 (no-op 최적화)
-      if (next === prev) return prev
-      return Array.isArray(next) ? next.map(normalizeScene) : next
+    // Direct array form = wholesale replacement (project load / clearScenes).
+    // Functional form = incremental update (addScene, deleteScene, merges).
+    // Reset counter only on wholesale replacement so counter doesn't leak
+    // across project switches.
+    //
+    // R6 review fix: ref 를 source of truth 로 써서 같은 tick 의 back-to-back
+    // 호출도 직전 결과 본다. _setScenes 호출 BEFORE 에 ref 갱신 → React 가
+    // re-render 할 때까지 기다리지 않고 동기 읽기 가능.
+    const isReplacement = typeof valueOrFn !== 'function'
+    const prev = scenesRef.current
+    const next = typeof valueOrFn === 'function' ? valueOrFn(prev) : valueOrFn
+    if (next === prev) return
+    let normalized = next
+    if (Array.isArray(next)) {
+      normalized = next.map(normalizeScene)
+      syncCounterFromScenes(normalized, { reset: isReplacement })
+    }
+    scenesRef.current = normalized
+    _setScenes(normalized)
+  }, [])
+
+  // R6 review fix: setSrtTrack wrapper 도 동기 ref 갱신
+  const setSrtTrack = useCallback((valueOrFn) => {
+    const prev = srtTrackRef.current
+    const next = typeof valueOrFn === 'function' ? valueOrFn(prev) : valueOrFn
+    if (next === prev) return
+    srtTrackRef.current = next
+    _setSrtTrack(next)
+  }, [])
+
+  /**
+   * 시간 재계산 — IDs는 건드리지 않음 (안정적 ID 보장)
+   */
+  const recalculateTimesArr = (scenesArr) => {
+    let currentTime = 0
+    return scenesArr.map((scene) => {
+      const startTime = currentTime
+      const endTime = currentTime + (scene.duration || DEFAULTS.scene.duration)
+      currentTime = endTime
+      return { ...scene, startTime, endTime }
     })
+  }
+
+  /**
+   * 텍스트에서 씬 파싱 — 기존 씬에 머지 (지정 필드만 갱신, 다른 필드 보존)
+   * 빈 scenes에서 호출하면 통째 생성과 동일.
+   *
+   * @param {object} [options] - { fieldName: 'prompt' | 'videoT2VPrompt' | 'videoI2VPrompt' }
+   *   기본 'prompt' (text 탭). video-text 탭은 'videoT2VPrompt'.
+   * @param {Array} [framePairs] - F→V 소유권 배열 (trim 시 alive 판단에 사용)
+   */
+  const parseFromText = useCallback((text, defaultDuration = DEFAULTS.scene.duration, options = {}, framePairs = []) => {
+    let merged
+    setScenes(prev => {
+      const afterMerge = mergeTextIntoScenes(prev, text, defaultDuration, { ...options, allocateId: allocateSceneId })
+      merged = recalculateTimesArr(trimTrailingEmptyScenes(afterMerge, framePairs))
+      return merged
+    })
+    return merged
   }, [])
+
+  /**
+   * CSV에서 씬 파싱 — Phase 3 부터 헤더 분기.
+   *
+   * - 새 형식 (scene 컬럼 + 정수값): parseSceneCSVToTracks → srtTrack + scenes wholesale 교체
+   * - 옛 형식: 기존 mergeCSVIntoScenes (CSV에 채워진 필드만 덮어쓰기)
+   *
+   * @param {Array} [framePairs] - F→V 소유권 배열 (trim 시 alive 판단에 사용)
+   */
+  const parseFromCSV = useCallback((csvText, defaultDuration = DEFAULTS.scene.duration, framePairs = []) => {
+    let merged
+
+    if (isNewSceneCSVFormat(csvText)) {
+      const parsed = parseSceneCSVToTracks(csvText, {
+        allocateSceneId,
+        defaultDuration,
+      })
+      // C6 + R5 review fix: 기존 씬의 런타임 필드를 보존하되, 매칭 키는 CSV scene 번호
+      // (_sceneNum). prev 에 _sceneNum 있는 씬이 하나라도 있으면 sceneNum 매칭만
+      // 사용 (insert/reorder 안전 — 매칭 안 되는 parsed 씬은 진짜 신규로 취급).
+      // prev 에 _sceneNum 가 전혀 없으면 (legacy SRT/CSV 에서 온 경우) index fallback.
+      const prev = scenesRef.current || []
+      const prevByNum = new Map()
+      prev.forEach(s => {
+        if (s._sceneNum != null) prevByNum.set(s._sceneNum, s)
+      })
+      const prevHasSceneNums = prevByNum.size > 0
+      const mergedScenes = parsed.scenes.map((parsedScene, i) => {
+        const existing = prevByNum.get(parsedScene._sceneNum)
+          || (prevHasSceneNums ? null : prev[i])
+        if (!existing) return parsedScene
+        return {
+          ...parsedScene,
+          id: existing.id, // 안정 ID 유지
+          image: existing.image,
+          imagePath: existing.imagePath,
+          status: existing.status || parsedScene.status,
+          mediaId: existing.mediaId,
+          generatingStartedAt: existing.generatingStartedAt,
+          image_size: existing.image_size,
+          donePrompt: existing.donePrompt, // 생성 기준 스냅샷 — 되돌림 done 복원이 CSV 왕복에도 유지
+          // 비디오 관련 런타임 필드도 보존
+          videoT2V: existing.videoT2V,
+          videoT2VPath: existing.videoT2VPath,
+          videoI2V: existing.videoI2V,
+          videoI2VPath: existing.videoI2VPath,
+          videoT2VDuration: existing.videoT2VDuration,
+          videoI2VDuration: existing.videoI2VDuration,
+          // per-clip export 토글 — 재파싱에도 보존
+          videoT2VDisabled: existing.videoT2VDisabled,
+          videoI2VDisabled: existing.videoI2VDisabled,
+          // T2V 런타임 상태 — CSV 에는 안 실리는 항목들. 재파싱이 진행 중 generation/recovery/선택을 깨지 않도록 보존.
+          //   - videoT2VStatus: ResultsTable 이 status === 'generating' 일 때만 타이머를 렌더 → 잃으면 타이머가 사라짐.
+          //   - videoT2VMediaId / videoT2VGenerationId: videoRecovery 가 in-flight 분류에 사용 → 잃으면 reload 후 재제출(중복 quota).
+          //   - videoT2VSelected: 단순 UI 선택 상태인데 재파싱으로 리셋되면 사용자 의도가 사라짐.
+          //   - videoT2VGeneratingStartedAt/EndedAt: 위의 status 와 짝 — status 만 살리고 timestamp 잃으면 0:00 회귀.
+          videoT2VStatus: existing.videoT2VStatus,
+          videoT2VMediaId: existing.videoT2VMediaId,
+          videoT2VGenerationId: existing.videoT2VGenerationId,
+          videoT2VSelected: existing.videoT2VSelected,
+          videoT2VGeneratingStartedAt: existing.videoT2VGeneratingStartedAt,
+          videoT2VGeneratingEndedAt: existing.videoT2VGeneratingEndedAt,
+          // I2V 생성 상태 — 타임라인 generating(빈칸+shimmer) 판정용. 재파싱 중 generation 상태 보존.
+          //   - videoI2VGeneratingStartedAt/EndedAt: status 와 짝 — status 만 살리고 timestamp 잃으면 0:00 회귀(T2V 와 동일).
+          videoI2VStatus: existing.videoI2VStatus,
+          videoI2VGeneratingStartedAt: existing.videoI2VGeneratingStartedAt,
+          videoI2VGeneratingEndedAt: existing.videoI2VGeneratingEndedAt,
+        }
+      })
+      // R4 review fix: parseSceneCSVToTracks 가 row 별 start_time/end_time 절대값을
+      // scene.startTime/endTime 으로 채웠음. recalculateTimesArr 는 sequential 로
+      // 재배치해서 gap 을 압축 → 자막 (srtTrack 절대 시간) 과 어긋남. skip.
+      merged = trimTrailingEmptyScenes(mergedScenes, framePairs)
+      setScenes(() => merged)
+      setSrtTrack(parsed.srtTrack)
+      return merged
+    }
+
+    // 옛 형식: 동기 계산 후 양쪽 state 갱신 (batched-update deferral 회피)
+    const prev = scenesRef.current
+    const afterMerge = mergeCSVIntoScenes(prev, csvText, defaultDuration, { allocateId: allocateSceneId })
+    const trimmed = trimTrailingEmptyScenes(afterMerge, framePairs)
+    const built = createSrtTrackFromScenes(trimmed)
+    merged = recalculateTimesArr(built.scenes)
+    setScenes(() => merged)
+    setSrtTrack(built.srtTrack)
+    return merged
+  }, [allocateSceneId])
+
+  /**
+   * SRT에서 씬 파싱 — 새 srtTrack 분리 모델 (Phase 2)
+   *
+   * - srtTrack 을 새 SRT 로 wholesale 교체
+   * - 기존 씬의 prompt/image/etc 콘텐츠는 max-driver 방식으로 인덱스별 보존
+   * - 새 SRT 라인 각 씬의 srtLineIds + subtitle (후방 호환) + 시간 필드 갱신
+   * - SRT 가 짧으면: 초과 씬은 srtLineIds=[] + subtitle='' 로 클리어, 나머지 콘텐츠 보존
+   *
+   * @param {Array} [framePairs] - F→V 소유권 배열 (trim 시 alive 판단에 사용)
+   * @param {{ mode?: 'merge' | 'replace' }} [options] -
+   *   - 'merge' (기본): 기존 srtTrack 있으면 텍스트 유사도(fuzzy) 매칭으로 묶음/콘텐츠 보존.
+   *   - 'replace': 자막 트랙만 새 SRT 로 교체. 씬 순서대로 1:1 인덱스 매핑 →
+   *     기존 scene ID/prompt/이미지/비디오 보존, srtLineIds/subtitle/startTime/endTime/duration 만 갱신.
+   *     scene ID 가 살아 있으니 framePairs.ownerSceneId 도 안전. 모달 "대체" 선택 시 사용.
+   */
+  const parseFromSRT = useCallback((srtText, framePairs = [], options = {}) => {
+    const parsed = parseSRTToTrack(srtText)
+    const newTrack = parsed.srtTrack
+    const oldTrack = srtTrackRef.current || []
+    const prevScenes = scenesRef.current || []
+    const mode = options.mode || 'merge'
+
+    // mode='merge' 인 경우에만 fuzzy 매칭 분기 사용.
+    // replace 는 무조건 wholesale 인덱스 경로 (밑에) 로 떨어져서 자막만 교체, 콘텐츠 보존.
+    if (mode === 'merge' && oldTrack.length > 0 && prevScenes.length > 0) {
+      const { matched, added } = matchSrtLines(oldTrack, newTrack)
+      const oldIdToNewId = new Map(
+        matched.map(m => [m.oldId, newTrack[m.newIdx].id])
+      )
+      // R24 review fix: scene 마다 newTrack.find() O(N) 반복하던 것을 Map 으로
+      // O(1) 캐싱. 대용량 SRT (1000+ lines) 에서 누적 비용 제거.
+      const newTrackById = new Map(newTrack.map(l => [l.id, l]))
+
+      // 기존 씬의 srtLineIds 를 매칭된 새 ID 로 remap (제거된 라인은 자동 탈락)
+      const remappedScenes = prevScenes.map(scene => {
+        const newIds = (scene.srtLineIds || [])
+          .map(oldId => oldIdToNewId.get(oldId))
+          .filter(Boolean)
+        // 매칭된 첫 라인의 시간으로 갱신 (없으면 기존 시간 유지)
+        const firstId = newIds[0]
+        const firstLine = firstId ? newTrackById.get(firstId) : null
+        const lastId = newIds[newIds.length - 1]
+        const lastLine = lastId ? newTrackById.get(lastId) : null
+        // C16 fix: subtitle 은 항상 srtLineIds 기반으로 재계산 (빈 매치면 '').
+        // 그렇지 않으면 SceneList 가 옛 scene.subtitle 보여주고 export 는 srtTrack 사용 → UI/export 불일치.
+        const updates = {
+          srtLineIds: newIds,
+          subtitle: newIds
+            .map(id => newTrackById.get(id)?.text || '')
+            .filter(Boolean)
+            .join('\n'),
+        }
+        if (firstLine && lastLine) {
+          updates.startTime = firstLine.startTime
+          updates.endTime = lastLine.endTime
+          updates.duration = lastLine.endTime - firstLine.startTime
+        }
+        return { ...scene, ...updates }
+      })
+
+      // 새로 추가된 라인 → 새 1:1 씬으로 append
+      for (const newIdx of added) {
+        const line = newTrack[newIdx]
+        remappedScenes.push({
+          id: allocateSceneId(),
+          srtLineIds: [line.id],
+          startTime: line.startTime,
+          endTime: line.endTime,
+          duration: line.endTime - line.startTime,
+          prompt: '',
+          videoT2VPrompt: '',
+          videoI2VPrompt: '',
+          subtitle: line.text,
+          characters: '',
+          scene_tag: '',
+          style_tag: '',
+          status: 'pending',
+          image: null,
+        })
+      }
+
+      // C3 review fix: smart-match 가 이미 scene.startTime/endTime 을 srtTrack
+      // 라인의 절대 시간으로 설정했으니 recalculateTimesArr 로 sequential 재계산
+      // 하면 안 됨 (원본 SRT gap/타이밍이 손실되고 export srtTrack 과 어긋남).
+      // 매칭 안 된 씬은 기존 시간 유지.
+      const merged = trimTrailingEmptyScenes(remappedScenes, framePairs)
+      setScenes(() => merged)
+      setSrtTrack(newTrack)
+      return merged
+    }
+
+    // 두 경로가 여기로 떨어진다:
+    //   1) 빈 srtTrack 또는 빈 scenes (cold import) → Phase 2 wholesale 동작
+    //   2) mode='replace' → 자막만 인덱스 1:1 교체, 콘텐츠 보존 ({...old, ...})
+    // 두 경우 모두 동일한 인덱스 매핑 + prev 콘텐츠 보존 동작이 정답이라 분기 통합.
+    let merged
+    setScenes(prev => {
+      const maxLen = Math.max(prev.length, parsed.scenes.length)
+      const out = Array.from({ length: maxLen }, (_, i) => {
+        const old = prev[i]
+        const ns = parsed.scenes[i]
+        if (old && ns) {
+          return {
+            ...old,
+            srtLineIds: ns.srtLineIds,
+            subtitle: ns.subtitle,
+            startTime: ns.startTime,
+            endTime: ns.endTime,
+            duration: ns.duration,
+          }
+        }
+        if (old) {
+          return { ...old, srtLineIds: [], subtitle: '' }
+        }
+        return { ...ns, id: allocateSceneId() }
+      })
+      // R4 review fix: parseSRTToTrack 가 라인 절대 시간을 scene.startTime/endTime
+      // 으로 채웠음. recalculateTimesArr 가 sequential 로 재배치하면 자막/이미지
+      // 어긋남. cold import 도 절대 시간 그대로 보존.
+      merged = trimTrailingEmptyScenes(out, framePairs)
+      return merged
+    })
+    setSrtTrack(newTrack)
+    return merged
+  }, [allocateSceneId])
   
   /**
-   * 텍스트에서 씬 파싱 (줄바꿈 구분)
+   * srtTrack 의 특정 라인 텍스트 갱신 (R3 review fix: SceneList 단일 라인 inline 편집용)
    */
-  const parseFromText = useCallback((text, defaultDuration = DEFAULTS.scene.duration) => {
-    const newScenes = parseTextToScenes(text, defaultDuration)
-    setScenes(newScenes)
-    return newScenes
+  const updateSrtLine = useCallback((lineId, newText) => {
+    setSrtTrack(prev => prev.map(line =>
+      line.id === lineId ? { ...line, text: newText } : line
+    ))
   }, [])
-  
-  /**
-   * CSV에서 씬 파싱
-   */
-  const parseFromCSV = useCallback((csvText, defaultDuration = DEFAULTS.scene.duration) => {
-    const newScenes = parseCSVToScenes(csvText, defaultDuration)
-    setScenes(newScenes)
-    return newScenes
-  }, [])
-  
-  /**
-   * SRT에서 씬 파싱
-   */
-  const parseFromSRT = useCallback((srtText) => {
-    const newScenes = parseSRTToScenes(srtText)
-    setScenes(newScenes)
-    return newScenes
-  }, [])
-  
+
   /**
    * 씬 업데이트
+   *
+   * R20 review fix: subtitle 변경 시 단일 srtLine 가진 씬이면 srtTrack 도 동기 갱신.
+   * SceneDetailModal 같은 generic 호출 경로도 silent data loss 방지. 묶음 씬
+   * (>1 srtLine) 은 어느 라인이 바뀐 건지 모호해 srtTrack 안 건드림 (caller 가
+   * updateSrtLine 직접 호출하거나 UI 에서 readOnly 처리).
    */
   const updateScene = useCallback((sceneId, updates) => {
-    setScenes(prev => prev.map(scene => 
-      scene.id === sceneId ? { ...scene, ...updates } : scene
-    ))
+    if (updates && Object.prototype.hasOwnProperty.call(updates, 'subtitle')) {
+      const scene = (scenesRef.current || []).find(s => s.id === sceneId)
+      const lineIds = scene?.srtLineIds || []
+      if (lineIds.length === 1) {
+        const targetId = lineIds[0]
+        // R29 review fix: srtTrack 은 source of truth. updateScene 의 subtitle 키가
+        // 실제로 사용자 편집을 의미할 때만 sync — 즉 incoming subtitle 이 scene 의
+        // OLD subtitle 과 다른 경우. 같으면 (SceneDetailModal stale editData 가 patch
+        // 에 안 바뀐 subtitle 키를 그대로 포함한 케이스) srtTrack 보존. 외부 경로가
+        // srtTrack 만 갱신했을 때 stale modal save 로 덮어쓰는 회귀 차단.
+        const oldSubtitle = scene?.subtitle ?? ''
+        if (updates.subtitle !== oldSubtitle) {
+          const currentLine = (srtTrackRef.current || []).find(l => l.id === targetId)
+          if (currentLine && currentLine.text !== updates.subtitle) {
+            setSrtTrack(prev => prev.map(line =>
+              line.id === targetId ? { ...line, text: updates.subtitle } : line
+            ))
+          }
+        }
+      }
+    }
+    setScenes(prev => prev.map(scene => {
+      if (scene.id !== sceneId) return scene
+      const next = { ...scene, ...updates }
+      // Issue #2: 이미 생성 완료(이미지 보유)된 씬의 프롬프트가 실제로 바뀌면 재생성 대상이
+      // 되도록 status 를 pending 으로 되돌린다.
+      // 가드: 호출자가 status 를 "실제로 바꾸는" 경우(생성 코드 — done→generating 등)만 존중하고
+      // 덮어쓰지 않는다. SceneDetailModal 은 editData={...scene} 를 통째로 넘겨 status 가 늘 포함되지만
+      // 그 값은 현재 status 와 동일(변경 아님)하므로, updates.status === 현재 status 면 리셋을 허용한다.
+      const promptChanged = Object.prototype.hasOwnProperty.call(updates, 'prompt') && updates.prompt !== scene.prompt
+      // 화면 썸네일과 동일 기준(hasImageData: imagePath|filePath|image|data)으로 "이미지 있음"을 판정.
+      //   좁게 image||imagePath 만 보면 이미지가 filePath/data 에만 있는 씬은 썸네일은 뜨는데 여기선
+      //   "없음"으로 판정돼 프롬프트 변경 pending 전환도, 원복 done 복원도 통째로 스킵된다(실측 버그).
+      const hasImage = hasImageData(scene)
+      const callerChangesStatus = Object.prototype.hasOwnProperty.call(updates, 'status') && updates.status !== scene.status
+      // 진행 중(generating)인 씬은 리셋 보류 — finalize 가 곧 done 을 쓴다. 여기서 pending 으로
+      // 뒤집으면 옛 프롬프트로 만든 이미지가 done 으로 덮여 UI 가 거짓말한다(리뷰 M4).
+      if (promptChanged && hasImage && !callerChangesStatus && scene.status !== 'generating') {
+        let hasBaseline = typeof scene.donePrompt === 'string'
+        let baseline = scene.donePrompt
+        // donePrompt 도입 전 완료된 legacy 씬은 아직 편집되지 않은 현재 prompt 가 생성 기준이다.
+        // 첫 편집 시 한 번만 캡처하고, 이미 pending 인 legacy 씬은 기준을 추측하지 않는다.
+        if (!hasBaseline && scene.status === 'done') {
+          baseline = scene.prompt
+          hasBaseline = true
+          next.donePrompt = baseline
+        }
+        if (hasBaseline && updates.prompt === baseline) {
+          next.status = 'done'
+          // error 씬(순수 생성실패 — 이미지는 여전히 baseline 산물)의 되돌림 복원 시, 옛 에러가
+          // 남으면 done 인데 에러 배지가 뜨는 모순 상태 — finalize 와 동일하게 클리어.
+          next.error = null
+          next.errorKind = null
+        } else {
+          next.status = 'pending'
+        }
+      }
+      return next
+    }))
   }, [])
   
   /**
@@ -103,35 +473,44 @@ export function useScenes() {
       return newScenes
     })
   }, [])
-  
-  /**
-   * ID 재정렬 + 시간 재계산 (공통)
-   */
-  const reindexScenes = (scenes) => {
-    let currentTime = 0
-    return scenes.map((scene, idx) => {
-      const updated = {
-        ...scene,
-        id: `scene_${idx + 1}`,
-        startTime: currentTime,
-        endTime: currentTime + scene.duration
-      }
-      currentTime = updated.endTime
-      return updated
-    })
-  }
 
   /**
    * 씬 삭제
+   * @param {string} sceneId - 삭제할 씬 ID
+   * @param {Array} [framePairs=[]] - F→V 소유권 배열. 삭제된 씬을 소유한 항목을 제거한 배열을 반환.
+   *   변경 없으면 원본 reference 반환 (caller: `next !== framePairs` 로 setState 스킵 가능)
+   * @returns {Array} 필터링된 framePairs
    */
-  const deleteScene = useCallback((sceneId) => {
-    setScenes(prev => reindexScenes(prev.filter(s => s.id !== sceneId)))
+  const deleteScene = useCallback((sceneId, framePairs = []) => {
+    // R1 review fix: 동시에 srtTrack 도 prune — 삭제된 씬이 가리키던 자막 라인이
+    // 다른 씬이 참조 안 하면 제거 (stale 자막 export 누수 방지).
+    // R17 review fix: prev 에 linkage 가 하나라도 있었으면 strict prune (옛 contract
+    // — orphan 라인 정리). prev 가 처음부터 linkage 없는 audio-only 프로젝트면
+    // preserveUnlinked — narration srtTrack 이 통째로 사라지는 것 방지.
+    setScenes(prev => {
+      const survivingScenes = prev.filter(s => s.id !== sceneId)
+      const prevHadLinkage = prev.some(s => Array.isArray(s?.srtLineIds) && s.srtLineIds.length > 0)
+      setSrtTrack(track => pruneSrtTrackToScenes(track, survivingScenes, {
+        preserveUnlinked: !prevHadLinkage,
+      }))
+      return recalculateTimesArr(survivingScenes)
+    })
+    // Cascade: return framePairs without those owning the deleted scene.
+    // Caller (App.jsx) applies via setFramePairs. Same reference returned
+    // when nothing changed — caller can use `next !== framePairs` to skip setState.
+    const filtered = framePairs.filter(fp => fp.ownerSceneId !== sceneId)
+    return filtered.length === framePairs.length ? framePairs : filtered
   }, [])
 
   /**
    * 씬 추가
    */
   const addScene = useCallback((afterIndex = -1) => {
+    // Allocate id BEFORE setScenes so caller can use it (e.g. F→V Add Row needs the
+    // new scene's id to immediately create a framePair pointing at it). The id will
+    // be synced into nextSceneIdRef by the setScenes wrapper after normalize, so no
+    // collision risk even though allocateSceneId fires before the state update.
+    const newId = allocateSceneId()
     setScenes(prev => {
       const insertIndex = afterIndex === -1 ? prev.length : afterIndex + 1
 
@@ -140,7 +519,7 @@ export function useScenes() {
       const duration = DEFAULTS.scene.duration
 
       const newScene = {
-        id: `scene_${insertIndex + 1}`,
+        id: newId,
         startTime,
         endTime: startTime + duration,
         duration,
@@ -155,8 +534,9 @@ export function useScenes() {
 
       const newScenes = [...prev]
       newScenes.splice(insertIndex, 0, newScene)
-      return reindexScenes(newScenes)
+      return recalculateTimesArr(newScenes)
     })
+    return newId
   }, [])
 
   /**
@@ -169,7 +549,7 @@ export function useScenes() {
       const newScenes = [...prev]
       const [moved] = newScenes.splice(fromIndex, 1)
       newScenes.splice(toIndex, 0, moved)
-      return reindexScenes(newScenes)
+      return recalculateTimesArr(newScenes)
     })
   }, [])
   
@@ -178,8 +558,22 @@ export function useScenes() {
    */
   const clearScenes = useCallback(() => {
     setScenes([])
+    // R1 review fix: srtTrack 도 같이 비움
+    setSrtTrack([])
   }, [])
-  
+
+  /**
+   * 외부 호출용 trim — F→V 행 제거 등 외부 변경 후 후처리에 사용 (Task 5 참조)
+   *
+   * @param {Array} [framePairs] - F→V 소유권 배열 (trim 시 alive 판단에 사용)
+   */
+  const trimScenes = useCallback((framePairs = []) => {
+    setScenes(prev => {
+      const trimmed = trimTrailingEmptyScenes(prev, framePairs)
+      return trimmed === prev ? prev : recalculateTimesArr(trimmed)
+    })
+  }, [])
+
   /**
    * 레퍼런스 업데이트
    */
@@ -237,16 +631,18 @@ export function useScenes() {
   /**
    * 씬에 매칭되는 레퍼런스 찾기
    */
-  const getMatchingReferences = useCallback((scene) => {
-    if (!scene || references.length === 0) return []
+  // referencePool: 판정에 쓸 authoritative refs. 기본값은 hook closure references.
+  // M2 continuation 은 모달을 연 지 수 분 뒤 실행돼 closure 가 stale 하므로 live pool 을 명시 주입한다.
+  const getMatchingReferences = useCallback((scene, referencePool = references) => {
+    if (!scene || referencePool.length === 0) return []
 
     const matched = []
 
     // 캐릭터 태그 매칭
     if (scene.characters) {
       const charTags = splitTags(scene.characters)
-      for (const ref of references) {
-        if (ref.type === 'character' && charTags.includes(ref.name.toLowerCase())) {
+      for (const ref of referencePool) {
+        if (ref.type === 'character' && charTags.includes(normalizeTagKey(ref.name))) {
           matched.push(ref)
         }
       }
@@ -255,8 +651,8 @@ export function useScenes() {
     // 배경 태그 매칭
     if (scene.scene_tag) {
       const sceneTags = splitTags(scene.scene_tag)
-      for (const ref of references) {
-        if (ref.type === 'scene' && sceneTags.includes(ref.name.toLowerCase())) {
+      for (const ref of referencePool) {
+        if (ref.type === 'scene' && sceneTags.includes(normalizeTagKey(ref.name))) {
           matched.push(ref)
         }
       }
@@ -265,10 +661,24 @@ export function useScenes() {
     // 스타일 태그 매칭
     if (scene.style_tag) {
       const styleTags = splitTags(scene.style_tag)
-      for (const ref of references) {
-        if (ref.type === 'style' && styleTags.includes(ref.name.toLowerCase())) {
+      for (const ref of referencePool) {
+        const refName = normalizeTagKey(ref.name)
+        if (isStyleReference(ref) && refName && styleTags.includes(refName)) {
           matched.push(ref)
         }
+      }
+    }
+
+    // 프롬프트 본문의 `@name` 인라인 멘션도 함께 수집 — Google Flow 방식.
+    // CSV 태그와 합집합, id 우선 / name 보조로 dedup. 타입 무관 (캐릭터/씬/스타일 모두 가능).
+    if (scene.prompt) {
+      const { matched: mentionMatched } = resolveMentions(scene.prompt, referencePool)
+      for (const ref of mentionMatched) {
+        const dup = matched.some((m) =>
+          (ref.id != null && m.id === ref.id) ||
+          (ref.name && m.name && String(m.name).toLowerCase() === String(ref.name).toLowerCase())
+        )
+        if (!dup) matched.push(ref)
       }
     }
 
@@ -290,34 +700,97 @@ export function useScenes() {
   const getErrorCount = useCallback(() => sceneStats.error.length, [sceneStats])
   const getErrorScenes = useCallback(() => sceneStats.error, [sceneStats])
   const getPendingScenes = useCallback(() => sceneStats.pending, [sceneStats])
-  
+
+  /**
+   * Story 파이프라인 push 수신 (스펙 §4-④). storyId 기준 upsert — 트랜잭션의
+   * 적용 결과를 동기 반환하므로 호출자(App)는 이 반환값으로 명시 payload 저장 후 ack.
+   *
+   * - 신규 storyId → allocateSceneId() 로 안전하게 ID 발급 (삭제 이력 있어도 충돌 없음)
+   * - 기존 storyId → 이미지/비디오 보존, prompt 변경 시 stalePrompt, videoT2VPrompt/duration
+   *   변경 + 기존 비디오 존재 시 staleVideo 플래그
+   * - payload 에 없는 기존 story 씬은 유지 (삭제는 M1 범위 밖)
+   * - srtTrack 인자가 있으면 wholesale 교체 + non-story 씬의 srtLineIds 비움
+   */
+  const importStoryScenes = useCallback(({ scenes: pushScenes, srtTrack: newSrtTrack }) => {
+    const now = new Date().toISOString()
+    const current = scenesRef.current
+    const byStoryId = new Map(current.filter((s) => s.storyId).map((s) => [s.storyId, s]))
+
+    const upserted = pushScenes.map((p) => {
+      const prev = byStoryId.get(p.storyId)
+      if (!prev) {
+        return normalizeScene({ ...p, id: allocateSceneId() })
+      }
+      const merged = { ...prev, ...p, id: prev.id }
+      if (prev.prompt !== p.prompt && (prev.image || prev.imagePath)) {
+        merged.stalePrompt = true
+        merged.stalePromptAt = now
+      }
+      const hasVideo = prev.videoT2V || prev.videoT2VPath || prev.videoI2V || prev.videoI2VPath
+      if (hasVideo && (prev.videoT2VPrompt !== p.videoT2VPrompt || Math.abs((prev.duration || 0) - p.duration) > 0.5)) {
+        merged.staleVideo = true
+        merged.staleVideoAt = now
+      }
+      return normalizeScene(merged)
+    })
+
+    const pushedIds = new Set(pushScenes.map((p) => p.storyId))
+    // story push는 현재 스토리 씬의 완전한 집합이다. 씬 재분할→프롬프트 재실행을 반복하면 storyId가
+    // churn되는데(스펙 §4 identity), payload에 없는 옛 storyId 씬을 유지하면 그 옛 0-기준 타임라인이
+    // 새 push와 겹쳐 자막이 중첩된다(버그). 스토리 씬은 전량 교체하고 수동(비-story) 씬만 보존한다.
+    // 방어: 빈 push는 전체를 지우지 않는다(복구/레이스 시 기존 씬 보존).
+    const kept = pushScenes.length > 0
+      ? current.filter((s) => !s.storyId)
+      : current.filter((s) => !s.storyId || !pushedIds.has(s.storyId))
+    const keptAdjusted = newSrtTrack
+      ? kept.map((s) => (!s.storyId && s.srtLineIds?.length ? { ...s, srtLineIds: [] } : s))
+      : kept
+
+    const nextScenes = [...keptAdjusted, ...upserted]
+    // 함수형 호출 — plain array 호출은 wholesale-replacement 로 취급돼 ID 카운터가
+    // max+1 로 reset 됨 (삭제 이력이 있으면 재발급 위험). 파일 내 다른 편집 함수와
+    // 동일하게 advance-only 경로를 타도록 함수형으로 호출.
+    setScenes(() => nextScenes)
+    const nextSrtTrack = newSrtTrack ?? srtTrackRef.current
+    if (newSrtTrack) setSrtTrack(newSrtTrack)
+    return { nextScenes, nextSrtTrack }
+  }, [])
+
   return {
     // State
     scenes,
     references,
-    
+    srtTrack,
+
     // Setters
     setScenes,
     setReferences,
+    setSrtTrack,
     
     // Parsers
     parseFromText,
     parseFromCSV,
     parseFromSRT,
     parseReferencesFromCSV,
-    
+
+    // Story pipeline
+    importStoryScenes,
+
     // Scene actions
     updateScene,
+    updateSrtLine,
     deleteScene,
     addScene,
     moveScene,
     clearScenes,
     recalculateTimes,
+    trimScenes,
     
     // Reference actions
     updateReferences,
     
     // Queries
+    scenesRef,   // live scenes — async continuation 이 stale closure 대신 읽는 동기 최신값
     getMatchingReferences,
     getCompletedCount,
     getErrorCount,

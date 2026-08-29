@@ -12,24 +12,37 @@
  * @param {string?}  params.workFolder    - current work folder path (null in Flow mode)
  * @param {Function} params.onNewProject  - invoked for the "New Project" item
  * @param {Function} params.onOpenProject - invoked with a name for a Recent item
+ * @param {Function} [params.onShowModeSelector] - invoked for the "생성 모드 선택…" item (re-shows the picker)
+ * @param {boolean}  [params.busy] - true while project-changing actions must be rejected
+ * @param {string}   [params.busyMessage] - warning shown when a native project action is rejected
  */
 
 import { useEffect, useRef } from 'react'
+import { toast } from '../components/Toast'
 
-export function useMenuActions({ activeProject, workFolder, onNewProject, onOpenProject }) {
+export function useMenuActions({ activeProject, workFolder, onNewProject, onOpenProject, onShowModeSelector, busy, busyMessage }) {
   // Keep the latest callbacks reachable without re-subscribing the IPC listener
   // on every render (the callbacks are usually fresh closures each render).
-  const handlersRef = useRef({ onNewProject, onOpenProject })
-  handlersRef.current = { onNewProject, onOpenProject }
+  const handlersRef = useRef({ onNewProject, onOpenProject, onShowModeSelector, busy, busyMessage })
+  handlersRef.current = { onNewProject, onOpenProject, onShowModeSelector, busy, busyMessage }
 
   // Subscribe once to native menu actions.
   useEffect(() => {
     const off = window.electronAPI?.onMenuAction?.((data) => {
       if (!data) return
+      const isProjectAction = data.action === 'new-project'
+        || (data.action === 'open-project' && data.name)
+        || data.action === 'show-mode-selector'
+      if (isProjectAction && handlersRef.current.busy) {
+        toast.warning(handlersRef.current.busyMessage || 'Generation is in progress. Try again when it finishes.')
+        return
+      }
       if (data.action === 'new-project') {
         handlersRef.current.onNewProject?.()
       } else if (data.action === 'open-project' && data.name) {
         handlersRef.current.onOpenProject?.(data.name)
+      } else if (data.action === 'show-mode-selector') {
+        handlersRef.current.onShowModeSelector?.()
       }
     })
     return () => {
