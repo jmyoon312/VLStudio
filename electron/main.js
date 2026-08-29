@@ -1098,7 +1098,12 @@ ipcMain.handle('flow:get-active-views', async () => {
 ipcMain.handle('flow:create-view', async (event, { profileId } = {}) => {
   try {
     if (!profileId) return { success: false, error: 'profileId required' }
-    const view = global.createOrGetFlowView(profileId)
+    console.log(`[flow:create-view] Creating/activating view for profile: ${profileId}`)
+    global.activeFlowProfileId = profileId
+    const view = typeof global.createOrGetFlowView === 'function' ? global.createOrGetFlowView(profileId) : null
+    if (typeof updateBounds === 'function' && mainWindow) {
+      updateBounds(mainWindow)
+    }
     return { success: true, profileId }
   } catch (e) {
     console.error('[flow:create-view] Error:', e.message)
@@ -1109,13 +1114,36 @@ ipcMain.handle('flow:create-view', async (event, { profileId } = {}) => {
 ipcMain.handle('flow:destroy-view', async (event, { profileId } = {}) => {
   try {
     if (!profileId) return { success: false, error: 'profileId required' }
+    console.log(`[flow:destroy-view] Destroying view for profile: ${profileId}`)
     if (typeof global.destroyFlowView === 'function') {
       const result = global.destroyFlowView(profileId)
+      if (typeof updateBounds === 'function' && mainWindow) {
+        updateBounds(mainWindow)
+      }
       return { success: !!result }
     }
     return { success: false, error: 'destroyFlowView not available' }
   } catch (e) {
     console.error('[flow:destroy-view] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('flow:focus-view', async (event, { profileId } = {}) => {
+  try {
+    if (!profileId) return { success: false, error: 'profileId required' }
+    console.log(`[flow:focus-view] Focusing view for profile: ${profileId}`)
+    global.activeFlowProfileId = profileId
+    const view = global.flowViews.get(profileId)
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.focus()
+    }
+    if (typeof updateBounds === 'function' && mainWindow) {
+      updateBounds(mainWindow)
+    }
+    return { success: true, profileId }
+  } catch (e) {
+    console.error('[flow:focus-view] Error:', e.message)
     return { success: false, error: e.message }
   }
 })

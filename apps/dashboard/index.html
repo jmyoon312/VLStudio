@@ -25,6 +25,36 @@
   <!-- Web Fonts CDN (Fallback for Electron and local environments) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/wanted-sans@1.0.3/fonts/webfonts/variable/split/WantedSansVariable.css" />
+
+  <!-- Global Browser Safe Polyfill (Must execute before any ESM module evaluation) -->
+  <script>
+    if (typeof window !== 'undefined' && typeof window.electronAPI === 'undefined') {
+      window.__IS_WEB_BROWSER__ = true;
+      const baseMock = {
+        isMock: true,
+        loadProfiles: async () => ({ activeProfileId: 'default', profiles: [{ id: 'default', name: '기본 프로필' }] }),
+        getSavedWorkFolder: async () => ({ success: true, path: '', name: '' }),
+        getDefaultWorkFolder: async () => ({ success: true, path: '', name: '' }),
+        listProjects: async () => ({ projects: [] }),
+        getHistory: async () => ({ success: true, histories: [] }),
+        getActiveViews: async () => ({ views: [] }),
+        loadStyleThumbnails: async () => ({ success: true, thumbnails: {} }),
+        checkStyleThumbnails: async () => ({ success: true, thumbnails: {} }),
+        onFlowStatus: () => () => {},
+        onLayoutChanged: () => () => {},
+        onMenuAction: () => () => {},
+        onStoryEvent: () => () => {},
+        onMcpUpdate: () => () => {},
+      };
+      window.electronAPI = new Proxy(baseMock, {
+        get(target, prop) {
+          if (prop in target) return target[prop];
+          if (typeof prop === 'string' && prop.startsWith('on')) return () => () => {};
+          return async () => ({ success: true, isMock: true });
+        }
+      });
+    }
+  </script>
 </head>
 
 <body class="bg-[#F8F9FC] select-none touch-manipulation">

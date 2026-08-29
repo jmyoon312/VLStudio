@@ -80,9 +80,17 @@ export default function MultiWindowController({
         }
     };
 
+    // Load profiles on mount
+    useEffect(() => {
+        loadProfiles();
+    }, []);
+
     // Load profiles when dropdown opens
     useEffect(() => {
-        if (open) loadProfiles();
+        if (open) {
+            loadProfiles();
+            syncViewsAndProfiles();
+        }
     }, [open]);
 
     // Apply layout changes
@@ -105,7 +113,8 @@ export default function MultiWindowController({
                 toast({ title: "생성 완료", description: "새로운 Flow 계정이 추가되었습니다." });
                 setNewName(""); setNewEmail("");
                 setIsCreateOpen(false);
-                loadProfiles();
+                await loadProfiles();
+                syncViewsAndProfiles();
             } else {
                 toast({ variant: "destructive", title: "생성 실패", description: result?.error });
             }
@@ -120,7 +129,8 @@ export default function MultiWindowController({
             const result = await (window as any).electronAPI?.deleteProfile?.({ profileId: deleteId });
             if (result && result.success) {
                 toast({ title: "삭제 완료", description: "계정이 삭제되었습니다." });
-                loadProfiles();
+                await loadProfiles();
+                syncViewsAndProfiles();
             } else {
                 toast({ variant: "destructive", title: "삭제 실패", description: result?.error });
             }
@@ -130,19 +140,25 @@ export default function MultiWindowController({
     };
 
     const handleWindowAction = async (profId: string, isActive: boolean) => {
-        if (isActive) {
-            // Close window
-            await (window as any).electronAPI?.destroyFlowView?.({ profileId: profId });
-        } else {
-            // Open window
-            await (window as any).electronAPI?.createFlowView?.({ profileId: profId });
+        try {
+            if (isActive) {
+                // Close window
+                await (window as any).electronAPI?.destroyFlowView?.({ profileId: profId });
+            } else {
+                // Open window & enforce active layout
+                (window as any).electronAPI?.setLayout?.({ mode, ratio: ratio / 100 });
+                await (window as any).electronAPI?.createFlowView?.({ profileId: profId });
+            }
+            await syncViewsAndProfiles();
+            await loadProfiles();
+        } catch (err: any) {
+            console.error('[MultiWindowController] Window action error:', err);
         }
-        syncViewsAndProfiles();
     };
 
     const handleFocus = async (profId: string) => {
         await (window as any).electronAPI?.focusFlowView?.({ profileId: profId });
-        syncViewsAndProfiles();
+        await syncViewsAndProfiles();
         setOpen(false);
     };
 
@@ -153,7 +169,7 @@ export default function MultiWindowController({
                 await (window as any).electronAPI?.destroyFlowView?.({ profileId: viewId });
             }
         }
-        syncViewsAndProfiles();
+        await syncViewsAndProfiles();
         setOpen(false);
     };
 
