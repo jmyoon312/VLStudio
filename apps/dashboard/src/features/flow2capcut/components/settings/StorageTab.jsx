@@ -140,16 +140,16 @@ function ProjectManager({ projectName, aspectRatio = '16:9', onProjectChange, on
   }
 
   return (
-    <div className="setting-row project-manager">
+    <div className="setting-row project-manager" style={{ display: 'grid', gridTemplateColumns: '140px 1fr auto', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
       <label className="setting-label">{t('settings.project')}</label>
 
       {loading ? (
-        <div className="project-loading">⏳ {t('common.loading')}</div>
+        <div className="project-loading" style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem' }}>⏳ {t('common.loading')}</div>
       ) : (
         <>
           {/* 편집 모드 */}
           {editMode ? (
-            <div className="project-edit-form">
+            <div className="project-edit-form" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <input
                 type="text"
                 value={editName}
@@ -158,18 +158,21 @@ function ProjectManager({ projectName, aspectRatio = '16:9', onProjectChange, on
                   if (e.key === 'Enter') handleRename()
                   if (e.key === 'Escape') handleCancelEdit()
                 }}
+                style={{ height: '34px', flex: 1, padding: '0 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--card)' }}
                 autoFocus
                 disabled={renaming}
               />
               <button
-                className="btn-primary btn-small"
+                className="btn-primary"
+                style={{ height: '34px', padding: '0 12px', borderRadius: '8px', fontSize: '0.8rem' }}
                 onClick={handleRename}
                 disabled={renaming}
               >
                 {renaming ? '...' : t('common.confirm')}
               </button>
               <button
-                className="btn-secondary btn-small"
+                className="btn-secondary"
+                style={{ height: '34px', padding: '0 12px', borderRadius: '8px', fontSize: '0.8rem' }}
                 onClick={handleCancelEdit}
                 disabled={renaming}
               >
@@ -177,75 +180,76 @@ function ProjectManager({ projectName, aspectRatio = '16:9', onProjectChange, on
               </button>
             </div>
           ) : (
-            <>
-              {/* 프로젝트 선택 드롭다운 */}
-              <div className="project-selector">
-                <select
-                  value={projectName || ''}
-                  onChange={(e) => onProjectChange(e.target.value)}
-                >
-                  {projects.length === 0 && (
-                    <option value="">{t('settings.noProjects')}</option>
-                  )}
-                  {projects.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-
-                {/* 이름 변경 버튼 */}
-                {projectName && (
-                  <button
-                    className="btn-edit-project"
-                    onClick={handleStartEdit}
-                    title={t('settings.renameProject')}
-                  >
-                    ✏️
-                  </button>
+            <div className="project-selector" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <select
+                value={projectName || ''}
+                onChange={(e) => onProjectChange(e.target.value)}
+                style={{ height: '34px', minWidth: '150px', flex: 1, padding: '0 10px', background: 'var(--muted, #f1f5f9)', border: '1px solid var(--border, #e2e8f0)', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, color: 'var(--foreground, #0f172a)' }}
+              >
+                {projects.length === 0 && (
+                  <option value="">{t('settings.noProjects')}</option>
                 )}
+                {projects.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
 
+              {/* 이름 변경 버튼 */}
+              {projectName && (
                 <button
-                  className="btn-new-project"
-                  onClick={() => {
-                    setNewAspectRatio(aspectRatio)
-                    setShowNewProject(!showNewProject)
-                  }}
-                  title={t('settings.createProject')}
+                  className="btn-secondary"
+                  style={{ height: '34px', width: '34px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                  onClick={handleStartEdit}
+                  title={t('settings.renameProject')}
                 >
-                  ➕
+                  ✏️
                 </button>
-              </div>
-            </>
-          )}
+              )}
 
-          {/* 새 프로젝트 생성 */}
-          {showNewProject && !editMode && (
-            <div className="new-project-form">
-              <div className="new-project-row">
-                <input
-                  type="text"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder={t('settings.projectNamePlaceholder')}
-                />
-                <button className="btn-primary btn-small" onClick={handleCreateProject}>
-                  {t('settings.create')}
-                </button>
-                <button className="btn-secondary btn-small" onClick={() => setShowNewProject(false)}>
-                  {t('common.cancel')}
-                </button>
-              </div>
-              {/* 화면비: 롱폼(16:9) / 숏폼(9:16) */}
-              <AspectRatioSelector value={newAspectRatio} onChange={setNewAspectRatio} t={t} />
+              <button
+                className="btn-secondary"
+                style={{ height: '34px', width: '34px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                onClick={() => {
+                  setNewAspectRatio(aspectRatio)
+                  setShowNewProject(!showNewProject)
+                }}
+                title={t('settings.createProject')}
+              >
+                ➕
+              </button>
             </div>
           )}
 
-          {/* 현재 프로젝트 경로 표시 */}
+          {/* 현재 프로젝트 경로 배지 */}
           {projectName && !editMode && (
-            <div className="project-path">
+            <div className="project-path" style={{ padding: '4px 8px', background: 'var(--muted, #f1f5f9)', border: '1px solid var(--border, #e2e8f0)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted-foreground, #64748b)', fontFamily: 'monospace' }}>
               📁 {projectName}/
             </div>
           )}
         </>
+      )}
+
+      {/* 새 프로젝트 생성 모달/폼 (하단 전체폭) */}
+      {showNewProject && !editMode && (
+        <div className="new-project-form" style={{ gridColumn: '1 / -1', marginTop: '8px', padding: '12px', background: 'var(--muted, #f8fafc)', border: '1px solid var(--border, #e2e8f0)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="new-project-row" style={{ display: 'flex', gap: '6px' }}>
+            <input
+              type="text"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder={t('settings.projectNamePlaceholder')}
+              style={{ height: '34px', flex: 1, padding: '0 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--card)' }}
+            />
+            <button className="btn-primary" style={{ height: '34px', padding: '0 14px', borderRadius: '8px', fontSize: '0.8rem' }} onClick={handleCreateProject}>
+              {t('settings.create')}
+            </button>
+            <button className="btn-secondary" style={{ height: '34px', padding: '0 14px', borderRadius: '8px', fontSize: '0.8rem' }} onClick={() => setShowNewProject(false)}>
+              {t('common.cancel')}
+            </button>
+          </div>
+          {/* 화면비: 롱폼(16:9) / 숏폼(9:16) */}
+          <AspectRatioSelector value={newAspectRatio} onChange={setNewAspectRatio} t={t} />
+        </div>
       )}
     </div>
   )
@@ -285,33 +289,30 @@ export default function StorageTab({
 
       {/* 작업 폴더 선택 — saveMode 는 항상 folder */}
       {localSettings.saveMode === 'folder' && (
-        <div className={`setting-row folder-setting ${!workFolder.name ? 'highlight-box' : ''}`}>
-          <label className="setting-label">{t('settings.workFolder')}</label>
-          <div className="folder-status">
-            {workFolder.name ? (
-              <span className={`folder-name ${workFolder.error === 'folder_deleted' ? 'deleted' : ''}`}>
-                📂 {workFolder.name}
-                {workFolder.error === 'folder_deleted' && (
-                  <span className="permission-badge deleted"> ❌ {t('settings.folderDeleted')}</span>
-                )}
-              </span>
-            ) : (
-              <span className="folder-empty">📂 {t('settings.folderNotSelected')}</span>
-            )}
-          </div>
-
-          <div className="folder-actions">
-            <button className="btn-primary" onClick={onSelectFolder}>
+        <div className={`setting-row-stack ${!workFolder.name ? 'highlight-box' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label className="setting-label">{t('settings.workFolder')}</label>
+            <button className="btn-primary" style={{ height: '34px', padding: '0 14px', borderRadius: '8px', fontSize: '0.8rem' }} onClick={onSelectFolder}>
               {workFolder.name ? t('settings.changeFolder') : t('settings.selectFolder')}
             </button>
           </div>
-
-          {/* 프로젝트 정보 */}
-          {workFolder.name && !workFolder.error && (
-            <div className="project-info">
-              <span className="setting-sublabel">{t('settings.projectNote')}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--muted, #f8fafc)', border: '1px solid var(--border, #e2e8f0)', borderRadius: '10px' }}>
+            <div className="folder-status" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {workFolder.name ? (
+                <span className={`folder-name ${workFolder.error === 'folder_deleted' ? 'deleted' : ''}`} style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--foreground, #0f172a)' }}>
+                  📂 {workFolder.name}
+                  {workFolder.error === 'folder_deleted' && (
+                    <span className="permission-badge deleted" style={{ color: '#ef4444', marginLeft: '6px' }}> ❌ {t('settings.folderDeleted')}</span>
+                  )}
+                </span>
+              ) : (
+                <span className="folder-empty" style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem' }}>📂 {t('settings.folderNotSelected')}</span>
+              )}
             </div>
-          )}
+            {workFolder.name && !workFolder.error && (
+              <span className="setting-sublabel" style={{ fontSize: '0.73rem', color: 'var(--muted-foreground)' }}>{t('settings.projectNote')}</span>
+            )}
+          </div>
         </div>
       )}
 

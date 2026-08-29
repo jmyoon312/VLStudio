@@ -48,7 +48,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 8px 6px;
   border: 1px solid transparent;
   border-radius: 12px;
   background: transparent;
@@ -58,6 +58,7 @@
   position: relative;
   font-weight: 700;
   outline: none;
+  min-width: 0;
 }
 
 .settings-tab:hover {
@@ -75,11 +76,14 @@
 
 .settings-tab .tab-icon {
   font-size: 0.95rem;
+  flex-shrink: 0;
 }
 
 .settings-tab .tab-label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 .settings-tab .tab-badge {
