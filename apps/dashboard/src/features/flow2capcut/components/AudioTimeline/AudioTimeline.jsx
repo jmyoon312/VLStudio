@@ -27,10 +27,11 @@ import {
   PREVIEW_H_MIN, PREVIEW_H_MAX, PREVIEW_H_DEFAULT, PREVIEW_H_KEY,
   TRACK_H_MIN, TRACK_H_MAX, SUB_TRACK_H_MIN, SUB_TRACK_H_MAX, TRACK_HEIGHTS_KEY,
   TRACK_LABEL_KEYS,
-  POSTER_VIEWPORT_BUFFER_MS,
 } from './constants'
 import { AUDIO_CLIP_CLICK_DELAY_MS, AUDIO_CLIP_DOUBLE_CLICK_DEDUPE_MS } from './interactionTiming'
 import './AudioTimeline.css'
+
+const POSTER_VIEWPORT_BUFFER_MS = 10000
 
 // 트랙 토글: 비주얼=View(눈, off→프리뷰에서 숨김), 오디오=Mute(스피커, off→재생 제외).
 const VISUAL_ROLES = new Set(['video-i2v', 'video-t2v', 'image', 'subtitle'])
