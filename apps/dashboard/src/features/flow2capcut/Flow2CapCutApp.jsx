@@ -2664,8 +2664,8 @@ function App() {
                 onTrackDrop={handleTrackDrop}
                 onSceneUpdate={scenesHook.updateScene}
                 disabled={anyRunning}
-                onTitleClick={mode === 'flow' ? () => setMonitorOverlayOpen(o => !o) : null}
-                titleActive={monitorOverlayOpen}
+                onTitleClick={() => toggleMonitorFullscreen()}
+                titleActive={monitorFullscreen || monitorOverlayOpen}
               />
             ) : (
               <>

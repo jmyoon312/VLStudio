@@ -968,25 +968,34 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
       {/* Header */}
       <div className="atl-header">
         {onTitleClick ? (
-          // Flow 모드: '프리뷰' 라벨을 모니터 오버레이 토글 버튼으로. (App 이 onTitleClick 전달 시에만)
           <button
             type="button"
             className={`atl-title atl-title--btn${titleActive ? ' atl-title--active' : ''}`}
             onClick={onTitleClick}
             aria-pressed={titleActive}
-            onMouseEnter={(e) => showBtnTooltip(e, {
-              align: 'right', // '프리뷰' 라벨은 Flow 경계 옆 → 오른쪽으로 펼쳐 Flow 뷰에 안 가리게
-              label: t('bottomPanel.previewToggleLabel'),
-              desc: titleActive
-                ? t('bottomPanel.previewToggleHide')
-                : t('bottomPanel.previewToggleShow'),
-            })}
-            onMouseLeave={hideBtnTooltip}
+            title={titleActive ? '프리뷰 모니터 닫기' : '프리뷰 모니터 크게 보기'}
+            style={{
+              whiteSpace: 'nowrap',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '4px 10px',
+              borderRadius: '8px',
+              background: titleActive ? '#2563eb' : 'var(--muted, #f1f5f9)',
+              color: titleActive ? '#ffffff' : 'var(--foreground, #0f172a)',
+              border: '1px solid var(--border, #e2e8f0)',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
           >
-            {compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}
+            <span>📺</span> <span>{compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}</span>
           </button>
         ) : (
-          <div className="atl-title">{compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}</div>
+          <div className="atl-title" style={{ whiteSpace: 'nowrap', fontSize: '0.75rem', fontWeight: 800 }}>
+            <span>📺</span> {compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}
+          </div>
         )}
         <div className="atl-transport">
           <button
