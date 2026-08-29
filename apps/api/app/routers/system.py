@@ -32,7 +32,7 @@ def pick_folder():
         )
         selected = res.stdout.strip()
         if selected:
-            return {"status": "success", "path": selected.replace("\\", "/")}
+            return {"status": "success", "path": os.path.normpath(selected)}
         return {"status": "cancelled", "path": ""}
     except Exception as e:
         return {"status": "error", "message": str(e), "path": ""}
@@ -54,7 +54,7 @@ def pick_file():
         )
         selected = res.stdout.strip()
         if selected:
-            return {"status": "success", "path": selected.replace("\\", "/")}
+            return {"status": "success", "path": os.path.normpath(selected)}
         return {"status": "cancelled", "path": ""}
     except Exception as e:
         return {"status": "error", "message": str(e), "path": ""}

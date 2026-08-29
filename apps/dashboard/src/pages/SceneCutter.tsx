@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
-import { Scissors, RefreshCw, Sparkles } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Scissors, RefreshCw, Loader2 } from 'lucide-react';
 import { useTheme } from '../components/theme-provider';
 
 const SceneCutter: React.FC = () => {
   const { theme } = useTheme();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [loading, setLoading] = useState(true);
 
   const getSrc = () => {
     if (typeof window !== 'undefined') {
@@ -24,12 +25,14 @@ const SceneCutter: React.FC = () => {
   }, [theme]);
 
   const handleIframeLoad = () => {
+    setLoading(false);
     if (iframeRef.current && iframeRef.current.contentWindow) {
       iframeRef.current.contentWindow.postMessage({ type: 'THEME_CHANGE', theme }, '*');
     }
   };
 
   const handleReload = () => {
+    setLoading(true);
     if (iframeRef.current) {
       iframeRef.current.src = getSrc();
     }
@@ -60,11 +63,17 @@ const SceneCutter: React.FC = () => {
 
       {/* iframe 뷰어 */}
       <div className="flex-1 w-full h-full relative overflow-hidden bg-background rounded-2xl border border-border shadow-2xs">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background">
+            <Loader2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-spin" />
+            <p className="text-xs text-muted-foreground">씬 컷터 불러오는 중...</p>
+          </div>
+        )}
         <iframe
           ref={iframeRef}
           src={getSrc()}
           onLoad={handleIframeLoad}
-          className="w-full h-full border-none bg-transparent"
+          className={`w-full h-full border-none bg-transparent ${loading ? 'invisible' : 'visible'}`}
           title="Scene Cutter Pro"
           sandbox="allow-scripts allow-same-origin allow-downloads allow-modals allow-popups allow-forms"
           allow="clipboard-read *; clipboard-write *; display-capture *; fullscreen *"
