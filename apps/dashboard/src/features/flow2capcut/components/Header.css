@@ -437,26 +437,33 @@
   .btn-export { padding: 0 4px; }
 }
 
-/* 📱 모바일 스마트폰 화면 최적화 (< 640px) */
+/* 📱 모바일 스마트폰 화면 최적화 (< 640px) — 2줄 콤팩트 풀-컨트롤 툴바 */
 @media (max-width: 640px) {
   .header.flow-renderer-header {
-    height: 40px !important;
-    padding: 0 6px !important;
-    gap: 4px !important;
-    overflow-x: auto !important;
-    overflow-y: visible !important;
-    scrollbar-width: none !important;
-    -webkit-overflow-scrolling: touch !important;
-    flex-wrap: nowrap !important;
+    height: auto !important;
+    min-height: 72px !important;
+    padding: 6px 8px !important;
+    gap: 6px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    overflow: visible !important;
   }
-  .header.flow-renderer-header::-webkit-scrollbar {
-    display: none !important;
-  }
-  .header-left, .header-right {
-    gap: 4px !important;
-    flex-shrink: 0 !important;
+  .header-left {
     display: flex !important;
     align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+  }
+  .header-right {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+    flex-wrap: wrap !important;
   }
   /* 데스크톱 전용 분할만 숨김 */
   .layout-picker, .btn-flow-reset {
@@ -475,43 +482,46 @@
   }
   .logo {
     display: flex !important;
-    font-size: 0.76rem !important;
+    font-size: 0.78rem !important;
   }
   .logo-text {
-    font-size: 0.76rem !important;
+    font-size: 0.78rem !important;
   }
   .project-current {
-    height: 26px !important;
-    padding: 0 6px !important;
-    max-width: 80px !important;
-    font-size: 0.68rem !important;
-  }
-  .project-current .project-name {
-    max-width: 50px !important;
-  }
-  .auth-badge, .auth-btn {
-    height: 26px !important;
-    padding: 0 6px !important;
-    font-size: 0.68rem !important;
-  }
-  .btn-export {
-    height: 26px !important;
+    height: 28px !important;
     padding: 0 8px !important;
-    font-size: 0.68rem !important;
-  }
-  .btn-settings {
-    width: 26px !important;
-    height: 26px !important;
+    max-width: 110px !important;
     font-size: 0.72rem !important;
   }
+  .project-current .project-name {
+    max-width: 80px !important;
+  }
+  .auth-badge, .auth-btn {
+    height: 28px !important;
+    padding: 0 8px !important;
+    font-size: 0.72rem !important;
+  }
+  .btn-export {
+    height: 28px !important;
+    padding: 0 10px !important;
+    font-size: 0.72rem !important;
+    flex: 1 1 auto !important;
+    max-width: 140px !important;
+    justify-content: center !important;
+  }
+  .btn-settings {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.8rem !important;
+  }
   .btn-story-toggle {
-    height: 26px !important;
-    padding: 0 6px !important;
-    font-size: 0.68rem !important;
+    height: 28px !important;
+    padding: 0 8px !important;
+    font-size: 0.72rem !important;
   }
   .btn-profile-selector {
-    height: 26px !important;
-    padding: 0 6px !important;
-    font-size: 0.68rem !important;
+    height: 28px !important;
+    padding: 0 8px !important;
+    font-size: 0.72rem !important;
   }
 }
