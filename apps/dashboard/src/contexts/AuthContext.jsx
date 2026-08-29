@@ -52,7 +52,10 @@ const PRO_SUBSCRIPTION = Object.freeze({
   exportsRemaining: Infinity,
   daysRemaining: Infinity,
   isExpired: false,
-  status: 'active'
+  status: 'active',
+  isPro: true,
+  batchUnlimited: true,
+  batchRemaining: Infinity
 })
 
 const AuthContext = createContext(null)

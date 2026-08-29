@@ -719,19 +719,6 @@ export default function Header({
           )}
         </div>
 
-        {/* 📐 화면 분할 배치 컨트롤 */}
-        <LayoutPicker />
-
-        {/* ♻️ Flow 초기화 */}
-        <button
-          className="btn-flow-reset"
-          onClick={handleFlowReset}
-          title={lang === 'ko' ? 'Flow 계정 및 로그인 세션 초기화' : 'Reset Flow Session'}
-        >
-          <span className="btn-emoji">♻️</span>
-          <span className="btn-text">{lang === 'ko' ? 'Flow 초기화' : 'Reset'}</span>
-        </button>
-
         {/* API / Flow 모드 토글 */}
         <ModeToggle busy={modeBusy} />
 

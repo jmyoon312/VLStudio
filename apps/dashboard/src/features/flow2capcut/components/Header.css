@@ -422,19 +422,38 @@
 }
 
 /* ============================================
-   Ultra-Responsive Container & Media Queries
+   Ultra-Responsive Container & Media Queries (다중창 및 반응형 최적화)
    ============================================ */
 
-@container header (max-width: 800px) {
-  .btn-flow-reset .btn-text { display: none; }
-  .btn-profile-selector .btn-text { display: none; }
+@container header (max-width: 1050px) {
+  .header.flow-renderer-header {
+    padding: 4px 6px !important;
+    gap: 3px !important;
+  }
+  .header-left, .header-right {
+    gap: 3px !important;
+  }
+  .btn-profile-selector .btn-text { display: none !important; }
+  .auth-badge .auth-text { display: none !important; }
 }
 
-@container header (max-width: 650px) {
-  .project-current { max-width: 50px; }
-  .project-current .project-name { max-width: 30px; }
-  .btn-story-toggle .btn-text { display: none; }
-  .btn-export { padding: 0 4px; }
+@container header (max-width: 900px) {
+  .logo-text { display: none !important; }
+  .btn-story-toggle .btn-text { display: none !important; }
+  .project-current { max-width: 75px !important; }
+  .project-current .project-name { max-width: 55px !important; }
+  .btn-export { padding: 0 6px !important; }
+  .btn-export .export-split-label { font-size: 0.68rem !important; }
+}
+
+@container header (max-width: 750px) {
+  .header.flow-renderer-header {
+    padding: 2px 4px !important;
+    gap: 2px !important;
+  }
+  .header-right { gap: 2px !important; }
+  .language-picker { padding: 0 2px !important; font-size: 0.68rem !important; }
+  .btn-settings { width: 24px !important; height: 24px !important; font-size: 0.72rem !important; }
 }
 
 /* 📱 모바일 스마트폰 화면 최적화 (< 640px) — 1줄 럭셔리 슬림 헤더 + 퀵메뉴 팝오버 */
