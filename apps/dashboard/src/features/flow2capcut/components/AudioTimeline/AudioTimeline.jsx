@@ -938,33 +938,31 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
 
   return (
     <div className={`atl-root${compact ? ' atl-root--compact' : ''}`}>
-      {/* compact 모드에서도 titleActive(프리뷰 활성화)일 때 또는 비compact(오디오 탭)일 때 PreviewPanel 렌더링 */}
-      {(!compact || titleActive) && (
+      {/* compact(하단 도크): 큰 프리뷰 패널을 접어 좁은 높이에서 트랙이 보이게 한다. 비compact(🎵 타임라인 탭)에서만 프리뷰 패널 노출 */}
+      {!compact && (
         <>
           {/* 비디오 프리뷰 (현재 playhead 위치의 씬 이미지 + 자막) */}
           <PreviewPanel
             playheadMs={playheadMs}
             scenes={scenes}
             srtEntries={srtEntries}
-            height={compact ? 200 : previewHeight}
+            height={previewHeight}
             isPlaying={isGlobalPlaying}
             hiddenRoles={disabledTracks}
           />
 
           {/* Preview ↔ Timeline 사이 splitter */}
-          {!compact && (
-            <div
-              className="atl-splitter"
-              onPointerDown={startSplitterDrag}
-              onDoubleClick={() => {
-                setPreviewHeight(PREVIEW_H_DEFAULT)
-                try { localStorage.setItem(PREVIEW_H_KEY, String(PREVIEW_H_DEFAULT)) } catch {}
-              }}
-              title="드래그=높이 조절 · 더블클릭=기본값"
-            >
-              <div className="atl-splitter-grip" />
-            </div>
-          )}
+          <div
+            className="atl-splitter"
+            onPointerDown={startSplitterDrag}
+            onDoubleClick={() => {
+              setPreviewHeight(PREVIEW_H_DEFAULT)
+              try { localStorage.setItem(PREVIEW_H_KEY, String(PREVIEW_H_DEFAULT)) } catch {}
+            }}
+            title="드래그=높이 조절 · 더블클릭=기본값"
+          >
+            <div className="atl-splitter-grip" />
+          </div>
         </>
       )}
 
