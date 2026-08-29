@@ -218,6 +218,17 @@
 }
 
 .tab {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 6px 12px;
   border: none;
   border-radius: 10px;
@@ -455,6 +466,12 @@
 
 /* Prompt Input */
 .prompt-input-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  gap: 10px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1437,6 +1454,17 @@
 /* < 550px: 중간 탭 아이콘만 표시 */
 @container main-panel (max-width: 549px) {
   .tab {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
     padding: 6px 10px;
     font-size: 0.8rem;
   }
@@ -1481,6 +1509,17 @@
     font-size: 0.85rem;
   }
   .tab {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
     padding: 5px 8px;
     font-size: 0.75rem;
   }
@@ -1519,6 +1558,17 @@
     font-size: 0.75rem;
   }
   .tab {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
     padding: 5px 8px;
     font-size: 0.75rem;
   }
