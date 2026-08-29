@@ -33,27 +33,27 @@ export function updateBounds(mainWindow, flowView) {
 
   const { width, height } = mainWindow.getContentBounds()
   const GAP = 3
-  // 왼쪽 고정 사이드바 너비 (288px) — Flow 뷰가 사이드바를 가리지 않도록 x좌표 오프셋 적용
+  // 왼쪽 고정 사이드바 너비 (288px) 및 상단 헤더 + 탭 바 높이 (100px)
   const SIDEBAR_W = sidebarOffset > 0 ? sidebarOffset : 288
+  const TOP_OFFSET = 100 // Header(56px) + Tab Bar(44px)
+
+  const usableWidth = Math.max(0, width - SIDEBAR_W)
+  const usableHeight = Math.max(0, height - TOP_OFFSET)
 
   let containerRect = { x: 0, y: 0, width: 0, height: 0 }
 
   if (layoutMode === 'split-left') {
-    const usableWidth = Math.max(0, width - SIDEBAR_W)
     const splitPos = Math.round(usableWidth * splitRatio)
-    containerRect = { x: SIDEBAR_W, y: 0, width: Math.max(0, splitPos - GAP), height }
+    containerRect = { x: SIDEBAR_W, y: TOP_OFFSET, width: Math.max(0, splitPos - GAP), height: usableHeight }
   } else if (layoutMode === 'split-right') {
-    const usableWidth = Math.max(0, width - SIDEBAR_W)
     const splitPos = Math.round(usableWidth * splitRatio)
-    containerRect = { x: SIDEBAR_W + Math.min(usableWidth, usableWidth - splitPos + GAP), y: 0, width: Math.max(0, splitPos - GAP), height }
+    containerRect = { x: SIDEBAR_W + Math.min(usableWidth, usableWidth - splitPos + GAP), y: TOP_OFFSET, width: Math.max(0, splitPos - GAP), height: usableHeight }
   } else if (layoutMode === 'split-top') {
-    const usableWidth = Math.max(0, width - SIDEBAR_W)
-    const splitPos = Math.round(height * splitRatio)
-    containerRect = { x: SIDEBAR_W, y: 0, width: usableWidth, height: Math.max(0, splitPos - GAP) }
+    const splitPos = Math.round(usableHeight * splitRatio)
+    containerRect = { x: SIDEBAR_W, y: TOP_OFFSET, width: usableWidth, height: Math.max(0, splitPos - GAP) }
   } else if (layoutMode === 'split-bottom') {
-    const usableWidth = Math.max(0, width - SIDEBAR_W)
-    const splitPos = Math.round(height * splitRatio)
-    containerRect = { x: SIDEBAR_W, y: Math.min(height, height - splitPos + GAP), width: usableWidth, height: Math.max(0, splitPos - GAP) }
+    const splitPos = Math.round(usableHeight * splitRatio)
+    containerRect = { x: SIDEBAR_W, y: TOP_OFFSET + Math.min(usableHeight, usableHeight - splitPos + GAP), width: usableWidth, height: Math.max(0, splitPos - GAP) }
   }
 
   global.lastContainerRect = containerRect
