@@ -277,6 +277,143 @@ html, body {
    ============================================ */
 
 /* Tab Content */
+.editor-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  flex-direction: row-reverse;
+}
+
+.editor-col {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-monitor {
+  flex: 0 0 auto;
+  max-width: 90%;
+  align-self: stretch;
+  min-height: 180px;
+  background: #0d0d0d;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 모니터 우상단 도구(전체화면 ⛶ · flow 닫기 ✕) */
+.content-monitor-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+}
+
+.content-monitor-tool {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #444);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content-monitor-tool:hover {
+  border-color: #3b82f6;
+  background: rgba(37, 99, 235, 0.4);
+}
+
+.content-monitor-volume {
+  width: 64px;
+  height: 24px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+  vertical-align: middle;
+}
+
+/* 모니터 전체화면(CSS maximize 팝업) — 뷰포트 전체를 덮음 */
+.content-monitor--max {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  z-index: 99999 !important;
+  background: rgba(0, 0, 0, 0.95) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+.content-monitor-transport {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+}
+
+.content-monitor-tbtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content-monitor-tbtn:hover {
+  border-color: #3b82f6;
+  background: rgba(37, 99, 235, 0.4);
+}
+
+.content-monitor-resizer {
+  flex: 0 0 8px;
+  cursor: col-resize;
+  position: relative;
+  background: transparent;
+}
+
+.content-monitor-resizer::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+  background: var(--border-color, #444);
+  transition: background 0.15s, height 0.15s;
+}
+
 .tab-content {
   flex: 1;
   min-height: 0;
