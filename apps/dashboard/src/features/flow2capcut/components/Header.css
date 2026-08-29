@@ -6,13 +6,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 6px;
+  padding: 4px 14px 4px 8px;
   background: var(--card, #ffffff);
   border-bottom: 1px solid var(--border, #e2e8f0);
   flex-shrink: 0;
   container-type: inline-size;
   container-name: header;
-  gap: 3px;
+  gap: 4px;
   min-height: 42px;
   height: 42px;
   box-sizing: border-box;
@@ -234,7 +234,8 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
+  margin-right: 6px;
   flex-wrap: nowrap;
   overflow: visible;
   flex-shrink: 0;

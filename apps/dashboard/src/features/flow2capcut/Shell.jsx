@@ -13,7 +13,7 @@ import { useLocation } from 'react-router-dom'
 import { resetModalCount } from '../../lib/utils'
 
 const DEFAULT_LAYOUT = 'split-left'
-const DEFAULT_RATIO = 0.5
+const DEFAULT_RATIO = 0.45
 
 // 수평 분할인지 판별
 function isHorizontalSplit(mode) {
