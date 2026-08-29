@@ -1,21 +1,22 @@
 /* ============================================
-   ViraLoop Studio - Modern Light Header Styling
+   ViraLoop Studio - Modern Ultra-Responsive Header Styling
    ============================================ */
 
 .header.flow-renderer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 12px;
+  padding: 4px 8px;
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
   container-type: inline-size;
   container-name: header;
-  gap: 6px;
-  min-height: 48px;
-  height: 48px;
+  gap: 4px;
+  min-height: 44px;
+  height: 44px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Hamburger Menu Button */
@@ -23,15 +24,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
   color: #475569;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .hamburger-btn:hover {
@@ -41,17 +43,18 @@
 }
 
 .hamburger-icon {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.92rem;
+  gap: 4px;
+  font-size: 0.88rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
+  flex-shrink: 0;
 }
 
 .logo-text {
@@ -61,7 +64,7 @@
 .header-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -69,19 +72,21 @@
 .auth-status {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .auth-badge {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 10px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .auth-badge.authenticated {
@@ -111,18 +116,19 @@
 .auth-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 10px;
+  gap: 3px;
+  height: 28px;
+  padding: 0 8px;
   border: 1px solid #f59e0b;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fffbeb;
   color: #d97706;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .auth-btn:hover {
@@ -133,23 +139,24 @@
 /* Header Project Selector */
 .project-selector-header {
   position: relative;
+  flex-shrink: 0;
 }
 
 .project-current {
   display: flex;
   align-items: center;
-  gap: 5px;
-  height: 32px;
-  padding: 0 10px;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #334155;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  max-width: 150px;
+  max-width: 130px;
   box-sizing: border-box;
 }
 
@@ -168,26 +175,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 90px;
+  max-width: 80px;
 }
 
 .project-current .dropdown-arrow {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: #94a3b8;
 }
 
 .project-dropdown {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 4px);
   left: 0;
-  width: 220px;
+  width: 200px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   z-index: 9999;
-  padding: 6px;
-  max-height: 280px;
+  padding: 4px;
+  max-height: 260px;
   overflow-y: auto;
 }
 
@@ -195,9 +202,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 0.8rem;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
   color: #334155;
   cursor: pointer;
   transition: background 0.15s;
@@ -217,7 +224,7 @@
 .project-divider {
   height: 1px;
   background: #f1f5f9;
-  margin: 4px 0;
+  margin: 3px 0;
 }
 
 .project-option.new-project {
@@ -228,30 +235,32 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-wrap: nowrap;
   overflow: visible;
+  flex-shrink: 0;
 }
 
 /* ============================================
-   Modern Light Controls (Profile, Layout, Reset, Export) - Unified 32px
+   Controls - Unified 28px Height for High Density
    ============================================ */
 
 .flow-profile-container {
   position: relative;
+  flex-shrink: 0;
 }
 
 .btn-profile-selector {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 8px;
+  gap: 3px;
+  height: 28px;
+  padding: 0 7px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #334155;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -267,40 +276,40 @@
 
 .profile-dropdown-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 4px);
   right: 0;
-  width: 250px;
+  width: 240px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   z-index: 9999;
-  padding: 8px;
+  padding: 6px;
 }
 
 .dropdown-title {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: #64748b;
-  padding: 4px 8px 6px 8px;
+  padding: 3px 6px 4px 6px;
   border-bottom: 1px solid #f1f5f9;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .profile-list-scroll {
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .profile-item-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px;
-  border-radius: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s;
   background: transparent;
@@ -318,7 +327,7 @@
 .profile-item-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   overflow: hidden;
 }
 
@@ -329,7 +338,7 @@
 }
 
 .profile-item-name {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #1e293b;
   white-space: nowrap;
@@ -338,11 +347,16 @@
 }
 
 .profile-item-email {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: #64748b;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
+}
+
+.profile-item-gpu {
+  font-size: 0.6rem;
+  color: #94a3b8;
 }
 
 .profile-delete-btn {
@@ -352,7 +366,7 @@
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   opacity: 0.6;
 }
 
@@ -364,19 +378,20 @@
 /* LayoutPicker */
 .layout-picker {
   position: relative;
+  flex-shrink: 0;
 }
 
 .layout-picker-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 8px;
+  gap: 3px;
+  height: 28px;
+  padding: 0 7px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #334155;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -391,42 +406,35 @@
 
 .layout-picker-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 4px);
   right: 0;
-  width: 210px;
+  width: 200px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
   z-index: 9999;
-  padding: 10px;
-}
-
-.layout-picker-title {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #64748b;
-  margin-bottom: 6px;
+  padding: 8px;
 }
 
 .layout-mode-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 5px;
-  margin-bottom: 8px;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
 .layout-mode-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 5px;
+  gap: 2px;
+  padding: 4px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #475569;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -441,19 +449,8 @@
 .layout-ratio-row {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin-bottom: 6px;
-}
-
-.layout-ratio-label {
-  font-size: 0.68rem;
-  color: #64748b;
-}
-
-.layout-ratio-slider-wrap {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  gap: 2px;
+  margin-bottom: 4px;
 }
 
 .layout-ratio-slider {
@@ -462,30 +459,24 @@
   cursor: pointer;
 }
 
-.layout-ratio-val {
-  font-size: 0.72rem;
-  color: #2563eb;
-  font-weight: 700;
-  text-align: right;
-}
-
 /* Reset / Story / Export / Settings buttons */
 .btn-flow-reset {
   display: flex;
   align-items: center;
-  gap: 3px;
-  height: 32px;
-  padding: 0 8px;
+  gap: 2px;
+  height: 28px;
+  padding: 0 7px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #64748b;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .btn-flow-reset:hover {
@@ -497,50 +488,51 @@
 .btn-story-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 9px;
+  gap: 3px;
+  height: 28px;
+  padding: 0 8px;
   background: linear-gradient(135deg, #ede9fe 0%, #f3e8ff 100%);
   border: 1px solid #ddd6fe;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #7c3aed;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .btn-story-toggle:hover, .btn-story-toggle.active {
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   border-color: #7c3aed;
   color: #ffffff;
-  box-shadow: 0 3px 8px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25);
 }
 
 .btn-export {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 32px;
-  padding: 0 10px;
+  gap: 3px;
+  height: 28px;
+  padding: 0 9px;
   background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
   border: 1px solid #2563eb;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #ffffff;
   cursor: pointer;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
   transition: all 0.15s ease;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.2);
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .btn-export:hover:not(:disabled) {
   background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
-  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3);
 }
 
 .btn-export:disabled {
@@ -552,17 +544,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #ffffff;
   color: #475569;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   transition: all 0.15s ease;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .btn-settings:hover, .btn-settings.active {
@@ -572,44 +565,48 @@
 }
 
 /* ============================================
-   Ultra-Responsive Container Queries (다중창 분할 시 100% 1줄 노출)
+   Ultra-Responsive Container Queries (다중창 분할 시 100% 1줄 완벽 노출)
    ============================================ */
 
-/* < 780px: 로고 텍스트 숨김, 초기화 라벨 숨김 */
-@container header (max-width: 780px) {
+/* < 900px: 로고 텍스트 숨김 */
+@container header (max-width: 900px) {
   .logo-text {
     display: none;
   }
+}
+
+/* < 780px: 프로젝트 선택기 축약, 초기화 텍스트 숨김 */
+@container header (max-width: 780px) {
   .btn-flow-reset .btn-text {
     display: none;
   }
   .project-current {
-    max-width: 120px;
+    max-width: 100px;
   }
 }
 
-/* < 640px: 프로젝트 축약, 프로필 텍스트 숨김 */
-@container header (max-width: 640px) {
+/* < 660px: 프로필 라벨 숨김, 프로젝트 더 축약 */
+@container header (max-width: 660px) {
   .project-current {
-    max-width: 80px;
+    max-width: 70px;
   }
   .project-current .project-name {
-    max-width: 50px;
+    max-width: 45px;
   }
   .btn-profile-selector .btn-text {
     display: none;
   }
   .header-right {
-    gap: 3px;
+    gap: 2px;
   }
   .btn-export {
-    padding: 0 7px;
+    padding: 0 6px;
   }
 }
 
-/* < 520px: 초슬림 아이콘 모드 */
-@container header (max-width: 520px) {
-  .project-current {
+/* < 540px: 프로젝트 숨김, Story 라벨 아이콘화 */
+@container header (max-width: 540px) {
+  .project-selector-header {
     display: none;
   }
   .btn-story-toggle .btn-text {

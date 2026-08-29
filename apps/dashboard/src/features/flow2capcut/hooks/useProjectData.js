@@ -610,8 +610,18 @@ export function useProjectData({
   //   create-new 가 실행될 수 있도록 한다. dep 배열에 포함됨.
   const [hydrated, setHydrated] = useState(false)
   // 하위 호환: hydratedRef 는 즉시 읽기(비동기 외부)에서 계속 쓸 수 있도록 유지.
-  const hydratedRef = useRef(false)
   const [projectLoading, setProjectLoading] = useState(false)
+
+  // Failsafe: projectLoading이 2.5초 이상 갇혀 화면을 가리는 것을 원천 차단
+  useEffect(() => {
+    if (!projectLoading) return
+    const timer = setTimeout(() => {
+      console.warn('[useProjectData] projectLoading timed out after 2.5s — auto releasing overlay')
+      setProjectLoading(false)
+      if (isRestoringRef) isRestoringRef.current = false
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [projectLoading])
   const [flowProjectId, setFlowProjectId] = useState(null)
   // R3-P1: Flow 프로젝트 진입(open/new)이 확인되지 않으면 false — 생성(character/scene/image)을
   //   막아 "이전/엉뚱한 Flow 프로젝트에 entity 가 들어가는" 것을 차단. 전환 성공 확인 시 true.
