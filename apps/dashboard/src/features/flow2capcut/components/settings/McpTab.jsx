@@ -85,29 +85,40 @@ export default function McpTab({ localSettings, setLocalSettings, t }) {
       <div className="settings-section">
         <h3>{t('settings.mcpClaudeTitle')}</h3>
 
-        <div className="setting-row">
+        <div className="setting-row" style={{ gridTemplateColumns: '140px 1fr' }}>
           <label className="setting-label">{t('settings.mcpStatusLabel')}</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {mcpStatus === null && <span style={{ color: '#888' }}>{t('settings.mcpChecking')}</span>}
+            {mcpStatus === null && <span style={{ color: 'var(--muted-foreground)', fontSize: '0.8rem' }}>{t('settings.mcpChecking')}</span>}
             {mcpStatus && !mcpStatus.claudeCodeInstalled && (
-              <span style={{ color: '#f59e0b' }}>{t('settings.mcpClaudeNotInstalled')}</span>
+              <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#fef3c7', color: '#d97706', border: '1px solid #fde68a', fontSize: '0.75rem', fontWeight: 800 }}>
+                {t('settings.mcpClaudeNotInstalled')}
+              </span>
             )}
             {mcpStatus?.claudeCodeInstalled && mcpStatus.registered && !mcpStatus.needsUpdate && (
-              <span style={{ color: '#10b981' }}>{t('settings.mcpRegistered')}</span>
+              <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', fontSize: '0.75rem', fontWeight: 800 }}>
+                ✓ {t('settings.mcpRegistered')}
+              </span>
             )}
             {mcpStatus?.claudeCodeInstalled && mcpStatus.registered && mcpStatus.needsUpdate && (
-              <span style={{ color: '#f59e0b' }}>{t('settings.mcpNeedsUpdate')}</span>
+              <span style={{ padding: '3px 8px', borderRadius: '6px', background: '#fef3c7', color: '#d97706', border: '1px solid #fde68a', fontSize: '0.75rem', fontWeight: 800 }}>
+                ⚠ {t('settings.mcpNeedsUpdate')}
+              </span>
             )}
             {mcpStatus?.claudeCodeInstalled && !mcpStatus.registered && (
-              <span style={{ color: '#888' }}>{t('settings.mcpNotRegistered')}</span>
+              <span style={{ padding: '3px 8px', borderRadius: '6px', background: 'var(--muted)', color: 'var(--muted-foreground)', border: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 700 }}>
+                {t('settings.mcpNotRegistered')}
+              </span>
             )}
           </div>
         </div>
 
         {skills.length > 0 && (
-          <div className="setting-row">
-            <label className="setting-label">{t('settings.mcpSkills')}</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div className="setting-row-stack" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 0', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className="setting-label">{t('settings.mcpSkills')}</label>
+              <span className="setting-sublabel">{t('settings.mcpSkillsHint')}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {skills.map(skill => {
                 const checked = !!selectedSkills[skill.name]
                 let statusText, statusColor
@@ -125,37 +136,42 @@ export default function McpTab({ localSettings, setLocalSettings, t }) {
                   statusColor = '#888'
                 }
                 return (
-                  <label key={skill.name} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer' }}>
+                  <label key={skill.name} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', background: 'var(--muted, #f8fafc)', border: '1px solid var(--border, #e2e8f0)', borderRadius: '10px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={(e) => setSelectedSkills(s => ({ ...s, [skill.name]: e.target.checked }))}
                       disabled={busy}
-                      style={{ marginTop: '3px' }}
+                      style={{ marginTop: '3px', accentColor: '#2563eb' }}
                     />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 600 }}>{skill.name}</span>
-                        <span style={{ color: statusColor, fontSize: '11px' }}>{statusText}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--foreground, #0f172a)' }}>{skill.name}</span>
+                        <span style={{ color: statusColor, fontSize: '11px', fontWeight: 700 }}>{statusText}</span>
                       </div>
                       {skill.description && (
-                        <span style={{ fontSize: '11px', color: '#888' }}>{skill.description}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground, #64748b)', lineHeight: '1.4' }}>{skill.description}</span>
                       )}
                     </div>
                   </label>
                 )
               })}
             </div>
-            <span className="setting-sublabel">{t('settings.mcpSkillsHint')}</span>
           </div>
         )}
 
-        <div className="setting-row">
-          <label className="setting-label">{t('settings.mcpAction')}</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="setting-row-stack" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border, #e2e8f0)', gap: '12px' }}>
+          <div>
+            <label className="setting-label">{t('settings.mcpAction')}</label>
+            <span className="setting-sublabel" style={{ display: 'block', marginTop: '2px' }}>
+              {t('settings.mcpRegisterHint')}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
             {(!mcpStatus?.registered || mcpStatus?.needsUpdate) && (
               <button
                 className="btn-primary"
+                style={{ height: '36px', padding: '0 16px', borderRadius: '8px', fontSize: '0.8rem' }}
                 onClick={handleRegister}
                 disabled={busy}
               >
@@ -165,6 +181,7 @@ export default function McpTab({ localSettings, setLocalSettings, t }) {
             {mcpStatus?.registered && (
               <button
                 className="btn-secondary"
+                style={{ height: '36px', padding: '0 16px', borderRadius: '8px', fontSize: '0.8rem' }}
                 onClick={handleUnregister}
                 disabled={busy}
               >
@@ -172,9 +189,6 @@ export default function McpTab({ localSettings, setLocalSettings, t }) {
               </button>
             )}
           </div>
-          <span className="setting-sublabel">
-            {t('settings.mcpRegisterHint')}
-          </span>
         </div>
 
         {mcpStatus?.registered && mcpStatus?.currentPath && (
