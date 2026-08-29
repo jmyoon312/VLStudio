@@ -8,6 +8,7 @@
 import path from 'node:path'
 import { net } from 'electron'
 import { formatGoogleApiError } from './googleApiError.js'
+import { GENERATED_IMG_PROBE } from '../flow-media-collect.js'
 
 /**
  * Register all Flow API IPC handlers.
@@ -528,6 +529,33 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return { success: false, error: promptResult?.error || 'Prompt injection failed' }
       }
 
+      // batchCount 선택 (x1, x2, x3, x4)
+      const targetCount = batchCount || 1
+      try {
+        await flowView.webContents.executeJavaScript(`
+          (function() {
+            const targetText = 'x' + ${targetCount};
+            const btns = Array.from(document.querySelectorAll('button'));
+            const countBtn = btns.find(b => b.textContent.trim().toLowerCase() === targetText);
+            if (countBtn && !countBtn.disabled) {
+              countBtn.click();
+              console.log('[DOM] Clicked image count button:', targetText);
+            }
+          })()
+        `)
+      } catch (e) {
+        console.warn('[Flow API] Failed to select batchCount button:', e.message)
+      }
+
+      // 제출 전 기존 완성 이미지 스냅샷 (Agent 스트리밍 수집용)
+      let existingMediaIds = []
+      try {
+        const existingImages = await flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE)
+        if (Array.isArray(existingImages)) {
+          existingMediaIds = existingImages.map(i => i && i.mediaId).filter(Boolean)
+        }
+      } catch (_) {}
+
       // 4. Generate 버튼 찾기 + Trusted Click
       // b.click()은 isTrusted: false라서 Flow 페이지가 무시함
       // → flowView를 일시적으로 보이게 한 후 sendInputEvent로 trusted click
@@ -644,7 +672,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
             ? referenceImages.map((r) => r?.mediaId).filter(Boolean).sort()
             : [],
           reqSeed: _seedValue,
-          reqAspectRatio: _aspectRatioEnum
+          reqAspectRatio: _aspectRatioEnum,
+          existingMediaIds,   // DOM 스트리밍 감지용
+          domFreshImages: []
         })
         console.log('[Flow API] [Async] pendingGenerations set (armed):', generationId)
       } else {
@@ -893,10 +923,32 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     if (!generationId) return { success: false, error: 'No generationId' }
     const gen = pendingGenerations.get(generationId)
     if (!gen) return { success: false, error: 'Generation not found', notFound: true }
+
+    // 🌟 듀얼 감지: 네트워크 응답이 아직 안 왔으면 Flow DOM 카드(Agent 모드)에서도 새 이미지가 완성되었는지 검사
+    if (!gen.completed) {
+      try {
+        const flowView = getFlowView()
+        if (flowView && !flowView.webContents.isDestroyed()) {
+          const currentImages = await flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE).catch(() => [])
+          if (Array.isArray(currentImages) && currentImages.length > 0) {
+            const seen = new Set(gen.existingMediaIds || [])
+            const fresh = currentImages.filter(i => i && i.mediaId && i.src && !seen.has(i.mediaId))
+            if (fresh.length >= (gen.expectedCount || 1)) {
+              console.log('[Flow API] [CheckGen] DOM generated images detected for gen:', generationId, fresh.length)
+              gen.completed = true
+              gen.domFreshImages = fresh
+            }
+          }
+        }
+      } catch (e) {
+        // DOM 폴링 일시 에러 무시
+      }
+    }
+
     return {
       success: true,
       completed: gen.completed,
-      responseCount: gen.responses.length,
+      responseCount: gen.responses.length + (gen.domFreshImages?.length || 0),
       expectedCount: gen.expectedCount
     }
   })
@@ -914,13 +966,34 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     pendingGenerations.delete(generationId)
 
     console.log('[Flow API] [AsyncCollect] Parsing results for gen:', generationId,
-      'responses:', gen.responses.length)
+      'responses:', gen.responses.length, 'domImages:', gen.domFreshImages?.length || 0)
 
-    // 응답 파싱 (flow:generate-image 동기 모드와 동일한 로직)
-    const successResponses = gen.responses.filter(r => !r.error)
-    const failedCount = gen.responses.filter(r => r.error).length
     const allImages = []
     const allErrors = []
+
+    // 1. DOM에서 감지된 이미지가 있는 경우 (Flow Agent 모드)
+    if (Array.isArray(gen.domFreshImages) && gen.domFreshImages.length > 0) {
+      for (const { mediaId, src } of gen.domFreshImages) {
+        try {
+          const res = await sessionFetch(src)
+          if (!res || !res.ok) throw new Error(`DOM media fetch HTTP ${res ? res.status : 'null'}`)
+          const buffer = await res.arrayBuffer()
+          const base64Raw = Buffer.from(buffer).toString('base64')
+          const contentType = (res.headers && res.headers.get && res.headers.get('content-type')) || 'image/png'
+          allImages.push({ base64: `data:${contentType};base64,${base64Raw}`, mediaId })
+        } catch (e) {
+          console.warn('[Flow API] [AsyncCollect] DOM image fetch failed:', e.message)
+          allErrors.push(e.message)
+        }
+      }
+      if (allImages.length > 0) {
+        return { success: true, images: allImages }
+      }
+    }
+
+    // 2. 네트워크 인터셉트 응답 파싱 (기존 모드)
+    const successResponses = gen.responses.filter(r => !r.error)
+    const failedCount = gen.responses.filter(r => r.error).length
 
     const useToken = token || gen.token || null
 
