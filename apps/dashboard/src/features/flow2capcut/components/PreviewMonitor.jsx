@@ -75,9 +75,10 @@ export default function PreviewMonitor({
         <button
           className="content-monitor-tool"
           onClick={toggleMonitorFullscreen}
-          title={monitorFullscreen ? t('common.close') : t('monitor.fullscreen')}
-        >{monitorFullscreen ? '🗗' : '⛶'}</button>
-        {mode === 'flow' && (
+          title={monitorFullscreen ? (t('common.close') || '닫기') : t('monitor.fullscreen')}
+          style={monitorFullscreen ? { width: '36px', height: '36px', fontSize: '18px', background: 'rgba(255, 255, 255, 0.25)', borderRadius: '50%' } : undefined}
+        >{monitorFullscreen ? '✕' : '⛶'}</button>
+        {mode === 'flow' && !monitorFullscreen && (
           <button
             className="content-monitor-tool"
             onClick={onCloseOverlay}
