@@ -2047,7 +2047,7 @@ html, body {
     gap: 8px !important;
     width: 100% !important;
   }
-  .content-monitor {
+  .content-monitor:not(.content-monitor--max) {
     width: 100% !important;
     max-width: 100% !important;
     height: 220px !important;

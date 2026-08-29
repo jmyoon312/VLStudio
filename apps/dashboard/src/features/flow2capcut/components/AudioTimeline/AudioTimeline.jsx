@@ -936,33 +936,39 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
     }
   }
 
+  // 모바일 환경(폭 <= 640px)에서는 하단 타임라인 바로 위에 프리뷰 패널을 직접 열어주고,
+  // 데스크톱 환경에서는 상단 메인 프리뷰 모니터 1개만 단독으로 표시 (중복 방지).
+  const isMobileView = typeof window !== 'undefined' && window.innerWidth <= 640
+  const shouldRenderPreview = !compact || (isMobileView && titleActive)
+
   return (
     <div className={`atl-root${compact ? ' atl-root--compact' : ''}`}>
-      {/* compact(하단 도크): 큰 프리뷰 패널을 접어 좁은 높이에서 트랙이 보이게 한다. 비compact(🎵 타임라인 탭)에서만 프리뷰 패널 노출 */}
-      {!compact && (
+      {shouldRenderPreview && (
         <>
           {/* 비디오 프리뷰 (현재 playhead 위치의 씬 이미지 + 자막) */}
           <PreviewPanel
             playheadMs={playheadMs}
             scenes={scenes}
             srtEntries={srtEntries}
-            height={previewHeight}
+            height={compact ? 200 : previewHeight}
             isPlaying={isGlobalPlaying}
             hiddenRoles={disabledTracks}
           />
 
-          {/* Preview ↔ Timeline 사이 splitter */}
-          <div
-            className="atl-splitter"
-            onPointerDown={startSplitterDrag}
-            onDoubleClick={() => {
-              setPreviewHeight(PREVIEW_H_DEFAULT)
-              try { localStorage.setItem(PREVIEW_H_KEY, String(PREVIEW_H_DEFAULT)) } catch {}
-            }}
-            title="드래그=높이 조절 · 더블클릭=기본값"
-          >
-            <div className="atl-splitter-grip" />
-          </div>
+          {/* Preview ↔ Timeline 사이 splitter (비compact 탭에서만) */}
+          {!compact && (
+            <div
+              className="atl-splitter"
+              onPointerDown={startSplitterDrag}
+              onDoubleClick={() => {
+                setPreviewHeight(PREVIEW_H_DEFAULT)
+                try { localStorage.setItem(PREVIEW_H_KEY, String(PREVIEW_H_DEFAULT)) } catch {}
+              }}
+              title="드래그=높이 조절 · 더블클릭=기본값"
+            >
+              <div className="atl-splitter-grip" />
+            </div>
+          )}
         </>
       )}
 
