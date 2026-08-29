@@ -4,7 +4,7 @@
 
 .app-root {
   height: 100vh;
-  background: #f8fafc;
+  background: var(--background, #f8fafc);
   color: #e0e0e0;
 }
 
@@ -20,7 +20,7 @@
 .app-content-split {
   height: 100%;
   overflow: hidden;
-  background: #f8fafc;
+  background: var(--background, #f8fafc);
 }
 
 .app-content-split .app-root {
@@ -83,15 +83,15 @@
    ============================================ */
 
 :root {
-  --bg-color: #f8fafc;
-  --bg-secondary: #ffffff;
-  --text-color: #0f172a;
-  --text-secondary: #64748b;
+  --bg-color: var(--background, #f8fafc);
+  --bg-secondary: var(--card, #ffffff);
+  --text-color: var(--foreground, #0f172a);
+  --text-secondary: var(--muted-foreground, #64748b);
   --primary-color: #4299e1;
   --success-color: #48bb78;
   --warning-color: #ecc94b;
   --error-color: #f56565;
-  --border-color: #e2e8f0;
+  --border-color: var(--border, #e2e8f0);
   --border-radius: 8px;
   --font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
   --gutter-w: 2rem;
@@ -181,8 +181,8 @@
 
 /* Tabs */
 .tabs-header {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--background, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 14px;
   padding: 4px 6px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
@@ -192,9 +192,9 @@
   gap: 6px;
   margin-bottom: 8px;
   padding: 4px 6px;
-  background: #f1f5f9;
+  background: var(--muted, #f1f5f9);
   border-radius: 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border, #e2e8f0);
   flex-shrink: 0;
 }
 
@@ -222,7 +222,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #64748b;
+  color: var(--muted-foreground, #64748b);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
@@ -233,7 +233,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #64748b;
+  color: var(--muted-foreground, #64748b);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
@@ -243,7 +243,7 @@
 }
 
 .tab:hover {
-  color: #0f172a;
+  color: var(--foreground, #0f172a);
   background: rgba(255, 255, 255, 0.6);
 }
 
@@ -254,7 +254,7 @@
 }
 
 .tab.active {
-  background: #ffffff;
+  background: var(--card, #ffffff);
   color: #2563eb;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
@@ -266,10 +266,10 @@
 
 .btn-icon, .btn-import-tab {
   padding: 5px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 10px;
-  background: #ffffff;
-  color: #334155;
+  background: var(--card, #ffffff);
+  color: var(--foreground, #334155);
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 700;
@@ -466,8 +466,8 @@
 
 /* Prompt Input */
 .prompt-input-container {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 18px;
   padding: 16px;
   box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.04);
@@ -561,9 +561,9 @@
 }
 
 .prompt-textarea {
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
   border-radius: 14px !important;
-  background: #ffffff !important;
+  background: var(--card, #ffffff) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   position: relative;
   z-index: 1;
@@ -590,9 +590,9 @@
 }
 /* compact(상세/Ref 모달): 단일 프롬프트라 줄번호 거터 불필요 — 번호 숨김 + 왼쪽 패딩 정상화. */
 .prompt-textarea-wrap.compact .prompt-textarea {
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
   border-radius: 14px !important;
-  background: #ffffff !important;
+  background: var(--card, #ffffff) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   padding-left: 12px;
 }
@@ -600,9 +600,9 @@
   content: none;
 }
 .prompt-textarea-wrap.disabled .prompt-textarea {
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
   border-radius: 14px !important;
-  background: #ffffff !important;
+  background: var(--card, #ffffff) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   opacity: 0.6;
   cursor: not-allowed;
@@ -784,9 +784,9 @@
 /* 인트로 동안만 표면 윤기: ① 흐르는 대각선 sheen ② 위 광택 ③ 베이스색
    (모두 background 레이어 = 텍스트 뒤라 가독성 유지) */
 .prompt-textarea-wrap.intro .prompt-textarea {
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
   border-radius: 14px !important;
-  background: #ffffff !important;
+  background: var(--card, #ffffff) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   border-color: transparent;   /* 인트로 땐 글로우 링이 테두리 역할 */
   background:
@@ -825,9 +825,9 @@
   .prompt-textarea-wrap.intro::before,
   .prompt-textarea-wrap.intro::after,
   .prompt-textarea-wrap.intro .prompt-textarea {
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
   border-radius: 14px !important;
-  background: #ffffff !important;
+  background: var(--card, #ffffff) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     animation: none;
   }
@@ -837,8 +837,8 @@
 }
 
 .prompt-input-footer {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 12px;
   padding: 6px 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -1458,7 +1458,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #64748b;
+  color: var(--muted-foreground, #64748b);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
@@ -1513,7 +1513,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #64748b;
+  color: var(--muted-foreground, #64748b);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
@@ -1528,8 +1528,8 @@
     font-size: 0.78rem;
   }
   .tabs-header {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--background, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 14px;
   padding: 4px 6px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
@@ -1562,7 +1562,7 @@
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #64748b;
+  color: var(--muted-foreground, #64748b);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 700;
@@ -1581,8 +1581,8 @@
     gap: 2px;
   }
   .tabs-header {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--background, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 14px;
   padding: 4px 6px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
@@ -1665,7 +1665,7 @@
 
 .btn-primary {
   background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
-  color: #ffffff;
+  color: var(--card, #ffffff);
   border-radius: 12px;
   font-weight: 800;
   font-size: 0.92rem;
@@ -1848,7 +1848,7 @@
 .results-table th {
   text-align: left;
   padding: 8px 8px;
-  background: #f8fafc;
+  background: var(--background, #f8fafc);
   font-weight: 600;
 }
 
@@ -1957,7 +1957,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: #f8fafc;
+  background: var(--background, #f8fafc);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
   padding: 6px;

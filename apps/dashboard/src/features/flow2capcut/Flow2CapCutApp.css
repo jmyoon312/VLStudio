@@ -83,25 +83,25 @@
    ============================================ */
 
 :root {
-  --bg-color: #f8fafc;
-  --bg-secondary: #ffffff;
-  --text-color: #0f172a;
-  --text-secondary: #64748b;
+  --bg-color: var(--background, #f8fafc);
+  --bg-secondary: var(--card, #ffffff);
+  --text-color: var(--foreground, #0f172a);
+  --text-secondary: var(--muted-foreground, #64748b);
   --primary-color: var(--primary, #3b82f6);
   --success-color: var(--color-success, #10B981);
   --warning-color: var(--color-warning, #F59E0B);
   --error-color: var(--color-error, #EF4444);
-  --border-color: #e2e8f0;
+  --border-color: var(--border, #e2e8f0);
   --border-radius: 12px;
   --font-family: var(--font-wanted-sans, var(--font-sans, 'Wanted Sans Variable', 'Pretendard', 'Inter', system-ui, sans-serif));
 }
 
 .dark {
-  --bg-color: #f8fafc;
-  --bg-secondary: #ffffff;
-  --text-color: #0f172a;
-  --text-secondary: #64748b;
-  --border-color: #e2e8f0;
+  --bg-color: var(--background, #f8fafc);
+  --bg-secondary: var(--card, #ffffff);
+  --text-color: var(--foreground, #0f172a);
+  --text-secondary: var(--muted-foreground, #64748b);
+  --border-color: var(--border, #e2e8f0);
 }
 
 * {
@@ -1010,7 +1010,7 @@ html, body {
 
 .btn-primary {
   background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
-  color: #ffffff;
+  color: var(--card, #ffffff);
   border-radius: 12px;
   font-weight: 800;
   font-size: 0.92rem;
@@ -1740,7 +1740,7 @@ html, body {
 
 .prompt-edit-input:focus {
   border-color: var(--accent, #3b82f6);
-  background: var(--bg-secondary, #ffffff);
+  background: var(--bg-secondary, var(--card, #ffffff));
   outline: none;
 }
 
@@ -1787,7 +1787,7 @@ html, body {
   justify-content: center;
   gap: 8px;
   background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: #ffffff;
+  color: var(--card, #ffffff);
   padding: 12px 20px;
   font-size: 1rem;
   font-weight: 600;
@@ -1813,7 +1813,7 @@ html, body {
 .ss-value {
   font-size: 1rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--card, #ffffff);
 }
 
 .ss-arrow {
@@ -1823,7 +1823,7 @@ html, body {
 }
 
 .ss-value-button:hover .ss-arrow {
-  color: #ffffff;
+  color: var(--card, #ffffff);
   transform: translateY(1px);
 }
 

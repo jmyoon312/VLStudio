@@ -11,8 +11,8 @@ export default function ApiKeyField({
 
   return (
     <div style={{
-      background: '#ffffff',
-      border: '1px solid #e2e8f0',
+      background: 'var(--card, #ffffff)',
+      border: '1px solid var(--border, #e2e8f0)',
       borderRadius: '14px',
       padding: '14px 16px',
       marginBottom: '12px',
@@ -24,7 +24,7 @@ export default function ApiKeyField({
       {/* 상단: 레이블 + 상태 뱃지 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#0f172a' }}>{label}</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--foreground, #0f172a)' }}>{label}</span>
           {getKeyUrl && (
             <button
               type="button"
@@ -53,9 +53,9 @@ export default function ApiKeyField({
           fontWeight: '700',
           padding: '2px 8px',
           borderRadius: '8px',
-          background: hasKey ? '#ecfdf5' : '#f1f5f9',
-          color: hasKey ? '#059669' : '#64748b',
-          border: `1px solid ${hasKey ? '#a7f3d0' : '#e2e8f0'}`
+          background: hasKey ? '#ecfdf5' : 'var(--muted, #f1f5f9)',
+          color: hasKey ? '#059669' : 'var(--muted-foreground, #64748b)',
+          border: `1px solid ${hasKey ? '#a7f3d0' : 'var(--border, #e2e8f0)'}`
         }}>
           {loading ? '확인 중…' : hasKey ? '🟢 저장됨' : '⚪ 미등록'}
         </span>
@@ -81,16 +81,16 @@ export default function ApiKeyField({
             flex: 1,
             height: '36px',
             padding: '0 12px',
-            background: '#f8fafc',
-            border: '1px solid #e2e8f0',
+            background: 'var(--background, #f8fafc)',
+            border: '1px solid var(--border, #e2e8f0)',
             borderRadius: '10px',
             fontSize: '0.82rem',
-            color: '#1e293b',
+            color: 'var(--foreground, #1e293b)',
             outline: 'none',
             transition: 'all 0.15s ease'
           }}
-          onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.background = '#ffffff' }}
-          onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.background = '#f8fafc' }}
+          onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.background = 'var(--card, #ffffff)' }}
+          onBlur={(e) => { e.target.style.borderColor = 'var(--border, #e2e8f0)'; e.target.style.background = 'var(--background, #f8fafc)' }}
         />
 
         <button
@@ -103,7 +103,7 @@ export default function ApiKeyField({
             background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
             border: 'none',
             borderRadius: '10px',
-            color: '#ffffff',
+            color: 'var(--card, #ffffff)',
             fontSize: '0.78rem',
             fontWeight: '700',
             cursor: (!busy && encryptionAvailable && keyInput.trim()) ? 'pointer' : 'not-allowed',
@@ -124,7 +124,7 @@ export default function ApiKeyField({
             style={{
               height: '36px',
               padding: '0 10px',
-              background: '#ffffff',
+              background: 'var(--card, #ffffff)',
               border: '1px solid #fecdd3',
               borderRadius: '10px',
               color: '#e11d48',
@@ -141,7 +141,7 @@ export default function ApiKeyField({
       </div>
 
       {extraNote && (
-        <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '-2px' }}>
+        <span style={{ fontSize: '0.72rem', color: 'var(--muted-foreground, #64748b)', marginTop: '-2px' }}>
           ※ {extraNote}
         </span>
       )}

@@ -3,8 +3,8 @@
    ============================================ */
 
 .settings-modal.tabbed .modal-content {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 20px;
   box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.12), 0 10px 20px -5px rgba(0, 0, 0, 0.04);
   max-width: 620px;
@@ -14,28 +14,28 @@
 
 .settings-modal.tabbed .modal-header {
   padding: 16px 20px 12px 20px;
-  border-bottom: 1px solid #f1f5f9;
-  background: #ffffff;
+  border-bottom: 1px solid var(--muted, #f1f5f9);
+  background: var(--card, #ffffff);
 }
 
 .settings-modal.tabbed .modal-title {
   font-size: 1.05rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--foreground, #0f172a);
   letter-spacing: -0.02em;
 }
 
 .settings-modal.tabbed .modal-body {
   padding: 0;
-  background: #f8fafc;
+  background: var(--background, #f8fafc);
 }
 
 /* Modern Segment Tabs Navigation */
 .settings-tabs {
   display: flex;
   padding: 8px 16px;
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--card, #ffffff);
+  border-bottom: 1px solid var(--border, #e2e8f0);
   gap: 6px;
 }
 
@@ -50,7 +50,7 @@
   border: 1px solid transparent;
   border-radius: 12px;
   background: transparent;
-  color: #64748b;
+  color: var(--muted-foreground, #64748b);
   cursor: pointer;
   transition: all 0.15s ease;
   position: relative;
@@ -58,8 +58,8 @@
 }
 
 .settings-tab:hover {
-  background: #f1f5f9;
-  color: #1e293b;
+  background: var(--muted, #f1f5f9);
+  color: var(--foreground, #1e293b);
 }
 
 .settings-tab.active {
@@ -89,7 +89,7 @@
   width: 14px;
   height: 14px;
   background: #ef4444;
-  color: #ffffff;
+  color: var(--card, #ffffff);
   border-radius: 50%;
   font-size: 0.65rem;
   font-weight: 800;
@@ -112,8 +112,8 @@
 }
 
 .settings-section {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
   border-radius: 16px;
   padding: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
@@ -122,16 +122,16 @@
 .settings-section h3 {
   font-size: 0.88rem;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--foreground, #0f172a);
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--muted, #f1f5f9);
   letter-spacing: -0.01em;
 }
 
 .setting-sublabel {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--muted-foreground, #64748b);
   line-height: 1.5;
 }
 
@@ -141,7 +141,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 0;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid var(--background, #f8fafc);
   gap: 12px;
 }
 
@@ -152,14 +152,14 @@
 .setting-label {
   font-size: 0.82rem;
   font-weight: 700;
-  color: #334155;
+  color: var(--foreground, #334155);
 }
 
 /* Modal Footer */
 .settings-modal .modal-footer {
   padding: 12px 20px;
-  background: #ffffff;
-  border-top: 1px solid #f1f5f9;
+  background: var(--card, #ffffff);
+  border-top: 1px solid var(--muted, #f1f5f9);
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -168,10 +168,10 @@
 .settings-modal .btn-secondary {
   height: 38px;
   padding: 0 16px;
-  background: #ffffff;
+  background: var(--card, #ffffff);
   border: 1px solid #cbd5e1;
   border-radius: 10px;
-  color: #475569;
+  color: var(--muted-foreground, #475569);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
@@ -179,8 +179,8 @@
 }
 
 .settings-modal .btn-secondary:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--background, #f8fafc);
+  color: var(--foreground, #0f172a);
 }
 
 .settings-modal .btn-primary {
@@ -189,7 +189,7 @@
   background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
   border: none;
   border-radius: 10px;
-  color: #ffffff;
+  color: var(--card, #ffffff);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
