@@ -40,7 +40,7 @@ export default function PreviewMonitor({
   onSelectScene,
   t,
 }) {
-  if (monitorMode !== 'inline') return null
+  if (!monitorFullscreen && monitorMode !== 'inline') return null
 
   // 전체화면 중엔 하단 타임라인이 가려져 재생/정지 트랜스포트를 모니터에 띄운다.
   //   이때 뮤트/볼륨도 상단이 아니라 재생 버튼 옆(트랜스포트)에 둔다. 그 외(inline)엔 상단 도구모음.

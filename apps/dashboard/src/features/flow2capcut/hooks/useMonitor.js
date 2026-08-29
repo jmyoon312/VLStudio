@@ -90,7 +90,14 @@ export function useMonitor({ mode, activeTab }) {
   //   풀스크린을 유발해 복귀 시 Flow 뷰 복원이 race 됐다. CSS maximize + setModalVisible 토글은
   //   모달과 동일 경로라 복원이 결정적.
   const [monitorFullscreen, setMonitorFullscreen] = useState(false)
-  const toggleMonitorFullscreen = useCallback(() => setMonitorFullscreen(f => !f), [])
+  const toggleMonitorFullscreen = useCallback(() => {
+    setMonitorFullscreen(f => {
+      const next = !f
+      if (next) setMonitorOverlayOpen(true)
+      return next
+    })
+  }, [setMonitorOverlayOpen])
+
   // Esc 로 해제. document(bubble)는 window 보다 먼저라 stopPropagation 으로 AudioTimeline 의
   //   window Esc(=정지)가 같이 발화하는 것을 막는다(전체화면 해제만).
   useEffect(() => {
@@ -104,12 +111,13 @@ export function useMonitor({ mode, activeTab }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [monitorFullscreen])
-  // 모니터 표시 불가(audio 탭 / flow 미오픈)면 전체화면 해제 — useModalVisibility 가 Flow 복원.
+
+  // activeTab이 audio일 때만 전체화면 자동 닫기
   useEffect(() => {
-    if (monitorRenderMode({ mode, activeTab, overlayOpen: monitorOverlayOpen }) !== 'inline') {
+    if (activeTab === 'audio') {
       setMonitorFullscreen(false)
     }
-  }, [mode, activeTab, monitorOverlayOpen])
+  }, [activeTab])
   // 전체화면 동안 Flow WebContentsView(네이티브)를 0x0 으로 접어 모니터를 가리지 않게 — 모달과 동일.
   useModalVisibility(monitorFullscreen)
   // 모드 전환 시 오버레이 리셋 — API 재생이 켜둔 overlayOpen 이 Flow 로 새어 "Flow 기본 숨김"을 깨는 것 방지.
