@@ -573,6 +573,15 @@ const CreativeStudio = () => {
         randomPool: ['dissolve', 'flash_white', 'zoom_in', 'whip_pan', 'glitch']
     });
 
+    // [MODAL VISIBILITY FIX] 모달 다이얼로그(스타일 갤러리 등) 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
+    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen;
+    useEffect(() => {
+        const apiObj = (window as any).electronAPI;
+        if (apiObj && typeof apiObj.setFlowTabActive === 'function') {
+            apiObj.setFlowTabActive({ active: !isAnyModalOpen });
+        }
+    }, [isAnyModalOpen]);
+
     // [NEW] Flow AI 일괄 이미지 생성 핸들러
     const handleBatchFlowImages = async () => {
         if (scenes.length === 0) {
