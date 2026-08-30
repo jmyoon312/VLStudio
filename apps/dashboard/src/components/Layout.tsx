@@ -41,7 +41,9 @@ import {
     X,
     Layers,
     Users,
-    Plus
+    Plus,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 
 import { cn } from '../lib/utils';
@@ -126,6 +128,53 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             syncViewsAndProfiles();
         }
     }, [location.pathname]);
+
+    const [isFlowHidden, setIsFlowHidden] = React.useState(() => {
+        try {
+            const saved = localStorage.getItem('layoutSettings');
+            if (saved) {
+                const { mode } = JSON.parse(saved);
+                return mode === 'hidden' || mode === 'none';
+            }
+        } catch {}
+        return false;
+    });
+
+    React.useEffect(() => {
+        const handler = (window as any).electronAPI?.onLayoutChanged;
+        if (handler) {
+            return handler(({ mode }: { mode: string }) => {
+                setIsFlowHidden(mode === 'hidden' || mode === 'none');
+            });
+        }
+    }, []);
+
+    const toggleFlowVisibility = () => {
+        try {
+            const saved = localStorage.getItem('layoutSettings');
+            let currentMode = 'split-left';
+            let currentRatio = 0.45;
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                currentMode = parsed.mode || 'split-left';
+                currentRatio = parsed.ratio || 0.45;
+            }
+            if (isFlowHidden) {
+                const nextMode = currentMode === 'hidden' || currentMode === 'none' ? 'split-left' : currentMode;
+                localStorage.setItem('layoutSettings', JSON.stringify({ mode: nextMode, ratio: currentRatio }));
+                (window as any).electronAPI?.setLayout?.({ mode: nextMode, ratio: currentRatio });
+                setIsFlowHidden(false);
+                toast.success('Flow 브라우저 창을 표시합니다.');
+            } else {
+                localStorage.setItem('layoutSettings', JSON.stringify({ mode: 'hidden', ratio: currentRatio }));
+                (window as any).electronAPI?.setLayout?.({ mode: 'hidden', ratio: currentRatio });
+                setIsFlowHidden(true);
+                toast.info('Flow 브라우저 창을 숨겼습니다. (스튜디오 전체화면)');
+            }
+        } catch (e) {
+            console.warn(e);
+        }
+    };
 
     const { user, subscription, logout, activeProfile } = useAuth();
     const { avatarSrc: cachedAvatarSrc } = useCachedAvatar(user?.photoURL);
@@ -599,6 +648,22 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 md:gap-3 shrink-0">
+                        {/* Quick Flow Hide/Show Toggle Button */}
+                        {(location.pathname === '/creative-studio' || location.pathname === '/flow2capcut') && (
+                            <button
+                                onClick={toggleFlowVisibility}
+                                className={cn(
+                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all shadow-xs",
+                                    isFlowHidden
+                                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-400/40 hover:bg-amber-500/25"
+                                        : "bg-card border-border hover:bg-muted text-foreground"
+                                )}
+                                title={isFlowHidden ? "Flow 브라우저 창 복원" : "Flow 브라우저 창 숨기기 (스튜디오 넓게 쓰기)"}
+                            >
+                                {isFlowHidden ? <Eye className="w-3.5 h-3.5 text-amber-500" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                <span>{isFlowHidden ? "Flow 창 표시" : "Flow 창 숨김"}</span>
+                            </button>
+                        )}
                         <MultiWindowController 
                             activeViews={activeViews} 
                             activeProfileId={activeProfileId} 

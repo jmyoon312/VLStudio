@@ -1222,6 +1222,43 @@ ipcMain.handle('flow:focus-view', async (event, { profileId } = {}) => {
     return { success: true, profileId }
   } catch (e) {
     console.error('[flow:focus-view] Error:', e.message)
+ipcMain.handle('flow:reload-view', async (event, { profileId } = {}) => {
+  try {
+    const targetId = profileId || global.activeFlowProfileId || 'default'
+    console.log(`[flow:reload-view] Reloading Flow WebContentsView for profile: ${targetId}`)
+    const view = global.flowViews?.get(targetId)
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.reload()
+      return { success: true, reloaded: true }
+    }
+    if (typeof global.recreateFlowViewWithProfile === 'function') {
+      await global.recreateFlowViewWithProfile(targetId)
+      return { success: true, recreated: true }
+    }
+    return { success: false, error: 'View not available' }
+  } catch (e) {
+    console.error('[flow:reload-view] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('flow:navigate-home', async (event, { profileId } = {}) => {
+  try {
+    const targetId = profileId || global.activeFlowProfileId || 'default'
+    console.log(`[flow:navigate-home] Navigating to Flow Home for profile: ${targetId}`)
+    let view = global.flowViews?.get(targetId)
+    if (!view || view.webContents.isDestroyed()) {
+      if (typeof global.createOrGetFlowView === 'function') {
+        view = global.createOrGetFlowView(targetId)
+      }
+    }
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.loadURL('https://labs.google/fx/tools/flow')
+      return { success: true }
+    }
+    return { success: false, error: 'View not found' }
+  } catch (e) {
+    console.error('[flow:navigate-home] Error:', e.message)
     return { success: false, error: e.message }
   }
 })

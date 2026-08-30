@@ -40,8 +40,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createFlowView: (params) => ipcRenderer.invoke('flow:create-view', params),
   destroyFlowView: (params) => ipcRenderer.invoke('flow:destroy-view', params),
   focusFlowView: (params) => ipcRenderer.invoke('flow:focus-view', params),
-  getActiveViews: () => ipcRenderer.invoke('flow:get-active-views'),
   clearFlowSession: () => ipcRenderer.invoke('flow:clear-session'),
+  reloadFlowView: (params) => ipcRenderer.invoke('flow:reload-view', params),
+  navigateFlowHome: (params) => ipcRenderer.invoke('flow:navigate-home', params),
 
   // File System
   getDefaultWorkFolder: () => ipcRenderer.invoke('fs:get-default-work-folder'),

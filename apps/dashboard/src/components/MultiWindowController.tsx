@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, LayoutGrid, MonitorPlay, X, LayoutPanelLeft, LayoutPanelTop, CheckCircle2, Layers } from 'lucide-react';
+import { Plus, Trash2, LayoutGrid, MonitorPlay, X, LayoutPanelLeft, LayoutPanelTop, CheckCircle2, Layers, Eye, EyeOff, RotateCw, Home, Maximize2 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ export default function MultiWindowController({
     const [ratio, setRatio] = useState(() => {
         try { return Math.round((JSON.parse(localStorage.getItem('layoutSettings') || '{}').ratio || 0.45) * 100); } catch { return 45; }
     });
+    const lastSplitModeRef = useRef(mode !== 'hidden' && mode !== 'none' ? mode : 'split-left');
 
     // Create Modal State
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -85,12 +86,56 @@ export default function MultiWindowController({
 
     // Handle Split Mode Change
     const handleModeChange = (newMode: string) => {
+        if (newMode !== 'hidden' && newMode !== 'none') {
+            lastSplitModeRef.current = newMode;
+        }
         setMode(newMode);
         const r = ratio / 100;
         localStorage.setItem('layoutSettings', JSON.stringify({ mode: newMode, ratio: r }));
         const apiObj = (window as any).electronAPI;
         if (apiObj && typeof apiObj.setLayout === 'function') {
             apiObj.setLayout({ mode: newMode, ratio: r });
+        }
+    };
+
+    // Toggle Hide/Show Flow Window
+    const handleToggleFlowHide = () => {
+        if (mode === 'hidden' || mode === 'none') {
+            const target = lastSplitModeRef.current || 'split-left';
+            handleModeChange(target);
+            toast({ title: "Flow 창 표시", description: `Flow 화면을 다시 표시합니다. (${target})` });
+        } else {
+            lastSplitModeRef.current = mode;
+            handleModeChange('hidden');
+            toast({ title: "Flow 창 감춤", description: "스튜디오 전체화면 모드로 전환되었습니다." });
+        }
+    };
+
+    // Flow Reload / Recovery
+    const handleReloadFlow = async () => {
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj && typeof apiObj.reloadFlowView === 'function') {
+                toast({ title: "Flow 창 새로고침", description: "Google Flow 창을 다시 불러옵니다..." });
+                await apiObj.reloadFlowView({ profileId: activeProfileId });
+            } else {
+                toast({ title: "새로고침", description: "화면을 다시 불러옵니다." });
+            }
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "새로고침 오류", description: e.message });
+        }
+    };
+
+    // Flow Home Navigate
+    const handleNavigateFlowHome = async () => {
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj && typeof apiObj.navigateFlowHome === 'function') {
+                toast({ title: "Flow 홈 이동", description: "Google Flow 메인 페이지로 이동합니다..." });
+                await apiObj.navigateFlowHome({ profileId: activeProfileId });
+            }
+        } catch (e: any) {
+            toast({ variant: "destructive", title: "이동 오류", description: e.message });
         }
     };
 
@@ -266,9 +311,24 @@ export default function MultiWindowController({
                         </div>
                     </div>
 
-                    {/* 3. Layout Controls */}
+                    {/* 3. Layout & Visibility Controls */}
                     <div className="space-y-2.5 pt-2.5 border-t border-border">
-                        <span className="text-xs font-bold text-muted-foreground tracking-tight">화면 분할 배치</span>
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-muted-foreground tracking-tight">화면 분할 및 Flow 창 제어</span>
+                            <button
+                                onClick={handleToggleFlowHide}
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border transition-colors ${
+                                    mode === 'hidden' || mode === 'none'
+                                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-400/40 hover:bg-amber-500/25'
+                                    : 'bg-muted/60 text-muted-foreground hover:text-foreground border-border hover:bg-muted'
+                                }`}
+                                title={mode === 'hidden' || mode === 'none' ? 'Flow 창 복원' : 'Flow 창 숨기기'}
+                            >
+                                {mode === 'hidden' || mode === 'none' ? <Eye className="w-3 h-3 text-amber-500" /> : <EyeOff className="w-3 h-3" />}
+                                <span>{mode === 'hidden' || mode === 'none' ? 'Flow 창 표시' : 'Flow 창 감추기'}</span>
+                            </button>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-1.5">
                             {SPLIT_MODES.map(m => (
                                 <button
@@ -286,20 +346,55 @@ export default function MultiWindowController({
                             ))}
                         </div>
 
-                        {/* Ratio Slider */}
-                        <div className="flex flex-col gap-1 pt-1">
-                            <div className="flex justify-between text-[11px] font-bold text-muted-foreground">
-                                <span>Flow 브라우저 너비</span>
-                                <span className="text-primary">{ratio}%</span>
+                        {/* Full Hide Mode Button */}
+                        <button
+                            onClick={() => handleModeChange('hidden')}
+                            className={`w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all ${
+                                mode === 'hidden' || mode === 'none'
+                                ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                                : 'bg-muted/40 border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                            <EyeOff className="w-3.5 h-3.5" />
+                            <span>Flow 창 완전히 숨기기 (스튜디오 넓게 쓰기)</span>
+                        </button>
+
+                        {/* Ratio Slider (only when visible) */}
+                        {mode !== 'hidden' && mode !== 'none' && (
+                            <div className="flex flex-col gap-1 pt-1">
+                                <div className="flex justify-between text-[11px] font-bold text-muted-foreground">
+                                    <span>Flow 브라우저 너비</span>
+                                    <span className="text-primary">{ratio}%</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="20" 
+                                    max="80" 
+                                    value={ratio} 
+                                    onChange={handleRatioChange}
+                                    className="w-full accent-primary h-1.5 bg-muted rounded-lg appearance-none cursor-pointer"
+                                />
                             </div>
-                            <input 
-                                type="range" 
-                                min="20" 
-                                max="80" 
-                                value={ratio} 
-                                onChange={handleRatioChange}
-                                className="w-full accent-primary h-1.5 bg-muted rounded-lg appearance-none cursor-pointer"
-                            />
+                        )}
+
+                        {/* 4. Flow Troubleshooting & Recovery Bar */}
+                        <div className="pt-2 border-t border-border flex items-center gap-1.5">
+                            <button
+                                onClick={handleReloadFlow}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-400/30 text-[11px] font-bold transition-all"
+                                title="Flow 창이 하얗거나 멈췄을 때 즉시 새로고침"
+                            >
+                                <RotateCw className="w-3 h-3" />
+                                <span>Flow 창 새로고침 / 먹통 복구</span>
+                            </button>
+                            <button
+                                onClick={handleNavigateFlowHome}
+                                className="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-md bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border text-[11px] font-medium transition-all"
+                                title="Google Flow 홈 화면으로 이동"
+                            >
+                                <Home className="w-3 h-3" />
+                                <span>홈</span>
+                            </button>
                         </div>
                     </div>
                 </div>
