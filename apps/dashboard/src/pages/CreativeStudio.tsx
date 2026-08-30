@@ -2181,6 +2181,7 @@ const CreativeStudio = () => {
                 scenes={scenes}
                 aspectRatio={segmentMode === 'shorts' ? '9:16' : '16:9'}
                 srtEntries={srtEntries}
+                subtitleConfig={subtitleConfig}
                 watermarkConfig={watermarkConfig}
                 transitionConfig={transitionConfig}
                 isOpen={isTimelineOpen}

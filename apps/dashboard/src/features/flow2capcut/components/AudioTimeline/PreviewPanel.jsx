@@ -46,7 +46,66 @@ export function findRangeAt(ranges, t, inclusiveEnd = false) {
 // <video>는 DOM에 항상 1개만 존재 — 씬이 바뀔 때만 src swap (500씬 스케일 대응).
 const EMPTY_HIDDEN = new Set()
 
-export default function PreviewPanel({ playheadMs, scenes, srtEntries, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '', kenBurns = false }) {
+export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleConfig, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '', kenBurns = false }) {
+  // ── 자막 동적 스타일 계산 (자막 설정 실시간 프리뷰) ──
+  const subtitleStyle = useMemo(() => {
+    if (!subtitleConfig) return {}
+
+    const cfg = subtitleConfig
+    if (cfg.enabled === false) return { display: 'none' }
+
+    // 폰트 크기: 프리뷰 캔버스 비율(약 0.42x)로 미려하게 반응형 환산
+    const baseSize = cfg.fontSize || 36
+    const previewFontSize = Math.max(12, Math.min(32, Math.round(baseSize * 0.42)))
+
+    // 위치 (Top / Bottom / Center)
+    let posStyle = {
+      bottom: `${Math.max(8, Math.min(80, Math.round((cfg.marginV || 24) * 0.5)))}px`,
+      top: 'auto',
+      transform: 'translateX(-50%)'
+    }
+    if (cfg.position === 'top') {
+      posStyle = { top: `${Math.max(8, Math.round((cfg.marginV || 24) * 0.5))}px`, bottom: 'auto', transform: 'translateX(-50%)' }
+    } else if (cfg.position === 'center') {
+      posStyle = { top: '50%', bottom: 'auto', transform: 'translate(-50%, -50%)' }
+    }
+
+    // 텍스트 테두리 (Outline / Stroke)
+    let textShadow = '0 2px 4px rgba(0, 0, 0, 0.9)'
+    if (cfg.outlineSize && cfg.outlineSize > 0) {
+      const oColor = cfg.outlineColor || '#000000'
+      const oSize = Math.max(1, Math.round(cfg.outlineSize * 0.7))
+      textShadow = `-${oSize}px -${oSize}px 0 ${oColor}, ${oSize}px -${oSize}px 0 ${oColor}, -${oSize}px ${oSize}px 0 ${oColor}, ${oSize}px ${oSize}px 0 ${oColor}, 0 2px 4px rgba(0,0,0,0.9)`
+    }
+
+    // 배경 박스 (useBox / boxColor / boxOpacity)
+    let background = 'rgba(0, 0, 0, 0.75)'
+    if (cfg.useBox) {
+      const boxHex = cfg.boxColor || '#000000'
+      const alpha = (cfg.boxOpacity ?? 75) / 100
+      let r = 0, g = 0, b = 0
+      if (boxHex.startsWith('#') && boxHex.length >= 7) {
+        r = parseInt(boxHex.slice(1, 3), 16) || 0
+        g = parseInt(boxHex.slice(3, 5), 16) || 0
+        b = parseInt(boxHex.slice(5, 7), 16) || 0
+      }
+      background = `rgba(${r}, ${g}, ${b}, ${alpha})`
+    } else if (cfg.outlineSize && cfg.outlineSize > 0) {
+      background = 'transparent'
+    }
+
+    return {
+      fontFamily: cfg.font ? `"${cfg.font}", -apple-system, sans-serif` : 'inherit',
+      fontSize: `${previewFontSize}px`,
+      color: cfg.textColor || '#FFFFFF',
+      fontWeight: cfg.isBold !== false ? 700 : 400,
+      fontStyle: cfg.isItalic ? 'italic' : 'normal',
+      textAlign: cfg.textAlign || 'center',
+      textShadow,
+      background,
+      ...posStyle
+    }
+  }, [subtitleConfig])
   // 씬 ranges precompute — getSceneTimeRangeMs는 parseTimeToSeconds(regex+split)을 부르므로
   // playhead 매 tick (60fps) 마다 N회 반복하면 1시간/1500씬 기준 ~0.5% CPU 누적.
   // sort를 명시적으로 — binary search 정확성 보장.
@@ -252,7 +311,7 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, height = 
           }}
         />
         {subtitleText && !hideSubtitle && (
-          <div className="atl-preview-subtitle">{subtitleText}</div>
+          <div className="atl-preview-subtitle" style={subtitleStyle}>{subtitleText}</div>
         )}
       </div>
       {/* Hidden prefetch — 다음 활성 비디오를 미리 OS 캐시에 warm. 화면 표시는 안 함. */}

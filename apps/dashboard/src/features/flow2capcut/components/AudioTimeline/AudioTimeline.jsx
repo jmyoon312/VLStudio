@@ -89,7 +89,7 @@ function formatTC(ms, totalDurationMs = 0) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
 }
 
-export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClipSelect, onSaveTimecodeOverride, disabled = false, onFlag, isFlagged, onTrackDrop, compact = false, onPlayheadChange, onPlayingChange, onHiddenRolesChange, onSceneUpdate, onTitleClick = null, titleActive = false, aspectRatio = '16:9' }) {
+export default function AudioTimeline({ audioPackage, scenes, srtEntries, subtitleConfig, onClipSelect, onSaveTimecodeOverride, disabled = false, onFlag, isFlagged, onTrackDrop, compact = false, onPlayheadChange, onPlayingChange, onHiddenRolesChange, onSceneUpdate, onTitleClick = null, titleActive = false, aspectRatio = '16:9' }) {
   const { t } = useI18n()
   // 영상 클립 호버 👁 → 해당 씬의 i2v/t2v export 제외 플래그 토글 (falsy=포함).
   const handleToggleVideo = useCallback((clip) => {
@@ -988,6 +988,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
             playheadMs={playheadMs}
             scenes={scenes}
             srtEntries={srtEntries}
+            subtitleConfig={subtitleConfig}
             height={compact ? 200 : previewHeight}
             isPlaying={isGlobalPlaying}
             hiddenRoles={disabledTracks}

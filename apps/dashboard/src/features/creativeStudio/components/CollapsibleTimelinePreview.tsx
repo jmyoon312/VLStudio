@@ -31,6 +31,7 @@ interface Props {
   scenes: SceneItem[];
   aspectRatio: '9:16' | '16:9';
   srtEntries?: any[];
+  subtitleConfig?: any;
   watermarkConfig?: WatermarkConfig;
   transitionConfig?: TransitionConfig;
   isOpen: boolean;
@@ -48,6 +49,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   scenes,
   aspectRatio = '16:9',
   srtEntries: externalSrtEntries,
+  subtitleConfig,
   isOpen,
   onToggle,
   onSelectScene,
@@ -324,6 +326,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             scenes={normalizedTimelineScenes}
             audioPackage={audioPackage}
             srtEntries={srtEntries}
+            subtitleConfig={subtitleConfig}
             compact={false}
             aspectRatio={aspectRatio}
             onTitleClick={() => setIsFullscreen(true)}
@@ -368,6 +371,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
               playheadMs={fullscreenPlayheadMs}
               scenes={normalizedTimelineScenes}
               srtEntries={srtEntries}
+              subtitleConfig={subtitleConfig}
               height="100%"
               isPlaying={isFullscreenPlaying}
               hiddenRoles={new Set()}
