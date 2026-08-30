@@ -14,6 +14,7 @@ export interface SceneItem {
   scene_id: number;
   script: string;
   visual_prompt: string;
+  video_prompt?: string;
   media_url?: string;
   media_path?: string;
   audio_url?: string;
@@ -21,6 +22,9 @@ export interface SceneItem {
   video_url?: string;
   video_path?: string;
   duration?: number; // 초 단위
+  visualStatus?: 'idle' | 'generating' | 'completed' | 'failed';
+  audioStatus?: 'idle' | 'generating' | 'completed' | 'failed';
+  progress?: number;
 }
 
 interface Props {
@@ -32,6 +36,11 @@ interface Props {
   onToggle: () => void;
   onSelectScene?: (index: number) => void;
   onSplitScene?: (index: number, timeOffset: number) => void;
+  onBatchFlowImages?: () => void;
+  onBatchFlowVideos?: () => void;
+  onExportCapcut?: () => void;
+  isFlowBatchGenerating?: boolean;
+  onGenerateSceneFlow?: (scene: SceneItem) => void;
 }
 
 export const CollapsibleTimelinePreview: React.FC<Props> = ({
@@ -42,7 +51,12 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   isOpen,
   onToggle,
   onSelectScene,
-  onSplitScene
+  onSplitScene,
+  onBatchFlowImages,
+  onBatchFlowVideos,
+  onExportCapcut,
+  isFlowBatchGenerating,
+  onGenerateSceneFlow
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -303,6 +317,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
           </Button>
         </div>
         <div className="flex items-center gap-2">
+          {/* Zoom Slider */}
           <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-background border border-border rounded-lg">
             <Button 
               variant="ghost" 
@@ -324,9 +339,53 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
               <ZoomIn className="w-3 h-3" />
             </Button>
           </div>
+
+          <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
+
+          {/* Flow AI Batch Generate Buttons */}
+          {onBatchFlowImages && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isFlowBatchGenerating || scenes.length === 0}
+              onClick={onBatchFlowImages}
+              className="h-7 px-2.5 text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
+              title="Google Flow AI로 전체 씬 이미지 일괄 생성"
+            >
+              <Sparkles className="w-3 h-3 mr-1" />
+              <span>Flow 이미지 일괄 생성</span>
+            </Button>
+          )}
+
+          {onBatchFlowVideos && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isFlowBatchGenerating || scenes.length === 0}
+              onClick={onBatchFlowVideos}
+              className="h-7 px-2.5 text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30"
+              title="Google Flow AI로 전체 씬 비디오(I2V) 일괄 생성"
+            >
+              <Video className="w-3 h-3 mr-1" />
+              <span>Flow 비디오 일괄 생성</span>
+            </Button>
+          )}
+
+          {onExportCapcut && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onExportCapcut}
+              className="h-7 px-2.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+            >
+              <span>CapCut 내보내기</span>
+            </Button>
+          )}
+
           <Badge variant="outline" className="text-[11px] bg-primary/10 border-primary/30 text-primary font-bold">
             총 {scenes.length}개 씬
           </Badge>
+
           <Button
             variant="ghost"
             size="sm"

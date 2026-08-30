@@ -1911,6 +1911,10 @@ const CreativeStudio = () => {
                 transitionConfig={transitionConfig}
                 isOpen={isTimelineOpen}
                 onToggle={() => setIsTimelineOpen(!isTimelineOpen)}
+                onBatchFlowImages={handleBatchFlowImages}
+                onBatchFlowVideos={handleBatchFlowVideos}
+                onExportCapcut={handleExportToCapcut}
+                isFlowBatchGenerating={isFlowBatchGenerating}
             />
 
             {/* Zone 3: Scene Board */}
