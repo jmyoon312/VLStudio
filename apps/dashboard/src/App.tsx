@@ -47,6 +47,7 @@ import GuideCenter from './pages/GuideCenter';
 import Home from './pages/Home';
 
 import ResearchBrief from './pages/ResearchBrief';
+import ResearchConceptLab from './pages/ResearchConceptLab';
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
@@ -120,6 +121,7 @@ function MainAppContent() {
             <Routes>
                 <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
                 <Route path="/douyin-search" element={<SmartDouyinSearch />} />
+                <Route path="/research-concept-lab" element={<ResearchConceptLab />} />
                 <Route path="/ddalkkak" element={<DdalkkakUI />} />
                 <Route path="/scene-cutter-pro" element={<SceneCutter />} />
                 <Route path="/ai-copilot" element={<AICoPilotStudio />} /> {/* [NEW] AI Copilot Studio */}

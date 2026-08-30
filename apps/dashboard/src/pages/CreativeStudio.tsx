@@ -448,6 +448,31 @@ const CreativeStudio = () => {
         }));
     }, [segmentMode]);
 
+    // State: Project Folder Name (05_Exports 하위 임의 규칙 자동 생성 및 관리)
+    const [currentProjectName, setCurrentProjectName] = useState<string>(() => {
+        const saved = localStorage.getItem('creative_current_project_name');
+        if (saved) return saved;
+        return 'project_01';
+    });
+
+    // 마운트 시 기획 & 리서치 랩(ResearchConceptLab)으로부터 넘어온 대본/기획 자동 로드
+    useEffect(() => {
+        const initialScript = sessionStorage.getItem('creative_studio_initial_script');
+        const initialTitle = sessionStorage.getItem('creative_studio_initial_title');
+        if (initialScript) {
+            setFullScript(initialScript);
+            sessionStorage.removeItem('creative_studio_initial_script');
+            toast.success('기획 & 리서치 랩에서 대본을 성공적으로 불러왔습니다!');
+        }
+        if (initialTitle) {
+            const sanitized = initialTitle.replace(/[^a-zA-Z0-9가-힣_]/g, '_').slice(0, 20);
+            const newProjName = `project_${sanitized || '01'}`;
+            setCurrentProjectName(newProjName);
+            localStorage.setItem('creative_current_project_name', newProjName);
+            sessionStorage.removeItem('creative_studio_initial_title');
+        }
+    }, []);
+
     // State: TTS Config
     const [isTTSDialogOpen, setIsTTSDialogOpen] = useState(false);
     const [ttsConfig, setTTSConfig] = useState<any>(() => {
@@ -695,10 +720,24 @@ const CreativeStudio = () => {
         }
     });
 
-    const handleResetScenes = () => {
+    const handleResetScenes = async () => {
         if (scenes.length === 0) return;
-        if (confirm("정말 모든 씬을 초기화하시겠습니까? 생성된 이미지와 영상 정보가 사라집니다.")) {
-            // Collect all paths to clean up
+        if (confirm("정말 모든 씬과 생성된 프로젝트 폴더를 삭제하시겠습니까?\n05_Exports 폴더 내의 생성된 모든 이미지/영상 파일이 디스크에서 영구 삭제됩니다.")) {
+            try {
+                const apiObj = (window as any).electronAPI;
+                if (apiObj?.deleteProject && currentProjectName) {
+                    const defaultFolderRes = await apiObj.getDefaultWorkFolder?.();
+                    const workFolder = defaultFolderRes?.path || '';
+                    if (workFolder) {
+                        await apiObj.deleteProject({ workFolder, project: currentProjectName });
+                        console.log(`[Storage] Cleaned up project folder: ${workFolder}/${currentProjectName}`);
+                    }
+                }
+            } catch (err) {
+                console.error("[Storage] Failed to delete project folder:", err);
+            }
+
+            // Collect all paths to clean up via backend fallback
             const pathsToClean: string[] = [];
             scenes.forEach(s => {
                 if (s.media_path) pathsToClean.push(s.media_path);
@@ -711,7 +750,15 @@ const CreativeStudio = () => {
             }
 
             setScenes([]);
-            toast.success("씬 보드가 초기화되었습니다 (파일 정리 완료).");
+            // 새 프로젝트 폴더 규칙 자동 생성 (예: project_260830_221000)
+            const now = new Date();
+            const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
+            const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+            const newProjName = `project_${dateStr}_${timeStr}`;
+            setCurrentProjectName(newProjName);
+            localStorage.setItem('creative_current_project_name', newProjName);
+
+            toast.success("프로젝트 폴더 및 생성물이 디스크에서 완전히 삭제되었습니다.");
         }
     };
 
@@ -1965,11 +2012,28 @@ const CreativeStudio = () => {
                 <div className="bg-card p-4 rounded-lg border shadow-sm sticky top-0 z-10 space-y-3">
                     {/* Row 1: Title & Segment Mode */}
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2 text-muted-foreground">
-                                <Film className="w-4 h-4" />
+                                <Film className="w-4 h-4 text-primary" />
                                 <span className="text-xs font-bold uppercase tracking-wider">Scene Board</span>
                                 <Badge variant="secondary" className="ml-2 h-5 text-[10px]">{scenes.length} Scenes</Badge>
+                            </div>
+                            <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-muted/50 border rounded-md text-[11px] text-muted-foreground font-mono">
+                                <span>📁 05_Exports/{currentProjectName}</span>
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            const apiObj = (window as any).electronAPI;
+                                            if (apiObj?.openWorkFolder) {
+                                                await apiObj.openWorkFolder();
+                                            }
+                                        } catch {}
+                                    }}
+                                    className="text-primary hover:underline ml-1 font-sans text-[10px]"
+                                    title="05_Exports 폴더 열기"
+                                >
+                                    열기
+                                </button>
                             </div>
                         </div>
 

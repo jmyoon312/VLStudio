@@ -74,6 +74,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "CREATION",
         defaultExpanded: true,
         items: [
+            { name: '인텔리전스 기획 & 리서치 랩', path: '/research-concept-lab', icon: BrainCircuit, highlight: true },
             { name: 'AI 원클릭 쇼츠 제작', path: '/ddalkkak', icon: Zap, highlight: true },
             { name: '스마트 씬 분할 컷터', path: '/scene-cutter-pro', icon: Scissors, highlight: true },
             { name: 'AI 미디어 일괄 생성', path: '/creative-studio', icon: Clapperboard, highlight: true },
