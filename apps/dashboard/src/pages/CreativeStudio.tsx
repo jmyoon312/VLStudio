@@ -1015,9 +1015,37 @@ const CreativeStudio = () => {
     });
 
 
-    const handleGenerateImage = (sceneId: number, id: string, prompt: string) => {
-        const finalPrompt = `${prompt}${negativePrompt ? " --no " + negativePrompt : ""}`;
+    const handleGenerateImage = async (sceneId: number, id: string, prompt: string) => {
+        const finalPrompt = `${stylePrompt ? `${stylePrompt}, ` : ''}${prompt}${negativePrompt ? ` --no ${negativePrompt}` : ''}`;
         updateScene(id, { visualStatus: 'generating' });
+
+        const apiObj = (window as any).electronAPI;
+        if (apiObj && (apiObj.flowGenerateImage || apiObj.generateImage)) {
+            try {
+                toast.info(`Scene #${sceneId} Google Flow AI 이미지 생성을 시작합니다...`);
+                const fn = apiObj.flowGenerateImage || apiObj.generateImage;
+                const res = await fn({
+                    prompt: finalPrompt,
+                    aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
+                });
+
+                if (res?.success && (res?.images?.[0]?.base64 || res?.base64 || res?.url || res?.image_url)) {
+                    const mediaUrl = res.images?.[0]?.base64 || res.base64 || res.url || res.image_url;
+                    updateScene(id, { visualStatus: 'completed', media_url: mediaUrl, viewMode: 'source' });
+                    toast.success(`Scene #${sceneId} Flow 이미지 생성 완료!`);
+                    return;
+                } else if (res?.error) {
+                    throw new Error(res.error);
+                }
+            } catch (err: any) {
+                console.error(`[Flow Image] Scene #${sceneId} error:`, err);
+                toast.error(`Scene #${sceneId} Flow 이미지 생성 실패: ` + (err.message || err));
+                updateScene(id, { visualStatus: 'failed' });
+                return;
+            }
+        }
+
+        // Electron 외 브라우저 환경 전용 폴백
         generateImageMutation.mutate({ id, sceneId, prompt: finalPrompt });
     };
 

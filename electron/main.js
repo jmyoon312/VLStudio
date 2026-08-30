@@ -857,8 +857,8 @@ function createWindow() {
     return true;
   };
 
-  // Create initial view (DELAYED LAUNCH - Dashboard 100% Fullscreen on startup)
-  // flowView = global.createOrGetFlowView(initialProfileId)
+  // Create initial view (Flow WebContentsView 활성화)
+  flowView = global.createOrGetFlowView(initialProfileId)
 
   // Handle window resize — update view bounds
   mainWindow.on('resize', () => {
@@ -868,7 +868,9 @@ function createWindow() {
   })
 
   // Split 레이아웃 적용
-  // updateBounds(mainWindow, flowView)
+  if (typeof updateBounds === 'function' && mainWindow) {
+    updateBounds(mainWindow, flowView)
+  }
 
   // Reset modal visibility state on navigation/reload
   mainWindow.webContents.on('did-start-navigation', (event, url, isInPlace, isMainFrame) => {
