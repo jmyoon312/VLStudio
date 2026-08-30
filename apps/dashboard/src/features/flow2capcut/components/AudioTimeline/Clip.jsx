@@ -158,11 +158,12 @@ export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDo
       onMouseLeave={onMouseLeave}
       title={clip.filename || clip.label || ''}
     >
-      {variant === 'block' && clip.imagePath && (
-        <img className="atl-clip-img" src={clip.imgSrc || `file://${clip.imagePath}`} alt="" />
-      )}
-      {variant === 'block' && !clip.imagePath && clip.posterDataUrl && (
-        <img className="atl-clip-img" src={clip.posterDataUrl} alt="" />
+      {variant === 'block' && (clip.imgSrc || clip.imagePath || clip.posterDataUrl) && (
+        <img
+          className="atl-clip-img"
+          src={clip.imgSrc || (clip.imagePath ? (clip.imagePath.startsWith('local-resource://') || clip.imagePath.startsWith('data:') ? clip.imagePath : `local-resource:///${clip.imagePath.replace(/^[/\\]+/, '').replace(/\\/g, '/')}`) : clip.posterDataUrl)}
+          alt=""
+        />
       )}
       {/* 생성 중 클립 — shimmer(윤기/광택). placeholder(이미지 없음)면 빈 박스 위에. */}
       {variant === 'block' && clip.generating && <div className="gen-shimmer" aria-hidden="true" />}

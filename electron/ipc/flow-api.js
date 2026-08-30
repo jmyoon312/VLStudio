@@ -125,6 +125,11 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     return { success: !!token, token }
   })
 
+  // Set agent mode
+  ipcMain.handle('flow:set-agent-mode', async (event, { enabled }) => {
+    return { success: true, enabled }
+  })
+
   // Generate image via Flow API
   ipcMain.handle('flow:generate-image', async (event, {
     token, prompt, aspectRatio, seed, model, projectId, referenceImages, batchCount,
