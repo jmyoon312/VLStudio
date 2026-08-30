@@ -92,22 +92,30 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       background = `rgba(${r}, ${g}, ${b}, ${alpha})`
     }
 
+    // 색상 유효성 검사: 만약 textColor가 없거나 너무 어두운 검정 계열(#000000 등)이면 밝은 흰색으로 강제 보정
+    let textColor = cfg.textColor || '#FFFFFF'
+    if (textColor.toLowerCase() === '#000000' || textColor.toLowerCase() === '#111111' || textColor.toLowerCase() === '#222222') {
+      textColor = '#FFFFFF'
+    }
+
     return {
       fontFamily: cfg.font ? `"${cfg.font}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` : 'inherit',
       fontSize: `${previewFontSize}px`,
-      color: cfg.textColor || '#FFFFFF',
+      color: textColor,
       fontWeight: cfg.isBold !== false ? 700 : 400,
       fontStyle: cfg.isItalic ? 'italic' : 'normal',
       textAlign: cfg.textAlign || 'center',
       textShadow,
       background,
-      padding: '6px 14px',
-      borderRadius: '6px',
-      maxWidth: '90%',
-      lineHeight: 1.4,
+      padding: '8px 16px',
+      borderRadius: '8px',
+      border: '1px solid rgba(255, 255, 255, 0.25)',
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.85)',
+      maxWidth: '88%',
+      lineHeight: 1.45,
       whiteSpace: 'pre-wrap',
       pointerEvents: 'none',
-      zIndex: 40,
+      zIndex: 50,
       ...posStyle
     }
   }, [subtitleConfig])

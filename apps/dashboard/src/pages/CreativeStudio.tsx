@@ -540,28 +540,35 @@ const CreativeStudio = () => {
     const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>(() => {
         const defaults = {
             enabled: true,
-            font: 'Arial',
+            font: 'Wanted Sans',
             fontSize: 40,
             isBold: true,
             isItalic: false,
-            textColor: '#ffffff',
+            textColor: '#FFFFFF',
             outlineSize: 2,
             outlineColor: '#000000',
             shadowSize: 2,
             shadowColor: '#000000',
-            useBox: false,
+            useBox: true,
             boxColor: '#000000',
-            position: 'bottom',
-            marginV: 50,
+            boxOpacity: 75,
+            position: 'bottom' as const,
+            marginV: 24,
             customX: 0,
             customY: 0,
-            animation: 'none',
+            animation: 'none' as const,
             splitLimit: 20,
             maxLines: 2
         };
         const saved = localStorage.getItem('viral_loop_subtitle_config');
         if (saved) {
-            try { return { ...defaults, ...JSON.parse(saved) }; } catch (e) { console.error(e); }
+            try { 
+                const parsed = JSON.parse(saved);
+                if (parsed.textColor && (parsed.textColor.toLowerCase() === '#000000' || parsed.textColor.toLowerCase() === '#111111' || parsed.textColor.toLowerCase() === '#222222')) {
+                    parsed.textColor = '#FFFFFF';
+                }
+                return { ...defaults, ...parsed }; 
+            } catch (e) { console.error(e); }
         }
         return defaults;
     });
