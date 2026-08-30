@@ -1912,6 +1912,45 @@ const CreativeStudio = () => {
                 transitionConfig={transitionConfig}
                 isOpen={isTimelineOpen}
                 onToggle={() => setIsTimelineOpen(!isTimelineOpen)}
+                onSelectScene={(idx) => {
+                    const scene = scenes[idx];
+                    if (scene) {
+                        const el = document.getElementById(`scene-${scene.id}`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }}
+                onSplitScene={(idx, _timeOffset) => {
+                    if (!scenes[idx]) return;
+                    const targetScene = scenes[idx];
+                    const scriptText = targetScene.script || '';
+                    const midPoint = Math.floor(scriptText.length / 2);
+                    const part1 = scriptText.slice(0, midPoint).trim() || scriptText;
+                    const part2 = scriptText.slice(midPoint).trim() || '추가 분할 대본';
+
+                    const newSceneA: SceneSegment = {
+                        ...targetScene,
+                        script: part1,
+                        duration: Math.max(2.0, Number((targetScene.duration || 3.5) / 2))
+                    };
+                    const newSceneB: SceneSegment = {
+                        id: uuidv4(),
+                        scene_id: targetScene.scene_id + 1,
+                        script: part2,
+                        visual_prompt: targetScene.visual_prompt,
+                        video_prompt: targetScene.video_prompt,
+                        duration: Math.max(2.0, Number((targetScene.duration || 3.5) / 2)),
+                        audioStatus: 'idle',
+                        visualStatus: 'idle',
+                        renderStatus: 'idle',
+                        viewMode: 'source'
+                    };
+
+                    const nextScenes = [...scenes];
+                    nextScenes.splice(idx, 1, newSceneA, newSceneB);
+                    const renumbered = nextScenes.map((s, i) => ({ ...s, scene_id: i + 1 }));
+                    setScenes(renumbered);
+                    toast.success(`Scene #${targetScene.scene_id}이 2개 씬으로 분할되었습니다.`);
+                }}
                 onBatchFlowImages={handleBatchFlowImages}
                 onBatchFlowVideos={handleBatchFlowVideos}
                 onExportCapcut={() => setIsExportModalOpen(true)}
@@ -2059,7 +2098,7 @@ const CreativeStudio = () => {
                             </div>
 
                             {/* Compact Scene Card (Flex Row) */}
-                            <div className="flex flex-col md:flex-row border rounded-xl shadow-sm overflow-hidden bg-card">
+                            <div id={`scene-${scene.id}`} className="flex flex-col md:flex-row border rounded-xl shadow-sm overflow-hidden bg-card transition-all duration-300">
                                 {/* Left Panel: Inputs (Flex-1) */}
                                 <div className="flex-1 p-4 space-y-4 border-r">
                                     {/* Header: Scene # + Trash */}
