@@ -807,11 +807,11 @@ async def generate_scene_tts(
         # Resolve robust TTS config fallback
         config = request.tts_config or {}
         if not config.get("engine"):
-            config["engine"] = "supertone-local"
+            config["engine"] = getattr(settings, "default_tts_engine", "edge") or "edge"
         if not config.get("language"):
             config["language"] = "ko"
         if not config.get("voice_id"):
-            config["voice_id"] = "M1"
+            config["voice_id"] = "ko-KR-SunHiNeural" if config.get("language") == "ko" else "en-US-JennyNeural"
 
         audio_path = await video_client.generate_scene_audio(
             scene_id=request.scene_id,

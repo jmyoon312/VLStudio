@@ -120,16 +120,21 @@ class TTSEngine:
                 # Expose override for FFmpeg block
                 supertone_pitch_override = final_pitch 
                 
-                await asyncio.to_thread(
-                    self._generate_supertone_local, 
-                    text, voice_id, abs_path, 
-                    language=language, 
-                    speed=final_speed, 
-                    emotion=emotion,
-                    noise_scale=final_noise,
-                    mix_voice_id=mix_voice_id,
-                    mix_ratio=mix_ratio
-                ) 
+                try:
+                    await asyncio.to_thread(
+                        self._generate_supertone_local, 
+                        text, voice_id, abs_path, 
+                        language=language, 
+                        speed=final_speed, 
+                        emotion=emotion,
+                        noise_scale=final_noise,
+                        mix_voice_id=mix_voice_id,
+                        mix_ratio=mix_ratio
+                    )
+                except Exception as st_err:
+                    logger.warning(f"⚠️ supertone-local failed ({st_err}), automatically falling back to Edge TTS...")
+                    fallback_voice = "ko-KR-InJoonNeural" if (voice_id and "M" in str(voice_id)) else "ko-KR-SunHiNeural"
+                    await self._generate_edge(text, fallback_voice, abs_path, rate, pitch)
                 
             elif engine == "edge":
                 await self._generate_edge(text, voice_id, abs_path, rate, pitch)
@@ -300,7 +305,18 @@ class TTSEngine:
             raise e
 
     async def _generate_edge(self, text, voice, path, rate=0, pitch=0):
-        voice = voice or "ko-KR-SunHiNeural"
+        voice_str = str(voice or "").strip()
+        if not voice_str or voice_str in ["M1", "M2", "M3", "M4", "male", "narrator", "male_20s", "male_40s_50s", "male_70s", "male_child"]:
+            target_voice = "ko-KR-InJoonNeural"
+        elif voice_str in ["F1", "F2", "F3", "F4", "female", "female_20s", "female_40s_50s", "female_70s", "female_child"]:
+            target_voice = "ko-KR-SunHiNeural"
+        elif "/" in voice_str:
+            sub_id = voice_str.split("/")[-1]
+            target_voice = "ko-KR-InJoonNeural" if sub_id.startswith("M") else "ko-KR-SunHiNeural"
+        elif not ("Neural" in voice_str):
+            target_voice = "ko-KR-SunHiNeural"
+        else:
+            target_voice = voice_str
         
         # NOTE: We use FFmpeg for rate/pitch effects in _apply_audio_effects, 
         # so we don't pass rate/pitch to Edge TTS here (defaults used).
@@ -311,7 +327,7 @@ class TTSEngine:
             
             async def _main():
                 # Direct library usage avoids CLI encoding issues
-                communicate = edge_tts.Communicate(text, voice)
+                communicate = edge_tts.Communicate(text, target_voice)
                 await communicate.save(path)
 
             # Create a new event loop for this thread to avoid conflict with Uvicorn's loop
