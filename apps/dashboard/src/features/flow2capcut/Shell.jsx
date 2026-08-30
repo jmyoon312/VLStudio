@@ -46,7 +46,7 @@ function ShellContent({ children }) {
 
   // Multi-View & Profile States
   const [profileConfig, setProfileConfig] = useState({ activeProfileId: 'default', profiles: [] })
-  const [activeViews, setActiveViews] = useState([])
+  const [activeViews, setActiveViews] = useState(['default'])
 
   // 로컬 프로필 및 활성 뷰 실시간 로딩/동기화
   const loadProfilesAndViews = useCallback(async () => {
@@ -293,7 +293,7 @@ function ShellContent({ children }) {
 
   const modeStr = typeof layoutMode === 'string' ? layoutMode : (layoutMode?.mode || 'split-left')
 
-  if (!isFlowPage || activeViews.length === 0 || modeStr === 'none' || modeStr === 'tab' || !modeStr.startsWith('split-')) {
+  if (!isFlowPage || modeStr === 'none' || modeStr === 'hidden' || modeStr === 'tab' || !modeStr.startsWith('split-')) {
     return <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>{children}</div>
   }
 

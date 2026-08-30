@@ -1222,6 +1222,10 @@ ipcMain.handle('flow:focus-view', async (event, { profileId } = {}) => {
     return { success: true, profileId }
   } catch (e) {
     console.error('[flow:focus-view] Error:', e.message)
+    return { success: false, error: e.message }
+  }
+})
+
 ipcMain.handle('flow:reload-view', async (event, { profileId } = {}) => {
   try {
     const targetId = profileId || global.activeFlowProfileId || 'default'
