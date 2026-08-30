@@ -90,19 +90,19 @@ const CreativeStudio = () => {
         queryFn: async () => (await api.get('/creative/styles')).data
     });
 
-    // [SOVEREIGN TRUTH] 작업 환경 설정(Settings) 실시간 동적 연동
+    // [SOVEREIGN TRUTH] 작업 환경 설정(Settings) 실시간 동적 연동 (Single Source of Truth)
     const { data: userSettings } = useQuery({
         queryKey: ['workspaceSettings'],
         queryFn: async () => (await api.get('/settings/')).data
     });
 
-    // 작업 환경 설정값이 로드/변경되면 기본 모델을 자동으로 동기화
+    // 작업 환경 설정값이 로드/변경되면 기본 모델을 자동으로 동기화 (하드코딩 배제)
     useEffect(() => {
         if (userSettings) {
-            const dynamicProvider = userSettings.script_analysis_provider || userSettings.paperclip_provider || userSettings.openclaw_preferred_provider || 'youtube1';
-            const dynamicModel = userSettings.script_analysis_model || userSettings.default_llm_model || userSettings.paperclip_model || 'youtube1/youtube1';
-            setScriptProvider(dynamicProvider);
-            setScriptModel(dynamicModel);
+            const dynamicProvider = userSettings.script_analysis_provider || userSettings.default_llm_provider || userSettings.paperclip_provider || '';
+            const dynamicModel = userSettings.script_analysis_model || userSettings.default_llm_model || userSettings.paperclip_model || '';
+            if (dynamicProvider) setScriptProvider(dynamicProvider);
+            if (dynamicModel) setScriptModel(dynamicModel);
         }
     }, [userSettings]);
 
@@ -210,13 +210,13 @@ const CreativeStudio = () => {
         });
     };
 
-    // State: Script Workspace (기본 분석 모델 지정: youtube1)
+    // State: Script Workspace (DB Settings 기반 동적 연동)
     const [scriptMode, setScriptMode] = useState("manual"); // Default to Manual
     const [fullScript, setFullScript] = useState(() => {
         return localStorage.getItem('viral_loop_creative_full_script') || "";
     });
-    const [scriptProvider, setScriptProvider] = useState<string>("youtube1");
-    const [scriptModel, setScriptModel] = useState<string>("youtube1/youtube1");
+    const [scriptProvider, setScriptProvider] = useState<string>("");
+    const [scriptModel, setScriptModel] = useState<string>("");
 
     // Flow Multi-Window & Headless Queue States
     const [flowViews, setFlowViews] = useState<string[]>([]);
@@ -884,8 +884,8 @@ const CreativeStudio = () => {
         segmentScriptMutation.mutate({
             text: fullScript,
             mode: segmentMode,
-            provider: scriptProvider || "google",
-            model: scriptModel || "gemini-3.0-pro-preview",
+            provider: scriptProvider || undefined,
+            model: scriptModel || undefined,
             stylePrompt: stylePrompt || "",
             split_method: pacingStrategy === 'rule' ? 'custom_rule' : 'ai_smart',
             auto_generate_images: autoGenerateImages,

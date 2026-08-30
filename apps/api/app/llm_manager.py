@@ -205,11 +205,15 @@ class LLMClient:
         [SOVEREIGN] Strictly honors the requested model_name without unrequested provider switching.
         """
         try:
-            # [STABILIZATION] Resolve Effective Model Name with absolute DB priority
-            if not model_name or model_name.lower() in ["free", "auto"]:
-                provider = getattr(self.settings, "openclaw_preferred_provider", "auto")
-                if provider != "auto" and "/" not in model_name:
-                    model_name = f"{provider}/{model_name}"
+            # [SOVEREIGN TRUTH] Resolve Effective Model Name with absolute DB Settings priority
+            if not model_name or model_name.lower() in ["free", "auto", "default"]:
+                db_model = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "default_llm_model", None) or getattr(self.settings, "paperclip_model", None)
+                if db_model:
+                    model_name = db_model
+                else:
+                    provider = getattr(self.settings, "openclaw_preferred_provider", "auto")
+                    if provider != "auto" and model_name and "/" not in model_name:
+                        model_name = f"{provider}/{model_name}"
 
             # OpenCode Zen Routing Logic
             if model_name.startswith("opencode/"):

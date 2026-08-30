@@ -57,8 +57,8 @@ class SceneSegment(BaseModel):
 class SegmentationRequest(BaseModel):
     text: str
     mode: str = "shorts"
-    provider: str = "google"
-    model: str = "gemini-3.0-pro-preview"
+    provider: Optional[str] = None
+    model: Optional[str] = None
     style_prompt: str = ""
     split_method: str = "ai_smart" # ai_smart, visual_change, sentence, paragraph, semantic, custom_rule
     auto_generate_images: bool = False # [NEW] Auto-trigger Draft Gen
