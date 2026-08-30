@@ -26,7 +26,12 @@ export function updateBounds(mainWindow, flowView) {
   if (isHidden) {
     for (const view of views) {
       if (!view || view.webContents?.isDestroyed?.()) continue
-      try { view.setBounds({ x: -10000, y: -10000, width: 0, height: 0 }) } catch (e) {
+      try {
+        if (typeof view.setVisible === 'function') {
+          view.setVisible(false)
+        }
+        view.setBounds({ x: -10000, y: -10000, width: 0, height: 0 })
+      } catch (e) {
         console.warn('[Layout] Failed to hide view bounds:', e.message)
       }
     }
@@ -68,11 +73,21 @@ export function updateBounds(mainWindow, flowView) {
     for (const [profId, view] of global.flowViews.entries()) {
       if (!view || view.webContents?.isDestroyed?.()) continue
       if (profId === activeId) {
-        try { view.setBounds({ x, y, width: cWidth, height: cHeight }) } catch (e) {
+        try {
+          if (typeof view.setVisible === 'function') {
+            view.setVisible(true)
+          }
+          view.setBounds({ x, y, width: cWidth, height: cHeight })
+        } catch (e) {
           console.warn(`[Layout] Failed to set bounds for active view (${profId}):`, e.message)
         }
       } else {
-        try { view.setBounds({ x: -10000, y: -10000, width: 0, height: 0 }) } catch (e) {}
+        try {
+          if (typeof view.setVisible === 'function') {
+            view.setVisible(false)
+          }
+          view.setBounds({ x: -10000, y: -10000, width: 0, height: 0 })
+        } catch (e) {}
       }
     }
     return
@@ -80,7 +95,12 @@ export function updateBounds(mainWindow, flowView) {
 
   // fallback 단일 뷰
   if (views.length > 0) {
-    try { views[0].setBounds({ x, y, width: cWidth, height: cHeight }) } catch (e) {
+    try {
+      if (typeof views[0].setVisible === 'function') {
+        views[0].setVisible(true)
+      }
+      views[0].setBounds({ x, y, width: cWidth, height: cHeight })
+    } catch (e) {
       console.warn('[Layout] Failed to set bounds for view 0:', e.message)
     }
   }
