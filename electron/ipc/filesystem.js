@@ -392,6 +392,25 @@ export function registerFilesystemIPC(ipcMain) {
     }
   })
 
+  // 1b-2. fs:open-project-folder (특정 프로젝트 폴더 자동 생성 및 열기)
+  ipcMain.handle('fs:open-project-folder', async (_event, projectName) => {
+    try {
+      const config = await readWorkFolderConfig()
+      const rootFolder = config?.path || path.join(process.env.LOCALAPPDATA || '', 'ViraLoop Studio', 'media', '05_Exports')
+      const targetFolder = projectName ? path.join(rootFolder, projectName) : rootFolder
+      
+      if (!fs.existsSync(targetFolder)) {
+        fs.mkdirSync(targetFolder, { recursive: true })
+      }
+
+      const { shell } = await import('electron')
+      await shell.openPath(targetFolder)
+      return { success: true, path: targetFolder }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
   // 1c. fs:open-path
   ipcMain.handle('fs:open-path', async (_event, targetPath) => {
     try {

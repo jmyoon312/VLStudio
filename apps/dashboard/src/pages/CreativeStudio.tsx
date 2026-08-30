@@ -2077,13 +2077,20 @@ const CreativeStudio = () => {
                                     onClick={async () => {
                                         try {
                                             const apiObj = (window as any).electronAPI;
-                                            if (apiObj?.openWorkFolder) {
+                                            if (apiObj?.openProjectFolder) {
+                                                const res = await apiObj.openProjectFolder(currentProjectName);
+                                                if (res?.success) {
+                                                    toast.success(`프로젝트 폴더를 열었습니다: 05_Exports/${currentProjectName}`);
+                                                }
+                                            } else if (apiObj?.openWorkFolder) {
                                                 await apiObj.openWorkFolder();
                                             }
-                                        } catch {}
+                                        } catch (e: any) {
+                                            toast.error("폴더 열기 실패: " + e.message);
+                                        }
                                     }}
-                                    className="text-primary hover:underline ml-1 font-sans text-[10px]"
-                                    title="05_Exports 폴더 열기"
+                                    className="text-primary hover:underline ml-1 font-sans text-[10px] font-semibold"
+                                    title="05_Exports 하위 해당 프로젝트 폴더 열기"
                                 >
                                     열기
                                 </button>

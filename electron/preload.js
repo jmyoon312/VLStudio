@@ -243,6 +243,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isMock: () => false,
   flow: (payload) => ipcRenderer.invoke('flow:generate-image', payload),
   openWorkFolder: () => ipcRenderer.invoke('fs:open-work-folder'),
+  openProjectFolder: (projectName) => ipcRenderer.invoke('fs:open-project-folder', projectName),
   openPath: (targetPath) => ipcRenderer.invoke('fs:open-path', targetPath),
   switchTab: () => ({ success: true }),
   notifyOS: () => ({ success: true }),
