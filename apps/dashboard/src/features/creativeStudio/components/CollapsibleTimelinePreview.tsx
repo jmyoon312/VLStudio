@@ -86,11 +86,14 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
         ...s,
         id: s.id || `scene_${idx + 1}`,
         scene_id: s.scene_id || idx + 1,
+        startMs,
+        endMs,
         startTime: startTimeStr,
         endTime: endTimeStr,
         start_time: startTimeStr,
         end_time: endTimeStr,
         duration: durSec,
+        durationMs: durMs,
         image: s.media_url || s.media_path || null,
         imagePath: s.media_path || s.media_url || null,
         image_path: s.media_path || s.media_url || null,
@@ -117,21 +120,27 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   const audioPackage = useMemo(() => {
     if (!normalizedTimelineScenes || normalizedTimelineScenes.length === 0) return null;
     
-    let totalMs = 0;
+    let accMs = 0;
     const clips = normalizedTimelineScenes
       .filter((s) => s.audioPath || s.audioUrl)
-      .map((s, i) => {
-        const startSec = (s.duration || 3.5) * i;
-        const durSec = s.duration || 3.5;
-        totalMs += Math.round(durSec * 1000);
+      .map((s) => {
+        const durSec = Number(s.duration) > 0 ? Number(s.duration) : 3.5;
+        const durMs = Math.round(durSec * 1000);
+        const startMs = accMs;
+        const endMs = accMs + durMs;
+        accMs = endMs;
+
+        const startSec = startMs / 1000;
+        const endSec = endMs / 1000;
+
         return {
           id: `narration-${s.id}`,
           file: s.audioPath || s.audioUrl,
           audioPath: s.audioPath || s.audioUrl,
           start: startSec,
-          end: startSec + durSec,
-          startMs: Math.round(startSec * 1000),
-          endMs: Math.round((startSec + durSec) * 1000),
+          end: endSec,
+          startMs: startMs,
+          endMs: endMs,
           duration: durSec,
           role: 'narration',
           name: `TTS #${s.scene_id}`

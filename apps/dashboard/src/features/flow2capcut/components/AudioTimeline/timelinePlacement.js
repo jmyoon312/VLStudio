@@ -9,12 +9,15 @@ import { parseTimeToSeconds } from '../../utils/parsers'
  */
 export function getSceneTimeRangeMs(scene) {
   if (!scene) return null
+  if (Number.isFinite(scene.startMs) && Number.isFinite(scene.endMs)) {
+    return { startMs: Math.round(scene.startMs), endMs: Math.round(scene.endMs) }
+  }
   const startRaw = scene.startTime ?? scene.start_time
   const endRaw = scene.endTime ?? scene.end_time
   const startSec = typeof startRaw === 'number' ? startRaw : parseTimeToSeconds(startRaw)
   const endSec = typeof endRaw === 'number' ? endRaw : parseTimeToSeconds(endRaw)
   if (!Number.isFinite(startSec) || !Number.isFinite(endSec)) return null
-  return { startMs: startSec * 1000, endMs: endSec * 1000 }
+  return { startMs: Math.round(startSec * 1000), endMs: Math.round(endSec * 1000) }
 }
 
 /**
