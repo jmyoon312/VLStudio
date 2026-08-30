@@ -206,19 +206,30 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         id: string;
         path: string;
         name: string;
+        flowWorkerId?: string; // 탭 전용 Flow 창/워커 ID (1번창: 'default', 2번창: 'profile2', 3번창: 'profile3' 등)
     }
+
+    const getWorkerIdForIndex = (idx: number) => {
+        if (idx === 0) return 'default';
+        return `profile${idx + 1}`;
+    };
 
     const [tabs, setTabs] = React.useState<TabItem[]>(() => {
         try {
             const saved = localStorage.getItem('viral_loop_multi_tabs');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed.map((t: any, idx: number) => ({
+                        ...t,
+                        flowWorkerId: t.flowWorkerId || getWorkerIdForIndex(idx)
+                    }));
+                }
             }
         } catch (e) {
             console.error("Failed to load saved tabs:", e);
         }
-        return [{ id: 'tab-main', path: '/', name: '대시보드 홈' }];
+        return [{ id: 'tab-main', path: '/', name: '대시보드 홈', flowWorkerId: 'default' }];
     });
 
     const [activeTabId, setActiveTabId] = React.useState<string>(() => {
@@ -249,6 +260,26 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         }
     }, [tabs, activeTabId]);
 
+    // Switch active tab and activate its dedicated Flow worker window
+    const selectTab = (tab: TabItem) => {
+        setActiveTabId(tab.id);
+        const workerId = tab.flowWorkerId || 'default';
+        setActiveProfileId(workerId);
+
+        const isFlowActivePage = tab.path === '/flow2capcut' || tab.path === '/creative-studio';
+        const apiObj = (window as any).electronAPI;
+        if (apiObj) {
+            apiObj.setFlowTabActive?.({ active: isFlowActivePage });
+            if (isFlowActivePage) {
+                apiObj.createFlowView?.({ profileId: workerId }).catch(() => {});
+                apiObj.switchProfile?.({ profileId: workerId }).catch(() => {});
+                apiObj.setLayout?.({ mode: 'split-left', ratio: 0.45 }).catch(() => {});
+            }
+            syncViewsAndProfiles();
+        }
+        navigate(tab.path);
+    };
+
     // When navigating, update the CURRENT active tab instead of creating endless new tabs
     React.useEffect(() => {
         setMobileMenuOpen(false);
@@ -256,37 +287,69 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
         setTabs(prev => {
             if (prev.length === 0) {
-                return [{ id: 'tab-main', path: location.pathname, name }];
+                return [{ id: 'tab-main', path: location.pathname, name, flowWorkerId: 'default' }];
             }
-            return prev.map(t => t.id === activeTabId ? { ...t, path: location.pathname, name } : t);
+            return prev.map((t, idx) => t.id === activeTabId ? {
+                ...t,
+                path: location.pathname,
+                name,
+                flowWorkerId: t.flowWorkerId || getWorkerIdForIndex(idx)
+            } : t);
         });
+
+        // 현재 활성 탭의 flowWorkerId로 Electron 창 자동 활성화
+        const curTab = tabs.find(t => t.id === activeTabId);
+        const curWorkerId = curTab?.flowWorkerId || 'default';
+        const isFlowActivePage = location.pathname === '/flow2capcut' || location.pathname === '/creative-studio';
+        const apiObj = (window as any).electronAPI;
+
+        if (apiObj) {
+            apiObj.setFlowTabActive?.({ active: isFlowActivePage });
+            if (isFlowActivePage) {
+                apiObj.createFlowView?.({ profileId: curWorkerId }).catch(() => {});
+                apiObj.switchProfile?.({ profileId: curWorkerId }).catch(() => {});
+                apiObj.setLayout?.({ mode: 'split-left', ratio: 0.45 }).catch(() => {});
+            }
+            syncViewsAndProfiles();
+        }
     }, [location.pathname, activeTabId, getTabNameAndIcon]);
 
     // Create a new independent tab (Pixeling [+] button)
     const addNewTab = () => {
+        const newIdx = tabs.length;
         const newId = `tab-${Date.now()}`;
-        const newTab: TabItem = { id: newId, path: '/', name: '대시보드 홈' };
+        const newWorkerId = getWorkerIdForIndex(newIdx);
+        const newTab: TabItem = { id: newId, path: '/', name: '대시보드 홈', flowWorkerId: newWorkerId };
+        
         setTabs(prev => [...prev, newTab]);
         setActiveTabId(newId);
-        navigate('/');
-    };
+        setActiveProfileId(newWorkerId);
 
-    // Switch active tab
-    const selectTab = (tab: TabItem) => {
-        setActiveTabId(tab.id);
-        navigate(tab.path);
+        const apiObj = (window as any).electronAPI;
+        if (apiObj?.createFlowView) {
+            apiObj.createFlowView({ profileId: newWorkerId }).catch(() => {});
+        }
+        navigate('/');
     };
 
     // Close specific tab
     const closeTab = (e: React.MouseEvent, tabId: string) => {
         e.stopPropagation();
+        const targetTab = tabs.find(t => t.id === tabId);
         const tabIndex = tabs.findIndex(t => t.id === tabId);
         const newTabs = tabs.filter(t => t.id !== tabId);
 
+        // 닫힌 탭의 워커 뷰 정리
+        if (targetTab?.flowWorkerId && targetTab.flowWorkerId !== 'default') {
+            const apiObj = (window as any).electronAPI;
+            apiObj?.destroyFlowView?.({ profileId: targetTab.flowWorkerId }).catch(() => {});
+        }
+
         if (newTabs.length === 0) {
-            const fallbackTab: TabItem = { id: `tab-${Date.now()}`, path: '/', name: '대시보드 홈' };
+            const fallbackTab: TabItem = { id: `tab-${Date.now()}`, path: '/', name: '대시보드 홈', flowWorkerId: 'default' };
             setTabs([fallbackTab]);
             setActiveTabId(fallbackTab.id);
+            setActiveProfileId('default');
             navigate('/');
             return;
         }
@@ -296,8 +359,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         if (activeTabId === tabId) {
             const nextIndex = Math.max(0, tabIndex - 1);
             const nextTab = newTabs[nextIndex];
-            setActiveTabId(nextTab.id);
-            navigate(nextTab.path);
+            selectTab(nextTab);
         }
     };
 
