@@ -231,9 +231,9 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 2. Flow2CapCut 검증된 오리지널 AudioTimeline NLE 렌더링 */}
+      {/* 2. Flow2CapCut 검증된 오리지널 AudioTimeline NLE 렌더링 (확실한 고정 높이 부여) */}
       {isOpen && (
-        <div className="w-full bg-background min-h-[360px] flex flex-col">
+        <div className="w-full bg-background h-[540px] flex flex-col relative overflow-hidden">
           <AudioTimeline
             scenes={normalizedTimelineScenes}
             audioPackage={audioPackage}
