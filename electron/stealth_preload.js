@@ -321,6 +321,40 @@ try {
   } catch (e) {
     console.error('[Stealth Preload] NEW-11 patch block failed:', e.message);
   }
+  // ─── Google Flow Landing Page Auto-Enter ─────────────────────────────────────
+  // 구글 로그인 세션이 있는 경우 'Create with Google Flow' 버튼을 자동으로 클릭하여 실제 작업 캔버스로 진입
+  if (window.location.hostname.includes('labs.google')) {
+    window.addEventListener('DOMContentLoaded', () => {
+      const tryAutoEnter = () => {
+        // 'Create with Google Flow' 텍스트를 포함하는 버튼 탐색
+        const buttons = Array.from(document.querySelectorAll('button, a'));
+        const createBtn = buttons.find(b => 
+          b.textContent && (
+            b.textContent.includes('Create with Google Flow') || 
+            b.textContent.includes('Get started') ||
+            b.textContent.includes('시작하기')
+          )
+        );
+        if (createBtn) {
+          console.log('[Stealth Preload] Auto-clicking Create with Google Flow button...');
+          createBtn.click();
+          return true;
+        }
+        return false;
+      };
+
+      // 즉시 시도 및 1초간 주기적 감지
+      if (!tryAutoEnter()) {
+        const interval = setInterval(() => {
+          if (tryAutoEnter() || window.location.pathname.includes('/project/')) {
+            clearInterval(interval);
+          }
+        }, 300);
+        setTimeout(() => clearInterval(interval), 5000);
+      }
+    });
+  }
+
   try {
     contextBridge.exposeInMainWorld('electronAPI', {
       flowReportResponse: (payload) => ipcRenderer.invoke('flow:report-response', payload),

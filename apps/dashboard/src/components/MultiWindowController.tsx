@@ -210,7 +210,63 @@ export default function MultiWindowController({
                         </div>
                     </div>
 
-                    {/* 2. Layout Controls */}
+                    {/* 2. Google Flow Account & Profiles Management */}
+                    <div className="space-y-2 pt-2.5 border-t border-border">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-muted-foreground tracking-tight">구글 계정 프로필 관리</span>
+                            <button
+                                onClick={() => setIsCreateOpen(true)}
+                                className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
+                            >
+                                <Plus className="w-3 h-3" /> 새 계정 추가
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-1 max-h-[120px] overflow-y-auto custom-scrollbar pr-0.5">
+                            {profiles.map(p => {
+                                const isCurrent = p.id === activeProfileId;
+                                return (
+                                    <div
+                                        key={p.id}
+                                        className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-transparent hover:border-border group"
+                                    >
+                                        <div 
+                                            className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
+                                            onClick={() => handleSwitchWindow(p.id)}
+                                        >
+                                            <span className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/40'}`} />
+                                            <div className="flex flex-col min-w-0">
+                                                <span className={`text-xs truncate ${isCurrent ? 'font-bold text-primary' : 'text-foreground'}`}>
+                                                    {p.name}
+                                                </span>
+                                                {p.email && <span className="text-[9px] text-muted-foreground truncate">{p.email}</span>}
+                                            </div>
+                                        </div>
+
+                                        {p.id !== 'default' && (
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    if (!confirm(`'${p.name}' 계정 프로필을 삭제하시겠습니까?`)) return;
+                                                    const apiObj = (window as any).electronAPI;
+                                                    await apiObj?.deleteProfile?.({ profileId: p.id });
+                                                    await loadProfilesList();
+                                                    await syncViewsAndProfiles();
+                                                    toast({ title: "계정 삭제 완료", description: "프로필이 삭제되었습니다." });
+                                                }}
+                                                className="p-1 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="계정 삭제"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* 3. Layout Controls */}
                     <div className="space-y-2.5 pt-2.5 border-t border-border">
                         <span className="text-xs font-bold text-muted-foreground tracking-tight">화면 분할 배치</span>
                         <div className="grid grid-cols-2 gap-1.5">
