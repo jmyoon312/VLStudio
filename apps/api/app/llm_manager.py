@@ -444,7 +444,7 @@ class LLMClient:
                             api_key=current_key,
                             provider_name="YouTube1",
                             images=images,
-                            request_timeout=60.0
+                            request_timeout=120.0
                         )
                     except Exception as e:
                         last_error = e
