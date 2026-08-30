@@ -34,6 +34,8 @@ backup_*/
 # User Workspaces & Scratch Data
 story/
 projects/
+.freebuff/
+undefined/
 
 # Dev, Build, and Credentials (Ignored from Commit)
 backend/
