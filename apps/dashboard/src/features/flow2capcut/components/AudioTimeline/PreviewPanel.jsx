@@ -52,37 +52,35 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
     const cfg = subtitleConfig || {}
     if (cfg.enabled === false) return { display: 'none' }
 
-    // 폰트 크기: 프리뷰 캔버스 비율에 맞춰 선명하게 (14px ~ 24px)
+    // 폰트 크기: 한글이 뭉개지지 않도록 프리뷰 캔버스 비율에 맞춰 16px~22px로 선명하게
     const baseSize = cfg.fontSize || 36
-    const previewFontSize = Math.max(14, Math.min(24, Math.round(baseSize * 0.45)))
+    const previewFontSize = Math.max(16, Math.min(24, Math.round(baseSize * 0.48)))
 
-    // 위치 (Top / Bottom / Center)
+    // 위치 (Top / Bottom / Center / Middle)
     let posStyle = {
       position: 'absolute',
-      bottom: `${Math.max(12, Math.min(80, Math.round((cfg.marginV || 24) * 0.5)))}px`,
+      bottom: `${Math.max(14, Math.min(80, Math.round((cfg.marginV || 24) * 0.5)))}px`,
       top: 'auto',
       left: '50%',
       transform: 'translateX(-50%)'
     }
     if (cfg.position === 'top') {
-      posStyle = { position: 'absolute', top: `${Math.max(12, Math.round((cfg.marginV || 24) * 0.5))}px`, bottom: 'auto', left: '50%', transform: 'translateX(-50%)' }
-    } else if (cfg.position === 'center') {
+      posStyle = { position: 'absolute', top: `${Math.max(14, Math.round((cfg.marginV || 24) * 0.5))}px`, bottom: 'auto', left: '50%', transform: 'translateX(-50%)' }
+    } else if (cfg.position === 'center' || cfg.position === 'middle') {
       posStyle = { position: 'absolute', top: '50%', bottom: 'auto', left: '50%', transform: 'translate(-50%, -50%)' }
     }
 
-    // 텍스트 테두리 (Outline / Stroke)
-    let textShadow = '0 2px 4px rgba(0, 0, 0, 0.9)'
-    if (cfg.outlineSize && cfg.outlineSize > 0) {
-      const oColor = cfg.outlineColor || '#000000'
-      const oSize = Math.max(1, Math.min(3, Math.round(cfg.outlineSize * 0.7)))
-      textShadow = `-${oSize}px -${oSize}px 0 ${oColor}, ${oSize}px -${oSize}px 0 ${oColor}, -${oSize}px ${oSize}px 0 ${oColor}, ${oSize}px ${oSize}px 0 ${oColor}, 0 2px 6px rgba(0,0,0,0.95)`
+    // 텍스트 색상: 너무 어둡거나 검은색 계열이면 항상 고선명 순백색(#FFFFFF) 보장
+    let textColor = cfg.textColor || '#FFFFFF'
+    if (textColor.toLowerCase() === '#000000' || textColor.toLowerCase() === '#111111' || textColor.toLowerCase() === '#222222' || textColor.toLowerCase() === '#333333') {
+      textColor = '#FFFFFF'
     }
 
-    // 배경 박스: 영상 및 검은 배경에서도 항상 선명한 시인성을 위해 기본 반투명 블랙(rgba(0,0,0,0.75)) 보장
-    let background = 'rgba(0, 0, 0, 0.75)'
+    // 배경 박스: 영상 및 검은 배경에서도 항상 선명한 시인성을 위해 기본 반투명 블랙(rgba(10,10,10,0.85)) 보장
+    let background = 'rgba(10, 10, 10, 0.85)'
     if (cfg.useBox) {
       const boxHex = cfg.boxColor || '#000000'
-      const alpha = (cfg.boxOpacity ?? 75) / 100
+      const alpha = (cfg.boxOpacity ?? 85) / 100
       let r = 0, g = 0, b = 0
       if (boxHex.startsWith('#') && boxHex.length >= 7) {
         r = parseInt(boxHex.slice(1, 3), 16) || 0
@@ -92,30 +90,32 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       background = `rgba(${r}, ${g}, ${b}, ${alpha})`
     }
 
-    // 색상 유효성 검사: 만약 textColor가 없거나 너무 어두운 검정 계열(#000000 등)이면 밝은 흰색으로 강제 보정
-    let textColor = cfg.textColor || '#FFFFFF'
-    if (textColor.toLowerCase() === '#000000' || textColor.toLowerCase() === '#111111' || textColor.toLowerCase() === '#222222') {
-      textColor = '#FFFFFF'
-    }
+    // 외곽선: 한글 글자 안쪽을 검게 덮는 4방향 shadow 대신 깔끔한 drop-shadow 및 WebkitTextStroke 적용
+    const outlineSize = Number(cfg.outlineSize) || 0
+    const outlineColor = cfg.outlineColor || '#000000'
+    const strokeStyle = outlineSize > 0 ? {
+      WebkitTextStroke: `${Math.min(1.0, outlineSize * 0.3)}px ${outlineColor}`
+    } : {}
 
     return {
       fontFamily: cfg.font ? `"${cfg.font}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` : 'inherit',
       fontSize: `${previewFontSize}px`,
       color: textColor,
-      fontWeight: cfg.isBold !== false ? 700 : 400,
+      fontWeight: cfg.isBold !== false ? 700 : 500,
       fontStyle: cfg.isItalic ? 'italic' : 'normal',
       textAlign: cfg.textAlign || 'center',
-      textShadow,
+      textShadow: '0 2px 4px rgba(0, 0, 0, 0.95)',
       background,
-      padding: '8px 16px',
+      padding: '8px 18px',
       borderRadius: '8px',
-      border: '1px solid rgba(255, 255, 255, 0.25)',
-      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.85)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.7)',
       maxWidth: '88%',
       lineHeight: 1.45,
       whiteSpace: 'pre-wrap',
       pointerEvents: 'none',
       zIndex: 50,
+      ...strokeStyle,
       ...posStyle
     }
   }, [subtitleConfig])
