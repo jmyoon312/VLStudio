@@ -269,8 +269,38 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   const timelineContentWidth = Math.max(800, totalDuration * pxPerSecond);
 
   return (
-    <div className="w-full my-4 bg-card rounded-2xl border border-border shadow-md overflow-hidden transition-all duration-200 select-none">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border text-foreground">
+    <div className="w-full my-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-primary/30 shadow-xl overflow-hidden transition-all duration-200 select-none">
+      {/* 1. Main Header Title Bar */}
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-50 dark:bg-slate-800/80 border-b border-border text-foreground">
+        <div className="flex items-center gap-3">
+          <span className="text-xl">🎬</span>
+          <div>
+            <h3 className="text-sm font-extrabold text-foreground tracking-tight flex items-center gap-2">
+              <span>실시간 멀티트랙 타임라인 & 캔버스 프리뷰</span>
+              <Badge variant="outline" className="text-[10px] font-bold bg-primary/10 text-primary border-primary/30 px-2 py-0.5 rounded-full">
+                NLE TIMELINE
+              </Badge>
+            </h3>
+            <p className="text-[11px] text-muted-foreground">
+              총 {scenes.length}개 씬 · 총 재생 시간: {formatTime(totalDuration)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToggle}
+            className="h-8 px-3 text-xs font-bold text-foreground border-border hover:bg-muted flex items-center gap-1.5 shadow-2xs"
+          >
+            {isOpen ? <><ChevronUp className="w-4 h-4 text-primary" /> 타임라인 접기</> : <><ChevronDown className="w-4 h-4 text-primary" /> 타임라인 펼치기</>}
+          </Button>
+        </div>
+      </div>
+
+      {/* 2. Pixeling-Style Quick Action Toolbar */}
+      <div className="flex flex-wrap items-center justify-between px-4 py-2 bg-muted/30 border-b border-border text-foreground gap-2">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
@@ -281,14 +311,14 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             </Button>
           </div>
           <div className="w-px h-4 bg-border mx-1" />
-          <div className="flex items-center gap-1 bg-background/80 rounded-lg p-0.5 border border-border shadow-2xs">
+          <div className="flex items-center gap-1 bg-background rounded-lg p-0.5 border border-border shadow-2xs">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsPlaying((p) => !p)}
-              className="h-7 px-2.5 text-xs font-bold text-primary hover:bg-primary/10"
+              className="h-7 px-3 text-xs font-bold text-primary hover:bg-primary/10"
             >
-              {isPlaying ? <Pause className="w-3.5 h-3.5 mr-1 fill-primary" /> : <Play className="w-3.5 h-3.5 mr-1 fill-primary" />}
+              {isPlaying ? <Pause className="w-3.5 h-3.5 mr-1.5 fill-primary" /> : <Play className="w-3.5 h-3.5 mr-1.5 fill-primary" />}
               {isPlaying ? '일시정지' : '재생'}
             </Button>
             <Button
@@ -300,15 +330,15 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
               <RotateCcw className="w-3.5 h-3.5" />
             </Button>
           </div>
-          <div className="px-2.5 py-1 bg-background border border-border rounded-lg text-xs font-mono font-bold text-foreground tracking-tight shadow-2xs">
+          <div className="px-3 py-1 bg-background border border-border rounded-lg text-xs font-mono font-bold text-foreground tracking-tight shadow-2xs">
             <span className="text-primary">{formatTime(currentTime)}</span>
-            <span className="text-muted-foreground mx-1">/</span>
+            <span className="text-muted-foreground mx-1.5">/</span>
             <span>{formatTime(totalDuration)}</span>
           </div>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+            className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
             title="현재 위치에서 분할"
             onClick={() => onSplitScene?.(currentSceneIdx, currentSceneLocalTime)}
           >
@@ -316,9 +346,10 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             <span className="hidden sm:inline">분할</span>
           </Button>
         </div>
+
         <div className="flex items-center gap-2">
           {/* Zoom Slider */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-background border border-border rounded-lg">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 bg-background border border-border rounded-lg">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -349,7 +380,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
               size="sm"
               disabled={isFlowBatchGenerating || scenes.length === 0}
               onClick={onBatchFlowImages}
-              className="h-7 px-2.5 text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
+              className="h-7 px-2.5 text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 shadow-2xs"
               title="Google Flow AI로 전체 씬 이미지 일괄 생성"
             >
               <Sparkles className="w-3 h-3 mr-1" />
@@ -363,7 +394,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
               size="sm"
               disabled={isFlowBatchGenerating || scenes.length === 0}
               onClick={onBatchFlowVideos}
-              className="h-7 px-2.5 text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30"
+              className="h-7 px-2.5 text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 shadow-2xs"
               title="Google Flow AI로 전체 씬 비디오(I2V) 일괄 생성"
             >
               <Video className="w-3 h-3 mr-1" />
@@ -376,29 +407,18 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
               variant="default"
               size="sm"
               onClick={onExportCapcut}
-              className="h-7 px-2.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+              className="h-7 px-3 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
             >
               <span>CapCut 내보내기</span>
             </Button>
           )}
-
-          <Badge variant="outline" className="text-[11px] bg-primary/10 border-primary/30 text-primary font-bold">
-            총 {scenes.length}개 씬
-          </Badge>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggle}
-            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-          >
-            {isOpen ? <><ChevronUp className="w-4 h-4" /> 접기</> : <><ChevronDown className="w-4 h-4" /> 펼치기</>}
-          </Button>
         </div>
       </div>
+
+      {/* 3. Timeline Body & Canvas Viewer */}
       {isOpen && (
-        <div className="p-4 flex flex-col md:flex-row gap-4 items-stretch bg-card">
-          <div className="flex flex-col items-center justify-center bg-muted/30 rounded-xl p-3 border border-border shrink-0 shadow-inner">
+        <div className="p-5 flex flex-col lg:flex-row gap-5 items-stretch bg-white dark:bg-slate-950">
+          <div className="flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 rounded-xl p-3 border border-border shrink-0 shadow-inner">
             <div
               className={`relative overflow-hidden rounded-xl bg-black border border-border flex items-center justify-center shadow-lg ${
                 aspectRatio === '9:16' ? 'w-[160px] h-[284px]' : 'w-[284px] h-[160px]'
