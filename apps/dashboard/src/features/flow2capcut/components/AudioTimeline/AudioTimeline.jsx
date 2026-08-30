@@ -73,11 +73,15 @@ function TrackToggleIcon({ kind, off }) {
   )
 }
 
-// utils/formatters의 formatDuration(seconds)와 표시 규칙이 동일.
-// 여기선 ms-friendly + 비유한값 가드를 추가한 thin wrapper로 둠 (시간 포맷 단일 출처 유지).
+// 타임코드 포맷 (mm:ss.SS 1/100초 고정밀 표시)
 function formatTC(ms) {
-  if (!isFinite(ms) || ms == null) return '0:00'
-  return formatDuration(ms / 1000)
+  if (!isFinite(ms) || ms == null) return '00:00.00'
+  const safeMs = Math.max(0, ms)
+  const totalSec = Math.floor(safeMs / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  const cs = Math.floor((safeMs % 1000) / 10)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
 }
 
 export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClipSelect, onSaveTimecodeOverride, disabled = false, onFlag, isFlagged, onTrackDrop, compact = false, onPlayheadChange, onPlayingChange, onHiddenRolesChange, onSceneUpdate, onTitleClick = null, titleActive = false, aspectRatio = '16:9' }) {
@@ -309,6 +313,21 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
 
     setZoom(clamped)
   }, [zoom, playheadMs])
+
+  // 전체 클립 길이를 현재 타임라인 뷰포트 너비에 100% 맞추는 폭 맞춤 핸들러
+  const handleFitToWidth = useCallback(() => {
+    if (!data?.totalDurationMs || data.totalDurationMs <= 0) return
+    const scrollEl = scrollRef.current
+    if (!scrollEl) return
+    const clientW = scrollEl.clientWidth || 800
+    const targetW = Math.max(100, clientW - 48)
+    const totalSec = data.totalDurationMs / 1000
+    const idealPxPerSec = targetW / totalSec
+    const idealZoom = idealPxPerSec / PX_PER_SEC_BASE
+    const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, idealZoom))
+    setZoom(clamped)
+    if (scrollEl) scrollEl.scrollLeft = 0
+  }, [data?.totalDurationMs])
 
   // useLayoutEffect: DOM commit 직후, paint 전에 sync로 실행 → totalWidth 새 값 보장
   // playheadMs는 deps에서 제외 (재생 중 매 프레임 실행되는 거 방지 → zoom 변경 시에만 실행)
@@ -1080,8 +1099,8 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
           <button
             onClick={() => setZoomClamped(zoom / 1.4)}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: t('audioTimeline.zoomOutLabel'),
-              desc: t('audioTimeline.zoomOutDesc'),
+              label: t('audioTimeline.zoomOutLabel') || '축소',
+              desc: t('audioTimeline.zoomOutDesc') || '타임라인 축소 (−)',
               hotkey: t('audioTimeline.zoomWheelHint'),
             })}
             onMouseLeave={hideBtnTooltip}
@@ -1090,21 +1109,24 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
           <button
             onClick={() => setZoomClamped(zoom * 1.4)}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: t('audioTimeline.zoomInLabel'),
-              desc: t('audioTimeline.zoomInDesc'),
+              label: t('audioTimeline.zoomInLabel') || '확대',
+              desc: t('audioTimeline.zoomInDesc') || '타임라인 확대 (+)',
               hotkey: t('audioTimeline.zoomWheelHint'),
             })}
             onMouseLeave={hideBtnTooltip}
           >+</button>
           <button
             className="atl-zoom-fit"
-            onClick={() => setZoom(1)}
+            onClick={handleFitToWidth}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: t('audioTimeline.zoomResetLabel'),
-              desc: t('audioTimeline.zoomResetDesc'),
+              label: '전체 폭 맞춤',
+              desc: '생성된 전체 클립을 타임라인 너비에 딱 맞춤',
             })}
             onMouseLeave={hideBtnTooltip}
-          >⊡</button>
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '0 8px', fontSize: '11px', fontWeight: 800 }}
+          >
+            <span>⊡</span> <span>폭 맞춤</span>
+          </button>
         </div>
       </div>
 

@@ -4,13 +4,14 @@ import { RULER_H } from './constants'
 const RULER_VIRTUALIZATION_THRESHOLD = 300
 const RULER_VIEWPORT_MARGIN_MS = 10_000
 
-function formatRulerTime(sec) {
+function formatRulerTime(sec, majorSec) {
   const totalSec = Math.floor(sec)
   const m = Math.floor(totalSec / 60)
   const s = totalSec % 60
-  const frac = Math.round((sec - totalSec) * 10)
-  if (frac > 0) {
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${frac}`
+  const frac = Math.round((sec - totalSec) * 100) / 100
+  if (majorSec < 1 || frac > 0) {
+    const milli = Math.round((sec - totalSec) * 100)
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(milli).padStart(2, '0')}`
   }
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
@@ -21,24 +22,27 @@ export default function TimeRuler({ totalMs, pxPerMs, width, visibleRangeMs = nu
   let majorSec = 60
   let minorSec = 10
 
-  if (pxPerSec > 350) {
+  if (pxPerSec > 500) {
+    majorSec = 0.5
+    minorSec = 0.1
+  } else if (pxPerSec > 250) {
     majorSec = 1
     minorSec = 0.2
-  } else if (pxPerSec > 160) {
+  } else if (pxPerSec > 120) {
     majorSec = 1
     minorSec = 0.5
-  } else if (pxPerSec > 70) {
+  } else if (pxPerSec > 60) {
+    majorSec = 2
+    minorSec = 0.5
+  } else if (pxPerSec > 25) {
     majorSec = 5
     minorSec = 1
-  } else if (pxPerSec > 30) {
-    majorSec = 10
-    minorSec = 2
   } else if (pxPerSec > 12) {
+    majorSec = 15
+    minorSec = 3
+  } else {
     majorSec = 30
     minorSec = 5
-  } else {
-    majorSec = 60
-    minorSec = 10
   }
 
   const totalSec = Math.max(1, (totalMs || 0) / 1000)
@@ -64,7 +68,7 @@ export default function TimeRuler({ totalMs, pxPerMs, width, visibleRangeMs = nu
       majorTicks.push({
         sec: Math.round(s * 100) / 100,
         x: xPos,
-        label: formatRulerTime(s)
+        label: formatRulerTime(s, majorSec)
       })
     } else {
       minorTicks.push({
