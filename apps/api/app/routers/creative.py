@@ -597,6 +597,7 @@ def init_project_folder(
     req: InitProjectRequest,
     db: Session = Depends(database.get_db)
 ):
+    import json
     settings = crud.get_settings(db)
     root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
     project_dir = os.path.join(root, "05_Exports", req.project_name)
