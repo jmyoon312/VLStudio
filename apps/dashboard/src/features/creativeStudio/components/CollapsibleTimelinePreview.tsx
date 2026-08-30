@@ -67,25 +67,37 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   const timelineTracksRef = useRef<HTMLDivElement>(null);
   const animFrameRef = useRef<number | null>(null);
 
-  // 씬별 재생 시간 및 시작 시간 계산 (기본 3.5초 per scene)
-  const sceneDurations = useMemo(() => scenes.map((s) => s.duration || 3.5), [scenes]);
+  // 씬이 아직 없을 때도 UI 레이아웃이 완벽하게 보이도록 플레이스홀더 씬 1개 기본 제공
+  const effectiveScenes = useMemo(() => {
+    if (scenes && scenes.length > 0) return scenes;
+    return [{
+      id: 'placeholder-1',
+      scene_id: 1,
+      script: '대본을 입력하고 [씬 분할]을 누르면 트랙에 자동 정렬됩니다',
+      visual_prompt: 'Cinematic scene placeholder',
+      duration: 5.0
+    }];
+  }, [scenes]);
+
+  // 씬별 재생 시간 및 시작 시간 계산
+  const sceneDurations = useMemo(() => effectiveScenes.map((s) => s.duration || 3.5), [effectiveScenes]);
   const totalDuration = useMemo(() => sceneDurations.reduce((acc, d) => acc + d, 0) || 1, [sceneDurations]);
 
   // 각 씬의 누적 시작 시간 배열
   const sceneStartTimes = useMemo(() => {
     const starts: number[] = [];
     let acc = 0;
-    for (let i = 0; i < scenes.length; i++) {
+    for (let i = 0; i < effectiveScenes.length; i++) {
       starts.push(acc);
       acc += sceneDurations[i];
     }
     return starts;
-  }, [scenes, sceneDurations]);
+  }, [effectiveScenes, sceneDurations]);
 
   // 현재 시간에 해당하는 씬 인덱스 찾기
   let currentSceneIdx = 0;
   let currentSceneLocalTime = 0;
-  for (let i = 0; i < scenes.length; i++) {
+  for (let i = 0; i < effectiveScenes.length; i++) {
     const start = sceneStartTimes[i];
     const dur = sceneDurations[i];
     if (currentTime >= start && currentTime < start + dur) {
@@ -95,7 +107,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
     }
   }
   if (currentTime >= totalDuration) {
-    currentSceneIdx = Math.max(0, scenes.length - 1);
+    currentSceneIdx = Math.max(0, effectiveScenes.length - 1);
   }
 
   // 재생 루프
@@ -493,7 +505,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
                 </div>
                 {/* 2. Track 1: Video / Image Clips Lane */}
                 <div className="h-14 border-b border-border/60 p-1 flex gap-1 bg-muted/5 relative">
-                  {scenes.map((scene, idx) => {
+                  {effectiveScenes.map((scene, idx) => {
                     const dur = sceneDurations[idx];
                     const widthPercent = (dur / totalDuration) * 100;
                     const isActive = idx === currentSceneIdx;
@@ -521,7 +533,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
                           />
                         )}
                         <span className="text-[11px] truncate z-10 font-semibold">
-                          #{scene.scene_id} {scene.script ? scene.script.slice(0, 12) + '...' : ''}
+                          #{scene.scene_id} {scene.script ? scene.script.slice(0, 16) + '...' : ''}
                         </span>
                         <span className={`text-[10px] font-mono z-10 ${isActive ? 'text-blue-100' : 'text-muted-foreground'}`}>
                           {dur}s
@@ -533,7 +545,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
 
                 {/* 3. Track 2: Subtitle Clips Lane */}
                 <div className="h-10 border-b border-border/60 p-1 flex gap-1 bg-muted/5 relative">
-                  {scenes.map((scene, idx) => {
+                  {effectiveScenes.map((scene, idx) => {
                     const dur = sceneDurations[idx];
                     const widthPercent = (dur / totalDuration) * 100;
                     return (
@@ -556,7 +568,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
 
                 {/* 4. Track 3: Voice / TTS Audio Lane */}
                 <div className="h-10 border-b border-border/60 p-1 flex gap-1 bg-muted/5 relative">
-                  {scenes.map((scene, idx) => {
+                  {effectiveScenes.map((scene, idx) => {
                     const dur = sceneDurations[idx];
                     const widthPercent = (dur / totalDuration) * 100;
                     return (
@@ -571,7 +583,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
                       >
                         <Volume2 className="w-3 h-3 mr-1 text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <span className="text-[10px] font-medium truncate font-mono">
-                          {scene.script ? `TTS: ${scene.script.slice(0, 10)}...` : '오디오 대기'}
+                          {scene.script ? `TTS: ${scene.script.slice(0, 14)}...` : '오디오 대기'}
                         </span>
                       </div>
                     );
