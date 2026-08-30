@@ -575,18 +575,39 @@ function createWindow() {
             }
           }
 
-          // 비동기 모드
-          if (pendingGenerations.size > 0) {
+          // 비동기 모드 (pendingGenerations 및 global.pendingGenerations)
+          const targetGens = (global.pendingGenerations && global.pendingGenerations.size > 0) ? global.pendingGenerations : pendingGenerations
+          if (targetGens && targetGens.size > 0) {
             let matchId = null
-            let matchSetAt = -Infinity
-            for (const [id, gen] of pendingGenerations) {
-              if (!gen.completed && gen.setAt <= reqSentAt && gen.setAt > matchSetAt) {
+            // 1차: requestBody 프롬프트 매칭
+            for (const [id, gen] of targetGens) {
+              if (!gen.completed && gen.promptKey && requestBody && typeof requestBody === 'string' && requestBody.includes(gen.promptKey.trim())) {
                 matchId = id
-                matchSetAt = gen.setAt
+                break
               }
             }
+            // 2차: 시간 기반 가장 가까운 미완료 gen 매칭
+            if (!matchId) {
+              let matchSetAt = -Infinity
+              for (const [id, gen] of targetGens) {
+                if (!gen.completed && gen.setAt <= reqSentAt && gen.setAt > matchSetAt) {
+                  matchId = id
+                  matchSetAt = gen.setAt
+                }
+              }
+            }
+            // 3차: 첫 번째 미완료 gen
+            if (!matchId) {
+              for (const [id, gen] of targetGens) {
+                if (!gen.completed) {
+                  matchId = id
+                  break
+                }
+              }
+            }
+
             if (matchId) {
-              const g = pendingGenerations.get(matchId)
+              const g = targetGens.get(matchId)
               g.responses.push({ error: false, body, status: httpStatus })
               if (g.responses.length >= g.expectedCount) {
                 g.completed = true
@@ -2381,8 +2402,27 @@ app.whenReady().then(async () => {
       }
       const contentType = mimeTypes[ext] || 'application/octet-stream'
 
+      // 파일 존재 여부 검사 및 확장자/경로 fallback
+      let targetFile = filePath
+      if (!fsSync.existsSync(targetFile)) {
+        if (targetFile.endsWith('.jpg') && fsSync.existsSync(targetFile.replace(/\.jpg$/, '.png'))) {
+          targetFile = targetFile.replace(/\.jpg$/, '.png')
+        } else if (targetFile.endsWith('.png') && fsSync.existsSync(targetFile.replace(/\.png$/, '.jpg'))) {
+          targetFile = targetFile.replace(/\.png$/, '.jpg')
+        } else {
+          const docsFallback = path.join(app.getPath('documents'), 'AutoFlowCut', targetFile.replace(/^[A-Za-z]:[\\\/]/, ''))
+          if (fsSync.existsSync(docsFallback)) {
+            targetFile = docsFallback
+          }
+        }
+      }
+
+      if (!fsSync.existsSync(targetFile)) {
+        return new Response('File Not Found', { status: 404 })
+      }
+
       // net.fetch 격리 세션 보안 장벽 해소를 위해 Node.js fs로 직접 읽어서 전달!
-      const data = fsSync.readFileSync(filePath)
+      const data = fsSync.readFileSync(targetFile)
       return new Response(data, {
         headers: { 
           'Content-Type': contentType,

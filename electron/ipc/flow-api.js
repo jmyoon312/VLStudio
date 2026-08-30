@@ -911,9 +911,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           const currentImages = await flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE).catch(() => [])
           if (Array.isArray(currentImages) && currentImages.length > 0) {
             const seen = new Set(gen.existingMediaIds || [])
-            const fresh = currentImages.filter(i => i && i.mediaId && i.src && !seen.has(i.mediaId))
+            const fresh = currentImages.filter(i => i && i.src && (!i.mediaId || !seen.has(i.mediaId)))
             if (fresh.length > 0) {
-              console.log('[Flow API] [CheckGen] DOM generated image detected:', fresh.length)
+              console.log('[Flow API] [CheckGen] DOM generated image detected for gen:', generationId, fresh.length)
               gen.completed = true
               gen.domFreshImages = fresh
             }
