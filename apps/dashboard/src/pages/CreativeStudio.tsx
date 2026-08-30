@@ -573,15 +573,6 @@ const CreativeStudio = () => {
         randomPool: ['dissolve', 'flash_white', 'zoom_in', 'whip_pan', 'glitch']
     });
 
-    // [MODAL VISIBILITY FIX] 모든 모달 다이얼로그 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
-    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen;
-    useEffect(() => {
-        const apiObj = (window as any).electronAPI;
-        if (apiObj && typeof apiObj.setFlowTabActive === 'function') {
-            apiObj.setFlowTabActive({ active: !isAnyModalOpen });
-        }
-    }, [isAnyModalOpen]);
-
     // [NEW] Flow AI 일괄 이미지 생성 핸들러
     const handleBatchFlowImages = async () => {
         if (scenes.length === 0) {
@@ -665,6 +656,7 @@ const CreativeStudio = () => {
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportLoading, setExportLoading] = useState(false);
     const [exportPhase, setExportPhase] = useState<'launching' | 'processing'>('processing');
+    const handleExportToCapcut = () => setIsExportModalOpen(true);
 
     // [NEW] Auto-Gen Options
     const [autoGenerateImages, setAutoGenerateImages] = useState(false);
@@ -674,6 +666,15 @@ const CreativeStudio = () => {
     const [pacingStrategy, setPacingStrategy] = useState<'ai' | 'rule'>('ai');
     const [pacingUnit, setPacingUnit] = useState<'sentence' | 'time'>('sentence');
     const [pacingValue, setPacingValue] = useState(2);
+
+    // [MODAL VISIBILITY FIX] 모든 모달 다이얼로그 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
+    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen;
+    useEffect(() => {
+        const apiObj = (window as any).electronAPI;
+        if (apiObj && typeof apiObj.setFlowTabActive === 'function') {
+            apiObj.setFlowTabActive({ active: !isAnyModalOpen });
+        }
+    }, [isAnyModalOpen]);
 
     // Effect: Set defaults based on Segment Mode (Shorts vs Video)
     useEffect(() => {
