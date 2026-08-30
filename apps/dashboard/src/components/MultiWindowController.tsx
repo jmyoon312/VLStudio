@@ -178,14 +178,7 @@ export default function MultiWindowController({
         setOpen(false);
     };
 
-    // 오직 실제 Electron 데스크톱 네이티브 앱 환경에서만 렌더링 (웹 브라우저에서는 숨김)
-    const isElectron = typeof window !== 'undefined' && 
-        typeof (window as any).electronAPI?.createFlowView === 'function' &&
-        !(window as any).electronAPI?.isMock;
-
-    if (!isElectron) {
-        return null;
-    }
+    // 다중창 통합 관리 버튼 상시 노출
 
     return (
         <div ref={ref} className="relative inline-flex items-center">

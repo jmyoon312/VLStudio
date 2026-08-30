@@ -177,10 +177,19 @@ function MainAppContent() {
 
 
                     <Route path="/subtitle-tool" element={<SubtitleConverter />} />
-                    <Route path="/multi-tts" element={<MultiTTS />} />
-                    <Route path="/silence-remover" element={<SilenceRemover />} />
-                    <Route path="/creative-studio" element={<CreativeStudio />} />
-                    <Route path="/remover" element={<RemoverEditor />} />
+                    <Route path="/creative-studio" element={
+                        <RouteErrorBoundary>
+                            <ModeProvider>
+                                <I18nProvider>
+                                    <ToastProvider>
+                                        <Shell>
+                                            <CreativeStudio />
+                                        </Shell>
+                                    </ToastProvider>
+                                </I18nProvider>
+                            </ModeProvider>
+                        </RouteErrorBoundary>
+                    } />
                     <Route path="/live-studio" element={<LiveStudio />} />
                     <Route path="/virtual-studio" element={<VirtualStudio />} />
                     <Route path="/custom-menu" element={<CustomMenu />} />

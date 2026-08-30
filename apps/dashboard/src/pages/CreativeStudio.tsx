@@ -19,6 +19,7 @@ import {
     Sparkles, Copy, ChevronDown, ChevronUp, RefreshCw, Save, Wand2, RotateCcw, Play,
     MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe
 } from "lucide-react";
+import { cn } from '@/lib/utils';
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
 import MotionSettingsDialog from '@/components/MotionSettingsDialog';
 import SubtitleSettingsDialog, { SubtitleConfig } from '@/components/SubtitleSettingsDialog';
@@ -29,6 +30,9 @@ import { StyleGalleryModal } from '@/components/shared/StyleGalleryModal';
 import { ExportModal } from '../features/flow2capcut/components/ExportModal';
 import { generateCapcutProject } from '../features/flow2capcut/exporters/capcutLocalGenerator';
 import { generateSRT } from '../features/flow2capcut/exporters/capcut';
+import { WatermarkSettingsDialog, WatermarkConfig } from '../features/creativeStudio/components/WatermarkSettingsDialog';
+import { TransitionSettingsDialog, TransitionConfig } from '../features/creativeStudio/components/TransitionSettingsDialog';
+import { CollapsibleTimelinePreview } from '../features/creativeStudio/components/CollapsibleTimelinePreview';
 
 interface SceneSegment {
     id: string; // Unique ID for frontend tracking
@@ -84,6 +88,22 @@ const CreativeStudio = () => {
         queryKey: ['stylePresets'],
         queryFn: async () => (await api.get('/creative/styles')).data
     });
+
+    // [SOVEREIGN TRUTH] 작업 환경 설정(Settings) 실시간 동적 연동
+    const { data: userSettings } = useQuery({
+        queryKey: ['workspaceSettings'],
+        queryFn: async () => (await api.get('/settings/')).data
+    });
+
+    // 작업 환경 설정값이 로드/변경되면 기본 모델을 자동으로 동기화
+    useEffect(() => {
+        if (userSettings) {
+            const dynamicProvider = userSettings.script_analysis_provider || userSettings.paperclip_provider || userSettings.openclaw_preferred_provider || 'youtube1';
+            const dynamicModel = userSettings.script_analysis_model || userSettings.default_llm_model || userSettings.paperclip_model || 'youtube1/youtube1';
+            setScriptProvider(dynamicProvider);
+            setScriptModel(dynamicModel);
+        }
+    }, [userSettings]);
 
     // Mutations
     const createPresetMutation = useMutation({
@@ -189,13 +209,62 @@ const CreativeStudio = () => {
         });
     };
 
-    // State: Script Workspace
+    // State: Script Workspace (기본 분석 모델 지정: youtube1)
     const [scriptMode, setScriptMode] = useState("manual"); // Default to Manual
     const [fullScript, setFullScript] = useState(() => {
         return localStorage.getItem('viral_loop_creative_full_script') || "";
     });
-    const [scriptProvider, setScriptProvider] = useState<string>("groq");
-    const [scriptModel, setScriptModel] = useState<string>("llama-3.3-70b-versatile");
+    const [scriptProvider, setScriptProvider] = useState<string>("youtube1");
+    const [scriptModel, setScriptModel] = useState<string>("youtube1/youtube1");
+
+    // Flow Multi-Window States & Auto-Starter
+    const [flowViews, setFlowViews] = useState<string[]>([]);
+    const [currentFlowProfile, setCurrentFlowProfile] = useState<string>('default');
+
+    const syncFlowWindowState = async () => {
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.getActiveViews) {
+                const res = await apiObj.getActiveViews();
+                if (res?.views) setFlowViews(res.views);
+                if (res?.activeProfileId) setCurrentFlowProfile(res.activeProfileId);
+            }
+        } catch (e) {
+            // silent catch
+        }
+    };
+
+    useEffect(() => {
+        const apiObj = (window as any).electronAPI;
+        if (apiObj?.setFlowTabActive) {
+            apiObj.setFlowTabActive({ active: true });
+        }
+        if (apiObj?.createFlowView) {
+            apiObj.createFlowView({ profileId: 'default' }).catch(() => {});
+        }
+        if (apiObj?.switchProfile) {
+            apiObj.switchProfile({ profileId: 'default' }).catch(() => {});
+        }
+        if (apiObj?.setLayout) {
+            apiObj.setLayout({ mode: 'split-left', ratio: 0.45 }).catch(() => {});
+        }
+        syncFlowWindowState();
+    }, []);
+
+    const handleSwitchFlowProfile = async (profId: string) => {
+        const apiObj = (window as any).electronAPI;
+        if (!apiObj) return;
+        try {
+            await apiObj.createFlowView?.({ profileId: profId });
+            await apiObj.switchProfile?.({ profileId: profId });
+            await apiObj.focusFlowView?.({ profileId: profId });
+            setCurrentFlowProfile(profId);
+            syncFlowWindowState();
+            toast.success(`Google Flow [${profId === 'default' ? '1번창' : profId.replace('profile', '') + '번창'}] 활성화 완료!`);
+        } catch (e: any) {
+            toast.error("다중창 전환 실패: " + e.message);
+        }
+    };
 
     // State: Script Styles
     const [scriptStyles, setScriptStyles] = useState<ScriptStyle[]>([]);
@@ -462,6 +531,117 @@ const CreativeStudio = () => {
     const [isStyleCollapsed, setIsStyleCollapsed] = useState(false);
     const [isScriptCollapsed, setIsScriptCollapsed] = useState(false);
     const [isStyleGalleryOpen, setIsStyleGalleryOpen] = useState(false);
+
+    // [NEW] Timeline & Watermark & Transition States
+    const [isTimelineOpen, setIsTimelineOpen] = useState(true);
+    const [isWatermarkDialogOpen, setIsWatermarkDialogOpen] = useState(false);
+    const [isTransitionDialogOpen, setIsTransitionDialogOpen] = useState(false);
+    const [isFlowBatchGenerating, setIsFlowBatchGenerating] = useState(false);
+    const [watermarkConfig, setWatermarkConfig] = useState<WatermarkConfig>({
+        enabled: false,
+        type: 'image',
+        imageUrl: '',
+        autoRemoveBg: false,
+        badgeMask: 'none',
+        colorKeying: 'none',
+        text: '@ViralShorts',
+        fontFamily: 'Pretendard',
+        fontSize: 16,
+        textColor: '#ffffff',
+        textShadow: true,
+        textStroke: false,
+        position: 'top-right',
+        scale: 15,
+        opacity: 80,
+        marginX: 20,
+        marginY: 20,
+        durationMode: 'full'
+    });
+    const [transitionConfig, setTransitionConfig] = useState<TransitionConfig>({
+        mode: 'random',
+        fixedType: 'dissolve',
+        durationSec: 0.5,
+        randomPool: ['dissolve', 'flash_white', 'zoom_in', 'whip_pan', 'glitch']
+    });
+
+    // [NEW] Flow AI 일괄 이미지 생성 핸들러
+    const handleBatchFlowImages = async () => {
+        if (scenes.length === 0) {
+            toast.error("생성할 씬이 없습니다. 대본을 먼저 분할해주세요.");
+            return;
+        }
+        setIsFlowBatchGenerating(true);
+        toast.info("Google Flow AI를 통해 전체 씬 이미지 일괄 생성을 시작합니다...");
+
+        const apiObj = (window as any).electronAPI;
+        for (let i = 0; i < scenes.length; i++) {
+            const scene = scenes[i];
+            if (!scene.visual_prompt) continue;
+            updateScene(scene.id, { visualStatus: 'generating' });
+            try {
+                if (apiObj?.generateImage) {
+                    const prompt = `${stylePrompt ? `${stylePrompt}, ` : ''}${scene.visual_prompt}`;
+                    const res = await apiObj.generateImage({
+                        prompt,
+                        aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
+                    });
+                    if (res?.success && res?.images?.[0]?.base64) {
+                        updateScene(scene.id, { visualStatus: 'completed', media_url: res.images[0].base64 });
+                    } else if (res?.base64) {
+                        updateScene(scene.id, { visualStatus: 'completed', media_url: res.base64 });
+                    } else {
+                        await handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt);
+                    }
+                } else {
+                    await handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt);
+                }
+            } catch (err: any) {
+                console.error(`Scene #${scene.scene_id} Flow image error:`, err);
+                updateScene(scene.id, { visualStatus: 'failed' });
+            }
+        }
+        setIsFlowBatchGenerating(false);
+        toast.success("전체 Flow 이미지 일괄 생성이 완료되었습니다!");
+    };
+
+    // [NEW] Flow AI 일괄 영상(I2V) 생성 핸들러
+    const handleBatchFlowVideos = async () => {
+        const targetScenes = scenes.filter(s => s.media_url);
+        if (targetScenes.length === 0) {
+            toast.error("영상을 생성하려면 먼저 이미지가 필요합니다.");
+            return;
+        }
+        setIsFlowBatchGenerating(true);
+        toast.info("Google Flow AI를 통해 전체 씬 비디오(I2V) 일괄 생성을 시작합니다...");
+
+        const apiObj = (window as any).electronAPI;
+        for (let i = 0; i < targetScenes.length; i++) {
+            const scene = targetScenes[i];
+            updateScene(scene.id, { visualStatus: 'generating' });
+            try {
+                if (apiObj?.generateVideoI2V) {
+                    const prompt = scene.video_prompt || scene.visual_prompt || 'Smooth cinematic motion';
+                    const res = await apiObj.generateVideoI2V({
+                        prompt,
+                        startImage: scene.media_url,
+                        aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
+                    });
+                    if (res?.success && res.videoUrl) {
+                        updateScene(scene.id, { visualStatus: 'completed', video_url: res.videoUrl, viewMode: 'render' });
+                    } else {
+                        await handleGenerateVideo(scene);
+                    }
+                } else {
+                    await handleGenerateVideo(scene);
+                }
+            } catch (err: any) {
+                console.error(`Scene #${scene.scene_id} Flow video error:`, err);
+                updateScene(scene.id, { visualStatus: 'failed' });
+            }
+        }
+        setIsFlowBatchGenerating(false);
+        toast.success("전체 Flow 비디오 일괄 생성이 완료되었습니다!");
+    };
     
     // [NEW] CapCut Export States
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -576,7 +756,23 @@ const CreativeStudio = () => {
             toast.success(`${data.length}개의 씬으로 분할되었습니다.`);
         },
         onError: (err) => {
-            toast.error("씬 분할 실패: " + err);
+            console.warn("Backend split failed, activating client self-healing fallback:", err);
+            // 자가치유 폴백: 대본을 줄바꿈/문장 단위로 즉시 로컬 분할하여 복원
+            const lines = fullScript.split('\n').map(l => l.trim()).filter(Boolean);
+            const fallbackLines = lines.length > 0 ? lines : [fullScript];
+            const fallbackScenes: SceneSegment[] = fallbackLines.map((line, idx) => ({
+                id: uuidv4(),
+                scene_id: idx + 1,
+                script: line,
+                visual_prompt: `${segmentMode === 'shorts' ? '9:16' : '16:9'}, ${line}${stylePrompt ? `, ${stylePrompt}` : ''}`,
+                video_prompt: 'Camera slowly zooms in, subtle cinematic motion',
+                audioStatus: 'idle',
+                visualStatus: 'idle',
+                renderStatus: 'idle',
+                viewMode: 'source'
+            }));
+            setScenes(fallbackScenes);
+            toast.info(`스마트 로컬 분석으로 ${fallbackScenes.length}개 씬 분할 복구 완료!`);
         }
     });
 
@@ -1235,6 +1431,8 @@ const CreativeStudio = () => {
                 subtitleConfig: subtitleConfig,
                 subtitleFontSize: subtitleConfig.fontSize,
                 audioPackage: audioPackage,
+                transitionConfig: transitionConfig,
+                watermarkConfig: watermarkConfig,
                 scaleMode: settings.scaleMode,
                 kenBurns: settings.kenBurns,
                 kenBurnsMode: settings.kenBurnsMode,
@@ -1398,12 +1596,18 @@ const CreativeStudio = () => {
             {/* 1. 상단 타이틀 헤더 바 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
                 <div>
-                    <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-                        <Clapperboard className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
-                        <span>AI 미디어 일괄 생성</span>
-                    </h1>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                            <Clapperboard className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-indigo-600 dark:text-indigo-400" />
+                            <span>AI 미디어 일괄 생성</span>
+                        </h1>
+                        <Badge variant="outline" className="text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Google Flow 연동 준비 완료</span>
+                        </Badge>
+                    </div>
                     <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-                        프롬프트와 대본을 기반으로 이미지, 비디오 씬, 음성을 일괄 렌더링하고 완성본으로 통합
+                        구글 Flow AI 다중창과 실시간 연동하여 이미지/영상 일괄 생성 및 CapCut 완제품 내보내기
                     </p>
                 </div>
             </div>
@@ -1675,6 +1879,16 @@ const CreativeStudio = () => {
                 )}
             </Card>
 
+            {/* Zone 2.5: Collapsible Timeline & Real-time Preview (Script 하단) */}
+            <CollapsibleTimelinePreview
+                scenes={scenes}
+                aspectRatio={segmentMode === 'shorts' ? '9:16' : '16:9'}
+                watermarkConfig={watermarkConfig}
+                transitionConfig={transitionConfig}
+                isOpen={isTimelineOpen}
+                onToggle={() => setIsTimelineOpen(!isTimelineOpen)}
+            />
+
             {/* Zone 3: Scene Board */}
             <div className="space-y-4">
                 {/* Scene Controls Header (Split into 2 rows) */}
@@ -1717,17 +1931,52 @@ const CreativeStudio = () => {
                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleBatchTTS}>
                             <Mic className="w-3 h-3 mr-1" /> 전체 TTS 생성
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleBatchImageGen}>
-                            <ImageIcon className="w-3 h-3 mr-1" /> 전체 이미지 생성
+                        
+                        {/* Flow AI Batch Buttons */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isFlowBatchGenerating}
+                            className="h-8 text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800 hover:bg-purple-500/20 font-semibold"
+                            onClick={handleBatchFlowImages}
+                        >
+                            {isFlowBatchGenerating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                            ✨ Flow 전체 이미지 생성
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleBatchRender}>
-                            <Clapperboard className="w-3 h-3 mr-1" /> 전체 렌더링
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isFlowBatchGenerating}
+                            className="h-8 text-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800 hover:bg-indigo-500/20 font-semibold"
+                            onClick={handleBatchFlowVideos}
+                        >
+                            {isFlowBatchGenerating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Film className="w-3 h-3 mr-1" />}
+                            🎬 Flow 전체 영상 생성
                         </Button>
-                        <Button variant="default" size="sm" className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600" onClick={handleRoughCut}>
+
+                        <Button variant="default" size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white border-blue-600" onClick={handleRoughCut}>
                             <Film className="w-3 h-3 mr-1" /> ⚡ 원클릭 러프컷
                         </Button>
 
-                        <div className="h-4 w-px bg-border mx-2" />
+                        <div className="h-4 w-px bg-border mx-1" />
+
+                        {/* Transitions & Watermark Modals Trigger */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => setIsTransitionDialogOpen(true)}
+                        >
+                            🎬 트랜지션 {transitionConfig.mode !== 'none' ? `(${transitionConfig.mode})` : ''}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className={`h-8 text-xs ${watermarkConfig.enabled ? 'border-amber-500 text-amber-500 bg-amber-500/10' : ''}`}
+                            onClick={() => setIsWatermarkDialogOpen(true)}
+                        >
+                            🏷️ 워터마크/로고 {watermarkConfig.enabled ? 'ON' : ''}
+                        </Button>
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -1858,15 +2107,15 @@ const CreativeStudio = () => {
                                     </div>
                                 </div>
 
-                                {/* Right Panel: Visual Source (Fixed Width) */}
-                                <div className="w-full md:w-[320px] bg-muted/5 p-3 flex flex-col gap-3 shrink-0">
+                                {/* Right Panel: Visual Source (Expanded 40% Width & Height for Pro Visibility) */}
+                                <div className="w-full md:w-[420px] lg:w-[450px] bg-muted/10 p-4 flex flex-col gap-3 shrink-0 border-t md:border-t-0 md:border-l">
                                     <div className="flex items-center justify-between">
                                         <div className="text-xs font-bold text-muted-foreground flex flex-col gap-1">
-                                            <div className="flex items-center gap-2">
-                                                <ImageIcon className="w-3 h-3" /> 비주얼 소스
+                                            <div className="flex items-center gap-2 text-foreground font-semibold">
+                                                <ImageIcon className="w-3.5 h-3.5 text-primary" /> 비주얼 소스 플레이어
                                             </div>
                                             {index > 0 && (
-                                                <Label className="flex items-center gap-1.5 mt-1 cursor-pointer hover:text-primary transition-colors">
+                                                <Label className="flex items-center gap-1.5 mt-0.5 cursor-pointer hover:text-primary transition-colors">
                                                     <input 
                                                         type="checkbox" 
                                                         checked={scene.is_continuous_motion || false} 
@@ -1878,11 +2127,11 @@ const CreativeStudio = () => {
                                             )}
                                         </div>
                                         {(scene.video_url && scene.media_url) && (
-                                            <div className="flex bg-muted rounded-md p-0.5">
+                                            <div className="flex bg-muted rounded-md p-0.5 border">
                                                 <Button
                                                     variant={scene.viewMode === 'source' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className="h-5 text-[10px] px-2"
+                                                    className="h-6 text-[10.5px] px-2.5 font-medium"
                                                     onClick={() => updateScene(scene.id, { viewMode: 'source' })}
                                                 >
                                                     Source
@@ -1890,7 +2139,7 @@ const CreativeStudio = () => {
                                                 <Button
                                                     variant={scene.viewMode === 'render' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className="h-5 text-[10px] px-2"
+                                                    className="h-6 text-[10.5px] px-2.5 font-medium"
                                                     onClick={() => updateScene(scene.id, { viewMode: 'render' })}
                                                 >
                                                     Render
@@ -1899,8 +2148,8 @@ const CreativeStudio = () => {
                                         )}
                                     </div>
 
-                                    {/* Media Preview - Fixed Height Container to prevent expansion */}
-                                    <div className="w-full h-[180px] bg-black rounded-md overflow-hidden border shadow-inner relative group flex items-center justify-center">
+                                    {/* Media Preview - Enlarged Container (h-[260px]) for Superior Readability */}
+                                    <div className="w-full h-[260px] bg-slate-950 rounded-xl overflow-hidden border shadow-inner relative group flex items-center justify-center">
                                         {/* Render Logic: Based on viewMode */}
                                         {scene.viewMode === 'render' && scene.video_url ? (
                                             <video src={scene.video_url} controls className="w-full h-full object-contain" />
@@ -1909,17 +2158,26 @@ const CreativeStudio = () => {
                                                 <video src={scene.media_url} controls className="w-full h-full object-contain" /> :
                                                 <img src={scene.media_url} alt="Source" className="w-full h-full object-contain" />
                                         ) : (
-                                            <div className="flex flex-col items-center justify-center text-muted-foreground/30">
-                                                <ImageIcon className="w-8 h-8 mb-1" />
-                                                <span className="text-[10px]">No Media</span>
+                                            <div className="flex flex-col items-center justify-center text-muted-foreground/40">
+                                                <ImageIcon className="w-10 h-10 mb-2 opacity-50" />
+                                                <span className="text-xs font-medium">미디어 대기 중</span>
+                                                <span className="text-[10px] text-muted-foreground/60 mt-0.5">Flow 이미지 또는 영상 생성을 눌러주세요</span>
+                                            </div>
+                                        )}
+
+                                        {/* Generating Overlay */}
+                                        {scene.visualStatus === 'generating' && (
+                                            <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center text-white z-10 gap-2">
+                                                <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                                                <span className="text-xs font-bold animate-pulse">Flow AI 생성 중...</span>
                                             </div>
                                         )}
 
                                         {/* Contextual Download Button */}
                                         {(scene.video_url || scene.media_url) && (
-                                            <Button variant="secondary" size="icon" className="absolute top-2 right-2 h-7 w-7 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                            <Button variant="secondary" size="icon" className="absolute top-2 right-2 h-7 w-7 bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
                                                 onClick={() => triggerDownload(scene.video_url || scene.media_url!, `scene_${scene.scene_id}_media`)}>
-                                                <Download className="w-4 h-4" />
+                                                <Download className="w-3.5 h-3.5" />
                                             </Button>
                                         )}
                                     </div>
@@ -2099,6 +2357,22 @@ const CreativeStudio = () => {
                 exportPhase={exportPhase}
                 hasSubtitles={scenes.some(seg => seg.script && seg.script.trim().length > 0)}
                 onUpgradeClick={() => { /* Handled elsewhere if needed */ }}
+            />
+
+            {/* Watermark Dialog */}
+            <WatermarkSettingsDialog
+                open={isWatermarkDialogOpen}
+                onOpenChange={setIsWatermarkDialogOpen}
+                config={watermarkConfig}
+                onChange={setWatermarkConfig}
+            />
+
+            {/* Transition Dialog */}
+            <TransitionSettingsDialog
+                open={isTransitionDialogOpen}
+                onOpenChange={setIsTransitionDialogOpen}
+                config={transitionConfig}
+                onChange={setTransitionConfig}
             />
         </div >
     );

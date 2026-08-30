@@ -350,9 +350,9 @@ function ShellContent({ children }) {
   }
 
   const location = useLocation()
-  const isFlowPage = location?.pathname === '/flow2capcut'
+  const isFlowPage = location?.pathname === '/flow2capcut' || location?.pathname === '/creative-studio'
 
-  // flow2capcut 페이지 활성화 여부에 따른 Electron Flow WebContentsView 가시성 제어
+  // Flow 페이지 활성화 여부에 따른 Electron Flow WebContentsView 가시성 제어
   useEffect(() => {
     window.electronAPI?.setFlowTabActive?.({ active: isFlowPage })
     if (isFlowPage) {

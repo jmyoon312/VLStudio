@@ -21,3 +21,7 @@ Electron 데스크톱 앱 - Google Flow AI로 이미지/비디오 생성 후 Cap
 10. **`performance-memory-profiler`**: [성능 최적화] Electron GPU/V8 메모리 누수 방지, 가상 렌더링, IPC 오버헤드 최소화.
 
 - 모든 작업 전후 반드시 `contract-checker.js` 및 `storage-validator.js`를 실행하여 계약 무결성을 입증할 것.
+
+## 🎯 전역 인공지능 엔진 절대 규칙: 내부 작업 환경 설정(DB Settings) 단일 진실 공급원
+- **절대 원칙**: 특정 외부 인공지능 공급자(Groq, Google 등)를 코드에 하드코딩하지 않는다.
+- 모든 AI 생성, 대본 분석, 프롬프트 작성은 **시스템의 작업 환경 설정(DB Settings: `script_analysis_model`, `default_llm_model`)에 지정된 내부 인공지능 모델 및 라우터(`LLMClient` / `Hermes Core`)를 단일 진실 공급원(Single Source of Truth)으로 실시간 동적 연동**하여 사용한다.

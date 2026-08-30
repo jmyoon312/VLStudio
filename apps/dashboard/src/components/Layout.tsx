@@ -106,13 +106,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     React.useEffect(() => {
-        const isFlowPage = location.pathname === '/flow2capcut';
+        const isFlowActivePage = location.pathname === '/flow2capcut' || location.pathname === '/creative-studio';
+
         const apiObj = (window as any).electronAPI;
         if (apiObj?.setFlowTabActive) {
-            apiObj.setFlowTabActive({ active: isFlowPage });
+            apiObj.setFlowTabActive({ active: isFlowActivePage });
         }
-        if (isFlowPage) {
-            // Flow AI 렌더러 진입 시 다중창 1번(기본 프로필) 즉시 열기 및 활성화
+        if (isFlowActivePage) {
+            // 이미 로그인된 1번 기본 프로필('default')을 단일 활성 창으로 띄움
             if (apiObj?.createFlowView) {
                 apiObj.createFlowView({ profileId: 'default' }).catch(() => {});
             }
@@ -122,6 +123,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             if (apiObj?.setLayout) {
                 apiObj.setLayout({ mode: 'split-left', ratio: 0.45 }).catch(() => {});
             }
+            syncViewsAndProfiles();
         }
     }, [location.pathname]);
 
@@ -534,10 +536,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                             </h1>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 md:gap-4 shrink-0">
-                        <div className="hidden sm:block">
-                            <MultiWindowController activeViews={activeViews} activeProfileId={activeProfileId} syncViewsAndProfiles={syncViewsAndProfiles} />
-                        </div>
+                    <div className="flex items-center gap-2 md:gap-3 shrink-0">
+                        <MultiWindowController activeViews={activeViews} activeProfileId={activeProfileId} syncViewsAndProfiles={syncViewsAndProfiles} />
                         <GlobalLoopieChat />
                     </div>
                 </header>
@@ -586,8 +586,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 </div>
 
                 {/* Direct Page Router View Panel */}
-                {location.pathname === '/flow2capcut' ? (
-                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full pb-16 md:pb-0 box-border">
+                {(location.pathname === '/flow2capcut' || location.pathname === '/creative-studio') ? (
+                    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto w-full h-full pb-16 md:pb-0 box-border custom-scrollbar">
                         {children}
                     </div>
                 ) : (

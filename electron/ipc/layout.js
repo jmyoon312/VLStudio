@@ -58,31 +58,29 @@ export function updateBounds(mainWindow, flowView) {
 
   global.lastContainerRect = containerRect
 
-  const count = views.length
   const { x, y, width: cWidth, height: cHeight } = containerRect
+  const activeId = global.activeFlowProfileId || 'default'
 
-  if (count === 1) {
+  // global.flowViews가 Map 형태일 때 활성 뷰만 화면에 꽉 채우고 나머지는 숨김
+  if (global.flowViews && global.flowViews.size > 0) {
+    for (const [profId, view] of global.flowViews.entries()) {
+      if (!view || view.webContents?.isDestroyed?.()) continue
+      if (profId === activeId) {
+        try { view.setBounds({ x, y, width: cWidth, height: cHeight }) } catch (e) {
+          console.warn(`[Layout] Failed to set bounds for active view (${profId}):`, e.message)
+        }
+      } else {
+        try { view.setBounds({ x: 0, y: 0, width: 0, height: 0 }) } catch (e) {}
+      }
+    }
+    return
+  }
+
+  // fallback 단일 뷰
+  if (views.length > 0) {
     try { views[0].setBounds({ x, y, width: cWidth, height: cHeight }) } catch (e) {
       console.warn('[Layout] Failed to set bounds for view 0:', e.message)
     }
-  } else if (count === 2) {
-    const halfWidth = Math.floor(cWidth / 2)
-    try {
-      views[0].setBounds({ x, y, width: halfWidth, height: cHeight })
-      views[1].setBounds({ x: x + halfWidth, y, width: Math.max(0, cWidth - halfWidth), height: cHeight })
-    } catch (e) { console.warn('[Layout] Failed to set bounds for views (count=2):', e.message) }
-  } else {
-    const halfWidth = Math.floor(cWidth / 2)
-    const halfHeight = Math.floor(cHeight / 2)
-    try {
-      views[0].setBounds({ x, y, width: halfWidth, height: halfHeight })
-      if (count > 1) views[1].setBounds({ x: x + halfWidth, y, width: Math.max(0, cWidth - halfWidth), height: halfHeight })
-      if (count > 2) views[2].setBounds({ x, y: y + halfHeight, width: halfWidth, height: Math.max(0, cHeight - halfHeight) })
-      if (count > 3) {
-        views[3].setBounds({ x: x + halfWidth, y: y + halfHeight, width: Math.max(0, cWidth - halfWidth), height: Math.max(0, cHeight - halfHeight) })
-        for (let i = 4; i < count; i++) views[i].setBounds({ x: 0, y: 0, width: 0, height: 0 })
-      }
-    } catch (e) { console.warn('[Layout] Failed to set bounds for views (count>=3):', e.message) }
   }
 }
 

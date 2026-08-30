@@ -74,6 +74,8 @@ export async function generateCapcutProject(project, options = {}) {
 
   const videoTrack = { id: generateId(), type: 'video', flag: 0, segments: [] };
   const overlayTrack = { id: generateId(), type: 'video', flag: 0, segments: [] };
+  const watermarkTrack = { id: generateId(), type: 'video', flag: 0, name: 'Channel Watermark', segments: [] };
+  const watermarkTextTrack = { id: generateId(), type: 'text', flag: 0, name: 'Text Watermark', segments: [] };
   const topTitleTrack = { id: generateId(), type: 'text', flag: 0, name: 'Top Title', segments: [] };
   const situationTrack = { id: generateId(), type: 'text', flag: 0, name: 'Situation Subtitles', segments: [] };
   const jjapjjapTrack = { id: generateId(), type: 'text', flag: 0, name: 'Reaction Subtitles', segments: [] };
@@ -633,6 +635,150 @@ export async function generateCapcutProject(project, options = {}) {
     }
 
     cumulativeTime += duration;
+  }
+
+  // ── 씬 전환 트랜지션 (Transitions) 주입 ──
+  const transitionConfig = options.transitionConfig;
+  if (transitionConfig && transitionConfig.mode !== 'none' && videoTrack.segments.length > 1) {
+    const PRESETS_MAP = {
+      dissolve: { name: "디졸브", effectId: "transition_dissolve", resourceId: "res_tr_dissolve" },
+      flash_white: { name: "플래시 화이트", effectId: "transition_flash_white", resourceId: "res_tr_flash" },
+      zoom_in: { name: "줌인", effectId: "transition_zoom_in", resourceId: "res_tr_zoom" },
+      whip_pan: { name: "휩팬", effectId: "transition_whip_pan", resourceId: "res_tr_whip" },
+      glitch: { name: "글리치", effectId: "transition_glitch", resourceId: "res_tr_glitch" },
+      slide_left: { name: "슬라이드", effectId: "transition_slide_left", resourceId: "res_tr_slide" },
+    };
+
+    const trDurationSec = transitionConfig.durationSec || 0.5;
+
+    for (let i = 0; i < videoTrack.segments.length - 1; i++) {
+      let selectedType = transitionConfig.mode === 'fixed' ? transitionConfig.fixedType : null;
+      if (transitionConfig.mode === 'random' && transitionConfig.randomPool && transitionConfig.randomPool.length > 0) {
+        const pool = transitionConfig.randomPool;
+        selectedType = pool[i % pool.length];
+      }
+      if (!selectedType) selectedType = 'dissolve';
+
+      const preset = PRESETS_MAP[selectedType] || PRESETS_MAP.dissolve;
+      const trId = generateId();
+
+      materials.transitions.push({
+        id: trId,
+        type: "transition",
+        name: preset.name,
+        duration: toMicros(trDurationSec),
+        resource_id: preset.resourceId,
+        effect_id: preset.effectId,
+        is_overlap: true,
+        category_name: "transition",
+        category_id: "transition"
+      });
+
+      const seg = videoTrack.segments[i];
+      if (seg) {
+        if (!seg.extra_material_refs) seg.extra_material_refs = [];
+        seg.extra_material_refs.push(trId);
+      }
+    }
+  }
+
+  // ── 채널 브랜딩 워터마크 / 로고 오버레이 (Watermark) 주입 ──
+  const watermarkConfig = options.watermarkConfig;
+  if (watermarkConfig && watermarkConfig.enabled && cumulativeTime > 0) {
+    const totalDurationMicros = toMicros(cumulativeTime);
+    const durationMicros = watermarkConfig.durationMode === 'intro' ? Math.min(totalDurationMicros, toMicros(3.0)) : totalDurationMicros;
+
+    // 9방향 좌표 변환 (-0.8 ~ 0.8)
+    let posX = 0.7;
+    let posY = 0.75;
+    if (watermarkConfig.position) {
+      if (watermarkConfig.position.includes('left')) posX = -0.7;
+      else if (watermarkConfig.position.includes('center')) posX = 0.0;
+      else if (watermarkConfig.position.includes('right')) posX = 0.7;
+
+      if (watermarkConfig.position.startsWith('top')) posY = 0.75;
+      else if (watermarkConfig.position.startsWith('mid')) posY = 0.0;
+      else if (watermarkConfig.position.startsWith('bottom')) posY = -0.75;
+    }
+
+    const scaleVal = (watermarkConfig.scale || 15) / 100 * (isPortrait ? 1.0 : 0.8);
+    const alphaVal = (watermarkConfig.opacity || 80) / 100;
+
+    if (watermarkConfig.type === 'image' && watermarkConfig.imageUrl) {
+      const stickerMaterialId = generateId();
+      const stickerSegmentId = generateId();
+      const isBase64 = watermarkConfig.imageUrl.startsWith('data:');
+      const ext = isBase64 ? (watermarkConfig.imageUrl.match(/^data:image\/(\w+);base64,/)?.[1] || 'png') : 'png';
+      const stickerTargetName = `Resources/watermark_logo.${ext}`;
+      const stickerAbsPath = `${targetPath}/${stickerTargetName}`.replace(/\\/g, '/');
+
+      mediaFilesToCopy.push({
+        source: watermarkConfig.imageUrl,
+        isBase64: isBase64,
+        targetName: stickerTargetName
+      });
+
+      materials.stickers.push({
+        id: stickerMaterialId,
+        path: stickerAbsPath,
+        type: "sticker",
+        category_name: "custom",
+        category_id: "custom",
+        import_time: Math.floor(Date.now() / 1000),
+        material_name: `watermark_logo.${ext}`
+      });
+
+      watermarkTrack.segments.push({
+        id: stickerSegmentId,
+        material_id: stickerMaterialId,
+        source_timerange: { start: 0, duration: durationMicros },
+        target_timerange: { start: 0, duration: durationMicros },
+        render_index: 30000,
+        clip: {
+          scale: { x: scaleVal, y: scaleVal },
+          transform: { x: posX, y: posY },
+          alpha: alphaVal
+        },
+        extra_material_refs: [stickerMaterialId]
+      });
+    } else if (watermarkConfig.type === 'text' && watermarkConfig.text) {
+      const textMaterialId = generateId();
+      const textSegmentId = generateId();
+
+      materials.texts.push({
+        id: textMaterialId,
+        type: "text",
+        content: JSON.stringify({
+          styles: [{
+            fill: { alpha: alphaVal, content: { render_type: "solid", solid: { color: [1, 1, 1] } } },
+            size: (watermarkConfig.fontSize || 16) * 1.5,
+            bold: true,
+            shadow: watermarkConfig.textShadow ? { alpha: 0.8, color: [0, 0, 0], distance: 5 } : null
+          }],
+          text: watermarkConfig.text
+        }),
+        font_path: "",
+        font_category_id: "default",
+        font_category_name: "default",
+        font_id: "",
+        font_name: watermarkConfig.fontFamily || "System",
+        font_title: watermarkConfig.fontFamily || "System",
+        use_effect_default_color: false
+      });
+
+      watermarkTextTrack.segments.push({
+        id: textSegmentId,
+        material_id: textMaterialId,
+        source_timerange: { start: 0, duration: durationMicros },
+        target_timerange: { start: 0, duration: durationMicros },
+        render_index: 30000,
+        clip: {
+          scale: { x: 1.0, y: 1.0 },
+          transform: { x: posX, y: posY }
+        },
+        extra_material_refs: [textMaterialId]
+      });
+    }
   }
 
   // ── 자막 트랙 생성 (고정밀 srtEntries / srtTrack / Story 세그먼트 / Ddalkkak 기반 음성 완벽 싱크) ──
@@ -1456,6 +1602,8 @@ export async function generateCapcutProject(project, options = {}) {
       background: null
     },
     tracks: [
+      watermarkTrack.segments.length > 0 ? watermarkTrack : null,
+      watermarkTextTrack.segments.length > 0 ? watermarkTextTrack : null,
       topTitleTrack.segments.length > 0 ? topTitleTrack : null,
       situationTrack.segments.length > 0 ? situationTrack : null,
       jjapjjapTrack.segments.length > 0 ? jjapjjapTrack : null,

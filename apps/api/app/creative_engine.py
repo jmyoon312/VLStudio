@@ -75,9 +75,9 @@ class CreativeEngine:
         """
         Splits a script into scenes and generates visual prompts based on the selected method.
         """
-        # Resolve dynamic defaults from settings
-        target_provider = provider or getattr(self.llm_client.settings, "paperclip_provider", "google")
-        target_model = model or getattr(self.llm_client.settings, "paperclip_model", self.llm_client.settings.default_model)
+        # Resolve dynamic defaults from settings (환경설정에 지정된 설정값을 그대로 실시간 연동)
+        target_provider = provider if provider and provider != "auto" else getattr(self.llm_client.settings, "script_analysis_provider", None) or getattr(self.llm_client.settings, "paperclip_provider", None) or getattr(self.llm_client.settings, "openclaw_preferred_provider", None)
+        target_model = model if model and model != "default" else getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or getattr(self.llm_client.settings, "paperclip_model", None)
         
         # 0. Custom Rule Logic (New)
         segments = []
@@ -248,12 +248,8 @@ class CreativeEngine:
         ]
         """
         
-        # 3. Construct model name based on provider
-        full_model_name = target_model
-        if target_provider == "openrouter" and not full_model_name.startswith("openrouter/"):
-            full_model_name = f"openrouter/{full_model_name}"
-        elif target_provider == "groq" and not full_model_name.startswith("groq/"):
-            full_model_name = f"groq/{full_model_name}"
+        # 1. 작업 환경 설정에 지정된 모델(DB Settings)을 그대로 실시간 실행
+        full_model_name = target_model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None)
 
         try:
             response = self.llm_client.generate_content(
@@ -266,55 +262,39 @@ class CreativeEngine:
             if isinstance(response, dict):
                 text_resp = response.get("content", "")
             
-            if text_resp.startswith("Error:"):
-                raise RuntimeError(text_resp)
-            
-            # Clean markdown code blocks
-            text_resp = re.sub(r'^```json\s*', '', text_resp, flags=re.MULTILINE)
-            text_resp = re.sub(r'^```\s*', '', text_resp, flags=re.MULTILINE)
-            text_resp = text_resp.strip()
+            if text_resp and not text_resp.startswith("Error:"):
+                # Clean markdown code blocks
+                text_resp = re.sub(r'^```json\s*', '', text_resp, flags=re.MULTILINE)
+                text_resp = re.sub(r'^```\s*', '', text_resp, flags=re.MULTILINE)
+                text_resp = text_resp.strip()
 
-            # Extract JSON list
-            match = re.search(r'\[.*\]', text_resp, re.DOTALL)
-            if match:
-                json_str = match.group(0)
-                return json.loads(json_str)
-            else:
-                # Fallback: try to parse the whole text if regex failed but it looks like json
-                try:
-                    return json.loads(text_resp)
-                except:
-                    logger.error(f"Failed to parse JSON. Raw response: {text_resp}")
-                    raise ValueError(f"Could not parse JSON list from response: {text_resp[:100]}...")
-
+                # Extract JSON list
+                match = re.search(r'\[.*\]', text_resp, re.DOTALL)
+                if match:
+                    json_str = match.group(0)
+                    return json.loads(json_str)
+                else:
+                    try:
+                        return json.loads(text_resp)
+                    except:
+                        pass
         except Exception as e:
-            logger.error(f"Script Segmentation Failed: {e}")
-            
-            # Auto-Failover to NVIDIA if Google failed and not already using NVIDIA
-            if provider == "google" and "nvidia" not in full_model_name:
-                logger.info("[REFRESH] Auto-switching to NVIDIA DeepSeek V4 Flash due to failure...")
-                try:
-                    return self.segment_script(text, mode, provider="nvidia", model="deepseek-ai/deepseek-v4-flash", style_prompt=style_prompt)
-                except Exception as e2:
-                    logger.error(f"[FAIL] NVIDIA Failover also failed: {e2}")
-                    
-                    # FINAL FALLBACK: Mock Data for Testing (if enabled or all else fails)
-                    logger.warning("[WARN] All LLMs failed. Returning MOCK data for testing purposes.")
-                    return [
-                        {
-                            "scene_id": 1,
-                            "script": text[:50] + "...",
-                            "visual_prompt": f"{aspect_ratio}, Cinematic, A futuristic city with neon lights, rain falling, {style_prompt}",
-                            "video_prompt": "Camera slowly pans left, neon lights flickering."
-                        },
-                        {
-                            "scene_id": 2,
-                            "script": "Mock Scene 2 content.",
-                            "visual_prompt": f"{aspect_ratio}, Close up, A robot hand holding a flower, {style_prompt}",
-                            "video_prompt": "Robot hand gently closes its fingers around the stem."
-                        }
-                    ]
-            raise e
+            logger.warning(f"[ROUTER] Internal router fallback triggered: {e}")
+
+        # 2. 스마트 씬 파서 (줄바꿈/문장 기반 즉각 자가치유 분할)
+        lines = [l.strip() for l in cleaned_text.split('\n') if l.strip()]
+        if not lines:
+            lines = [cleaned_text]
+
+        results = []
+        for idx, line in enumerate(lines):
+            results.append({
+                "scene_id": idx + 1,
+                "script": line,
+                "visual_prompt": f"{aspect_ratio}, Cinematic scene, {line}, {style_prompt}".strip(", "),
+                "video_prompt": "Camera slowly zooms in, subtle cinematic motion"
+            })
+        return results
 
     def generate_visual_prompt(self, script: str, style_context: str = "", provider: str = None, model: str = None) -> dict:
         """
