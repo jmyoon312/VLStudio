@@ -744,13 +744,22 @@ const CreativeStudio = () => {
     const [pacingValue, setPacingValue] = useState(2);
 
     // [MODAL VISIBILITY FIX] 모든 모달 다이얼로그 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
-    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen || isSelectiveVideoModalOpen;
+    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen || isSelectiveVideoModalOpen || isSubtitleDialogOpen;
     useEffect(() => {
         const apiObj = (window as any).electronAPI;
         if (apiObj && typeof apiObj.setFlowTabActive === 'function') {
             apiObj.setFlowTabActive({ active: !isAnyModalOpen });
         }
     }, [isAnyModalOpen]);
+
+    const handleManualSyncSubtitles = async () => {
+        if (scenes.length === 0) {
+            toast.error("동기화할 씬이 없습니다.");
+            return;
+        }
+        await syncSubtitlesToDisk(scenes);
+        toast.success(`오탈자 없는 대본 기준 총 ${scenes.length}개 씬의 정밀 SRT 자막이 생성 및 동기화되었습니다!`);
+    };
 
     // Effect: Set defaults based on Segment Mode (Shorts vs Video)
     useEffect(() => {
@@ -2231,6 +2240,33 @@ const CreativeStudio = () => {
 
                         <div className="h-4 w-px bg-border mx-1" />
 
+                        {/* Subtitles & TTS Configuration Triggers */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => setIsTTSDialogOpen(true)}
+                        >
+                            🎙️ 음성 설정
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className={`h-8 text-xs ${subtitleConfig.enabled ? 'border-green-500 text-green-600 dark:text-green-400 bg-green-500/10' : ''}`}
+                            onClick={() => setIsSubtitleDialogOpen(true)}
+                        >
+                            📝 자막 설정
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-500/10 font-semibold"
+                            onClick={handleManualSyncSubtitles}
+                            title="오탈자 없는 대본과 음성 재생 시간을 기준으로 정밀 SRT 자막 즉시 생성 및 동기화"
+                        >
+                            ⚡ 자막 SRT 동기화
+                        </Button>
+
                         {/* Transitions & Watermark Modals Trigger */}
                         <Button
                             variant="outline"
@@ -2755,6 +2791,28 @@ const CreativeStudio = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Subtitle Settings Dialog */}
+            <SubtitleSettingsDialog
+                open={isSubtitleDialogOpen}
+                onOpenChange={setIsSubtitleDialogOpen}
+                initialConfig={subtitleConfig}
+                onSave={(cfg) => {
+                    setSubtitleConfig(cfg);
+                    toast.success("자막 설정이 저장되었습니다.");
+                }}
+            />
+
+            {/* TTS Settings Dialog */}
+            <TTSSettingsDialog
+                open={isTTSDialogOpen}
+                onOpenChange={setIsTTSDialogOpen}
+                initialConfig={ttsConfig}
+                onSave={(cfg) => {
+                    setTTSConfig(cfg);
+                    toast.success("음성(TTS) 설정이 저장되었습니다.");
+                }}
+            />
         </div >
     );
 };
