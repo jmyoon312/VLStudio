@@ -244,19 +244,6 @@ const CreativeStudio = () => {
     };
 
     useEffect(() => {
-        const apiObj = (window as any).electronAPI;
-        if (apiObj?.setFlowTabActive) {
-            apiObj.setFlowTabActive({ active: true });
-        }
-        if (apiObj?.createFlowView) {
-            apiObj.createFlowView({ profileId: 'default' }).catch(() => {});
-        }
-        if (apiObj?.switchProfile) {
-            apiObj.switchProfile({ profileId: 'default' }).catch(() => {});
-        }
-        if (apiObj?.setLayout) {
-            apiObj.setLayout({ mode: 'split-left', ratio: 0.45 }).catch(() => {});
-        }
         syncFlowWindowState();
     }, []);
 
@@ -723,12 +710,12 @@ const CreativeStudio = () => {
     const [pacingUnit, setPacingUnit] = useState<'sentence' | 'time'>('sentence');
     const [pacingValue, setPacingValue] = useState(2);
 
-    // [MODAL VISIBILITY FIX] 모든 모달 다이얼로그 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
+    // [MODAL VISIBILITY FIX] 모달 다이얼로그 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
     const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen || isSelectiveVideoModalOpen || isSubtitleDialogOpen;
     useEffect(() => {
         const apiObj = (window as any).electronAPI;
-        if (apiObj && typeof apiObj.setFlowTabActive === 'function') {
-            apiObj.setFlowTabActive({ active: !isAnyModalOpen });
+        if (apiObj && typeof apiObj.setModalVisible === 'function') {
+            apiObj.setModalVisible({ visible: isAnyModalOpen });
         }
     }, [isAnyModalOpen]);
 
