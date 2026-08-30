@@ -973,12 +973,28 @@ const CreativeStudio = () => {
         generateImageMutation.mutate({ id, sceneId, prompt: finalPrompt });
     };
 
-    const handleSegmentScript = () => {
+    const handleSegmentScript = async () => {
         if (!fullScript.trim()) {
             toast.error("대본을 입력해주세요.");
             return;
         }
         setIsSegmenting(true);
+
+        // [PROJECT LIFECYCLE] 대본 분석 시점에 즉시 새 프로젝트 폴더 규칙 생성 및 디스크 초기화
+        const now = new Date();
+        const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
+        const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+        const newProjName = `project_${dateStr}_${timeStr}`;
+        setCurrentProjectName(newProjName);
+        localStorage.setItem('creative_current_project_name', newProjName);
+
+        try {
+            await api.post('/creative/init-project', { project_name: newProjName });
+            console.log(`[Storage] Initialized project folder on disk: 05_Exports/${newProjName}`);
+        } catch (e) {
+            console.warn("Project init warning:", e);
+        }
+
         segmentScriptMutation.mutate({
             text: fullScript,
             mode: segmentMode,
@@ -1255,6 +1271,7 @@ const CreativeStudio = () => {
                 script: data.script,
                 image_url: "",
                 tts_config: ttsConfig,
+                project_name: currentProjectName,
                 // @ts-ignore
                 old_file_path: scenes.find(s => s.id === data.id)?.audio_path
             });
@@ -1293,7 +1310,8 @@ const CreativeStudio = () => {
                     scene_id: s.scene_id,
                     script: s.script,
                     image_url: "",
-                    tts_config: ttsConfig
+                    tts_config: ttsConfig,
+                    project_name: currentProjectName
                 }).then(res => ({
                     id: s.id,
                     scene_id: s.scene_id,

@@ -161,13 +161,13 @@ class VideoGenClient:
         # Fallback Task ID for polling logic
         return f"task_{int(time.time())}"
 
-    async def generate_scene_audio(self, scene_id: int, script: str, tts_config: dict) -> str:
+    async def generate_scene_audio(self, scene_id: int, script: str, tts_config: dict, project_name: str = None) -> str:
         """
         Generates TTS audio for a scene.
         Returns the local file path.
         """
         try:
-            logger.info(f"🎤 Generating TTS for Scene #{scene_id}...")
+            logger.info(f"🎤 Generating TTS for Scene #{scene_id} in project: {project_name or 'temp'}...")
             
             # Import AudioProcessor
             try:
@@ -182,7 +182,9 @@ class VideoGenClient:
                 language=tts_config.get("language", "ko"),
                 voice_id=tts_config.get("voice_id"),
                 rate=int(tts_config.get("rate", 0)),
-                pitch=int(tts_config.get("pitch", 0))
+                pitch=int(tts_config.get("pitch", 0)),
+                project_name=project_name,
+                scene_id=scene_id
             )
             
             # Fix: Handle dictionary return from TTS Engine

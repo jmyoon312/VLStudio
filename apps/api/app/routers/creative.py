@@ -582,6 +582,33 @@ class SceneTTSRequest(BaseModel):
     image_url: Optional[str] = ""
     tts_config: Optional[dict] = None
     old_file_path: Optional[str] = None # For cleanup
+    project_name: Optional[str] = None
+
+class InitProjectRequest(BaseModel):
+    project_name: str
+
+@router.post("/init-project")
+def init_project_folder(
+    req: InitProjectRequest,
+    db: Session = Depends(database.get_db)
+):
+    settings = crud.get_settings(db)
+    root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+    project_dir = os.path.join(root, "05_Exports", req.project_name)
+    subdirs = ["audio", "images", "videos", "subtitles"]
+    for sub in subdirs:
+        os.makedirs(os.path.join(project_dir, sub), exist_ok=True)
+    
+    meta_path = os.path.join(project_dir, "project.json")
+    if not os.path.exists(meta_path):
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "project_name": req.project_name,
+                "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "status": "active"
+            }, f, ensure_ascii=False, indent=2)
+            
+    return {"status": "success", "project_dir": project_dir, "project_name": req.project_name}
 
 @router.post("/scene-tts")
 async def generate_scene_tts(
@@ -614,7 +641,8 @@ async def generate_scene_tts(
         audio_path = await video_client.generate_scene_audio(
             scene_id=request.scene_id,
             script=request.script,
-            tts_config=config
+            tts_config=config,
+            project_name=request.project_name
         )
         
         # Calculate exact audio duration
