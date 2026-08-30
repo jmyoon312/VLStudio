@@ -117,9 +117,15 @@ class SupertonicService:
         if not voice_id or voice_id == "default" or voice_id.lower() == "supertonic generic":
             return "M1"
         
-        name = voice_id
+        name = str(voice_id).strip()
         if name.endswith(".json"):
             name = name[:-5]
+
+        # Strip prefixes like 'Supertonic F3' -> 'F3'
+        if name.lower().startswith("supertonic "):
+            name = name[11:].strip()
+        elif name.lower().startswith("supertone "):
+            name = name[10:].strip()
 
         # Check against available style names
         available = self.tts.voice_style_names

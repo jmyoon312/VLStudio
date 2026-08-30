@@ -168,12 +168,23 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   }, [normalizedTimelineScenes, totalDurationMs]);
 
   // SRT 자막 엔트리 파이프라인 (externalSrtEntries 우선 적용)
+  // 음성이 실제로 생성되어 타임코드가 확정된 후에만 자막을 타임라인에 정확히 렌더링
   const srtEntries = useMemo(() => {
     if (externalSrtEntries && externalSrtEntries.length > 0) {
       return externalSrtEntries;
     }
     if (!normalizedTimelineScenes || normalizedTimelineScenes.length === 0) return [];
-    return normalizedTimelineScenes.map((s, idx) => ({
+    
+    // TTS 오디오가 실제 생성 완료된 씬만 필터링
+    const completedAudioScenes = normalizedTimelineScenes.filter(
+      (s) => (s.audioPath || s.audioUrl) && s.audioStatus === 'completed'
+    );
+    
+    if (completedAudioScenes.length === 0) {
+      return []; // 음성 생성 전에는 가짜 자막 블록을 타임라인에 미리 배치하지 않음
+    }
+
+    return completedAudioScenes.map((s, idx) => ({
       id: idx + 1,
       startMs: s.startMs,
       endMs: s.endMs,

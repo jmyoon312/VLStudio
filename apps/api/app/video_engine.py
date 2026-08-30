@@ -168,60 +168,106 @@ class VideoGenClient:
         """
         try:
             logger.info(f"🎤 Generating TTS for Scene #{scene_id} in project: {project_name or 'temp'}...")
+            tts_config = tts_config or {}
             
-            # Import AudioProcessor
+            # Robust extraction of numeric params
+            speed_raw = tts_config.get("speed")
+            rate_raw = tts_config.get("rate")
+            if rate_raw is not None:
+                try:
+                    rate_val = int(float(rate_raw))
+                except (ValueError, TypeError):
+                    rate_val = 0
+            elif speed_raw is not None:
+                try:
+                    rate_val = int(round((float(speed_raw) - 1.0) * 100))
+                except (ValueError, TypeError):
+                    rate_val = 0
+            else:
+                rate_val = 0
+
+            pitch_raw = tts_config.get("pitch")
             try:
-                from silence_core import AudioProcessor
-            except ImportError:
-                import silence_core
-                AudioProcessor = silence_core.AudioProcessor
+                pitch_val = int(float(pitch_raw)) if pitch_raw is not None else 0
+            except (ValueError, TypeError):
+                pitch_val = 0
+
+            noise_scale_raw = tts_config.get("noise_scale")
+            try:
+                noise_scale_val = float(noise_scale_raw) if noise_scale_raw is not None else 0.0
+            except (ValueError, TypeError):
+                noise_scale_val = 0.0
+
+            mix_ratio_raw = tts_config.get("mix_ratio")
+            try:
+                mix_ratio_val = float(mix_ratio_raw) if mix_ratio_raw is not None else 0.0
+            except (ValueError, TypeError):
+                mix_ratio_val = 0.0
 
             tts_result = await self.tts_engine.generate_audio(
                 text=script,
-                engine=tts_config.get("engine", "edge"),
+                engine=tts_config.get("engine", "supertone-local"),
                 language=tts_config.get("language", "ko"),
                 voice_id=tts_config.get("voice_id"),
-                rate=int(tts_config.get("rate", 0)),
-                pitch=int(tts_config.get("pitch", 0)),
+                rate=rate_val,
+                pitch=pitch_val,
+                emotion=tts_config.get("emotion", "normal"),
+                noise_scale=noise_scale_val,
+                mix_voice_id=tts_config.get("mix_voice_id"),
+                mix_ratio=mix_ratio_val,
                 project_name=project_name,
                 scene_id=scene_id
             )
             
-            # Fix: Handle dictionary return from TTS Engine
+            # Handle dictionary return from TTS Engine
             if isinstance(tts_result, dict):
                 audio_path = tts_result.get("file_path")
                 if not audio_path:
                     raise ValueError("TTS Engine returned success but no file path")
             else:
-                # Legacy fallback if it returns string
-                audio_path = tts_result
+                audio_path = str(tts_result)
 
-            # --- Silence Removal (Optional) ---
-            if tts_config.get('silenceEnabled', False):
+            # Silence Removal (Optional)
+            if tts_config.get('silenceEnabled') or tts_config.get('use_silence_removal'):
                 try:
                     logger.info("Applying Silence Removal...")
+                    try:
+                        from silence_core import AudioProcessor
+                    except ImportError:
+                        import silence_core
+                        AudioProcessor = silence_core.AudioProcessor
                     processor = AudioProcessor()
                     
-                    # Load audio
                     from pydub import AudioSegment
                     audio = AudioSegment.from_file(audio_path)
                     
-                    # Process
+                    thresh = -40
+                    try:
+                        thresh = int(float(tts_config.get('silenceThreshold') or tts_config.get('silence_threshold') or -40))
+                    except: pass
+                    
+                    min_len = 300
+                    try:
+                        min_len = int(float(tts_config.get('minSilenceLen') or tts_config.get('min_silence_len') or 300))
+                    except: pass
+                    
+                    keep_len = 50
+                    try:
+                        keep_len = int(float(tts_config.get('keepSilenceLen') or tts_config.get('keep_silence_len') or 50))
+                    except: pass
+
                     opts = {
                         "remove_silence": True,
-                        "threshold": int(tts_config.get('silenceThreshold', -40)),
-                        "min_silence_len": int(tts_config.get('minSilenceLen', 300)),
-                        "keep_silence_ms": int(tts_config.get('keepSilenceLen', 50)),
+                        "threshold": thresh,
+                        "min_silence_len": min_len,
+                        "keep_silence_ms": keep_len,
                         "use_nr": False, 
                         "normalize": False
                     }
                     
                     processed_audio = processor.process(audio, opts)
-                    
-                    # Overwrite original file
                     processed_audio.export(audio_path, format="mp3")
                     logger.info(f"Silence Removal Complete: {audio_path}")
-                    
                 except Exception as e:
                     logger.warning(f"Silence Removal Failed: {e}")
 
