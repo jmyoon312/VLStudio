@@ -153,7 +153,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
       folderPath: '',
       media: {
         video: {
-          durationMs: totalMs || totalDurationMs
+          durationMs: totalDurationMs
         }
       },
       tracks: {
