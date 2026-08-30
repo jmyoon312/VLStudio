@@ -580,7 +580,7 @@ class SceneTTSRequest(BaseModel):
     scene_id: int
     script: str
     image_url: Optional[str] = ""
-    tts_config: dict
+    tts_config: Optional[dict] = None
     old_file_path: Optional[str] = None # For cleanup
 
 @router.post("/scene-tts")
@@ -602,10 +602,19 @@ async def generate_scene_tts(
             except Exception as e:
                 print(f"[WARN] Failed to delete old audio: {e}")
 
+        # Resolve robust TTS config fallback
+        config = request.tts_config or {}
+        if not config.get("engine"):
+            config["engine"] = "supertone-local"
+        if not config.get("language"):
+            config["language"] = "ko"
+        if not config.get("voice_id"):
+            config["voice_id"] = "M1"
+
         audio_path = await video_client.generate_scene_audio(
             scene_id=request.scene_id,
             script=request.script,
-            tts_config=request.tts_config
+            tts_config=config
         )
         
         # Calculate exact audio duration

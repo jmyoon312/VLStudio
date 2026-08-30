@@ -477,17 +477,24 @@ const CreativeStudio = () => {
     const [isTTSDialogOpen, setIsTTSDialogOpen] = useState(false);
     const [ttsConfig, setTTSConfig] = useState<any>(() => {
         const defaults = {
-            engine: "kokoro",
+            engine: "supertone-local",
             language: "ko",
-            voice_id: "af_heart",
+            voice_id: "M1",
             speed: 1.0,
             pitch: 0,
             emotion: "normal"
         };
+        const saved = localStorage.getItem('viral_loop_tts_config');
+        if (saved) {
+            try { return { ...defaults, ...JSON.parse(saved) }; } catch (e) { console.error(e); }
+        }
+        return defaults;
     });
 
     useEffect(() => {
-        localStorage.setItem('viral_loop_tts_config', JSON.stringify(ttsConfig));
+        if (ttsConfig) {
+            localStorage.setItem('viral_loop_tts_config', JSON.stringify(ttsConfig));
+        }
     }, [ttsConfig]);
 
     const [isMotionDialogOpen, setIsMotionDialogOpen] = useState(false);
