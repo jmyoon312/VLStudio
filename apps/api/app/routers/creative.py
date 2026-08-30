@@ -586,6 +586,8 @@ class SceneTTSRequest(BaseModel):
 
 class InitProjectRequest(BaseModel):
     project_name: str
+    scenes: Optional[List[dict]] = None
+    script: Optional[str] = None
 
 @router.post("/init-project")
 def init_project_folder(
@@ -600,14 +602,16 @@ def init_project_folder(
         os.makedirs(os.path.join(project_dir, sub), exist_ok=True)
     
     meta_path = os.path.join(project_dir, "project.json")
-    if not os.path.exists(meta_path):
-        with open(meta_path, "w", encoding="utf-8") as f:
-            json.dump({
-                "project_name": req.project_name,
-                "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "status": "active"
-            }, f, ensure_ascii=False, indent=2)
-            
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "project_name": req.project_name,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "status": "active",
+            "script": req.script or "",
+            "scene_count": len(req.scenes) if req.scenes else 0,
+            "scenes": req.scenes or []
+        }, f, ensure_ascii=False, indent=2)
+        
     return {"status": "success", "project_dir": project_dir, "project_name": req.project_name}
 
 @router.post("/scene-tts")

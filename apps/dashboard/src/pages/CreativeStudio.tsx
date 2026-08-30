@@ -862,18 +862,39 @@ const CreativeStudio = () => {
             });
             return res.data;
         },
-        onSuccess: (data) => {
-            setScenes(data.map((s: any) => ({
+        onSuccess: async (data) => {
+            const mappedScenes: SceneSegment[] = data.map((s: any) => ({
                 ...s,
                 id: uuidv4(),
                 audioStatus: 'idle',
                 visualStatus: 'idle',
                 renderStatus: 'idle',
                 viewMode: 'source'
-            })));
-            toast.success(`${data.length}개의 씬으로 분할되었습니다.`);
+            }));
+            setScenes(mappedScenes);
+
+            // [PROJECT LIFECYCLE] 대본 분석이 완료되어 씬들이 구성된 정확한 시점에 프로젝트 폴더 생성 및 메타데이터 저장
+            const now = new Date();
+            const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
+            const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+            const newProjName = `project_${dateStr}_${timeStr}`;
+            setCurrentProjectName(newProjName);
+            localStorage.setItem('creative_current_project_name', newProjName);
+
+            try {
+                await api.post('/creative/init-project', {
+                    project_name: newProjName,
+                    scenes: mappedScenes,
+                    script: fullScript
+                });
+                console.log(`[Storage] Project folder initialized after scenes constructed: 05_Exports/${newProjName}`);
+            } catch (e) {
+                console.warn("Project init warning:", e);
+            }
+
+            toast.success(`${data.length}개 씬 구성 완료! 프로젝트 폴더(05_Exports/${newProjName})가 생성되었습니다.`);
         },
-        onError: (err) => {
+        onError: async (err) => {
             console.warn("Backend split failed, activating client self-healing fallback:", err);
             // 자가치유 폴백: 대본을 줄바꿈/문장 단위로 즉시 로컬 분할하여 복원
             const lines = fullScript.split('\n').map(l => l.trim()).filter(Boolean);
@@ -890,7 +911,25 @@ const CreativeStudio = () => {
                 viewMode: 'source'
             }));
             setScenes(fallbackScenes);
-            toast.info(`스마트 로컬 분석으로 ${fallbackScenes.length}개 씬 분할 복구 완료!`);
+
+            const now = new Date();
+            const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
+            const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+            const newProjName = `project_${dateStr}_${timeStr}`;
+            setCurrentProjectName(newProjName);
+            localStorage.setItem('creative_current_project_name', newProjName);
+
+            try {
+                await api.post('/creative/init-project', {
+                    project_name: newProjName,
+                    scenes: fallbackScenes,
+                    script: fullScript
+                });
+            } catch (e) {
+                console.warn("Fallback project init warning:", e);
+            }
+
+            toast.info(`스마트 로컬 분석으로 ${fallbackScenes.length}개 씬 분할 복구 완료! (05_Exports/${newProjName})`);
         }
     });
 
@@ -973,28 +1012,12 @@ const CreativeStudio = () => {
         generateImageMutation.mutate({ id, sceneId, prompt: finalPrompt });
     };
 
-    const handleSegmentScript = async () => {
+    const handleSegmentScript = () => {
         if (!fullScript.trim()) {
             toast.error("대본을 입력해주세요.");
             return;
         }
         setIsSegmenting(true);
-
-        // [PROJECT LIFECYCLE] 대본 분석 시점에 즉시 새 프로젝트 폴더 규칙 생성 및 디스크 초기화
-        const now = new Date();
-        const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
-        const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
-        const newProjName = `project_${dateStr}_${timeStr}`;
-        setCurrentProjectName(newProjName);
-        localStorage.setItem('creative_current_project_name', newProjName);
-
-        try {
-            await api.post('/creative/init-project', { project_name: newProjName });
-            console.log(`[Storage] Initialized project folder on disk: 05_Exports/${newProjName}`);
-        } catch (e) {
-            console.warn("Project init warning:", e);
-        }
-
         segmentScriptMutation.mutate({
             text: fullScript,
             mode: segmentMode,
