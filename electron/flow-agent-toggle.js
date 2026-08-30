@@ -14,25 +14,20 @@
  * log every candidate so the exact markup is confirmed from real runs.
  */
 
-/** Is a toggle element currently ON? (aria-pressed/checked, data-state on/checked/active, class/background) */
+//** Is a toggle element currently ON? (aria-pressed/checked, data-state on/checked/active) */
 export function isToggleOn(el) {
   if (!el) return false
   if (el.getAttribute('aria-pressed') === 'true') return true
   if (el.getAttribute('aria-checked') === 'true') return true
   const ds = el.getAttribute('data-state')
   if (ds === 'on' || ds === 'checked' || ds === 'active') return true
-  if (el.classList?.contains('active') || el.classList?.contains('selected') || el.classList?.contains('on')) return true
-  // Google Flow 특정: 버튼 텍스트에 '+' 없이 '에이전트'만 있거나 배경색이 채워져 있는 경우
-  const doc = el.ownerDocument || document
-  const win = doc.defaultView || window
-  try {
-    const style = win.getComputedStyle(el)
-    const bg = style.backgroundColor || ''
-    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' && !bg.includes('0, 0, 0')) {
-      return true
-    }
-  } catch (_) {}
-  return true // 안전하게 기본적으로 toggle 대상이면 클릭 시도
+  if (el.classList?.contains('active') || el.classList?.contains('selected')) return true
+  
+  // 버튼 텍스트가 '+' 없이 '에이전트'로만 표시되거나 배경색이 채워진 활성 상태
+  const text = (el.textContent || '').trim()
+  if (/^에이전트$/i.test(text) || /^agent$/i.test(text)) return true
+
+  return false
 }
 
 /**
@@ -41,22 +36,27 @@ export function isToggleOn(el) {
 export function findAgentToggle(doc) {
   const editor = doc.querySelector("[data-slate-editor='true'], div[contenteditable='true'], textarea")
   if (editor) {
-    let container = editor.parentElement
-    for (let i = 0; i < 6 && container && container !== doc.body && container !== doc.documentElement; i++) {
-      const btns = Array.from(container.querySelectorAll('button, [role="button"], [role="switch"]'))
-      for (const b of btns) {
-        const text = (b.textContent || '').trim()
-        const ariaLabel = (b.getAttribute('aria-label') || '').trim()
-        // 🌟 필터, 검색, 설정, 옵션 등 엉뚱한 버튼은 절대 건드리지 않음!
-        if (text.includes('필터') || ariaLabel.includes('필터') || text.includes('설정') || ariaLabel.includes('설정') || text.includes('검색') || ariaLabel.includes('검색')) continue
-        if (/agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)) {
-          return b
-        }
-      }
-      container = container.parentElement
+    for (let scope = editor.parentElement; scope && scope !== doc.body && scope !== doc.documentElement; scope = scope.parentElement) {
+      const btns = Array.from(scope.querySelectorAll('button, [role="button"], [role="switch"]'))
+      const matched = btns.filter((el) => {
+        const text = (el.textContent || '').trim()
+        const ariaLabel = el.getAttribute('aria-label') || ''
+        if (text.includes('필터') || ariaLabel.includes('필터') || text.includes('검색') || ariaLabel.includes('검색')) return false
+        return /agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)
+      })
+      if (matched.length > 0) return matched[0]
     }
   }
-  return null
+
+  // 전역 탐색 fallback
+  const allBtns = Array.from(doc.querySelectorAll('button, [role="button"]'))
+  const matched = allBtns.filter((el) => {
+    const text = (el.textContent || '').trim()
+    const ariaLabel = el.getAttribute('aria-label') || ''
+    if (text.includes('필터') || ariaLabel.includes('필터') || text.includes('검색') || ariaLabel.includes('검색')) return false
+    return /agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)
+  })
+  return matched.length > 0 ? matched[0] : null
 }
 
 /** Page expression returning the agent toggle ELEMENT (for trustedClickOnFlowView). */

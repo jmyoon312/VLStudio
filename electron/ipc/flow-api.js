@@ -8,8 +8,6 @@
 import path from 'node:path'
 import { net } from 'electron'
 import { formatGoogleApiError } from './googleApiError.js'
-import { GENERATED_IMG_PROBE } from '../flow-media-collect.js'
-import { AGENT_OFF_SCRIPT, AGENT_TOGGLE_SELECTOR } from '../flow-agent-toggle.js'
 
 /**
  * Register all Flow API IPC handlers.
@@ -162,20 +160,28 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       const currentUrl = flowView.webContents.getURL()
       console.log('[Flow API] [DOM+Net] Current Flow URL:', currentUrl)
 
-      const hasProject = currentUrl.includes('/project/')
+      const hasProject = currentUrl.includes('/project/') || currentUrl.includes('/tools/flow/')
       const hasTextarea = await flowView.webContents.executeJavaScript(
-        `!!(document.querySelector("[data-slate-editor='true']") || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('textarea'))`
+        `!!(document.querySelector('textarea') || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('[contenteditable="true"]'))`
       ).catch(() => false)
 
       console.log('[Flow API] [DOM+Net] hasProject:', hasProject, 'hasTextarea:', hasTextarea)
 
-      if (!hasProject || !hasTextarea) {
-        console.log('[Flow API] [DOM+Net] Not in project or no textarea found — creating/entering project...')
+      if (!hasTextarea) {
+        console.log('[Flow API] [DOM+Net] No textarea found — need to create/enter project')
 
-        // Flow 랜딩 페이지면: 새 프로젝트 버튼 클릭으로 프로젝트 생성/진입
+        // Flow 랜딩 페이지면: Enter tool 버튼 클릭으로 프로젝트 생성
         if (!currentUrl.includes('/project/')) {
-          for (let attempt = 0; attempt < 10; attempt++) {
-            if (attempt > 0) await new Promise(r => setTimeout(r, 1500))
+          // 이미 Flow 페이지가 아니면 로드
+          if (!currentUrl.includes('labs.google/fx')) {
+            console.log('[Flow API] Navigating to Flow...')
+            await flowView.webContents.loadURL(FLOW_URL)
+            await new Promise(r => setTimeout(r, 3000))
+          }
+
+          // Enter tool 버튼 찾기 + trusted click
+          for (let attempt = 0; attempt < 8; attempt++) {
+            if (attempt > 0) await new Promise(r => setTimeout(r, 2000))
 
             // 이미 프로젝트로 이동했는지 확인
             const checkUrl = flowView.webContents.getURL()
@@ -184,34 +190,45 @@ export function registerFlowAPIIPC(ipcMain, deps) {
               break
             }
 
-            // New Project 버튼 클릭 (+ 새 프로젝트 / New project / add 아이콘)
+            // New Project 버튼 클릭 (AutoFlow: icon='add_2')
             const enterClicked = await flowView.webContents.executeJavaScript(`
               (function() {
-                // 1. 텍스트 우선 탐색: "새 프로젝트", "+ 새 프로젝트", "New project", "Start"
-                const allButtons = Array.from(document.querySelectorAll('button'));
-                for (const b of allButtons) {
-                  const text = b.textContent.trim().toLowerCase();
-                  if (text.includes('새 프로젝트') || text.includes('새프로젝트') || text.includes('new project') || text.includes('enter tool') || text.includes('start')) {
-                    b.click();
-                    return 'text:' + b.textContent.trim().slice(0, 30);
-                  }
-                }
-
-                // 2. XPath add/add_2 아이콘
+                // XPath: add_2 아이콘 버튼 (AutoFlow 검증된 방식)
                 try {
                   const xr = document.evaluate(
-                    "//button[.//i[normalize-space(text())='add' or normalize-space(text())='add_2']] | //button[.//span[contains(@class, 'symbols') and (text()='add' or text()='add_2')]]",
+                    "//button[.//i[normalize-space(text())='add_2']] | (//button[.//i[normalize-space(.)='add_2']])",
                     document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
                   );
-                  if (xr.singleNodeValue) { xr.singleNodeValue.click(); return 'xpath_add'; }
+                  if (xr.singleNodeValue) { xr.singleNodeValue.click(); return 'add_2_xpath'; }
                 } catch {}
 
+                const allButtons = document.querySelectorAll('button');
+                // icon 'add_2' 또는 'add'
+                for (const b of allButtons) {
+                  const icons = b.querySelectorAll('i, span.material-icons, span.material-symbols-outlined');
+                  for (const icon of icons) {
+                    const t = icon.textContent.trim();
+                    if (t === 'add_2' || t === 'add' || t === 'arrow_forward') {
+                      b.click(); return 'icon_' + t;
+                    }
+                  }
+                }
+                // 텍스트 버튼
+                for (const b of allButtons) {
+                  const text = b.textContent.trim().toLowerCase();
+                  if (['start', '시작', 'enter', 'new', '새로 만들기', '새 프로젝트', '새프로젝트'].some(k => text.includes(k))) {
+                    b.click(); return 'text_' + text.substring(0, 30);
+                  }
+                }
+                console.log('[DOM] Buttons:', allButtons.length, Array.from(allButtons).slice(0,10).map(b => b.textContent.trim().substring(0,30)));
                 return null;
               })()
             `).catch(() => null)
 
             if (enterClicked) {
-              console.log('[Flow API] Enter tool / New project clicked:', enterClicked)
+              console.log('[Flow API] Enter tool button clicked:', enterClicked)
+              setEnterToolClicked(true) // 무한루프 방지
+
               // 프로젝트 생성 대기 (최대 15초)
               for (let w = 0; w < 30; w++) {
                 await new Promise(r => setTimeout(r, 500))
@@ -219,11 +236,13 @@ export function registerFlowAPIIPC(ipcMain, deps) {
                 if (projUrl.includes('/project/')) {
                   const m = projUrl.match(/\/project\/([a-f0-9-]{36})/)
                   if (m) setCapturedProjectId(m[1])
-                  console.log('[Flow API] Project created & entered:', projUrl)
+                  console.log('[Flow API] Project created:', projUrl)
                   break
                 }
               }
               break
+            } else {
+              console.log('[Flow API] Enter tool button not found, attempt', attempt + 1, '/ 8')
             }
           }
         }
@@ -324,18 +343,6 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           `Array.from(document.querySelectorAll('img[src^="blob:"]')).map(img => img.src)`
         ) || []
       } catch {}
-
-      // 🌟 2-1. Agent OFF 강제 해제 (Flow Agent 켜짐 방지 — 4장 동시 생성 방지 및 direct API 보장)
-      try {
-        const agentOffRes = await flowView.webContents.executeJavaScript(AGENT_OFF_SCRIPT).catch(() => null)
-        console.log('[Flow API] Agent OFF script result:', agentOffRes)
-        if (agentOffRes?.wasOn) {
-          await trustedClickOnFlowView(AGENT_TOGGLE_SELECTOR).catch(() => {})
-          await new Promise(r => setTimeout(r, 400))
-        }
-      } catch (e) {
-        console.warn('[Flow API] Agent OFF toggle failed:', e.message)
-      }
 
       // 3. 프롬프트 입력 (Slate.js 에디터 — AutoFlow 역공학)
       // execCommand 방식이 작동하려면 flowView가 보여야 함 (focus 필요)
@@ -521,39 +528,6 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return { success: false, error: promptResult?.error || 'Prompt injection failed' }
       }
 
-      // batchCount 선택 (x1, x2, x3, x4) — 오직 입력창 툴바 내부의 버튼만 탐색
-      const targetCount = batchCount || 1
-      try {
-        await flowView.webContents.executeJavaScript(`
-          (function() {
-            const targetText = 'x' + ${targetCount};
-            const editor = document.querySelector("[data-slate-editor='true']") || document.querySelector("div[role='textbox']");
-            let container = editor ? editor.parentElement : null;
-            for (let i = 0; i < 5 && container && container !== document.body; i++) {
-              const btns = Array.from(container.querySelectorAll('button'));
-              const countBtn = btns.find(b => b.textContent.trim().toLowerCase() === targetText);
-              if (countBtn && !countBtn.disabled) {
-                countBtn.click();
-                console.log('[DOM] Clicked image count button inside composer:', targetText);
-                break;
-              }
-              container = container.parentElement;
-            }
-          })()
-        `)
-      } catch (e) {
-        console.warn('[Flow API] Failed to select batchCount button:', e.message)
-      }
-
-      // 제출 전 기존 완성 이미지 스냅샷 (Agent 스트리밍 수집용)
-      let existingMediaIds = []
-      try {
-        const existingImages = await flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE)
-        if (Array.isArray(existingImages)) {
-          existingMediaIds = existingImages.map(i => i && i.mediaId).filter(Boolean)
-        }
-      } catch (_) {}
-
       // 4. Generate 버튼 찾기 + Trusted Click
       // b.click()은 isTrusted: false라서 Flow 페이지가 무시함
       // → flowView를 일시적으로 보이게 한 후 sendInputEvent로 trusted click
@@ -651,8 +625,19 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return null;
       })()`
 
-      // ★ 클릭 전 pending 지정을 미리 해두어 네트워크 레이스 컨디션을 방지!
-      const generationSetAt = Date.now() / 1000 - 5  // 5초 전부터 유효 (stale 필터 보정)
+      const clickResult = await trustedClickOnFlowView(generateBtnSelector)
+      console.log('[Flow API] [DOM+Net] Trusted click result:', clickResult)
+
+      if (!clickResult?.success) {
+        clearTimeout(generationTimeout)
+        return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
+      }
+
+      // ★ Generate 버튼 클릭 성공 직후 즉시 pending 설정!
+      //   버튼 클릭이 batchGenerateImages 요청을 트리거하므로,
+      //   expectedImageCount 감지 전에 먼저 설정해야 CDP 핸들러가 응답을 캡처할 수 있다.
+      //   2초 버퍼: 클릭과 네트워크 요청 사이의 wallTime 차이를 보정
+      const generationSetAt = Date.now() / 1000 - 2  // 2초 전부터 유효 (stale 필터 보정)
       let generationId = null  // 비동기 모드에서만 사용
 
       if (asyncMode) {
@@ -665,16 +650,16 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           collectionTimer: null,
           completed: false,
           token,              // 나중에 이미지 fetch용
+          // 응답↔gen 상관키 (generationMatch.js) — 요청 body 의 prompt/refs/seed/aspectRatio 와 대조
           promptKey: prompt,
           refMediaIds: Array.isArray(referenceImages)
             ? referenceImages.map((r) => r?.mediaId).filter(Boolean).sort()
             : [],
           reqSeed: _seedValue,
-          reqAspectRatio: _aspectRatioEnum,
-          existingMediaIds,   // DOM 스트리밍 감지용
-          domFreshImages: []
+          reqAspectRatio: _aspectRatioEnum
         })
-        console.log('[Flow API] [Async] pendingGenerations set (armed):', generationId)
+        console.log('[Flow API] [Async] pendingGenerations set:', generationId,
+          '(setAt:', generationSetAt.toFixed(3), ')')
       } else {
         // === 동기 모드: 기존 pendingGeneration 설정 ===
         setPendingGeneration({
@@ -689,17 +674,8 @@ export function registerFlowAPIIPC(ipcMain, deps) {
             resolveGeneration(result)
           }
         })
-        console.log('[Flow API] [DOM+Net] pendingGeneration set (armed)')
-      }
-
-      const clickResult = await trustedClickOnFlowView(generateBtnSelector)
-      console.log('[Flow API] [DOM+Net] Trusted click result:', clickResult)
-
-      if (!clickResult?.success) {
-        if (asyncMode) pendingGenerations.delete(generationId)
-        else setPendingGeneration(null)
-        clearTimeout(generationTimeout)
-        return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
+        console.log('[Flow API] [DOM+Net] pendingGeneration set IMMEDIATELY after click (setAt:',
+          generationSetAt.toFixed(3), ')')
       }
 
       // 예상 이미지 개수 감지 (x1/x2/x3/x4 선택 버튼에서)
@@ -922,7 +898,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     const gen = pendingGenerations.get(generationId)
     if (!gen) return { success: false, error: 'Generation not found', notFound: true }
 
-    // 🌟 듀얼 감지: 네트워크 응답이 아직 안 왔으면 Flow DOM 카드(Agent 모드)에서도 새 이미지가 완성되었는지 검사
+    // 🌟 듀얼 감지: 네트워크 응답이 지연되더라도 Flow DOM에 이미지가 완성되었으면 즉시 완료 판정
     if (!gen.completed) {
       try {
         const flowView = getFlowView()
@@ -931,16 +907,14 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           if (Array.isArray(currentImages) && currentImages.length > 0) {
             const seen = new Set(gen.existingMediaIds || [])
             const fresh = currentImages.filter(i => i && i.mediaId && i.src && !seen.has(i.mediaId))
-            if (fresh.length >= (gen.expectedCount || 1)) {
-              console.log('[Flow API] [CheckGen] DOM generated images detected for gen:', generationId, fresh.length)
+            if (fresh.length > 0) {
+              console.log('[Flow API] [CheckGen] DOM generated image detected:', fresh.length)
               gen.completed = true
               gen.domFreshImages = fresh
             }
           }
         }
-      } catch (e) {
-        // DOM 폴링 일시 에러 무시
-      }
+      } catch (_) {}
     }
 
     return {
@@ -969,7 +943,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     const allImages = []
     const allErrors = []
 
-    // 1. DOM에서 감지된 이미지가 있는 경우 (Flow Agent 또는 DOM 렌더링 모드)
+    // 1. DOM에서 감지된 이미지가 있는 경우 (Flow Canvas/Blob 직접 추출)
     if (Array.isArray(gen.domFreshImages) && gen.domFreshImages.length > 0) {
       const flowView = getFlowView()
       for (const { mediaId, src } of gen.domFreshImages) {
@@ -1029,7 +1003,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       }
     }
 
-    // 2. 네트워크 인터셉트 응답 파싱 (기존 모드)
+    // 2. 네트워크 인터셉트 응답 파싱
     const successResponses = gen.responses.filter(r => !r.error)
     const failedCount = gen.responses.filter(r => r.error).length
 

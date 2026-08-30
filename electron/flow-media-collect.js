@@ -37,33 +37,17 @@ export function scanGeneratedImages(doc) {
     const src = im.currentSrc || im.src || ''
     if (!src || src.startsWith('data:image/svg') || seenSrc.has(src)) continue
 
-    // 아이콘, 로고, 아바타 제외 (화면 크기 또는 naturalSize 기준)
     const rect = im.getBoundingClientRect ? im.getBoundingClientRect() : { width: 100, height: 100 }
-    if (rect.width > 0 && rect.height > 0 && (rect.width < 60 || rect.height < 60)) continue
+    if (rect.width > 0 && rect.height > 0 && (rect.width < 80 || rect.height < 80)) continue
 
-    // 아직 생성 진행 중(40%, 36% 등)인 카드 제외
-    const parent = im.parentElement
-    const card = (im.closest && (im.closest('[role="article"]') || im.closest('[class*="card"]'))) || parent
-    const cardText = card ? (card.textContent || '') : ''
-    if (/\d+%\s*$/.test(cardText.trim()) || cardText.includes('생성 중') || cardText.includes('Generating')) {
-      continue
-    }
-
-    // UUID 추출 또는 고유 미디어 ID 생성
+    // Google Media Redirect URL 또는 googleusercontent 이미지
     const m = src.match(/[?&]name=([a-f0-9-]{36})/)
-    const mediaId = m ? m[1] : `dom-${src.split('?')[0].slice(-32)}`
+    const isGoogleMedia = src.includes('getMediaUrlRedirect') || src.includes('googleusercontent.com') || src.includes('blob:') || !!m
+    if (!isGoogleMedia) continue
 
-    // Google Media URL 또는 유효한 이미지 URL이면 모두 수집
-    if (
-      src.includes('getMediaUrlRedirect') ||
-      src.includes('googleusercontent.com') ||
-      src.includes('blob:') ||
-      src.includes('/media/') ||
-      rect.width >= 100
-    ) {
-      seenSrc.add(src)
-      out.push({ mediaId, src })
-    }
+    const mediaId = m ? m[1] : `dom-${src.split('?')[0].slice(-32)}`
+    seenSrc.add(src)
+    out.push({ mediaId, src })
   }
   return out
 }
