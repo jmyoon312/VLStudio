@@ -182,24 +182,29 @@ class CreativeEngine:
         if split_method == 'visual_change':
             pacing_instruction = (
                 "SPLIT STRATEGY: VISUAL CHANGE FOCUSED.\n"
-                "Create a new scene ONLY when the visual imagery described in the script changes significantly.\n"
-                "Ignor sentence structure. Focus on 'What the viewer sees'.\n"
-                "If two sentences describe the same static action, COMBINE them."
+                "- Create a new scene ONLY when the location, subject, or camera perspective changes dramatically.\n"
+                "- STRICT RULE: NEVER split line-by-line or sentence-by-sentence. Combine 2 to 4 sentences that describe the same action, place, or emotional beat into ONE single scene.\n"
+                "- Focus purely on 'What the viewer sees on screen'."
+            )
+        elif split_method == 'semantic':
+            pacing_instruction = (
+                "SPLIT STRATEGY: SEMANTIC & DURATION AUTO-OPTIMIZATION.\n"
+                "- Group logically connected sentences into coherent narrative units (typically 2 to 4 sentences per scene).\n"
+                "- STRICT RULE: DO NOT split on every line break or every short sentence. Merge consecutive lines that form a single cohesive thought or action.\n"
+                "- Target duration: Each scene should naturally cover 3 to 6 seconds of narration."
             )
         elif mode == 'shorts':
             pacing_instruction = (
-                "MODE: YOUTUBE SHORTS (Fast Paced).\n"
-                "SPLIT RULE: Group **1 to 3 sentences** per scene based on semantic meaning.\n"
-                "Do NOT split every single sentence if they are short.\n"
-                "Do NOT make scenes too long (>3 sentences).\n"
-                "Ensure each scene has a clear 'Shorts-style' hook or visual."
+                "MODE: YOUTUBE SHORTS (Fast Paced & Hook-driven).\n"
+                "- SPLIT RULE: Group **2 to 3 sentences** per scene based on semantic flow.\n"
+                "- STRICT RULE: Do NOT split every single sentence. Combine short consecutive sentences.\n"
+                "- Ensure each scene represents a meaningful visual moment."
             )
         else: # long-form
             pacing_instruction = (
-                "MODE: LONG-FORM VIDEO (Narrative).\n"
-                "SPLIT RULE: Group **1 to 3 Paragraphs** (or 3-6 long sentences) into one scene.\n"
-                "Avoid choppy cuts. Maintain a smooth, slow narrative flow.\n"
-                "Only cut when the topic or location changes."
+                "MODE: LONG-FORM VIDEO (Cinematic Narrative).\n"
+                "- SPLIT RULE: Group **1 to 2 Paragraphs** (or 3-5 sentences) into one scene.\n"
+                "- Maintain smooth narrative continuity. Only create a new scene when topic or setting shifts."
             )
 
         # 2. Style Instruction (Refactored for Injection at END)
@@ -209,35 +214,37 @@ class CreativeEngine:
 
         prompt = f"""
         You are an expert AI Video Director.
-        Your goal is to split the script into scenes and write a **Visual Prompt** for each scene.
+        Your goal is to split the input script into meaningful narrative scenes and write a **Visual Prompt (Image)** and a **Video Prompt (Motion)** for each scene.
         
-        METHOD: {split_method.upper()} (Strictly follow split logic)
+        METHOD: {split_method.upper()}
         {style_context}
         {pacing_instruction}
         Target Aspect Ratio: {aspect_ratio}
 
+        CRITICAL SPLITTING RULES:
+        1. **NEVER output 1 scene per single line/sentence** unless the input script only has 1 sentence total. You MUST intelligently combine lines that share the same context or setting.
+        2. The "script" field of each scene must contain the full combined Korean text for that scene.
+
         INSTRUCTIONS FOR PROMPTS:
         0. **Cultural & Era Context Extraction**:
-           - First, thoroughly analyze the script to deduce the exact geographic, cultural, and historical era (e.g., Joseon Dynasty Korea, Modern New York, Sci-Fi Future, North Korea).
-           - **CRITICAL ANTI-BIAS RULE**: The deduced cultural context MUST override any contradictory elements in the Global Style. For example, if the script implies "Joseon Dynasty" (e.g. '선비', '한복') but the Global Style is "Japanese anime", you MUST use the Ghibli/anime art style (brush strokes, colors) BUT the characters MUST wear Korean Hanbok and the architecture MUST be Korean. Do NOT generate Japanese clothes or settings if the script implies Korea.
+           - Deduce the exact cultural/historical era from the script (e.g. Joseon Dynasty Korea, Modern Seoul, Sci-Fi).
+           - Characters, clothing (Hanbok), architecture (Hanok), props MUST accurately reflect this era.
         1. **visual_prompt (Image Prompt)**: 
-           - MUST BE IN ENGLISH: Describe the visual scene in vivid, concrete cinematic English. DO NOT copy or repeat the Korean script verbatim.
-           - Focus on WHO is doing WHAT, Historical/Cultural Details, Environment, Lighting.
+           - MUST BE IN DETAILED VIVID ENGLISH. DO NOT copy or repeat the Korean script verbatim.
            - Structure: `[Aspect Ratio], [Camera Angle/Shot Type], [Detailed Subject + Action + Clothing], [Environment/Setting/Architecture], [Lighting/Atmosphere], [Art Style]`
            - Inject Global Style at the end.
         2. **video_prompt (Motion Prompt)**:
-           - MUST BE IN ENGLISH: Focus STRICTLY on camera movement (panning, zooming, tilting) and subject dynamic motion based on the starting image.
-           - DO NOT include art styles. Keep it concise and cinematic (e.g. "Camera slowly zooms in, scholar bows deeply while people chatter in the background").
+           - MUST BE IN ENGLISH: Focus STRICTLY on camera movement (panning, zooming, tracking) and subject motion.
+           - Keep it concise and cinematic (e.g. "Camera slowly zooms in, scholar bows respectfully as villagers gather around").
 
-        EXAMPLE:
-        Script: "전쟁이 시작되었습니다."
-        Visual Prompt: "{aspect_ratio}, Low angle shot, thousands of medieval soldiers charging across a muddy field, swords raised, chaotic atmosphere, storm clouds above, {style_prompt if style_prompt else 'Cinematic, dramatic lighting'}"
-        Video Prompt: "Camera pans rapidly from left to right, soldiers charging forward, muddy splashes on the ground, intense chaotic movement."
+        CRITICAL TARGET SCENE COUNT:
+        - For 60-second shorts or short stories (5-10 sentences), group them into **3 to 5 cohesive scenes total**.
+        - NEVER output 1 scene per line. Merge 2 to 3 consecutive sentences per scene.
 
-        Script:
+        Input Script:
         {text}
 
-        Output ONLY a JSON list of objects:
+        Output ONLY a valid JSON list of objects:
         [
             {{
                 "scene_id": 1,
@@ -251,10 +258,19 @@ class CreativeEngine:
         # 1. 작업 환경 설정에 지정된 모델(DB Settings)을 그대로 실시간 실행
         full_model_name = target_model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None)
 
+        system_instruction = (
+            "You are a professional AI Video Director and strict JSON API engine. "
+            "You MUST output ONLY a valid JSON array of scene objects. "
+            "NEVER output conversational filler, polite greetings, or explanations. "
+            "Every visual_prompt MUST be in vivid, detailed English (never copy the Korean script verbatim into visual_prompt). "
+            "Output valid RFC 8259 JSON array only."
+        )
+
         try:
             response = self.llm_client.generate_content(
                 prompt=prompt,
                 model_name=full_model_name,
+                system_instruction=system_instruction,
                 full_response=False
             )
             
@@ -262,22 +278,51 @@ class CreativeEngine:
             if isinstance(response, dict):
                 text_resp = response.get("content", "")
             
-            if text_resp and not text_resp.startswith("Error:"):
+            if text_resp and not str(text_resp).startswith("ERROR:"):
                 # Clean markdown code blocks
-                text_resp = re.sub(r'^```json\s*', '', text_resp, flags=re.MULTILINE)
-                text_resp = re.sub(r'^```\s*', '', text_resp, flags=re.MULTILINE)
-                text_resp = text_resp.strip()
+                cleaned_resp = re.sub(r'```json\s*', '', str(text_resp), flags=re.IGNORECASE)
+                cleaned_resp = re.sub(r'```\s*', '', cleaned_resp)
+                cleaned_resp = cleaned_resp.strip()
 
-                # Extract JSON list
-                match = re.search(r'\[.*\]', text_resp, re.DOTALL)
+                # Extract JSON array using regex
+                match = re.search(r'\[\s*\{.*\}\s*\]', cleaned_resp, re.DOTALL)
                 if match:
                     json_str = match.group(0)
-                    return json.loads(json_str)
-                else:
-                    try:
-                        return json.loads(text_resp)
-                    except:
-                        pass
+                    parsed = json.loads(json_str)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        normalized = []
+                        for i, s in enumerate(parsed):
+                            vp = str(s.get("visual_prompt", "")).strip()
+                            vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
+                            vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
+                            vp = f"{aspect_ratio}, {vp}".rstrip(", ")
+                            normalized.append({
+                                "scene_id": s.get("scene_id", i + 1),
+                                "script": s.get("script", ""),
+                                "visual_prompt": vp,
+                                "video_prompt": s.get("video_prompt", "Camera slowly zooms in, subtle cinematic motion")
+                            })
+                        return normalized
+                
+                # Fallback direct parse
+                try:
+                    parsed = json.loads(cleaned_resp)
+                    if isinstance(parsed, list) and len(parsed) > 0:
+                        normalized = []
+                        for i, s in enumerate(parsed):
+                            vp = str(s.get("visual_prompt", "")).strip()
+                            vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
+                            vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
+                            vp = f"{aspect_ratio}, {vp}".rstrip(", ")
+                            normalized.append({
+                                "scene_id": s.get("scene_id", i + 1),
+                                "script": s.get("script", ""),
+                                "visual_prompt": vp,
+                                "video_prompt": s.get("video_prompt", "Camera slowly zooms in, subtle cinematic motion")
+                            })
+                        return normalized
+                except:
+                    pass
         except Exception as e:
             logger.warning(f"[ROUTER] Internal router fallback triggered: {e}")
 
