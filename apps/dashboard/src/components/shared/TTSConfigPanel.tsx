@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Mic, Zap, Gamepad2, Coffee, MessageCircle, Scissors, Music } from 'lucide-react';
+import { Loader2, Mic, Zap, Gamepad2, Coffee, MessageCircle, Scissors, Music, Volume2, Square, Play } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from "@/lib/utils";
 import { TTSConfig, TTSVoice } from '@/types/tts';
 import { VoicePresetList, VoicePreset } from '../VoicePresetList';
@@ -30,6 +31,80 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
     // Filters
     const [gender, setGender] = useState<"all" | "male" | "female">("all");
     const [ageGroup, setAgeGroup] = useState<"all" | "youth" | "adult" | "senior">("all");
+
+    // Voice Preview state
+    const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+    const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+    const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+    // Stop audio on unmount
+    useEffect(() => {
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+        };
+    }, []);
+
+    const handlePreviewVoice = async () => {
+        if (isPlayingPreview && audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            setIsPlayingPreview(false);
+            return;
+        }
+
+        if (!config.voice_id) {
+            toast.error("목소리를 먼저 선택해주세요.");
+            return;
+        }
+
+        try {
+            setIsPreviewLoading(true);
+            const sampleTexts: Record<string, string> = {
+                ko: "안녕하세요! 선택하신 목소리 샘플입니다. 자연스럽게 들리시나요?",
+                en: "Hello! This is a sample of the selected voice. How does it sound?",
+                ja: "こんにちは！選択された音声のサンプルです。いかがでしょうか？",
+                zh: "你好！这是所选语音的样本。听起来怎么样？",
+                es: "¡Hola! Esta es una muestra de la voz seleccionada.",
+            };
+            const sampleText = sampleTexts[config.language] || sampleTexts["ko"];
+
+            const formData = new FormData();
+            formData.append("text", sampleText);
+            formData.append("engine", config.engine);
+            formData.append("language", config.language);
+            formData.append("voice_id", config.voice_id);
+            formData.append("rate", String(Math.round((config.speed - 1.0) * 100)));
+            formData.append("pitch", String(config.pitch || 0));
+            formData.append("emotion", config.emotion || "normal");
+            if (config.noise_scale !== undefined) formData.append("noise_scale", String(config.noise_scale));
+            if (config.mix_voice_id) formData.append("mix_voice_id", config.mix_voice_id);
+            if (config.mix_ratio !== undefined) formData.append("mix_ratio", String(config.mix_ratio));
+
+            const res = await api.post("/tools/tts/generate", formData);
+            if (res.data?.url) {
+                if (audioRef.current) {
+                    audioRef.current.pause();
+                }
+                const audio = new Audio(res.data.url);
+                audioRef.current = audio;
+                audio.onended = () => setIsPlayingPreview(false);
+                audio.onerror = () => {
+                    setIsPlayingPreview(false);
+                    toast.error("오디오 재생에 실패했습니다.");
+                };
+                await audio.play();
+                setIsPlayingPreview(true);
+            }
+        } catch (err: any) {
+            console.error("Preview voice failed:", err);
+            toast.error("목소리 미리듣기 생성 실패: " + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsPreviewLoading(false);
+        }
+    };
 
     // Fetch Voices
     const { data: voices, isLoading } = useQuery<TTSVoice[]>({
@@ -335,6 +410,40 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                         ))}
                     </SelectContent>
                 </Select>
+
+                {/* 선택한 목소리 실시간 미리듣기 버튼 바 */}
+                <div className="pt-1">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isPreviewLoading || !config.voice_id}
+                        onClick={handlePreviewVoice}
+                        className={cn(
+                            "w-full h-8 text-xs font-bold gap-2 transition-all shadow-sm rounded-lg",
+                            isPlayingPreview
+                                ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse"
+                                : "bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300 hover:border-blue-400"
+                        )}
+                    >
+                        {isPreviewLoading ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>목소리 샘플 생성 중...</span>
+                            </>
+                        ) : isPlayingPreview ? (
+                            <>
+                                <Square className="w-3.5 h-3.5 fill-current" />
+                                <span>미리듣기 정지 (재생 중...)</span>
+                            </>
+                        ) : (
+                            <>
+                                <Volume2 className="w-4 h-4 text-blue-600" />
+                                <span>선택한 목소리 들어보기 (미리듣기)</span>
+                            </>
+                        )}
+                    </Button>
+                </div>
             </div>
 
             {/* Sliders (Engine Specific) */}
