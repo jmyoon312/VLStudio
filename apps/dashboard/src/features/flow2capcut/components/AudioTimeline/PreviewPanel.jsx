@@ -134,10 +134,11 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       padding: boxPadding,
       borderRadius,
       border: borderStyle,
-      maxWidth: '90%',
-      lineHeight: 1.4,
+      maxWidth: '92%',
+      lineHeight: 1.35,
       letterSpacing: '0.01em',
       whiteSpace: 'pre-wrap',
+      wordBreak: 'keep-all',
       pointerEvents: 'none',
       zIndex: 50,
       ...posStyle

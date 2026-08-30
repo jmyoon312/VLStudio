@@ -632,76 +632,32 @@ def format_srt_timestamp(ms: int) -> str:
     millis = ms % 1000
     return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
 
-def split_script_into_cues(script: str, total_dur_ms: int, split_limit: int = 28, max_lines: int = 2) -> List[dict]:
+from app.subtitle_core import balanced_split_kor
+
+def split_script_into_cues(script: str, total_dur_ms: int, split_limit: int = 24, max_lines: int = 2) -> List[dict]:
     """
-    대본 문장을 사용자의 자막 설정(split_limit, max_lines) 및 문장/단어 경계에 맞춰
-    정밀 다중 SRT 자막 큐로 비례 분할합니다.
+    app.subtitle_core의 정밀 한국어 분절 엔진(balanced_split_kor)을 사용하여
+    대본 문장을 사용자의 자막 설정(split_limit)에 맞춘 고품질 SRT 다중 큐로 분할합니다.
     """
     if not script or not script.strip():
         return []
         
     text = script.strip()
-    # 1. 마침표, 물음표, 느낌표, 줄바꿈 기준으로 문장 1차 분할
-    raw_sentences = re.split(r'([.!?\n]+(?:\s+|$))', text)
-    sentences = []
-    curr = ""
-    for part in raw_sentences:
-        curr += part
-        if re.search(r'[.!?\n]+(?:\s+|$)', part) or len(curr) >= split_limit * max_lines:
-            if curr.strip():
-                sentences.append(curr.strip())
-            curr = ""
-    if curr.strip():
-        sentences.append(curr.strip())
-        
-    if not sentences:
-        sentences = [text]
-
-    # 2. split_limit * max_lines보다 긴 덩어리는 쉼표 또는 띄어쓰기 기준으로 2차 분할
-    max_chunk_chars = max(10, split_limit * max_lines)
-    chunks = []
-    for s in sentences:
-        if len(s) <= max_chunk_chars:
-            chunks.append(s)
-        else:
-            words = s.split(' ')
-            sub_chunk = ""
-            for w in words:
-                if len(sub_chunk) + len(w) + 1 <= max_chunk_chars:
-                    sub_chunk = f"{sub_chunk} {w}".strip()
-                else:
-                    if sub_chunk:
-                        chunks.append(sub_chunk)
-                    sub_chunk = w
-            if sub_chunk:
-                chunks.append(sub_chunk)
-
+    
+    # 1. subtitle_core의 검증된 balanced_split_kor 분절기 적용
+    effective_limit = max(10, split_limit)
+    chunks = balanced_split_kor(text, limit=effective_limit, min_words=2, min_chars=4)
     if not chunks:
         chunks = [text]
 
-    # 3. 최대 줄 수(max_lines)에 맞춘 줄바꿈(\n) 포맷팅
-    formatted_chunks = []
-    for ch in chunks:
-        if len(ch) > split_limit and max_lines > 1 and '\n' not in ch:
-            mid = len(ch) // 2
-            spaces = [i for i, c in enumerate(ch) if c == ' ']
-            if spaces:
-                nearest_space = min(spaces, key=lambda i: abs(i - mid))
-                ch_formatted = ch[:nearest_space] + '\n' + ch[nearest_space+1:]
-            else:
-                ch_formatted = ch
-            formatted_chunks.append(ch_formatted)
-        else:
-            formatted_chunks.append(ch)
-
-    # 4. 전체 씬 지속시간(total_dur_ms)을 글자수 비율로 정밀 밀리초 타임코드 배분
-    total_chars = sum(max(1, len(c.replace('\n', ''))) for c in formatted_chunks)
+    # 2. 전체 씬 지속시간(total_dur_ms)을 글자수 비율로 정밀 밀리초 타임코드 배분
+    total_chars = sum(max(1, len(c.replace(' ', ''))) for c in chunks)
     cues = []
     curr_ms = 0
     
-    for i, ch in enumerate(formatted_chunks):
-        ch_len = max(1, len(ch.replace('\n', '')))
-        if i == len(formatted_chunks) - 1:
+    for i, ch in enumerate(chunks):
+        ch_len = max(1, len(ch.replace(' ', '')))
+        if i == len(chunks) - 1:
             chunk_dur = max(300, total_dur_ms - curr_ms)
         else:
             chunk_dur = max(300, int(round((ch_len / total_chars) * total_dur_ms)))

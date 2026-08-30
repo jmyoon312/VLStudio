@@ -186,9 +186,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
       return []; // 음성 생성 전에는 가짜 자막 블록을 타임라인에 미리 배치하지 않음
     }
 
-    const splitLimit = subtitleConfig?.splitLimit || 20;
-    const maxLines = subtitleConfig?.maxLines || 2;
-    const maxChunkChars = Math.max(10, splitLimit * maxLines);
+    const splitLimit = subtitleConfig?.splitLimit || 24;
     const resultEntries: any[] = [];
     let entryId = 1;
 
@@ -196,19 +194,23 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
       const script = (s.script || '').trim();
       if (!script) continue;
 
-      const rawParts = script.split(/([,.\n!?]+(?:\s+|$))/).filter(Boolean);
+      // 1. 공백 및 단어 경계 기반으로 splitLimit 이하의 균형 잡힌 청크로 분할
+      const words = script.replace(/[\r\n]+/g, ' ').split(/\s+/).filter(Boolean);
       const chunks: string[] = [];
-      let curr = '';
+      let curWords: string[] = [];
 
-      for (const part of rawParts) {
-        if ((curr + part).length <= maxChunkChars) {
-          curr += part;
+      for (const w of words) {
+        const testPhrase = [...curWords, w].join(' ');
+        if (testPhrase.length <= splitLimit || curWords.length === 0) {
+          curWords.push(w);
         } else {
-          if (curr.trim()) chunks.push(curr.trim());
-          curr = part;
+          chunks.push(curWords.join(' '));
+          curWords = [w];
         }
       }
-      if (curr.trim()) chunks.push(curr.trim());
+      if (curWords.length > 0) {
+        chunks.push(curWords.join(' '));
+      }
       if (chunks.length === 0) chunks.push(script);
 
       const sceneDur = Math.max(500, s.endMs - s.startMs);
@@ -217,15 +219,6 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
 
       for (let i = 0; i < chunks.length; i++) {
         const ch = chunks[i];
-        let formattedText = ch;
-        if (ch.length > splitLimit && maxLines > 1 && !ch.includes('\n')) {
-          const mid = Math.floor(ch.length / 2);
-          const spaceIdx = ch.indexOf(' ', Math.max(0, mid - 4));
-          if (spaceIdx > 0 && spaceIdx < mid + 6) {
-            formattedText = ch.slice(0, spaceIdx) + '\n' + ch.slice(spaceIdx + 1);
-          }
-        }
-
         const chunkDur = (i === chunks.length - 1)
           ? Math.max(300, s.endMs - accMs)
           : Math.max(300, Math.round((Math.max(1, ch.length) / totalChars) * sceneDur));
@@ -239,7 +232,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
           scene_id: s.scene_id,
           startMs: cueStart,
           endMs: cueEnd,
-          text: formattedText
+          text: ch
         });
       }
     }
