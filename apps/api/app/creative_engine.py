@@ -77,105 +77,16 @@ class CreativeEngine:
         """
         # Resolve dynamic defaults from settings (환경설정에 지정된 설정값을 그대로 실시간 연동)
         target_provider = provider if provider and provider != "auto" else getattr(self.llm_client.settings, "script_analysis_provider", None) or getattr(self.llm_client.settings, "paperclip_provider", None) or getattr(self.llm_client.settings, "openclaw_preferred_provider", None)
-        target_model = model if model and model != "default" else getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or getattr(self.llm_client.settings, "paperclip_model", None)
+        target_model = model if model and model != "default" else getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or getattr(self.llm_client.settings, "paperclip_model", None) or "youtube1"
         
-        # 0. Custom Rule Logic (New)
-        segments = []
+        # 0. Custom Rule Logic (사용자가 명시적으로 커스텀 규칙을 선택한 경우에만 분할)
         if split_method == 'custom_rule' and pacing_config:
-            segments = self._split_by_rule(text, pacing_config)
-        
-        # 0.5 Rule-Based Splitting (Legacy Fallback)
-        # 0.5 Rule-Based Splitting (Legacy Fallback)
-        if segments:
-            return segments
+            return self._split_by_rule(text, pacing_config)
 
         # Helper to clean text
         cleaned_text = text.replace("\r\n", "\n").strip()
 
-        
-        if split_method == 'sentence':
-             # Improved Regex for Korean & English Sentence Splitting
-             # 1. Matches common endings: . ? ! 
-             # 2. Matches Korean endings with optional punctuation: 다. 요. 죠. 까? (ending with newline or space)
-             # 3. Does NOT split on simple newlines unless they follow punctuation.
-             
-             # Step 1: Replace single newlines with spaces to avoid line-based splitting, 
-             # BUT keep double newlines as paragraph breaks (optional, but for "Sentence" mode we might want purely sentences).
-             # Let's try to preserve paragraph breaks as sentence breaks too.
-             
-             # Regex explanation:
-             # (?<=[.?!])                 => Lookbehind for punctuation
-             # \s+                        => Followed by whitespace
-             # OR
-             # (?<=[다요죠까])\s*[\.\?!]\s+ => Korean ending char + optional punctuation + whitespace
-             
-             # Simpler approach: Split by specific markers, then rejoin if needed.
-             
-             # Protect decimal numbers (e.g. 3.5) -> skipped for now as simple split is requested
-             
-             # Strong split pattern: Punctuation followed by space/newline
-             # Also handle "다", "요" at end of line as implicit sentence structure in scripts
-             
-             pattern = r'(?<=[.?!])\s+|(?<=[다요죠까])[\.\?!]?\s+(?=[A-Z가-힣])|\n{2,}'
-             raw_segments = re.split(pattern, cleaned_text)
-             segments = [s.strip() for s in raw_segments if s.strip()]
-             
-        elif split_method == 'paragraph':
-             # Split by double newline
-             raw_segments = re.split(r'\n\s*\n', cleaned_text)
-             segments = [s.strip() for s in raw_segments if s.strip()]
-             
-        elif split_method == 'semantic':
-             # Split by sentence first
-             pattern = r'(?<=[.?!])\s+|(?<=[다요죠까])[\.\?!]?\s+|\n+'
-             raw_segments = re.split(pattern, cleaned_text)
-             
-             # Merge chunks to form meaningful units (e.g., 20-60 words or 50-150 chars)
-             buffer = ""
-             target_length = 50 if mode == 'shorts' else 100 # Shorts = faster cuts, Long = longer cuts
-             
-             for seg in raw_segments:
-                 if not seg.strip(): continue
-                 if len(buffer) + len(seg) < target_length:
-                     buffer += " " + seg
-                 else:
-                     if buffer: segments.append(buffer.strip())
-                     buffer = seg
-             if buffer: segments.append(buffer.strip())
-        
-        # If we have pre-calculated segments, we skip the main LLM Splitter and just generate prompts for each.
-        if segments:
-            logger.info(f"Rule-based split ({split_method}) created {len(segments)} segments. Generating prompts for each...")
-            results = []
-            for i, seg in enumerate(segments):
-                try:
-                    # Generate visual prompt for this specific segment
-                    prompt_dict = self.generate_visual_prompt(seg, style_prompt, target_provider, target_model)
-                    if isinstance(prompt_dict, str):
-                        vp = prompt_dict.replace("Visual Prompt:", "").strip()
-                        vid_p = "Camera slowly pans, subtle movement"
-                    else:
-                        vp = prompt_dict.get("visual_prompt", "").replace("Visual Prompt:", "").strip()
-                        vid_p = prompt_dict.get("video_prompt", "").strip()
-                    
-                    aspect_str = '9:16' if mode == 'shorts' else '16:9'
-                    results.append({
-                        "scene_id": i + 1,
-                        "script": seg,
-                        "visual_prompt": f"{aspect_str}, {vp}" if vp else f"{aspect_str}, Cinematic scene, {style_prompt}",
-                        "video_prompt": vid_p or "Camera slowly pans, subtle movement"
-                    })
-                except Exception as e:
-                    logger.error(f"Failed to gen prompt for segment {i}: {e}")
-                    results.append({
-                        "scene_id": i + 1,
-                        "script": seg,
-                        "visual_prompt": f"{'9:16' if mode == 'shorts' else '16:9'}, Cinematic scene, {style_prompt}",
-                        "video_prompt": "Camera slowly pans, subtle movement"
-                    })
-            return results
-
-        # 1. AI-Based Splitting (Fallthrough for 'ai_smart' and 'visual_change')
+        # 1. AI-Based Splitting ('ai_smart', 'visual_change', 'semantic')
         pacing_instruction = ""
         aspect_ratio = "9:16" if mode == 'shorts' else "16:9"
         
@@ -367,35 +278,27 @@ class CreativeEngine:
 
     def generate_visual_prompt(self, script: str, style_context: str = "", provider: str = None, model: str = None) -> dict:
         """
-        Generates a visual prompt for a single scene using the specified provider/model.
+        Generates a visual prompt for a single scene using the dynamic model.
         """
-        target_provider = provider or getattr(self.llm_client.settings, "paperclip_provider", "google")
-        target_model = model or getattr(self.llm_client.settings, "paperclip_model", self.llm_client.settings.default_model)
+        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "youtube1"
         
-        system_prompt = f"""You are a Visual Director. Create a vivid image description and a motion description for this script line. Style: '{style_context}'. Start with camera angle/subject.
+        system_prompt = f"""You are a Visual Director. Create a vivid English image description and motion description for this script line. Style: '{style_context}'.
         
         CRITICAL RULES:
-        1. Analyze the script to deduce the cultural, geographical, and historical era (e.g., Joseon Dynasty Korea, Modern New York, North Korea).
-        2. ANTI-BIAS RULE: The cultural context from the script MUST override contradictory elements in the style. If the script is about Korea (e.g. '선비', '호랑이'), and the style is "Japanese Anime", you must apply the anime art style but the clothing/architecture MUST remain strictly Korean (e.g. Hanbok, Choga-jib).
+        1. Output MUST be in detailed, rich ENGLISH (never repeat Korean script).
+        2. Deduce era/culture (e.g. Joseon Dynasty, Hanbok, Hanok).
         
         Output MUST be a valid JSON object:
         {{
-            "visual_prompt": "[Aspect Ratio], [Camera Angle], [Cultural & Era Context], [Subject + Action], [Background/Environment], [Lighting], [Style]",
-            "video_prompt": "Motion prompt focusing STRICTLY on camera movement and subject motion."
+            "visual_prompt": "[Camera Angle], [Cultural & Era Context], [Subject + Action], [Background/Environment], [Lighting], [Style]",
+            "video_prompt": "Motion prompt focusing on camera movement."
         }}
         """
-        
-        # Construct model name based on provider
-        full_model_name = target_model
-        if target_provider == "openrouter" and not full_model_name.startswith("openrouter/"):
-            full_model_name = f"openrouter/{full_model_name}"
-        elif target_provider == "groq" and not full_model_name.startswith("groq/"):
-            full_model_name = f"groq/{full_model_name}"
 
         try:
             response = self.llm_client.generate_content(
                 prompt=script, 
-                model_name=full_model_name,
+                model_name=target_model,
                 system_instruction=system_prompt,
                 full_response=False
             )
@@ -406,7 +309,10 @@ class CreativeEngine:
             return {"visual_prompt": text_resp, "video_prompt": "Camera slowly pans, subtle movement"}
         except Exception as e:
             logger.error(f"Visual Prompt Generation Failed: {e}")
-            return {"visual_prompt": f"Cinematic shot of {script}, high quality", "video_prompt": "Camera slowly pans"}
+            return {
+                "visual_prompt": f"Eye-level cinematic shot, Joseon Dynasty Korean historical setting, traditional hanbok, authentic architecture, {style_context}".strip(", "), 
+                "video_prompt": "Camera slowly pans, subtle movement"
+            }
 
 
     def _split_by_rule(self, text: str, config: dict) -> list:
