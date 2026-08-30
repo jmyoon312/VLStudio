@@ -73,14 +73,19 @@ function TrackToggleIcon({ kind, off }) {
   )
 }
 
-// 타임코드 포맷 (mm:ss.SS 1/100초 고정밀 표시)
-function formatTC(ms) {
+// 타임코드 포맷 (1초부터 2시간까지 hh:mm:ss.SS / mm:ss.SS 1/100초 고정밀 표시)
+function formatTC(ms, totalDurationMs = 0) {
   if (!isFinite(ms) || ms == null) return '00:00.00'
   const safeMs = Math.max(0, ms)
   const totalSec = Math.floor(safeMs / 1000)
-  const m = Math.floor(totalSec / 60)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
   const s = totalSec % 60
   const cs = Math.floor((safeMs % 1000) / 10)
+
+  if (h > 0 || (totalDurationMs && totalDurationMs >= 3600000)) {
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
+  }
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
 }
 
@@ -265,6 +270,20 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   useEffect(() => { onPlayingChange?.(isGlobalPlaying) }, [isGlobalPlaying])
   const [hoverScene, setHoverScene] = useState(null) // { x, y, scene }
   const [dragOverTrackId, setDragOverTrackId] = useState(null) // 드롭 타겟 lane 하이라이트용
+  const [kenBurnsEnabled, setKenBurnsEnabled] = useState(false)
+  const [viewportWidth, setViewportWidth] = useState(1200)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const updateW = () => {
+      if (el.clientWidth > 0) setViewportWidth(el.clientWidth)
+    }
+    updateW()
+    const ro = new ResizeObserver(updateW)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   // 트랙별 토글 off (View 끔=프리뷰 숨김 / Mute 끔=재생 제외). 세션 단위.
   const [disabledTracks, setDisabledTracks] = useState(() => new Set())
   const disabledTracksRef = useRef(disabledTracks)
@@ -788,7 +807,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   }, [data?.totalDurationMs, pxPerMs])
 
   if (!data) return null
-  const totalWidth = Math.max(800, data.totalDurationMs * pxPerMs)
+  const totalWidth = Math.max(viewportWidth, Math.ceil(data.totalDurationMs * pxPerMs))
 
   const startScrub = (e) => {
     if (e.button !== 0) return
@@ -973,6 +992,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
             isPlaying={isGlobalPlaying}
             hiddenRoles={disabledTracks}
             aspectRatio={aspectRatio}
+            kenBurns={kenBurnsEnabled}
           />
 
           {/* Preview ↔ Timeline 사이 splitter (비compact 탭에서만) */}
@@ -1074,25 +1094,28 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
             ⏹
           </button>
           <span className="atl-time-display">
-            <span className="atl-time-cur">{formatTC(playheadMs)}</span>
+            <span className="atl-time-cur">{formatTC(playheadMs, data.totalDurationMs)}</span>
             <span className="atl-time-sep"> / </span>
-            <span className="atl-time-total">{formatTC(data.totalDurationMs)}</span>
+            <span className="atl-time-total">{formatTC(data.totalDurationMs, data.totalDurationMs)}</span>
           </span>
           <label
-            className="atl-kb-toggle"
-            onClick={(e) => {
-              // 실제 토글 X — 클릭만 받아서 안내 토스트 표시
-              e.preventDefault()
-              toast.info(t('audioTimeline.kenBurnsToast'))
-            }}
+            className={`atl-kb-toggle ${kenBurnsEnabled ? 'atl-kb-active' : ''}`}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: t('audioTimeline.kenBurnsLabel'),
-              desc: t('audioTimeline.kenBurnsDesc'),
+              label: 'Ken Burns 다이내믹 모션',
+              desc: '스틸 이미지 씬에 자연스러운 서서히 줌인/팬 카메라 무빙을 적용합니다.',
             })}
             onMouseLeave={hideBtnTooltip}
           >
-            <input type="checkbox" checked={false} readOnly tabIndex={-1} />
-            <span>{t('audioTimeline.kenBurns')}</span>
+            <input
+              type="checkbox"
+              checked={kenBurnsEnabled}
+              onChange={(e) => {
+                const next = e.target.checked
+                setKenBurnsEnabled(next)
+                if (next) toast.success('Ken Burns 카메라 모션 활성화')
+              }}
+            />
+            <span style={{ fontWeight: kenBurnsEnabled ? 700 : 500 }}>{t('audioTimeline.kenBurns') || 'Ken Burns 효과'}</span>
           </label>
         </div>
         <div className="atl-zoom">
@@ -1105,7 +1128,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
             })}
             onMouseLeave={hideBtnTooltip}
           >−</button>
-          <span className="atl-zoom-val">{Math.round(zoom * 100)}%</span>
+          <span className="atl-zoom-val">{zoom < 0.1 ? `${(zoom * 100).toFixed(1)}%` : `${Math.round(zoom * 100)}%`}</span>
           <button
             onClick={() => setZoomClamped(zoom * 1.4)}
             onMouseEnter={(e) => showBtnTooltip(e, {
@@ -1120,12 +1143,22 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
             onClick={handleFitToWidth}
             onMouseEnter={(e) => showBtnTooltip(e, {
               label: '전체 폭 맞춤',
-              desc: '생성된 전체 클립을 타임라인 너비에 딱 맞춤',
+              desc: '1분~2시간 생성물 전체 길이를 타임라인 화면 너비에 딱 맞춤',
             })}
             onMouseLeave={hideBtnTooltip}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '0 8px', fontSize: '11px', fontWeight: 800 }}
           >
-            <span>⊡</span> <span>폭 맞춤</span>
+            <span>⊡ 폭 맞춤</span>
+          </button>
+          <button
+            onClick={() => setZoomClamped(1)}
+            onMouseEnter={(e) => showBtnTooltip(e, {
+              label: '100% 기본 배율',
+              desc: '표준 100% 줌 배율로 초기화',
+            })}
+            onMouseLeave={hideBtnTooltip}
+            style={{ fontSize: '10px', padding: '0 5px', opacity: 0.85 }}
+          >
+            100%
           </button>
         </div>
       </div>

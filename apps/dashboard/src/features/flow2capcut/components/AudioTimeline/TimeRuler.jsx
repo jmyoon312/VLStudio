@@ -6,9 +6,21 @@ const RULER_VIEWPORT_MARGIN_MS = 10_000
 
 function formatRulerTime(sec, majorSec) {
   const totalSec = Math.floor(sec)
-  const m = Math.floor(totalSec / 60)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
   const s = totalSec % 60
   const frac = Math.round((sec - totalSec) * 100) / 100
+
+  // 1시간 이상인 경우 (hh:mm:ss)
+  if (h > 0 || majorSec >= 3600) {
+    if (majorSec < 1 || frac > 0) {
+      const milli = Math.round((sec - totalSec) * 100)
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(milli).padStart(2, '0')}`
+    }
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  // 1시간 미만인 경우 (mm:ss)
   if (majorSec < 1 || frac > 0) {
     const milli = Math.round((sec - totalSec) * 100)
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(milli).padStart(2, '0')}`
@@ -17,7 +29,7 @@ function formatRulerTime(sec, majorSec) {
 }
 
 export default function TimeRuler({ totalMs, pxPerMs, width, visibleRangeMs = null }) {
-  // 줌 비율(pxPerSec)에 따른 Major(주눈금) 및 Minor(보조눈금) 간격 동적 자동 계산
+  // 줌 비율(pxPerSec)에 따른 Major(주눈금) 및 Minor(보조눈금) 간격 동적 자동 계산 (1초 ~ 2시간 풀레인지 지원)
   const pxPerSec = pxPerMs * 1000
   let majorSec = 60
   let minorSec = 10
@@ -37,12 +49,27 @@ export default function TimeRuler({ totalMs, pxPerMs, width, visibleRangeMs = nu
   } else if (pxPerSec > 25) {
     majorSec = 5
     minorSec = 1
-  } else if (pxPerSec > 12) {
+  } else if (pxPerSec > 10) {
     majorSec = 15
     minorSec = 3
-  } else {
+  } else if (pxPerSec > 4) {
     majorSec = 30
     minorSec = 5
+  } else if (pxPerSec > 1.5) {
+    majorSec = 60 // 1분
+    minorSec = 10
+  } else if (pxPerSec > 0.5) {
+    majorSec = 300 // 5분
+    minorSec = 60
+  } else if (pxPerSec > 0.2) {
+    majorSec = 600 // 10분
+    minorSec = 120
+  } else if (pxPerSec > 0.08) {
+    majorSec = 1800 // 30분
+    minorSec = 300
+  } else {
+    majorSec = 3600 // 1시간
+    minorSec = 600
   }
 
   const totalSec = Math.max(1, (totalMs || 0) / 1000)
