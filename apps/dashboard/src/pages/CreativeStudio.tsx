@@ -2218,124 +2218,158 @@ const CreativeStudio = () => {
                         </div>
                     </div>
 
-                    {/* Row 2: Actions */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleBatchTTS}>
-                            <Mic className="w-3 h-3 mr-1" /> 전체 TTS 생성
-                        </Button>
-                        
-                        {/* Flow AI Batch Buttons */}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isFlowBatchGenerating}
-                            className="h-8 text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800 hover:bg-purple-500/20 font-semibold"
-                            onClick={handleBatchFlowImages}
-                        >
-                            {isFlowBatchGenerating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                            ✨ Flow 전체 이미지 생성
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isFlowBatchGenerating}
-                            className="h-8 text-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800 hover:bg-indigo-500/20 font-semibold"
-                            onClick={() => setIsSelectiveVideoModalOpen(true)}
-                        >
-                            <SlidersHorizontal className="w-3 h-3 mr-1" />
-                            🎬 Flow 조건부 영상 변환
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={isFlowBatchGenerating}
-                            className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                            onClick={() => handleBatchFlowVideos('all')}
-                            title="전체 씬 일괄 영상 생성"
-                        >
-                            {isFlowBatchGenerating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Film className="w-3 h-3 mr-1" />}
-                            전체 영상 변환
-                        </Button>
+                    {/* Row 2: Categorized & Grouped Actions Toolbar */}
+                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                        {/* Group 1: Media Generation */}
+                        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/80 shadow-2xs">
+                            <span className="text-[10px] font-extrabold uppercase px-2 text-muted-foreground tracking-tight">생성</span>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7.5 text-xs font-semibold bg-background hover:bg-muted shadow-2xs" 
+                                onClick={handleBatchTTS}
+                            >
+                                <Mic className="w-3.5 h-3.5 mr-1 text-blue-500" />
+                                <span>전체 TTS</span>
+                            </Button>
+                            
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isFlowBatchGenerating}
+                                className="h-7.5 text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300/60 dark:border-purple-800/60 hover:bg-purple-500/20 shadow-2xs"
+                                onClick={handleBatchFlowImages}
+                            >
+                                {isFlowBatchGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                                <span>✨ Flow 전체 이미지</span>
+                            </Button>
 
-                        <Button variant="default" size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white border-blue-600" onClick={handleRoughCut}>
-                            <Film className="w-3 h-3 mr-1" /> ⚡ 원클릭 러프컷
-                        </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={isFlowBatchGenerating}
+                                        className="h-7.5 text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300/60 dark:border-indigo-800/60 hover:bg-indigo-500/20 shadow-2xs"
+                                    >
+                                        <Film className="w-3.5 h-3.5 mr-1" />
+                                        <span>Flow 영상 변환</span>
+                                        <ChevronDown className="w-3 h-3 ml-1 opacity-70" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                    <DropdownMenuItem onClick={() => setIsSelectiveVideoModalOpen(true)} className="text-xs font-medium cursor-pointer">
+                                        <SlidersHorizontal className="w-3.5 h-3.5 mr-2 text-indigo-500" />
+                                        <span>🎬 조건부 선택 영상 변환</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleBatchFlowVideos('all')} className="text-xs font-medium cursor-pointer">
+                                        <Film className="w-3.5 h-3.5 mr-2 text-indigo-500" />
+                                        <span>🎞 전체 씬 일괄 영상 변환</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
 
-                        <div className="h-4 w-px bg-border mx-1" />
+                            <Button 
+                                variant="default" 
+                                size="sm" 
+                                className="h-7.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs" 
+                                onClick={handleRoughCut}
+                            >
+                                ⚡ 원클릭 러프컷
+                            </Button>
+                        </div>
 
-                        {/* Subtitles & TTS Configuration Triggers */}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => setIsTTSDialogOpen(true)}
-                        >
-                            🎙️ 음성 설정
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className={`h-8 text-xs ${subtitleConfig.enabled ? 'border-green-500 text-green-600 dark:text-green-400 bg-green-500/10' : ''}`}
-                            onClick={() => setIsSubtitleDialogOpen(true)}
-                        >
-                            📝 자막 설정
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-500/10 font-semibold"
-                            onClick={handleManualSyncSubtitles}
-                            title="오탈자 없는 대본과 음성 재생 시간을 기준으로 정밀 SRT 자막 즉시 생성 및 동기화"
-                        >
-                            ⚡ 자막 SRT 동기화
-                        </Button>
+                        {/* Group 2: Subtitle & Voice Settings */}
+                        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/80 shadow-2xs">
+                            <span className="text-[10px] font-extrabold uppercase px-2 text-muted-foreground tracking-tight">음성/자막</span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7.5 text-xs bg-background hover:bg-muted shadow-2xs"
+                                onClick={() => setIsTTSDialogOpen(true)}
+                            >
+                                <Mic className="w-3 h-3 mr-1 text-muted-foreground" />
+                                <span>음성 설정</span>
+                            </Button>
 
-                        {/* Transitions, Motion, Watermark, Audio Triggers */}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={() => setIsTransitionDialogOpen(true)}
-                        >
-                            🎬 트랜지션 {transitionConfig.mode !== 'none' ? `(${transitionConfig.mode})` : ''}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className={`h-8 text-xs ${watermarkConfig.enabled ? 'border-amber-500 text-amber-500 bg-amber-500/10' : ''}`}
-                            onClick={() => setIsWatermarkDialogOpen(true)}
-                        >
-                            🏷️ 워터마크 {watermarkConfig.enabled ? 'ON' : ''}
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsMotionDialogOpen(true)}>
-                            🎥 모션
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsAudioDialogOpen(true)}>
-                            🔊 오디오
-                        </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={`h-7.5 text-xs shadow-2xs ${subtitleConfig.enabled ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' : 'bg-background hover:bg-muted'}`}
+                                onClick={() => setIsSubtitleDialogOpen(true)}
+                            >
+                                <span>📝 자막 설정</span>
+                            </Button>
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 text-xs">
-                                    <Download className="w-4 h-4 mr-2" /> 다운로드
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onClick={() => handleBatchDownload('visual')}>
-                                    이미지/영상 소스 (ZIP)
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleBatchDownload('video')}>
-                                    최종 렌더링 결과 (ZIP)
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7.5 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 bg-emerald-500/10 hover:bg-emerald-500/20 font-semibold shadow-2xs"
+                                onClick={handleManualSyncSubtitles}
+                                title="오탈자 없는 대본과 음성 재생 시간을 기준으로 정밀 SRT 자막 즉시 생성 및 동기화"
+                            >
+                                ⚡ 자막 SRT 동기화
+                            </Button>
+                        </div>
 
-                        {/* CapCut Export Button */}
-                        <Button variant="default" size="sm" className="h-8 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs" onClick={() => setIsExportModalOpen(true)}>
-                            ✂️ CapCut 내보내기
-                        </Button>
+                        {/* Group 3: Direction & Effects Dropdown */}
+                        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/80 shadow-2xs">
+                            <span className="text-[10px] font-extrabold uppercase px-2 text-muted-foreground tracking-tight">연출</span>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-7.5 text-xs bg-background hover:bg-muted shadow-2xs gap-1.5">
+                                        <Wand2 className="w-3.5 h-3.5 text-amber-500" />
+                                        <span>이펙트 & 연출 설정</span>
+                                        <ChevronDown className="w-3 h-3 opacity-70" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-52">
+                                    <DropdownMenuItem onClick={() => setIsTransitionDialogOpen(true)} className="text-xs cursor-pointer justify-between">
+                                        <span className="flex items-center gap-2">🎬 트랜지션 전환</span>
+                                        <Badge variant="outline" className="text-[9px] px-1 py-0">{transitionConfig.mode}</Badge>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsWatermarkDialogOpen(true)} className="text-xs cursor-pointer justify-between">
+                                        <span className="flex items-center gap-2">🏷️ 워터마크/로고</span>
+                                        <Badge variant={watermarkConfig.enabled ? "default" : "outline"} className="text-[9px] px-1 py-0">{watermarkConfig.enabled ? "ON" : "OFF"}</Badge>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsMotionDialogOpen(true)} className="text-xs cursor-pointer">
+                                        🎥 켄번스 카메라 모션
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsAudioDialogOpen(true)} className="text-xs cursor-pointer">
+                                        🔊 BGM / 오디오 효과
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
 
+                        {/* Group 4: Export & Output */}
+                        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/80 shadow-2xs ml-auto">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-7.5 text-xs text-muted-foreground hover:text-foreground">
+                                        <Download className="w-3.5 h-3.5 mr-1.5" /> 
+                                        <span>다운로드</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleBatchDownload('visual')} className="text-xs cursor-pointer">
+                                        📦 이미지/영상 소스 ZIP
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleBatchDownload('video')} className="text-xs cursor-pointer">
+                                        🎬 최종 렌더링 결과 ZIP
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
 
+                            <Button 
+                                variant="default" 
+                                size="sm" 
+                                className="h-7.5 px-3.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm" 
+                                onClick={() => setIsExportModalOpen(true)}
+                            >
+                                ✂️ CapCut 내보내기
+                            </Button>
+                        </div>
                     </div>
                 </div>
 

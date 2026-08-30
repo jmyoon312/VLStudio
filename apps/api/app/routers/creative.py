@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 import time
+import json
+import re
+import shutil
 
 router = APIRouter(tags=["creative"])
 
@@ -831,6 +834,7 @@ async def generate_scene_tts(
         
         # Ensure project folder audio copy
         if request.project_name:
+            root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
             proj_audio_dir = os.path.join(root, "05_Exports", request.project_name, "audio")
             os.makedirs(proj_audio_dir, exist_ok=True)
             proj_filename = f"scene_{request.scene_id:02d}.mp3"
