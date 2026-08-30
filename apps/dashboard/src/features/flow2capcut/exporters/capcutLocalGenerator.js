@@ -817,7 +817,18 @@ export async function generateCapcutProject(project, options = {}) {
     let fontPath = "";
     let fontName = "SystemFont";
     const isWin = typeof process !== 'undefined' ? process.platform === 'win32' : /Win/.test(navigator.userAgent);
-    if (isWin) {
+    const subCfg = options.subtitleConfig || project.subtitleConfig || {};
+    const hexToRgb01 = (hex, defaultRgb = [1.0, 1.0, 1.0]) => {
+      if (!hex || typeof hex !== 'string' || !hex.startsWith('#') || hex.length < 7) return defaultRgb;
+      const r = parseInt(hex.slice(1, 3), 16) / 255.0 || 0;
+      const g = parseInt(hex.slice(3, 5), 16) / 255.0 || 0;
+      const b = parseInt(hex.slice(5, 7), 16) / 255.0 || 0;
+      return [Number(r.toFixed(3)), Number(g.toFixed(3)), Number(b.toFixed(3))];
+    };
+
+    if (subCfg.font) {
+      fontName = subCfg.font;
+    } else if (isWin) {
       fontPath = "C:/Windows/Fonts/malgun.ttf";
       fontName = "맑은 고딕";
     } else {
@@ -825,14 +836,22 @@ export async function generateCapcutProject(project, options = {}) {
       fontName = "Apple SD 산돌고딕 Neo";
     }
 
+    const customTextColorRgb = hexToRgb01(subCfg.textColor, [1.0, 1.0, 1.0]);
+
     const pushSubtitle = (cleanText, startMicros, durationMicros, renderIdx, trackType = 'main') => {
       const textMaterialId = generateId();
       const textSegmentId = generateId();
 
       let targetTrack = textTrack;
       let posY = isPortrait ? -0.65 : -0.75;
-      let textColor = [1.0, 0.92, 0.23];
-      let subFontSize = fontSize;
+      if (subCfg.position === 'top') {
+        posY = isPortrait ? 0.75 : 0.65;
+      } else if (subCfg.position === 'center' || subCfg.position === 'middle') {
+        posY = 0.0;
+      }
+
+      let textColor = customTextColorRgb;
+      let subFontSize = subCfg.fontSize ? Math.max(6.0, Math.min(24.0, subCfg.fontSize * 0.25)) : fontSize;
 
       if (trackType === 'situation') {
         targetTrack = situationTrack;
@@ -842,7 +861,7 @@ export async function generateCapcutProject(project, options = {}) {
       } else if (trackType === 'jjapjjap') {
         targetTrack = jjapjjapTrack;
         posY = isPortrait ? -0.65 : -0.75; // 쨉쨉이는 하단 강조
-        textColor = [1.0, 0.92, 0.23]; // 노란 강조색
+        textColor = customTextColorRgb;
         subFontSize = isPortrait ? fontSize * 1.05 : fontSize;
       }
 

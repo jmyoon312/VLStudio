@@ -47,16 +47,16 @@ export function findRangeAt(ranges, t, inclusiveEnd = false) {
 const EMPTY_HIDDEN = new Set()
 
 export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleConfig, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '', kenBurns = false }) {
-  // ── 자막 동적 스타일 계산 (자막 설정 실시간 프리뷰) ──
+  // ── CapCut 네이티브 1:1 자막 렌더링 스타일 ──
   const subtitleStyle = useMemo(() => {
     const cfg = subtitleConfig || {}
     if (cfg.enabled === false) return { display: 'none' }
 
-    // 폰트 크기: 한글이 뭉개지지 않도록 프리뷰 캔버스 비율에 맞춰 16px~22px로 선명하게
+    // 폰트 크기: CapCut 뷰포트 비율과 1:1 스케일링
     const baseSize = cfg.fontSize || 36
-    const previewFontSize = Math.max(16, Math.min(24, Math.round(baseSize * 0.48)))
+    const previewFontSize = Math.max(15, Math.min(26, Math.round(baseSize * 0.48)))
 
-    // 위치 (Top / Bottom / Center / Middle)
+    // 위치 (Top: -0.2 / Center: 0.0 / Bottom: -0.75)
     let posStyle = {
       position: 'absolute',
       bottom: `${Math.max(14, Math.min(80, Math.round((cfg.marginV || 24) * 0.5)))}px`,
@@ -70,17 +70,18 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       posStyle = { position: 'absolute', top: '50%', bottom: 'auto', left: '50%', transform: 'translate(-50%, -50%)' }
     }
 
-    // 텍스트 색상: 너무 어둡거나 검은색 계열이면 항상 고선명 순백색(#FFFFFF) 보장
-    let textColor = cfg.textColor || '#FFFFFF'
-    if (textColor.toLowerCase() === '#000000' || textColor.toLowerCase() === '#111111' || textColor.toLowerCase() === '#222222' || textColor.toLowerCase() === '#333333') {
-      textColor = '#FFFFFF'
-    }
+    // 사용자가 선택한 정확한 원본 텍스트 색상 (CapCut Text Color 1:1 바인딩)
+    const textColor = cfg.textColor || '#FFFFFF'
 
-    // 배경 박스: 영상 및 검은 배경에서도 항상 선명한 시인성을 위해 기본 반투명 블랙(rgba(10,10,10,0.85)) 보장
-    let background = 'rgba(10, 10, 10, 0.85)'
+    // CapCut 배경 박스 렌더링 (useBox 활성화 시에만 라운드 박스 적용, 기본은 투명 오버레이)
+    let background = 'transparent'
+    let boxPadding = '4px 12px'
+    let borderRadius = '4px'
+    let borderStyle = 'none'
+
     if (cfg.useBox) {
       const boxHex = cfg.boxColor || '#000000'
-      const alpha = (cfg.boxOpacity ?? 85) / 100
+      const alpha = (cfg.boxOpacity ?? 75) / 100
       let r = 0, g = 0, b = 0
       if (boxHex.startsWith('#') && boxHex.length >= 7) {
         r = parseInt(boxHex.slice(1, 3), 16) || 0
@@ -88,14 +89,14 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
         b = parseInt(boxHex.slice(5, 7), 16) || 0
       }
       background = `rgba(${r}, ${g}, ${b}, ${alpha})`
+      boxPadding = '6px 16px'
+      borderRadius = '6px'
     }
 
-    // 외곽선: 한글 글자 안쪽을 검게 덮는 4방향 shadow 대신 깔끔한 drop-shadow 및 WebkitTextStroke 적용
-    const outlineSize = Number(cfg.outlineSize) || 0
+    // CapCut 표준 텍스트 외곽선 (글자 획 안쪽을 뭉개지 않는 정밀 Stroke)
+    const outlineSize = cfg.outlineSize !== undefined ? Number(cfg.outlineSize) : 2
     const outlineColor = cfg.outlineColor || '#000000'
-    const strokeStyle = outlineSize > 0 ? {
-      WebkitTextStroke: `${Math.min(1.0, outlineSize * 0.3)}px ${outlineColor}`
-    } : {}
+    const strokeWidth = outlineSize > 0 ? Math.min(1.5, Math.max(0.6, outlineSize * 0.4)) : 0
 
     return {
       fontFamily: cfg.font ? `"${cfg.font}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` : 'inherit',
@@ -104,18 +105,17 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       fontWeight: cfg.isBold !== false ? 700 : 500,
       fontStyle: cfg.isItalic ? 'italic' : 'normal',
       textAlign: cfg.textAlign || 'center',
-      textShadow: '0 2px 4px rgba(0, 0, 0, 0.95)',
+      WebkitTextStroke: strokeWidth > 0 ? `${strokeWidth}px ${outlineColor}` : 'none',
+      textShadow: '0 2px 4px rgba(0, 0, 0, 0.9)',
       background,
-      padding: '8px 18px',
-      borderRadius: '8px',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.7)',
-      maxWidth: '88%',
+      padding: boxPadding,
+      borderRadius,
+      border: borderStyle,
+      maxWidth: '90%',
       lineHeight: 1.45,
       whiteSpace: 'pre-wrap',
       pointerEvents: 'none',
       zIndex: 50,
-      ...strokeStyle,
       ...posStyle
     }
   }, [subtitleConfig])
