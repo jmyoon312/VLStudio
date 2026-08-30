@@ -25,11 +25,17 @@ function escapeForJsonBody(s) {
 
 // promptKey 가 요청 body 안에 완전한 JSON 문자열 값으로 존재하는지.
 // 앞뒤 따옴표까지 포함해 검색 → 부분문자열 오매칭 방지 + 필드명 무관.
-function promptInBody(promptKey, requestBody) {
-  if (typeof promptKey !== 'string' || promptKey.length === 0) return false
-  // R14-P2: requestBody 가 string 이 아니면(flow-page-injection 이 body 미상 시 null 전달) crash 방지.
+export function promptInBody(promptKey, requestBody) {
+  if (!promptKey || typeof promptKey !== 'string') return false
   if (typeof requestBody !== 'string') return false
-  return requestBody.includes('"' + escapeForJsonBody(promptKey) + '"')
+  const trimmed = promptKey.trim()
+  if (!trimmed) return false
+  const escaped = escapeForJsonBody(trimmed)
+  // 1. JSON 문자열 정확 일치
+  if (requestBody.includes('"' + escaped + '"')) return true
+  // 2. 스타일 태그나 멘션이 합성된 경우 부분 일치 지원
+  if (requestBody.includes(escaped) || requestBody.includes(trimmed)) return true
+  return false
 }
 
 function sameIds(a, b) {
