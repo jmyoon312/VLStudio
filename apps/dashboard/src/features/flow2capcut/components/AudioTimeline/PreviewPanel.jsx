@@ -49,35 +49,23 @@ const EMPTY_HIDDEN = new Set()
 export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleConfig, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '', kenBurns = false }) {
   // ── 자막 동적 스타일 계산 (자막 설정 실시간 프리뷰) ──
   const subtitleStyle = useMemo(() => {
-    const cfg = subtitleConfig || {
-      enabled: true,
-      fontSize: 36,
-      textColor: '#FFFFFF',
-      isBold: true,
-      textAlign: 'center',
-      outlineSize: 2,
-      outlineColor: '#000000',
-      useBox: false,
-      position: 'bottom',
-      marginV: 24
-    }
-
+    const cfg = subtitleConfig || {}
     if (cfg.enabled === false) return { display: 'none' }
 
-    // 폰트 크기: 프리뷰 캔버스 비율(약 0.42x)로 미려하게 반응형 환산
+    // 폰트 크기: 프리뷰 캔버스 비율에 맞춰 선명하게 (14px ~ 24px)
     const baseSize = cfg.fontSize || 36
-    const previewFontSize = Math.max(13, Math.min(32, Math.round(baseSize * 0.42)))
+    const previewFontSize = Math.max(14, Math.min(24, Math.round(baseSize * 0.45)))
 
     // 위치 (Top / Bottom / Center)
     let posStyle = {
       position: 'absolute',
-      bottom: `${Math.max(8, Math.min(80, Math.round((cfg.marginV || 24) * 0.5)))}px`,
+      bottom: `${Math.max(12, Math.min(80, Math.round((cfg.marginV || 24) * 0.5)))}px`,
       top: 'auto',
       left: '50%',
       transform: 'translateX(-50%)'
     }
     if (cfg.position === 'top') {
-      posStyle = { position: 'absolute', top: `${Math.max(8, Math.round((cfg.marginV || 24) * 0.5))}px`, bottom: 'auto', left: '50%', transform: 'translateX(-50%)' }
+      posStyle = { position: 'absolute', top: `${Math.max(12, Math.round((cfg.marginV || 24) * 0.5))}px`, bottom: 'auto', left: '50%', transform: 'translateX(-50%)' }
     } else if (cfg.position === 'center') {
       posStyle = { position: 'absolute', top: '50%', bottom: 'auto', left: '50%', transform: 'translate(-50%, -50%)' }
     }
@@ -86,11 +74,11 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
     let textShadow = '0 2px 4px rgba(0, 0, 0, 0.9)'
     if (cfg.outlineSize && cfg.outlineSize > 0) {
       const oColor = cfg.outlineColor || '#000000'
-      const oSize = Math.max(1, Math.round(cfg.outlineSize * 0.7))
-      textShadow = `-${oSize}px -${oSize}px 0 ${oColor}, ${oSize}px -${oSize}px 0 ${oColor}, -${oSize}px ${oSize}px 0 ${oColor}, ${oSize}px ${oSize}px 0 ${oColor}, 0 2px 4px rgba(0,0,0,0.9)`
+      const oSize = Math.max(1, Math.min(3, Math.round(cfg.outlineSize * 0.7)))
+      textShadow = `-${oSize}px -${oSize}px 0 ${oColor}, ${oSize}px -${oSize}px 0 ${oColor}, -${oSize}px ${oSize}px 0 ${oColor}, ${oSize}px ${oSize}px 0 ${oColor}, 0 2px 6px rgba(0,0,0,0.95)`
     }
 
-    // 배경 박스 (useBox / boxColor / boxOpacity)
+    // 배경 박스: 영상 및 검은 배경에서도 항상 선명한 시인성을 위해 기본 반투명 블랙(rgba(0,0,0,0.75)) 보장
     let background = 'rgba(0, 0, 0, 0.75)'
     if (cfg.useBox) {
       const boxHex = cfg.boxColor || '#000000'
@@ -102,12 +90,10 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
         b = parseInt(boxHex.slice(5, 7), 16) || 0
       }
       background = `rgba(${r}, ${g}, ${b}, ${alpha})`
-    } else if (cfg.outlineSize && cfg.outlineSize > 0) {
-      background = 'transparent'
     }
 
     return {
-      fontFamily: cfg.font ? `"${cfg.font}", -apple-system, sans-serif` : 'inherit',
+      fontFamily: cfg.font ? `"${cfg.font}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` : 'inherit',
       fontSize: `${previewFontSize}px`,
       color: cfg.textColor || '#FFFFFF',
       fontWeight: cfg.isBold !== false ? 700 : 400,
@@ -115,7 +101,13 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       textAlign: cfg.textAlign || 'center',
       textShadow,
       background,
-      zIndex: 30,
+      padding: '6px 14px',
+      borderRadius: '6px',
+      maxWidth: '90%',
+      lineHeight: 1.4,
+      whiteSpace: 'pre-wrap',
+      pointerEvents: 'none',
+      zIndex: 40,
       ...posStyle
     }
   }, [subtitleConfig])
