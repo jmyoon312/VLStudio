@@ -686,49 +686,8 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           generationSetAt.toFixed(3), ')')
       }
 
-      // 예상 이미지 개수 감지 (x1/x2/x3/x4 선택 버튼에서)
-      let expectedImageCount = 1
-      try {
-        expectedImageCount = await flowView.webContents.executeJavaScript(`
-          (function() {
-            // 방법 1: x1/x2/x3/x4 버튼에서 선택된 것 찾기
-            const btns = Array.from(document.querySelectorAll('button'));
-            const countBtns = btns.filter(b => /^x[1-4]$/.test(b.textContent.trim()));
-            if (countBtns.length > 0) {
-              for (const btn of countBtns) {
-                const style = getComputedStyle(btn);
-                const bg = style.backgroundColor;
-                const isSelected = btn.getAttribute('aria-pressed') === 'true'
-                  || btn.getAttribute('aria-selected') === 'true'
-                  || btn.classList.contains('selected')
-                  || btn.classList.contains('active')
-                  || (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent'
-                      && !bg.includes('0.') && bg !== 'rgb(0, 0, 0)');
-                if (isSelected) {
-                  console.log('[DOM] Detected selected image count button:', btn.textContent.trim(), 'bg:', bg);
-                  return parseInt(btn.textContent.trim().replace('x', ''));
-                }
-              }
-              console.log('[DOM] Count buttons found but no selected state detected, checking generate button text');
-            }
-
-            // 방법 2: Generate 버튼 텍스트에서 "x2", "x3", "x4" 추출
-            for (const btn of btns) {
-              const text = btn.textContent || '';
-              const match = text.match(/x([2-4])/);
-              if (match && (text.includes('arrow_forward') || text.includes('Nano') || text.includes('Imagen'))) {
-                console.log('[DOM] Detected image count from generate button text:', match[1]);
-                return parseInt(match[1]);
-              }
-            }
-
-            return 1;
-          })()
-        `) || 1
-      } catch (e) {
-        console.warn('[Flow API] Failed to detect image count from DOM:', e.message)
-        expectedImageCount = 1
-      }
+      // 예상 이미지 개수: 요청 시 지정한 effectiveBatchCount(기본 1)를 단일 진실 공급원으로 사용
+      const expectedImageCount = effectiveBatchCount || 1
 
       // expectedCount 업데이트
       if (asyncMode) {
