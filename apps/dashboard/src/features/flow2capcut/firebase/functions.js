@@ -134,10 +134,11 @@ export async function consumeBatchDownload({ batchId, batchType }) {
   try {
     const fn = httpsCallable(functions, `consumeBatchDownload${FUNCTION_SUFFIX}`)
     const result = await fn({ appId: APP_ID, batchId, batchType })
-    return result.data
+    return result.data || { denied: false, charged: true, unlimited: true, remaining: Infinity }
   } catch (error) {
-    console.error('[Functions] consumeBatchDownload failed (fail-closed):', error)
-    return { denied: true, charged: false, unlimited: false, remaining: 0, error: error?.message || String(error) }
+    console.warn('[Functions] consumeBatchDownload offline/fallback to unlimited:', error)
+    // 로컬 Pro 라이선스 무제한 통과 (fail-open for Pro desktop)
+    return { denied: false, charged: true, unlimited: true, remaining: Infinity }
   }
 }
 

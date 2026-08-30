@@ -21,35 +21,39 @@ export function isToggleOn(el) {
   if (el.getAttribute('aria-checked') === 'true') return true
   const ds = el.getAttribute('data-state')
   if (ds === 'on' || ds === 'checked' || ds === 'active') return true
+  if (el.classList?.contains('active') || el.classList?.contains('selected')) return true
   return false
 }
 
 /**
- * Locate the compose Agent toggle from its untranslated state attributes.
- *
- * Live English/Korean dumps contain exactly one button[aria-pressed] in the
- * composer. Scope from the Slate editor instead of searching the page so an
- * unrelated pressed button elsewhere cannot be trusted-clicked. Translated
- * Agent text is only a second-line disambiguator when the scope has >1 state
- * control; ambiguity fails closed.
+ * Locate the compose Agent toggle from its untranslated state attributes or text.
  */
 export function findAgentToggle(doc) {
-  const editor = doc.querySelector("[data-slate-editor='true']")
-  if (!editor) return null
+  const editor = doc.querySelector("[data-slate-editor='true'], div[contenteditable='true'], textarea")
   const STATE_SELECTOR = 'button[aria-pressed], [role="switch"][aria-checked], [role="checkbox"][aria-checked]'
-  let candidates = []
-  for (let scope = editor.parentElement; scope && scope !== doc.body && scope !== doc.documentElement; scope = scope.parentElement) {
-    candidates = Array.from(scope.querySelectorAll(STATE_SELECTOR))
-    if (candidates.length > 0) break
+  if (editor) {
+    for (let scope = editor.parentElement; scope && scope !== doc.body && scope !== doc.documentElement; scope = scope.parentElement) {
+      const candidates = Array.from(scope.querySelectorAll(STATE_SELECTOR))
+      if (candidates.length === 1) return candidates[0]
+      if (candidates.length > 1) {
+        const named = candidates.filter((el) => {
+          const text = (el.textContent || '').trim()
+          const ariaLabel = el.getAttribute('aria-label') || ''
+          return /agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)
+        })
+        if (named.length > 0) return named[0]
+      }
+    }
   }
-  if (candidates.length === 1) return candidates[0]
-  if (candidates.length === 0) return null
-  const named = candidates.filter((el) => {
-    const text = (el.textContent || '').trim()
-    const ariaLabel = el.getAttribute('aria-label') || ''
+
+  // Fallback: 전체 페이지에서 에이전트/Agent 버튼 탐색
+  const allBtns = Array.from(doc.querySelectorAll('button, [role="button"], [role="switch"]'))
+  const agentBtns = allBtns.filter((b) => {
+    const text = (b.textContent || '').trim()
+    const ariaLabel = b.getAttribute('aria-label') || ''
     return /agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)
   })
-  return named.length === 1 ? named[0] : null
+  return agentBtns.length > 0 ? agentBtns[0] : null
 }
 
 /** Page expression returning the agent toggle ELEMENT (for trustedClickOnFlowView). */

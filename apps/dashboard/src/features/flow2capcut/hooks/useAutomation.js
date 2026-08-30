@@ -160,8 +160,8 @@ export function useAutomation(genAPI, scenesHook, addToHistory, onOpenSettings =
         logPrefix: '[Automation]',
       })
       // processAsyncSceneResult 가 denied 로 false 반환하면 → 새 제출 중단 + paywall.
-      // gate 가 denied 됐는지 확인 (ensure 결과 캐시를 재활용 — 추가 서버 호출 없음).
-      if (!ok) {
+      // Pro 무제한 사용자는 paywall 차단
+      if (!ok && !subscriptionBatch?.batchUnlimited) {
         const gateCheck = await consumeGate.ensure()
         if (!gateCheck.ok) handleConsumeDenied()
       }

@@ -9,6 +9,7 @@ import path from 'node:path'
 import { net } from 'electron'
 import { formatGoogleApiError } from './googleApiError.js'
 import { GENERATED_IMG_PROBE } from '../flow-media-collect.js'
+import { AGENT_OFF_SCRIPT, AGENT_TOGGLE_SELECTOR } from '../flow-agent-toggle.js'
 
 /**
  * Register all Flow API IPC handlers.
@@ -344,6 +345,18 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           `Array.from(document.querySelectorAll('img[src^="blob:"]')).map(img => img.src)`
         ) || []
       } catch {}
+
+      // 🌟 2-1. Agent OFF 강제 해제 (Flow Agent 켜짐 방지 — 4장 동시 생성 방지 및 direct API 보장)
+      try {
+        const agentOffRes = await flowView.webContents.executeJavaScript(AGENT_OFF_SCRIPT).catch(() => null)
+        console.log('[Flow API] Agent OFF script result:', agentOffRes)
+        if (agentOffRes?.wasOn) {
+          await trustedClickOnFlowView(AGENT_TOGGLE_SELECTOR).catch(() => {})
+          await new Promise(r => setTimeout(r, 400))
+        }
+      } catch (e) {
+        console.warn('[Flow API] Agent OFF toggle failed:', e.message)
+      }
 
       // 3. 프롬프트 입력 (Slate.js 에디터 — AutoFlow 역공학)
       // execCommand 방식이 작동하려면 flowView가 보여야 함 (focus 필요)
