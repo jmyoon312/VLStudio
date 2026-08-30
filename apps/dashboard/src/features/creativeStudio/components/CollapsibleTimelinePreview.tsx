@@ -327,15 +327,15 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
         </div>
       )}
 
-      {/* 3. 전체화면 시네마틱 프리뷰 모니터 팝업 포털 */}
+      {/* 3. 전체화면 시네마틱 프리뷰 모니터 팝업 포털 (z-[99999] 완벽 고립) */}
       {isFullscreen && createPortal(
-        <div className="fixed inset-0 z-9999 bg-black/95 backdrop-blur-md flex flex-col items-center justify-between p-6 select-none animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] bg-[#050811]/98 backdrop-blur-2xl flex flex-col items-center justify-between p-6 select-none animate-in fade-in duration-200">
           {/* Header Controls */}
           <div className="w-full flex items-center justify-between text-white/90 max-w-6xl">
             <div className="flex items-center gap-3">
               <Film className="w-5 h-5 text-blue-400" />
               <span className="font-extrabold text-sm tracking-wide">시네마틱 실시간 프리뷰 모니터 (FULLSCREEN PREVIEW)</span>
-              <Badge variant="outline" className="text-[10px] bg-blue-500/20 text-blue-300 border-blue-400/40">
+              <Badge variant="outline" className="text-[10px] bg-blue-500/20 text-blue-300 border-blue-400/40 font-bold">
                 {aspectRatio === '9:16' ? '9:16 Shorts' : '16:9 1080P HD'}
               </Badge>
             </div>
@@ -352,48 +352,66 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
           </div>
 
           {/* Center Stage Preview */}
-          <div className="flex-1 w-full max-w-5xl flex items-center justify-center my-4 relative overflow-hidden rounded-2xl border border-white/10 shadow-2xl bg-black">
+          <div className="flex-1 w-full max-w-5xl flex items-center justify-center my-3 relative overflow-hidden rounded-2xl border border-white/15 shadow-2xl bg-black">
             <PreviewPanel
               playheadMs={fullscreenPlayheadMs}
               scenes={normalizedTimelineScenes}
               srtEntries={srtEntries}
-              height={580}
+              height="100%"
               isPlaying={isFullscreenPlaying}
               hiddenRoles={new Set()}
               aspectRatio={aspectRatio}
+              className="!bg-black !p-0 w-full h-full flex items-center justify-center"
             />
           </div>
 
-          {/* Bottom Transport Bar */}
-          <div className="w-full max-w-2xl bg-slate-900/90 border border-white/15 rounded-2xl px-6 py-3 flex items-center justify-between shadow-2xl backdrop-blur-lg text-white">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setIsFullscreenPlaying(p => !p)}
-                className="h-8 px-4 font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md rounded-xl"
-              >
-                {isFullscreenPlaying ? <Pause className="w-4 h-4 mr-1.5 fill-white" /> : <Play className="w-4 h-4 mr-1.5 fill-white" />}
-                {isFullscreenPlaying ? '일시정지' : '재생'}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => { setIsFullscreenPlaying(false); setFullscreenPlayheadMs(0); }}
-                className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10 rounded-lg"
-                title="처음으로"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </Button>
-
-              <span className="font-mono text-xs font-bold text-white/90 bg-white/10 px-3 py-1 rounded-lg">
-                <span className="text-blue-400">{formatTC(fullscreenPlayheadMs)}</span> / {formatTC(totalDurationMs)}
-              </span>
+          {/* Bottom Transport Bar & Interactive Scrubber */}
+          <div className="w-full max-w-3xl bg-slate-900/95 border border-white/15 rounded-2xl p-4 flex flex-col gap-3 shadow-2xl backdrop-blur-xl text-white">
+            {/* Interactive Progress Bar */}
+            <div 
+              className="w-full h-2.5 bg-white/10 hover:bg-white/20 rounded-full cursor-pointer relative overflow-hidden transition-all"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                setFullscreenPlayheadMs(ratio * totalDurationMs);
+              }}
+            >
+              <div 
+                className="h-full bg-blue-500 rounded-full transition-all duration-75"
+                style={{ width: `${totalDurationMs > 0 ? (fullscreenPlayheadMs / totalDurationMs) * 100 : 0}%` }}
+              />
             </div>
 
-            <div className="text-xs text-white/60 font-medium">
-              [Space] 재생/정지 · [ESC] 닫기
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setIsFullscreenPlaying(p => !p)}
+                  className="h-8.5 px-4 font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md rounded-xl gap-1.5"
+                >
+                  {isFullscreenPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white" />}
+                  <span>{isFullscreenPlaying ? '일시정지' : '재생'}</span>
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => { setIsFullscreenPlaying(false); setFullscreenPlayheadMs(0); }}
+                  className="h-8.5 w-8.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg"
+                  title="처음으로"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </Button>
+
+                <span className="font-mono text-xs font-bold text-white/90 bg-white/10 px-3 py-1.5 rounded-lg">
+                  <span className="text-blue-400">{formatTC(fullscreenPlayheadMs)}</span> / {formatTC(totalDurationMs)}
+                </span>
+              </div>
+
+              <div className="text-xs text-white/60 font-medium">
+                [Space] 재생/정지 · [ESC] 닫기
+              </div>
             </div>
           </div>
         </div>,

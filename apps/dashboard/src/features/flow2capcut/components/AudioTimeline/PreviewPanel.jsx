@@ -46,7 +46,7 @@ export function findRangeAt(ranges, t, inclusiveEnd = false) {
 // <video>는 DOM에 항상 1개만 존재 — 씬이 바뀔 때만 src swap (500씬 스케일 대응).
 const EMPTY_HIDDEN = new Set()
 
-export default function PreviewPanel({ playheadMs, scenes, srtEntries, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9' }) {
+export default function PreviewPanel({ playheadMs, scenes, srtEntries, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '' }) {
   // 씬 ranges precompute — getSceneTimeRangeMs는 parseTimeToSeconds(regex+split)을 부르므로
   // playhead 매 tick (60fps) 마다 N회 반복하면 1시간/1500씬 기준 ~0.5% CPU 누적.
   // sort를 명시적으로 — binary search 정확성 보장.
@@ -229,7 +229,7 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, height = 
   }, [isVideoActive, videoPlacement, playheadMs, isPlaying])
 
   return (
-    <div className="atl-preview" style={{ height }}>
+    <div className={`atl-preview ${className}`} style={{ height }}>
       <div className="atl-preview-stage" style={{ aspectRatio: (aspectRatio === '9:16' || aspectRatio === 'shorts') ? '9 / 16' : '16 / 9' }}>
         {imgPath && !hideImage ? (
           <img className="atl-preview-img" src={resolveImageSrc({ imagePath: imgPath, generatedAt: scene?.generatedAt, image: scene?.image })} alt="" />
