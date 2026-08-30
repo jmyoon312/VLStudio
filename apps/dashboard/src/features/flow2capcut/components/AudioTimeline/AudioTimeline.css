@@ -103,22 +103,24 @@
 }
 .atl-preview-subtitle {
   position: absolute;
-  bottom: 12px;
+  bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.75);
-  color: #ffffff;
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: 15px;
+  background: rgba(10, 10, 10, 0.85);
+  color: #ffffff !important;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.85);
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1.45;
   text-align: center;
-  max-width: 92%;
+  max-width: 90%;
   white-space: pre-wrap;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
   pointer-events: none;
-  z-index: 20;
+  z-index: 50;
 }
 
 /* ── Header ── */

@@ -777,6 +777,24 @@ def sync_project_subtitles(
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write(srt_content)
 
+    # 자막 서식 설정(폰트, 색상, 박스, 위치 등)을 subtitles/config.json 및 project.json에 영구 저장
+    if sub_cfg:
+        cfg_path = os.path.join(sub_dir, "config.json")
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            json.dump(sub_cfg, f, ensure_ascii=False, indent=2)
+        
+        # project.json 업데이트
+        meta_path = os.path.join(root, "05_Exports", req.project_name, "project.json")
+        if os.path.exists(meta_path):
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    pdata = json.load(f)
+                pdata["subtitle_config"] = sub_cfg
+                with open(meta_path, "w", encoding="utf-8") as f:
+                    json.dump(pdata, f, ensure_ascii=False, indent=2)
+            except Exception as pe:
+                print(f"[Subtitles] project.json update error: {pe}")
+
     return {
         "status": "success",
         "srt_path": srt_path,
