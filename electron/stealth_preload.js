@@ -325,32 +325,40 @@ try {
   // 구글 로그인 세션이 있는 경우 랜딩 페이지 통과 및 신규 프로젝트 화면으로 자동 직행 진입
   if (window.location.hostname.includes('labs.google')) {
     window.addEventListener('DOMContentLoaded', () => {
+      const clickElement = (el) => {
+        if (!el) return;
+        try {
+          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+          el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+          el.click();
+        } catch (e) {
+          el.click();
+        }
+      };
+
       const tryAutoEnter = () => {
         // 1) 랜딩 페이지 'Create with Google Flow' 버튼 탐색
-        const buttons = Array.from(document.querySelectorAll('button, a'));
-        const createBtn = buttons.find(b => 
-          b.textContent && (
-            b.textContent.includes('Create with Google Flow') || 
-            b.textContent.includes('Get started') ||
-            b.textContent.includes('시작하기')
-          )
-        );
+        const clickables = Array.from(document.querySelectorAll('button, a, [role="button"], div, span'));
+        const createBtn = clickables.find(b => {
+          const txt = (b.innerText || b.textContent || '').trim();
+          return txt.includes('Create with Google Flow') || txt.includes('Get started') || txt.includes('시작하기');
+        });
         if (createBtn) {
           console.log('[Stealth Preload] Auto-clicking Create with Google Flow button...');
-          createBtn.click();
+          clickElement(createBtn);
           return true;
         }
 
-        // 2) 홈 대시보드에 도달했으나 프로젝트 URL(/project/...)이 아닌 경우, '새 프로젝트 만들기(+)' 버튼 자동 클릭
+        // 2) 홈 대시보드에 도달했으나 프로젝트 URL(/project/...)이 아닌 경우, '+ 새 프로젝트' 박스/버튼 자동 클릭
         if (window.location.pathname.endsWith('/flow') || window.location.pathname.endsWith('/flow/')) {
-          const newProjectBtn = buttons.find(b => {
+          const newProjectBtn = clickables.find(b => {
+            const txt = (b.innerText || b.textContent || '').trim();
             const hasAddIcon = b.querySelector('i')?.textContent?.includes('add') || b.querySelector('svg');
-            const txt = b.textContent || '';
-            return hasAddIcon || txt.includes('New project') || txt.includes('새 프로젝트') || txt.includes('add_2');
+            return txt === '+ 새 프로젝트' || txt === '새 프로젝트' || txt.includes('+ 새 프로젝트') || txt.includes('New project') || (hasAddIcon && txt.includes('프로젝트'));
           });
           if (newProjectBtn) {
-            console.log('[Stealth Preload] Auto-clicking New Project button...');
-            newProjectBtn.click();
+            console.log('[Stealth Preload] Auto-clicking New Project button/card...');
+            clickElement(newProjectBtn);
             return true;
           }
         }
@@ -358,7 +366,7 @@ try {
         return false;
       };
 
-      // 즉시 시도 및 8초간 주기적 감지
+      // 즉시 시도 및 10초간 주기적 감지
       if (!tryAutoEnter()) {
         const interval = setInterval(() => {
           if (window.location.pathname.includes('/project/')) {
@@ -366,8 +374,8 @@ try {
           } else {
             tryAutoEnter();
           }
-        }, 500);
-        setTimeout(() => clearInterval(interval), 8000);
+        }, 400);
+        setTimeout(() => clearInterval(interval), 10000);
       }
     });
   }
