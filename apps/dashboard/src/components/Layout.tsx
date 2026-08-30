@@ -107,7 +107,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
     React.useEffect(() => {
         const isFlowPage = location.pathname === '/flow2capcut';
-        (window as any).electronAPI?.setFlowTabActive?.({ active: isFlowPage });
+        const apiObj = (window as any).electronAPI;
+        if (apiObj?.setFlowTabActive) {
+            apiObj.setFlowTabActive({ active: isFlowPage });
+        }
+        if (isFlowPage) {
+            // Flow AI 렌더러 진입 시 다중창 1번(기본 프로필) 즉시 열기 및 활성화
+            if (apiObj?.openFlowView) {
+                apiObj.openFlowView({ profileId: 'default' }).catch(() => {});
+            }
+            if (apiObj?.switchProfile) {
+                apiObj.switchProfile({ profileId: 'default' }).catch(() => {});
+            }
+        }
     }, [location.pathname]);
 
     const { user, subscription, logout, activeProfile } = useAuth();

@@ -142,7 +142,7 @@ export async function finalizeGeneratedImage({
       // 그대로 남으면 ErrorSection/ResultsTable 이 계속 에러 메시지를 띄운다 — 명시 클리어.
       error: null,
       errorKind: null,
-      image: imagePath ? null : imageData,
+      image: imageData,
       imagePath: imagePath || null,
       mediaId,
       image_size: imageSize,
