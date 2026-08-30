@@ -43,6 +43,8 @@ const SubtitleSettingsDialog: React.FC<SubtitleSettingsDialogProps> = ({ open, o
         }
     }, [open, initialConfig]);
 
+    if (!open) return null;
+
     const handleSave = () => {
         onSave(config);
         onOpenChange(false);

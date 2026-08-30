@@ -29,6 +29,8 @@ const TTSSettingsDialog = ({ open, onOpenChange, initialConfig, onSave }: TTSSet
         keep_silence_len: initialConfig?.keepSilenceLen
     });
 
+    if (!open) return null;
+
     const handleSave = () => {
         // Convert back to format expected by parent if needed, 
         // or just pass the clean TTSConfig. 
