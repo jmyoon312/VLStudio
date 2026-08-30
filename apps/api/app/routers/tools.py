@@ -361,7 +361,9 @@ async def generate_tts(
 
         return {
             "status": "success",
+            "url": web_url,
             "web_url": web_url,
+            "file_path": output_path,
             "server_path": output_path,
             "duration": duration,
             "message": "Generated successfully"

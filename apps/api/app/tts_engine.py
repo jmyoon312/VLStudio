@@ -35,15 +35,20 @@ class TTSEngine:
 
     async def generate_audio(self, text: str, engine: str, language: str, voice_id: str = None, rate: int = 0, pitch: int = 0, emotion: str = "normal", voice_settings: dict = None, silence_enabled: bool = False, silence_params: dict = None, noise_scale: float = 0.0, mix_voice_id: str = None, mix_ratio: float = 0.0, base_url: str = None, rvc_model: str = None, project_name: str = None, scene_id: int = None) -> dict:
         if project_name:
-            # 05_Exports/{project_name}/audio/ 에 체계적 영구 저장
-            target_dir = os.path.join(self.settings.root_download_path, "05_Exports", project_name, "audio")
+            # 05_Exports/{project_name}/audio/ 에 프로젝트 본 오디오 체계적 영구 저장
+            root = self.settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+            target_dir = os.path.join(root, "05_Exports", project_name, "audio")
             os.makedirs(target_dir, exist_ok=True)
             s_tag = f"scene_{scene_id:02d}_" if scene_id is not None else ""
             filename = f"{s_tag}{engine}_{language}_{int(time.time())}_{uuid.uuid4().hex[:4]}.mp3"
             output_path = os.path.join(target_dir, filename)
         else:
-            filename = f"tts_{engine}_{language}_{int(time.time())}_{uuid.uuid4().hex[:4]}.mp3"
-            output_path = os.path.join(self.temp_dir, filename)
+            # 07_Downloads/temp/tts_audition/ 에 임시 오디션/미리듣기 샘플 격리 저장 (프로젝트 폴더와 완전 분리)
+            root = self.settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+            target_dir = os.path.join(root, "07_Downloads", "temp", "tts_audition")
+            os.makedirs(target_dir, exist_ok=True)
+            filename = f"audition_{engine}_{language}_{int(time.time())}_{uuid.uuid4().hex[:4]}.mp3"
+            output_path = os.path.join(target_dir, filename)
         abs_path = os.path.abspath(output_path)
 
         # [VIRTUAL VOICE LOGIC] for Google

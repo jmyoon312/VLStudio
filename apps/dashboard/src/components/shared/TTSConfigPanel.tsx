@@ -89,14 +89,17 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
             if (config.mix_ratio !== undefined) formData.append("mix_ratio", String(config.mix_ratio));
 
             const res = await api.post("/tools/tts/generate", formData);
-            if (res.data?.url) {
+            const audioUrl = res.data?.web_url || res.data?.url;
+            if (audioUrl) {
                 if (audioRef.current) {
                     audioRef.current.pause();
+                    audioRef.current = null;
                 }
-                const audio = new Audio(res.data.url);
+                const cleanUrl = audioUrl.startsWith('http') ? audioUrl : `${window.location.origin}${audioUrl}`;
+                const audio = new Audio(cleanUrl);
                 audioRef.current = audio;
                 audio.ontimeupdate = () => {
-                    if (audio.duration) {
+                    if (audio.duration && !isNaN(audio.duration)) {
                         setPreviewProgress((audio.currentTime / audio.duration) * 100);
                     }
                 };
@@ -104,13 +107,21 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                     setIsPlayingPreview(false);
                     setPreviewProgress(0);
                 };
-                audio.onerror = () => {
+                audio.onerror = (e) => {
+                    console.error("Audio playback error:", e);
                     setIsPlayingPreview(false);
                     setPreviewProgress(0);
-                    toast.error("오디오 재생에 실패했습니다.");
+                    toast.error("오디오 스트리밍 재생 실패");
                 };
-                await audio.play();
-                setIsPlayingPreview(true);
+                try {
+                    await audio.play();
+                    setIsPlayingPreview(true);
+                } catch (playErr: any) {
+                    console.warn("Audio play promise error:", playErr);
+                    setIsPlayingPreview(false);
+                }
+            } else {
+                toast.error("오디오 재생 URL을 수신하지 못했습니다.");
             }
         } catch (err: any) {
             console.error("Preview voice failed:", err);
