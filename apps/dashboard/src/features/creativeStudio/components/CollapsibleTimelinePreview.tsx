@@ -186,15 +186,66 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
       return []; // 음성 생성 전에는 가짜 자막 블록을 타임라인에 미리 배치하지 않음
     }
 
-    return completedAudioScenes.map((s, idx) => ({
-      id: idx + 1,
-      startMs: s.startMs,
-      endMs: s.endMs,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      text: s.script || `자막 #${s.scene_id}`
-    }));
-  }, [externalSrtEntries, normalizedTimelineScenes]);
+    const splitLimit = subtitleConfig?.splitLimit || 20;
+    const maxLines = subtitleConfig?.maxLines || 2;
+    const maxChunkChars = Math.max(10, splitLimit * maxLines);
+    const resultEntries: any[] = [];
+    let entryId = 1;
+
+    for (const s of completedAudioScenes) {
+      const script = (s.script || '').trim();
+      if (!script) continue;
+
+      const rawParts = script.split(/([,.\n!?]+(?:\s+|$))/).filter(Boolean);
+      const chunks: string[] = [];
+      let curr = '';
+
+      for (const part of rawParts) {
+        if ((curr + part).length <= maxChunkChars) {
+          curr += part;
+        } else {
+          if (curr.trim()) chunks.push(curr.trim());
+          curr = part;
+        }
+      }
+      if (curr.trim()) chunks.push(curr.trim());
+      if (chunks.length === 0) chunks.push(script);
+
+      const sceneDur = Math.max(500, s.endMs - s.startMs);
+      const totalChars = chunks.reduce((acc, c) => acc + Math.max(1, c.length), 0);
+      let accMs = s.startMs;
+
+      for (let i = 0; i < chunks.length; i++) {
+        const ch = chunks[i];
+        let formattedText = ch;
+        if (ch.length > splitLimit && maxLines > 1 && !ch.includes('\n')) {
+          const mid = Math.floor(ch.length / 2);
+          const spaceIdx = ch.indexOf(' ', Math.max(0, mid - 4));
+          if (spaceIdx > 0 && spaceIdx < mid + 6) {
+            formattedText = ch.slice(0, spaceIdx) + '\n' + ch.slice(spaceIdx + 1);
+          }
+        }
+
+        const chunkDur = (i === chunks.length - 1)
+          ? Math.max(300, s.endMs - accMs)
+          : Math.max(300, Math.round((Math.max(1, ch.length) / totalChars) * sceneDur));
+
+        const cueStart = accMs;
+        const cueEnd = accMs + chunkDur;
+        accMs = cueEnd;
+
+        resultEntries.push({
+          id: entryId++,
+          scene_id: s.scene_id,
+          startMs: cueStart,
+          endMs: cueEnd,
+          text: formattedText
+        });
+      }
+    }
+
+    return resultEntries;
+  }, [externalSrtEntries, normalizedTimelineScenes, subtitleConfig]);
 
   // 전체화면 재생 루프
   useEffect(() => {

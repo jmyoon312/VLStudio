@@ -1352,8 +1352,9 @@ const CreativeStudio = () => {
         renderSceneMutation.mutate(payload);
     };
 
-    const syncSubtitlesToDisk = async (targetScenes: SceneSegment[]) => {
+    const syncSubtitlesToDisk = async (targetScenes: SceneSegment[], customCfg?: SubtitleConfig) => {
         if (!currentProjectName || targetScenes.length === 0) return;
+        const activeCfg = customCfg || subtitleConfig;
         try {
             const res = await api.post('/creative/sync-subtitles', {
                 project_name: currentProjectName,
@@ -1362,7 +1363,7 @@ const CreativeStudio = () => {
                     script: s.script,
                     duration: s.duration || 5.0
                 })),
-                subtitle_config: subtitleConfig
+                subtitle_config: activeCfg
             });
             if (res.data?.entries && Array.isArray(res.data.entries)) {
                 setSrtEntries(res.data.entries);
@@ -2708,7 +2709,7 @@ const CreativeStudio = () => {
                         setSubtitleConfig(cfg);
                         toast.success("자막 설정이 저장되었습니다.");
                         // 설정된 분절 규칙(splitLimit, maxLines 등)으로 즉시 자막 재분절 & 타임라인 동기화
-                        syncSubtitlesToDisk(scenes);
+                        syncSubtitlesToDisk(scenes, cfg);
                     }}
                 />
 
