@@ -426,11 +426,18 @@ class LLMClient:
                 raise last_error or Exception("All NVIDIA keys exhausted.")
 
             elif model_name == "youtube1" or model_name.startswith("youtube1/"):
-                # YouTube1 Custom Provider (local API endpoint / 9router combo)
+                # YouTube1 / 9router Custom Provider (Local Gateway)
                 last_error = None
-                for _ in range(len(self.youtube1_keys) + 1):
-                    current_key = self.youtube1_keys[self.youtube1_key_index] if self.youtube1_keys else None
-                    if not current_key: break
+                raw_base_url = getattr(self.settings, "youtube1_base_url", None) or getattr(self.settings, "ninerouter_url", None) or "http://localhost:20128/v1"
+                clean_base_url = str(raw_base_url).strip().rstrip("/")
+                if not clean_base_url.endswith("/v1") and not clean_base_url.endswith("/chat/completions"):
+                    clean_base_url = f"{clean_base_url}/v1"
+
+                keys_to_try = self.youtube1_keys if self.youtube1_keys else [getattr(self.settings, "ninerouter_api_key", None) or "sk-local-gateway"]
+                
+                for key_idx, current_key in enumerate(keys_to_try):
+                    if not current_key:
+                        continue
 
                     try:
                         clean_model = model_name.replace("youtube1/", "") if model_name.startswith("youtube1/") else model_name
@@ -439,20 +446,21 @@ class LLMClient:
                             model=clean_model,
                             system_instruction=system_instruction,
                             full_response=full_response,
-                            base_url="http://localhost:20128/v1",
+                            base_url=clean_base_url,
                             api_key=current_key,
                             provider_name="YouTube1",
                             images=images,
-                            request_timeout=120.0
+                            request_timeout=60.0
                         )
                     except Exception as e:
                         last_error = e
-                        logger.warning(f"[WAIT] [YouTube1] Error on Key #{self.youtube1_key_index}: {e}. Rotating...")
-                        self.youtube1_key_index = (self.youtube1_key_index + 1) % len(self.youtube1_keys)
-                        import time
-                        time.sleep(1)
+                        logger.warning(f"[WAIT] [YouTube1/9router] Error on Key #{key_idx}: {e}. Rotating...")
+                        time.sleep(0.5)
                         continue
-                raise last_error or Exception("All YouTube1 keys exhausted.")
+                
+                # YouTube1 통신 실패 시 로그 기록 후 예외 전달
+                logger.error(f"[FAIL] [YouTube1/9router] All keys/attempts exhausted: {last_error}")
+                raise last_error or Exception("YouTube1 / 9router local gateway is unreachable or timed out.")
 
             elif model_name.startswith("google/") or model_name.startswith("gemini/"):
                 # Google/Gemini routing

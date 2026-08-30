@@ -111,7 +111,12 @@ def test_chat(
         )
         
         if isinstance(response, dict):
+            if str(response.get("content", "")).startswith("ERROR:"):
+                raise HTTPException(status_code=500, detail=response.get("content"))
             return response
+        
+        if str(response).startswith("ERROR:"):
+            raise HTTPException(status_code=500, detail=str(response))
         return {"content": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat test failed: {str(e)}")
