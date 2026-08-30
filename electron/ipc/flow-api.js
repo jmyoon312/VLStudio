@@ -984,19 +984,59 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     const allImages = []
     const allErrors = []
 
-    // 1. DOM에서 감지된 이미지가 있는 경우 (Flow Agent 모드)
+    // 1. DOM에서 감지된 이미지가 있는 경우 (Flow Agent 또는 DOM 렌더링 모드)
     if (Array.isArray(gen.domFreshImages) && gen.domFreshImages.length > 0) {
+      const flowView = getFlowView()
       for (const { mediaId, src } of gen.domFreshImages) {
+        let gotBase64 = null
+
+        // 시도 1: 세션 쿠키 기반 백엔드 fetch
         try {
           const res = await sessionFetch(src)
-          if (!res || !res.ok) throw new Error(`DOM media fetch HTTP ${res ? res.status : 'null'}`)
-          const buffer = await res.arrayBuffer()
-          const base64Raw = Buffer.from(buffer).toString('base64')
-          const contentType = (res.headers && res.headers.get && res.headers.get('content-type')) || 'image/png'
-          allImages.push({ base64: `data:${contentType};base64,${base64Raw}`, mediaId })
-        } catch (e) {
-          console.warn('[Flow API] [AsyncCollect] DOM image fetch failed:', e.message)
-          allErrors.push(e.message)
+          if (res && res.ok) {
+            const buffer = await res.arrayBuffer()
+            const base64Raw = Buffer.from(buffer).toString('base64')
+            const contentType = (res.headers && res.headers.get && res.headers.get('content-type')) || 'image/png'
+            gotBase64 = `data:${contentType};base64,${base64Raw}`
+          }
+        } catch (_) {}
+
+        // 시도 2: Flow 웹뷰 페이지 컨텍스트 내부에서 직접 Canvas / Blob 변환 (100% 보장)
+        if (!gotBase64 && flowView && !flowView.webContents.isDestroyed()) {
+          try {
+            gotBase64 = await flowView.webContents.executeJavaScript(`
+              (async function() {
+                try {
+                  const targetSrc = ${JSON.stringify(src)};
+                  const img = Array.from(document.querySelectorAll('img')).find(i => (i.currentSrc || i.src) === targetSrc);
+                  if (img && img.complete && img.naturalWidth > 0) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    return canvas.toDataURL('image/png');
+                  }
+                  const res = await fetch(targetSrc);
+                  const blob = await res.blob();
+                  return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(blob);
+                  });
+                } catch (err) {
+                  return null;
+                }
+              })()
+            `)
+          } catch (e) {
+            console.warn('[Flow API] [AsyncCollect] In-page canvas/blob extract failed:', e.message)
+          }
+        }
+
+        if (gotBase64) {
+          allImages.push({ base64: gotBase64, mediaId })
         }
       }
       if (allImages.length > 0) {

@@ -31,13 +31,39 @@ export function extractMediaName(src) {
  */
 export function scanGeneratedImages(doc) {
   const out = []
+  const seenSrc = new Set()
+
   for (const im of doc.querySelectorAll('img')) {
     const src = im.currentSrc || im.src || ''
+    if (!src || src.startsWith('data:image/svg') || seenSrc.has(src)) continue
+
+    // 아이콘, 로고, 아바타 제외 (화면 크기 또는 naturalSize 기준)
+    const rect = im.getBoundingClientRect ? im.getBoundingClientRect() : { width: 100, height: 100 }
+    if (rect.width > 0 && rect.height > 0 && (rect.width < 60 || rect.height < 60)) continue
+
+    // 아직 생성 진행 중(40%, 36% 등)인 카드 제외
+    const parent = im.parentElement
+    const card = (im.closest && (im.closest('[role="article"]') || im.closest('[class*="card"]'))) || parent
+    const cardText = card ? (card.textContent || '') : ''
+    if (/\d+%\s*$/.test(cardText.trim()) || cardText.includes('생성 중') || cardText.includes('Generating')) {
+      continue
+    }
+
+    // UUID 추출 또는 고유 미디어 ID 생성
     const m = src.match(/[?&]name=([a-f0-9-]{36})/)
-    if (!m) continue
-    const link = im.closest && im.closest('a[href]')
-    const href = (link && link.getAttribute('href')) || ''
-    if (/\/tools\/flow\/project\/[^/]+\/edit\//.test(href)) out.push({ mediaId: m[1], src })
+    const mediaId = m ? m[1] : `dom-${src.split('?')[0].slice(-32)}`
+
+    // Google Media URL 또는 유효한 이미지 URL이면 모두 수집
+    if (
+      src.includes('getMediaUrlRedirect') ||
+      src.includes('googleusercontent.com') ||
+      src.includes('blob:') ||
+      src.includes('/media/') ||
+      rect.width >= 100
+    ) {
+      seenSrc.add(src)
+      out.push({ mediaId, src })
+    }
   }
   return out
 }
