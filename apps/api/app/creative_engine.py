@@ -293,14 +293,27 @@ class CreativeEngine:
                         normalized = []
                         for i, s in enumerate(parsed):
                             vp = str(s.get("visual_prompt", "")).strip()
+                            # 1. aspect ratio 중복 제거
                             vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
                             vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
-                            vp = f"{aspect_ratio}, {vp}".rstrip(", ")
+
+                            # 2. 잡담/번역/한국어 수다 필터링 및 자가치유
+                            is_filler = any(kw in vp for kw in ["도와드릴까요", "번역", "한국어", "문법", "어떤 이야기", "궁금하네요", "안녕하세요", "이야기"])
+                            has_excessive_korean = len(re.findall(r'[\uac00-\ud7a3]', vp)) > 6
+
+                            if is_filler or has_excessive_korean or len(vp) < 10:
+                                vp = f"Eye-level medium shot, Joseon Dynasty Korean historical setting, person in traditional hanbok, authentic hanok architecture, warm atmospheric lighting, {style_prompt}".strip(", ")
+
+                            final_vp = f"{aspect_ratio}, {vp}".rstrip(", ")
+                            vid_p = str(s.get("video_prompt", "")).strip()
+                            if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]):
+                                vid_p = "Camera slowly zooms in, subtle cinematic motion"
+
                             normalized.append({
                                 "scene_id": s.get("scene_id", i + 1),
                                 "script": s.get("script", ""),
-                                "visual_prompt": vp,
-                                "video_prompt": s.get("video_prompt", "Camera slowly zooms in, subtle cinematic motion")
+                                "visual_prompt": final_vp,
+                                "video_prompt": vid_p
                             })
                         return normalized
                 
@@ -313,12 +326,23 @@ class CreativeEngine:
                             vp = str(s.get("visual_prompt", "")).strip()
                             vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
                             vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
-                            vp = f"{aspect_ratio}, {vp}".rstrip(", ")
+
+                            is_filler = any(kw in vp for kw in ["도와드릴까요", "번역", "한국어", "문법", "어떤 이야기", "궁금하네요", "안녕하세요", "이야기"])
+                            has_excessive_korean = len(re.findall(r'[\uac00-\ud7a3]', vp)) > 6
+
+                            if is_filler or has_excessive_korean or len(vp) < 10:
+                                vp = f"Eye-level medium shot, Joseon Dynasty Korean historical setting, person in traditional hanbok, authentic hanok architecture, warm atmospheric lighting, {style_prompt}".strip(", ")
+
+                            final_vp = f"{aspect_ratio}, {vp}".rstrip(", ")
+                            vid_p = str(s.get("video_prompt", "")).strip()
+                            if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]):
+                                vid_p = "Camera slowly zooms in, subtle cinematic motion"
+
                             normalized.append({
                                 "scene_id": s.get("scene_id", i + 1),
                                 "script": s.get("script", ""),
-                                "visual_prompt": vp,
-                                "video_prompt": s.get("video_prompt", "Camera slowly zooms in, subtle cinematic motion")
+                                "visual_prompt": final_vp,
+                                "video_prompt": vid_p
                             })
                         return normalized
                 except:

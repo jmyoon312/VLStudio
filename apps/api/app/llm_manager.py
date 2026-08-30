@@ -428,32 +428,36 @@ class LLMClient:
                     clean_base_url = f"{clean_base_url}/v1"
 
                 keys_to_try = self.youtube1_keys if self.youtube1_keys else [getattr(self.settings, "ninerouter_api_key", None) or "sk-local-gateway"]
+                clean_model = model_name.replace("youtube1/", "") if model_name.startswith("youtube1/") else model_name
+                candidate_models = [clean_model]
+                if clean_model not in ["seekaicc/claude-sonnet-5-low", "seekaicc/claude-opus-5-low"]:
+                    candidate_models.extend(["seekaicc/claude-sonnet-5-low", "seekaicc/claude-opus-5-low"])
                 
-                for key_idx, current_key in enumerate(keys_to_try):
-                    if not current_key:
-                        continue
+                for cand_model in candidate_models:
+                    for key_idx, current_key in enumerate(keys_to_try):
+                        if not current_key:
+                            continue
 
-                    try:
-                        clean_model = model_name.replace("youtube1/", "") if model_name.startswith("youtube1/") else model_name
-                        return self._generate_openai_compatible(
-                            prompt=prompt,
-                            model=clean_model,
-                            system_instruction=system_instruction,
-                            full_response=full_response,
-                            base_url=clean_base_url,
-                            api_key=current_key,
-                            provider_name="YouTube1",
-                            images=images,
-                            request_timeout=120.0
-                        )
-                    except Exception as e:
-                        last_error = e
-                        logger.warning(f"[WAIT] [YouTube1/9router] Error on Key #{key_idx}: {e}. Rotating...")
-                        time.sleep(0.5)
-                        continue
+                        try:
+                            return self._generate_openai_compatible(
+                                prompt=prompt,
+                                model=cand_model,
+                                system_instruction=system_instruction,
+                                full_response=full_response,
+                                base_url=clean_base_url,
+                                api_key=current_key,
+                                provider_name="YouTube1",
+                                images=images,
+                                request_timeout=180.0
+                            )
+                        except Exception as e:
+                            last_error = e
+                            logger.warning(f"[WAIT] [YouTube1/9router] Error on Model {cand_model} / Key #{key_idx}: {e}. Rotating to next candidate...")
+                            time.sleep(0.3)
+                            continue
                 
                 # YouTube1 통신 실패 시 로그 기록 후 예외 전달
-                logger.error(f"[FAIL] [YouTube1/9router] All keys/attempts exhausted: {last_error}")
+                logger.error(f"[FAIL] [YouTube1/9router] All keys/models exhausted: {last_error}")
                 raise last_error or Exception("YouTube1 / 9router local gateway is unreachable or timed out.")
 
             elif model_name.startswith("google/") or model_name.startswith("gemini/"):
@@ -609,7 +613,7 @@ class LLMClient:
             logger.error(f"[FAIL] Embedding failed: {e}")
             return [0.0] * 768 
 
-    def _generate_openai_compatible(self, prompt: str, model: str, system_instruction: str, full_response: bool, base_url: str, api_key: str, provider_name: str, images: list = None, extra_headers: dict = None, request_timeout: float = 30.0):
+    def _generate_openai_compatible(self, prompt: str, model: str, system_instruction: str, full_response: bool, base_url: str, api_key: str, provider_name: str, images: list = None, extra_headers: dict = None, request_timeout: float = 180.0):
         if not api_key:
             raise ValueError(f"{provider_name} API Key is missing. Please check Settings.")
 
