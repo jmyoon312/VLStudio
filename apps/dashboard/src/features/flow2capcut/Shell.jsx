@@ -291,7 +291,9 @@ function ShellContent({ children }) {
     }
   }, [isFlowPage, loadProfilesAndViews])
 
-  if (!isFlowPage || activeViews.length === 0 || layoutMode === 'none' || layoutMode === 'tab' || !layoutMode.startsWith('split-')) {
+  const modeStr = typeof layoutMode === 'string' ? layoutMode : (layoutMode?.mode || 'split-left')
+
+  if (!isFlowPage || activeViews.length === 0 || modeStr === 'none' || modeStr === 'tab' || !modeStr.startsWith('split-')) {
     return <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>{children}</div>
   }
 
@@ -299,7 +301,7 @@ function ShellContent({ children }) {
   const appPct = `${(1 - splitRatio) * 100}%`
 
   if (horizontal) {
-    const isLeft = layoutMode === 'split-left'
+    const isLeft = modeStr === 'split-left'
     return (
       <div
         className="shell-root split-mode"
@@ -334,7 +336,7 @@ function ShellContent({ children }) {
     )
   }
 
-  const isTop = layoutMode === 'split-top'
+  const isTop = modeStr === 'split-top'
   return (
     <div
       className="shell-root split-mode"
