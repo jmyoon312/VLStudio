@@ -78,7 +78,7 @@ const DEFAULT_MODEL_OPTIONS = {
 };
 
 const CreativeStudio = () => {
-    const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+    const [selectedPresetId, setSelectedPresetId] = useState<string>(() => localStorage.getItem('vlstudio_selected_style_preset_id') || "");
     const [presetName, setPresetName] = useState("");
     const [stylePrompt, setStylePrompt] = useState("");
     const [negativePrompt, setNegativePrompt] = useState("");
@@ -89,6 +89,31 @@ const CreativeStudio = () => {
         queryKey: ['stylePresets'],
         queryFn: async () => (await api.get('/creative/styles')).data
     });
+
+    // 프리셋 목록이 로드되었을 때 이전에 선택한 프리셋을 자동 복원 및 유지
+    useEffect(() => {
+        if (!presets || presets.length === 0) return;
+        const savedId = localStorage.getItem('vlstudio_selected_style_preset_id') || selectedPresetId;
+        if (savedId && savedId !== 'new') {
+            const found = presets.find((p: any) => String(p.id) === String(savedId));
+            if (found) {
+                setSelectedPresetId(String(found.id));
+                setPresetName(found.name);
+                setStylePrompt(found.positive_prompt);
+                setNegativePrompt(found.negative_prompt || "");
+                return;
+            }
+        }
+        // 저장된 것이 없거나 못 찾은 경우 첫 번째 프리셋 기본 활성화
+        if (presets[0]) {
+            const first = presets[0];
+            setSelectedPresetId(String(first.id));
+            localStorage.setItem('vlstudio_selected_style_preset_id', String(first.id));
+            setPresetName(first.name);
+            setStylePrompt(first.positive_prompt);
+            setNegativePrompt(first.negative_prompt || "");
+        }
+    }, [presets]);
 
     // [SOVEREIGN TRUTH] 작업 환경 설정(Settings) 실시간 동적 연동 (Single Source of Truth)
     const { data: userSettings } = useQuery({
@@ -112,6 +137,7 @@ const CreativeStudio = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['stylePresets'] });
             setSelectedPresetId(String(data.id));
+            localStorage.setItem('vlstudio_selected_style_preset_id', String(data.id));
             toast.success("스타일 프리셋 저장 완료!");
         }
     });
@@ -120,6 +146,9 @@ const CreativeStudio = () => {
         mutationFn: async (data: any) => (await api.put(`/creative/styles/${selectedPresetId}`, data)).data,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['stylePresets'] });
+            if (selectedPresetId && selectedPresetId !== 'new') {
+                localStorage.setItem('vlstudio_selected_style_preset_id', String(selectedPresetId));
+            }
             toast.success("스타일 프리셋 수정 완료!");
         }
     });
@@ -128,6 +157,7 @@ const CreativeStudio = () => {
         mutationFn: async (id: number) => (await api.delete(`/creative/styles/${id}`)).data,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['stylePresets'] });
+            localStorage.removeItem('vlstudio_selected_style_preset_id');
             handleNewPreset();
             toast.success("스타일 프리셋 삭제 완료!");
         }
@@ -139,9 +169,10 @@ const CreativeStudio = () => {
             handleNewPreset();
             return;
         }
-        const preset = presets.find((p: any) => String(p.id) === val);
+        const preset = presets?.find((p: any) => String(p.id) === val);
         if (preset) {
             setSelectedPresetId(String(preset.id));
+            localStorage.setItem('vlstudio_selected_style_preset_id', String(preset.id));
             setPresetName(preset.name);
             setStylePrompt(preset.positive_prompt);
             setNegativePrompt(preset.negative_prompt || "");
@@ -150,6 +181,7 @@ const CreativeStudio = () => {
 
     const handleNewPreset = () => {
         setSelectedPresetId("new");
+        localStorage.removeItem('vlstudio_selected_style_preset_id');
         setPresetName("");
         setStylePrompt("");
         setNegativePrompt("");
@@ -1837,102 +1869,133 @@ const CreativeStudio = () => {
             </div>
 
             {/* Zone 1: Style Presets (Collapsible) */}
-            <Card className="border-l-4 border-l-purple-500 shadow-2xs bg-card border-border">
-                <CardHeader className="py-2.5 sm:py-3 px-3.5 sm:px-4 cursor-pointer hover:bg-muted/50 transition-colors border-b border-border" onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}>
+            <Card className="border-l-4 border-l-purple-500 shadow-2xs bg-card border-border overflow-hidden">
+                <CardHeader className="py-2.5 sm:py-3 px-4 cursor-pointer hover:bg-muted/40 transition-colors border-b border-border/70" onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-foreground">
-                            <Wand2 className="w-4 h-4 text-purple-500" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Style & Configuration</span>
+                            <div className="w-6 h-6 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                                <Wand2 className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="text-xs font-bold uppercase tracking-wider">Style & Visual Prompts</span>
+                            {selectedPresetId && selectedPresetId !== 'new' && (
+                                <Badge variant="secondary" className="text-[10px] px-2 py-0 font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300/40">
+                                    {presetName || '커스텀 스타일'}
+                                </Badge>
+                            )}
                         </div>
                         {isStyleCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
                     </div>
                 </CardHeader>
                 {!isStyleCollapsed && (
-                    <CardContent className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 p-3.5 sm:p-6">
+                    <CardContent className="space-y-4 p-4 sm:p-5">
                         {/* Row 1: Preset Controls */}
-                        <div className="flex flex-col md:flex-row items-stretch md:items-end gap-3 sm:gap-4">
-                            <div className="flex-1 space-y-1.5">
-                                <Label className="text-xs font-medium text-foreground">스타일 프리셋 (Style Preset)</Label>
-                                <div className="flex flex-col sm:flex-row gap-2">
-                                    <div className="flex items-center gap-2 flex-1">
-                                        <Select value={selectedPresetId} onValueChange={handleSelectPreset}>
-                                            <SelectTrigger className="flex-1 h-9 text-xs sm:text-sm bg-background border-border">
-                                                <SelectValue placeholder="프리셋 선택..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="new">+ 새 프리셋 만들기</SelectItem>
-                                                {presets?.map((p: any) => (
-                                                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        {selectedPresetId && selectedPresetId !== "new" && (
-                                            <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0" onClick={() => handleDeletePreset(Number(selectedPresetId))}>
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                    <Button variant="outline" size="sm" className="h-9 whitespace-nowrap text-xs sm:text-sm bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800" onClick={() => setIsStyleGalleryOpen(true)}>
-                                        🎨 갤러리에서 찾기
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 bg-muted/20 rounded-xl border border-border/70 items-center">
+                            {/* Preset Selector */}
+                            <div className="lg:col-span-6 space-y-1">
+                                <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">스타일 프리셋 (Style Preset)</Label>
+                                <div className="flex items-center gap-1.5">
+                                    <Select value={selectedPresetId} onValueChange={handleSelectPreset}>
+                                        <SelectTrigger className="flex-1 h-8.5 text-xs bg-background border-border shadow-2xs font-medium">
+                                            <SelectValue placeholder="프리셋 선택..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="new">+ 새 프리셋 만들기</SelectItem>
+                                            {presets?.map((p: any) => (
+                                                <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {selectedPresetId && selectedPresetId !== "new" && (
+                                        <Button variant="ghost" size="icon" className="h-8.5 w-8.5 text-destructive hover:bg-destructive/10 shrink-0" onClick={() => handleDeletePreset(Number(selectedPresetId))} title="프리셋 삭제">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                    )}
+                                    <Button variant="outline" size="sm" className="h-8.5 text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-300/60 dark:border-purple-800/60 shrink-0 font-semibold gap-1 px-2.5" onClick={() => setIsStyleGalleryOpen(true)}>
+                                        <Sparkles className="w-3 h-3" />
+                                        <span>갤러리 탐색</span>
                                     </Button>
                                 </div>
                             </div>
-                            <div className="flex-1 md:flex-[1.5] space-y-1.5">
-                                <Label className="text-xs font-medium text-foreground">프리셋 이름</Label>
-                                <div className="flex gap-2">
-                                    <Input value={presetName} onChange={(e) => setPresetName(e.target.value)} placeholder="예: Cyberpunk Style" className="h-9 text-xs sm:text-sm bg-background border-border" />
-                                    <Button onClick={handleSavePreset} disabled={!presetName} size="sm" className="h-9 px-4 text-xs sm:text-sm font-bold shrink-0">
-                                        <Save className="w-4 h-4 mr-2" /> 저장
+
+                            {/* Preset Name & Save */}
+                            <div className="lg:col-span-6 space-y-1">
+                                <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">프리셋 이름 및 저장</Label>
+                                <div className="flex items-center gap-1.5">
+                                    <Input 
+                                        value={presetName} 
+                                        onChange={(e) => setPresetName(e.target.value)} 
+                                        placeholder="예: 한국 고전 수묵화, Cyberpunk..." 
+                                        className="flex-1 h-8.5 text-xs bg-background border-border shadow-2xs font-medium" 
+                                    />
+                                    <Button onClick={handleSavePreset} disabled={!presetName} size="sm" className="h-8.5 px-4 text-xs font-bold shrink-0 bg-purple-600 hover:bg-purple-700 text-white shadow-2xs gap-1">
+                                        <Save className="w-3.5 h-3.5" /> 저장
                                     </Button>
                                 </div>
                             </div>
                         </div>
 
                         {/* Row 2: Analysis & Prompts */}
-                        <div className="flex flex-col md:flex-row gap-4 h-auto">
-                            {/* Analysis Drop Zone */}
-                            <div className="w-full md:w-1/4 relative border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-center p-3 hover:bg-muted/50 transition-colors cursor-pointer bg-muted/10 group min-h-[100px]">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+                            {/* Analysis Drop Zone (3 cols) */}
+                            <div className="md:col-span-3 relative border-2 border-dashed border-border/80 hover:border-purple-400/80 rounded-xl flex flex-col items-center justify-center text-center p-3.5 transition-all cursor-pointer bg-muted/10 hover:bg-purple-500/5 group min-h-[130px]">
                                 <input
                                     type="file"
                                     accept="image/*"
                                     className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                     onChange={(e) => e.target.files?.[0] && handleAnalyzeStyle(e.target.files[0])}
                                 />
-                                <Label className="absolute top-2 left-2 text-[10px] font-bold text-muted-foreground pointer-events-none">스타일 분석</Label>
+                                <div className="absolute top-2 left-2.5 flex items-center gap-1 text-[10px] font-bold text-muted-foreground pointer-events-none">
+                                    <Sparkles className="w-3 h-3 text-purple-500" />
+                                    <span>AI 스타일 분석</span>
+                                </div>
                                 {isAnalyzing ? (
                                     <div className="flex flex-col items-center gap-2">
-                                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                                        <span className="text-xs text-muted-foreground">분석 중...</span>
+                                        <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+                                        <span className="text-xs font-medium text-muted-foreground">이미지 분석 중...</span>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-center gap-1 text-muted-foreground group-hover:text-primary transition-colors py-2">
-                                        <Sparkles className="w-6 h-6 mb-1 text-primary" />
-                                        <span className="text-xs font-medium text-foreground">이미지 업로드</span>
-                                        <span className="text-[10px] opacity-70 text-muted-foreground">클릭 또는 드래그</span>
+                                    <div className="flex flex-col items-center gap-1.5 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors pt-3">
+                                        <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <Upload className="w-4 h-4 text-purple-500" />
+                                        </div>
+                                        <span className="text-xs font-bold text-foreground">참고 이미지 업로드</span>
+                                        <span className="text-[10px] opacity-70">클릭하거나 이미지를 끌어다 놓기</span>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Prompts */}
-                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                                <div className="space-y-1.5 flex flex-col h-full">
-                                    <Label className="text-xs font-medium text-foreground">긍정 프롬프트 (Positive)</Label>
-                                    <Textarea
-                                        value={stylePrompt}
-                                        onChange={(e) => setStylePrompt(e.target.value)}
-                                        className="flex-1 resize-none text-xs font-mono bg-background border-border text-foreground min-h-[90px] p-2.5"
-                                        placeholder="Describe the visual style..."
-                                    />
+                            {/* Positive Prompt (5 cols) */}
+                            <div className="md:col-span-5 space-y-1 flex flex-col h-full">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-bold text-foreground flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                        긍정 프롬프트 (Positive Prompt)
+                                    </Label>
+                                    <span className="text-[10px] font-mono text-muted-foreground">{stylePrompt.length} chars</span>
                                 </div>
-                                <div className="space-y-1.5 flex flex-col h-full">
-                                    <Label className="text-xs font-medium text-foreground">부정 프롬프트 (Negative)</Label>
-                                    <Textarea
-                                        value={negativePrompt}
-                                        onChange={(e) => setNegativePrompt(e.target.value)}
-                                        className="flex-1 resize-none text-xs font-mono bg-background border-border text-foreground min-h-[90px] p-2.5"
-                                        placeholder="What to avoid..."
-                                    />
+                                <Textarea
+                                    value={stylePrompt}
+                                    onChange={(e) => setStylePrompt(e.target.value)}
+                                    className="flex-1 resize-none text-xs font-mono leading-relaxed bg-background border-border text-foreground min-h-[105px] p-2.5 rounded-xl shadow-2xs"
+                                    placeholder="공통으로 적용할 비주얼 스타일 (예: Extremely cute chibi style, pastel colors, 8k masterpiece...)"
+                                />
+                            </div>
+
+                            {/* Negative Prompt (4 cols) */}
+                            <div className="md:col-span-4 space-y-1 flex flex-col h-full">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-bold text-foreground flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                        부정 프롬프트 (Negative Prompt)
+                                    </Label>
+                                    <span className="text-[10px] font-mono text-muted-foreground">{negativePrompt.length} chars</span>
                                 </div>
+                                <Textarea
+                                    value={negativePrompt}
+                                    onChange={(e) => setNegativePrompt(e.target.value)}
+                                    className="flex-1 resize-none text-xs font-mono leading-relaxed bg-background border-border text-foreground min-h-[105px] p-2.5 rounded-xl shadow-2xs"
+                                    placeholder="제외할 요소 (예: text, watermark, blurry, low quality, deformed limbs...)"
+                                />
                             </div>
                         </div>
                     </CardContent>
@@ -1940,25 +2003,35 @@ const CreativeStudio = () => {
             </Card>
 
             {/* Zone 2: Script Workspace (Collapsible) */}
-            <Card className="border-l-4 border-l-blue-500 shadow-sm bg-card border-border">
-                <CardHeader className="py-2.5 sm:py-3 px-3.5 sm:px-4 cursor-pointer hover:bg-muted/50 transition-colors border-b border-border" onClick={() => setIsScriptCollapsed(!isScriptCollapsed)}>
+            <Card className="border-l-4 border-l-blue-500 shadow-2xs bg-card border-border overflow-hidden">
+                <CardHeader className="py-2.5 sm:py-3 px-4 cursor-pointer hover:bg-muted/40 transition-colors border-b border-border/70" onClick={() => setIsScriptCollapsed(!isScriptCollapsed)}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-foreground">
-                            <Clapperboard className="w-4 h-4 text-blue-500" />
+                            <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                <Clapperboard className="w-3.5 h-3.5" />
+                            </div>
                             <span className="text-xs font-bold uppercase tracking-wider">Script Workspace</span>
+                            {fullScript && (
+                                <Badge variant="secondary" className="text-[10px] px-2 py-0 font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-300/40">
+                                    대본 {fullScript.length}자
+                                </Badge>
+                            )}
                         </div>
                         {isScriptCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
                     </div>
                 </CardHeader>
                 {!isScriptCollapsed && (
-                    <CardContent className="space-y-4 pt-3 sm:pt-4 p-3.5 sm:p-6">
+                    <CardContent className="space-y-4 p-4 sm:p-5">
                         <Tabs value={scriptMode} onValueChange={setScriptMode} className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 bg-muted p-1 rounded-lg h-9">
-                                <TabsTrigger value="manual" className="text-xs px-2">📝 직접 입력</TabsTrigger>
-                                <TabsTrigger value="creative" className="text-xs px-2">✨ AI 작가</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="creative" className="space-y-4 pt-2">
-                                <div className="col-span-3">
+                            <div className="flex items-center justify-between pb-1">
+                                <TabsList className="bg-muted/60 p-1 rounded-xl h-8.5 border border-border/60">
+                                    <TabsTrigger value="manual" className="text-xs font-semibold px-3 py-1 rounded-lg">📝 직접 입력 모드</TabsTrigger>
+                                    <TabsTrigger value="creative" className="text-xs font-semibold px-3 py-1 rounded-lg">✨ AI 작가 자동 생성</TabsTrigger>
+                                </TabsList>
+                            </div>
+
+                            <TabsContent value="creative" className="space-y-3 pt-2">
+                                <div className="p-3.5 bg-muted/20 rounded-xl border border-border/80 space-y-3">
                                     <AIModelSelector
                                         provider={scriptProvider}
                                         onProviderChange={setScriptProvider}
@@ -1970,90 +2043,100 @@ const CreativeStudio = () => {
                                         onCreatePreset={handleCreateStyle}
                                         onEditPreset={handleEditStyle}
                                     />
-                                </div>
 
-                                <div className="flex items-center gap-2 pl-1">
-                                    <Switch
-                                        id="creative-web-search"
-                                        checked={useWebSearchCreative}
-                                        onCheckedChange={setUseWebSearchCreative}
-                                    />
-                                    <Label htmlFor="creative-web-search" className="cursor-pointer flex items-center gap-1.5 text-xs sm:text-sm font-medium text-foreground">
-                                        <Globe className="w-3.5 h-3.5 text-primary" />
-                                        웹 검색 활용
-                                    </Label>
-                                    <Badge variant={useWebSearchCreative ? "default" : "outline"} className="text-[10px] px-1.5 py-0 ml-1">
-                                        {useWebSearchCreative ? "ON" : "OFF"}
-                                    </Badge>
-                                </div>
+                                    <div className="flex items-center justify-between pt-1">
+                                        <div className="flex items-center gap-2">
+                                            <Switch
+                                                id="creative-web-search"
+                                                checked={useWebSearchCreative}
+                                                onCheckedChange={setUseWebSearchCreative}
+                                            />
+                                            <Label htmlFor="creative-web-search" className="cursor-pointer flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                                <Globe className="w-3.5 h-3.5 text-primary" />
+                                                최신 웹 검색 활용
+                                            </Label>
+                                            <Badge variant={useWebSearchCreative ? "default" : "outline"} className="text-[9px] px-1.5 py-0">
+                                                {useWebSearchCreative ? "ON" : "OFF"}
+                                            </Badge>
+                                        </div>
+                                    </div>
 
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs sm:text-sm font-semibold text-foreground">입력 (Input)</Label>
-                                    <Textarea
-                                        value={scriptInput}
-                                        onChange={(e) => setScriptInput(e.target.value)}
-                                        placeholder="키워드, 문장, 또는 참고할 텍스트를 입력하세요..."
-                                        className="min-h-[100px] bg-background border-border text-foreground"
-                                    />
-                                </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs font-bold text-foreground">주제 또는 기초 아이디어 (Prompt / Topic)</Label>
+                                        <Textarea
+                                            value={scriptInput}
+                                            onChange={(e) => setScriptInput(e.target.value)}
+                                            placeholder="원하는 스토리 주제, 핵심 키워드, 타겟 시청자, 또는 참고 텍스트를 입력하세요..."
+                                            className="min-h-[90px] text-xs bg-background border-border text-foreground rounded-xl"
+                                        />
+                                    </div>
 
-                                <div className="flex justify-end">
-                                    <Button onClick={handleGenerateScript} disabled={isGeneratingScript || !scriptInput} className="w-full sm:w-auto">
-                                        {isGeneratingScript ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                                        AI 대본 생성
-                                    </Button>
+                                    <div className="flex justify-end pt-1">
+                                        <Button onClick={handleGenerateScript} disabled={isGeneratingScript || !scriptInput} className="h-8.5 px-4 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-2xs">
+                                            {isGeneratingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                                            AI 대본 자동 생성
+                                        </Button>
+                                    </div>
                                 </div>
                             </TabsContent>
                         </Tabs>
 
+                        {/* Full Script Text Area */}
                         <div className="space-y-1.5">
-                            <Label className="text-xs sm:text-sm font-semibold text-foreground">전체 대본 (Full Script)</Label>
+                            <div className="flex items-center justify-between">
+                                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                    <span>전체 대본 (Full Script)</span>
+                                </Label>
+                                <span className="text-[11px] font-mono text-muted-foreground">총 {fullScript.length} 글자</span>
+                            </div>
                             <Textarea
                                 value={fullScript}
                                 onChange={(e) => setFullScript(e.target.value)}
-                                className="min-h-[140px] font-mono text-xs sm:text-sm leading-relaxed bg-background border-border text-foreground"
-                                placeholder="여기에 전체 대본을 입력하세요..."
+                                className="min-h-[140px] font-sans text-xs sm:text-sm leading-relaxed bg-background border-border text-foreground rounded-xl shadow-2xs p-3"
+                                placeholder="여기에 완성 대본을 입력하거나 붙여넣으세요. 한 줄 한 줄 또는 문장 단위로 자동 씬 분할이 가능합니다..."
                             />
                         </div>
 
-                        <div className="flex flex-col gap-3 pt-2 bg-muted/20 p-3 sm:p-4 rounded-xl border border-border">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                    <Sparkles className="w-3.5 h-3.5 text-primary" /> 씬 분할 전략 (Segmentation Strategy)
-                                </Label>
-                                <div className="flex bg-muted rounded-lg p-0.5 self-start sm:self-auto">
+                        {/* Segmentation Strategy & Action Panel */}
+                        <div className="p-3.5 bg-muted/25 rounded-xl border border-border/80 space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-primary" />
+                                    <span className="text-xs font-bold text-foreground">씬 분할 전략 (Segmentation Strategy)</span>
+                                </div>
+                                <div className="flex bg-muted/80 rounded-lg p-0.5 border border-border/60 self-start sm:self-auto">
                                     <Button
                                         variant={pacingStrategy === 'ai' ? 'secondary' : 'ghost'}
-                                        size="sm" className="h-7 text-xs px-2.5"
+                                        size="sm" className={`h-7 text-xs px-3 font-semibold rounded-md ${pacingStrategy === 'ai' ? 'shadow-2xs bg-background text-foreground' : 'text-muted-foreground'}`}
                                         onClick={() => { setPacingStrategy('ai'); setSplitMethod('ai_smart'); }}
                                     >
-                                        AI 스마트 (권장)
+                                        ✨ AI 스마트 (권장)
                                     </Button>
                                     <Button
                                         variant={pacingStrategy === 'rule' ? 'secondary' : 'ghost'}
-                                        size="sm" className="h-7 text-xs px-2.5"
+                                        size="sm" className={`h-7 text-xs px-3 font-semibold rounded-md ${pacingStrategy === 'rule' ? 'shadow-2xs bg-background text-foreground' : 'text-muted-foreground'}`}
                                         onClick={() => { setPacingStrategy('rule'); setSplitMethod('custom_rule'); }}
                                     >
-                                        커스텀 규칙
+                                        ⚙️ 커스텀 규칙
                                     </Button>
                                 </div>
                             </div>
 
                             {pacingStrategy === 'ai' ? (
                                 <Select value={splitMethod} onValueChange={setSplitMethod}>
-                                    <SelectTrigger className="w-full h-9 text-xs sm:text-sm bg-background border-border">
+                                    <SelectTrigger className="w-full h-8.5 text-xs bg-background border-border rounded-lg shadow-2xs">
                                         <SelectValue placeholder="AI 분석 방식" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="ai_smart">✨ AI 스마트 분석 (Visual Flow)</SelectItem>
-                                        <SelectItem value="visual_change">🎥 시각 전환 기준</SelectItem>
-                                        <SelectItem value="semantic">🧠 의미/길이 자동 최적화</SelectItem>
+                                        <SelectItem value="ai_smart">✨ AI 스마트 분석 (시각 흐름 + 의미 단위 최적 분할)</SelectItem>
+                                        <SelectItem value="visual_change">🎥 시각 전환 및 카메라 무빙 기준 분할</SelectItem>
+                                        <SelectItem value="semantic">🧠 의미 및 적정 발화 시간 기준 분할</SelectItem>
                                     </SelectContent>
                                 </Select>
                             ) : (
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                     <Select value={pacingUnit} onValueChange={(v: any) => setPacingUnit(v)}>
-                                        <SelectTrigger className="w-full sm:w-[130px] h-9 text-xs sm:text-sm bg-background border-border">
+                                        <SelectTrigger className="w-full sm:w-[150px] h-8.5 text-xs bg-background border-border rounded-lg shadow-2xs">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -2061,43 +2144,46 @@ const CreativeStudio = () => {
                                             <SelectItem value="time">⏱️ 시간 단위 (Duration)</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <div className="flex-1 flex items-center gap-2 bg-background border border-border rounded-lg px-3 h-9">
-                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                            {pacingUnit === 'sentence' ? '씬 당 문장 수:' : '씬 당 예상 시간:'}
+                                    <div className="flex-1 flex items-center justify-between bg-background border border-border rounded-lg px-3 h-8.5 shadow-2xs">
+                                        <span className="text-xs text-muted-foreground font-medium">
+                                            {pacingUnit === 'sentence' ? '1개 씬당 포함할 문장 수:' : '1개 씬당 권장 지속 시간:'}
                                         </span>
-                                        <Input
-                                            type="number"
-                                            value={pacingValue}
-                                            onChange={(e) => setPacingValue(Number(e.target.value))}
-                                            className="h-6 w-16 text-xs text-right border-none shadow-none focus-visible:ring-0 p-0 bg-transparent"
-                                            min={1}
-                                        />
-                                        <span className="text-xs text-muted-foreground">
-                                            {pacingUnit === 'sentence' ? '개' : '초'}
-                                        </span>
+                                        <div className="flex items-center gap-1">
+                                            <Input
+                                                type="number"
+                                                value={pacingValue}
+                                                onChange={(e) => setPacingValue(Number(e.target.value))}
+                                                className="h-6 w-14 text-xs font-bold text-right border-none shadow-none focus-visible:ring-0 p-0 bg-transparent"
+                                                min={1}
+                                            />
+                                            <span className="text-xs font-bold text-primary">
+                                                {pacingUnit === 'sentence' ? '문장' : '초'}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             )}
-                        </div>
 
-                        <div className="flex flex-col sm:flex-row justify-end items-stretch sm:items-center pt-2 gap-2.5">
-                            {/* Auto-Gen Checkboxes */}
-                            <div className="flex items-center justify-around sm:justify-start gap-3 px-3 bg-muted/30 h-10 rounded-xl border border-border">
-                                <Label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-foreground">
-                                    <input type="checkbox" checked={autoGenerateImages} onChange={e => setAutoGenerateImages(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
-                                    <span>이미지 자동생성</span>
-                                </Label>
-                                <div className="w-px h-4 bg-border" />
-                                <Label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-foreground">
-                                    <input type="checkbox" checked={autoGenerateAudio} onChange={e => setAutoGenerateAudio(e.target.checked)} className="rounded border-border text-primary focus:ring-primary" />
-                                    <span>TTS 자동생성</span>
-                                </Label>
+                            {/* Bottom Execution Bar */}
+                            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-2 gap-2.5 border-t border-border/60">
+                                {/* Auto-Gen Checkboxes */}
+                                <div className="flex items-center gap-3 px-3 bg-background/80 h-9 rounded-xl border border-border/80 shadow-2xs">
+                                    <Label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-foreground select-none">
+                                        <input type="checkbox" checked={autoGenerateImages} onChange={e => setAutoGenerateImages(e.target.checked)} className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5" />
+                                        <span>🖼️ 이미지 자동생성</span>
+                                    </Label>
+                                    <div className="w-px h-3.5 bg-border" />
+                                    <Label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-foreground select-none">
+                                        <input type="checkbox" checked={autoGenerateAudio} onChange={e => setAutoGenerateAudio(e.target.checked)} className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5" />
+                                        <span>🎙️ TTS 자동생성</span>
+                                    </Label>
+                                </div>
+
+                                <Button onClick={handleSegmentScript} disabled={isSegmenting || !fullScript} className="h-9 px-5 text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm rounded-xl gap-2">
+                                    {isSegmenting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
+                                    <span>씬 분할 및 대본 분석 시작</span>
+                                </Button>
                             </div>
-
-                            <Button onClick={handleSegmentScript} disabled={isSegmenting || !fullScript} className="h-10 text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md rounded-xl">
-                                {isSegmenting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Clapperboard className="w-4 h-4 mr-2" />}
-                                씬 분할 및 대본 분석 시작
-                            </Button>
                         </div>
                     </CardContent>
                 )}
