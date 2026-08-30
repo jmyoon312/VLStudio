@@ -49,25 +49,37 @@ const EMPTY_HIDDEN = new Set()
 export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleConfig, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '', kenBurns = false }) {
   // ── 자막 동적 스타일 계산 (자막 설정 실시간 프리뷰) ──
   const subtitleStyle = useMemo(() => {
-    if (!subtitleConfig) return {}
+    const cfg = subtitleConfig || {
+      enabled: true,
+      fontSize: 36,
+      textColor: '#FFFFFF',
+      isBold: true,
+      textAlign: 'center',
+      outlineSize: 2,
+      outlineColor: '#000000',
+      useBox: false,
+      position: 'bottom',
+      marginV: 24
+    }
 
-    const cfg = subtitleConfig
     if (cfg.enabled === false) return { display: 'none' }
 
     // 폰트 크기: 프리뷰 캔버스 비율(약 0.42x)로 미려하게 반응형 환산
     const baseSize = cfg.fontSize || 36
-    const previewFontSize = Math.max(12, Math.min(32, Math.round(baseSize * 0.42)))
+    const previewFontSize = Math.max(13, Math.min(32, Math.round(baseSize * 0.42)))
 
     // 위치 (Top / Bottom / Center)
     let posStyle = {
+      position: 'absolute',
       bottom: `${Math.max(8, Math.min(80, Math.round((cfg.marginV || 24) * 0.5)))}px`,
       top: 'auto',
+      left: '50%',
       transform: 'translateX(-50%)'
     }
     if (cfg.position === 'top') {
-      posStyle = { top: `${Math.max(8, Math.round((cfg.marginV || 24) * 0.5))}px`, bottom: 'auto', transform: 'translateX(-50%)' }
+      posStyle = { position: 'absolute', top: `${Math.max(8, Math.round((cfg.marginV || 24) * 0.5))}px`, bottom: 'auto', left: '50%', transform: 'translateX(-50%)' }
     } else if (cfg.position === 'center') {
-      posStyle = { top: '50%', bottom: 'auto', transform: 'translate(-50%, -50%)' }
+      posStyle = { position: 'absolute', top: '50%', bottom: 'auto', left: '50%', transform: 'translate(-50%, -50%)' }
     }
 
     // 텍스트 테두리 (Outline / Stroke)
@@ -103,6 +115,7 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       textAlign: cfg.textAlign || 'center',
       textShadow,
       background,
+      zIndex: 30,
       ...posStyle
     }
   }, [subtitleConfig])
@@ -148,7 +161,8 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
   }, [srtRanges, playheadMs])
 
   const imgPath = scene?.imagePath || scene?.image_path || scene?.filePath
-  const subtitleText = srt?.text || ''
+  // SRT cue가 있으면 SRT 텍스트 우선, 없으면 현재 씬의 대본/자막(script/subtitle)을 폴백으로 항상 표시!
+  const subtitleText = srt?.text || scene?.script || scene?.subtitle || ''
 
   // ── 비디오 오버레이 ──
   // 모니터는 한 화면이라 비디오 1개만 재생 — 맨 위 "보이는" 트랙 우선(i2v → t2v).
