@@ -239,112 +239,43 @@ function ShellContent({ children }) {
       )
     }
 
-    const gridStyle = {
-      display: 'grid',
-      width: '100%',
-      height: '100%',
-      background: '#F3F4F6',
-      gap: '3px',
-      padding: '3px',
-      boxSizing: 'border-box',
-    }
-
-    if (count === 1) {
-      gridStyle.gridTemplateColumns = '1fr'
-      gridStyle.gridTemplateRows = '1fr'
-    } else if (count === 2) {
-      gridStyle.gridTemplateColumns = '1fr 1fr'
-      gridStyle.gridTemplateRows = '1fr'
-    } else {
-      gridStyle.gridTemplateColumns = '1fr 1fr'
-      gridStyle.gridTemplateRows = '1fr 1fr'
-    }
+    const activeId = profileConfig.activeProfileId || 'default'
+    const profile = profileConfig.profiles.find(p => p.id === activeId)
+    const name = profile?.name || (activeId === 'default' ? '기본 프로필' : activeId)
+    const isYT = activeId.startsWith('yt_')
 
     return (
-      <div style={gridStyle}>
-        {activeViews.map((id) => {
-          const profile = profileConfig.profiles.find(p => p.id === id)
-          const name = profile?.name || (id === 'default' ? '기본 프로필' : id)
-          const isFocused = profileConfig.activeProfileId === id
-          const isYT = id.startsWith('yt_') // 유튜브 전용 계정 식별
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#F3F4F6', position: 'relative' }}>
+        {/* Header overlay for visual status */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: '28px',
+          padding: '0 10px',
+          background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+          borderBottom: '1px solid #E5E7EB',
+          zIndex: 10,
+          userSelect: 'none',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3B82F6' }} />
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#1E3A8A' }}>
+              {name} (Google Flow)
+            </span>
+            <span style={{
+              fontSize: '9px', padding: '1px 5px', borderRadius: '4px',
+              background: isYT ? '#FEF3C7' : '#E0F2FE',
+              color: isYT ? '#D97706' : '#0284C7',
+              fontWeight: 700,
+            }}>
+              {isYT ? '🔵 LTE 격리' : '🟢 세션 공유'}
+            </span>
+          </div>
+        </div>
 
-          return (
-            <div
-              key={id}
-              onClick={() => handleViewClick(id)}
-              style={{
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column',
-                background: '#FFFFFF',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                boxShadow: isFocused 
-                  ? 'inset 0 0 0 2px #3B82F6, 0 10px 15px -3px rgba(59, 130, 246, 0.1)' 
-                  : 'inset 0 0 0 1px #E5E7EB',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                cursor: 'pointer',
-              }}
-            >
-              {/* Header overlay for visual grid control */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                height: '30px',
-                padding: '0 10px',
-                background: isFocused ? 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)' : '#F9FAFB',
-                borderBottom: '1px solid #E5E7EB',
-                zIndex: 10,
-                userSelect: 'none',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{
-                    width: '6px', height: '6px', borderRadius: '50%',
-                    background: isFocused ? '#3B82F6' : '#9CA3AF'
-                  }} />
-                  <span style={{
-                    fontSize: '11px', fontWeight: 600,
-                    color: isFocused ? '#1E3A8A' : '#374151',
-                    maxWidth: '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}>
-                    {name}
-                  </span>
-                  <span style={{
-                    fontSize: '9px', padding: '1px 5px', borderRadius: '4px',
-                    background: isYT ? '#FEF3C7' : '#E0F2FE',
-                    color: isYT ? '#D97706' : '#0284C7',
-                    fontWeight: 700,
-                    letterSpacing: '-0.3px'
-                  }}>
-                    {isYT ? '🔵 LTE 격리' : '🟢 Wi-Fi'}
-                  </span>
-                </div>
-                {id !== 'default' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDestroyView(id)
-                    }}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      fontSize: '14px', color: '#9CA3AF', padding: '0 4px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'color 0.2s',
-                    }}
-                    onMouseEnter={(e) => e.target.style.color = '#EF4444'}
-                    onMouseLeave={(e) => e.target.style.color = '#9CA3AF'}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-              
-              {/* Native WebView covers this entire area. Bounds calculated below the overlay header. */}
-              <div style={{ flex: 1, background: 'transparent' }} />
-            </div>
-          )
-        })}
+        {/* Native WebView covers this entire area */}
+        <div style={{ flex: 1, background: 'transparent' }} />
       </div>
     )
   }

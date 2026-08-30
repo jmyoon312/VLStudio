@@ -599,7 +599,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                        <MultiWindowController activeViews={activeViews} activeProfileId={activeProfileId} syncViewsAndProfiles={syncViewsAndProfiles} />
+                        <MultiWindowController 
+                            activeViews={activeViews} 
+                            activeProfileId={activeProfileId} 
+                            syncViewsAndProfiles={syncViewsAndProfiles} 
+                            tabs={tabs}
+                            onSelectTab={selectTab}
+                        />
                         <GlobalLoopieChat />
                     </div>
                 </header>
