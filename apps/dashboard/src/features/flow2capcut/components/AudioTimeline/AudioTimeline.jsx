@@ -175,7 +175,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
   const [previewHeight, setPreviewHeight] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(PREVIEW_H_KEY), 10)
-      if (Number.isFinite(saved) && saved >= PREVIEW_H_MIN && saved <= PREVIEW_H_MAX) return saved
+      if (Number.isFinite(saved) && saved >= 240 && saved <= PREVIEW_H_MAX) return saved
     } catch {}
     return PREVIEW_H_DEFAULT
   })
@@ -999,7 +999,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
                 flexShrink: 0
               }}
             >
-              <span>📺</span> <span>{compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}</span>
+              <span>📺</span> <span>{compact ? (t('bottomPanel.preview') || '프리뷰') : '멀티트랙 타임라인'}</span>
             </button>
             {titleActive && (
               <button
@@ -1024,7 +1024,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, onClip
           </div>
         ) : (
           <div className="atl-title" style={{ whiteSpace: 'nowrap', fontSize: '0.75rem', fontWeight: 800 }}>
-            <span>📺</span> {compact ? (t('bottomPanel.preview') || '프리뷰') : (t('audioTimeline.title') || 'Audio Timeline')}
+            <span>📺</span> {compact ? (t('bottomPanel.preview') || '프리뷰') : '멀티트랙 타임라인'}
           </div>
         )}
         <div className="atl-transport">
