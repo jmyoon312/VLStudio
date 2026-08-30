@@ -2267,7 +2267,7 @@ const CreativeStudio = () => {
                             ⚡ 자막 SRT 동기화
                         </Button>
 
-                        {/* Transitions & Watermark Modals Trigger */}
+                        {/* Transitions, Motion, Watermark, Audio Triggers */}
                         <Button
                             variant="outline"
                             size="sm"
@@ -2282,7 +2282,13 @@ const CreativeStudio = () => {
                             className={`h-8 text-xs ${watermarkConfig.enabled ? 'border-amber-500 text-amber-500 bg-amber-500/10' : ''}`}
                             onClick={() => setIsWatermarkDialogOpen(true)}
                         >
-                            🏷️ 워터마크/로고 {watermarkConfig.enabled ? 'ON' : ''}
+                            🏷️ 워터마크 {watermarkConfig.enabled ? 'ON' : ''}
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsMotionDialogOpen(true)}>
+                            🎥 모션
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsAudioDialogOpen(true)}>
+                            🔊 오디오
                         </Button>
 
                         <DropdownMenu>
@@ -2301,24 +2307,9 @@ const CreativeStudio = () => {
                             </DropdownMenuContent>
                         </DropdownMenu>
 
-                        {/* [NEW] CapCut Export Button */}
+                        {/* CapCut Export Button */}
                         <Button variant="default" size="sm" className="h-8 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs" onClick={() => setIsExportModalOpen(true)}>
                             ✂️ CapCut 내보내기
-                        </Button>
-
-                        <div className="flex-1" />
-
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsTTSDialogOpen(true)}>
-                            ⚙️ TTS 설정
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsMotionDialogOpen(true)}>
-                            🎥 모션 설정
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsAudioDialogOpen(true)}>
-                            🔊 오디오 설정
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setIsSubtitleDialogOpen(true)}>
-                            📝 자막 설정
                         </Button>
 
 
@@ -2791,28 +2782,6 @@ const CreativeStudio = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            {/* Subtitle Settings Dialog */}
-            <SubtitleSettingsDialog
-                open={isSubtitleDialogOpen}
-                onOpenChange={setIsSubtitleDialogOpen}
-                initialConfig={subtitleConfig}
-                onSave={(cfg) => {
-                    setSubtitleConfig(cfg);
-                    toast.success("자막 설정이 저장되었습니다.");
-                }}
-            />
-
-            {/* TTS Settings Dialog */}
-            <TTSSettingsDialog
-                open={isTTSDialogOpen}
-                onOpenChange={setIsTTSDialogOpen}
-                initialConfig={ttsConfig}
-                onSave={(cfg) => {
-                    setTTSConfig(cfg);
-                    toast.success("음성(TTS) 설정이 저장되었습니다.");
-                }}
-            />
         </div >
     );
 };
