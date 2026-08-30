@@ -33,6 +33,7 @@ import { generateSRT } from '../features/flow2capcut/exporters/capcut';
 import { WatermarkSettingsDialog, WatermarkConfig } from '../features/creativeStudio/components/WatermarkSettingsDialog';
 import { TransitionSettingsDialog, TransitionConfig } from '../features/creativeStudio/components/TransitionSettingsDialog';
 import { CollapsibleTimelinePreview } from '../features/creativeStudio/components/CollapsibleTimelinePreview';
+import { flowQueue, QueueState } from '../features/flow2capcut/services/flowQueueManager';
 
 interface SceneSegment {
     id: string; // Unique ID for frontend tracking
@@ -217,9 +218,17 @@ const CreativeStudio = () => {
     const [scriptProvider, setScriptProvider] = useState<string>("youtube1");
     const [scriptModel, setScriptModel] = useState<string>("youtube1/youtube1");
 
-    // Flow Multi-Window States & Auto-Starter
+    // Flow Multi-Window & Headless Queue States
     const [flowViews, setFlowViews] = useState<string[]>([]);
     const [currentFlowProfile, setCurrentFlowProfile] = useState<string>('default');
+    const [queueState, setQueueState] = useState<QueueState>(flowQueue.getState());
+
+    useEffect(() => {
+        const unsubscribe = flowQueue.subscribe((state) => {
+            setQueueState(state);
+        });
+        return unsubscribe;
+    }, []);
 
     const syncFlowWindowState = async () => {
         try {
@@ -1605,6 +1614,12 @@ const CreativeStudio = () => {
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                             <span>Google Flow 연동 준비 완료</span>
                         </Badge>
+                        {queueState.isProcessing && (
+                            <Badge variant="outline" className="text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full shadow-2xs animate-pulse">
+                                <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+                                <span>백그라운드 생성 중: {queueState.completedCount}/{queueState.totalCount} ({queueState.progressPct}%)</span>
+                            </Badge>
+                        )}
                     </div>
                     <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
                         구글 Flow AI 다중창과 실시간 연동하여 이미지/영상 일괄 생성 및 CapCut 완제품 내보내기

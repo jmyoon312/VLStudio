@@ -678,7 +678,9 @@ function createWindow() {
       return global.flowViews.get(profileId);
     }
 
-    const partitionName = `persist:flow_profile_${profileId}`;
+    // 워커 ID 또는 기본 프로필인 경우 공통 세션 파티션(persist:flow_profile_default)을 공유하여 1회 로그인으로 전 워커 연동
+    const isDedicatedIsolated = profileId.startsWith('isolated_') || profileId.startsWith('brand_');
+    const partitionName = isDedicatedIsolated ? `persist:flow_profile_${profileId}` : `persist:flow_profile_default`;
     
     let proxyPort = null;
     let targetUrl = FLOW_URL;
@@ -711,6 +713,7 @@ function createWindow() {
         partition: partitionName,
         contextIsolation: true,
         webSecurity: false,
+        backgroundThrottling: false, // 백그라운드 절전 방지 (무중단 헤드리스 생성)
         preload: preloadPath
       }
     });
