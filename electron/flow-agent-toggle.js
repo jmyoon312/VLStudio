@@ -23,9 +23,18 @@ export function isToggleOn(el) {
   if (ds === 'on' || ds === 'checked' || ds === 'active') return true
   if (el.classList?.contains('active') || el.classList?.contains('selected')) return true
   
-  // 버튼 텍스트가 '+' 없이 '에이전트'로만 표시되거나 배경색이 채워진 활성 상태
-  const text = (el.textContent || '').trim()
-  if (/^에이전트$/i.test(text) || /^agent$/i.test(text)) return true
+  const text = (el.textContent || '').trim().toLowerCase()
+  if (text.includes('에이전트') || text.includes('agent')) {
+    const doc = el.ownerDocument || (typeof document !== 'undefined' ? document : null)
+    if (doc) {
+      const allBtns = Array.from(doc.querySelectorAll('button'))
+      const hasSettingChip = allBtns.some(b => {
+        const bt = (b.textContent || '').toLowerCase()
+        return (bt.includes('동영상') || bt.includes('video') || bt.includes('이미지') || bt.includes('image')) && !bt.includes('에이전트') && !bt.includes('agent')
+      })
+      if (!hasSettingChip) return true
+    }
+  }
 
   return false
 }

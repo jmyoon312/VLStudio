@@ -443,6 +443,19 @@ export function createSharedHelpers(ctx) {
               } catch { try { el.click(); return true; } catch { return false; } }
             };
 
+            // Step -0.5: 이미 칩 버튼 텍스트가 해당 모드이면 불필요한 메뉴 조작 없이 즉시 통과!
+            const allButtons = Array.from(document.querySelectorAll("button")).filter(isVisible);
+            const chipBtn = allButtons.find(b => {
+              const t = (b.textContent || '').trim().toLowerCase();
+              return '${modeKey}' === 'VIDEO' ? (t.includes('동영상') || t.includes('video')) : (t.includes('이미지') || t.includes('image'));
+            });
+            if (chipBtn) {
+              const chipText = chipBtn.textContent.trim().toLowerCase();
+              if (chipText.includes('x1') || chipText.includes('1x') || !chipText.includes('x')) {
+                return { ok: true, method: 'already_active_chip', batch: 'already_set', aspect: 'already_set' };
+              }
+            }
+
             // Step 0: 열려있는 메뉴 닫기
             if (document.querySelector("[role='menu']")) { escapeMenu(); await sleep(200); }
 

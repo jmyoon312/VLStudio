@@ -335,18 +335,23 @@ export function registerFilesystemIPC(ipcMain) {
 
   // ----------------------------------------------------------
   // 0. fs:get-default-work-folder — 기본 작업 폴더 경로 반환 + 생성
-  //    Mac: ~/Documents/AutoFlowCut
-  //    Windows: C:\Users\{user}\Documents\AutoFlowCut
+  //    Windows: C:\Users\{user}\AppData\Local\ViraLoop Studio\media\05_Exports
+  //    Mac/Linux: ~/Documents/ViraLoop Studio/media/05_Exports
   // ----------------------------------------------------------
   ipcMain.handle('fs:get-default-work-folder', async () => {
     try {
-      const documentsPath = app.getPath('documents')
-      const defaultFolder = path.join(documentsPath, 'AutoFlowCut')
+      let defaultFolder = ''
+      if (process.platform === 'win32') {
+        const localAppData = process.env.LOCALAPPDATA || path.join(app.getPath('home'), 'AppData', 'Local')
+        defaultFolder = path.join(localAppData, 'ViraLoop Studio', 'media', '05_Exports')
+      } else {
+        defaultFolder = path.join(app.getPath('documents'), 'ViraLoop Studio', 'media', '05_Exports')
+      }
 
-      // 폴더가 없으면 생성
+      // 폴더가 없으면 재귀적 생성
       await fs.mkdir(defaultFolder, { recursive: true })
 
-      return { success: true, path: defaultFolder, name: 'AutoFlowCut' }
+      return { success: true, path: defaultFolder, name: '05_Exports' }
     } catch (error) {
       return { success: false, error: error.message }
     }
@@ -369,6 +374,58 @@ export function registerFilesystemIPC(ipcMain) {
       const name = path.basename(selectedPath)
 
       return { success: true, path: selectedPath, name }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 1b. fs:open-work-folder
+  ipcMain.handle('fs:open-work-folder', async () => {
+    try {
+      const config = await readWorkFolderConfig()
+      const folderPath = config?.path || path.join(process.env.LOCALAPPDATA || '', 'ViraLoop Studio', 'media', '05_Exports')
+      const { shell } = await import('electron')
+      await shell.openPath(folderPath)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 1c. fs:open-path
+  ipcMain.handle('fs:open-path', async (_event, targetPath) => {
+    try {
+      const { shell } = await import('electron')
+      await shell.openPath(targetPath)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 1d. fs:select-image-file
+  ipcMain.handle('fs:select-image-file', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }]
+      })
+      if (result.canceled || result.filePaths.length === 0) return { success: false, error: 'cancelled' }
+      return { success: true, path: result.filePaths[0] }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 1e. fs:select-video-file
+  ipcMain.handle('fs:select-video-file', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Videos', extensions: ['mp4', 'webm', 'mov', 'avi'] }]
+      })
+      if (result.canceled || result.filePaths.length === 0) return { success: false, error: 'cancelled' }
+      return { success: true, path: result.filePaths[0] }
     } catch (error) {
       return { success: false, error: error.message }
     }

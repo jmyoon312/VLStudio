@@ -37,18 +37,38 @@ export function scanGeneratedImages(doc) {
     const src = im.currentSrc || im.src || ''
     if (!src || src.startsWith('data:image/svg') || seenSrc.has(src)) continue
 
+    const m = src.match(/[?&]name=([a-f0-9-]{36})/)
+    const link = im.closest && im.closest('a[href]')
+    const href = (link && link.getAttribute('href')) || ''
+    const isEditCard = /\/tools\/flow\/project\/[^/]+\/edit\//.test(href)
+
+    // 고유 편집 카드 링크이거나 유효한 Google 미디어 URL인 경우만 수집
+    const isGoogleMedia = isEditCard || src.includes('getMediaUrlRedirect') || src.includes('googleusercontent.com') || src.includes('blob:') || src.includes('/media/') || !!m
+    if (!isGoogleMedia) continue
+
     const rect = im.getBoundingClientRect ? im.getBoundingClientRect() : { width: 100, height: 100 }
     if (rect.width > 0 && rect.height > 0 && (rect.width < 40 || rect.height < 40)) continue
 
-    // Google Media Redirect URL 또는 googleusercontent 이미지 또는 일반 미디어 이미지
-    const m = src.match(/[?&]name=([a-f0-9-]{36})/)
-    const isGoogleMedia = src.includes('getMediaUrlRedirect') || src.includes('googleusercontent.com') || src.includes('blob:') || src.includes('/media/') || !!m
-    if (!isGoogleMedia && rect.width < 80) continue
+    let promptText = ''
+    try {
+      let parent = im.parentElement
+      for (let depth = 0; depth < 5 && parent; depth++) {
+        const text = (parent.textContent || '').trim()
+        if (text && text.length > 2 && text.length < 300) {
+          promptText = text
+          break
+        }
+        parent = parent.parentElement
+      }
+    } catch (_) {}
 
     const mediaId = m ? m[1] : `dom-${src.split('?')[0].slice(-32)}`
     seenSrc.add(src)
-    out.push({ mediaId, src })
+    out.push({ mediaId, src, promptText, isEditCard })
   }
+
+  // 고유 편집 카드(isEditCard)를 최우선 순위로 정렬
+  out.sort((a, b) => (b.isEditCard ? 1 : 0) - (a.isEditCard ? 1 : 0))
   return out
 }
 
@@ -69,16 +89,24 @@ export const GENERATED_IMG_PROBE = `(${scanGeneratedImages.toString()})(document
  */
 export function scanGeneratedVideos(doc) {
   const out = []
+  const seenMedia = new Set()
+
   for (const v of doc.querySelectorAll('video')) {
     const candidates = [v.currentSrc || v.src || '']
     for (const s of v.querySelectorAll('source')) {
       candidates.push((s.getAttribute && s.getAttribute('src')) || s.src || '')
     }
     for (const src of candidates) {
+      if (!src) continue
       const m = src.match(/[?&]name=([a-f0-9-]{36})/)
-      if (m) { out.push({ mediaId: m[1], src }); break }
+      if (m && !seenMedia.has(m[1])) {
+        seenMedia.add(m[1])
+        out.push({ mediaId: m[1], src, isVideo: true })
+        break
+      }
     }
   }
+
   return out
 }
 

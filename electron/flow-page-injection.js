@@ -148,10 +148,10 @@ export const FLOW_PAGE_INJECTION = /* js */ `
         : applyOmniDuration(toI2VModelKey(req.videoModelKey), dur)
       const isAbra = /^abra/i.test(finalKey || '')
       req.videoModelKey = finalKey
-      req.startImage    = { mediaId: i2v.startImageMediaId, cropCoordinates: defaultCrop }
+      req.startImage    = { mediaId: i2v.startImageMediaId, name: i2v.startImageMediaId, media: { name: i2v.startImageMediaId }, cropCoordinates: defaultCrop }
       // OmniFlash(abra) i2v 는 종료프레임 미지원 → endImage 주입 안 함. Veo 만 end 지원.
       if (i2v.endImageMediaId && !isAbra) {
-        req.endImage = { mediaId: i2v.endImageMediaId, cropCoordinates: defaultCrop }
+        req.endImage = { mediaId: i2v.endImageMediaId, name: i2v.endImageMediaId, media: { name: i2v.endImageMediaId }, cropCoordinates: defaultCrop }
         usesEndImage = true
       }
     }

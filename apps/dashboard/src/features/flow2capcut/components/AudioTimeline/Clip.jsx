@@ -158,10 +158,15 @@ export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDo
       onMouseLeave={onMouseLeave}
       title={clip.filename || clip.label || ''}
     >
-      {variant === 'block' && (clip.imgSrc || clip.imagePath || clip.posterDataUrl) && (
+      {variant === 'block' && (clip.imgSrc || clip.imagePath || clip.posterDataUrl || clip.sceneRef?.image) && (
         <img
           className="atl-clip-img"
-          src={clip.imgSrc || (clip.imagePath ? (clip.imagePath.startsWith('local-resource://') || clip.imagePath.startsWith('data:') ? clip.imagePath : `local-resource:///${clip.imagePath.replace(/^[/\\]+/, '').replace(/\\/g, '/')}`) : clip.posterDataUrl)}
+          src={clip.imgSrc || (clip.imagePath ? (clip.imagePath.startsWith('local-resource://') || clip.imagePath.startsWith('data:') ? clip.imagePath : `local-resource:///${clip.imagePath.replace(/^[/\\]+/, '').replace(/\\/g, '/')}`) : (clip.posterDataUrl || clip.sceneRef?.image))}
+          onError={(e) => {
+            if (clip.sceneRef?.image && e.currentTarget.src !== clip.sceneRef.image) {
+              e.currentTarget.src = clip.sceneRef.image
+            }
+          }}
           alt=""
         />
       )}

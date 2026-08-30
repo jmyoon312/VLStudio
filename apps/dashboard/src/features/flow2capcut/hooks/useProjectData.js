@@ -120,15 +120,11 @@ export async function loadProjectWithResources(projectName) {
           // 그 외 'error' 는 generation 실패 등 다른 사유 — 보존해 사용자가 재생성 트리거할 수 있게 함.
           const wasMissingImageError = scene.status === 'error' && scene.errorKind === ERROR_KIND_IMAGE_MISSING
           const preserveError = scene.status === 'error' && !wasMissingImageError
-          // 프롬프트 변경으로 재생성 대기(pending) 인 씬은 디스크에 옛 이미지가 남아있어도 done 으로
-          // 올리지 않는다. 안 그러면 프로젝트 전환·복귀 시 "새 프롬프트 + 옛 이미지" 가 done 으로
-          // 표시돼 UI 가 거짓말하고 재생성 의도가 사라진다(실측 버그). donePrompt 는 그대로 보존돼
-          // 복귀 후 원복 시 done 복원도 유지된다.
           const preservePending = scene.status === 'pending'
           const restoredStatus = preserveError ? 'error' : (preservePending ? 'pending' : 'done')
           return {
             ...scene,
-            image: null,
+            image: scene.image || null,
             imagePath: pathResult.path,
             status: restoredStatus,
             error: preserveError ? (scene.error ?? null) : null,
@@ -137,16 +133,16 @@ export async function loadProjectWithResources(projectName) {
         }
         // 파일 못 찾음 — missing-image 에러를 set 해야 하는 케이스를 하나로 모아 처리.
         const isMissingImageCase =
-          // a) 저장된 path 가 있는데 현재 프로젝트엔 파일 없음 (cross-project leak / 디스크 삭제)
-          scene.imagePath ||
-          // b) 이전 로드에서 이미 missing-image 로 분류돼 path 가 비워져 있는 stale 상태
-          (scene.status === 'error' && scene.errorKind === ERROR_KIND_IMAGE_MISSING) ||
-          // c) status==='done' 인데 image/imagePath 둘 다 없는 데이터 손상 (false-Done)
-          (scene.status === 'done' && !scene.image)
+          !scene.image && (
+            // a) 저장된 path 가 있는데 현재 프로젝트엔 파일 없음 (cross-project leak / 디스크 삭제)
+            scene.imagePath ||
+            // b) 이전 로드에서 이미 missing-image 로 분류돼 path 가 비워져 있는 stale 상태
+            (scene.status === 'error' && scene.errorKind === ERROR_KIND_IMAGE_MISSING) ||
+            // c) status==='done' 인데 image/imagePath 둘 다 없는 데이터 손상 (false-Done)
+            (scene.status === 'done' && !scene.image)
+          )
 
         if (isMissingImageCase) {
-          // errorKind 만 set — error 문자열은 ErrorSection 이 t() 로 표시 시점에 생성한다.
-          // 기존에 한국어/영어 메시지가 scene.error 에 남아있을 수 있으므로 명시적으로 null 로 초기화.
           return {
             ...scene,
             image: null,

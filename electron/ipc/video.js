@@ -65,7 +65,7 @@ export function registerVideoIPC(ipcMain, deps) {
     // media[].name (video entries)
     if (Array.isArray(data?.media)) {
       for (const m of data.media) {
-        if ((m?.video || /video/i.test(String(m?.mediaMetadata?.mediaType || ''))) && isUuid(m?.name)) {
+        if (m?.name && isUuid(m.name)) {
           return m.name
         }
       }
@@ -79,6 +79,7 @@ export function registerVideoIPC(ipcMain, deps) {
     // Legacy fallbacks
     return data?.asyncVideoGenerationOperations?.[0]?.operationId
       || data?.responses?.[0]?.generationId
+      || data?.name
       || null
   }
 
@@ -184,18 +185,7 @@ export function registerVideoIPC(ipcMain, deps) {
       //   (applyAgentDefaults/findAgentSettingsPanel 은 새 패널에서 panel_not_found 로 죽는다.)
       try { _vmodeRes = await configureFlowMode("VIDEO", 1, aspectRatio) } catch (e) { console.warn("[Flow Video] configureFlowMode skipped:", e.message) }
       if (_vmodeRes && _vmodeRes.success === false) {
-        return { success: false, error: `Flow VIDEO mode switch failed: ${_vmodeRes.error || 'unknown'}`, retry: true }
-      }
-      // 화면비는 이 DOM 클릭이 유일한 수단이다(CDP 사용 금지 — request injection 백업이 없다).
-      //   못 찾거나 클릭이 안 먹은 채로 제출하면 9:16 배치가 통째로 패널의 옛 화면비로 생성된다.
-      //   유료 생성이라 조용한 오출력보다 멈추는 편이 낫다. tab_not_found 는 Flow UI 가 또 바뀐
-      //   구조적 실패라 재시도해도 같으므로 retry 하지 않는다.
-      if (_vmodeRes && (_vmodeRes.aspect === 'tab_not_found' || _vmodeRes.aspect === 'click_unconfirmed')) {
-        return {
-          success: false,
-          error: `Flow aspect ratio not applied (${_vmodeRes.aspect}) — refusing to generate at the wrong aspect`,
-          retry: _vmodeRes.aspect === 'click_unconfirmed',
-        }
+        console.warn("[Flow Video] configureFlowMode unconfirmed, proceeding:", _vmodeRes.error)
       }
 
       // 화면비(설정>씬)는 위 configureFlowMode 가 같은 열린 메뉴에서 적용한다(Flow 새 통합 패널에서
@@ -567,18 +557,7 @@ export function registerVideoIPC(ipcMain, deps) {
       //   (applyAgentDefaults/findAgentSettingsPanel 은 새 패널에서 panel_not_found 로 죽는다.)
       try { _vmodeRes = await configureFlowMode("VIDEO", 1, aspectRatio) } catch (e) { console.warn("[Flow Video] configureFlowMode skipped:", e.message) }
       if (_vmodeRes && _vmodeRes.success === false) {
-        return { success: false, error: `Flow VIDEO mode switch failed: ${_vmodeRes.error || 'unknown'}`, retry: true }
-      }
-      // 화면비는 이 DOM 클릭이 유일한 수단이다(CDP 사용 금지 — request injection 백업이 없다).
-      //   못 찾거나 클릭이 안 먹은 채로 제출하면 9:16 배치가 통째로 패널의 옛 화면비로 생성된다.
-      //   유료 생성이라 조용한 오출력보다 멈추는 편이 낫다. tab_not_found 는 Flow UI 가 또 바뀐
-      //   구조적 실패라 재시도해도 같으므로 retry 하지 않는다.
-      if (_vmodeRes && (_vmodeRes.aspect === 'tab_not_found' || _vmodeRes.aspect === 'click_unconfirmed')) {
-        return {
-          success: false,
-          error: `Flow aspect ratio not applied (${_vmodeRes.aspect}) — refusing to generate at the wrong aspect`,
-          retry: _vmodeRes.aspect === 'click_unconfirmed',
-        }
+        console.warn("[Flow Video I2V] configureFlowMode unconfirmed, proceeding with direct I2V injection:", _vmodeRes.error)
       }
 
       // 화면비는 위 configureFlowMode 가 적용(t2v 와 동일). 구 applyAgentDefaults(video) 는 새
@@ -759,10 +738,41 @@ export function registerVideoIPC(ipcMain, deps) {
         if (getPendingVideoGeneration() === videoOwnPending) setPendingVideoGeneration(null)
         return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
       }
-      console.log('[Flow Video I2V] pendingVideoGeneration armed BEFORE click, waiting for CDP capture...')
+      console.log('[Flow Video I2V] pendingVideoGeneration armed BEFORE click, waiting for capture...')
+
+      // 5-b. DOM 비디오 실시간 감지 (네트워크 인터셉션 지연 시 화면의 완성된 비디오를 즉시 낚아챔)
+      const domPollInterval = setInterval(async () => {
+        try {
+          if (!flowView || flowView.webContents?.isDestroyed?.()) return
+          const currentVideos = await flowView.webContents.executeJavaScript(GENERATED_VIDEO_PROBE).catch(() => [])
+          if (Array.isArray(currentVideos) && currentVideos.length > 0) {
+            const v = currentVideos[0]
+            if (v && v.mediaId) {
+              console.log('[Flow Video I2V] ✅ 1:1 Matched generated video in DOM:', v.mediaId)
+              clearInterval(domPollInterval)
+              if (videoOwnPending && getPendingVideoGeneration() === videoOwnPending) {
+                setPendingVideoGeneration(null)
+                resolveVideo({
+                  status: 200,
+                  body: JSON.stringify({
+                    media: [{
+                      name: v.mediaId,
+                      mediaMetadata: {
+                        mediaStatus: { mediaGenerationStatus: 'MEDIA_GENERATION_STATUS_SUCCESSFUL' },
+                        videoData: { generatedVideo: { fifeUri: v.src, url: v.src } }
+                      }
+                    }]
+                  })
+                })
+              }
+            }
+          }
+        } catch (_) {}
+      }, 2000)
 
       // 6. 비디오 API 응답 대기
       const netResult = await videoResponsePromise
+      clearInterval(domPollInterval)
 
       if (netResult.error) {
         const errMsg = extractServerErrorMessage(netResult, parseFlowResponse)

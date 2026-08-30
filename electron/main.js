@@ -44,6 +44,7 @@ import { setupAppMenuAndUpdater, noteProjectActivated, setMenuLocale } from './u
 import { selectCdpCase } from './video-cdp-dispatch.js'
 import { loadProfiles, saveProfiles, switchProfile, createProfile, deleteProfile, updateProfile, cleanupUnusedPartitions } from './profileManager.js'
 import { injectImageBatchBody } from './cdp-image-inject.js'
+import { AGENT_OFF_SCRIPT } from './flow-agent-toggle.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -1877,6 +1878,47 @@ const flowAPIDeps = {
 }
 registerFlowAPIIPC(ipcMain, flowAPIDeps)
 
+// === Helper functions for video & character IPC ===
+async function ensureOnProjectComposer(flowView, projectId) {
+  if (!flowView || flowView.webContents?.isDestroyed?.()) {
+    return { ok: false, errorKind: 'flow-view-missing', error: 'Flow view not available' }
+  }
+  // 에러 화면('문제가 발생했습니다') 감지 시 '프로젝트로 돌아가기' 버튼 자동 클릭 복구
+  try {
+    await flowView.webContents.executeJavaScript(`
+      (function() {
+        for (const b of document.querySelectorAll('button')) {
+          if ((b.textContent || '').includes('프로젝트로 돌아가기') || (b.textContent || '').includes('Back to project')) {
+            b.click();
+            return true;
+          }
+        }
+        return false;
+      })()
+    `).catch(() => {})
+  } catch (_) {}
+  return { ok: true }
+}
+
+async function ensureAgentOff() {
+  const flowView = getCurrentFlowView()
+  if (!flowView || flowView.webContents?.isDestroyed?.()) return { success: true, skipped: true }
+  try {
+    const res = await flowView.webContents.executeJavaScript(AGENT_OFF_SCRIPT).catch(() => ({ found: false }))
+    return { success: true, ...res }
+  } catch (e) {
+    return { success: true, skipped: true }
+  }
+}
+
+async function ensureAgentOn() {
+  return { success: true }
+}
+
+async function applyAgentDefaults() {
+  return { success: true }
+}
+
 // === Video Generation IPC (T2V, I2V, status polling) ===
 const videoDeps = {
   getFlowView: getCurrentFlowView,
@@ -1888,6 +1930,11 @@ const videoDeps = {
   getRecaptchaToken,
   configureFlowMode,
   switchFlowToVideoMode,
+  ensureAgentOff,
+  ensureAgentOn,
+  ensureOnProjectComposer,
+  applyAgentDefaults,
+  getFlowAgentOn: () => false,
   getCapturedProjectId: () => capturedProjectId,
   setCapturedProjectId: (v) => { capturedProjectId = v },
   getPendingVideoGeneration: () => pendingVideoGeneration,

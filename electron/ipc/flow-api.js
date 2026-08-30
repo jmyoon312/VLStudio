@@ -8,6 +8,7 @@
 import path from 'node:path'
 import { net } from 'electron'
 import { formatGoogleApiError } from './googleApiError.js'
+import { GENERATED_IMG_PROBE } from '../flow-media-collect.js'
 
 /**
  * Register all Flow API IPC handlers.
@@ -903,23 +904,38 @@ export function registerFlowAPIIPC(ipcMain, deps) {
     const gen = pendingGenerations.get(generationId)
     if (!gen) return { success: false, error: 'Generation not found', notFound: true }
 
-    // 🌟 듀얼 감지: 네트워크 응답이 지연되더라도 Flow DOM에 이미지가 완성되었으면 즉시 완료 판정
+    // 🌟 듀얼 감지: 아직 미완료이면 Flow DOM에 렌더링된 카드를 스캔하여 즉시 완료 마킹!
     if (!gen.completed) {
       try {
         const flowView = getFlowView()
         if (flowView && !flowView.webContents.isDestroyed()) {
           const currentImages = await flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE).catch(() => [])
           if (Array.isArray(currentImages) && currentImages.length > 0) {
-            const seen = new Set(gen.existingMediaIds || [])
-            const fresh = currentImages.filter(i => i && i.src && (!i.mediaId || !seen.has(i.mediaId)))
-            if (fresh.length > 0) {
-              console.log('[Flow API] [CheckGen] DOM generated image detected for gen:', generationId, fresh.length)
+            if (!global.claimedMediaIds) global.claimedMediaIds = new Set()
+            
+            // 1. 프롬프트 일치 카드 우선 탐색
+            let match = null
+            if (gen.promptKey) {
+              const cleanPrompt = gen.promptKey.trim().toLowerCase()
+              match = currentImages.find(i => i && i.src && !global.claimedMediaIds.has(i.mediaId) && i.promptText && i.promptText.toLowerCase().includes(cleanPrompt))
+            }
+            
+            // 2. 미배정된 카드 매칭
+            if (!match) {
+              match = currentImages.find(i => i && i.src && !global.claimedMediaIds.has(i.mediaId))
+            }
+
+            if (match) {
+              global.claimedMediaIds.add(match.mediaId)
+              console.log('[Flow API] [CheckGen] 1:1 Matched DOM card for generationId:', generationId, match.mediaId, match.promptText?.substring(0, 30))
               gen.completed = true
-              gen.domFreshImages = fresh
+              gen.domFreshImages = [match]
             }
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        console.warn('[Flow API] [CheckGen] DOM probe error:', e.message)
+      }
     }
 
     return {

@@ -152,9 +152,9 @@ export async function submitGenerationDOM(prompt, referenceImages = [], { batchC
 
     console.log('[DOM] Calling flow:generate-image (asyncMode) for prompt:', prompt?.substring(0, 40),
       seed != null ? `seed:${seed}` : 'seed:random', aspectRatio ? `ratio:${aspectRatio}` : '')
-    const result = await window.electronAPI.generateImage({
+    const fn = window.electronAPI.flowGenerateImage || window.electronAPI.generateImage
+    const result = await fn({
       prompt,
-      // CDP Fetch 인터셉션이 batchGenerateImages 요청 바디의 imageAspectRatio 를 주입.
       aspectRatio,
       token: null,
       model: null,
@@ -177,7 +177,8 @@ export async function submitGenerationDOM(prompt, referenceImages = [], { batchC
  */
 export async function checkGeneration(generationId) {
   try {
-    return await window.electronAPI.checkGeneration({ generationId })
+    const fn = window.electronAPI.flowCheckGeneration || window.electronAPI.checkGeneration
+    return await fn({ generationId })
   } catch (error) {
     return { success: false, error: error.message }
   }
@@ -188,7 +189,8 @@ export async function checkGeneration(generationId) {
  */
 export async function collectGeneration(generationId, token) {
   try {
-    return await window.electronAPI.collectGeneration({ generationId, token })
+    const fn = window.electronAPI.flowCollectGeneration || window.electronAPI.collectGeneration
+    return await fn({ generationId, token })
   } catch (error) {
     return { success: false, error: error.message }
   }
@@ -199,7 +201,8 @@ export async function collectGeneration(generationId, token) {
  */
 export async function clearGenerations() {
   try {
-    return await window.electronAPI.clearGenerations()
+    const fn = window.electronAPI.flowClearGenerations || window.electronAPI.clearGenerations
+    return await fn()
   } catch (error) {
     return { success: false, error: error.message }
   }

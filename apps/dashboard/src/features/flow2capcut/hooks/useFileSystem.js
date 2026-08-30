@@ -124,37 +124,30 @@ export const fileSystemAPI = {
    * 기본 경로: Mac ~/Documents/AutoFlowCut, Windows Documents\AutoFlowCut
    */
   async ensurePermission() {
+    // 1단계: main process의 최신 표준 작업 폴더(05_Exports)를 최우선으로 동기화
+    try {
+      const defaultRes = await window.electronAPI.getDefaultWorkFolder()
+      if (defaultRes?.success && defaultRes.path) {
+        localStorage.setItem('workFolderPath', defaultRes.path)
+        localStorage.setItem('workFolderName', defaultRes.name || '05_Exports')
+        try { await window.electronAPI.saveWorkFolder({ workFolderPath: defaultRes.path, workFolderName: defaultRes.name || '05_Exports' }) } catch {}
+        console.log('[FileSystem] Work folder synchronized to standard 05_Exports:', defaultRes.path)
+        return this.checkPermission()
+      }
+    } catch (e) {
+      console.warn('[FileSystem] Failed to get default work folder:', e.message)
+    }
+
     const existing = localStorage.getItem('workFolderPath')
     if (!existing) {
-      // 1단계: main process config 파일에서 이전 설정 복원
       try {
         const saved = await window.electronAPI.getSavedWorkFolder()
         if (saved?.success && saved.path) {
           localStorage.setItem('workFolderPath', saved.path)
           localStorage.setItem('workFolderName', saved.name || '')
-          console.log('[FileSystem] Restored work folder from config:', saved.path)
           return this.checkPermission()
         }
-      } catch (e) {
-        console.warn('[FileSystem] Config restore failed:', e.message)
-      }
-
-      // 2단계: config도 없으면 기본 폴더 자동 설정
-      try {
-        const result = await window.electronAPI.getDefaultWorkFolder()
-        if (result?.success) {
-          localStorage.setItem('workFolderPath', result.path)
-          localStorage.setItem('workFolderName', result.name)
-          // 기본 폴더도 config에 저장
-          try { await window.electronAPI.saveWorkFolder({ workFolderPath: result.path, workFolderName: result.name }) } catch {}
-          console.log('[FileSystem] Default work folder set:', result.path)
-        }
-      } catch (e) {
-        console.warn('[FileSystem] Failed to set default work folder:', e.message)
-      }
-    } else {
-      // localStorage에 있으면 config 파일에도 동기화 (최초 1회)
-      try { await window.electronAPI.saveWorkFolder({ workFolderPath: existing, workFolderName: localStorage.getItem('workFolderName') || '' }) } catch {}
+      } catch {}
     }
     return this.checkPermission()
   },
