@@ -66,9 +66,11 @@ app.setPath('userData', persistentDataDir)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// [NEW-12 + Electron②] 전역 Chromium 스위치 — WebRTC IP 누출 차단 + QUIC 비활성화
+// [NEW-12 + Electron②] 전역 Chromium 스위치 — WebRTC IP 누출 차단 + QUIC 비활성화 + GPU Cache 충돌 방지
 // app.on('ready') 이전에 설정해야 적용됨
 // ═══════════════════════════════════════════════════════════════════════════════
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+app.commandLine.appendSwitch('disable-gpu-program-cache')
 app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp')
 app.commandLine.appendSwitch('disable-webrtc-multiple-routes')
 app.commandLine.appendSwitch('enforce-webrtc-ip-permission-check')
@@ -129,6 +131,10 @@ process.on('uncaughtException', (err) => {
   }
   // For other errors, log but don't crash
   try { _origError('[Main] Uncaught exception:', err) } catch {}
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  try { _origError('[Main] Unhandled Rejection:', reason) } catch {}
 })
 
 // Load .env from project root
@@ -331,6 +337,21 @@ function createWindow() {
     // 1. 오디오 개별 뮤트
     view.webContents.setAudioMuted(true)
 
+    const sendFlowStatus = (payload) => {
+      try {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send('flow-status', payload)
+        }
+      } catch (e) {}
+    }
+
+    view.webContents.on('render-process-gone', (_event, details) => {
+      console.warn(`[Flow - ${profileId}] render-process-gone:`, details)
+    })
+    view.webContents.on('unresponsive', () => {
+      console.warn(`[Flow - ${profileId}] WebContents became unresponsive`)
+    })
+
     // Google 로그인 및 외부 링크 처리 (Flow WebContentsView 내에서 자연스럽게 로그인 수행)
     view.webContents.setWindowOpenHandler(({ url }) => {
       if (url && !url.includes('labs.google') && !url.includes('google.com') && !url.includes('youtube.com')) {
@@ -340,8 +361,6 @@ function createWindow() {
       return { action: 'allow' };
     });
 
-
-
     view.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
       console.error(`[Flow - ${profileId}] did-fail-load:`, errorCode, errorDescription, validatedURL)
     })
@@ -350,11 +369,11 @@ function createWindow() {
       console.log(`[Flow - ${profileId}] did-navigate:`, url)
       if (url.includes('unsupported-country')) {
         console.log(`[Flow - ${profileId}] Region unavailable detected early (did-navigate)`)
-        mainWindow.webContents.send('flow-status', {
+        sendFlowStatus({
           loaded: true, url, loggedIn: false, unavailable: true, profileId
         })
       } else {
-        mainWindow.webContents.send('flow-status', {
+        sendFlowStatus({
           loaded: true, url, loggedIn: url.includes('labs.google/fx'), profileId
         })
       }
@@ -367,7 +386,7 @@ function createWindow() {
 
     view.webContents.on('did-navigate-in-page', (event, url) => {
       console.log(`[Flow - ${profileId}] did-navigate-in-page:`, url)
-      mainWindow.webContents.send('flow-status', {
+      sendFlowStatus({
         loaded: true, url, loggedIn: url.includes('labs.google/fx'), profileId
       })
       const pidMatch = url.match(/\/project\/([a-f0-9-]{36})/)
@@ -376,7 +395,7 @@ function createWindow() {
           capturedProjectId = pidMatch[1]
           console.log(`[Flow API - ${profileId}] ProjectId from SPA navigation:`, capturedProjectId)
         }
-        mainWindow.webContents.send('flow-status', {
+        sendFlowStatus({
           authenticated: true,
           url,
           profileId
@@ -384,18 +403,12 @@ function createWindow() {
       }
     })
 
-
-
     view.webContents.on('did-finish-load', async () => {
       const url = view.webContents.getURL()
       console.log(`[Flow - ${profileId}] did-finish-load:`, url)
       const unavailable = url.includes('unsupported-country')
       
-      if (url.includes('labs.google/fx')) {
-        // Legacy stealth script injection removed
-      }
-
-      mainWindow.webContents.send('flow-status', {
+      sendFlowStatus({
         loaded: true,
         url,
         loggedIn: url.includes('labs.google/fx'),
@@ -678,8 +691,23 @@ function createWindow() {
       return global.flowViews.get(profileId);
     }
 
-    // 워커 ID 또는 기본 프로필인 경우 공통 세션 파티션(persist:flow_profile_default)을 공유하여 1회 로그인으로 전 워커 연동
-    const isDedicatedIsolated = profileId.startsWith('isolated_') || profileId.startsWith('brand_');
+    // 사용자가 등록한 프로필이거나 명시적 독립 프로필인 경우 독립 구글 세션 파티션 부여 (분산 계정 지원)
+    let isDedicatedIsolated = profileId.startsWith('isolated_') || profileId.startsWith('brand_');
+    
+    try {
+      const configPath = path.join(app.getPath('userData'), 'flow-profiles-config.json');
+      if (fsSync.existsSync(configPath)) {
+        const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'));
+        const targetProf = config.profiles.find(p => p.id === profileId);
+        if (targetProf && targetProf.id !== 'default') {
+          // 사용자가 직접 추가한 계정 프로필은 개별 구글 로그인을 유지할 수 있도록 독립 파티션 적용
+          isDedicatedIsolated = true;
+        }
+      }
+    } catch (e) {
+      console.warn('[Session] Failed to load profile config:', e);
+    }
+
     const partitionName = isDedicatedIsolated ? `persist:flow_profile_${profileId}` : `persist:flow_profile_default`;
     
     let proxyPort = null;
@@ -733,12 +761,21 @@ function createWindow() {
     setupFlowView(newView, profileId);
 
     global.flowViews.set(profileId, newView);
-    mainWindow.contentView.addChildView(newView);
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const existingChildren = mainWindow.contentView.children || [];
+        if (!existingChildren.includes(newView)) {
+          mainWindow.contentView.addChildView(newView);
+        }
+      }
+    } catch (e) {
+      console.warn('[Flow View] addChildView failed:', e.message);
+    }
 
     newView.webContents.loadURL(targetUrl);
     
     // Trigger layout bounds updates
-    if (typeof updateBounds === 'function') {
+    if (typeof updateBounds === 'function' && mainWindow && !mainWindow.isDestroyed()) {
       updateBounds(mainWindow);
     }
 
@@ -780,7 +817,7 @@ function createWindow() {
     }
 
     // 5. Trigger layout bounds updates
-    if (typeof updateBounds === 'function') {
+    if (typeof updateBounds === 'function' && mainWindow && !mainWindow.isDestroyed()) {
       updateBounds(mainWindow);
     }
 
@@ -795,11 +832,15 @@ function createWindow() {
     const view = global.flowViews.get(profileId);
     
     try {
-      mainWindow.contentView.removeChildView(view);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.contentView.removeChildView(view);
+      }
     } catch (e) { console.warn("removeChildView 실패:", e); }
 
     try {
-      view.webContents.destroy();
+      if (view && !view.webContents?.isDestroyed?.()) {
+        view.webContents.destroy();
+      }
     } catch (e) { console.warn("webContents.destroy 실패:", e); }
 
     global.flowViews.delete(profileId);
@@ -809,7 +850,7 @@ function createWindow() {
       flowView = global.flowViews.get(global.activeFlowProfileId) || null;
     }
 
-    if (typeof updateBounds === 'function') {
+    if (typeof updateBounds === 'function' && mainWindow && !mainWindow.isDestroyed()) {
       updateBounds(mainWindow);
     }
 
