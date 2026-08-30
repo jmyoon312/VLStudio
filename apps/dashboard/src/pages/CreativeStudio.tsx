@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import {
     Loader2, ImageIcon, Music, Film, Upload, Download, Clapperboard, Plus, Trash2,
     Sparkles, Copy, ChevronDown, ChevronUp, RefreshCw, Save, Wand2, RotateCcw, Play,
-    MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe
+    MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe, SlidersHorizontal
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
