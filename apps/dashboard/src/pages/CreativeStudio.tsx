@@ -798,7 +798,7 @@ const CreativeStudio = () => {
     // Mutations
     const segmentScriptMutation = useMutation({
         mutationFn: async (data: { text: string, mode: string, provider: string, model: string, stylePrompt: string, split_method?: string, auto_generate_images: boolean, auto_generate_audio: boolean, pacing_config?: any }) => {
-            const res = await api.post('/creative/split-script', {
+            const res = await apiLong.post('/creative/split-script', {
                 text: data.text,
                 mode: data.mode,
                 provider: data.provider,
