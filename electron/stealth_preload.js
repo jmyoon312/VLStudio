@@ -321,12 +321,12 @@ try {
   } catch (e) {
     console.error('[Stealth Preload] NEW-11 patch block failed:', e.message);
   }
-  // ─── Google Flow Landing Page Auto-Enter ─────────────────────────────────────
-  // 구글 로그인 세션이 있는 경우 'Create with Google Flow' 버튼을 자동으로 클릭하여 실제 작업 캔버스로 진입
+  // ─── Google Flow Landing Page & New Project Auto-Enter ─────────────────────
+  // 구글 로그인 세션이 있는 경우 랜딩 페이지 통과 및 신규 프로젝트 화면으로 자동 직행 진입
   if (window.location.hostname.includes('labs.google')) {
     window.addEventListener('DOMContentLoaded', () => {
       const tryAutoEnter = () => {
-        // 'Create with Google Flow' 텍스트를 포함하는 버튼 탐색
+        // 1) 랜딩 페이지 'Create with Google Flow' 버튼 탐색
         const buttons = Array.from(document.querySelectorAll('button, a'));
         const createBtn = buttons.find(b => 
           b.textContent && (
@@ -340,17 +340,34 @@ try {
           createBtn.click();
           return true;
         }
+
+        // 2) 홈 대시보드에 도달했으나 프로젝트 URL(/project/...)이 아닌 경우, '새 프로젝트 만들기(+)' 버튼 자동 클릭
+        if (window.location.pathname.endsWith('/flow') || window.location.pathname.endsWith('/flow/')) {
+          const newProjectBtn = buttons.find(b => {
+            const hasAddIcon = b.querySelector('i')?.textContent?.includes('add') || b.querySelector('svg');
+            const txt = b.textContent || '';
+            return hasAddIcon || txt.includes('New project') || txt.includes('새 프로젝트') || txt.includes('add_2');
+          });
+          if (newProjectBtn) {
+            console.log('[Stealth Preload] Auto-clicking New Project button...');
+            newProjectBtn.click();
+            return true;
+          }
+        }
+
         return false;
       };
 
-      // 즉시 시도 및 1초간 주기적 감지
+      // 즉시 시도 및 8초간 주기적 감지
       if (!tryAutoEnter()) {
         const interval = setInterval(() => {
-          if (tryAutoEnter() || window.location.pathname.includes('/project/')) {
+          if (window.location.pathname.includes('/project/')) {
             clearInterval(interval);
+          } else {
+            tryAutoEnter();
           }
-        }, 300);
-        setTimeout(() => clearInterval(interval), 5000);
+        }, 500);
+        setTimeout(() => clearInterval(interval), 8000);
       }
     });
   }
