@@ -38,12 +38,12 @@ export function scanGeneratedImages(doc) {
     if (!src || src.startsWith('data:image/svg') || seenSrc.has(src)) continue
 
     const rect = im.getBoundingClientRect ? im.getBoundingClientRect() : { width: 100, height: 100 }
-    if (rect.width > 0 && rect.height > 0 && (rect.width < 80 || rect.height < 80)) continue
+    if (rect.width > 0 && rect.height > 0 && (rect.width < 40 || rect.height < 40)) continue
 
-    // Google Media Redirect URL 또는 googleusercontent 이미지
+    // Google Media Redirect URL 또는 googleusercontent 이미지 또는 일반 미디어 이미지
     const m = src.match(/[?&]name=([a-f0-9-]{36})/)
-    const isGoogleMedia = src.includes('getMediaUrlRedirect') || src.includes('googleusercontent.com') || src.includes('blob:') || !!m
-    if (!isGoogleMedia) continue
+    const isGoogleMedia = src.includes('getMediaUrlRedirect') || src.includes('googleusercontent.com') || src.includes('blob:') || src.includes('/media/') || !!m
+    if (!isGoogleMedia && rect.width < 80) continue
 
     const mediaId = m ? m[1] : `dom-${src.split('?')[0].slice(-32)}`
     seenSrc.add(src)
