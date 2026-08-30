@@ -163,12 +163,12 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   }, [normalizedTimelineScenes]);
 
   return (
-    <div className="w-full my-4 bg-card rounded-lg border border-border shadow-xs overflow-hidden transition-all duration-200 select-none">
+    <div className="w-full my-4 bg-card rounded-lg border border-border shadow-xs overflow-hidden transition-all duration-200 select-none shrink-0 min-h-[44px]">
       
       {/* 1. 상단 어디를 눌러도 접히고 펼쳐지는 플랫 헤더 바 */}
       <div
         onClick={onToggle}
-        className="flex items-center justify-between px-4 py-2.5 bg-muted/40 hover:bg-muted/60 cursor-pointer border-b border-border transition-colors text-foreground"
+        className="flex items-center justify-between px-4 py-2.5 bg-muted/40 hover:bg-muted/60 cursor-pointer border-b border-border transition-colors text-foreground min-h-[44px]"
       >
         <div className="flex items-center gap-2.5">
           <Film className="w-4 h-4 text-primary" />
