@@ -445,6 +445,12 @@ export default function Header({
     const result = await fileSystemAPI.getProjectFolder(name)
     if (result.success) {
       await loadProjects()
+      // Flow 창에서도 신규 고유 프로젝트 자동 생성 트리거
+      try {
+        await window.electronAPI?.flowNewProject?.();
+      } catch (e) {
+        console.warn('[Header] flowNewProject failed:', e);
+      }
       onProjectChange?.(name, { isNewProject: true })
       setShowNewProjectModal(false)
       setNewProjectInput('')
