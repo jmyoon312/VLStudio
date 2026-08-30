@@ -608,12 +608,26 @@ async def generate_scene_tts(
             tts_config=request.tts_config
         )
         
+        # Calculate exact audio duration
+        duration = 5.0
+        try:
+            from ..video_engine import get_audio_metadata
+            duration = get_audio_metadata(audio_path)
+        except Exception as dur_err:
+            try:
+                import soundfile as sf
+                info = sf.info(audio_path)
+                duration = float(info.duration)
+            except Exception:
+                duration = 5.0
+        
         web_url = get_web_url(fastapi_req, audio_path)
         
         return {
             "status": "success",
             "web_url": web_url,
-            "server_path": audio_path
+            "server_path": audio_path,
+            "duration": round(duration, 3)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

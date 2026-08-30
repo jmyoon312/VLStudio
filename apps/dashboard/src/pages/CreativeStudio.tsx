@@ -638,17 +638,58 @@ const CreativeStudio = () => {
         toast.success("전체 Flow 이미지 일괄 생성이 완료되었습니다!");
     };
 
-    // [NEW] Flow AI 일괄 영상(I2V) 생성 핸들러
-    const handleBatchFlowVideos = async () => {
-        const targetScenes = scenes.filter(s => s.media_url);
-        if (targetScenes.length === 0) {
-            toast.error("영상을 생성하려면 먼저 이미지가 필요합니다.");
+    // [NEW] Flow AI 일괄 영상(I2V) 생성 핸들러 (조건부 필터링 지원)
+    const [isSelectiveVideoModalOpen, setIsSelectiveVideoModalOpen] = useState(false);
+    const [selectiveVideoStrategy, setSelectiveVideoStrategy] = useState<'all' | 'first_n' | 'first_seconds' | 'interval' | 'selected'>('first_n');
+    const [selectiveVideoN, setSelectiveVideoN] = useState<number>(3);
+    const [selectiveVideoSeconds, setSelectiveVideoSeconds] = useState<number>(60);
+    const [selectiveVideoInterval, setSelectiveVideoInterval] = useState<number>(2);
+    const [selectedSceneIdsForVideo, setSelectedSceneIdsForVideo] = useState<string[]>([]);
+
+    const handleBatchFlowVideos = async (overrideStrategy?: 'all' | 'first_n' | 'first_seconds' | 'interval' | 'selected') => {
+        const availableScenes = scenes.filter(s => s.media_url);
+        if (availableScenes.length === 0) {
+            toast.error("영상을 생성하려면 먼저 이미지가 생성되어 있어야 합니다.");
             return;
         }
+
+        const strategy = overrideStrategy || selectiveVideoStrategy;
+        let targetScenes: SceneSegment[] = [];
+
+        if (strategy === 'all') {
+            targetScenes = availableScenes;
+        } else if (strategy === 'first_n') {
+            targetScenes = availableScenes.slice(0, selectiveVideoN);
+        } else if (strategy === 'first_seconds') {
+            let accumulatedTime = 0;
+            targetScenes = [];
+            for (const s of availableScenes) {
+                targetScenes.push(s);
+                accumulatedTime += (s.duration || 5);
+                if (accumulatedTime >= selectiveVideoSeconds) break;
+            }
+        } else if (strategy === 'interval') {
+            const step = Math.max(1, selectiveVideoInterval);
+            targetScenes = availableScenes.filter((_, idx) => idx % step === 0);
+        } else if (strategy === 'selected') {
+            targetScenes = availableScenes.filter(s => selectedSceneIdsForVideo.includes(s.id));
+            if (targetScenes.length === 0) {
+                targetScenes = availableScenes.slice(0, 3);
+            }
+        }
+
+        if (targetScenes.length === 0) {
+            toast.error("조건에 일치하는 대상 씬이 없습니다.");
+            return;
+        }
+
         setIsFlowBatchGenerating(true);
-        toast.info("Google Flow AI를 통해 전체 씬 비디오(I2V) 일괄 생성을 시작합니다...");
+        setIsSelectiveVideoModalOpen(false);
+        toast.info(`총 ${targetScenes.length}개 씬에 대해 Google Flow AI 영상(I2V) 생성을 시작합니다...`);
 
         const apiObj = (window as any).electronAPI;
+        let successCount = 0;
+
         for (let i = 0; i < targetScenes.length; i++) {
             const scene = targetScenes[i];
             updateScene(scene.id, { visualStatus: 'generating' });
@@ -662,11 +703,14 @@ const CreativeStudio = () => {
                     });
                     if (res?.success && res.videoUrl) {
                         updateScene(scene.id, { visualStatus: 'completed', video_url: res.videoUrl, viewMode: 'render' });
+                        successCount++;
                     } else {
                         await handleGenerateVideo(scene);
+                        successCount++;
                     }
                 } else {
                     await handleGenerateVideo(scene);
+                    successCount++;
                 }
             } catch (err: any) {
                 console.error(`Scene #${scene.scene_id} Flow video error:`, err);
@@ -674,7 +718,7 @@ const CreativeStudio = () => {
             }
         }
         setIsFlowBatchGenerating(false);
-        toast.success("전체 Flow 비디오 일괄 생성이 완료되었습니다!");
+        toast.success(`선택적 영상 생성 완료! (${successCount}/${targetScenes.length}개 완료)`);
     };
     
     // [NEW] CapCut Export States
@@ -693,7 +737,7 @@ const CreativeStudio = () => {
     const [pacingValue, setPacingValue] = useState(2);
 
     // [MODAL VISIBILITY FIX] 모든 모달 다이얼로그 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
-    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen;
+    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen || isSelectiveVideoModalOpen;
     useEffect(() => {
         const apiObj = (window as any).electronAPI;
         if (apiObj && typeof apiObj.setFlowTabActive === 'function') {
@@ -1199,7 +1243,7 @@ const CreativeStudio = () => {
 
     const generateTTSMutation = useMutation({
         mutationFn: async (data: { id: string, sceneId: number, script: string }) => {
-            const res = await api.post('/creative/scene-tts', {
+            const res = await apiLong.post('/creative/scene-tts', {
                 scene_id: data.sceneId,
                 script: data.script,
                 image_url: "",
@@ -1211,12 +1255,13 @@ const CreativeStudio = () => {
                 id: data.id,
                 sceneId: data.sceneId,
                 url: res.data.web_url,
-                path: res.data.server_path
+                path: res.data.server_path,
+                duration: res.data.duration || 5.0
             };
         },
-        onSuccess: ({ id, sceneId, url, path }) => {
-            updateScene(id, { audio_url: url, audio_path: path, audioStatus: 'completed' });
-            toast.success(`Scene #${sceneId} TTS 생성 완료!`);
+        onSuccess: ({ id, sceneId, url, path, duration }) => {
+            updateScene(id, { audio_url: url, audio_path: path, duration: duration, audioStatus: 'completed' });
+            toast.success(`Scene #${sceneId} TTS 생성 완료! (${duration}초)`);
         },
         onError: (err: any, variables) => {
             updateScene(variables.id, { audioStatus: 'failed' });
@@ -1245,8 +1290,9 @@ const CreativeStudio = () => {
                 }).then(res => ({
                     id: s.id,
                     scene_id: s.scene_id,
-                    audio_url: res.data.web_url,    // 서버가 반환하는 필드명
-                    audio_path: res.data.server_path
+                    audio_url: res.data.web_url,
+                    audio_path: res.data.server_path,
+                    duration: res.data.duration || 5.0
                 }))
             );
             return Promise.all(promises);
@@ -1254,9 +1300,9 @@ const CreativeStudio = () => {
         onSuccess: (results) => {
             setScenes(prev => prev.map(s => {
                 const res = results.find(r => r.scene_id === s.scene_id);
-                return res ? { ...s, audio_url: res.audio_url, audio_path: res.audio_path, audioStatus: 'completed' } : s;
+                return res ? { ...s, audio_url: res.audio_url, audio_path: res.audio_path, duration: res.duration, audioStatus: 'completed' } : s;
             }));
-            toast.success("전체 TTS 생성 완료!");
+            toast.success("전체 TTS 생성 완료! 씬별 재생 지속시간이 동기화되었습니다.");
         },
         onError: (err) => {
             toast.error("배치 TTS 생성 실패: " + err);
@@ -2082,10 +2128,21 @@ const CreativeStudio = () => {
                             size="sm"
                             disabled={isFlowBatchGenerating}
                             className="h-8 text-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800 hover:bg-indigo-500/20 font-semibold"
-                            onClick={handleBatchFlowVideos}
+                            onClick={() => setIsSelectiveVideoModalOpen(true)}
+                        >
+                            <SlidersHorizontal className="w-3 h-3 mr-1" />
+                            🎬 Flow 조건부 영상 변환
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={isFlowBatchGenerating}
+                            className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => handleBatchFlowVideos('all')}
+                            title="전체 씬 일괄 영상 생성"
                         >
                             {isFlowBatchGenerating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Film className="w-3 h-3 mr-1" />}
-                            🎬 Flow 전체 영상 생성
+                            전체 영상 변환
                         </Button>
 
                         <Button variant="default" size="sm" className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white border-blue-600" onClick={handleRoughCut}>
@@ -2508,6 +2565,116 @@ const CreativeStudio = () => {
                 config={transitionConfig}
                 onChange={setTransitionConfig}
             />
+
+            {/* [NEW] Selective Video Conversion Dialog */}
+            <Dialog open={isSelectiveVideoModalOpen} onOpenChange={setIsSelectiveVideoModalOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <SlidersHorizontal className="w-5 h-5 text-indigo-500" />
+                            Flow 조건부 선택적 영상(I2V) 변환
+                        </DialogTitle>
+                        <DialogDescription>
+                            이미지가 생성된 씬 중 원하는 조건에 부합하는 씬만 선별하여 비디오로 변환합니다.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-3">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-semibold">변환 조건 선택 (Strategy)</Label>
+                            <Select value={selectiveVideoStrategy} onValueChange={(val: any) => setSelectiveVideoStrategy(val)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="조건 선택" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="first_n">🎯 초반 후킹 (시작 N개 씬 변환)</SelectItem>
+                                    <SelectItem value="first_seconds">⏱️ 시작 N초 분량 변환 (약 1분간)</SelectItem>
+                                    <SelectItem value="interval">🔀 간격 변환 (N개 씬마다 1개씩)</SelectItem>
+                                    <SelectItem value="all">🎬 전체 씬 영상 변환</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {selectiveVideoStrategy === 'first_n' && (
+                            <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                                <div className="flex justify-between items-center">
+                                    <Label className="text-xs">시작 씬 개수 (N)</Label>
+                                    <span className="text-xs font-bold text-indigo-500">{selectiveVideoN}개 씬</span>
+                                </div>
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={scenes.length || 10}
+                                    value={selectiveVideoN}
+                                    onChange={(e) => setSelectiveVideoN(Number(e.target.value))}
+                                    className="h-8"
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    도입부 1~{selectiveVideoN}번 씬에 영상 모션을 주어 시청 지속시간을 극대화합니다.
+                                </p>
+                            </div>
+                        )}
+
+                        {selectiveVideoStrategy === 'first_seconds' && (
+                            <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                                <div className="flex justify-between items-center">
+                                    <Label className="text-xs">시작 시간 (초)</Label>
+                                    <span className="text-xs font-bold text-indigo-500">{selectiveVideoSeconds}초 ({Math.round(selectiveVideoSeconds / 60)}분)</span>
+                                </div>
+                                <Input
+                                    type="number"
+                                    min={5}
+                                    max={600}
+                                    step={5}
+                                    value={selectiveVideoSeconds}
+                                    onChange={(e) => setSelectiveVideoSeconds(Number(e.target.value))}
+                                    className="h-8"
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    영상 시작 후 누적 재생시간 {selectiveVideoSeconds}초 이내에 해당하는 씬들만 비디오로 변환합니다.
+                                </p>
+                            </div>
+                        )}
+
+                        {selectiveVideoStrategy === 'interval' && (
+                            <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+                                <div className="flex justify-between items-center">
+                                    <Label className="text-xs">간격 단위 (씬)</Label>
+                                    <span className="text-xs font-bold text-indigo-500">{selectiveVideoInterval}씬마다 1개</span>
+                                </div>
+                                <Input
+                                    type="number"
+                                    min={2}
+                                    max={10}
+                                    value={selectiveVideoInterval}
+                                    onChange={(e) => setSelectiveVideoInterval(Number(e.target.value))}
+                                    className="h-8"
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    {selectiveVideoInterval}개 씬마다 1개씩 비디오로 변환하고 나머지는 정지 이미지(Ken Burns 모션)를 유지합니다.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-300">
+                            💡 <strong>안내:</strong> 이미지가 먼저 생성된 씬만 비디오로 변환됩니다. 변환 완료 시 타임라인과 플레이어에서 즉시 비디오 프리뷰가 재생됩니다.
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setIsSelectiveVideoModalOpen(false)}>
+                            취소
+                        </Button>
+                        <Button
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            onClick={() => handleBatchFlowVideos()}
+                        >
+                            <Film className="w-4 h-4 mr-1" /> 선택 조건으로 영상 생성 시작
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div >
     );
 };
