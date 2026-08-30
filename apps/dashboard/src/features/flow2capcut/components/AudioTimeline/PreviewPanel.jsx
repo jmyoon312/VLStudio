@@ -93,26 +93,50 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       borderRadius = '6px'
     }
 
-    // CapCut 표준 텍스트 외곽선 (글자 획 안쪽을 뭉개지 않는 정밀 Stroke)
+    // CapCut 표준 텍스트 외곽선 (paint-order: stroke fill을 적용하여 글자 획 내부가 깎이지 않고 뒤쪽에 깔끔한 외곽선 생성)
     const outlineSize = cfg.outlineSize !== undefined ? Number(cfg.outlineSize) : 2
     const outlineColor = cfg.outlineColor || '#000000'
-    const strokeWidth = outlineSize > 0 ? Math.min(1.5, Math.max(0.6, outlineSize * 0.4)) : 0
+    const strokeWidth = outlineSize > 0 ? Math.min(2.5, Math.max(0.8, outlineSize * 0.6)) : 0
+
+    // 한국어 폰트 패밀리 매핑
+    const fontFamilies = {
+      'NanumGothic': '"Nanum Gothic", sans-serif',
+      'NanumMyeongjo': '"Nanum Myeongjo", serif',
+      'NanumPen': '"Nanum Pen Script", cursive',
+      'Noto Sans KR': '"Noto Sans KR", sans-serif',
+      'Black Han Sans': '"Black Han Sans", sans-serif',
+      'Jua': '"Jua", sans-serif',
+      'Do Hyeon': '"Do Hyeon", sans-serif',
+      'Gugi': '"Gugi", cursive',
+      'Wanted Sans': '"Wanted Sans", -apple-system, sans-serif',
+      'Pretendard': '"Pretendard", -apple-system, sans-serif'
+    }
+    const resolvedFont = fontFamilies[cfg.font] || (cfg.font ? `"${cfg.font}", sans-serif` : '"Wanted Sans", "Pretendard", sans-serif')
+
+    // 그림자 필터 (CapCut 드롭섀도우)
+    const shadowSize = Number(cfg.shadowSize) || 2
+    const shadowColor = cfg.shadowColor || 'rgba(0, 0, 0, 0.85)'
+    const shadowFilter = shadowSize > 0
+      ? `drop-shadow(0 ${Math.min(4, Math.max(1, shadowSize * 0.8))}px ${Math.min(6, Math.max(2, shadowSize * 1.2))}px ${shadowColor})`
+      : 'none'
 
     return {
-      fontFamily: cfg.font ? `"${cfg.font}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` : 'inherit',
+      fontFamily: resolvedFont,
       fontSize: `${previewFontSize}px`,
       color: textColor,
-      fontWeight: cfg.isBold !== false ? 700 : 500,
+      fontWeight: cfg.isBold !== false ? 800 : 600,
       fontStyle: cfg.isItalic ? 'italic' : 'normal',
       textAlign: cfg.textAlign || 'center',
+      paintOrder: 'stroke fill',
       WebkitTextStroke: strokeWidth > 0 ? `${strokeWidth}px ${outlineColor}` : 'none',
-      textShadow: '0 2px 4px rgba(0, 0, 0, 0.9)',
+      filter: shadowFilter,
       background,
       padding: boxPadding,
       borderRadius,
       border: borderStyle,
       maxWidth: '90%',
-      lineHeight: 1.45,
+      lineHeight: 1.4,
+      letterSpacing: '0.01em',
       whiteSpace: 'pre-wrap',
       pointerEvents: 'none',
       zIndex: 50,
