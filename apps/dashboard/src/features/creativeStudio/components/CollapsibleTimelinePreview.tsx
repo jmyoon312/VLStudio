@@ -60,18 +60,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   // CreativeStudio 씬 데이터를 Flow2CapCut AudioTimeline 규격으로 1:1 완벽 정규화 매핑
   const normalizedTimelineScenes = useMemo(() => {
     if (!scenes || scenes.length === 0) {
-      return [{
-        id: 'scene_placeholder',
-        scene_id: 1,
-        script: '대본을 입력하고 [씬 분할]을 누르면 비디오/이미지/나레이션 트랙이 자동 배치됩니다',
-        prompt: 'Scene placeholder',
-        startTime: '00:00:00,000',
-        endTime: '00:00:05,000',
-        start_time: '00:00:00,000',
-        end_time: '00:00:05,000',
-        duration: 5.0,
-        status: 'idle'
-      }];
+      return [];
     }
 
     let accMs = 0;

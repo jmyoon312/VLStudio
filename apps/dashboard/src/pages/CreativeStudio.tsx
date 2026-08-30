@@ -750,13 +750,14 @@ const CreativeStudio = () => {
 
     // Mutations
     const segmentScriptMutation = useMutation({
-        mutationFn: async (data: { text: string, mode: string, provider: string, model: string, stylePrompt: string, auto_generate_images: boolean, auto_generate_audio: boolean, pacing_config?: any }) => {
+        mutationFn: async (data: { text: string, mode: string, provider: string, model: string, stylePrompt: string, split_method?: string, auto_generate_images: boolean, auto_generate_audio: boolean, pacing_config?: any }) => {
             const res = await api.post('/creative/split-script', {
                 text: data.text,
                 mode: data.mode,
                 provider: data.provider,
                 model: data.model,
                 style_prompt: data.stylePrompt,
+                split_method: data.split_method || 'ai_smart',
                 auto_generate_images: data.auto_generate_images,
                 auto_generate_audio: data.auto_generate_audio,
                 pacing_config: data.pacing_config
@@ -883,9 +884,10 @@ const CreativeStudio = () => {
         segmentScriptMutation.mutate({
             text: fullScript,
             mode: segmentMode,
-            provider: scriptProvider,
-            model: scriptModel,
-            stylePrompt: stylePrompt,
+            provider: scriptProvider || "google",
+            model: scriptModel || "gemini-3.0-pro-preview",
+            stylePrompt: stylePrompt || "",
+            split_method: pacingStrategy === 'rule' ? 'custom_rule' : 'ai_smart',
             auto_generate_images: autoGenerateImages,
             auto_generate_audio: autoGenerateAudio,
             pacing_config: pacingStrategy === 'rule' ? {
