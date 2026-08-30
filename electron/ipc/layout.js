@@ -22,9 +22,11 @@ export function updateBounds(mainWindow, flowView) {
   const views = global.flowViews ? Array.from(global.flowViews.values()) : (flowView ? [flowView] : [])
   if (views.length === 0) return
 
-  if (modalVisible || !flowTabActive) {
+  const isHidden = modalVisible || !flowTabActive || layoutMode === 'hidden' || layoutMode === 'none';
+  if (isHidden) {
     for (const view of views) {
-      try { view.setBounds({ x: 0, y: 0, width: 0, height: 0 }) } catch (e) {
+      if (!view || view.webContents?.isDestroyed?.()) continue
+      try { view.setBounds({ x: -10000, y: -10000, width: 0, height: 0 }) } catch (e) {
         console.warn('[Layout] Failed to hide view bounds:', e.message)
       }
     }
@@ -70,7 +72,7 @@ export function updateBounds(mainWindow, flowView) {
           console.warn(`[Layout] Failed to set bounds for active view (${profId}):`, e.message)
         }
       } else {
-        try { view.setBounds({ x: 0, y: 0, width: 0, height: 0 }) } catch (e) {}
+        try { view.setBounds({ x: -10000, y: -10000, width: 0, height: 0 }) } catch (e) {}
       }
     }
     return

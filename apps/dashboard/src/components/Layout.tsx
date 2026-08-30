@@ -122,9 +122,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             if (apiObj?.switchProfile) {
                 apiObj.switchProfile({ profileId: 'default' }).catch(() => {});
             }
-            if (apiObj?.setLayout) {
-                apiObj.setLayout({ mode: 'split-left', ratio: 0.45 }).catch(() => {});
-            }
             syncViewsAndProfiles();
         }
     }, [location.pathname]);
@@ -152,17 +149,20 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     const toggleFlowVisibility = () => {
         try {
             const saved = localStorage.getItem('layoutSettings');
-            let currentMode = 'split-left';
             let currentRatio = 0.45;
+            let targetMode = 'split-left';
             if (saved) {
-                const parsed = JSON.parse(saved);
-                currentMode = parsed.mode || 'split-left';
-                currentRatio = parsed.ratio || 0.45;
+                try {
+                    const parsed = JSON.parse(saved);
+                    currentRatio = parsed.ratio || 0.45;
+                    if (parsed.mode && parsed.mode !== 'hidden' && parsed.mode !== 'none') {
+                        targetMode = parsed.mode;
+                    }
+                } catch {}
             }
             if (isFlowHidden) {
-                const nextMode = currentMode === 'hidden' || currentMode === 'none' ? 'split-left' : currentMode;
-                localStorage.setItem('layoutSettings', JSON.stringify({ mode: nextMode, ratio: currentRatio }));
-                (window as any).electronAPI?.setLayout?.({ mode: nextMode, ratio: currentRatio });
+                localStorage.setItem('layoutSettings', JSON.stringify({ mode: targetMode, ratio: currentRatio }));
+                (window as any).electronAPI?.setLayout?.({ mode: targetMode, ratio: currentRatio });
                 setIsFlowHidden(false);
                 toast.success('Flow 브라우저 창을 표시합니다.');
             } else {
