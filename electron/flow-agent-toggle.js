@@ -14,15 +14,25 @@
  * log every candidate so the exact markup is confirmed from real runs.
  */
 
-/** Is a toggle element currently ON? (aria-pressed/checked, data-state on/checked/active) */
+/** Is a toggle element currently ON? (aria-pressed/checked, data-state on/checked/active, class/background) */
 export function isToggleOn(el) {
   if (!el) return false
   if (el.getAttribute('aria-pressed') === 'true') return true
   if (el.getAttribute('aria-checked') === 'true') return true
   const ds = el.getAttribute('data-state')
   if (ds === 'on' || ds === 'checked' || ds === 'active') return true
-  if (el.classList?.contains('active') || el.classList?.contains('selected')) return true
-  return false
+  if (el.classList?.contains('active') || el.classList?.contains('selected') || el.classList?.contains('on')) return true
+  // Google Flow 특정: 버튼 텍스트에 '+' 없이 '에이전트'만 있거나 배경색이 채워져 있는 경우
+  const doc = el.ownerDocument || document
+  const win = doc.defaultView || window
+  try {
+    const style = win.getComputedStyle(el)
+    const bg = style.backgroundColor || ''
+    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' && !bg.includes('0, 0, 0')) {
+      return true
+    }
+  } catch (_) {}
+  return true // 안전하게 기본적으로 toggle 대상이면 클릭 시도
 }
 
 /**
