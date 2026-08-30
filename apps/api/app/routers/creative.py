@@ -617,6 +617,7 @@ def init_project_folder(
 class SyncSubtitlesRequest(BaseModel):
     project_name: str
     scenes: List[dict]
+    subtitle_config: Optional[dict] = None
 
 def format_srt_timestamp(ms: int) -> str:
     hours = ms // 3600000
@@ -626,6 +627,88 @@ def format_srt_timestamp(ms: int) -> str:
     seconds = ms // 1000
     millis = ms % 1000
     return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
+
+def split_script_into_cues(script: str, total_dur_ms: int, split_limit: int = 28, max_lines: int = 2) -> List[dict]:
+    """
+    대본 문장을 사용자의 자막 설정(split_limit, max_lines) 및 문장/단어 경계에 맞춰
+    정밀 다중 SRT 자막 큐로 비례 분할합니다.
+    """
+    if not script or not script.strip():
+        return []
+        
+    text = script.strip()
+    # 1. 마침표, 물음표, 느낌표, 줄바꿈 기준으로 문장 1차 분할
+    raw_sentences = re.split(r'([.!?\n]+(?:\s+|$))', text)
+    sentences = []
+    curr = ""
+    for part in raw_sentences:
+        curr += part
+        if re.search(r'[.!?\n]+(?:\s+|$)', part) or len(curr) >= split_limit * max_lines:
+            if curr.strip():
+                sentences.append(curr.strip())
+            curr = ""
+    if curr.strip():
+        sentences.append(curr.strip())
+        
+    if not sentences:
+        sentences = [text]
+
+    # 2. split_limit * max_lines보다 긴 덩어리는 쉼표 또는 띄어쓰기 기준으로 2차 분할
+    max_chunk_chars = max(10, split_limit * max_lines)
+    chunks = []
+    for s in sentences:
+        if len(s) <= max_chunk_chars:
+            chunks.append(s)
+        else:
+            words = s.split(' ')
+            sub_chunk = ""
+            for w in words:
+                if len(sub_chunk) + len(w) + 1 <= max_chunk_chars:
+                    sub_chunk = f"{sub_chunk} {w}".strip()
+                else:
+                    if sub_chunk:
+                        chunks.append(sub_chunk)
+                    sub_chunk = w
+            if sub_chunk:
+                chunks.append(sub_chunk)
+
+    if not chunks:
+        chunks = [text]
+
+    # 3. 최대 줄 수(max_lines)에 맞춘 줄바꿈(\n) 포맷팅
+    formatted_chunks = []
+    for ch in chunks:
+        if len(ch) > split_limit and max_lines > 1 and '\n' not in ch:
+            mid = len(ch) // 2
+            spaces = [i for i, c in enumerate(ch) if c == ' ']
+            if spaces:
+                nearest_space = min(spaces, key=lambda i: abs(i - mid))
+                ch_formatted = ch[:nearest_space] + '\n' + ch[nearest_space+1:]
+            else:
+                ch_formatted = ch
+            formatted_chunks.append(ch_formatted)
+        else:
+            formatted_chunks.append(ch)
+
+    # 4. 전체 씬 지속시간(total_dur_ms)을 글자수 비율로 정밀 밀리초 타임코드 배분
+    total_chars = sum(max(1, len(c.replace('\n', ''))) for c in formatted_chunks)
+    cues = []
+    curr_ms = 0
+    
+    for i, ch in enumerate(formatted_chunks):
+        ch_len = max(1, len(ch.replace('\n', '')))
+        if i == len(formatted_chunks) - 1:
+            chunk_dur = max(300, total_dur_ms - curr_ms)
+        else:
+            chunk_dur = max(300, int(round((ch_len / total_chars) * total_dur_ms)))
+            
+        cues.append({
+            "text": ch,
+            "duration_ms": chunk_dur
+        })
+        curr_ms += chunk_dur
+
+    return cues
 
 @router.post("/sync-subtitles")
 def sync_project_subtitles(
@@ -637,6 +720,11 @@ def sync_project_subtitles(
     sub_dir = os.path.join(root, "05_Exports", req.project_name, "subtitles")
     os.makedirs(sub_dir, exist_ok=True)
     srt_path = os.path.join(sub_dir, "subtitles.srt")
+
+    # 자막 분절 설정 추출 (기본: 28자, 최대 2줄)
+    sub_cfg = req.subtitle_config or {}
+    split_limit = int(sub_cfg.get("splitLimit", 28) or 28)
+    max_lines = int(sub_cfg.get("maxLines", 2) or 2)
 
     srt_blocks = []
     entries = []
@@ -652,25 +740,34 @@ def sync_project_subtitles(
         except Exception:
             dur = 5.0
         dur_ms = int(round(dur * 1000))
-        start_ms = acc_ms
-        end_ms = acc_ms + dur_ms
-        acc_ms = end_ms
+        
+        # 씬 대본을 정밀 다중 자막 큐로 분할
+        scene_cues = split_script_into_cues(script, dur_ms, split_limit=split_limit, max_lines=max_lines)
+        if not scene_cues:
+            scene_cues = [{"text": script, "duration_ms": dur_ms}]
 
-        start_str = format_srt_timestamp(start_ms)
-        end_str = format_srt_timestamp(end_ms)
+        for cue in scene_cues:
+            cue_text = cue["text"]
+            cue_dur_ms = cue["duration_ms"]
+            start_ms = acc_ms
+            end_ms = acc_ms + cue_dur_ms
+            acc_ms = end_ms
 
-        srt_blocks.append(f"{idx}\n{start_str} --> {end_str}\n{script}\n")
-        entries.append({
-            "id": idx,
-            "scene_id": s.get("scene_id", idx),
-            "startTime": start_str,
-            "endTime": end_str,
-            "startMs": start_ms,
-            "endMs": end_ms,
-            "durationMs": dur_ms,
-            "text": script
-        })
-        idx += 1
+            start_str = format_srt_timestamp(start_ms)
+            end_str = format_srt_timestamp(end_ms)
+
+            srt_blocks.append(f"{idx}\n{start_str} --> {end_str}\n{cue_text}\n")
+            entries.append({
+                "id": idx,
+                "scene_id": s.get("scene_id", idx),
+                "startTime": start_str,
+                "endTime": end_str,
+                "startMs": start_ms,
+                "endMs": end_ms,
+                "durationMs": cue_dur_ms,
+                "text": cue_text
+            })
+            idx += 1
 
     srt_content = "\n".join(srt_blocks)
     with open(srt_path, "w", encoding="utf-8") as f:
@@ -732,6 +829,19 @@ async def generate_scene_tts(
             except Exception:
                 duration = 5.0
         
+        # Ensure project folder audio copy
+        if request.project_name:
+            proj_audio_dir = os.path.join(root, "05_Exports", request.project_name, "audio")
+            os.makedirs(proj_audio_dir, exist_ok=True)
+            proj_filename = f"scene_{request.scene_id:02d}.mp3"
+            proj_audio_path = os.path.join(proj_audio_dir, proj_filename)
+            try:
+                if os.path.abspath(audio_path) != os.path.abspath(proj_audio_path):
+                    shutil.copy2(audio_path, proj_audio_path)
+                    audio_path = proj_audio_path
+            except Exception as cp_err:
+                print(f"[WARN] Failed to copy audio to project folder: {cp_err}")
+
         web_url = get_web_url(fastapi_req, audio_path)
         
         return {

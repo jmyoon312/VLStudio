@@ -547,6 +547,8 @@ const CreativeStudio = () => {
         return defaults;
     });
 
+    const [srtEntries, setSrtEntries] = useState<any[]>([]);
+
     useEffect(() => {
         localStorage.setItem('viral_loop_subtitle_config', JSON.stringify(subtitleConfig));
     }, [subtitleConfig]);
@@ -1327,15 +1329,20 @@ const CreativeStudio = () => {
     const syncSubtitlesToDisk = async (targetScenes: SceneSegment[]) => {
         if (!currentProjectName || targetScenes.length === 0) return;
         try {
-            await api.post('/creative/sync-subtitles', {
+            const res = await api.post('/creative/sync-subtitles', {
                 project_name: currentProjectName,
                 scenes: targetScenes.map(s => ({
                     scene_id: s.scene_id,
                     script: s.script,
                     duration: s.duration || 5.0
-                }))
+                })),
+                subtitle_config: subtitleConfig
             });
-            console.log(`[Subtitles] Synced SRT to disk: 05_Exports/${currentProjectName}/subtitles/subtitles.srt`);
+            if (res.data?.entries && Array.isArray(res.data.entries)) {
+                setSrtEntries(res.data.entries);
+            }
+            console.log(`[Subtitles] Synced SRT to disk: 05_Exports/${currentProjectName}/subtitles/subtitles.srt (cues: ${res.data?.entries?.length || 0})`);
+            return res.data?.entries;
         } catch (e) {
             console.warn("Subtitles sync warning:", e);
         }
@@ -2113,6 +2120,7 @@ const CreativeStudio = () => {
             <CollapsibleTimelinePreview
                 scenes={scenes}
                 aspectRatio={segmentMode === 'shorts' ? '9:16' : '16:9'}
+                srtEntries={srtEntries}
                 watermarkConfig={watermarkConfig}
                 transitionConfig={transitionConfig}
                 isOpen={isTimelineOpen}
@@ -2597,6 +2605,8 @@ const CreativeStudio = () => {
                     onSave={(cfg) => {
                         setSubtitleConfig(cfg);
                         toast.success("자막 설정이 저장되었습니다.");
+                        // 설정된 분절 규칙(splitLimit, maxLines 등)으로 즉시 자막 재분절 & 타임라인 동기화
+                        syncSubtitlesToDisk(scenes);
                     }}
                 />
 

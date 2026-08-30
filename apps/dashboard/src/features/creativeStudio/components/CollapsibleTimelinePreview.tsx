@@ -30,6 +30,7 @@ export interface SceneItem {
 interface Props {
   scenes: SceneItem[];
   aspectRatio: '9:16' | '16:9';
+  srtEntries?: any[];
   watermarkConfig?: WatermarkConfig;
   transitionConfig?: TransitionConfig;
   isOpen: boolean;
@@ -45,6 +46,8 @@ interface Props {
 
 export const CollapsibleTimelinePreview: React.FC<Props> = ({
   scenes,
+  aspectRatio = '16:9',
+  srtEntries: externalSrtEntries,
   isOpen,
   onToggle,
   onSelectScene,
@@ -164,8 +167,11 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
     };
   }, [normalizedTimelineScenes, totalDurationMs]);
 
-  // SRT 자막 엔트리 파이프라인 (씬이 있을 때만 생성)
+  // SRT 자막 엔트리 파이프라인 (externalSrtEntries 우선 적용)
   const srtEntries = useMemo(() => {
+    if (externalSrtEntries && externalSrtEntries.length > 0) {
+      return externalSrtEntries;
+    }
     if (!normalizedTimelineScenes || normalizedTimelineScenes.length === 0) return [];
     return normalizedTimelineScenes.map((s, idx) => ({
       id: idx + 1,
@@ -175,7 +181,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
       endTime: s.endTime,
       text: s.script || `자막 #${s.scene_id}`
     }));
-  }, [normalizedTimelineScenes]);
+  }, [externalSrtEntries, normalizedTimelineScenes]);
 
   // 전체화면 재생 루프
   useEffect(() => {
@@ -308,6 +314,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             audioPackage={audioPackage}
             srtEntries={srtEntries}
             compact={false}
+            aspectRatio={aspectRatio}
             onTitleClick={() => setIsFullscreen(true)}
             titleActive={isFullscreen}
             onClipSelect={(clip: any) => {
@@ -329,7 +336,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
               <Film className="w-5 h-5 text-blue-400" />
               <span className="font-extrabold text-sm tracking-wide">시네마틱 실시간 프리뷰 모니터 (FULLSCREEN PREVIEW)</span>
               <Badge variant="outline" className="text-[10px] bg-blue-500/20 text-blue-300 border-blue-400/40">
-                1080P HD
+                {aspectRatio === '9:16' ? '9:16 Shorts' : '16:9 1080P HD'}
               </Badge>
             </div>
 
@@ -353,6 +360,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
               height={580}
               isPlaying={isFullscreenPlaying}
               hiddenRoles={new Set()}
+              aspectRatio={aspectRatio}
             />
           </div>
 
