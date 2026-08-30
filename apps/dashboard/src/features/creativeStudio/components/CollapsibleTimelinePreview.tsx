@@ -1,7 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, RotateCcw, ChevronDown, ChevronUp, Eye, EyeOff, Sparkles, Volume2 } from 'lucide-react';
+import { 
+  Play, Pause, RotateCcw, ChevronDown, ChevronUp, 
+  Scissors, Undo2, Redo2, ZoomIn, ZoomOut,
+  Volume2, Type, Video, Sparkles
+} from 'lucide-react';
 import { WatermarkConfig } from './WatermarkSettingsDialog';
 import { TransitionConfig } from './TransitionSettingsDialog';
 
@@ -16,7 +20,7 @@ export interface SceneItem {
   audio_path?: string;
   video_url?: string;
   video_path?: string;
-  duration?: number; // 초 단위 (기본 3초)
+  duration?: number; // 초 단위
 }
 
 interface Props {
@@ -26,6 +30,8 @@ interface Props {
   transitionConfig: TransitionConfig;
   isOpen: boolean;
   onToggle: () => void;
+  onSelectScene?: (index: number) => void;
+  onSplitScene?: (index: number, timeOffset: number) => void;
 }
 
 export const CollapsibleTimelinePreview: React.FC<Props> = ({
@@ -35,29 +41,44 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   transitionConfig,
   isOpen,
   onToggle,
+  onSelectScene,
+  onSplitScene
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(1.0); // 0.5x ~ 3.0x
   const [kenBurnsEnabled, setKenBurnsEnabled] = useState(true);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const timelineTracksRef = useRef<HTMLDivElement>(null);
   const animFrameRef = useRef<number | null>(null);
 
   // 씬별 재생 시간 및 시작 시간 계산 (기본 3.5초 per scene)
-  const sceneDurations = scenes.map((s) => s.duration || 3.5);
-  const totalDuration = sceneDurations.reduce((acc, d) => acc + d, 0) || 1;
+  const sceneDurations = useMemo(() => scenes.map((s) => s.duration || 3.5), [scenes]);
+  const totalDuration = useMemo(() => sceneDurations.reduce((acc, d) => acc + d, 0) || 1, [sceneDurations]);
+
+  // 각 씬의 누적 시작 시간 배열
+  const sceneStartTimes = useMemo(() => {
+    const starts: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < scenes.length; i++) {
+      starts.push(acc);
+      acc += sceneDurations[i];
+    }
+    return starts;
+  }, [scenes, sceneDurations]);
 
   // 현재 시간에 해당하는 씬 인덱스 찾기
-  let accumulated = 0;
   let currentSceneIdx = 0;
   let currentSceneLocalTime = 0;
   for (let i = 0; i < scenes.length; i++) {
+    const start = sceneStartTimes[i];
     const dur = sceneDurations[i];
-    if (currentTime >= accumulated && currentTime < accumulated + dur) {
+    if (currentTime >= start && currentTime < start + dur) {
       currentSceneIdx = i;
-      currentSceneLocalTime = currentTime - accumulated;
+      currentSceneLocalTime = currentTime - start;
       break;
     }
-    accumulated += dur;
   }
   if (currentTime >= totalDuration) {
     currentSceneIdx = Math.max(0, scenes.length - 1);
@@ -94,19 +115,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
     };
   }, [isPlaying, totalDuration]);
 
-  // 스페이스바 재생/정지 단축키
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && (e.target as HTMLElement)?.tagName !== 'INPUT' && (e.target as HTMLElement)?.tagName !== 'TEXTAREA') {
-        e.preventDefault();
-        setIsPlaying((p) => !p);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // 캔버스 실시간 렌더링 (이미지 + 켄번스 무빙 + 워터마크 + 자막)
+  // 캔버스 실시간 렌더링
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -118,7 +127,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
     ctx.clearRect(0, 0, width, height);
 
     // 1. 배경 클리어
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = '#090D16';
     ctx.fillRect(0, 0, width, height);
 
     const activeScene = scenes[currentSceneIdx];
@@ -131,15 +140,13 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
       img.src = activeScene.media_url;
       if (img.complete && img.naturalWidth > 0) {
         ctx.save();
-        // 켄번스 효과 (부드러운 줌인)
         if (kenBurnsEnabled) {
-          const scale = 1.0 + progress * 0.08;
+          const scale = 1.0 + progress * 0.06;
           ctx.translate(width / 2, height / 2);
           ctx.scale(scale, scale);
           ctx.translate(-width / 2, -height / 2);
         }
 
-        // 종횡비 맞춤 중앙 정렬 그리기 (Cover)
         const imgRatio = img.naturalWidth / img.naturalHeight;
         const canvasRatio = width / height;
         let dw = width;
@@ -161,79 +168,65 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
         ctx.restore();
       }
     } else {
-      // 미디어 없을 때 플레이스홀더
-      ctx.fillStyle = '#334155';
+      ctx.fillStyle = '#1E293B';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#94A3B8';
       ctx.font = '14px Pretendard, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(activeScene ? `Scene #${activeScene.scene_id} 미디어 대기중` : '씬 정보 없음', width / 2, height / 2);
+      ctx.fillText(`Scene #${currentSceneIdx + 1} 미디어 대기 중`, width / 2, height / 2);
     }
 
-    // 3. 자막 렌더링 (하단 중앙)
+    // 3. 자막 오버레이 렌더링
     if (activeScene?.script) {
       ctx.save();
-      ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 16px Pretendard, sans-serif';
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
       ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 2;
-
-      const lines = activeScene.script.length > 25 ? [activeScene.script.slice(0, 25), activeScene.script.slice(25, 50)] : [activeScene.script];
-      const startY = height - 40 - (lines.length - 1) * 20;
-      lines.forEach((line, idx) => {
-        ctx.fillText(line, width / 2, startY + idx * 22);
-      });
+      
+      const subY = height - 40;
+      ctx.fillText(activeScene.script, width / 2, subY, width - 40);
       ctx.restore();
     }
 
-    // 4. 채널 워터마크 / 로고 렌더링
-    if (watermarkConfig.enabled) {
-      const showWatermark = watermarkConfig.durationMode === 'full' || (watermarkConfig.durationMode === 'intro' && currentTime <= 3.0);
-      if (showWatermark) {
-        ctx.save();
-        ctx.globalAlpha = watermarkConfig.opacity / 100;
+    // 4. 워터마크 렌더링
+    if (watermarkConfig?.enabled) {
+      ctx.save();
+      ctx.globalAlpha = (watermarkConfig.opacity || 80) / 100;
+      const targetW = (width * (watermarkConfig.scale || 15)) / 100;
+      const marginX = watermarkConfig.marginX || 20;
+      const marginY = watermarkConfig.marginY || 20;
 
-        const targetW = width * (watermarkConfig.scale / 100);
-        const marginX = watermarkConfig.marginX;
-        const marginY = watermarkConfig.marginY;
+      let wx = marginX;
+      let wy = marginY;
+      if (watermarkConfig.position.includes('center')) wx = (width - targetW) / 2;
+      else if (watermarkConfig.position.includes('right')) wx = width - targetW - marginX;
 
-        // 9방향 좌표 계산
-        let wx = marginX;
-        let wy = marginY;
+      if (watermarkConfig.position.startsWith('mid')) wy = (height - targetW) / 2;
+      else if (watermarkConfig.position.startsWith('bottom')) wy = height - targetW - marginY;
 
-        if (watermarkConfig.position.includes('center')) wx = (width - targetW) / 2;
-        else if (watermarkConfig.position.includes('right')) wx = width - targetW - marginX;
-
-        if (watermarkConfig.position.startsWith('mid')) wy = (height - targetW) / 2;
-        else if (watermarkConfig.position.startsWith('bottom')) wy = height - targetW - marginY;
-
-        if (watermarkConfig.type === 'image' && watermarkConfig.imageUrl) {
-          const logoImg = new Image();
-          logoImg.src = watermarkConfig.imageUrl;
-          if (logoImg.complete && logoImg.naturalWidth > 0) {
-            const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
-            const targetH = targetW / aspect;
-
-            if (watermarkConfig.badgeMask === 'circle') {
-              ctx.beginPath();
-              ctx.arc(wx + targetW / 2, wy + targetH / 2, Math.min(targetW, targetH) / 2, 0, Math.PI * 2);
-              ctx.clip();
-            }
-            ctx.drawImage(logoImg, wx, wy, targetW, targetH);
-          }
-        } else if (watermarkConfig.type === 'text' && watermarkConfig.text) {
-          ctx.fillStyle = watermarkConfig.textColor || '#ffffff';
-          ctx.font = `bold ${watermarkConfig.fontSize || 14}px Pretendard, sans-serif`;
-          ctx.textAlign = watermarkConfig.position.includes('right') ? 'right' : watermarkConfig.position.includes('center') ? 'center' : 'left';
-          if (watermarkConfig.textShadow) {
-            ctx.shadowColor = 'rgba(0,0,0,0.8)';
-            ctx.shadowBlur = 4;
-          }
-          ctx.fillText(watermarkConfig.text, wx, wy + 20);
+      if (watermarkConfig.type === 'image' && watermarkConfig.imageUrl) {
+        const logoImg = new Image();
+        logoImg.src = watermarkConfig.imageUrl;
+        if (logoImg.complete && logoImg.naturalWidth > 0) {
+          const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+          const targetH = targetW / aspect;
+          ctx.drawImage(logoImg, wx, wy, targetW, targetH);
         }
-        ctx.restore();
+      } else if (watermarkConfig.type === 'text' && watermarkConfig.text) {
+        ctx.fillStyle = watermarkConfig.textColor || '#ffffff';
+        ctx.font = `bold ${watermarkConfig.fontSize || 14}px Pretendard, sans-serif`;
+        ctx.textAlign = watermarkConfig.position.includes('right') ? 'right' : watermarkConfig.position.includes('center') ? 'center' : 'left';
+        if (watermarkConfig.textShadow) {
+          ctx.shadowColor = 'rgba(0,0,0,0.8)';
+          ctx.shadowBlur = 4;
+        }
+        ctx.fillText(watermarkConfig.text, wx, wy + 20);
       }
+      ctx.restore();
     }
   }, [scenes, currentSceneIdx, currentSceneLocalTime, currentTime, watermarkConfig, kenBurnsEnabled]);
 
@@ -244,52 +237,112 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}.${ms}`;
   };
 
-  return (
-    <div className="w-full my-3 bg-slate-900/90 rounded-xl border border-slate-800 shadow-xl overflow-hidden transition-all duration-300">
-      {/* 헤더 토글 바 */}
-      <div
-        onClick={onToggle}
-        className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 cursor-pointer hover:bg-slate-800/80 transition"
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-base">🎬</span>
-          <span className="text-sm font-bold text-slate-100 tracking-wide">
-            실시간 타임라인 & 캔버스 프리뷰 (TIMELINE & REALTIME PREVIEW)
-          </span>
-          <Badge variant="outline" className="text-[11px] bg-blue-950/60 border-blue-800 text-blue-300">
-            총 {scenes.length}개 씬 · {formatTime(totalDuration)}
-          </Badge>
-          {transitionConfig.mode !== 'none' && (
-            <Badge variant="outline" className="text-[10px] bg-purple-950/60 border-purple-800 text-purple-300">
-              트랜지션: {transitionConfig.mode === 'random' ? '🎲 스마트 랜덤' : '🎯 고정'}
-            </Badge>
-          )}
-          {watermarkConfig.enabled && (
-            <Badge variant="outline" className="text-[10px] bg-amber-950/60 border-amber-800 text-amber-300">
-              워터마크 활성
-            </Badge>
-          )}
-        </div>
+  const rulerTicks = useMemo(() => {
+    const ticksCount = Math.ceil(totalDuration) + 1;
+    return Array.from({ length: ticksCount }, (_, i) => i);
+  }, [totalDuration]);
 
+  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!timelineTracksRef.current) return;
+    const rect = timelineTracksRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickRatio = Math.max(0, Math.min(1, clickX / rect.width));
+    const newTime = clickRatio * totalDuration;
+    setCurrentTime(newTime);
+  };
+
+  const pxPerSecond = 80 * zoomLevel;
+  const timelineContentWidth = Math.max(800, totalDuration * pxPerSecond);
+
+  return (
+    <div className="w-full my-4 bg-card rounded-2xl border border-border shadow-md overflow-hidden transition-all duration-200 select-none">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border text-foreground">
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+              <Undo2 className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+              <Redo2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+          <div className="w-px h-4 bg-border mx-1" />
+          <div className="flex items-center gap-1 bg-background/80 rounded-lg p-0.5 border border-border shadow-2xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsPlaying((p) => !p)}
+              className="h-7 px-2.5 text-xs font-bold text-primary hover:bg-primary/10"
+            >
+              {isPlaying ? <Pause className="w-3.5 h-3.5 mr-1 fill-primary" /> : <Play className="w-3.5 h-3.5 mr-1 fill-primary" />}
+              {isPlaying ? '일시정지' : '재생'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { setIsPlaying(false); setCurrentTime(0); }}
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+          <div className="px-2.5 py-1 bg-background border border-border rounded-lg text-xs font-mono font-bold text-foreground tracking-tight shadow-2xs">
+            <span className="text-primary">{formatTime(currentTime)}</span>
+            <span className="text-muted-foreground mx-1">/</span>
+            <span>{formatTime(totalDuration)}</span>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+            title="현재 위치에서 분할"
+            onClick={() => onSplitScene?.(currentSceneIdx, currentSceneLocalTime)}
+          >
+            <Scissors className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">분할</span>
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-background border border-border rounded-lg">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              onClick={() => setZoomLevel(z => Math.max(0.5, z - 0.25))}
+            >
+              <ZoomOut className="w-3 h-3" />
+            </Button>
+            <span className="text-[11px] font-mono font-semibold w-8 text-center text-muted-foreground">
+              {zoomLevel.toFixed(1)}x
+            </span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              onClick={() => setZoomLevel(z => Math.min(3.0, z + 0.25))}
+            >
+              <ZoomIn className="w-3 h-3" />
+            </Button>
+          </div>
+          <Badge variant="outline" className="text-[11px] bg-primary/10 border-primary/30 text-primary font-bold">
+            총 {scenes.length}개 씬
+          </Badge>
           <Button
             variant="ghost"
             size="sm"
-            className="text-xs text-slate-400 hover:text-white h-7 px-2"
+            onClick={onToggle}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
-            {isOpen ? <><ChevronUp className="w-4 h-4 mr-1" /> 접기</> : <><ChevronDown className="w-4 h-4 mr-1" /> 펼치기</>}
+            {isOpen ? <><ChevronUp className="w-4 h-4" /> 접기</> : <><ChevronDown className="w-4 h-4" /> 펼치기</>}
           </Button>
         </div>
       </div>
-
-      {/* 펼쳐졌을 때 내용 */}
       {isOpen && (
-        <div className="p-4 border-t border-slate-800 flex flex-col md:flex-row gap-5 items-stretch bg-slate-950/50">
-          {/* 좌측: 캔버스 플레이어 뷰어 */}
-          <div className="flex flex-col items-center justify-center bg-slate-950 rounded-xl p-3 border border-slate-800 shrink-0 shadow-inner">
+        <div className="p-4 flex flex-col md:flex-row gap-4 items-stretch bg-card">
+          <div className="flex flex-col items-center justify-center bg-muted/30 rounded-xl p-3 border border-border shrink-0 shadow-inner">
             <div
-              className={`relative overflow-hidden rounded-lg bg-black border border-slate-800 flex items-center justify-center ${
-                aspectRatio === '9:16' ? 'w-[180px] h-[320px]' : 'w-[320px] h-[180px]'
+              className={`relative overflow-hidden rounded-xl bg-black border border-border flex items-center justify-center shadow-lg ${
+                aspectRatio === '9:16' ? 'w-[160px] h-[284px]' : 'w-[284px] h-[160px]'
               }`}
             >
               <canvas
@@ -299,147 +352,173 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
                 className="w-full h-full object-contain"
               />
             </div>
-
-            {/* 플레이어 하단 컨트롤 */}
-            <div className="flex items-center gap-3 mt-3 w-full justify-between px-1">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsPlaying((p) => !p)}
-                className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold"
-              >
-                {isPlaying ? <Pause className="w-3.5 h-3.5 mr-1" /> : <Play className="w-3.5 h-3.5 mr-1" />}
-                {isPlaying ? '일시정지' : '재생'}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setIsPlaying(false);
-                  setCurrentTime(0);
-                }}
-                className="h-8 px-2 text-xs text-slate-400 hover:text-white"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </Button>
-
-              <span className="text-xs font-mono text-slate-300 font-medium">
-                {formatTime(currentTime)} / {formatTime(totalDuration)}
-              </span>
-
-              <label className="text-[11px] text-slate-400 flex items-center gap-1 cursor-pointer">
+            <div className="flex items-center justify-between w-full mt-2.5 px-1 text-[11px] text-muted-foreground">
+              <label className="flex items-center gap-1.5 cursor-pointer font-medium hover:text-foreground">
                 <input
                   type="checkbox"
                   checked={kenBurnsEnabled}
                   onChange={(e) => setKenBurnsEnabled(e.target.checked)}
+                  className="rounded border-border text-primary accent-primary"
                 />
-                켄번스
+                <span>켄번스 모션</span>
               </label>
+              <span className="font-mono font-bold text-foreground">Scene #{currentSceneIdx + 1}</span>
             </div>
           </div>
-
-          {/* 우측: 멀티트랙 타임라인 */}
-          <div className="flex-1 flex flex-col justify-between bg-slate-900/80 rounded-xl p-3.5 border border-slate-800">
-            {/* 타임라인 눈금 & 트랙 영역 */}
-            <div className="space-y-3">
-              {/* 시크 바 (Scrubber) */}
-              <div className="relative w-full h-6 bg-slate-950 rounded-lg border border-slate-800 overflow-hidden cursor-pointer">
-                <input
-                  type="range"
-                  min={0}
-                  max={totalDuration}
-                  step={0.05}
-                  value={currentTime}
-                  onChange={(e) => setCurrentTime(Number(e.target.value))}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                {/* 진행률 바 */}
-                <div
-                  className="h-full bg-blue-600/30 border-r-2 border-blue-400 pointer-events-none transition-all"
-                  style={{ width: `${(currentTime / totalDuration) * 100}%` }}
-                />
-                <div className="absolute inset-0 flex items-center justify-between px-3 text-[10px] text-slate-500 font-mono pointer-events-none">
-                  <span>0:00.0</span>
-                  <span>{formatTime(totalDuration / 2)}</span>
-                  <span>{formatTime(totalDuration)}</span>
+          <div className="flex-1 flex flex-col min-w-0 bg-background rounded-xl border border-border overflow-hidden shadow-sm">
+            <div className="flex flex-1 overflow-x-auto custom-scrollbar relative">
+              <div className="w-[120px] shrink-0 bg-muted/40 border-r border-border z-20 flex flex-col select-none">
+                <div className="h-7 border-b border-border flex items-center px-3 bg-muted/60">
+                  <span className="text-[10px] font-bold text-muted-foreground">트랙 (TRACKS)</span>
+                </div>
+                <div className="h-14 border-b border-border px-2.5 flex items-center justify-between bg-card">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded">V1</span>
+                    <span className="text-xs font-semibold text-foreground">미디어</span>
+                  </div>
+                  <Video className="w-3.5 h-3.5 text-muted-foreground" />
+                </div>
+                <div className="h-10 border-b border-border px-2.5 flex items-center justify-between bg-card">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded">Aa</span>
+                    <span className="text-xs font-semibold text-foreground">자막</span>
+                  </div>
+                  <Type className="w-3.5 h-3.5 text-muted-foreground" />
+                </div>
+                <div className="h-10 border-b border-border px-2.5 flex items-center justify-between bg-card">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded">A1</span>
+                    <span className="text-xs font-semibold text-foreground">보이스</span>
+                  </div>
+                  <Volume2 className="w-3.5 h-3.5 text-muted-foreground" />
                 </div>
               </div>
-
-              {/* 트랙 1: 🎬 비디오 / 이미지 씬 블록 트랙 */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold px-1">
-                  <span>🎬 비디오 / 이미지 트랙</span>
-                  <span className="text-[10px] text-blue-400">Scene #{currentSceneIdx + 1} 활성</span>
+              <div 
+                ref={timelineTracksRef}
+                onClick={handleTimelineClick}
+                style={{ width: `${timelineContentWidth}px` }}
+                className="relative flex-1 flex flex-col bg-background cursor-pointer"
+              >
+                <div className="h-7 border-b border-border bg-muted/20 flex relative">
+                  {rulerTicks.map((sec) => (
+                    <div
+                      key={sec}
+                      style={{ left: `${(sec / totalDuration) * 100}%` }}
+                      className="absolute top-0 bottom-0 border-l border-border/80 flex items-start pl-1 pt-0.5 pointer-events-none"
+                    >
+                      <span className="text-[9px] font-mono font-medium text-muted-foreground">
+                        {formatTime(sec)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div className="w-full h-12 bg-slate-950 rounded-lg border border-slate-800 p-1 flex gap-1 overflow-x-auto">
+                {/* 2. Track 1: Video / Image Clips Lane */}
+                <div className="h-14 border-b border-border/60 p-1 flex gap-1 bg-muted/5 relative">
                   {scenes.map((scene, idx) => {
                     const dur = sceneDurations[idx];
                     const widthPercent = (dur / totalDuration) * 100;
                     const isActive = idx === currentSceneIdx;
+
                     return (
                       <div
                         key={scene.id}
-                        onClick={() => {
-                          let t = 0;
-                          for (let k = 0; k < idx; k++) t += sceneDurations[k];
-                          setCurrentTime(t);
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentTime(sceneStartTimes[idx]);
+                          onSelectScene?.(idx);
                         }}
                         style={{ width: `${widthPercent}%` }}
-                        className={`h-full rounded-md border flex items-center justify-between px-2 cursor-pointer transition relative overflow-hidden shrink-0 min-w-[60px] ${
+                        className={`h-full rounded-lg border flex items-center justify-between px-2 cursor-pointer transition relative overflow-hidden shrink-0 ${
                           isActive
-                            ? 'bg-blue-900/60 border-blue-400 shadow-md'
-                            : 'bg-slate-800/80 border-slate-700 hover:bg-slate-750'
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md font-bold'
+                            : 'bg-card border-border hover:border-primary/50 text-foreground'
                         }`}
                       >
                         {scene.media_url && (
                           <img
                             src={scene.media_url}
                             alt=""
-                            className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none"
+                            className="absolute inset-0 w-full h-full object-cover opacity-25 pointer-events-none"
                           />
                         )}
-                        <span className="text-[10px] font-bold text-slate-200 truncate z-10">
-                          #{scene.scene_id}
+                        <span className="text-[11px] truncate z-10 font-semibold">
+                          #{scene.scene_id} {scene.script ? scene.script.slice(0, 12) + '...' : ''}
                         </span>
-                        <span className="text-[9px] font-mono text-slate-400 z-10">{dur}s</span>
+                        <span className={`text-[10px] font-mono z-10 ${isActive ? 'text-blue-100' : 'text-muted-foreground'}`}>
+                          {dur}s
+                        </span>
                       </div>
                     );
                   })}
                 </div>
-              </div>
 
-              {/* 트랙 2: 🎙️ 나레이션 & 대사 오디오 트랙 */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold px-1">
-                  <span>🎙️ 나레이션 / 보이스 트랙</span>
-                  <span className="text-[10px] text-emerald-400">TTS 싱크 정렬</span>
-                </div>
-                <div className="w-full h-8 bg-slate-950 rounded-lg border border-slate-800 p-1 flex gap-1 overflow-x-auto">
+                {/* 3. Track 2: Subtitle Clips Lane */}
+                <div className="h-10 border-b border-border/60 p-1 flex gap-1 bg-muted/5 relative">
                   {scenes.map((scene, idx) => {
                     const dur = sceneDurations[idx];
                     const widthPercent = (dur / totalDuration) * 100;
                     return (
                       <div
                         key={scene.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentTime(sceneStartTimes[idx]);
+                        }}
                         style={{ width: `${widthPercent}%` }}
-                        className="h-full bg-emerald-950/60 border border-emerald-800/60 rounded flex items-center px-1.5 min-w-[60px] shrink-0"
+                        className="h-full bg-amber-500/15 border border-amber-400/40 rounded-md flex items-center px-2 shrink-0 overflow-hidden text-amber-900 dark:text-amber-200"
                       >
-                        <Volume2 className="w-3 h-3 text-emerald-400 mr-1 shrink-0" />
-                        <span className="text-[9px] text-emerald-200 truncate font-mono">
-                          {scene.script || `대사 #${scene.scene_id}`}
+                        <span className="text-[10px] font-medium truncate font-mono">
+                          {scene.script || `자막 #${scene.scene_id}`}
                         </span>
                       </div>
                     );
                   })}
                 </div>
+
+                {/* 4. Track 3: Voice / TTS Audio Lane */}
+                <div className="h-10 border-b border-border/60 p-1 flex gap-1 bg-muted/5 relative">
+                  {scenes.map((scene, idx) => {
+                    const dur = sceneDurations[idx];
+                    const widthPercent = (dur / totalDuration) * 100;
+                    return (
+                      <div
+                        key={scene.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentTime(sceneStartTimes[idx]);
+                        }}
+                        style={{ width: `${widthPercent}%` }}
+                        className="h-full bg-emerald-500/15 border border-emerald-400/40 rounded-md flex items-center px-2 shrink-0 overflow-hidden text-emerald-900 dark:text-emerald-200"
+                      >
+                        <Volume2 className="w-3 h-3 mr-1 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="text-[10px] font-medium truncate font-mono">
+                          {scene.script ? `TTS: ${scene.script.slice(0, 10)}...` : '오디오 대기'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 🔴 Pixeling Red Playhead Needle & Line */}
+                <div
+                  style={{ left: `${(currentTime / totalDuration) * 100}%` }}
+                  className="absolute top-0 bottom-0 z-30 pointer-events-none flex flex-col items-center -ml-[1px]"
+                >
+                  <div className="w-3 h-3 bg-red-500 rounded-b-sm shadow-md" />
+                  <div className="w-[2px] flex-1 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                </div>
               </div>
             </div>
 
-            {/* 타임라인 하단 안내 텍스트 */}
-            <div className="pt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-800/60 mt-3">
-              <span>💡 팁: [스페이스바]를 눌러 언제든 재생/일시정지할 수 있습니다.</span>
-              <span className="text-slate-400">자석 스냅(Magnet Snap) 활성화됨</span>
+            {/* Bottom Status Bar */}
+            <div className="px-3 py-1.5 bg-muted/30 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span>[스페이스바] 재생/정지 · 타임라인 클릭 시 해당 위치로 즉시 이동</span>
+              </span>
+              <span className="font-mono text-primary font-bold">
+                Playhead: {formatTime(currentTime)} ({Math.round((currentTime / totalDuration) * 100)}%)
+              </span>
             </div>
           </div>
         </div>
@@ -447,4 +526,5 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
     </div>
   );
 };
+
 export default CollapsibleTimelinePreview;
