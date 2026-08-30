@@ -123,48 +123,27 @@ class CreativeEngine:
         if style_prompt:
             style_context = f'GLOBAL STYLE: "{style_prompt}"'
 
-        prompt = f"""
-        You are an expert AI Video Director.
-        Your goal is to split the input script into meaningful narrative scenes and write a **Visual Prompt (Image)** and a **Video Prompt (Motion)** for each scene.
-        
-        METHOD: {split_method.upper()}
-        {style_context}
-        {pacing_instruction}
-        Target Aspect Ratio: {aspect_ratio}
+        prompt = f"""You are an expert AI Video Director.
+Split the input script into 3 to 5 scenes and write an English Visual Prompt (Image) and Video Motion Prompt for each scene.
 
-        CRITICAL SPLITTING RULES:
-        1. **NEVER output 1 scene per single line/sentence** unless the input script only has 1 sentence total. You MUST intelligently combine lines that share the same context or setting.
-        2. The "script" field of each scene must contain the full combined Korean text for that scene.
+[RULES]
+1. Combine 2 to 3 sentences into 1 scene. Output 3 to 5 scenes total.
+2. 'script': Combined Korean script for this scene.
+3. 'visual_prompt': Detailed ENGLISH description starting with '{aspect_ratio}, [Angle], [Subject+Action], [Setting], [Lighting], {style_prompt}'. Never repeat Korean text.
+4. 'video_prompt': Concise English camera movement (e.g. 'Camera slowly zooms in, subtle cinematic motion').
 
-        INSTRUCTIONS FOR PROMPTS:
-        0. **Cultural & Era Context Extraction**:
-           - Deduce the exact cultural/historical era from the script (e.g. Joseon Dynasty Korea, Modern Seoul, Sci-Fi).
-           - Characters, clothing (Hanbok), architecture (Hanok), props MUST accurately reflect this era.
-        1. **visual_prompt (Image Prompt)**: 
-           - MUST BE IN DETAILED VIVID ENGLISH. DO NOT copy or repeat the Korean script verbatim.
-           - Structure: `[Aspect Ratio], [Camera Angle/Shot Type], [Detailed Subject + Action + Clothing], [Environment/Setting/Architecture], [Lighting/Atmosphere], [Art Style]`
-           - Inject Global Style at the end.
-        2. **video_prompt (Motion Prompt)**:
-           - MUST BE IN ENGLISH: Focus STRICTLY on camera movement (panning, zooming, tracking) and subject motion.
-           - Keep it concise and cinematic (e.g. "Camera slowly zooms in, scholar bows respectfully as villagers gather around").
+Input Script:
+{text}
 
-        CRITICAL TARGET SCENE COUNT:
-        - For 60-second shorts or short stories (5-10 sentences), group them into **3 to 5 cohesive scenes total**.
-        - NEVER output 1 scene per line. Merge 2 to 3 consecutive sentences per scene.
-
-        Input Script:
-        {text}
-
-        Output ONLY a valid JSON list of objects:
-        [
-            {{
-                "scene_id": 1,
-                "script": "...",
-                "visual_prompt": "{aspect_ratio}, ...",
-                "video_prompt": "..."
-            }}
-        ]
-        """
+Output JSON Array ONLY:
+[
+  {{
+    "scene_id": 1,
+    "script": "...",
+    "visual_prompt": "{aspect_ratio}, ...",
+    "video_prompt": "..."
+  }}
+]"""
         
         # 1. 작업 환경 설정에 지정된 모델(DB Settings)을 그대로 실시간 실행
         full_model_name = target_model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None)
