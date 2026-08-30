@@ -109,11 +109,14 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   }, [scenes]);
 
   const totalDurationMs = useMemo(() => {
-    return Math.round(normalizedTimelineScenes.reduce((acc, s) => acc + (s.duration || 3.5), 0) * 1000) || 5000;
+    if (!normalizedTimelineScenes || normalizedTimelineScenes.length === 0) return 0;
+    return Math.round(normalizedTimelineScenes.reduce((acc, s) => acc + (s.duration || 3.5), 0) * 1000);
   }, [normalizedTimelineScenes]);
 
-  // AudioPackage 구성 (나레이션 오디오 클립 파이프라인)
+  // AudioPackage 구성 (나레이션 오디오 클립 파이프라인 - 실제 오디오가 생성된 경우에만 구성)
   const audioPackage = useMemo(() => {
+    if (!normalizedTimelineScenes || normalizedTimelineScenes.length === 0) return null;
+    
     let totalMs = 0;
     const clips = normalizedTimelineScenes
       .filter((s) => s.audioPath || s.audioUrl)
@@ -135,6 +138,8 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
         };
       });
 
+    if (clips.length === 0) return null;
+
     return {
       folderPath: '',
       media: {
@@ -150,8 +155,9 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
     };
   }, [normalizedTimelineScenes, totalDurationMs]);
 
-  // SRT 자막 엔트리 파이프라인
+  // SRT 자막 엔트리 파이프라인 (씬이 있을 때만 생성)
   const srtEntries = useMemo(() => {
+    if (!normalizedTimelineScenes || normalizedTimelineScenes.length === 0) return [];
     return normalizedTimelineScenes.map((s, idx) => ({
       id: idx + 1,
       startTime: s.startTime,

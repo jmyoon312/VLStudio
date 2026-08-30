@@ -168,15 +168,20 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
       color: COLORS.subtitle,
     }))
 
-    // ── Narration 트랙 ──
-    const narrationClips = pkg.media?.video ? [{
-      id: 'narration',
-      startMs: 0,
-      endMs: pkg.media.video.durationMs || 0,
-      audioPath: pkg.media.video.path,
-      filename: pkg.media.video.filename,
-      color: COLORS.narration,
-    }] : []
+    // ── Narration 트랙 (실제 오디오 파일이나 narration clips가 있을 때만 클립 생성) ──
+    const narrationClips = (pkg.tracks?.narration?.clips?.length > 0)
+      ? pkg.tracks.narration.clips.map(c => ({
+          ...c,
+          color: COLORS.narration
+        }))
+      : (pkg.media?.video?.path ? [{
+          id: 'narration',
+          startMs: 0,
+          endMs: pkg.media.video.durationMs || 0,
+          audioPath: pkg.media.video.path,
+          filename: pkg.media.video.filename,
+          color: COLORS.narration,
+        }] : [])
 
     // ── Voice 트랙 (그룹 + 캐릭터별 sub-track) ──
     const voiceSubTracks = (pkg.voices || []).map((v, vi) => {
