@@ -1032,7 +1032,8 @@ const CreativeStudio = () => {
                 const fn = apiObj.flowGenerateImage || apiObj.generateImage;
                 const res = await fn({
                     prompt: finalPrompt,
-                    aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
+                    aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9',
+                    batchCount: 1
                 });
 
                 if (res?.success && (res?.images?.[0]?.base64 || res?.base64 || res?.url || res?.image_url)) {
