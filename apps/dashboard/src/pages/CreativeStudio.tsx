@@ -1287,6 +1287,23 @@ const CreativeStudio = () => {
         renderSceneMutation.mutate(payload);
     };
 
+    const syncSubtitlesToDisk = async (targetScenes: SceneSegment[]) => {
+        if (!currentProjectName || targetScenes.length === 0) return;
+        try {
+            await api.post('/creative/sync-subtitles', {
+                project_name: currentProjectName,
+                scenes: targetScenes.map(s => ({
+                    scene_id: s.scene_id,
+                    script: s.script,
+                    duration: s.duration || 5.0
+                }))
+            });
+            console.log(`[Subtitles] Synced SRT to disk: 05_Exports/${currentProjectName}/subtitles/subtitles.srt`);
+        } catch (e) {
+            console.warn("Subtitles sync warning:", e);
+        }
+    };
+
     const generateTTSMutation = useMutation({
         mutationFn: async (data: { id: string, sceneId: number, script: string }) => {
             const res = await apiLong.post('/creative/scene-tts', {
@@ -1307,8 +1324,12 @@ const CreativeStudio = () => {
             };
         },
         onSuccess: ({ id, sceneId, url, path, duration }) => {
-            updateScene(id, { audio_url: url, audio_path: path, duration: duration, audioStatus: 'completed' });
             toast.success(`Scene #${sceneId} TTS 생성 완료! (${duration}초)`);
+            setScenes(prev => {
+                const next = prev.map(s => s.id === id ? { ...s, audio_url: url, audio_path: path, duration: duration, audioStatus: 'completed' as const } : s);
+                syncSubtitlesToDisk(next);
+                return next;
+            });
         },
         onError: (err: any, variables) => {
             updateScene(variables.id, { audioStatus: 'failed' });
@@ -1346,11 +1367,15 @@ const CreativeStudio = () => {
             return Promise.all(promises);
         },
         onSuccess: (results) => {
-            setScenes(prev => prev.map(s => {
-                const res = results.find(r => r.scene_id === s.scene_id);
-                return res ? { ...s, audio_url: res.audio_url, audio_path: res.audio_path, duration: res.duration, audioStatus: 'completed' } : s;
-            }));
-            toast.success("전체 TTS 생성 완료! 씬별 재생 지속시간이 동기화되었습니다.");
+            setScenes(prev => {
+                const next = prev.map(s => {
+                    const res = results.find(r => r.scene_id === s.scene_id);
+                    return res ? { ...s, audio_url: res.audio_url, audio_path: res.audio_path, duration: res.duration, audioStatus: 'completed' as const } : s;
+                });
+                syncSubtitlesToDisk(next);
+                return next;
+            });
+            toast.success("전체 TTS 생성 완료! SRT 자막 파일(subtitles.srt)이 자동 생성되었습니다.");
         },
         onError: (err) => {
             toast.error("배치 TTS 생성 실패: " + err);

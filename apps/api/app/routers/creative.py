@@ -614,6 +614,76 @@ def init_project_folder(
         
     return {"status": "success", "project_dir": project_dir, "project_name": req.project_name}
 
+class SyncSubtitlesRequest(BaseModel):
+    project_name: str
+    scenes: List[dict]
+
+def format_srt_timestamp(ms: int) -> str:
+    hours = ms // 3600000
+    ms %= 3600000
+    minutes = ms // 60000
+    ms %= 60000
+    seconds = ms // 1000
+    millis = ms % 1000
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
+
+@router.post("/sync-subtitles")
+def sync_project_subtitles(
+    req: SyncSubtitlesRequest,
+    db: Session = Depends(database.get_db)
+):
+    settings = crud.get_settings(db)
+    root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+    sub_dir = os.path.join(root, "05_Exports", req.project_name, "subtitles")
+    os.makedirs(sub_dir, exist_ok=True)
+    srt_path = os.path.join(sub_dir, "subtitles.srt")
+
+    srt_blocks = []
+    entries = []
+    acc_ms = 0
+    idx = 1
+
+    for s in req.scenes:
+        script = str(s.get("script") or "").strip()
+        if not script:
+            continue
+        try:
+            dur = float(s.get("duration", 5.0) or 5.0)
+        except Exception:
+            dur = 5.0
+        dur_ms = int(round(dur * 1000))
+        start_ms = acc_ms
+        end_ms = acc_ms + dur_ms
+        acc_ms = end_ms
+
+        start_str = format_srt_timestamp(start_ms)
+        end_str = format_srt_timestamp(end_ms)
+
+        srt_blocks.append(f"{idx}\n{start_str} --> {end_str}\n{script}\n")
+        entries.append({
+            "id": idx,
+            "scene_id": s.get("scene_id", idx),
+            "startTime": start_str,
+            "endTime": end_str,
+            "startMs": start_ms,
+            "endMs": end_ms,
+            "durationMs": dur_ms,
+            "text": script
+        })
+        idx += 1
+
+    srt_content = "\n".join(srt_blocks)
+    with open(srt_path, "w", encoding="utf-8") as f:
+        f.write(srt_content)
+
+    return {
+        "status": "success",
+        "srt_path": srt_path,
+        "srt_content": srt_content,
+        "entries": entries,
+        "total_duration_ms": acc_ms
+    }
+
 @router.post("/scene-tts")
 async def generate_scene_tts(
     request: SceneTTSRequest,
