@@ -614,32 +614,10 @@ const CreativeStudio = () => {
         setIsFlowBatchGenerating(true);
         toast.info("Google Flow AI를 통해 전체 씬 이미지 일괄 생성을 시작합니다...");
 
-        const apiObj = (window as any).electronAPI;
         for (let i = 0; i < scenes.length; i++) {
             const scene = scenes[i];
             if (!scene.visual_prompt) continue;
-            updateScene(scene.id, { visualStatus: 'generating' });
-            try {
-                if (apiObj?.generateImage) {
-                    const prompt = `${stylePrompt ? `${stylePrompt}, ` : ''}${scene.visual_prompt}`;
-                    const res = await apiObj.generateImage({
-                        prompt,
-                        aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
-                    });
-                    if (res?.success && res?.images?.[0]?.base64) {
-                        updateScene(scene.id, { visualStatus: 'completed', media_url: res.images[0].base64 });
-                    } else if (res?.base64) {
-                        updateScene(scene.id, { visualStatus: 'completed', media_url: res.base64 });
-                    } else {
-                        await handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt);
-                    }
-                } else {
-                    await handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt);
-                }
-            } catch (err: any) {
-                console.error(`Scene #${scene.scene_id} Flow image error:`, err);
-                updateScene(scene.id, { visualStatus: 'failed' });
-            }
+            await handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt);
         }
         setIsFlowBatchGenerating(false);
         toast.success("전체 Flow 이미지 일괄 생성이 완료되었습니다!");
@@ -1031,8 +1009,30 @@ const CreativeStudio = () => {
 
                 if (res?.success && (res?.images?.[0]?.base64 || res?.base64 || res?.url || res?.image_url)) {
                     const mediaUrl = res.images?.[0]?.base64 || res.base64 || res.url || res.image_url;
-                    updateScene(id, { visualStatus: 'completed', media_url: mediaUrl, viewMode: 'source' });
-                    toast.success(`Scene #${sceneId} Flow 이미지 생성 완료!`);
+                    
+                    // 05_Exports 디스크에 자동 저장
+                    let localPath = '';
+                    if (mediaUrl.startsWith('data:image')) {
+                        try {
+                            const saveRes = await api.post('/creative/save-base64-asset', {
+                                project_name: currentProjectName,
+                                scene_id: sceneId,
+                                base64: mediaUrl,
+                                asset_type: 'image'
+                            });
+                            localPath = saveRes.data?.local_path || '';
+                        } catch (saveErr) {
+                            console.warn('[Save Image Error]', saveErr);
+                        }
+                    }
+
+                    updateScene(id, { 
+                        visualStatus: 'completed', 
+                        media_url: mediaUrl, 
+                        media_path: localPath || undefined,
+                        viewMode: 'source' 
+                    });
+                    toast.success(`Scene #${sceneId} Flow 이미지 생성 및 저장 완료!`);
                     return;
                 } else if (res?.error) {
                     throw new Error(res.error);

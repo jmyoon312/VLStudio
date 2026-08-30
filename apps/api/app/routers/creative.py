@@ -1209,3 +1209,45 @@ def generate_script(
              raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
         raise HTTPException(status_code=500, detail=f"Generation Failed: {str(e)}")
 
+
+class SaveBase64AssetRequest(BaseModel):
+    project_name: Optional[str] = "project_default"
+    scene_id: int
+    base64: str
+    asset_type: str = "image" # "image" or "video"
+
+@router.post("/save-base64-asset")
+def save_base64_asset(
+    req: SaveBase64AssetRequest,
+    db: Session = Depends(database.get_db)
+):
+    try:
+        import base64
+        import time
+        settings = crud.get_settings(db)
+        root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+        
+        target_dir = os.path.join(root, "05_Exports", req.project_name, "images" if req.asset_type == "image" else "videos")
+        os.makedirs(target_dir, exist_ok=True)
+        
+        ext = "png" if req.asset_type == "image" else "mp4"
+        raw_b64 = req.base64
+        if "base64," in raw_b64:
+            raw_b64 = raw_b64.split("base64,")[1]
+            
+        file_bytes = base64.b64decode(raw_b64)
+        filename = f"scene_{req.scene_id}_{int(time.time())}.{ext}"
+        filepath = os.path.join(target_dir, filename)
+        
+        with open(filepath, "wb") as f:
+            f.write(file_bytes)
+            
+        return {
+            "status": "success",
+            "local_path": filepath,
+            "filename": filename
+        }
+    except Exception as e:
+        logger.error(f"Failed to save base64 asset: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

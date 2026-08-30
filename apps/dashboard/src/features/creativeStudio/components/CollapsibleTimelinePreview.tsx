@@ -169,6 +169,8 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
     if (!normalizedTimelineScenes || normalizedTimelineScenes.length === 0) return [];
     return normalizedTimelineScenes.map((s, idx) => ({
       id: idx + 1,
+      startMs: s.startMs,
+      endMs: s.endMs,
       startTime: s.startTime,
       endTime: s.endTime,
       text: s.script || `자막 #${s.scene_id}`

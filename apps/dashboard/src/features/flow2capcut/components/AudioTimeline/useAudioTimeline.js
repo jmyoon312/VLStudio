@@ -160,13 +160,27 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
     const videoT2VClips = buildVideoClips('t2v')
 
     // ── 자막 트랙 ──
-    const subtitleClips = (srtEntries || []).map((e, i) => ({
-      id: `sub-${i}`,
-      startMs: (e.startMs ?? e.start * 1000) || 0,
-      endMs: (e.endMs ?? e.end * 1000) || 0,
-      label: e.text || '',
-      color: COLORS.subtitle,
-    }))
+    const subtitleClips = (srtEntries || []).map((e, i) => {
+      let startMs = 0
+      if (typeof e.startMs === 'number') startMs = e.startMs
+      else if (typeof e.start === 'number') startMs = e.start * 1000
+      else if (typeof e.startTime === 'number') startMs = e.startTime * 1000
+      else if (typeof e.startTime === 'string') startMs = parseTimeToSeconds(e.startTime) * 1000
+      
+      let endMs = startMs + 3000
+      if (typeof e.endMs === 'number') endMs = e.endMs
+      else if (typeof e.end === 'number') endMs = e.end * 1000
+      else if (typeof e.endTime === 'number') endMs = e.endTime * 1000
+      else if (typeof e.endTime === 'string') endMs = parseTimeToSeconds(e.endTime) * 1000
+      
+      return {
+        id: `sub-${i}`,
+        startMs: Math.round(startMs),
+        endMs: Math.round(endMs),
+        label: e.text || e.label || `자막 #${i + 1}`,
+        color: COLORS.subtitle,
+      }
+    })
 
     // ── Narration 트랙 (실제 오디오 파일이나 narration clips가 있을 때만 클립 생성) ──
     const narrationClips = (pkg.tracks?.narration?.clips?.length > 0)

@@ -342,12 +342,14 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         })
       }
 
-      // 2. 기존 blob URL 스냅샷 (fallback용)
+      // 2. 기존 이미지 URL 스냅샷 (전체 이미지 src 및 data-src)
       let existingBlobs = []
+      let existingImages = []
       try {
-        existingBlobs = await flowView.webContents.executeJavaScript(
-          `Array.from(document.querySelectorAll('img[src^="blob:"]')).map(img => img.src)`
-        ) || []
+        existingImages = await flowView.webContents.executeJavaScript(`
+          Array.from(document.querySelectorAll('img')).map(img => img.src || img.getAttribute('data-src')).filter(Boolean)
+        `) || []
+        existingBlobs = existingImages.filter(s => s.startsWith('blob:'))
       } catch {}
 
       // 3. 프롬프트 입력 (Slate.js 에디터 — AutoFlow 역공학)
@@ -755,39 +757,81 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       console.log('[Flow API] [DOM+Net] expectedCount updated to', expectedImageCount,
         ', waiting for API response(s)...')
 
-      // 4. 네트워크 응답 대기
-      const netResult = await responsePromise
+      // 4. 네트워크 응답 및 빠른 Flow DOM 렌더링 동시 감지 (지연 없는 3~5초 즉시 수집)
+      const pollDomForNewImages = async (maxAttempts = 40, intervalMs = 1500) => {
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise(r => setTimeout(r, intervalMs))
+          try {
+            const extracted = await flowView.webContents.executeJavaScript(`
+              (async function() {
+                const existing = ${JSON.stringify(existingImages)};
+                const imgs = Array.from(document.querySelectorAll('img')).filter(img => {
+                  const src = img.src || img.getAttribute('data-src') || '';
+                  if (!src) return false;
+                  if (src.includes('avatar') || src.includes('icon') || src.includes('logo') || src.includes('profile')) return false;
+                  if (existing.includes(src)) return false;
+                  return (src.includes('googleusercontent.com') || src.startsWith('blob:') || src.startsWith('data:image') || img.naturalWidth > 150);
+                });
+
+                if (imgs.length === 0) return null;
+
+                const results = [];
+                for (const img of imgs) {
+                  const src = img.src || img.getAttribute('data-src');
+                  try {
+                    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = img.naturalWidth;
+                      canvas.height = img.naturalHeight;
+                      const ctx = canvas.getContext('2d');
+                      ctx.drawImage(img, 0, 0);
+                      const base64 = canvas.toDataURL('image/png');
+                      if (base64 && base64.length > 500) {
+                        results.push({ base64, mediaId: null });
+                        continue;
+                      }
+                    }
+                    const resp = await fetch(src, { mode: 'cors' }).catch(() => null);
+                    if (resp && resp.ok) {
+                      const blob = await resp.blob();
+                      const base64 = await new Promise(res => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => res(reader.result);
+                        reader.readAsDataURL(blob);
+                      });
+                      if (base64) results.push({ base64, mediaId: null });
+                    }
+                  } catch (e) {}
+                }
+                return results.length > 0 ? results : null;
+              })()
+            `)
+
+            if (extracted && extracted.length > 0) {
+              console.log('[Flow API] [DOM-Watch] Successfully captured', extracted.length, 'new generated images from Flow DOM!')
+              return { success: true, images: extracted }
+            }
+          } catch (e) {}
+        }
+        return null
+      }
+
+      const netResultPromise = responsePromise.then(res => ({ type: 'network', res }))
+      const domResultPromise = pollDomForNewImages().then(res => ({ type: 'dom', res }))
+      
+      const fastest = await Promise.race([netResultPromise, domResultPromise])
+      if (fastest.type === 'dom' && fastest.res?.success) {
+        clearTimeout(generationTimeout)
+        return fastest.res
+      }
+
+      const netResult = fastest.type === 'network' ? fastest.res : (await netResultPromise).res
 
       if (netResult.error) {
         console.warn('[Flow API] [DOM+Net] Network error/timeout:', netResult.message)
-        // Fallback: blob 이미지 폴링 (최대 60초)
-        console.log('[Flow API] [BlobPoll] Falling back to blob image polling...')
-        for (let i = 0; i < 30; i++) {
-          await new Promise(r => setTimeout(r, 2000))
-          try {
-            const currentBlobs = await flowView.webContents.executeJavaScript(
-              `Array.from(document.querySelectorAll('img[src^="blob:"]')).map(img => img.src)`
-            ) || []
-            const newBlobs = currentBlobs.filter(b => !existingBlobs.includes(b))
-            if (newBlobs.length > 0) {
-              console.log('[Flow API] [BlobPoll] New blob found:', newBlobs[0].substring(0, 50))
-              const base64 = await flowView.webContents.executeJavaScript(`
-                (async function() {
-                  try {
-                    const res = await fetch(${JSON.stringify(newBlobs[0])});
-                    const blob = await res.blob();
-                    return new Promise(resolve => {
-                      const reader = new FileReader();
-                      reader.onloadend = () => resolve(reader.result);
-                      reader.readAsDataURL(blob);
-                    });
-                  } catch { return null; }
-                })()
-              `)
-              if (base64) return { success: true, images: [{ base64, mediaId: null }] }
-            }
-          } catch {}
-        }
+        // Fallback: pollDomForNewImages 최종 시도
+        const finalDomCheck = await pollDomForNewImages(6, 1500)
+        if (finalDomCheck?.success) return finalDomCheck
         return { success: false, error: netResult.message || 'Generation failed' }
       }
 

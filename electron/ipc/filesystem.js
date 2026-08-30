@@ -399,8 +399,15 @@ export function registerFilesystemIPC(ipcMain) {
       const rootFolder = config?.path || path.join(process.env.LOCALAPPDATA || '', 'ViraLoop Studio', 'media', '05_Exports')
       const targetFolder = projectName ? path.join(rootFolder, projectName) : rootFolder
       
-      if (!fs.existsSync(targetFolder)) {
-        fs.mkdirSync(targetFolder, { recursive: true })
+      if (!fsSync.existsSync(targetFolder)) {
+        fsSync.mkdirSync(targetFolder, { recursive: true })
+      }
+
+      if (projectName) {
+        for (const sub of ['audio', 'images', 'videos', 'subtitles']) {
+          const subP = path.join(targetFolder, sub)
+          if (!fsSync.existsSync(subP)) fsSync.mkdirSync(subP, { recursive: true })
+        }
       }
 
       const { shell } = await import('electron')
