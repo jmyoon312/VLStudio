@@ -40,30 +40,23 @@ export function isToggleOn(el) {
  */
 export function findAgentToggle(doc) {
   const editor = doc.querySelector("[data-slate-editor='true'], div[contenteditable='true'], textarea")
-  const STATE_SELECTOR = 'button[aria-pressed], [role="switch"][aria-checked], [role="checkbox"][aria-checked]'
   if (editor) {
-    for (let scope = editor.parentElement; scope && scope !== doc.body && scope !== doc.documentElement; scope = scope.parentElement) {
-      const candidates = Array.from(scope.querySelectorAll(STATE_SELECTOR))
-      if (candidates.length === 1) return candidates[0]
-      if (candidates.length > 1) {
-        const named = candidates.filter((el) => {
-          const text = (el.textContent || '').trim()
-          const ariaLabel = el.getAttribute('aria-label') || ''
-          return /agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)
-        })
-        if (named.length > 0) return named[0]
+    let container = editor.parentElement
+    for (let i = 0; i < 6 && container && container !== doc.body && container !== doc.documentElement; i++) {
+      const btns = Array.from(container.querySelectorAll('button, [role="button"], [role="switch"]'))
+      for (const b of btns) {
+        const text = (b.textContent || '').trim()
+        const ariaLabel = (b.getAttribute('aria-label') || '').trim()
+        // 🌟 필터, 검색, 설정, 옵션 등 엉뚱한 버튼은 절대 건드리지 않음!
+        if (text.includes('필터') || ariaLabel.includes('필터') || text.includes('설정') || ariaLabel.includes('설정') || text.includes('검색') || ariaLabel.includes('검색')) continue
+        if (/agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)) {
+          return b
+        }
       }
+      container = container.parentElement
     }
   }
-
-  // Fallback: 전체 페이지에서 에이전트/Agent 버튼 탐색
-  const allBtns = Array.from(doc.querySelectorAll('button, [role="button"], [role="switch"]'))
-  const agentBtns = allBtns.filter((b) => {
-    const text = (b.textContent || '').trim()
-    const ariaLabel = b.getAttribute('aria-label') || ''
-    return /agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)
-  })
-  return agentBtns.length > 0 ? agentBtns[0] : null
+  return null
 }
 
 /** Page expression returning the agent toggle ELEMENT (for trustedClickOnFlowView). */

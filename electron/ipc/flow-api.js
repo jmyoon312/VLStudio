@@ -162,28 +162,20 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       const currentUrl = flowView.webContents.getURL()
       console.log('[Flow API] [DOM+Net] Current Flow URL:', currentUrl)
 
-      const hasProject = currentUrl.includes('/project/') || currentUrl.includes('/tools/flow/')
+      const hasProject = currentUrl.includes('/project/')
       const hasTextarea = await flowView.webContents.executeJavaScript(
-        `!!(document.querySelector('textarea') || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('[contenteditable="true"]'))`
+        `!!(document.querySelector("[data-slate-editor='true']") || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('textarea'))`
       ).catch(() => false)
 
       console.log('[Flow API] [DOM+Net] hasProject:', hasProject, 'hasTextarea:', hasTextarea)
 
-      if (!hasTextarea) {
-        console.log('[Flow API] [DOM+Net] No textarea found — need to create/enter project')
+      if (!hasProject || !hasTextarea) {
+        console.log('[Flow API] [DOM+Net] Not in project or no textarea found — creating/entering project...')
 
-        // Flow 랜딩 페이지면: Enter tool 버튼 클릭으로 프로젝트 생성
+        // Flow 랜딩 페이지면: 새 프로젝트 버튼 클릭으로 프로젝트 생성/진입
         if (!currentUrl.includes('/project/')) {
-          // 이미 Flow 페이지가 아니면 로드
-          if (!currentUrl.includes('labs.google/fx')) {
-            console.log('[Flow API] Navigating to Flow...')
-            await flowView.webContents.loadURL(FLOW_URL)
-            await new Promise(r => setTimeout(r, 3000))
-          }
-
-          // Enter tool 버튼 찾기 + trusted click
-          for (let attempt = 0; attempt < 8; attempt++) {
-            if (attempt > 0) await new Promise(r => setTimeout(r, 2000))
+          for (let attempt = 0; attempt < 10; attempt++) {
+            if (attempt > 0) await new Promise(r => setTimeout(r, 1500))
 
             // 이미 프로젝트로 이동했는지 확인
             const checkUrl = flowView.webContents.getURL()
@@ -192,45 +184,34 @@ export function registerFlowAPIIPC(ipcMain, deps) {
               break
             }
 
-            // New Project 버튼 클릭 (AutoFlow: icon='add_2')
+            // New Project 버튼 클릭 (+ 새 프로젝트 / New project / add 아이콘)
             const enterClicked = await flowView.webContents.executeJavaScript(`
               (function() {
-                // XPath: add_2 아이콘 버튼 (AutoFlow 검증된 방식)
-                try {
-                  const xr = document.evaluate(
-                    "//button[.//i[normalize-space(text())='add_2']] | (//button[.//i[normalize-space(.)='add_2']])",
-                    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
-                  );
-                  if (xr.singleNodeValue) { xr.singleNodeValue.click(); return 'add_2_xpath'; }
-                } catch {}
-
-                const allButtons = document.querySelectorAll('button');
-                // icon 'add_2' 또는 'add'
-                for (const b of allButtons) {
-                  const icons = b.querySelectorAll('i, span.material-icons, span.material-symbols-outlined');
-                  for (const icon of icons) {
-                    const t = icon.textContent.trim();
-                    if (t === 'add_2' || t === 'add' || t === 'arrow_forward') {
-                      b.click(); return 'icon_' + t;
-                    }
-                  }
-                }
-                // 텍스트 버튼
+                // 1. 텍스트 우선 탐색: "새 프로젝트", "+ 새 프로젝트", "New project", "Start"
+                const allButtons = Array.from(document.querySelectorAll('button'));
                 for (const b of allButtons) {
                   const text = b.textContent.trim().toLowerCase();
-                  if (['start', '시작', 'enter', 'new', '새로 만들기', '새 프로젝트', '새프로젝트'].some(k => text.includes(k))) {
-                    b.click(); return 'text_' + text.substring(0, 30);
+                  if (text.includes('새 프로젝트') || text.includes('새프로젝트') || text.includes('new project') || text.includes('enter tool') || text.includes('start')) {
+                    b.click();
+                    return 'text:' + b.textContent.trim().slice(0, 30);
                   }
                 }
-                console.log('[DOM] Buttons:', allButtons.length, Array.from(allButtons).slice(0,10).map(b => b.textContent.trim().substring(0,30)));
+
+                // 2. XPath add/add_2 아이콘
+                try {
+                  const xr = document.evaluate(
+                    "//button[.//i[normalize-space(text())='add' or normalize-space(text())='add_2']] | //button[.//span[contains(@class, 'symbols') and (text()='add' or text()='add_2')]]",
+                    document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+                  );
+                  if (xr.singleNodeValue) { xr.singleNodeValue.click(); return 'xpath_add'; }
+                } catch {}
+
                 return null;
               })()
             `).catch(() => null)
 
             if (enterClicked) {
-              console.log('[Flow API] Enter tool button clicked:', enterClicked)
-              setEnterToolClicked(true) // 무한루프 방지
-
+              console.log('[Flow API] Enter tool / New project clicked:', enterClicked)
               // 프로젝트 생성 대기 (최대 15초)
               for (let w = 0; w < 30; w++) {
                 await new Promise(r => setTimeout(r, 500))
@@ -238,13 +219,11 @@ export function registerFlowAPIIPC(ipcMain, deps) {
                 if (projUrl.includes('/project/')) {
                   const m = projUrl.match(/\/project\/([a-f0-9-]{36})/)
                   if (m) setCapturedProjectId(m[1])
-                  console.log('[Flow API] Project created:', projUrl)
+                  console.log('[Flow API] Project created & entered:', projUrl)
                   break
                 }
               }
               break
-            } else {
-              console.log('[Flow API] Enter tool button not found, attempt', attempt + 1, '/ 8')
             }
           }
         }
@@ -542,17 +521,23 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return { success: false, error: promptResult?.error || 'Prompt injection failed' }
       }
 
-      // batchCount 선택 (x1, x2, x3, x4)
+      // batchCount 선택 (x1, x2, x3, x4) — 오직 입력창 툴바 내부의 버튼만 탐색
       const targetCount = batchCount || 1
       try {
         await flowView.webContents.executeJavaScript(`
           (function() {
             const targetText = 'x' + ${targetCount};
-            const btns = Array.from(document.querySelectorAll('button'));
-            const countBtn = btns.find(b => b.textContent.trim().toLowerCase() === targetText);
-            if (countBtn && !countBtn.disabled) {
-              countBtn.click();
-              console.log('[DOM] Clicked image count button:', targetText);
+            const editor = document.querySelector("[data-slate-editor='true']") || document.querySelector("div[role='textbox']");
+            let container = editor ? editor.parentElement : null;
+            for (let i = 0; i < 5 && container && container !== document.body; i++) {
+              const btns = Array.from(container.querySelectorAll('button'));
+              const countBtn = btns.find(b => b.textContent.trim().toLowerCase() === targetText);
+              if (countBtn && !countBtn.disabled) {
+                countBtn.click();
+                console.log('[DOM] Clicked image count button inside composer:', targetText);
+                break;
+              }
+              container = container.parentElement;
             }
           })()
         `)
