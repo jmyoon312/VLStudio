@@ -887,7 +887,7 @@ const CreativeStudio = () => {
             provider: scriptProvider || undefined,
             model: scriptModel || undefined,
             stylePrompt: stylePrompt || "",
-            split_method: pacingStrategy === 'rule' ? 'custom_rule' : 'ai_smart',
+            split_method: pacingStrategy === 'rule' ? 'custom_rule' : (splitMethod || 'ai_smart'),
             auto_generate_images: autoGenerateImages,
             auto_generate_audio: autoGenerateAudio,
             pacing_config: pacingStrategy === 'rule' ? {

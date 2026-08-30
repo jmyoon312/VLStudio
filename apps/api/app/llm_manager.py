@@ -239,7 +239,6 @@ class LLMClient:
                         if self.opencode_keys:
                             logger.warning(f"[WAIT] [OpenCode] Error on Key #{self.opencode_key_index}: {e}. Rotating...")
                             self.opencode_key_index = (self.opencode_key_index + 1) % len(self.opencode_keys)
-                            import time
                             error_msg = str(e).lower()
                             if "429" in str(e) or "rate limit" in error_msg or "freeusagelimiterror" in error_msg:
                                 time.sleep(5)
@@ -295,7 +294,6 @@ class LLMClient:
                         if self.openrouter_keys:
                             logger.warning(f"[WAIT] [OpenRouter] Error on Key #{self.openrouter_key_index}: {e}. Rotating...")
                             self.openrouter_key_index = (self.openrouter_key_index + 1) % len(self.openrouter_keys)
-                            import time
                             time.sleep(1)
                             continue
                         else:
@@ -324,7 +322,6 @@ class LLMClient:
                         last_error = e
                         logger.warning(f"[WAIT] [SambaNova] Error on Key #{self.sambanova_key_index}: {e}. Rotating...")
                         self.sambanova_key_index = (self.sambanova_key_index + 1) % len(self.sambanova_keys)
-                        import time
                         time.sleep(1)
                         continue
                 raise last_error or Exception("All SambaNova keys exhausted.")
@@ -351,7 +348,6 @@ class LLMClient:
                         last_error = e
                         logger.warning(f"[WAIT] [Cerebras] Error on Key #{self.cerebras_key_index}: {e}. Rotating...")
                         self.cerebras_key_index = (self.cerebras_key_index + 1) % len(self.cerebras_keys)
-                        import time
                         time.sleep(1)
                         continue
                 raise last_error or Exception("All Cerebras keys exhausted.")
@@ -393,7 +389,6 @@ class LLMClient:
                         last_error = e
                         logger.warning(f"[WAIT] [Groq] Error on Key #{self.groq_key_index}: {e}. Rotating...")
                         self.groq_key_index = (self.groq_key_index + 1) % len(self.groq_keys)
-                        import time
                         time.sleep(1)
                         continue
                 raise last_error or Exception("All Groq keys exhausted.")
@@ -420,7 +415,6 @@ class LLMClient:
                         last_error = e
                         logger.warning(f"[WAIT] [NVIDIA] Error on Key #{self.nvidia_key_index}: {e}. Rotating...")
                         self.nvidia_key_index = (self.nvidia_key_index + 1) % len(self.nvidia_keys)
-                        import time
                         time.sleep(1)
                         continue
                 raise last_error or Exception("All NVIDIA keys exhausted.")
@@ -623,7 +617,8 @@ class LLMClient:
             base_url=base_url, 
             api_key=api_key,
             default_headers=extra_headers,
-            max_retries=0
+            max_retries=0,
+            timeout=request_timeout
         )
         
         # Some models (Gemma, Llama-2, etc.) don't support the 'system' role or 'developer instructions'

@@ -221,13 +221,13 @@ class CreativeEngine:
            - First, thoroughly analyze the script to deduce the exact geographic, cultural, and historical era (e.g., Joseon Dynasty Korea, Modern New York, Sci-Fi Future, North Korea).
            - **CRITICAL ANTI-BIAS RULE**: The deduced cultural context MUST override any contradictory elements in the Global Style. For example, if the script implies "Joseon Dynasty" (e.g. '선비', '한복') but the Global Style is "Japanese anime", you MUST use the Ghibli/anime art style (brush strokes, colors) BUT the characters MUST wear Korean Hanbok and the architecture MUST be Korean. Do NOT generate Japanese clothes or settings if the script implies Korea.
         1. **visual_prompt (Image Prompt)**: 
-           - Focus on WHO is doing WHAT, Context, Background, Lighting. 
-           - Structure: `[Aspect Ratio], [Camera Angle], [Cultural & Era Context], [Subject + Action], [Background/Environment], [Lighting]`
+           - MUST BE IN ENGLISH: Describe the visual scene in vivid, concrete cinematic English. DO NOT copy or repeat the Korean script verbatim.
+           - Focus on WHO is doing WHAT, Historical/Cultural Details, Environment, Lighting.
+           - Structure: `[Aspect Ratio], [Camera Angle/Shot Type], [Detailed Subject + Action + Clothing], [Environment/Setting/Architecture], [Lighting/Atmosphere], [Art Style]`
            - Inject Global Style at the end.
         2. **video_prompt (Motion Prompt)**:
-           - Focus STRICTLY on camera movement and subject motion based on the starting image.
-           - DO NOT include art styles (e.g. no "Korean animation style").
-           - Keep it concise (e.g. "Camera slowly zooms in, tiger opens its mouth and roars").
+           - MUST BE IN ENGLISH: Focus STRICTLY on camera movement (panning, zooming, tilting) and subject dynamic motion based on the starting image.
+           - DO NOT include art styles. Keep it concise and cinematic (e.g. "Camera slowly zooms in, scholar bows deeply while people chatter in the background").
 
         EXAMPLE:
         Script: "전쟁이 시작되었습니다."
