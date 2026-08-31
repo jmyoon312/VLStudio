@@ -640,9 +640,9 @@ const CreativeStudio = () => {
         localStorage.setItem('viral_loop_audio_config', JSON.stringify(audioConfig));
     }, [audioConfig]);
 
-    // State: UI Toggles
-    const [isStyleCollapsed, setIsStyleCollapsed] = useState(false);
-    const [isScriptCollapsed, setIsScriptCollapsed] = useState(false);
+    // State: UI Toggles (기본적으로 접힌 상태 유지)
+    const [isStyleCollapsed, setIsStyleCollapsed] = useState(true);
+    const [isScriptCollapsed, setIsScriptCollapsed] = useState(true);
     const [isStyleGalleryOpen, setIsStyleGalleryOpen] = useState(false);
 
     // [NEW] Timeline & Watermark & Transition States
@@ -2010,313 +2010,315 @@ const CreativeStudio = () => {
                 </div>
             </div>
 
-            {/* Zone 1: Style Presets & Configuration (Collapsible) */}
-            <Card className="border-l-4 border-l-purple-500 shadow-2xs bg-card border-border">
-                <CardHeader className="py-2 px-3.5 cursor-pointer hover:bg-muted/40 transition-colors border-b border-border/70" onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-foreground">
-                            <Wand2 className="w-3.5 h-3.5 text-purple-500" />
-                            <span className="text-xs font-bold uppercase tracking-wider">스타일 및 비주얼 프롬프트 (Style & Visual Prompts)</span>
-                            {presetName && (
-                                <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-300/40">
-                                    {presetName}
-                                </Badge>
-                            )}
-                        </div>
-                        {isStyleCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />}
-                    </div>
-                </CardHeader>
-
-                {!isStyleCollapsed && (
-                    <CardContent className="space-y-2.5 p-3 sm:p-3.5">
-                        {/* Row 1: Preset Selection & Management */}
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
-                            <div className="md:col-span-6 space-y-1">
-                                <Label className="text-[11px] font-bold text-foreground">스타일 프리셋 (Style Preset)</Label>
-                                <div className="flex items-center gap-1.5">
-                                    <Select value={selectedPresetId} onValueChange={handleSelectPreset}>
-                                        <SelectTrigger className="flex-1 h-8 text-xs bg-background border-border shadow-2xs">
-                                            <SelectValue placeholder="프리셋 선택..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="new">+ 새 프리셋 만들기</SelectItem>
-                                            {presets?.map((p: any) => (
-                                                <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    {selectedPresetId && selectedPresetId !== "new" && (
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={() => handleDeletePreset(Number(selectedPresetId))} title="프리셋 삭제">
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </Button>
-                                    )}
-                                    <Button variant="outline" size="sm" className="h-8 text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-300/60 dark:border-purple-800/60 shrink-0 font-semibold gap-1 px-2.5" onClick={() => setIsStyleGalleryOpen(true)}>
-                                        <Sparkles className="w-3 h-3" />
-                                        <span>갤러리</span>
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="md:col-span-6 space-y-1">
-                                <Label className="text-[11px] font-bold text-foreground">프리셋 이름 및 저장</Label>
-                                <div className="flex items-center gap-1.5">
-                                    <Input 
-                                        value={presetName} 
-                                        onChange={(e) => setPresetName(e.target.value)} 
-                                        placeholder="예: 지브리 애니메이션, 한국 고전 수묵화..." 
-                                        className="flex-1 h-8 text-xs bg-background border-border shadow-2xs" 
-                                    />
-                                    <Button onClick={handleSavePreset} disabled={!presetName} size="sm" className="h-8 px-3 text-xs font-bold shrink-0 bg-purple-600 hover:bg-purple-700 text-white gap-1 shadow-2xs">
-                                        <Save className="w-3 h-3" /> 저장
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Row 2: Analysis & Prompts */}
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
-                            {/* Analysis Drop Zone (3 cols) */}
-                            <div className="md:col-span-3 relative border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-center p-2.5 hover:bg-muted/40 transition-colors cursor-pointer bg-muted/10 group min-h-[90px]">
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                    onChange={(e) => e.target.files?.[0] && handleAnalyzeStyle(e.target.files[0])}
-                                />
-                                <Label className="absolute top-2 left-2 text-[10px] font-bold text-muted-foreground pointer-events-none flex items-center gap-1">
-                                    <Sparkles className="w-2.5 h-2.5 text-purple-500" /> 스타일 분석
-                                </Label>
-                                {isAnalyzing ? (
-                                    <div className="flex flex-col items-center gap-1 py-1">
-                                        <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
-                                        <span className="text-[11px] text-muted-foreground font-medium">분석 중...</span>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center gap-1 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors py-1">
-                                        <Upload className="w-4 h-4 text-purple-500" />
-                                        <span className="text-[11px] font-bold text-foreground">이미지 업로드</span>
-                                        <span className="text-[9px] text-muted-foreground">클릭 또는 드래그</span>
-                                    </div>
+            {/* Zone 1 & Zone 2: Style Presets & Script Workspace (2-Column Grid 50:50 Side-by-Side) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 items-start">
+                {/* Zone 1: Style Presets & Configuration (Collapsible) */}
+                <Card className="border-l-4 border-l-purple-500 shadow-2xs bg-card border-border">
+                    <CardHeader className="py-2 px-3.5 cursor-pointer hover:bg-muted/40 transition-colors border-b border-border/70" onClick={() => setIsStyleCollapsed(!isStyleCollapsed)}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-foreground">
+                                <Wand2 className="w-3.5 h-3.5 text-purple-500" />
+                                <span className="text-xs font-bold uppercase tracking-wider">스타일 및 비주얼 프롬프트</span>
+                                {presetName && (
+                                    <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0 bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-300/40">
+                                        {presetName}
+                                    </Badge>
                                 )}
                             </div>
-
-                            {/* Positive Prompt (5 cols) */}
-                            <div className="md:col-span-5 space-y-1 flex flex-col">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                        긍정 프롬프트 (Positive)
-                                    </Label>
-                                    <span className="text-[9px] font-mono text-muted-foreground">{stylePrompt.length}자</span>
-                                </div>
-                                <Textarea
-                                    value={stylePrompt}
-                                    onChange={(e) => setStylePrompt(e.target.value)}
-                                    className="flex-1 resize-none text-xs font-mono leading-relaxed bg-background border-border text-foreground min-h-[75px] max-h-[100px] p-2 rounded-lg shadow-2xs"
-                                    placeholder="공통 비주얼 화풍 (예: Japanese anime watercolor style, soft pastel tones, 8k masterpiece...)"
-                                />
-                            </div>
-
-                            {/* Negative Prompt (4 cols) */}
-                            <div className="md:col-span-4 space-y-1 flex flex-col">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                        부정 프롬프트 (Negative)
-                                    </Label>
-                                    <span className="text-[9px] font-mono text-muted-foreground">{negativePrompt.length}자</span>
-                                </div>
-                                <Textarea
-                                    value={negativePrompt}
-                                    onChange={(e) => setNegativePrompt(e.target.value)}
-                                    className="flex-1 resize-none text-xs font-mono leading-relaxed bg-background border-border text-foreground min-h-[75px] max-h-[100px] p-2 rounded-lg shadow-2xs"
-                                    placeholder="제외할 요소 (예: text, words, speech bubbles, dialog, comic panels, watermark...)"
-                                />
-                            </div>
+                            {isStyleCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />}
                         </div>
-                    </CardContent>
-                )}
-            </Card>
+                    </CardHeader>
 
-            {/* Zone 2: Script Workspace & Segmentation (Collapsible) */}
-            <Card className="border-l-4 border-l-blue-500 shadow-2xs bg-card border-border">
-                <CardHeader className="py-2 px-3.5 cursor-pointer hover:bg-muted/40 transition-colors border-b border-border/70" onClick={() => setIsScriptCollapsed(!isScriptCollapsed)}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-foreground">
-                            <Clapperboard className="w-3.5 h-3.5 text-blue-500" />
-                            <span className="text-xs font-bold uppercase tracking-wider">대본 작업실 및 씬 분할 (Script Workspace)</span>
-                            {fullScript && (
-                                <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-300/40">
-                                    대본 {fullScript.length}자
-                                </Badge>
-                            )}
-                        </div>
-                        {isScriptCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />}
-                    </div>
-                </CardHeader>
-
-                {!isScriptCollapsed && (
-                    <CardContent className="space-y-2.5 p-3 sm:p-3.5">
-                        {/* Mode Tabs */}
-                        <Tabs value={scriptMode} onValueChange={setScriptMode} className="w-full">
-                            <TabsList className="inline-flex bg-muted/80 p-0.5 rounded-lg h-7.5 border border-border/60">
-                                <TabsTrigger value="manual" className="text-xs font-bold px-3 h-6.5 rounded-md">📝 직접 입력</TabsTrigger>
-                                <TabsTrigger value="creative" className="text-xs font-bold px-3 h-6.5 rounded-md">✨ AI 작가 대본 생성</TabsTrigger>
-                            </TabsList>
-
-                            <TabsContent value="creative" className="space-y-2.5 pt-1.5">
-                                <div className="p-3 bg-muted/20 rounded-xl border border-border space-y-2.5">
-                                    <AIModelSelector
-                                        provider={scriptProvider}
-                                        onProviderChange={setScriptProvider}
-                                        model={scriptModel}
-                                        onModelChange={setScriptModel}
-                                        presetId={selectedStyleId}
-                                        onPresetChange={setSelectedStyleId}
-                                        showPreset={true}
-                                        onCreatePreset={handleCreateStyle}
-                                        onEditPreset={handleEditStyle}
-                                    />
-
-                                    <div className="flex items-center justify-between pt-0.5">
-                                        <div className="flex items-center gap-2">
-                                            <Switch
-                                                id="creative-web-search"
-                                                checked={useWebSearchCreative}
-                                                onCheckedChange={setUseWebSearchCreative}
-                                            />
-                                            <Label htmlFor="creative-web-search" className="cursor-pointer flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                                                <Globe className="w-3 h-3 text-primary" />
-                                                최신 웹 검색 활용
-                                            </Label>
-                                            <Badge variant={useWebSearchCreative ? "default" : "outline"} className="text-[9px] px-1.5 py-0">
-                                                {useWebSearchCreative ? "ON" : "OFF"}
-                                            </Badge>
-                                        </div>
-
-                                        <Button onClick={handleGenerateScript} disabled={isGeneratingScript || !scriptInput} size="sm" className="h-7.5 px-3.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-1 shadow-2xs">
-                                            {isGeneratingScript ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                            AI 대본 자동 생성
+                    {!isStyleCollapsed && (
+                        <CardContent className="space-y-2.5 p-3 sm:p-3.5">
+                            {/* Row 1: Preset Selection & Management */}
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+                                <div className="md:col-span-6 space-y-1">
+                                    <Label className="text-[11px] font-bold text-foreground">스타일 프리셋 (Style Preset)</Label>
+                                    <div className="flex items-center gap-1.5">
+                                        <Select value={selectedPresetId} onValueChange={handleSelectPreset}>
+                                            <SelectTrigger className="flex-1 h-8 text-xs bg-background border-border shadow-2xs">
+                                                <SelectValue placeholder="프리셋 선택..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="new">+ 새 프리셋 만들기</SelectItem>
+                                                {presets?.map((p: any) => (
+                                                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {selectedPresetId && selectedPresetId !== "new" && (
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={() => handleDeletePreset(Number(selectedPresetId))} title="프리셋 삭제">
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </Button>
+                                        )}
+                                        <Button variant="outline" size="sm" className="h-8 text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-300/60 dark:border-purple-800/60 shrink-0 font-semibold gap-1 px-2.5" onClick={() => setIsStyleGalleryOpen(true)}>
+                                            <Sparkles className="w-3 h-3" />
+                                            <span>갤러리</span>
                                         </Button>
                                     </div>
+                                </div>
 
-                                    <div className="space-y-1">
-                                        <Label className="text-[11px] font-bold text-foreground">주제 또는 기초 아이디어 (Prompt / Topic)</Label>
-                                        <Textarea
-                                            value={scriptInput}
-                                            onChange={(e) => setScriptInput(e.target.value)}
-                                            placeholder="원하는 스토리 주제, 핵심 키워드, 타겟 시청자, 참고 내용을 입력하세요..."
-                                            className="min-h-[65px] text-xs bg-background border-border text-foreground rounded-lg"
+                                <div className="md:col-span-6 space-y-1">
+                                    <Label className="text-[11px] font-bold text-foreground">프리셋 이름 및 저장</Label>
+                                    <div className="flex items-center gap-1.5">
+                                        <Input 
+                                            value={presetName} 
+                                            onChange={(e) => setPresetName(e.target.value)} 
+                                            placeholder="예: 지브리 애니메이션..." 
+                                            className="flex-1 h-8 text-xs bg-background border-border shadow-2xs" 
                                         />
+                                        <Button onClick={handleSavePreset} disabled={!presetName} size="sm" className="h-8 px-3 text-xs font-bold shrink-0 bg-purple-600 hover:bg-purple-700 text-white gap-1 shadow-2xs">
+                                            <Save className="w-3 h-3" /> 저장
+                                        </Button>
                                     </div>
                                 </div>
-                            </TabsContent>
-                        </Tabs>
-
-                        {/* Full Script Text Area */}
-                        <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-[11px] font-bold text-foreground">전체 대본 (Full Script)</Label>
-                                <span className="text-[10px] font-mono text-muted-foreground">총 {fullScript.length} 글자</span>
                             </div>
-                            <Textarea
-                                value={fullScript}
-                                onChange={(e) => setFullScript(e.target.value)}
-                                className="min-h-[85px] max-h-[140px] font-sans text-xs sm:text-sm leading-relaxed bg-background border-border text-foreground rounded-lg p-2.5 shadow-2xs"
-                                placeholder="여기에 전체 대본을 입력하거나 붙여넣으세요..."
-                            />
-                        </div>
 
-                        {/* 씬 분할 전략 (Segmentation Strategy) Compact Panel */}
-                        <div className="flex flex-col gap-2 p-2.5 bg-muted/20 rounded-xl border border-border">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                                    <Sparkles className="w-3 h-3 text-primary" /> 씬 분할 전략 (Segmentation Strategy)
-                                </Label>
-                                <div className="flex bg-muted rounded-lg p-0.5 border border-border/60 self-start sm:self-auto">
-                                    <Button
-                                        variant={pacingStrategy === 'ai' ? 'secondary' : 'ghost'}
-                                        size="sm" className={`h-6 text-[11px] px-2.5 font-semibold ${pacingStrategy === 'ai' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground'}`}
-                                        onClick={() => { setPacingStrategy('ai'); setSplitMethod('ai_smart'); }}
-                                    >
-                                        ✨ AI 스마트 (권장)
-                                    </Button>
-                                    <Button
-                                        variant={pacingStrategy === 'rule' ? 'secondary' : 'ghost'}
-                                        size="sm" className={`h-6 text-[11px] px-2.5 font-semibold ${pacingStrategy === 'rule' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground'}`}
-                                        onClick={() => { setPacingStrategy('rule'); setSplitMethod('custom_rule'); }}
-                                    >
-                                        ⚙️ 커스텀 규칙
-                                    </Button>
+                            {/* Row 2: Analysis & Prompts */}
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+                                {/* Analysis Drop Zone (3 cols) */}
+                                <div className="md:col-span-3 relative border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-center p-2 hover:bg-muted/40 transition-colors cursor-pointer bg-muted/10 group min-h-[80px]">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                        onChange={(e) => e.target.files?.[0] && handleAnalyzeStyle(e.target.files[0])}
+                                    />
+                                    <Label className="absolute top-1.5 left-2 text-[9.5px] font-bold text-muted-foreground pointer-events-none flex items-center gap-1">
+                                        <Sparkles className="w-2.5 h-2.5 text-purple-500" /> 스타일 분석
+                                    </Label>
+                                    {isAnalyzing ? (
+                                        <div className="flex flex-col items-center gap-1 py-1">
+                                            <Loader2 className="w-4 h-4 animate-spin text-purple-600" />
+                                            <span className="text-[10px] text-muted-foreground font-medium">분석 중...</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-0.5 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors py-1">
+                                            <Upload className="w-3.5 h-3.5 text-purple-500" />
+                                            <span className="text-[10.5px] font-bold text-foreground">이미지 업로드</span>
+                                            <span className="text-[8.5px] text-muted-foreground">클릭/드래그</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Positive Prompt (5 cols) */}
+                                <div className="md:col-span-5 space-y-1 flex flex-col">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                            긍정 프롬프트
+                                        </Label>
+                                        <span className="text-[9px] font-mono text-muted-foreground">{stylePrompt.length}자</span>
+                                    </div>
+                                    <Textarea
+                                        value={stylePrompt}
+                                        onChange={(e) => setStylePrompt(e.target.value)}
+                                        className="flex-1 resize-none text-xs font-mono leading-relaxed bg-background border-border text-foreground min-h-[65px] max-h-[90px] p-2 rounded-lg shadow-2xs"
+                                        placeholder="공통 비주얼 화풍 (예: Japanese anime style...)"
+                                    />
+                                </div>
+
+                                {/* Negative Prompt (4 cols) */}
+                                <div className="md:col-span-4 space-y-1 flex flex-col">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                            부정 프롬프트
+                                        </Label>
+                                        <span className="text-[9px] font-mono text-muted-foreground">{negativePrompt.length}자</span>
+                                    </div>
+                                    <Textarea
+                                        value={negativePrompt}
+                                        onChange={(e) => setNegativePrompt(e.target.value)}
+                                        className="flex-1 resize-none text-xs font-mono leading-relaxed bg-background border-border text-foreground min-h-[65px] max-h-[90px] p-2 rounded-lg shadow-2xs"
+                                        placeholder="제외할 요소 (예: text, watermark...)"
+                                    />
                                 </div>
                             </div>
+                        </CardContent>
+                    )}
+                </Card>
 
-                            {pacingStrategy === 'ai' ? (
-                                <Select value={splitMethod} onValueChange={setSplitMethod}>
-                                    <SelectTrigger className="w-full h-8 text-xs bg-background border-border shadow-2xs">
-                                        <SelectValue placeholder="AI 분석 방식" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="ai_smart">✨ AI 스마트 분석 (Visual Flow)</SelectItem>
-                                        <SelectItem value="visual_change">🎥 시각 전환 기준</SelectItem>
-                                        <SelectItem value="semantic">🧠 의미/길이 자동 최적화</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            ) : (
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
-                                    <Select value={pacingUnit} onValueChange={(v: any) => setPacingUnit(v)}>
-                                        <SelectTrigger className="w-full sm:w-[130px] h-8 text-xs bg-background border-border shadow-2xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="sentence">📝 문장 단위</SelectItem>
-                                            <SelectItem value="time">⏱️ 시간 단위</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <div className="flex-1 flex items-center justify-between bg-background border border-border rounded-lg px-2.5 h-8 shadow-2xs">
-                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                            {pacingUnit === 'sentence' ? '씬 당 문장 수:' : '씬 당 예상 시간:'}
-                                        </span>
-                                        <div className="flex items-center gap-1">
-                                            <Input
-                                                type="number"
-                                                value={pacingValue}
-                                                onChange={(e) => setPacingValue(Number(e.target.value))}
-                                                className="h-5 w-12 text-xs font-bold text-right border-none shadow-none focus-visible:ring-0 p-0 bg-transparent"
-                                                min={1}
+                {/* Zone 2: Script Workspace & Segmentation (Collapsible) */}
+                <Card className="border-l-4 border-l-blue-500 shadow-2xs bg-card border-border">
+                    <CardHeader className="py-2 px-3.5 cursor-pointer hover:bg-muted/40 transition-colors border-b border-border/70" onClick={() => setIsScriptCollapsed(!isScriptCollapsed)}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-foreground">
+                                <Clapperboard className="w-3.5 h-3.5 text-blue-500" />
+                                <span className="text-xs font-bold uppercase tracking-wider">대본 작업실 및 씬 분할</span>
+                                {fullScript && (
+                                    <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-300/40">
+                                        {fullScript.length}자
+                                    </Badge>
+                                )}
+                            </div>
+                            {isScriptCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />}
+                        </div>
+                    </CardHeader>
+
+                    {!isScriptCollapsed && (
+                        <CardContent className="space-y-2.5 p-3 sm:p-3.5">
+                            {/* Mode Tabs */}
+                            <Tabs value={scriptMode} onValueChange={setScriptMode} className="w-full">
+                                <TabsList className="inline-flex bg-muted/80 p-0.5 rounded-lg h-7.5 border border-border/60">
+                                    <TabsTrigger value="manual" className="text-xs font-bold px-3 h-6.5 rounded-md">📝 직접 입력</TabsTrigger>
+                                    <TabsTrigger value="creative" className="text-xs font-bold px-3 h-6.5 rounded-md">✨ AI 작가 생성</TabsTrigger>
+                                </TabsList>
+
+                                <TabsContent value="creative" className="space-y-2 pt-1">
+                                    <div className="p-2.5 bg-muted/20 rounded-xl border border-border space-y-2">
+                                        <AIModelSelector
+                                            provider={scriptProvider}
+                                            onProviderChange={setScriptProvider}
+                                            model={scriptModel}
+                                            onModelChange={setScriptModel}
+                                            presetId={selectedStyleId}
+                                            onPresetChange={setSelectedStyleId}
+                                            showPreset={true}
+                                            onCreatePreset={handleCreateStyle}
+                                            onEditPreset={handleEditStyle}
+                                        />
+
+                                        <div className="flex items-center justify-between pt-0.5">
+                                            <div className="flex items-center gap-2">
+                                                <Switch
+                                                    id="creative-web-search"
+                                                    checked={useWebSearchCreative}
+                                                    onCheckedChange={setUseWebSearchCreative}
+                                                />
+                                                <Label htmlFor="creative-web-search" className="cursor-pointer flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                                    <Globe className="w-3 h-3 text-primary" />
+                                                    웹 검색
+                                                </Label>
+                                                <Badge variant={useWebSearchCreative ? "default" : "outline"} className="text-[9px] px-1.5 py-0">
+                                                    {useWebSearchCreative ? "ON" : "OFF"}
+                                                </Badge>
+                                            </div>
+
+                                            <Button onClick={handleGenerateScript} disabled={isGeneratingScript || !scriptInput} size="sm" className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-1 shadow-2xs">
+                                                {isGeneratingScript ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                                대본 생성
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <Label className="text-[11px] font-bold text-foreground">주제 또는 아이디어</Label>
+                                            <Textarea
+                                                value={scriptInput}
+                                                onChange={(e) => setScriptInput(e.target.value)}
+                                                placeholder="원하는 스토리 주제나 핵심 키워드를 입력하세요..."
+                                                className="min-h-[55px] text-xs bg-background border-border text-foreground rounded-lg"
                                             />
-                                            <span className="text-xs font-bold text-primary">
-                                                {pacingUnit === 'sentence' ? '개' : '초'}
-                                            </span>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                </TabsContent>
+                            </Tabs>
 
-                            {/* Execution Footer Bar */}
-                            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-1.5 gap-2 border-t border-border/60">
-                                {/* Auto-Gen Checkboxes */}
-                                <div className="flex items-center justify-around sm:justify-start gap-2.5 px-3 bg-background h-8 rounded-lg border border-border shadow-2xs">
-                                    <Label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-foreground select-none">
-                                        <input type="checkbox" checked={autoGenerateImages} onChange={e => setAutoGenerateImages(e.target.checked)} className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5" />
-                                        <span>🖼️ 이미지 자동생성</span>
-                                    </Label>
-                                    <div className="w-px h-3.5 bg-border" />
-                                    <Label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer text-foreground select-none">
-                                        <input type="checkbox" checked={autoGenerateAudio} onChange={e => setAutoGenerateAudio(e.target.checked)} className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5" />
-                                        <span>🎙️ TTS 자동생성</span>
-                                    </Label>
+                            {/* Full Script Text Area */}
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[11px] font-bold text-foreground">전체 대본 (Full Script)</Label>
+                                    <span className="text-[10px] font-mono text-muted-foreground">총 {fullScript.length} 글자</span>
                                 </div>
-
-                                <Button onClick={handleSegmentScript} disabled={isSegmenting || !fullScript} size="sm" className="h-8 px-4 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm rounded-lg gap-1.5">
-                                    {isSegmenting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clapperboard className="w-3.5 h-3.5" />}
-                                    <span>🎬 씬 분할 및 대본 분석 시작</span>
-                                </Button>
+                                <Textarea
+                                    value={fullScript}
+                                    onChange={(e) => setFullScript(e.target.value)}
+                                    className="min-h-[75px] max-h-[120px] font-sans text-xs leading-relaxed bg-background border-border text-foreground rounded-lg p-2.5 shadow-2xs"
+                                    placeholder="여기에 전체 대본을 입력하거나 붙여넣으세요..."
+                                />
                             </div>
-                        </div>
-                    </CardContent>
-                )}
-            </Card>
+
+                            {/* 씬 분할 전략 (Segmentation Strategy) Compact Panel */}
+                            <div className="flex flex-col gap-2 p-2.5 bg-muted/20 rounded-xl border border-border">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                        <Sparkles className="w-3 h-3 text-primary" /> 씬 분할 전략
+                                    </Label>
+                                    <div className="flex bg-muted rounded-lg p-0.5 border border-border/60 self-start sm:self-auto">
+                                        <Button
+                                            variant={pacingStrategy === 'ai' ? 'secondary' : 'ghost'}
+                                            size="sm" className={`h-6 text-[11px] px-2 font-semibold ${pacingStrategy === 'ai' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground'}`}
+                                            onClick={() => { setPacingStrategy('ai'); setSplitMethod('ai_smart'); }}
+                                        >
+                                            ✨ AI 스마트
+                                        </Button>
+                                        <Button
+                                            variant={pacingStrategy === 'rule' ? 'secondary' : 'ghost'}
+                                            size="sm" className={`h-6 text-[11px] px-2 font-semibold ${pacingStrategy === 'rule' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground'}`}
+                                            onClick={() => { setPacingStrategy('rule'); setSplitMethod('custom_rule'); }}
+                                        >
+                                            ⚙️ 규칙
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {pacingStrategy === 'ai' ? (
+                                    <Select value={splitMethod} onValueChange={setSplitMethod}>
+                                        <SelectTrigger className="w-full h-7.5 text-xs bg-background border-border shadow-2xs">
+                                            <SelectValue placeholder="AI 분석 방식" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ai_smart">✨ AI 스마트 분석 (Visual Flow)</SelectItem>
+                                            <SelectItem value="visual_change">🎥 시각 전환 기준</SelectItem>
+                                            <SelectItem value="semantic">🧠 의미/길이 자동 최적화</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5">
+                                        <Select value={pacingUnit} onValueChange={(v: any) => setPacingUnit(v)}>
+                                            <SelectTrigger className="w-full sm:w-[110px] h-7.5 text-xs bg-background border-border shadow-2xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="sentence">📝 문장 단위</SelectItem>
+                                                <SelectItem value="time">⏱️ 시간 단위</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <div className="flex-1 flex items-center justify-between bg-background border border-border rounded-lg px-2.5 h-7.5 shadow-2xs">
+                                            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                                {pacingUnit === 'sentence' ? '문장 수:' : '예상 시간:'}
+                                            </span>
+                                            <div className="flex items-center gap-1">
+                                                <Input
+                                                    type="number"
+                                                    value={pacingValue}
+                                                    onChange={(e) => setPacingValue(Number(e.target.value))}
+                                                    className="h-5 w-10 text-xs font-bold text-right border-none shadow-none focus-visible:ring-0 p-0 bg-transparent"
+                                                    min={1}
+                                                />
+                                                <span className="text-xs font-bold text-primary">
+                                                    {pacingUnit === 'sentence' ? '개' : '초'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Execution Footer Bar */}
+                                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-1.5 gap-2 border-t border-border/60">
+                                    <div className="flex items-center justify-around sm:justify-start gap-2 px-2.5 bg-background h-7.5 rounded-lg border border-border shadow-2xs">
+                                        <Label className="flex items-center gap-1 text-[11px] font-semibold cursor-pointer text-foreground select-none">
+                                            <input type="checkbox" checked={autoGenerateImages} onChange={e => setAutoGenerateImages(e.target.checked)} className="rounded border-border text-primary focus:ring-primary w-3 h-3" />
+                                            <span>🖼️ 이미지</span>
+                                        </Label>
+                                        <div className="w-px h-3 bg-border" />
+                                        <Label className="flex items-center gap-1 text-[11px] font-semibold cursor-pointer text-foreground select-none">
+                                            <input type="checkbox" checked={autoGenerateAudio} onChange={e => setAutoGenerateAudio(e.target.checked)} className="rounded border-border text-primary focus:ring-primary w-3 h-3" />
+                                            <span>🎙️ TTS</span>
+                                        </Label>
+                                    </div>
+
+                                    <Button onClick={handleSegmentScript} disabled={isSegmenting || !fullScript} size="sm" className="h-7.5 px-3 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm rounded-lg gap-1">
+                                        {isSegmenting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clapperboard className="w-3 h-3" />}
+                                        <span>🎬 씬 분할 시작</span>
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    )}
+                </Card>
+            </div>
 
             {/* Zone 2.5: Collapsible Timeline & Real-time Preview (Script 하단) */}
             <CollapsibleTimelinePreview
@@ -2610,45 +2612,44 @@ const CreativeStudio = () => {
                     </div>
                 </div>
 
-                {/* Scene List */}
-                <div className="space-y-6 pb-20">
+                {/* Scene List - Compact High-Density Grid */}
+                <div className="space-y-2.5 pb-16">
                     {scenes.map((scene, index) => (
                         <React.Fragment key={scene.id}>
-                            {/* Insert Button between scenes */}
-                            <div className="flex justify-center py-2 group">
-                                <Button variant="ghost" size="sm" className="rounded-full h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-muted" onClick={() => handleInsertScene(index)} title="이 위치에 씬 추가">
-                                    <Plus className="w-4 h-4" />
+                            {/* Insert Button between scenes (Slim Minimal) */}
+                            <div className="flex justify-center py-0.5 group">
+                                <Button variant="ghost" size="sm" className="rounded-full h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary" onClick={() => handleInsertScene(index)} title="이 위치에 씬 추가">
+                                    <Plus className="w-3.5 h-3.5" />
                                 </Button>
                             </div>
 
                             {/* Compact Scene Card (Flex Row) */}
-                            <div id={`scene-${scene.id}`} className="flex flex-col md:flex-row border rounded-xl shadow-sm overflow-hidden bg-card transition-all duration-300">
+                            <div id={`scene-${scene.id}`} className="flex flex-col md:flex-row border rounded-xl shadow-2xs overflow-hidden bg-card transition-all duration-300">
                                 {/* Left Panel: Inputs (Flex-1) */}
-                                <div className="flex-1 p-4 space-y-4 border-r">
+                                <div className="flex-1 p-3 space-y-2 border-r border-border">
                                     {/* Header: Scene # + Trash */}
                                     <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="outline">Scene #{scene.scene_id}</Badge>
-                                            <Badge variant="secondary" className="text-xs">{segmentMode === 'shorts' ? '9:16' : '16:9'}</Badge>
+                                        <div className="flex items-center gap-1.5">
+                                            <Badge variant="outline" className="h-5 text-[11px] font-bold">Scene #{scene.scene_id}</Badge>
+                                            <Badge variant="secondary" className="h-5 text-[10px]">{segmentMode === 'shorts' ? '9:16' : '16:9'}</Badge>
                                             {scene.is_manual_asset && (
-                                                <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-[10px] h-5 gap-1">
-                                                    <DollarSign className="w-3 h-3" /> 비용 절감됨
+                                                <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-[9.5px] h-4.5 gap-0.5 px-1.5">
+                                                    <DollarSign className="w-2.5 h-2.5" /> 수동에셋
                                                 </Badge>
                                             )}
-                                        
                                         </div>
-                                        <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveScene(index, -1)}><ChevronUp className="w-3 h-3" /></Button>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleMoveScene(index, 1)}><ChevronDown className="w-3 h-3" /></Button>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => handleDeleteScene(scene.id)}><Trash2 className="w-3 h-3" /></Button>
+                                        <div className="flex gap-0.5">
+                                            <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-muted-foreground" onClick={() => handleMoveScene(index, -1)} title="위로 이동"><ChevronUp className="w-3 h-3" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-muted-foreground" onClick={() => handleMoveScene(index, 1)} title="아래로 이동"><ChevronDown className="w-3 h-3" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-red-500 hover:bg-red-500/10" onClick={() => handleDeleteScene(scene.id)} title="씬 삭제"><Trash2 className="w-3 h-3" /></Button>
                                         </div>
                                     </div>
 
                                     {/* Script Section */}
                                     <div className="space-y-1">
                                         <div className="flex justify-between items-center">
-                                            <Label className="text-xs font-bold text-muted-foreground">대본 (SCRIPT / AUDIO)</Label>
-                                            <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => handleGenerateTTS(scene)} disabled={scene.audioStatus === 'generating'}>
+                                            <Label className="text-[11px] font-bold text-muted-foreground">대본 (SCRIPT / AUDIO)</Label>
+                                            <Button variant="ghost" size="sm" className="h-5.5 text-[11px] px-2" onClick={() => handleGenerateTTS(scene)} disabled={scene.audioStatus === 'generating'}>
                                                 {scene.audioStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Music className="w-3 h-3 mr-1" />}
                                                 {scene.audio_url ? "TTS 재생성" : "TTS 생성"}
                                             </Button>
@@ -2657,13 +2658,13 @@ const CreativeStudio = () => {
                                             value={scene.script}
                                             onChange={(e) => updateScene(scene.id, { script: e.target.value })}
                                             onKeyDown={(e) => handleScriptKeyDown(e, index)}
-                                            className="min-h-[80px] text-[13px] leading-relaxed resize-y"
+                                            className="min-h-[55px] max-h-[85px] text-xs leading-relaxed resize-y p-2"
                                             placeholder="대본을 입력하세요... (Ctrl+Enter: 분할, Ctrl+Backspace: 병합)"
                                         />
                                         {scene.audio_url && (
-                                            <div className="flex items-center gap-2 mt-1 bg-muted/20 p-1 rounded">
-                                                <audio controls src={scene.audio_url} className="h-6 w-full" />
-                                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => triggerDownload(scene.audio_url!, `scene_${scene.scene_id}_audio.mp3`)}>
+                                            <div className="flex items-center gap-1.5 mt-0.5 bg-muted/20 p-1 rounded-md">
+                                                <audio controls src={scene.audio_url} className="h-5 w-full" />
+                                                <Button variant="ghost" size="icon" className="h-5.5 w-5.5" onClick={() => triggerDownload(scene.audio_url!, `scene_${scene.scene_id}_audio.mp3`)}>
                                                     <Download className="w-3 h-3" />
                                                 </Button>
                                             </div>
@@ -2671,77 +2672,77 @@ const CreativeStudio = () => {
                                     </div>
 
                                     {/* Visual/Video Prompt Section */}
-                                    <div className="space-y-3 flex-1 flex flex-col">
-                                        <div className="space-y-1 flex-1 flex flex-col">
+                                    <div className="space-y-1.5 flex-1 flex flex-col">
+                                        <div className="space-y-0.5 flex-1 flex flex-col">
                                             <div className="flex justify-between items-center">
-                                                <Label className="text-xs font-bold text-muted-foreground">이미지 프롬프트 (IMAGE PROMPT)</Label>
-                                                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => handleGeneratePrompt(scene)}>
-                                                    <Sparkles className="w-3 h-3 mr-1" /> AI 프롬프트 생성
+                                                <Label className="text-[11px] font-bold text-muted-foreground">이미지 프롬프트 (IMAGE)</Label>
+                                                <Button variant="ghost" size="sm" className="h-5 text-[10.5px] px-1.5" onClick={() => handleGeneratePrompt(scene)}>
+                                                    <Sparkles className="w-2.5 h-2.5 mr-1 text-purple-500" /> AI 프롬프트 생성
                                                 </Button>
                                             </div>
                                             <Textarea
                                                 value={scene.visual_prompt}
                                                 onChange={(e) => updateScene(scene.id, { visual_prompt: e.target.value })}
-                                                className="flex-[0.5] min-h-[60px] text-[13px] font-mono leading-relaxed resize-y bg-muted/10"
-                                                placeholder="이미지 생성을 위한 구도, 배경, 피사체 묘사..."
+                                                className="min-h-[45px] max-h-[70px] text-xs font-mono leading-relaxed resize-y bg-muted/10 p-1.5"
+                                                placeholder="이미지 생성 구도, 배경, 피사체 묘사..."
                                                 disabled={scene.is_continuous_motion}
                                             />
                                         </div>
-                                        <div className="space-y-1 flex-1 flex flex-col">
-                                            <Label className="text-xs font-bold text-muted-foreground">영상 프롬프트 (VIDEO/MOTION PROMPT)</Label>
+                                        <div className="space-y-0.5 flex-1 flex flex-col">
+                                            <Label className="text-[11px] font-bold text-muted-foreground">영상 프롬프트 (VIDEO MOTION)</Label>
                                             <Textarea
                                                 value={scene.video_prompt || ''}
                                                 onChange={(e) => updateScene(scene.id, { video_prompt: e.target.value })}
-                                                className="flex-[0.5] min-h-[50px] text-[13px] font-mono leading-relaxed resize-y bg-muted/10"
-                                                placeholder="카메라 워크 및 피사체 움직임 묘사..."
+                                                className="min-h-[40px] max-h-[60px] text-xs font-mono leading-relaxed resize-y bg-muted/10 p-1.5"
+                                                placeholder="카메라 무빙 및 피사체 움직임..."
                                             />
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Right Panel: Visual Source (Expanded 40% Width & Height for Pro Visibility) */}
-                                <div className="w-full md:w-[420px] lg:w-[450px] bg-muted/10 p-4 flex flex-col gap-3 shrink-0 border-t md:border-t-0 md:border-l">
+                                {/* Right Panel: Visual Source (Compact Slim Player) */}
+                                <div className="w-full md:w-[320px] lg:w-[340px] bg-muted/10 p-2.5 flex flex-col gap-2 shrink-0 border-t md:border-t-0 md:border-l border-border">
                                     <div className="flex items-center justify-between">
-                                        <div className="text-xs font-bold text-muted-foreground flex flex-col gap-1">
-                                            <div className="flex items-center gap-2 text-foreground font-semibold">
-                                                <ImageIcon className="w-3.5 h-3.5 text-primary" /> 비주얼 소스 플레이어
+                                        <div className="text-xs font-bold text-muted-foreground flex flex-col gap-0.5">
+                                            <div className="flex items-center gap-1.5 text-foreground font-semibold text-[11px]">
+                                                <ImageIcon className="w-3 h-3 text-primary" /> 비주얼 플레이어
                                             </div>
                                             {index > 0 && (
-                                                <Label className="flex items-center gap-1.5 mt-0.5 cursor-pointer hover:text-primary transition-colors">
+                                                <Label className="flex items-center gap-1 mt-0.5 cursor-pointer hover:text-primary transition-colors">
                                                     <input 
                                                         type="checkbox" 
                                                         checked={scene.is_continuous_motion || false} 
                                                         onChange={(e) => updateScene(scene.id, { is_continuous_motion: e.target.checked })}
-                                                        className="rounded border-gray-400 text-primary focus:ring-primary w-3 h-3" 
+                                                        className="rounded border-gray-400 text-primary focus:ring-primary w-2.5 h-2.5" 
                                                     />
-                                                    <span className="text-[10.5px] whitespace-nowrap">이전 씬 마지막 프레임 연결</span>
+                                                    <span className="text-[9.5px] whitespace-nowrap">이전 씬 프레임 연결</span>
                                                 </Label>
                                             )}
                                         </div>
                                         {(scene.video_url && scene.media_url) && (
-                                            <div className="flex bg-muted/80 rounded-lg p-0.5 border shadow-xs gap-1">
+                                            <div className="flex bg-muted/80 rounded-md p-0.5 border shadow-2xs gap-0.5">
                                                 <Button
                                                     variant={scene.viewMode !== 'render' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className={`h-6 text-[11px] px-2.5 font-semibold transition-all ${scene.viewMode !== 'render' ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                                    className={`h-5 text-[10px] px-2 font-semibold transition-all ${scene.viewMode !== 'render' ? 'bg-background shadow-2xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                                                     onClick={() => updateScene(scene.id, { viewMode: 'source' })}
                                                 >
-                                                    🖼️ 이미지
+                                                    이미지
                                                 </Button>
                                                 <Button
                                                     variant={scene.viewMode === 'render' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className={`h-6 text-[11px] px-2.5 font-semibold transition-all ${scene.viewMode === 'render' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                                                    className={`h-5 text-[10px] px-2 font-semibold transition-all ${scene.viewMode === 'render' ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
                                                     onClick={() => updateScene(scene.id, { viewMode: 'render' })}
                                                 >
-                                                    🎬 영상
+                                                    영상
                                                 </Button>
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Media Preview - Enlarged Container (h-[260px]) for Superior Readability */}
-                                    <div className="w-full h-[260px] bg-slate-950 rounded-xl overflow-hidden border shadow-inner relative group flex items-center justify-center">
+                                    {/* Media Preview - Compact Container (h-[135px]) */}
+                                    <div className="w-full h-[135px] bg-slate-950 rounded-lg overflow-hidden border border-border/80 shadow-inner relative group flex items-center justify-center">
                                         {/* Render Logic: Based on viewMode */}
                                         {scene.viewMode === 'render' && scene.video_url ? (
                                             <video src={scene.video_url} controls className="w-full h-full object-contain" />
@@ -2751,72 +2752,51 @@ const CreativeStudio = () => {
                                                 <img src={scene.media_url} alt="Source" className="w-full h-full object-contain" />
                                         ) : (
                                             <div className="flex flex-col items-center justify-center text-muted-foreground/40">
-                                                <ImageIcon className="w-10 h-10 mb-2 opacity-50" />
-                                                <span className="text-xs font-medium">미디어 대기 중</span>
-                                                <span className="text-[10px] text-muted-foreground/60 mt-0.5">Flow 이미지 또는 영상 생성을 눌러주세요</span>
+                                                <ImageIcon className="w-6 h-6 mb-1 opacity-50" />
+                                                <span className="text-[11px] font-medium">미디어 대기 중</span>
                                             </div>
                                         )}
 
                                         {/* Generating Overlay */}
                                         {scene.visualStatus === 'generating' && (
-                                            <div className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center text-white z-10 gap-2 p-2 text-center">
-                                                <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-                                                <span className="text-xs font-bold animate-pulse">Flow AI 생성 중...</span>
+                                            <div className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center text-white z-10 gap-1.5 p-1.5 text-center">
+                                                <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                                                <span className="text-[11px] font-bold animate-pulse">생성 중...</span>
                                                 <Button 
                                                     variant="ghost" 
                                                     size="sm" 
-                                                    className="h-6 text-[10px] text-zinc-300 hover:text-white hover:bg-white/20 px-2 py-0 mt-1 border border-white/20 rounded"
+                                                    className="h-5 text-[9px] text-zinc-300 hover:text-white hover:bg-white/20 px-1.5 py-0 border border-white/20 rounded"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         updateScene(scene.id, { visualStatus: scene.media_url ? 'completed' : 'idle' });
-                                                        toast.info(`Scene #${scene.scene_id} 생성을 취소/초기화했습니다.`);
+                                                        toast.info(`Scene #${scene.scene_id} 생성을 취소했습니다.`);
                                                     }}
                                                 >
-                                                    강제 취소 / 초기화
+                                                    취소
                                                 </Button>
                                             </div>
                                         )}
 
                                         {/* Contextual Download Button */}
                                         {(scene.video_url || scene.media_url) && (
-                                            <Button variant="secondary" size="icon" className="absolute top-2 right-2 h-7 w-7 bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
+                                            <Button variant="secondary" size="icon" className="absolute top-1.5 right-1.5 h-6 w-6 bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-md"
                                                 onClick={() => triggerDownload(scene.video_url || scene.media_url!, `scene_${scene.scene_id}_media`)}>
-                                                <Download className="w-3.5 h-3.5" />
+                                                <Download className="w-3 h-3" />
                                             </Button>
                                         )}
                                     </div>
 
-                                    {/* Control Grid (2x2) */}
-                                    <div className="grid grid-cols-2 gap-2 mt-auto">
-                                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt)} disabled={scene.visualStatus === 'generating' || scene.is_continuous_motion}>
+                                    {/* Control Grid (Compact) */}
+                                    <div className="grid grid-cols-2 gap-1.5 mt-auto">
+                                        <Button variant="outline" size="sm" className="h-7 text-[11px] font-medium" onClick={() => handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt)} disabled={scene.visualStatus === 'generating' || scene.is_continuous_motion}>
                                             {scene.visualStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3 mr-1" />} 이미지 생성
                                         </Button>
-                                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleGenerateVideo(scene)} disabled={scene.visualStatus === 'generating'}>
+                                        <Button variant="outline" size="sm" className="h-7 text-[11px] font-medium" onClick={() => handleGenerateVideo(scene)} disabled={scene.visualStatus === 'generating'}>
                                             {scene.visualStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Film className="w-3 h-3 mr-1" />} 영상 생성
                                         </Button>
                                         
-                                        {/* [NEW] Frozen Effect Selector for Manual Assets */}
-                                        <div className="col-span-2 space-y-1">
-                                            <Label className="text-[10px] text-muted-foreground">마지막 프레임 효과 (영상 부족 시)</Label>
-                                            <Select 
-                                                value={scene.frozen_effect || "static"} 
-                                                onValueChange={(v) => updateScene(scene.id, { frozen_effect: v })}
-                                            >
-                                                <SelectTrigger className="h-7 text-[10px] bg-muted/20">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="static">⏸️ 정지화면 (Static)</SelectItem>
-                                                    <SelectItem value="zoom">🔍 서서히 확대 (Zoom)</SelectItem>
-                                                    <SelectItem value="pan_left">⬅️ 왼쪽 이동 (Pan Left)</SelectItem>
-                                                    <SelectItem value="pan_right">➡️ 오른쪽 이동 (Pan Right)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-
-                                        <div className="relative">
-                                            <Button variant="outline" size="sm" className={`w-full h-8 text-xs ${scene.is_manual_asset ? 'border-green-500 bg-green-500/10' : ''}`}>
+                                        <div className="relative col-span-2">
+                                            <Button variant="outline" size="sm" className={`w-full h-7 text-[11px] font-medium ${scene.is_manual_asset ? 'border-green-500 bg-green-500/10' : ''}`}>
                                                 <Upload className="w-3 h-3 mr-1" /> {scene.is_manual_asset ? '수동 에셋 변경' : '수동 에셋 업로드'}
                                             </Button>
                                             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleVideoUpload(scene.scene_id, scene.id, e)} />
@@ -2824,11 +2804,11 @@ const CreativeStudio = () => {
 
                                         {/* Render Button (Primary) */}
                                         <Button
-                                            className="w-full h-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-sm col-span-2"
+                                            className="w-full h-8 text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-2xs col-span-2"
                                             onClick={() => handleRenderScene(scene)}
                                             disabled={scene.renderStatus === 'generating'}
                                         >
-                                            {scene.renderStatus === 'generating' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Clapperboard className="w-4 h-4 mr-2" />}
+                                            {scene.renderStatus === 'generating' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Clapperboard className="w-3.5 h-3.5 mr-1.5" />}
                                             씬 영상 렌더링
                                         </Button>
                                     </div>
@@ -2837,13 +2817,13 @@ const CreativeStudio = () => {
                         </React.Fragment>
                     ))}
 
-                    {/* Add Scene Button */}
+                    {/* Add Scene Button (Slim Minimal) */}
                     <Button
                         variant="outline"
-                        className="w-full h-16 border-dashed border-2 hover:border-primary hover:bg-primary/5 text-muted-foreground hover:text-primary transition-colors"
+                        className="w-full h-9 border-dashed border-2 hover:border-primary hover:bg-primary/5 text-muted-foreground hover:text-primary transition-colors text-xs font-semibold rounded-xl"
                         onClick={handleAddScene}
                     >
-                        <Plus className="w-6 h-6 mr-2" /> 새로운 씬 추가하기
+                        <Plus className="w-4 h-4 mr-1.5" /> 새로운 씬 추가하기
                     </Button>
                 </div>
 

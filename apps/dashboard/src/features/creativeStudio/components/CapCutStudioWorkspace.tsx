@@ -334,7 +334,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   }, [canvasZoom]);
 
   const containerContent = (
-    <div className={`flex flex-col bg-[#0b0e14] text-slate-200 border border-border/60 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${isMaximized ? 'fixed inset-0 z-[99999] rounded-none border-none' : 'w-full h-[760px]'}`}>
+    <div className={`flex flex-col bg-[#0b0e14] text-slate-200 border border-border/60 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${isMaximized ? 'fixed inset-0 z-[99999] rounded-none border-none' : 'w-full h-[840px]'}`}>
       {/* ── 1. Pro Studio Top Header ── */}
       <div className="h-11 bg-[#121722] border-b border-white/10 px-4 flex items-center justify-between shrink-0 select-none">
         <div className="flex items-center gap-3">
@@ -575,7 +575,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
               <div className="border-t border-white/10 pt-2.5 space-y-2">
                 <Label className="text-[11px] font-bold text-slate-300">현재 씬 대본 목록 ({scenes.length}개 씬)</Label>
-                <div className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-[390px] overflow-y-auto pr-1">
                   {scenes.map((sc, idx) => (
                     <div
                       key={sc.id}
@@ -629,7 +629,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </div>
 
               {/* Style Presets Grid */}
-              <div className="grid grid-cols-2 gap-2 max-h-[320px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-2 max-h-[460px] overflow-y-auto pr-1">
                 {(STYLE_PRESETS?.styles || [])
                   .filter((s: any) => {
                     const matchQ = !styleSearchQuery || (s.name || '').toLowerCase().includes(styleSearchQuery.toLowerCase()) || (s.category || '').toLowerCase().includes(styleSearchQuery.toLowerCase());
