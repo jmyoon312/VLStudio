@@ -2016,6 +2016,43 @@ async function ensureOnProjectComposer(flowView, projectId) {
 
   currentUrl = flowView.webContents.getURL()
 
+  // 3-B. 여전히 프로젝트 URL이 아니면, Flow 프로젝트 목록 API를 직접 조회하여 최신 프로젝트 ID로 직행 로드
+  if (!currentUrl.includes('/project/')) {
+    try {
+      const sessionData = await flowView.webContents.executeJavaScript(
+        `fetch('${SESSION_URL}').then(r => r.ok ? r.text() : null).catch(() => null)`
+      ).catch(() => null)
+      if (sessionData) {
+        const parsed = parseFlowResponse(sessionData) || JSON.parse(sessionData)
+        const tok = parsed?.access_token || parsed?.accessToken || null
+        if (tok) {
+          const input = JSON.stringify({ json: { pageSize: 5, toolName: 'PINHOLE' } })
+          const listUrl = `https://labs.google/fx/api/trpc/project.searchUserProjects?input=${encodeURIComponent(input)}`
+          const resp = await sessionFetch(listUrl, {
+            headers: { 'Authorization': `Bearer ${tok}`, 'Content-Type': 'application/json' }
+          })
+          if (resp.ok) {
+            const listText = await resp.text()
+            const listData = parseFlowResponse(listText)
+            const projects = listData?.result?.data?.json?.result?.projects || listData?.result?.data?.result?.projects || []
+            if (projects.length > 0 && projects[0].projectId) {
+              const latestPid = projects[0].projectId
+              capturedProjectId = latestPid
+              const targetProjectUrl = `https://labs.google/fx/tools/flow/project/${latestPid}`
+              console.log('[Flow Navigator] Found latest project via API, navigating directly:', targetProjectUrl)
+              await flowView.webContents.loadURL(targetProjectUrl)
+              await new Promise(r => setTimeout(r, 2500))
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Flow Navigator] API project search error:', e.message)
+    }
+  }
+
+  currentUrl = flowView.webContents.getURL()
+
   // 4. 여전히 프로젝트 URL이 아니면 (프로젝트 목록 갤러리 또는 랜딩 화면)
   if (!currentUrl.includes('/project/')) {
     if (!currentUrl.includes('labs.google/fx')) {

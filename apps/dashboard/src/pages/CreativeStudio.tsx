@@ -424,7 +424,18 @@ const CreativeStudio = () => {
             const saved = localStorage.getItem('viral_loop_creative_scenes');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) return parsed;
+                if (Array.isArray(parsed)) {
+                    return parsed.map((s: SceneSegment) => ({
+                        ...s,
+                        visualStatus: s.visualStatus === 'generating' 
+                            ? (s.media_url || s.video_url ? 'completed' : 'idle') 
+                            : (s.visualStatus || 'idle'),
+                        audioStatus: s.audioStatus === 'generating' 
+                            ? (s.audio_url ? 'completed' : 'idle') 
+                            : (s.audioStatus || 'idle'),
+                        renderStatus: s.renderStatus === 'generating' ? 'idle' : (s.renderStatus || 'idle')
+                    }));
+                }
             }
         } catch (e) {
             console.error("Failed to load saved creative scenes:", e);
