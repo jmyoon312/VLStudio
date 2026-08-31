@@ -18,7 +18,7 @@ import {
     Loader2, ImageIcon, Music, Film, Upload, Download, Clapperboard, Plus, Trash2,
     Sparkles, Copy, ChevronDown, ChevronUp, RefreshCw, Save, Wand2, RotateCcw, Play,
     MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe, SlidersHorizontal,
-    List, Search, Grid3X3, LayoutGrid, FolderOpen
+    List, Search, Grid3X3, LayoutGrid, FolderOpen, Type, Sparkle
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
@@ -2618,6 +2618,72 @@ const CreativeStudio = () => {
                             </Button>
                             <Button variant="default" size="sm" className="h-7 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs" onClick={() => setIsExportModalOpen(true)}>
                                 ✂️ CapCut 내보내기
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Row 3: Feature Configuration Buttons (기능별 환경설정 모달 트리거) */}
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-border/60">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[11px] font-bold text-muted-foreground mr-0.5 flex items-center gap-1">
+                                <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> 기능별 설정:
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2.5 text-xs font-medium bg-background hover:bg-muted shadow-2xs gap-1"
+                                onClick={() => setIsTTSDialogOpen(true)}
+                            >
+                                <Mic className="w-3 h-3 text-blue-500" /> 음성(TTS) 설정
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={`h-7 px-2.5 text-xs font-medium bg-background hover:bg-muted shadow-2xs gap-1 ${subtitleConfig.enabled ? 'border-green-500/50 text-green-600 dark:text-green-400 bg-green-500/10' : ''}`}
+                                onClick={() => setIsSubtitleDialogOpen(true)}
+                            >
+                                <Type className="w-3 h-3 text-amber-500" /> 자막 설정
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-500/10 shadow-2xs gap-1 font-semibold"
+                                onClick={handleManualSyncSubtitles}
+                                title="오탈자 없는 대본과 음성 재생 시간을 기준으로 정밀 SRT 자막 즉시 생성 및 디스크 동기화"
+                            >
+                                <RefreshCw className="w-3 h-3" /> 자막 SRT 동기화
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2.5 text-xs font-medium bg-background hover:bg-muted shadow-2xs gap-1"
+                                onClick={() => setIsMotionDialogOpen(true)}
+                            >
+                                <Film className="w-3 h-3 text-purple-500" /> 카메라 모션
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={`h-7 px-2.5 text-xs font-medium bg-background hover:bg-muted shadow-2xs gap-1 ${watermarkConfig?.enabled ? 'border-blue-500/50 text-blue-600 dark:text-blue-400 bg-blue-500/10' : ''}`}
+                                onClick={() => setIsWatermarkDialogOpen(true)}
+                            >
+                                <Sparkle className="w-3 h-3 text-indigo-500" /> 워터마크 {watermarkConfig?.enabled ? '(ON)' : ''}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={`h-7 px-2.5 text-xs font-medium bg-background hover:bg-muted shadow-2xs gap-1 ${transitionConfig?.enabled ? 'border-pink-500/50 text-pink-600 dark:text-pink-400 bg-pink-500/10' : ''}`}
+                                onClick={() => setIsTransitionDialogOpen(true)}
+                            >
+                                <Sparkles className="w-3 h-3 text-pink-500" /> 전환효과 {transitionConfig?.enabled ? '(ON)' : ''}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2.5 text-xs font-medium bg-background hover:bg-muted shadow-2xs gap-1"
+                                onClick={() => setIsAudioDialogOpen(true)}
+                            >
+                                <Music className="w-3 h-3 text-teal-500" /> BGM / 오디오
                             </Button>
                         </div>
                     </div>
