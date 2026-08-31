@@ -2236,6 +2236,8 @@ const videoDeps = {
   setPendingI2VInjection: (v) => { pendingI2VInjection = v },
   SESSION_URL, TOKEN_INFO_URL, FLOW_URL, MEDIA_REDIRECT_URL, UPLOAD_URL,
   VIDEO_T2V_URL, VIDEO_I2V_URL, VIDEO_I2V_START_END_URL, VIDEO_STATUS_URL, VIDEO_UPSCALE_URL,
+  BASE_API_URL,
+  getApiBase: () => BASE_API_URL,
   API_HEADERS,
 }
 registerVideoIPC(ipcMain, videoDeps)

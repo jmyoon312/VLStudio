@@ -37,13 +37,22 @@ export function registerVideoIPC(ipcMain, deps) {
     getPendingVideoGeneration, setPendingVideoGeneration,
     setFlowPageInject, clearFlowPageInject,
     getCurrentMode,
+    getApiBase,
     SESSION_URL, TOKEN_INFO_URL, FLOW_URL, MEDIA_REDIRECT_URL, UPLOAD_URL,
     VIDEO_T2V_URL, VIDEO_I2V_URL, VIDEO_I2V_START_END_URL, VIDEO_STATUS_URL, VIDEO_UPSCALE_URL,
+    BASE_API_URL,
     API_HEADERS,
   } = deps
   // #R33: video 직접 호출 엔드포인트 — 캡처된 region origin 우선, 없으면 하드코딩 fallback.
   const videoUrls = async () => {
-    const base = getApiBase ? await getApiBase() : null
+    let base = null
+    try {
+      if (typeof getApiBase === 'function') {
+        base = await getApiBase()
+      }
+    } catch (_) {}
+    if (!base && BASE_API_URL) base = BASE_API_URL
+
     return base ? {
       i2v: `${base}/video:batchAsyncGenerateVideoStartImage`,
       i2vStartEnd: `${base}/video:batchAsyncGenerateVideoStartAndEndImage`,
