@@ -34,6 +34,7 @@ import { generateSRT } from '../features/flow2capcut/exporters/capcut';
 import { WatermarkSettingsDialog, WatermarkConfig } from '../features/creativeStudio/components/WatermarkSettingsDialog';
 import { TransitionSettingsDialog, TransitionConfig } from '../features/creativeStudio/components/TransitionSettingsDialog';
 import { CollapsibleTimelinePreview } from '../features/creativeStudio/components/CollapsibleTimelinePreview';
+import { ProjectManagerDialog } from '../features/creativeStudio/components/ProjectManagerDialog';
 import { flowQueue, QueueState } from '../features/flow2capcut/services/flowQueueManager';
 
 interface SceneSegment {
@@ -687,26 +688,24 @@ const CreativeStudio = () => {
         }
     };
 
-    const handleCreateNewProject = async () => {
-        const input = prompt("새 프로젝트 이름을 입력하세요 (영문, 한글, 숫자 가능):");
-        if (!input || !input.trim()) return;
-        const sanitized = input.trim().replace(/[^a-zA-Z0-9가-힣_-]/g, '_').slice(0, 30);
-        const newProjName = sanitized.startsWith('project_') ? sanitized : `project_${sanitized}`;
-        
+    const [isProjectManagerOpen, setIsProjectManagerOpen] = useState(false);
+
+    const handleCreateProjectModal = async (newProjName: string, initialScript?: string) => {
         try {
             await api.post('/creative/init-project', {
                 project_name: newProjName,
-                script: "",
+                script: initialScript || "",
                 scenes: []
             });
             setCurrentProjectName(newProjName);
             localStorage.setItem('creative_current_project_name', newProjName);
             setScenes([]);
             localStorage.setItem('viral_loop_creative_scenes', '[]');
-            setFullScript("");
-            localStorage.setItem('viral_loop_creative_full_script', "");
+            setFullScript(initialScript || "");
+            localStorage.setItem('viral_loop_creative_full_script', initialScript || "");
             toast.success(`새 프로젝트 '${newProjName}'가 생성되었습니다!`);
             refetchProjects();
+            queryClient.invalidateQueries({ queryKey: ['creativeProjects'] });
         } catch (e: any) {
             toast.error("새 프로젝트 생성 실패: " + e.message);
         }
@@ -2737,11 +2736,18 @@ const CreativeStudio = () => {
                                     )}
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
-                                        onClick={handleCreateNewProject}
+                                        onClick={() => setIsProjectManagerOpen(true)}
                                         className="text-xs font-bold text-primary cursor-pointer flex items-center gap-1.5 py-1.5"
                                     >
                                         <Plus className="w-3.5 h-3.5" />
                                         <span>새 프로젝트 생성...</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => setIsProjectManagerOpen(true)}
+                                        className="text-xs font-medium text-foreground cursor-pointer flex items-center gap-1.5 py-1.5"
+                                    >
+                                        <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
+                                        <span>전체 프로젝트 관리자 열기...</span>
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -3628,6 +3634,15 @@ const CreativeStudio = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* 05_Exports 작업 프로젝트 관리자 & 검색 다이얼로그 */}
+            <ProjectManagerDialog
+                open={isProjectManagerOpen}
+                onOpenChange={setIsProjectManagerOpen}
+                currentProjectName={currentProjectName}
+                onSelectProject={handleSwitchProject}
+                onCreateProject={handleCreateProjectModal}
+            />
         </div >
     );
 };

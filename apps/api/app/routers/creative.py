@@ -651,10 +651,26 @@ def list_creative_projects(
             "mtime": os.path.getmtime(item_path),
             "scene_count": 0,
             "script_preview": "",
-            "has_images": os.path.exists(os.path.join(item_path, "images")) and len(os.listdir(os.path.join(item_path, "images"))) > 0,
-            "has_videos": os.path.exists(os.path.join(item_path, "videos")) and len(os.listdir(os.path.join(item_path, "videos"))) > 0,
-            "has_audio": os.path.exists(os.path.join(item_path, "audio")) and len(os.listdir(os.path.join(item_path, "audio"))) > 0,
+            "thumbnail_url": None,
+            "has_images": False,
+            "has_videos": False,
+            "has_audio": False,
         }
+        
+        img_dir = os.path.join(item_path, "images")
+        if os.path.exists(img_dir):
+            imgs = [f for f in os.listdir(img_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
+            if imgs:
+                proj_info["has_images"] = True
+                proj_info["thumbnail_url"] = f"http://127.0.0.1:8000/media/05_Exports/{item}/images/{imgs[0]}"
+                
+        vid_dir = os.path.join(item_path, "videos")
+        if os.path.exists(vid_dir) and len(os.listdir(vid_dir)) > 0:
+            proj_info["has_videos"] = True
+            
+        aud_dir = os.path.join(item_path, "audio")
+        if os.path.exists(aud_dir) and len(os.listdir(aud_dir)) > 0:
+            proj_info["has_audio"] = True
         
         if os.path.exists(meta_path):
             try:
@@ -663,7 +679,12 @@ def list_creative_projects(
                 proj_info["created_at"] = pdata.get("created_at") or proj_info["created_at"]
                 proj_info["scene_count"] = pdata.get("scene_count") or len(pdata.get("scenes", []))
                 script_text = pdata.get("script", "")
-                proj_info["script_preview"] = script_text[:80] + ("..." if len(script_text) > 80 else "")
+                proj_info["script_preview"] = script_text[:100] + ("..." if len(script_text) > 100 else "")
+                if not proj_info["thumbnail_url"] and pdata.get("scenes"):
+                    for sc in pdata["scenes"]:
+                        if sc.get("media_url") and not sc["media_url"].startswith("data:"):
+                            proj_info["thumbnail_url"] = sc["media_url"]
+                            break
             except Exception:
                 pass
                 
@@ -701,6 +722,61 @@ def get_creative_project(
         "scenes": [],
         "script": ""
     }
+
+@router.delete("/projects/{project_name}")
+def delete_creative_project(
+    project_name: str,
+    db: Session = Depends(database.get_db)
+):
+    """
+    05_Exports 내의 지정된 프로젝트 폴더 및 모든 에셋을 영구 삭제합니다.
+    """
+    import shutil
+    settings = crud.get_settings(db)
+    root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+    project_dir = os.path.join(root, "05_Exports", project_name)
+    if not os.path.exists(project_dir):
+        raise HTTPException(status_code=404, detail=f"Project {project_name} not found")
+        
+    try:
+        shutil.rmtree(project_dir)
+        return {"status": "success", "message": f"Project {project_name} deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete project folder: {str(e)}")
+
+@router.post("/projects/{project_name}/duplicate")
+def duplicate_creative_project(
+    project_name: str,
+    db: Session = Depends(database.get_db)
+):
+    """
+    지정된 프로젝트를 새로운 복제본(project_xxx_copy)으로 전체 복사합니다.
+    """
+    import shutil
+    settings = crud.get_settings(db)
+    root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+    src_dir = os.path.join(root, "05_Exports", project_name)
+    if not os.path.exists(src_dir):
+        raise HTTPException(status_code=404, detail=f"Project {project_name} not found")
+        
+    new_name = f"{project_name}_copy_{int(time.time()) % 10000}"
+    dst_dir = os.path.join(root, "05_Exports", new_name)
+    
+    try:
+        shutil.copytree(src_dir, dst_dir)
+        meta_path = os.path.join(dst_dir, "project.json")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r", encoding="utf-8") as f:
+                pdata = json.load(f)
+            pdata["project_name"] = new_name
+            pdata["created_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            pdata["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(pdata, f, ensure_ascii=False, indent=2)
+                
+        return {"status": "success", "new_project_name": new_name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to duplicate project: {str(e)}")
 
 @router.post("/save-project")
 def save_creative_project(
