@@ -718,7 +718,7 @@ const CreativeStudio = () => {
         });
     }, [scenes, sceneSearchQuery, sceneFilterStatus]);
 
-    // [ENHANCED] Flow AI 초고속 안전 병렬 이미지 일괄 생성 (동시 2슬롯 + 1.2s 스태거링 딜레이)
+    // [ENHANCED] Flow AI 1:1 무결점 매칭 순차 큐 이미지 일괄 생성 (레이스 컨디션 및 씬 뒤섞임 원천 방지)
     const handleBatchFlowImages = async () => {
         const targetScenes = scenes.filter(s => s.visual_prompt);
         if (targetScenes.length === 0) {
@@ -727,42 +727,33 @@ const CreativeStudio = () => {
         }
 
         setIsFlowBatchGenerating(true);
-        toast.info(`총 ${targetScenes.length}개 씬에 대해 Google Flow AI 고속 병렬 이미지 생성을 시작합니다...`);
+        toast.info(`총 ${targetScenes.length}개 씬에 대해 Google Flow AI 1:1 정밀 이미지 생성을 시작합니다...`);
 
-        // Google Flow Rate-Limit/reCAPTCHA 차단 방지 최적 동시성 설정
-        const CONCURRENCY = 2; // 안전 최대 병렬 슬롯
-        const STAGGER_DELAY_MS = 1200; // 요청 간 분산 딜레이
-
-        let taskIndex = 0;
         let completedCount = 0;
+        let successCount = 0;
 
-        const runWorker = async () => {
-            while (taskIndex < targetScenes.length) {
-                const currentIdx = taskIndex++;
-                const scene = targetScenes[currentIdx];
-                if (!scene) break;
+        for (let i = 0; i < targetScenes.length; i++) {
+            const scene = targetScenes[i];
+            if (!scene) continue;
 
-                try {
-                    await handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt);
-                } catch (err) {
-                    console.error(`[Batch Flow Image] Scene #${scene.scene_id} error:`, err);
-                } finally {
-                    completedCount++;
-                }
+            try {
+                toast.info(`[${i + 1}/${targetScenes.length}] Scene #${scene.scene_id} 이미지 생성 진행 중...`);
+                await handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt);
+                successCount++;
+            } catch (err) {
+                console.error(`[Batch Flow Image] Scene #${scene.scene_id} error:`, err);
+            } finally {
+                completedCount++;
             }
-        };
 
-        const workers: Promise<void>[] = [];
-        for (let i = 0; i < Math.min(CONCURRENCY, targetScenes.length); i++) {
-            workers.push(runWorker());
-            if (i < CONCURRENCY - 1 && taskIndex < targetScenes.length) {
-                await new Promise(r => setTimeout(r, STAGGER_DELAY_MS));
+            // 다음 씬 생성 전 Flow DOM/네트워크 안정화 버퍼 딜레이
+            if (i < targetScenes.length - 1) {
+                await new Promise(r => setTimeout(r, 400));
             }
         }
 
-        await Promise.all(workers);
         setIsFlowBatchGenerating(false);
-        toast.success(`전체 ${targetScenes.length}개 Flow 이미지 생성이 완료되었습니다!`);
+        toast.success(`전체 ${targetScenes.length}개 씬 중 ${successCount}개 Flow 이미지 생성이 완료되었습니다!`);
     };
 
     // [NEW] Flow AI 일괄 영상(I2V) 생성 핸들러 (조건부 필터링 지원)
@@ -812,61 +803,31 @@ const CreativeStudio = () => {
 
         setIsFlowBatchGenerating(true);
         setIsSelectiveVideoModalOpen(false);
-        toast.info(`총 ${targetScenes.length}개 씬에 대해 Google Flow AI 고속 병렬 영상(I2V) 생성을 시작합니다...`);
+        toast.info(`총 ${targetScenes.length}개 씬에 대해 Google Flow AI 1:1 정밀 영상(I2V) 생성을 시작합니다...`);
 
-        const apiObj = (window as any).electronAPI;
         let successCount = 0;
-        const CONCURRENCY = 2;
-        const STAGGER_DELAY_MS = 1500;
 
-        let taskIndex = 0;
+        for (let i = 0; i < targetScenes.length; i++) {
+            const scene = targetScenes[i];
+            if (!scene) continue;
 
-        const runVideoWorker = async () => {
-            while (taskIndex < targetScenes.length) {
-                const currentIdx = taskIndex++;
-                const scene = targetScenes[currentIdx];
-                if (!scene) break;
-
-                updateScene(scene.id, { visualStatus: 'generating' });
-                try {
-                    if (apiObj?.generateVideoI2V) {
-                        const prompt = scene.video_prompt || scene.visual_prompt || 'Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion';
-                        const res = await apiObj.generateVideoI2V({
-                            prompt,
-                            startImage: scene.media_url,
-                            startImageMediaId: (scene as any).mediaId || undefined,
-                            aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
-                        });
-                        if (res?.success && (res.videoUrl || res.video_url || res.url)) {
-                            const vUrl = res.videoUrl || res.video_url || res.url;
-                            updateScene(scene.id, { visualStatus: 'completed', video_url: vUrl, viewMode: 'render' });
-                            successCount++;
-                        } else {
-                            await handleGenerateVideo(scene);
-                            successCount++;
-                        }
-                    } else {
-                        await handleGenerateVideo(scene);
-                        successCount++;
-                    }
-                } catch (err: any) {
-                    console.error(`Scene #${scene.scene_id} Flow video error:`, err);
-                    updateScene(scene.id, { visualStatus: 'failed' });
-                }
+            try {
+                toast.info(`[${i + 1}/${targetScenes.length}] Scene #${scene.scene_id} 영상(I2V) 생성 진행 중...`);
+                await handleGenerateVideo(scene);
+                successCount++;
+            } catch (err: any) {
+                console.error(`Scene #${scene.scene_id} Flow video error:`, err);
+                updateScene(scene.id, { visualStatus: 'failed' });
             }
-        };
 
-        const workers: Promise<void>[] = [];
-        for (let i = 0; i < Math.min(CONCURRENCY, targetScenes.length); i++) {
-            workers.push(runVideoWorker());
-            if (i < CONCURRENCY - 1 && taskIndex < targetScenes.length) {
-                await new Promise(r => setTimeout(r, STAGGER_DELAY_MS));
+            // 다음 씬 영상 생성 전 Flow DOM/네트워크 안정화 버퍼 딜레이
+            if (i < targetScenes.length - 1) {
+                await new Promise(r => setTimeout(r, 400));
             }
         }
 
-        await Promise.all(workers);
         setIsFlowBatchGenerating(false);
-        toast.success(`선택적 영상 생성 완료! (${successCount}/${targetScenes.length}개 완료)`);
+        toast.success(`영상 생성 완료! (${successCount}/${targetScenes.length}개 완료)`);
     };
     
     // [NEW] CapCut Export States
