@@ -17,7 +17,8 @@ import { Switch } from "@/components/ui/switch";
 import {
     Loader2, ImageIcon, Music, Film, Upload, Download, Clapperboard, Plus, Trash2,
     Sparkles, Copy, ChevronDown, ChevronUp, RefreshCw, Save, Wand2, RotateCcw, Play,
-    MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe, SlidersHorizontal
+    MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe, SlidersHorizontal,
+    List, Search, Grid3X3, LayoutGrid
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
@@ -676,6 +677,44 @@ const CreativeStudio = () => {
         durationSec: 0.5,
         randomPool: ['dissolve', 'flash_white', 'zoom_in', 'whip_pan', 'glitch']
     });
+
+    // ── 롱폼 대규모 씬보드 전용 스마트 관리 상태 ──
+    const [sceneBoardViewMode, setSceneBoardViewMode] = useState<'card' | 'list' | 'grid'>('card');
+    const [sceneSearchQuery, setSceneSearchQuery] = useState('');
+    const [sceneFilterStatus, setSceneFilterStatus] = useState<'all' | 'uncompleted' | 'tts_done' | 'video_done'>('all');
+    const [highlightedSceneId, setHighlightedSceneId] = useState<string | null>(null);
+    const sceneScrollContainerRef = React.useRef<HTMLDivElement | null>(null);
+
+    const handleScrollToScene = React.useCallback((sceneId: string) => {
+        setHighlightedSceneId(sceneId);
+        const el = document.getElementById(`scene-${sceneId}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        setTimeout(() => setHighlightedSceneId(null), 2000);
+    }, []);
+
+    const filteredScenes = React.useMemo(() => {
+        return scenes.filter(scene => {
+            if (sceneSearchQuery.trim()) {
+                const q = sceneSearchQuery.toLowerCase();
+                const matchScript = (scene.script || '').toLowerCase().includes(q);
+                const matchPrompt = (scene.visual_prompt || '').toLowerCase().includes(q) || (scene.video_prompt || '').toLowerCase().includes(q);
+                const matchId = String(scene.scene_id).includes(q);
+                if (!matchScript && !matchPrompt && !matchId) return false;
+            }
+            if (sceneFilterStatus === 'uncompleted') {
+                const hasMedia = !!(scene.media_url || scene.video_url);
+                const hasAudio = !!(scene.audio_url);
+                if (hasMedia && hasAudio) return false;
+            } else if (sceneFilterStatus === 'tts_done') {
+                if (!scene.audio_url) return false;
+            } else if (sceneFilterStatus === 'video_done') {
+                if (!scene.video_url) return false;
+            }
+            return true;
+        });
+    }, [scenes, sceneSearchQuery, sceneFilterStatus]);
 
     // [NEW] Flow AI 일괄 이미지 생성 핸들러
     const handleBatchFlowImages = async () => {
@@ -2396,19 +2435,19 @@ const CreativeStudio = () => {
                 }}
             />
 
-            {/* Zone 3: Scene Board */}
-            <div className="space-y-4">
-                {/* Scene Controls Header (Split into 2 rows) */}
-                <div className="bg-card p-4 rounded-lg border shadow-sm sticky top-0 z-10 space-y-3">
-                    {/* Row 1: Title & Segment Mode */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Film className="w-4 h-4 text-primary" />
-                                <span className="text-xs font-bold uppercase tracking-wider">Scene Board</span>
-                                <Badge variant="secondary" className="ml-2 h-5 text-[10px]">{scenes.length} Scenes</Badge>
-                            </div>
-                            <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 bg-muted/50 border rounded-md text-[11px] text-muted-foreground font-mono">
+            {/* Zone 3: Master Scene Board Container (롱폼 대규모 씬 스마트 관리 시스템) */}
+            <Card className="border rounded-2xl shadow-sm bg-card border-border overflow-hidden flex flex-col transition-all">
+                {/* 1. Master Sticky Header */}
+                <div className="bg-card p-3 sm:p-3.5 border-b border-border space-y-2.5">
+                    {/* Row 1: Title, Project Folder, View Mode Switcher, Screen Ratio */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-foreground">
+                            <Film className="w-4 h-4 text-primary" />
+                            <span className="text-xs font-bold uppercase tracking-wider">Scene Board</span>
+                            <Badge variant="secondary" className="h-5 text-[11px] font-bold bg-primary/10 text-primary">
+                                {filteredScenes.length} / {scenes.length} Scenes
+                            </Badge>
+                            <div className="hidden md:flex items-center gap-1 px-2 py-0.5 bg-muted/60 border rounded-md text-[10.5px] text-muted-foreground font-mono">
                                 <span>📁 05_Exports/{currentProjectName}</span>
                                 <button
                                     onClick={async () => {
@@ -2416,9 +2455,7 @@ const CreativeStudio = () => {
                                             const apiObj = (window as any).electronAPI;
                                             if (apiObj?.openProjectFolder) {
                                                 const res = await apiObj.openProjectFolder(currentProjectName);
-                                                if (res?.success) {
-                                                    toast.success(`프로젝트 폴더를 열었습니다: 05_Exports/${currentProjectName}`);
-                                                }
+                                                if (res?.success) toast.success(`폴더 열기: 05_Exports/${currentProjectName}`);
                                             } else if (apiObj?.openWorkFolder) {
                                                 await apiObj.openWorkFolder();
                                             }
@@ -2427,395 +2464,475 @@ const CreativeStudio = () => {
                                         }
                                     }}
                                     className="text-primary hover:underline ml-1 font-sans text-[10px] font-semibold"
-                                    title="05_Exports 하위 해당 프로젝트 폴더 열기"
                                 >
                                     열기
                                 </button>
                             </div>
                         </div>
 
+                        {/* View Modes & Aspect Ratio */}
                         <div className="flex items-center gap-2">
-                            <div className="flex items-center space-x-2 bg-muted/30 p-1 rounded-md">
-                                <Label className="text-xs font-medium px-2">화면 비율:</Label>
+                            {/* 3-Way View Mode Switcher */}
+                            <div className="flex bg-muted p-0.5 rounded-lg border border-border/70 shadow-2xs">
+                                <button
+                                    type="button"
+                                    onClick={() => setSceneBoardViewMode('card')}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all ${sceneBoardViewMode === 'card' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
+                                    title="상세 카드 뷰 (기본)"
+                                >
+                                    <LayoutGrid className="w-3 h-3" /> 카드 뷰
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSceneBoardViewMode('list')}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all ${sceneBoardViewMode === 'list' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
+                                    title="컴팩트 리스트 뷰 (엑셀 스프레드시트형 빠른 대본 검수)"
+                                >
+                                    <List className="w-3 h-3" /> 리스트 뷰
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSceneBoardViewMode('grid')}
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-all ${sceneBoardViewMode === 'grid' ? 'bg-background text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
+                                    title="스토리보드 그리드 뷰 (비주얼 흐름 파악)"
+                                >
+                                    <Grid3X3 className="w-3 h-3" /> 그리드 뷰
+                                </button>
+                            </div>
+
+                            <div className="flex items-center space-x-1.5 bg-muted/40 px-2 py-0.5 rounded-lg border border-border">
+                                <Label className="text-[11px] font-semibold">비율:</Label>
                                 <Select value={segmentMode} onValueChange={setSegmentMode}>
-                                    <SelectTrigger className="w-[140px] h-8 text-xs">
+                                    <SelectTrigger className="w-[110px] h-7 text-xs bg-background">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="shorts">📱 쇼츠 (9:16)</SelectItem>
-                                        <SelectItem value="video">📺 비디오 (16:9)</SelectItem>
+                                        <SelectItem value="shorts">📱 9:16 쇼츠</SelectItem>
+                                        <SelectItem value="video">📺 16:9 비디오</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={handleMergeScenes} disabled={isMerging}>
+
+                            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleMergeScenes} disabled={isMerging}>
                                 {isMerging ? <Loader2 className="w-3 h-3 animate-spin" /> : <Film className="w-3 h-3" />}
-                                씬 영상 통합
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={handleResetScenes} title="초기화">
-                                <RefreshCw className="w-4 h-4" />
+                                영상 통합
                             </Button>
                         </div>
                     </div>
 
-                    {/* Row 2: Categorized & Grouped Actions Toolbar */}
-                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                        {/* Group 1: Media Generation */}
-                        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/80 shadow-2xs">
-                            <span className="text-[10px] font-extrabold uppercase px-2 text-muted-foreground tracking-tight">생성</span>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-7.5 text-xs font-semibold bg-background hover:bg-muted shadow-2xs" 
-                                onClick={handleBatchTTS}
-                            >
-                                <Mic className="w-3.5 h-3.5 mr-1 text-blue-500" />
-                                <span>전체 TTS</span>
-                            </Button>
-                            
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={isFlowBatchGenerating}
-                                className="h-7.5 text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300/60 dark:border-purple-800/60 hover:bg-purple-500/20 shadow-2xs"
-                                onClick={handleBatchFlowImages}
-                            >
-                                {isFlowBatchGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
-                                <span>✨ Flow 전체 이미지</span>
-                            </Button>
+                    {/* Row 2: Search, Filters & Batch Action Buttons */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                        {/* Search & Status Filters */}
+                        <div className="flex items-center gap-1.5 flex-1 min-w-[280px]">
+                            <div className="relative flex-1 max-w-[240px]">
+                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                                <Input
+                                    type="text"
+                                    value={sceneSearchQuery}
+                                    onChange={(e) => setSceneSearchQuery(e.target.value)}
+                                    placeholder="씬 검색 (대본, 프롬프트, 번호)..."
+                                    className="h-7.5 pl-8 pr-2 text-xs bg-background border-border shadow-2xs rounded-lg"
+                                />
+                            </div>
 
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={isFlowBatchGenerating}
-                                        className="h-7.5 text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300/60 dark:border-indigo-800/60 hover:bg-indigo-500/20 shadow-2xs"
-                                    >
-                                        <Film className="w-3.5 h-3.5 mr-1" />
-                                        <span>Flow 영상 변환</span>
-                                        <ChevronDown className="w-3 h-3 ml-1 opacity-70" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                    <DropdownMenuItem onClick={() => setIsSelectiveVideoModalOpen(true)} className="text-xs font-medium cursor-pointer">
-                                        <SlidersHorizontal className="w-3.5 h-3.5 mr-2 text-indigo-500" />
-                                        <span>🎬 조건부 선택 영상 변환</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleBatchFlowVideos('all')} className="text-xs font-medium cursor-pointer">
-                                        <Film className="w-3.5 h-3.5 mr-2 text-indigo-500" />
-                                        <span>🎞 전체 씬 일괄 영상 변환</span>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <Button 
-                                variant="default" 
-                                size="sm" 
-                                className="h-7.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs" 
-                                onClick={handleRoughCut}
-                            >
-                                ⚡ 원클릭 러프컷
-                            </Button>
+                            {/* Filter Chips */}
+                            <div className="flex items-center gap-1 bg-muted/40 p-0.5 rounded-lg border text-[11px]">
+                                <button
+                                    onClick={() => setSceneFilterStatus('all')}
+                                    className={`px-2 py-0.5 rounded-md font-medium ${sceneFilterStatus === 'all' ? 'bg-background font-bold text-foreground shadow-2xs' : 'text-muted-foreground'}`}
+                                >
+                                    전체 ({scenes.length})
+                                </button>
+                                <button
+                                    onClick={() => setSceneFilterStatus('uncompleted')}
+                                    className={`px-2 py-0.5 rounded-md font-medium ${sceneFilterStatus === 'uncompleted' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold' : 'text-muted-foreground'}`}
+                                >
+                                    ⚠️ 미완료
+                                </button>
+                                <button
+                                    onClick={() => setSceneFilterStatus('tts_done')}
+                                    className={`px-2 py-0.5 rounded-md font-medium ${sceneFilterStatus === 'tts_done' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold' : 'text-muted-foreground'}`}
+                                >
+                                    🎙️ TTS완료
+                                </button>
+                                <button
+                                    onClick={() => setSceneFilterStatus('video_done')}
+                                    className={`px-2 py-0.5 rounded-md font-medium ${sceneFilterStatus === 'video_done' ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold' : 'text-muted-foreground'}`}
+                                >
+                                    🎬 영상완료
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Group 2: Subtitle & Voice Settings */}
-                        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/80 shadow-2xs">
-                            <span className="text-[10px] font-extrabold uppercase px-2 text-muted-foreground tracking-tight">음성/자막</span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7.5 text-xs bg-background hover:bg-muted shadow-2xs"
-                                onClick={() => setIsTTSDialogOpen(true)}
-                            >
-                                <Mic className="w-3 h-3 mr-1 text-muted-foreground" />
-                                <span>음성 설정</span>
+                        {/* Batch Action Buttons */}
+                        <div className="flex items-center gap-1.5">
+                            <Button variant="outline" size="sm" className="h-7 text-xs font-semibold bg-background hover:bg-muted shadow-2xs" onClick={handleBatchTTS}>
+                                <Mic className="w-3 h-3 mr-1 text-blue-500" /> 전체 TTS
                             </Button>
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={`h-7.5 text-xs shadow-2xs ${subtitleConfig.enabled ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' : 'bg-background hover:bg-muted'}`}
-                                onClick={() => setIsSubtitleDialogOpen(true)}
-                            >
-                                <span>📝 자막 설정</span>
+                            <Button variant="outline" size="sm" disabled={isFlowBatchGenerating} className="h-7 text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300/60 dark:border-purple-800/60 hover:bg-purple-500/20 shadow-2xs" onClick={handleBatchFlowImages}>
+                                {isFlowBatchGenerating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />} Flow 이미지
                             </Button>
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7.5 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 bg-emerald-500/10 hover:bg-emerald-500/20 font-semibold shadow-2xs"
-                                onClick={handleManualSyncSubtitles}
-                                title="오탈자 없는 대본과 음성 재생 시간을 기준으로 정밀 SRT 자막 즉시 생성 및 동기화"
-                            >
-                                ⚡ 자막 SRT 동기화
+                            <Button variant="outline" size="sm" disabled={isFlowBatchGenerating} className="h-7 text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-300/60 dark:border-indigo-800/60 hover:bg-indigo-500/20 shadow-2xs" onClick={() => handleBatchFlowVideos('all')}>
+                                <Film className="w-3 h-3 mr-1" /> Flow 영상
                             </Button>
-                        </div>
-
-                        {/* Group 3: Direction & Effects Dropdown */}
-                        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/80 shadow-2xs">
-                            <span className="text-[10px] font-extrabold uppercase px-2 text-muted-foreground tracking-tight">연출</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="h-7.5 text-xs bg-background hover:bg-muted shadow-2xs gap-1.5">
-                                        <Wand2 className="w-3.5 h-3.5 text-amber-500" />
-                                        <span>이펙트 & 연출 설정</span>
-                                        <ChevronDown className="w-3 h-3 opacity-70" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-52">
-                                    <DropdownMenuItem onClick={() => setIsTransitionDialogOpen(true)} className="text-xs cursor-pointer justify-between">
-                                        <span className="flex items-center gap-2">🎬 트랜지션 전환</span>
-                                        <Badge variant="outline" className="text-[9px] px-1 py-0">{transitionConfig.mode}</Badge>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setIsWatermarkDialogOpen(true)} className="text-xs cursor-pointer justify-between">
-                                        <span className="flex items-center gap-2">🏷️ 워터마크/로고</span>
-                                        <Badge variant={watermarkConfig.enabled ? "default" : "outline"} className="text-[9px] px-1 py-0">{watermarkConfig.enabled ? "ON" : "OFF"}</Badge>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setIsMotionDialogOpen(true)} className="text-xs cursor-pointer">
-                                        🎥 켄번스 카메라 모션
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setIsAudioDialogOpen(true)} className="text-xs cursor-pointer">
-                                        🔊 BGM / 오디오 효과
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-
-                        {/* Group 4: Export & Output */}
-                        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/80 shadow-2xs ml-auto">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="h-7.5 text-xs text-muted-foreground hover:text-foreground">
-                                        <Download className="w-3.5 h-3.5 mr-1.5" /> 
-                                        <span>다운로드</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleBatchDownload('visual')} className="text-xs cursor-pointer">
-                                        📦 이미지/영상 소스 ZIP
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleBatchDownload('video')} className="text-xs cursor-pointer">
-                                        🎬 최종 렌더링 결과 ZIP
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            <Button 
-                                variant="default" 
-                                size="sm" 
-                                className="h-7.5 px-3.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm" 
-                                onClick={() => setIsExportModalOpen(true)}
-                            >
+                            <Button variant="default" size="sm" className="h-7 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs" onClick={() => setIsExportModalOpen(true)}>
                                 ✂️ CapCut 내보내기
                             </Button>
                         </div>
                     </div>
+
+                    {/* Quick Jump Bar (when > 10 scenes) */}
+                    {scenes.length > 10 && (
+                        <div className="flex items-center gap-1 pt-1 overflow-x-auto no-scrollbar border-t border-border/50 text-[10.5px]">
+                            <span className="text-muted-foreground font-semibold shrink-0 mr-1">⚡ 씬 점프:</span>
+                            {Array.from({ length: Math.ceil(scenes.length / 15) }, (_, pIdx) => {
+                                const start = pIdx * 15 + 1;
+                                const end = Math.min(scenes.length, (pIdx + 1) * 15);
+                                return (
+                                    <button
+                                        key={pIdx}
+                                        type="button"
+                                        onClick={() => {
+                                            const targetScene = scenes[start - 1];
+                                            if (targetScene) handleScrollToScene(targetScene.id);
+                                        }}
+                                        className="px-2 py-0.5 rounded-md bg-muted/60 hover:bg-primary/20 text-muted-foreground hover:text-primary font-mono transition-colors shrink-0"
+                                    >
+                                        #{start}~#{end}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
-                {/* Scene List - Compact High-Density Grid */}
-                <div className="space-y-2.5 pb-16">
-                    {scenes.map((scene, index) => (
-                        <React.Fragment key={scene.id}>
-                            {/* Insert Button between scenes (Slim Minimal) */}
-                            <div className="flex justify-center py-0.5 group">
-                                <Button variant="ghost" size="sm" className="rounded-full h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary" onClick={() => handleInsertScene(index)} title="이 위치에 씬 추가">
-                                    <Plus className="w-3.5 h-3.5" />
-                                </Button>
-                            </div>
-
-                            {/* Compact Scene Card (Flex Row) */}
-                            <div id={`scene-${scene.id}`} className="flex flex-col md:flex-row border rounded-xl shadow-2xs overflow-hidden bg-card transition-all duration-300">
-                                {/* Left Panel: Inputs (Flex-1) */}
-                                <div className="flex-1 p-3 space-y-2 border-r border-border">
-                                    {/* Header: Scene # + Trash */}
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-1.5">
-                                            <Badge variant="outline" className="h-5 text-[11px] font-bold">Scene #{scene.scene_id}</Badge>
-                                            <Badge variant="secondary" className="h-5 text-[10px]">{segmentMode === 'shorts' ? '9:16' : '16:9'}</Badge>
-                                            {scene.is_manual_asset && (
-                                                <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-[9.5px] h-4.5 gap-0.5 px-1.5">
-                                                    <DollarSign className="w-2.5 h-2.5" /> 수동에셋
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <div className="flex gap-0.5">
-                                            <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-muted-foreground" onClick={() => handleMoveScene(index, -1)} title="위로 이동"><ChevronUp className="w-3 h-3" /></Button>
-                                            <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-muted-foreground" onClick={() => handleMoveScene(index, 1)} title="아래로 이동"><ChevronDown className="w-3 h-3" /></Button>
-                                            <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-red-500 hover:bg-red-500/10" onClick={() => handleDeleteScene(scene.id)} title="씬 삭제"><Trash2 className="w-3 h-3" /></Button>
-                                        </div>
+                {/* 2. Internal Scrollable Body */}
+                <div
+                    ref={sceneScrollContainerRef}
+                    className="h-[640px] max-h-[calc(100vh-260px)] overflow-y-auto p-3 space-y-2.5 bg-muted/5 select-text"
+                >
+                    {/* Mode A: Card View (Detail Compact) */}
+                    {sceneBoardViewMode === 'card' && (
+                        <div className="space-y-2.5">
+                            {filteredScenes.map((scene, index) => (
+                                <React.Fragment key={scene.id}>
+                                    {/* Insert Button between scenes */}
+                                    <div className="flex justify-center py-0.5 group">
+                                        <Button variant="ghost" size="sm" className="rounded-full h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-muted hover:bg-primary/20 text-muted-foreground hover:text-primary" onClick={() => handleInsertScene(index)} title="이 위치에 씬 추가">
+                                            <Plus className="w-3.5 h-3.5" />
+                                        </Button>
                                     </div>
 
-                                    {/* Script Section */}
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between items-center">
-                                            <Label className="text-[11px] font-bold text-muted-foreground">대본 (SCRIPT / AUDIO)</Label>
-                                            <Button variant="ghost" size="sm" className="h-5.5 text-[11px] px-2" onClick={() => handleGenerateTTS(scene)} disabled={scene.audioStatus === 'generating'}>
-                                                {scene.audioStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Music className="w-3 h-3 mr-1" />}
-                                                {scene.audio_url ? "TTS 재생성" : "TTS 생성"}
-                                            </Button>
-                                        </div>
-                                        <Textarea
-                                            value={scene.script}
-                                            onChange={(e) => updateScene(scene.id, { script: e.target.value })}
-                                            onKeyDown={(e) => handleScriptKeyDown(e, index)}
-                                            className="min-h-[55px] max-h-[85px] text-xs leading-relaxed resize-y p-2"
-                                            placeholder="대본을 입력하세요... (Ctrl+Enter: 분할, Ctrl+Backspace: 병합)"
-                                        />
-                                        {scene.audio_url && (
-                                            <div className="flex items-center gap-1.5 mt-0.5 bg-muted/20 p-1 rounded-md">
-                                                <audio controls src={scene.audio_url} className="h-5 w-full" />
-                                                <Button variant="ghost" size="icon" className="h-5.5 w-5.5" onClick={() => triggerDownload(scene.audio_url!, `scene_${scene.scene_id}_audio.mp3`)}>
-                                                    <Download className="w-3 h-3" />
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Visual/Video Prompt Section */}
-                                    <div className="space-y-1.5 flex-1 flex flex-col">
-                                        <div className="space-y-0.5 flex-1 flex flex-col">
+                                    {/* Compact Scene Card */}
+                                    <div
+                                        id={`scene-${scene.id}`}
+                                        className={`flex flex-col md:flex-row border rounded-xl shadow-2xs overflow-hidden bg-card transition-all duration-300 ${highlightedSceneId === scene.id ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
+                                    >
+                                        {/* Left Panel: Inputs (Flex-1) */}
+                                        <div className="flex-1 p-3 space-y-2 border-r border-border">
                                             <div className="flex justify-between items-center">
-                                                <Label className="text-[11px] font-bold text-muted-foreground">이미지 프롬프트 (IMAGE)</Label>
-                                                <Button variant="ghost" size="sm" className="h-5 text-[10.5px] px-1.5" onClick={() => handleGeneratePrompt(scene)}>
-                                                    <Sparkles className="w-2.5 h-2.5 mr-1 text-purple-500" /> AI 프롬프트 생성
-                                                </Button>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Badge variant="outline" className="h-5 text-[11px] font-bold">Scene #{scene.scene_id}</Badge>
+                                                    <Badge variant="secondary" className="h-5 text-[10px]">{segmentMode === 'shorts' ? '9:16' : '16:9'}</Badge>
+                                                    {scene.is_manual_asset && (
+                                                        <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-[9.5px] h-4.5 gap-0.5 px-1.5">
+                                                            <DollarSign className="w-2.5 h-2.5" /> 수동에셋
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-0.5">
+                                                    <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-muted-foreground" onClick={() => handleMoveScene(index, -1)} title="위로 이동"><ChevronUp className="w-3 h-3" /></Button>
+                                                    <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-muted-foreground" onClick={() => handleMoveScene(index, 1)} title="아래로 이동"><ChevronDown className="w-3 h-3" /></Button>
+                                                    <Button variant="ghost" size="icon" className="h-5.5 w-5.5 text-red-500 hover:bg-red-500/10" onClick={() => handleDeleteScene(scene.id)} title="씬 삭제"><Trash2 className="w-3 h-3" /></Button>
+                                                </div>
                                             </div>
-                                            <Textarea
-                                                value={scene.visual_prompt}
-                                                onChange={(e) => updateScene(scene.id, { visual_prompt: e.target.value })}
-                                                className="min-h-[45px] max-h-[70px] text-xs font-mono leading-relaxed resize-y bg-muted/10 p-1.5"
-                                                placeholder="이미지 생성 구도, 배경, 피사체 묘사..."
-                                                disabled={scene.is_continuous_motion}
-                                            />
-                                        </div>
-                                        <div className="space-y-0.5 flex-1 flex flex-col">
-                                            <Label className="text-[11px] font-bold text-muted-foreground">영상 프롬프트 (VIDEO MOTION)</Label>
-                                            <Textarea
-                                                value={scene.video_prompt || ''}
-                                                onChange={(e) => updateScene(scene.id, { video_prompt: e.target.value })}
-                                                className="min-h-[40px] max-h-[60px] text-xs font-mono leading-relaxed resize-y bg-muted/10 p-1.5"
-                                                placeholder="카메라 무빙 및 피사체 움직임..."
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
 
-                                {/* Right Panel: Visual Source (Compact Slim Player) */}
-                                <div className="w-full md:w-[320px] lg:w-[340px] bg-muted/10 p-2.5 flex flex-col gap-2 shrink-0 border-t md:border-t-0 md:border-l border-border">
-                                    <div className="flex items-center justify-between">
-                                        <div className="text-xs font-bold text-muted-foreground flex flex-col gap-0.5">
-                                            <div className="flex items-center gap-1.5 text-foreground font-semibold text-[11px]">
-                                                <ImageIcon className="w-3 h-3 text-primary" /> 비주얼 플레이어
+                                            {/* Script Section */}
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between items-center">
+                                                    <Label className="text-[11px] font-bold text-muted-foreground">대본 (SCRIPT / AUDIO)</Label>
+                                                    <Button variant="ghost" size="sm" className="h-5.5 text-[11px] px-2" onClick={() => handleGenerateTTS(scene)} disabled={scene.audioStatus === 'generating'}>
+                                                        {scene.audioStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Music className="w-3 h-3 mr-1" />}
+                                                        {scene.audio_url ? "TTS 재생성" : "TTS 생성"}
+                                                    </Button>
+                                                </div>
+                                                <Textarea
+                                                    value={scene.script}
+                                                    onChange={(e) => updateScene(scene.id, { script: e.target.value })}
+                                                    onKeyDown={(e) => handleScriptKeyDown(e, index)}
+                                                    className="min-h-[55px] max-h-[85px] text-xs leading-relaxed resize-y p-2"
+                                                    placeholder="대본을 입력하세요... (Ctrl+Enter: 분할, Ctrl+Backspace: 병합)"
+                                                />
+                                                {scene.audio_url && (
+                                                    <div className="flex items-center gap-1.5 mt-0.5 bg-muted/20 p-1 rounded-md">
+                                                        <audio controls src={scene.audio_url} className="h-5 w-full" />
+                                                        <Button variant="ghost" size="icon" className="h-5.5 w-5.5" onClick={() => triggerDownload(scene.audio_url!, `scene_${scene.scene_id}_audio.mp3`)}>
+                                                            <Download className="w-3 h-3" />
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
-                                            {index > 0 && (
-                                                <Label className="flex items-center gap-1 mt-0.5 cursor-pointer hover:text-primary transition-colors">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={scene.is_continuous_motion || false} 
-                                                        onChange={(e) => updateScene(scene.id, { is_continuous_motion: e.target.checked })}
-                                                        className="rounded border-gray-400 text-primary focus:ring-primary w-2.5 h-2.5" 
+
+                                            {/* Visual/Video Prompt Section */}
+                                            <div className="space-y-1.5 flex-1 flex flex-col">
+                                                <div className="space-y-0.5 flex-1 flex flex-col">
+                                                    <div className="flex justify-between items-center">
+                                                        <Label className="text-[11px] font-bold text-muted-foreground">이미지 프롬프트 (IMAGE)</Label>
+                                                        <Button variant="ghost" size="sm" className="h-5 text-[10.5px] px-1.5" onClick={() => handleGeneratePrompt(scene)}>
+                                                            <Sparkles className="w-2.5 h-2.5 mr-1 text-purple-500" /> AI 프롬프트 생성
+                                                        </Button>
+                                                    </div>
+                                                    <Textarea
+                                                        value={scene.visual_prompt}
+                                                        onChange={(e) => updateScene(scene.id, { visual_prompt: e.target.value })}
+                                                        className="min-h-[45px] max-h-[70px] text-xs font-mono leading-relaxed resize-y bg-muted/10 p-1.5"
+                                                        placeholder="이미지 생성 구도, 배경, 피사체 묘사..."
+                                                        disabled={scene.is_continuous_motion}
                                                     />
-                                                    <span className="text-[9.5px] whitespace-nowrap">이전 씬 프레임 연결</span>
-                                                </Label>
-                                            )}
-                                        </div>
-                                        {(scene.video_url && scene.media_url) && (
-                                            <div className="flex bg-muted/80 rounded-md p-0.5 border shadow-2xs gap-0.5">
-                                                <Button
-                                                    variant={scene.viewMode !== 'render' ? 'secondary' : 'ghost'}
-                                                    size="sm"
-                                                    className={`h-5 text-[10px] px-2 font-semibold transition-all ${scene.viewMode !== 'render' ? 'bg-background shadow-2xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                                                    onClick={() => updateScene(scene.id, { viewMode: 'source' })}
-                                                >
-                                                    이미지
-                                                </Button>
-                                                <Button
-                                                    variant={scene.viewMode === 'render' ? 'secondary' : 'ghost'}
-                                                    size="sm"
-                                                    className={`h-5 text-[10px] px-2 font-semibold transition-all ${scene.viewMode === 'render' ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
-                                                    onClick={() => updateScene(scene.id, { viewMode: 'render' })}
-                                                >
-                                                    영상
-                                                </Button>
+                                                </div>
+                                                <div className="space-y-0.5 flex-1 flex flex-col">
+                                                    <Label className="text-[11px] font-bold text-muted-foreground">영상 프롬프트 (VIDEO MOTION)</Label>
+                                                    <Textarea
+                                                        value={scene.video_prompt || ''}
+                                                        onChange={(e) => updateScene(scene.id, { video_prompt: e.target.value })}
+                                                        className="min-h-[40px] max-h-[60px] text-xs font-mono leading-relaxed resize-y bg-muted/10 p-1.5"
+                                                        placeholder="카메라 무빙 및 피사체 움직임..."
+                                                    />
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
-
-                                    {/* Media Preview - Compact Container (h-[135px]) */}
-                                    <div className="w-full h-[135px] bg-slate-950 rounded-lg overflow-hidden border border-border/80 shadow-inner relative group flex items-center justify-center">
-                                        {/* Render Logic: Based on viewMode */}
-                                        {scene.viewMode === 'render' && scene.video_url ? (
-                                            <video src={scene.video_url} controls className="w-full h-full object-contain" />
-                                        ) : scene.media_url ? (
-                                            scene.media_url.endsWith('.mp4') ?
-                                                <video src={scene.media_url} controls className="w-full h-full object-contain" /> :
-                                                <img src={scene.media_url} alt="Source" className="w-full h-full object-contain" />
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center text-muted-foreground/40">
-                                                <ImageIcon className="w-6 h-6 mb-1 opacity-50" />
-                                                <span className="text-[11px] font-medium">미디어 대기 중</span>
-                                            </div>
-                                        )}
-
-                                        {/* Generating Overlay */}
-                                        {scene.visualStatus === 'generating' && (
-                                            <div className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center text-white z-10 gap-1.5 p-1.5 text-center">
-                                                <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                                                <span className="text-[11px] font-bold animate-pulse">생성 중...</span>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
-                                                    className="h-5 text-[9px] text-zinc-300 hover:text-white hover:bg-white/20 px-1.5 py-0 border border-white/20 rounded"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        updateScene(scene.id, { visualStatus: scene.media_url ? 'completed' : 'idle' });
-                                                        toast.info(`Scene #${scene.scene_id} 생성을 취소했습니다.`);
-                                                    }}
-                                                >
-                                                    취소
-                                                </Button>
-                                            </div>
-                                        )}
-
-                                        {/* Contextual Download Button */}
-                                        {(scene.video_url || scene.media_url) && (
-                                            <Button variant="secondary" size="icon" className="absolute top-1.5 right-1.5 h-6 w-6 bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-md"
-                                                onClick={() => triggerDownload(scene.video_url || scene.media_url!, `scene_${scene.scene_id}_media`)}>
-                                                <Download className="w-3 h-3" />
-                                            </Button>
-                                        )}
-                                    </div>
-
-                                    {/* Control Grid (Compact) */}
-                                    <div className="grid grid-cols-2 gap-1.5 mt-auto">
-                                        <Button variant="outline" size="sm" className="h-7 text-[11px] font-medium" onClick={() => handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt)} disabled={scene.visualStatus === 'generating' || scene.is_continuous_motion}>
-                                            {scene.visualStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3 mr-1" />} 이미지 생성
-                                        </Button>
-                                        <Button variant="outline" size="sm" className="h-7 text-[11px] font-medium" onClick={() => handleGenerateVideo(scene)} disabled={scene.visualStatus === 'generating'}>
-                                            {scene.visualStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Film className="w-3 h-3 mr-1" />} 영상 생성
-                                        </Button>
-                                        
-                                        <div className="relative col-span-2">
-                                            <Button variant="outline" size="sm" className={`w-full h-7 text-[11px] font-medium ${scene.is_manual_asset ? 'border-green-500 bg-green-500/10' : ''}`}>
-                                                <Upload className="w-3 h-3 mr-1" /> {scene.is_manual_asset ? '수동 에셋 변경' : '수동 에셋 업로드'}
-                                            </Button>
-                                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleVideoUpload(scene.scene_id, scene.id, e)} />
                                         </div>
 
-                                        {/* Render Button (Primary) */}
-                                        <Button
-                                            className="w-full h-8 text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-2xs col-span-2"
-                                            onClick={() => handleRenderScene(scene)}
-                                            disabled={scene.renderStatus === 'generating'}
+                                        {/* Right Panel: Visual Source (Compact Slim Player) */}
+                                        <div className="w-full md:w-[320px] lg:w-[340px] bg-muted/10 p-2.5 flex flex-col gap-2 shrink-0 border-t md:border-t-0 md:border-l border-border">
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-xs font-bold text-muted-foreground flex flex-col gap-0.5">
+                                                    <div className="flex items-center gap-1.5 text-foreground font-semibold text-[11px]">
+                                                        <ImageIcon className="w-3 h-3 text-primary" /> 비주얼 플레이어
+                                                    </div>
+                                                    {index > 0 && (
+                                                        <Label className="flex items-center gap-1 mt-0.5 cursor-pointer hover:text-primary transition-colors">
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={scene.is_continuous_motion || false} 
+                                                                onChange={(e) => updateScene(scene.id, { is_continuous_motion: e.target.checked })}
+                                                                className="rounded border-gray-400 text-primary focus:ring-primary w-2.5 h-2.5" 
+                                                            />
+                                                            <span className="text-[9.5px] whitespace-nowrap">이전 씬 프레임 연결</span>
+                                                        </Label>
+                                                    )}
+                                                </div>
+                                                {(scene.video_url && scene.media_url) && (
+                                                    <div className="flex bg-muted/80 rounded-md p-0.5 border shadow-2xs gap-0.5">
+                                                        <Button
+                                                            variant={scene.viewMode !== 'render' ? 'secondary' : 'ghost'}
+                                                            size="sm"
+                                                            className={`h-5 text-[10px] px-2 font-semibold transition-all ${scene.viewMode !== 'render' ? 'bg-background shadow-2xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                                            onClick={() => updateScene(scene.id, { viewMode: 'source' })}
+                                                        >
+                                                            이미지
+                                                        </Button>
+                                                        <Button
+                                                            variant={scene.viewMode === 'render' ? 'secondary' : 'ghost'}
+                                                            size="sm"
+                                                            className={`h-5 text-[10px] px-2 font-semibold transition-all ${scene.viewMode === 'render' ? 'bg-primary text-primary-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}
+                                                            onClick={() => updateScene(scene.id, { viewMode: 'render' })}
+                                                        >
+                                                            영상
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Media Preview Container (h-[135px]) */}
+                                            <div className="w-full h-[135px] bg-slate-950 rounded-lg overflow-hidden border border-border/80 shadow-inner relative group flex items-center justify-center">
+                                                {scene.viewMode === 'render' && scene.video_url ? (
+                                                    <video src={scene.video_url} controls className="w-full h-full object-contain" />
+                                                ) : scene.media_url ? (
+                                                    scene.media_url.endsWith('.mp4') ?
+                                                        <video src={scene.media_url} controls className="w-full h-full object-contain" /> :
+                                                        <img src={scene.media_url} alt="Source" className="w-full h-full object-contain" />
+                                                ) : (
+                                                    <div className="flex flex-col items-center justify-center text-muted-foreground/40">
+                                                        <ImageIcon className="w-6 h-6 mb-1 opacity-50" />
+                                                        <span className="text-[11px] font-medium">미디어 대기 중</span>
+                                                    </div>
+                                                )}
+
+                                                {scene.visualStatus === 'generating' && (
+                                                    <div className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center text-white z-10 gap-1.5 p-1.5 text-center">
+                                                        <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                                                        <span className="text-[11px] font-bold animate-pulse">생성 중...</span>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            className="h-5 text-[9px] text-zinc-300 hover:text-white hover:bg-white/20 px-1.5 py-0 border border-white/20 rounded"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                updateScene(scene.id, { visualStatus: scene.media_url ? 'completed' : 'idle' });
+                                                                toast.info(`Scene #${scene.scene_id} 생성을 취소했습니다.`);
+                                                            }}
+                                                        >
+                                                            취소
+                                                        </Button>
+                                                    </div>
+                                                )}
+
+                                                {(scene.video_url || scene.media_url) && (
+                                                    <Button variant="secondary" size="icon" className="absolute top-1.5 right-1.5 h-6 w-6 bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-md"
+                                                        onClick={() => triggerDownload(scene.video_url || scene.media_url!, `scene_${scene.scene_id}_media`)}>
+                                                        <Download className="w-3 h-3" />
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {/* Control Grid (Compact) */}
+                                            <div className="grid grid-cols-2 gap-1.5 mt-auto">
+                                                <Button variant="outline" size="sm" className="h-7 text-[11px] font-medium" onClick={() => handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt)} disabled={scene.visualStatus === 'generating' || scene.is_continuous_motion}>
+                                                    {scene.visualStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3 mr-1" />} 이미지 생성
+                                                </Button>
+                                                <Button variant="outline" size="sm" className="h-7 text-[11px] font-medium" onClick={() => handleGenerateVideo(scene)} disabled={scene.visualStatus === 'generating'}>
+                                                    {scene.visualStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Film className="w-3 h-3 mr-1" />} 영상 생성
+                                                </Button>
+                                                
+                                                <div className="relative col-span-2">
+                                                    <Button variant="outline" size="sm" className={`w-full h-7 text-[11px] font-medium ${scene.is_manual_asset ? 'border-green-500 bg-green-500/10' : ''}`}>
+                                                        <Upload className="w-3 h-3 mr-1" /> {scene.is_manual_asset ? '수동 에셋 변경' : '수동 에셋 업로드'}
+                                                    </Button>
+                                                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleVideoUpload(scene.scene_id, scene.id, e)} />
+                                                </div>
+
+                                                <Button
+                                                    className="w-full h-8 text-xs bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-2xs col-span-2"
+                                                    onClick={() => handleRenderScene(scene)}
+                                                    disabled={scene.renderStatus === 'generating'}
+                                                >
+                                                    {scene.renderStatus === 'generating' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Clapperboard className="w-3.5 h-3.5 mr-1.5" />}
+                                                    씬 영상 렌더링
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Mode B: Compact List/Table View (엑셀 스프레드시트형 빠른 대본 검수) */}
+                    {sceneBoardViewMode === 'list' && (
+                        <div className="bg-card border rounded-xl overflow-hidden shadow-2xs">
+                            <table className="w-full text-left text-xs border-collapse">
+                                <thead className="bg-muted/60 text-muted-foreground border-b select-none">
+                                    <tr>
+                                        <th className="p-2 w-12 text-center">#</th>
+                                        <th className="p-2 w-24">미디어</th>
+                                        <th className="p-2">대본 (직접 수정)</th>
+                                        <th className="p-2 w-48">프롬프트</th>
+                                        <th className="p-2 w-16 text-center">길이</th>
+                                        <th className="p-2 w-40 text-center">액션</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {filteredScenes.map((scene, index) => (
+                                        <tr
+                                            key={scene.id}
+                                            id={`scene-${scene.id}`}
+                                            className={`hover:bg-muted/30 transition-colors ${highlightedSceneId === scene.id ? 'bg-blue-500/15' : ''}`}
                                         >
-                                            {scene.renderStatus === 'generating' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Clapperboard className="w-3.5 h-3.5 mr-1.5" />}
-                                            씬 영상 렌더링
-                                        </Button>
+                                            <td className="p-2 font-mono font-bold text-center text-primary">
+                                                #{scene.scene_id}
+                                            </td>
+                                            <td className="p-2">
+                                                <div className="w-20 h-11 bg-slate-950 rounded overflow-hidden flex items-center justify-center border">
+                                                    {scene.video_url ? (
+                                                        <video src={scene.video_url} className="w-full h-full object-cover" />
+                                                    ) : scene.media_url ? (
+                                                        <img src={scene.media_url} alt="Thumbnail" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="p-2">
+                                                <input
+                                                    type="text"
+                                                    value={scene.script}
+                                                    onChange={(e) => updateScene(scene.id, { script: e.target.value })}
+                                                    className="w-full h-8 px-2 bg-background border rounded text-xs text-foreground focus:outline-hidden focus:border-primary"
+                                                    placeholder="대본 입력..."
+                                                />
+                                            </td>
+                                            <td className="p-2">
+                                                <span className="text-[11px] font-mono text-muted-foreground line-clamp-2" title={scene.visual_prompt}>
+                                                    {scene.visual_prompt || '—'}
+                                                </span>
+                                            </td>
+                                            <td className="p-2 font-mono text-center text-muted-foreground text-[11px]">
+                                                {scene.duration || 3.5}s
+                                            </td>
+                                            <td className="p-2">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10.5px]" onClick={() => handleGenerateTTS(scene)} title="TTS">
+                                                        <Mic className="w-3 h-3 text-blue-500" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10.5px]" onClick={() => handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt)} title="이미지 생성">
+                                                        <Sparkles className="w-3 h-3 text-purple-500" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10.5px]" onClick={() => handleGenerateVideo(scene)} title="영상 변환">
+                                                        <Film className="w-3 h-3 text-indigo-500" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => handleDeleteScene(scene.id)} title="삭제">
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* Mode C: Storyboard Grid View (썸네일 바둑판 비주얼 흐름 파악) */}
+                    {sceneBoardViewMode === 'grid' && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
+                            {filteredScenes.map((scene) => (
+                                <div
+                                    key={scene.id}
+                                    id={`scene-${scene.id}`}
+                                    className={`bg-card border rounded-xl overflow-hidden shadow-2xs flex flex-col group hover:border-primary transition-all ${highlightedSceneId === scene.id ? 'ring-2 ring-blue-500 shadow-md' : ''}`}
+                                >
+                                    <div className="relative aspect-video bg-slate-950 flex items-center justify-center overflow-hidden">
+                                        {scene.video_url ? (
+                                            <video src={scene.video_url} className="w-full h-full object-cover" />
+                                        ) : scene.media_url ? (
+                                            <img src={scene.media_url} alt="Scene" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <ImageIcon className="w-8 h-8 text-muted-foreground/30" />
+                                        )}
+                                        <Badge variant="secondary" className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-black/70 text-white backdrop-blur-xs">
+                                            #{scene.scene_id}
+                                        </Badge>
+                                        <span className="absolute bottom-1 right-1.5 text-[9.5px] font-mono text-white/80 bg-black/60 px-1 rounded">
+                                            {scene.duration || 3.5}s
+                                        </span>
+                                    </div>
+                                    <div className="p-2 flex-1 flex flex-col justify-between gap-1.5">
+                                        <p className="text-[11px] line-clamp-2 leading-relaxed text-foreground" title={scene.script}>
+                                            {scene.script || '— 대본 없음 —'}
+                                        </p>
+                                        <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                                            <span className="text-[9.5px] text-muted-foreground">
+                                                {scene.audio_url ? '🎙️ 음성완료' : '음성대기'}
+                                            </span>
+                                            <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] font-bold" onClick={() => handleGenerateImage(scene.scene_id, scene.id, scene.visual_prompt)}>
+                                                생성
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </React.Fragment>
-                    ))}
+                            ))}
+                        </div>
+                    )}
 
                     {/* Add Scene Button (Slim Minimal) */}
                     <Button
@@ -2826,6 +2943,7 @@ const CreativeStudio = () => {
                         <Plus className="w-4 h-4 mr-1.5" /> 새로운 씬 추가하기
                     </Button>
                 </div>
+            </Card>
 
                 {/* TTS Dialog & Modals */}
                 <TTSSettingsDialog
@@ -2919,7 +3037,6 @@ const CreativeStudio = () => {
                         </div>
                     </DialogContent>
                 </Dialog>
-            </div>
             
             <StyleGalleryModal
                 open={isStyleGalleryOpen}
