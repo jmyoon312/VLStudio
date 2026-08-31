@@ -747,25 +747,77 @@ export default function AudioTimeline({
     if (scrollRef.current) scrollRef.current.scrollLeft = 0
   }
 
-  // ── 키보드 (스페이스 = 글로벌 재생/멈춤, Esc = 처음으로) ──
-  // 리스너는 마운트 시 한 번만 붙임. togglePlay/stopAll은 매 렌더 새로 만들어지므로
-  // ref로 최신 참조를 들고 있다가 핸들러에서 ref.current로 호출
-  // (deps에 playheadMs를 넣으면 RAF로 매 프레임 add/remove → perf 낭비 + 키 입력 누락 가능)
+  // ── Phase 2 NLE 정밀 편집: 마그네틱 자석 스냅 & 레이저 분할 ──
+  const [isSnappingEnabled, setIsSnappingEnabled] = useState(true)
+
+  const snapToBoundaries = useCallback((targetMs) => {
+    if (!isSnappingEnabled || !scenes || scenes.length === 0) return targetMs
+    const SNAP_THRESHOLD_MS = 100
+    let closestMs = targetMs
+    let minDiff = SNAP_THRESHOLD_MS + 1
+
+    let accMs = 0
+    if (Math.abs(targetMs - 0) < minDiff) {
+      minDiff = Math.abs(targetMs - 0)
+      closestMs = 0
+    }
+    for (const s of scenes) {
+      const durMs = Math.round((Number(s.duration) || 3.5) * 1000)
+      const startMs = accMs
+      const endMs = accMs + durMs
+      if (Math.abs(targetMs - startMs) < minDiff) {
+        minDiff = Math.abs(targetMs - startMs)
+        closestMs = startMs
+      }
+      if (Math.abs(targetMs - endMs) < minDiff) {
+        minDiff = Math.abs(targetMs - endMs)
+        closestMs = endMs
+      }
+      accMs = endMs
+    }
+    return closestMs
+  }, [isSnappingEnabled, scenes])
+
+  const handleSplitCurrent = useCallback(() => {
+    if (!scenes || scenes.length === 0 || !onSplitScene) return
+    let accMs = 0
+    let targetIdx = -1
+    let timeOffsetSec = 0
+    for (let i = 0; i < scenes.length; i++) {
+      const durSec = Number(scenes[i].duration) || 3.5
+      const durMs = Math.round(durSec * 1000)
+      if (playheadMs >= accMs && playheadMs <= accMs + durMs) {
+        targetIdx = i
+        timeOffsetSec = (playheadMs - accMs) / 1000
+        break
+      }
+      accMs += durMs
+    }
+    if (targetIdx >= 0) {
+      onSplitScene(targetIdx, timeOffsetSec)
+      toast.success(`Scene #${scenes[targetIdx]?.scene_id || targetIdx + 1} 분할 완료`)
+    } else {
+      toast.info('분할할 씬의 위치에 플레이헤드를 놓아주세요.')
+    }
+  }, [scenes, playheadMs, onSplitScene])
+
+  const handleSplitCurrentRef = useRef(handleSplitCurrent)
+
+  // ── 키보드 (스페이스 = 글로벌 재생/멈춤, Esc = 처음으로, Ctrl+B = 분할, N = 스냅, J/K/L = 재생 제어) ──
   const togglePlayRef = useRef(togglePlay)
   const stopAllRef = useRef(stopAll)
   const resetPlaybackRef = useRef(resetPlaybackToStart)
-  // disabled를 ref로 들고 핸들러에서 매번 검사 — keydown effect는 마운트 1회 등록이라 prop 변경 시 재생성 안 됨.
   const disabledRef = useRef(disabled)
   useEffect(() => {
     togglePlayRef.current = togglePlay
     stopAllRef.current = stopAll
     resetPlaybackRef.current = resetPlaybackToStart
     disabledRef.current = disabled
+    handleSplitCurrentRef.current = handleSplitCurrent
   })
 
   useEffect(() => {
     const onKey = (e) => {
-      // disabled (loading/refresh overlay 중) — 단축키도 막아야 deferred timeline에 의도치 않은 재생/정지가 안 일어남
       if (disabledRef.current) return
       const tag = (e.target?.tagName || '').toLowerCase()
       if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return
@@ -774,14 +826,37 @@ export default function AudioTimeline({
         togglePlayRef.current?.()
       } else if (e.code === 'Escape') {
         resetPlaybackRef.current?.()
+      } else if ((e.ctrlKey || e.metaKey) && e.code === 'KeyB') {
+        e.preventDefault()
+        handleSplitCurrentRef.current?.()
+      } else if (e.code === 'KeyN' && !e.ctrlKey && !e.metaKey) {
+        setIsSnappingEnabled(prev => {
+          toast.info(`마그네틱 자석 스냅: ${!prev ? 'ON (켜짐)' : 'OFF (꺼짐)'}`)
+          return !prev
+        })
+      } else if (e.code === 'KeyJ' && !e.ctrlKey && !e.metaKey) {
+        setPlayheadMs(prev => Math.max(0, prev - 1000))
+      } else if (e.code === 'KeyK' && !e.ctrlKey && !e.metaKey) {
+        stopAllRef.current?.()
+      } else if (e.code === 'KeyL' && !e.ctrlKey && !e.metaKey) {
+        setPlayheadMs(prev => Math.min(data?.totalDurationMs || 0, prev + 1000))
+      } else if (e.code === 'Home') {
+        setPlayheadMs(0)
+      } else if (e.code === 'End') {
+        setPlayheadMs(data?.totalDurationMs || 0)
+      } else if (e.code === 'ArrowLeft') {
+        const step = e.shiftKey ? 1000 : 100
+        setPlayheadMs(prev => Math.max(0, prev - step))
+      } else if (e.code === 'ArrowRight') {
+        const step = e.shiftKey ? 1000 : 100
+        setPlayheadMs(prev => Math.min(data?.totalDurationMs || 0, prev + step))
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [data?.totalDurationMs])
 
-  // 전체화면 모니터의 트랜스포트 버튼 — 하단 타임라인이 가려져도 재생/정지를 제어한다.
-  //   (App 의 전체화면 모니터가 window CustomEvent 'monitor-transport' 로 명령을 보낸다.)
+  // 전체화면 모니터의 트랜스포트 버튼
   useEffect(() => {
     const onTransport = (e) => {
       if (disabledRef.current) return
@@ -793,8 +868,7 @@ export default function AudioTimeline({
     return () => window.removeEventListener('monitor-transport', onTransport)
   }, [])
 
-  // 프리뷰 마스터 볼륨/뮤트 — 모니터 슬라이더의 window CustomEvent 'monitor-volume' 수신.
-  //   최신값을 ref 에 저장(새 Audio 시작 시 사용)하고 라이브 인스턴스 전부에 즉시 반영.
+  // 프리뷰 마스터 볼륨/뮤트
   useEffect(() => {
     const onVolume = (e) => {
       const volume = Math.max(0, Math.min(1, Number(e.detail?.volume)))
@@ -810,7 +884,6 @@ export default function AudioTimeline({
   }, [])
 
   // 컴포넌트 unmount 시 audio + 활성 드래그 정리
-  // 드래그 중 unmount되면 onUp이 안 와서 listener/cursor 잔류 → 여기서 cleanup 강제 실행
   useEffect(() => () => {
     stopAll()
     for (const timer of fileClickTimersRef.current.values()) clearTimeout(timer)
@@ -819,21 +892,19 @@ export default function AudioTimeline({
     activeDragCleanupRef.current = null
   }, [])
 
-  // disabled로 전환되는 순간 — 진행 중이던 audio/RAF/scheduled timer 정리.
-  // 키보드/버튼 차단만으론 이미 시작된 재생이 overlay 아래에서 계속 흐름.
-  // ref로 호출해야 stopAll의 최신 클로저 잡음 (deps에 stopAll 넣으면 매 렌더 effect 재실행).
   useEffect(() => {
     if (disabled) stopAllRef.current?.()
   }, [disabled])
 
-  // ── 스크럽 (Remotion 패턴: 타임라인 영역 전체 pointerdown + window pointermove) ──
+  // ── 스크럽 ──
   const computeMsFromClientX = useCallback((clientX) => {
     const scrollEl = scrollRef.current
     if (!scrollEl) return 0
     const rect = scrollEl.getBoundingClientRect()
     const xInContent = (clientX - rect.left) + scrollEl.scrollLeft
-    return Math.max(0, Math.min(data.totalDurationMs, xInContent / pxPerMs))
-  }, [data?.totalDurationMs, pxPerMs])
+    const rawMs = Math.max(0, Math.min(data.totalDurationMs, xInContent / pxPerMs))
+    return snapToBoundaries(rawMs)
+  }, [data?.totalDurationMs, pxPerMs, snapToBoundaries])
 
   if (!data) return null
   const totalWidth = Math.max(viewportWidth, Math.ceil(data.totalDurationMs * pxPerMs))
@@ -1098,6 +1169,20 @@ export default function AudioTimeline({
         )}
         <div className="atl-transport">
           <button
+            className="atl-stop-btn"
+            onClick={() => { if (disabled) return; setPlayheadMs(0) }}
+            disabled={disabled}
+            onMouseEnter={(e) => showBtnTooltip(e, {
+              label: '처음으로',
+              desc: '타임라인 시작점(00:00.00)으로 이동',
+              hotkey: 'Home',
+            })}
+            onMouseLeave={hideBtnTooltip}
+            title="처음으로 (Home)"
+          >
+            ⏮
+          </button>
+          <button
             className={`atl-play-btn${isGlobalPlaying ? ' atl-playing' : ''}`}
             onClick={togglePlay}
             disabled={disabled}
@@ -1123,6 +1208,67 @@ export default function AudioTimeline({
           >
             ⏹
           </button>
+          <button
+            className="atl-stop-btn"
+            onClick={() => { if (disabled) return; setPlayheadMs(data?.totalDurationMs || 0) }}
+            disabled={disabled}
+            onMouseEnter={(e) => showBtnTooltip(e, {
+              label: '끝으로',
+              desc: '타임라인 마지막 지점으로 이동',
+              hotkey: 'End',
+            })}
+            onMouseLeave={hideBtnTooltip}
+            title="끝으로 (End)"
+          >
+            ⏭
+          </button>
+
+          {/* ✂️ 레이저 분할 (Razor Split) */}
+          <button
+            type="button"
+            className="atl-stop-btn"
+            onClick={handleSplitCurrent}
+            disabled={disabled}
+            onMouseEnter={(e) => showBtnTooltip(e, {
+              label: '레이저 분할 (Razor Split)',
+              desc: '플레이헤드 위치에서 현재 씬을 2개로 분할',
+              hotkey: 'Ctrl+B',
+            })}
+            onMouseLeave={hideBtnTooltip}
+            style={{ fontSize: '11px', fontWeight: 800, padding: '0 6px', color: '#60a5fa' }}
+          >
+            ✂️ 분할
+          </button>
+
+          {/* 🧲 마그네틱 자석 스냅 (Magnetic Snapping) */}
+          <button
+            type="button"
+            className={`atl-stop-btn ${isSnappingEnabled ? 'atl-btn-active' : ''}`}
+            onClick={() => {
+              setIsSnappingEnabled(prev => {
+                toast.info(`마그네틱 자석 스냅: ${!prev ? 'ON' : 'OFF'}`)
+                return !prev
+              })
+            }}
+            disabled={disabled}
+            onMouseEnter={(e) => showBtnTooltip(e, {
+              label: `마그네틱 스냅: ${isSnappingEnabled ? 'ON (켜짐)' : 'OFF (꺼짐)'}`,
+              desc: '클립 경계 및 씬 시작/끝 지점에 자동 밀착 자석 스냅',
+              hotkey: 'N',
+            })}
+            onMouseLeave={hideBtnTooltip}
+            style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              padding: '0 6px',
+              color: isSnappingEnabled ? '#a855f7' : '#94a3b8',
+              background: isSnappingEnabled ? 'rgba(168, 85, 247, 0.15)' : undefined,
+              borderColor: isSnappingEnabled ? 'rgba(168, 85, 247, 0.4)' : undefined,
+            }}
+          >
+            🧲 스냅
+          </button>
+
           <span className="atl-time-display">
             <span className="atl-time-cur">{formatTC(playheadMs, data.totalDurationMs)}</span>
             <span className="atl-time-sep"> / </span>
