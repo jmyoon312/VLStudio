@@ -269,8 +269,8 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
   }, [srtRanges, playheadMs])
 
   const imgPath = scene?.imagePath || scene?.image_path || scene?.filePath
-  // SRT cue가 있으면 SRT 텍스트 우선, 없으면 현재 씬의 대본/자막(script/subtitle)을 폴백으로 항상 표시!
-  const subtitleText = srt?.text || scene?.script || scene?.subtitle || ''
+  // 자막(SRT)은 TTS 음성이 생성되어 실제 SRT 타임코드(cue)가 존재할 때만 캔버스에 표시 (음성 생성 전 가짜 대본 자막 노출 방지)
+  const subtitleText = srt?.text || ''
 
   // ── 비디오 오버레이 ──
   // 모니터는 한 화면이라 비디오 1개만 재생 — 맨 위 "보이는" 트랙 우선(i2v → t2v).

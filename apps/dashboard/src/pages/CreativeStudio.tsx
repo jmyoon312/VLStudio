@@ -970,6 +970,7 @@ const CreativeStudio = () => {
                 viewMode: 'source'
             }));
             setScenes(mappedScenes);
+            setSrtEntries([]); // TTS 생성 전까지 타임라인 자막 트랙 비움 (음성 기반 실제 SRT 생성 대기)
 
             // [PROJECT LIFECYCLE] 대본 분석이 완료되어 씬들이 구성된 정확한 시점에 프로젝트 폴더 생성 및 메타데이터 저장
             const now = new Date();
@@ -1009,6 +1010,7 @@ const CreativeStudio = () => {
                 viewMode: 'source'
             }));
             setScenes(fallbackScenes);
+            setSrtEntries([]);
 
             const now = new Date();
             const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');

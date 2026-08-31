@@ -1337,6 +1337,146 @@ def save_base64_asset(
             "filename": filename
         }
     except Exception as e:
-        logger.error(f"Failed to save base64 asset: {e}")
+        print(f"Failed to save base64 asset: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class InitProjectRequest(BaseModel):
+    project_name: str
+    scenes: List[Dict[str, Any]] = []
+    script: Optional[str] = ""
+
+@router.post("/init-project")
+def init_project(
+    req: InitProjectRequest,
+    db: Session = Depends(database.get_db)
+):
+    try:
+        settings = crud.get_settings(db)
+        root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+        proj_dir = os.path.join(root, "05_Exports", req.project_name)
+        os.makedirs(os.path.join(proj_dir, "images"), exist_ok=True)
+        os.makedirs(os.path.join(proj_dir, "audio"), exist_ok=True)
+        os.makedirs(os.path.join(proj_dir, "videos"), exist_ok=True)
+        os.makedirs(os.path.join(proj_dir, "subtitles"), exist_ok=True)
+        
+        project_meta = {
+            "project_name": req.project_name,
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "script": req.script,
+            "scene_count": len(req.scenes),
+            "scenes": req.scenes
+        }
+        
+        meta_path = os.path.join(proj_dir, "project.json")
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(project_meta, f, ensure_ascii=False, indent=2)
+            
+        return {
+            "status": "success",
+            "project_name": req.project_name,
+            "project_path": proj_dir
+        }
+    except Exception as e:
+        print(f"[Error] init_project failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SyncSubtitlesRequest(BaseModel):
+    project_name: str
+    scenes: List[Dict[str, Any]]
+    subtitle_config: Optional[Dict[str, Any]] = None
+
+@router.post("/sync-subtitles")
+def sync_subtitles(
+    req: SyncSubtitlesRequest,
+    db: Session = Depends(database.get_db)
+):
+    try:
+        settings = crud.get_settings(db)
+        root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+        sub_dir = os.path.join(root, "05_Exports", req.project_name, "subtitles")
+        os.makedirs(sub_dir, exist_ok=True)
+        
+        cfg = req.subtitle_config or {}
+        split_limit = cfg.get("splitLimit", 24)
+        
+        srt_entries = []
+        srt_lines = []
+        entry_id = 1
+        current_time = 0.0
+        
+        for sc in req.scenes:
+            script = (sc.get("script") or "").strip()
+            duration = float(sc.get("duration") or 3.5)
+            if not script:
+                current_time += duration
+                continue
+                
+            words = re.split(r'\s+', re.sub(r'[\r\n]+', ' ', script))
+            chunks = []
+            cur_words = []
+            for w in words:
+                if not w:
+                    continue
+                test_str = " ".join(cur_words + [w]) if cur_words else w
+                if len(test_str) <= split_limit or not cur_words:
+                    cur_words.append(w)
+                else:
+                    chunks.append(" ".join(cur_words))
+                    cur_words = [w]
+            if cur_words:
+                chunks.append(" ".join(cur_words))
+            if not chunks:
+                chunks = [script]
+                
+            chunk_dur = duration / max(1, len(chunks))
+            for c_idx, chunk_text in enumerate(chunks):
+                c_start = current_time + c_idx * chunk_dur
+                c_end = c_start + chunk_dur
+                
+                def sec_to_srt_time(sec):
+                    hrs = int(sec // 3600)
+                    mins = int((sec % 3600) // 60)
+                    secs = int(sec % 60)
+                    millis = int(round((sec - int(sec)) * 1000))
+                    return f"{hrs:02d}:{mins:02d}:{secs:02d},{millis:03d}"
+                    
+                start_str = sec_to_srt_time(c_start)
+                end_str = sec_to_srt_time(c_end)
+                
+                srt_entries.append({
+                    "id": entry_id,
+                    "start": c_start,
+                    "end": c_end,
+                    "startMs": int(round(c_start * 1000)),
+                    "endMs": int(round(c_end * 1000)),
+                    "startTime": start_str,
+                    "endTime": end_str,
+                    "text": chunk_text,
+                    "scene_id": sc.get("scene_id", entry_id)
+                })
+                
+                srt_lines.append(f"{entry_id}")
+                srt_lines.append(f"{start_str} --> {end_str}")
+                srt_lines.append(chunk_text)
+                srt_lines.append("")
+                entry_id += 1
+                
+            current_time += duration
+            
+        srt_file_path = os.path.join(sub_dir, "subtitles.srt")
+        with open(srt_file_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(srt_lines))
+            
+        return {
+            "status": "success",
+            "entries": srt_entries,
+            "srt_path": srt_file_path
+        }
+    except Exception as e:
+        print(f"[Error] sync_subtitles failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 

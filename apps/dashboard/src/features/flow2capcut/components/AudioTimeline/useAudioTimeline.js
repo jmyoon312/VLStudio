@@ -77,27 +77,19 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
     // 양쪽 모두 지원
     const imageClips = (scenes || [])
       .map(s => {
-        const imgPath = s.imagePath || s.image_path || s.filePath
-        // 생성 중인 씬은 이미지가 아직 없어도 placeholder 클립을 만들어 shimmer 를 보여준다.
-        // status 만 신뢰 — useAutomation 이 시작 시 atomic 하게 'generating' 설정, 완료 시 'done'/'error'.
-        // (generatingStartedAt && !generatingEndedAt 보조 판정은 이미지 완료 경로(imageFinalize)가
-        //  generatingEndedAt 을 안 채워 완료 후에도 영구 true → shimmer 가 안 꺼지는 회귀를 만들었다.)
-        const isGenerating = s.status === 'generating'
-        if (!imgPath && !isGenerating) return null
+        const imgPath = s.imagePath || s.image_path || s.filePath || s.imageUrl || s.media_url
+        const isGenerating = s.status === 'generating' || s.visualStatus === 'generating'
         const range = getSceneTimeRangeMs(s)
         if (!range) return null
         return {
           id: `img-${s.id}`,
           startMs: range.startMs,
           endMs: range.endMs,
-          // 재생성 중(generating)엔 기존 이미지를 화면에서 숨김 → 빈칸+shimmer(새로 만드는 느낌).
-          // scene.imagePath 데이터는 그대로 두므로 에러/취소 시 다음 렌더에서 기존 이미지 복귀.
           imagePath: isGenerating ? null : (imgPath || null),
-          // 캐시버스터 적용 src — Clip.jsx 가 raw file:// 대신 사용 (재생성 stale 회피)
           imgSrc: (imgPath && !isGenerating) ? resolveImageSrc({ imagePath: imgPath, generatedAt: s.generatedAt, image: s.image }) : null,
           generating: isGenerating,
-          placeholder: isGenerating || !imgPath,  // 생성중 또는 이미지 없음 → 빈 박스 + shimmer
-          // 생성 경과시간 표시(클록)용 — Results 와 동일 필드.
+          placeholder: isGenerating || !imgPath,
+          label: s.script ? `Scene #${s.scene_id || s.id}: ${s.script.slice(0, 15)}...` : `Scene #${s.scene_id || s.id}`,
           generatingStartedAt: s.generatingStartedAt ?? null,
           generatingEndedAt: s.generatingEndedAt ?? null,
           sceneRef: s,
