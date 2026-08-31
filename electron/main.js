@@ -2033,10 +2033,30 @@ async function ensureOnProjectComposer(flowView, projectId) {
 
       const clicked = await flowView.webContents.executeJavaScript(`
         (function() {
+          const humanClick = (el) => {
+            if (!el) return false;
+            try {
+              const rect = el.getBoundingClientRect();
+              const x = rect.left + rect.width * 0.5;
+              const y = rect.top + rect.height * 0.5;
+              const common = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y };
+              try { el.dispatchEvent(new PointerEvent('pointerdown', common)); } catch {}
+              try { el.dispatchEvent(new MouseEvent('mousedown', common)); } catch {}
+              try { el.dispatchEvent(new FocusEvent('focus', { bubbles: true })); } catch {}
+              try { el.dispatchEvent(new PointerEvent('pointerup', common)); } catch {}
+              try { el.dispatchEvent(new MouseEvent('mouseup', common)); } catch {}
+              try { el.dispatchEvent(new MouseEvent('click', common)); } catch {}
+              try { el.click(); } catch {}
+              return true;
+            } catch (e) {
+              try { el.click(); return true; } catch { return false; }
+            }
+          };
+
           // 1. a[href*='/project/'] 링크 (프로젝트 링크)
           const projLinks = Array.from(document.querySelectorAll("a[href*='/project/']"));
           if (projLinks.length > 0) {
-            projLinks[0].click();
+            humanClick(projLinks[0]);
             return 'clicked_project_href';
           }
 
@@ -2047,7 +2067,7 @@ async function ensureOnProjectComposer(flowView, projectId) {
           });
           if (allImages.length > 0) {
             const card = allImages[0].closest("div[role='button'], button, a, [data-project-id], [class*='card'], [class*='project']") || allImages[0];
-            card.click();
+            humanClick(card);
             return 'clicked_card_image';
           }
 
@@ -2057,7 +2077,7 @@ async function ensureOnProjectComposer(flowView, projectId) {
             if ((txt.includes('오전') || txt.includes('오후') || txt.includes('AM') || txt.includes('PM') || txt.includes('프로젝트')) && el.parentElement) {
               const clickable = el.closest("div[role='button'], button, a") || el;
               if (clickable && clickable !== document.body && clickable.tagName !== 'HTML') {
-                clickable.click();
+                humanClick(clickable);
                 return 'clicked_card_text';
               }
             }
@@ -2069,7 +2089,7 @@ async function ensureOnProjectComposer(flowView, projectId) {
               "//button[.//i[normalize-space(text())='add_2']] | (//button[.//i[normalize-space(.)='add_2']])",
               document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
             );
-            if (xr.singleNodeValue) { xr.singleNodeValue.click(); return 'clicked_add_2_xpath'; }
+            if (xr.singleNodeValue) { humanClick(xr.singleNodeValue); return 'clicked_add_2_xpath'; }
           } catch {}
 
           const allButtons = Array.from(document.querySelectorAll('button'));
@@ -2078,14 +2098,14 @@ async function ensureOnProjectComposer(flowView, projectId) {
             for (const icon of icons) {
               const t = icon.textContent.trim();
               if (t === 'add_2' || t === 'add' || t === 'arrow_forward') {
-                b.click(); return 'clicked_icon_' + t;
+                humanClick(b); return 'clicked_icon_' + t;
               }
             }
           }
           for (const b of allButtons) {
             const text = (b.textContent || '').trim().toLowerCase();
             if (['start', '시작', 'enter', 'new', '새로 만들기', '새 프로젝트', '새프로젝트'].some(k => text.includes(k))) {
-              b.click(); return 'clicked_text_' + text.substring(0, 30);
+              humanClick(b); return 'clicked_text_' + text.substring(0, 30);
             }
           }
           return null;
