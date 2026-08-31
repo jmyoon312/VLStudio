@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadProjectData: (params) => ipcRenderer.invoke('fs:load-project-data', params),
   projectExists: (params) => ipcRenderer.invoke('fs:project-exists', params),
   renameProject: (params) => ipcRenderer.invoke('fs:rename-project', params),
+  duplicateProject: (params) => ipcRenderer.invoke('fs:duplicate-project', params),
   deleteProject: (params) => ipcRenderer.invoke('fs:delete-project', params),
   getHistory: (params) => ipcRenderer.invoke('fs:get-history', params),
   readHistoryFile: (params) => ipcRenderer.invoke('fs:read-history-file', params),

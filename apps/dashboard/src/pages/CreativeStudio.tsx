@@ -648,8 +648,23 @@ const CreativeStudio = () => {
     const { data: creativeProjects, refetch: refetchProjects } = useQuery({
         queryKey: ['creativeProjects'],
         queryFn: async () => {
-            const res = await api.get('/creative/projects');
-            return res.data || [];
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.listProjects) {
+                try {
+                    const res = await apiObj.listProjects();
+                    if (res?.success && Array.isArray(res.projects)) {
+                        return res.projects;
+                    }
+                } catch (e) {
+                    console.warn('[listProjects electron error]', e);
+                }
+            }
+            try {
+                const res = await api.get('/creative/projects');
+                return res.data || [];
+            } catch {
+                return [];
+            }
         }
     });
 
@@ -657,8 +672,23 @@ const CreativeStudio = () => {
         if (!targetProjName || targetProjName === currentProjectName) return;
         try {
             toast.info(`프로젝트 '${targetProjName}' 로드 중...`);
-            const res = await api.get(`/creative/projects/${targetProjName}`);
-            const data = res.data;
+            let data: any = null;
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.loadProjectData) {
+                try {
+                    const fsRes = await apiObj.loadProjectData({ project: targetProjName });
+                    if (fsRes?.success && fsRes.data) {
+                        data = fsRes.data;
+                    }
+                } catch (fsErr) {
+                    console.warn('[loadProjectData error]', fsErr);
+                }
+            }
+            if (!data) {
+                const res = await api.get(`/creative/projects/${targetProjName}`);
+                data = res.data;
+            }
+
             if (data) {
                 setCurrentProjectName(targetProjName);
                 localStorage.setItem('creative_current_project_name', targetProjName);

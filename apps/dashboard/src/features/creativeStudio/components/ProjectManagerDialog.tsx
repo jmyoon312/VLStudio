@@ -58,14 +58,34 @@ export const ProjectManagerDialog: React.FC<ProjectManagerDialogProps> = ({
     const { data: projects = [], isLoading, refetch } = useQuery({
         queryKey: ['creativeProjects'],
         queryFn: async () => {
-            const res = await api.get('/creative/projects');
-            return res.data || [];
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.listProjects) {
+                try {
+                    const res = await apiObj.listProjects();
+                    if (res?.success && Array.isArray(res.projects)) {
+                        return res.projects;
+                    }
+                } catch (e) {
+                    console.warn('[listProjects electron IPC error]', e);
+                }
+            }
+            try {
+                const res = await api.get('/creative/projects');
+                return res.data || [];
+            } catch {
+                return [];
+            }
         },
         enabled: open
     });
 
     const deleteMutation = useMutation({
         mutationFn: async (projectName: string) => {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.deleteProject) {
+                const res = await apiObj.deleteProject({ project: projectName });
+                if (res?.success) return res;
+            }
             return (await api.delete(`/creative/projects/${projectName}`)).data;
         },
         onSuccess: (_, projectName) => {
@@ -79,6 +99,11 @@ export const ProjectManagerDialog: React.FC<ProjectManagerDialogProps> = ({
 
     const duplicateMutation = useMutation({
         mutationFn: async (projectName: string) => {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.duplicateProject) {
+                const res = await apiObj.duplicateProject({ project: projectName });
+                if (res?.success) return res;
+            }
             return (await api.post(`/creative/projects/${projectName}/duplicate`)).data;
         },
         onSuccess: (data) => {

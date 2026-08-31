@@ -460,18 +460,113 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   // 2. fs:list-projects
   // ----------------------------------------------------------
-  ipcMain.handle('fs:list-projects', async (_event, { workFolder }) => {
+  ipcMain.handle('fs:list-projects', async (_event, params = {}) => {
     try {
+      let workFolder = params?.workFolder
+      if (!workFolder) {
+        const localAppData = process.env.LOCALAPPDATA || ''
+        workFolder = process.platform === 'win32'
+          ? path.join(localAppData, 'ViraLoop Studio', 'media', '05_Exports')
+          : path.join(app.getPath('documents'), 'ViraLoop Studio', 'media', '05_Exports')
+      }
+      if (!(await pathExists(workFolder))) {
+        await fs.mkdir(workFolder, { recursive: true })
+      }
       const entries = await fs.readdir(workFolder, { withFileTypes: true })
-      const projects = entries
+      const projectNames = entries
         .filter(e => e.isDirectory())
         .map(e => e.name)
-        .sort()
-        .reverse()
 
-      return { success: true, projects }
+      const projects = []
+      for (const name of projectNames) {
+        const itemPath = path.join(workFolder, name)
+        const jsonPath = path.join(itemPath, 'project.json')
+        const stat = await fs.stat(itemPath).catch(() => null)
+        let meta = null
+        try {
+          if (await pathExists(jsonPath)) {
+            const raw = await fs.readFile(jsonPath, 'utf-8')
+            meta = JSON.parse(raw)
+          }
+        } catch (_) {}
+
+        let hasImages = false, hasVideos = false, hasAudio = false
+        const imgDir = path.join(itemPath, 'images')
+        let thumbnailPath = null
+        try {
+          if (await pathExists(imgDir)) {
+            const imgs = (await fs.readdir(imgDir)).filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f))
+            if (imgs.length > 0) {
+              hasImages = true
+              thumbnailPath = path.join(imgDir, imgs[0])
+            }
+          }
+        } catch (_) {}
+
+        try {
+          const vidDir = path.join(itemPath, 'videos')
+          if (await pathExists(vidDir)) {
+            const vids = (await fs.readdir(vidDir)).filter(f => /\.(mp4|mov|webm)$/i.test(f))
+            if (vids.length > 0) hasVideos = true
+          }
+        } catch (_) {}
+
+        try {
+          const audDir = path.join(itemPath, 'audio')
+          if (await pathExists(audDir)) {
+            const auds = (await fs.readdir(audDir)).filter(f => /\.(mp3|wav|ogg|m4a)$/i.test(f))
+            if (auds.length > 0) hasAudio = true
+          }
+        } catch (_) {}
+
+        const mtime = stat ? stat.mtimeMs : Date.now()
+        const createdAt = meta?.created_at || (stat ? new Date(stat.birthtimeMs || stat.ctimeMs).toISOString().replace('T', ' ').slice(0, 19) : '')
+        const updatedAt = meta?.updated_at || (stat ? new Date(stat.mtimeMs).toISOString().replace('T', ' ').slice(0, 19) : '')
+        const scriptPreview = (meta?.script || '').slice(0, 100) + ((meta?.script || '').length > 100 ? '...' : '')
+        const sceneCount = meta?.scene_count || meta?.scenes?.length || 0
+
+        projects.push({
+          name,
+          created_at: createdAt,
+          updated_at: updatedAt,
+          mtime,
+          scene_count: sceneCount,
+          script_preview: scriptPreview,
+          thumbnail_url: thumbnailPath ? `file://${thumbnailPath.replace(/\\/g, '/')}` : null,
+          has_images: hasImages,
+          has_videos: hasVideos,
+          has_audio: hasAudio
+        })
+      }
+
+      projects.sort((a, b) => b.mtime - a.mtime)
+      return { success: true, projects, projectNames }
     } catch (error) {
-      return { success: false, error: error.message, projects: [] }
+      return { success: false, error: error.message, projects: [], projectNames: [] }
+    }
+  })
+
+  // ----------------------------------------------------------
+  // 2.1 fs:duplicate-project
+  // ----------------------------------------------------------
+  ipcMain.handle('fs:duplicate-project', async (_event, params = {}) => {
+    try {
+      let workFolder = params?.workFolder
+      if (!workFolder) {
+        const localAppData = process.env.LOCALAPPDATA || ''
+        workFolder = process.platform === 'win32'
+          ? path.join(localAppData, 'ViraLoop Studio', 'media', '05_Exports')
+          : path.join(app.getPath('documents'), 'ViraLoop Studio', 'media', '05_Exports')
+      }
+      const project = params?.project
+      if (!project) return { success: false, error: 'Project name required' }
+      const srcDir = path.join(workFolder, project)
+      const newName = `${project}_copy_${Date.now().toString().slice(-4)}`
+      const dstDir = path.join(workFolder, newName)
+      await fs.cp(srcDir, dstDir, { recursive: true })
+      return { success: true, new_project_name: newName }
+    } catch (error) {
+      return { success: false, error: error.message }
     }
   })
 
