@@ -924,7 +924,7 @@ const CreativeStudio = () => {
         }
     };
 
-    // [NEW] 종류별 전체 삭제 (TTS 음성 & 자막 / 이미지 / 영상)
+    // [NEW] 종류별 전체 삭제 (TTS 음성 & 자막 / 이미지 / 영상) + 디스크 파일 물리 삭제 연동
     const handleClearAllAudio = async () => {
         if (scenes.length === 0) return;
         const hasAudio = scenes.some(s => s.audio_url || s.audio_path);
@@ -932,7 +932,16 @@ const CreativeStudio = () => {
             toast.info("삭제할 TTS 음성이 없습니다.");
             return;
         }
-        if (!confirm("모든 씬의 TTS 음성을 삭제하시겠습니까?\n타임라인의 음성 및 SRT 자막도 함께 초기화됩니다.")) return;
+        if (!confirm("모든 씬의 TTS 음성을 삭제하시겠습니까?\n타임라인의 음성 및 SRT 자막, 05_Exports 폴더 내 음성 파일이 디스크에서 함께 영구 삭제됩니다.")) return;
+
+        // 디스크 상의 오디오 파일 물리 삭제
+        const pathsToClean: string[] = [];
+        scenes.forEach(s => {
+            if (s.audio_path) pathsToClean.push(s.audio_path);
+        });
+        if (pathsToClean.length > 0) {
+            cleanupMutation.mutate(pathsToClean);
+        }
 
         const next = scenes.map(s => ({
             ...s,
@@ -942,7 +951,7 @@ const CreativeStudio = () => {
         }));
         setScenes(next);
         await syncSubtitlesToDisk(next);
-        toast.success("모든 씬의 TTS 음성 및 자막이 완전히 삭제되었습니다.");
+        toast.success("모든 씬의 TTS 음성 및 자막이 디스크와 화면에서 완전히 삭제되었습니다.");
     };
 
     const handleClearAllImages = () => {
@@ -952,7 +961,16 @@ const CreativeStudio = () => {
             toast.info("삭제할 이미지가 없습니다.");
             return;
         }
-        if (!confirm("모든 씬의 생성된 이미지를 삭제하시겠습니까?")) return;
+        if (!confirm("모든 씬의 생성된 이미지를 삭제하시겠습니까?\n05_Exports 폴더 내의 이미지 파일도 디스크에서 함께 영구 삭제됩니다.")) return;
+
+        // 디스크 상의 이미지 파일 물리 삭제
+        const pathsToClean: string[] = [];
+        scenes.forEach(s => {
+            if (s.media_path) pathsToClean.push(s.media_path);
+        });
+        if (pathsToClean.length > 0) {
+            cleanupMutation.mutate(pathsToClean);
+        }
 
         setScenes(prev => prev.map(s => ({
             ...s,
@@ -961,7 +979,7 @@ const CreativeStudio = () => {
             mediaId: undefined,
             visualStatus: s.video_url ? s.visualStatus : ('idle' as const)
         })));
-        toast.success("모든 씬의 이미지가 완전히 삭제되었습니다.");
+        toast.success("모든 씬의 이미지가 디스크와 화면에서 완전히 삭제되었습니다.");
     };
 
     const handleClearAllVideos = () => {
@@ -971,7 +989,16 @@ const CreativeStudio = () => {
             toast.info("삭제할 영상이 없습니다.");
             return;
         }
-        if (!confirm("모든 씬의 생성된 영상을 삭제하시겠습니까?")) return;
+        if (!confirm("모든 씬의 생성된 영상을 삭제하시겠습니까?\n05_Exports 폴더 내의 영상 파일도 디스크에서 함께 영구 삭제됩니다.")) return;
+
+        // 디스크 상의 비디오 파일 물리 삭제
+        const pathsToClean: string[] = [];
+        scenes.forEach(s => {
+            if (s.video_path) pathsToClean.push(s.video_path);
+        });
+        if (pathsToClean.length > 0) {
+            cleanupMutation.mutate(pathsToClean);
+        }
 
         setScenes(prev => prev.map(s => ({
             ...s,
@@ -980,7 +1007,7 @@ const CreativeStudio = () => {
             viewMode: 'source' as const,
             visualStatus: s.media_url ? 'completed' as const : ('idle' as const)
         })));
-        toast.success("모든 씬의 영상이 완전히 삭제되었습니다.");
+        toast.success("모든 씬의 영상이 디스크와 화면에서 완전히 삭제되었습니다.");
     };
 
     // Polling for Video Generation
