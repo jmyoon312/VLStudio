@@ -714,9 +714,21 @@ export default function AudioTimeline({
 
       if (cur >= data.totalDurationMs) { stopAll(); return }
 
+      // ── Phase 3: 나레이션 발화 시 BGM 실시간 자동 덕킹 (Auto Ducking -15dB) ──
+      const isSpeakingNarration = playableClips.some(
+        c => (c.role === 'narration' || clipTrackMap.get(c.id) === 'narration') && cur >= c.startMs && cur <= c.endMs
+      )
+      for (const [clipId, audio] of audioInstancesRef.current.entries()) {
+        const trackId = clipTrackMap.get(clipId)
+        if (trackId === 'bgm' || trackId === 'music' || trackId === 'sfx') {
+          const duckScale = isSpeakingNarration ? 0.35 : 1.0
+          const baseVol = masterAudioRef.current.volume || 1.0
+          audio.volume = Math.max(0, Math.min(1, baseVol * duckScale))
+        }
+      }
+
       // 페이지-플립 스크롤: playhead가 우측 끝에 닿는 순간
       // 그 시점을 UI 좌측 시작점으로 옮김 (화면 밖으로 사라지지 않게)
-      // pxPerMs는 ref로 읽어야 — 재생 중 줌 변경 시에도 새 값 반영
       const scrollEl = scrollRef.current
       if (scrollEl) {
         const playheadPx = cur * pxPerMsRef.current

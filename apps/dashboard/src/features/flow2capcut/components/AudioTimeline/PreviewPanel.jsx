@@ -454,7 +454,57 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
             onPointerDown={handleSubtitlePointerDown}
             title="마우스로 자막을 잡고 원하는 위치로 드래그하세요"
           >
-            {subtitleText}
+            {(() => {
+              const cfg = subtitleConfig || {}
+              if (!cfg.karaoke && cfg.animation !== 'karaoke' && cfg.animation !== 'word_pop') {
+                return subtitleText
+              }
+              const words = subtitleText.split(/(\s+)/).filter(Boolean)
+              const curRange = sceneRanges.find(r => playheadMs >= r.startMs && playheadMs < r.endMs)
+              const startMs = curRange ? curRange.startMs : 0
+              const durMs = curRange ? (curRange.endMs - curRange.startMs) : 3500
+              const progress = Math.max(0, Math.min(1, (playheadMs - startMs) / Math.max(1, durMs)))
+
+              const nonSpaceWords = words.filter(w => !/^\s+$/.test(w))
+              const activeIdxInNonSpace = Math.min(nonSpaceWords.length - 1, Math.floor(progress * nonSpaceWords.length))
+
+              let seenNonSpace = 0
+              return words.map((token, idx) => {
+                if (/^\s+$/.test(token)) return <span key={idx}>{token}</span>
+                const isCurrent = (seenNonSpace === activeIdxInNonSpace)
+                const isPast = (seenNonSpace < activeIdxInNonSpace)
+                seenNonSpace++
+
+                if (isCurrent) {
+                  return (
+                    <span
+                      key={idx}
+                      style={{
+                        color: cfg.highlightColor || '#ffe600',
+                        transform: 'scale(1.15)',
+                        display: 'inline-block',
+                        textShadow: '0 0 10px rgba(255, 230, 0, 0.9)',
+                        fontWeight: 900,
+                        transition: 'transform 0.08s ease-out, color 0.08s ease-out',
+                      }}
+                    >
+                      {token}
+                    </span>
+                  )
+                }
+                return (
+                  <span
+                    key={idx}
+                    style={{
+                      opacity: isPast ? 1 : 0.8,
+                      display: 'inline-block',
+                    }}
+                  >
+                    {token}
+                  </span>
+                )
+              })
+            })()}
           </div>
         )}
       </div>
