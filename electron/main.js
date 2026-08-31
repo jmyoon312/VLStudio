@@ -1962,20 +1962,23 @@ const flowAPIDeps = {
   setEnterToolClicked: (v) => { enterToolClicked = v },
   SESSION_URL, TOKEN_INFO_URL, FLOW_URL, MEDIA_REDIRECT_URL, UPLOAD_URL,
   API_HEADERS, GENERATE_URL, BASE_API_URL,
+  ensureOnProjectComposer,
 }
 registerFlowAPIIPC(ipcMain, flowAPIDeps)
 
-// === Helper functions for video & character IPC ===
+// === Helper functions for video & character & image IPC ===
 async function ensureOnProjectComposer(flowView, projectId) {
   if (!flowView || flowView.webContents?.isDestroyed?.()) {
     return { ok: false, errorKind: 'flow-view-missing', error: 'Flow view not available' }
   }
-  // 에러 화면('문제가 발생했습니다') 감지 시 '프로젝트로 돌아가기' 버튼 자동 클릭 복구
+
+  // 1. 에러 화면('문제가 발생했습니다' / 'Back to project') 감지 시 자동 복구
   try {
     await flowView.webContents.executeJavaScript(`
       (function() {
         for (const b of document.querySelectorAll('button')) {
-          if ((b.textContent || '').includes('프로젝트로 돌아가기') || (b.textContent || '').includes('Back to project')) {
+          const t = (b.textContent || '').trim();
+          if (t.includes('프로젝트로 돌아가기') || t.includes('Back to project')) {
             b.click();
             return true;
           }
@@ -1984,6 +1987,147 @@ async function ensureOnProjectComposer(flowView, projectId) {
       })()
     `).catch(() => {})
   } catch (_) {}
+
+  // 2. 이미 프롬프트 에디터가 화면에 열려있는지 확인
+  let hasEditor = await flowView.webContents.executeJavaScript(
+    `!!(document.querySelector("textarea") || document.querySelector("[data-slate-editor='true']") || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('[contenteditable="true"]:not([aria-hidden])'))`
+  ).catch(() => false)
+
+  if (hasEditor) {
+    return { ok: true }
+  }
+
+  console.log('[Flow Navigator] No editor found — attempting project resume, recent card click, or new project creation...')
+
+  let currentUrl = flowView.webContents.getURL()
+  const targetProjectId = projectId || capturedProjectId
+
+  // 3. 이전 작업 프로젝트 ID가 있으면 직접 해당 프로젝트 URL 로드
+  if (targetProjectId && !currentUrl.includes(`/project/${targetProjectId}`)) {
+    const targetProjectUrl = `https://labs.google/fx/tools/flow/project/${targetProjectId}`
+    console.log('[Flow Navigator] Navigating to target/previous project URL:', targetProjectUrl)
+    try {
+      await flowView.webContents.loadURL(targetProjectUrl)
+      await new Promise(r => setTimeout(r, 2500))
+    } catch (e) {
+      console.warn('[Flow Navigator] loadURL failed:', e.message)
+    }
+  }
+
+  currentUrl = flowView.webContents.getURL()
+
+  // 4. 여전히 프로젝트 URL이 아니면 (프로젝트 목록 갤러리 또는 랜딩 화면)
+  if (!currentUrl.includes('/project/')) {
+    if (!currentUrl.includes('labs.google/fx')) {
+      console.log('[Flow Navigator] Navigating to Flow tools URL...')
+      await flowView.webContents.loadURL(FLOW_URL)
+      await new Promise(r => setTimeout(r, 3000))
+    }
+
+    // 프로젝트 목록 화면에서 첫 번째 프로젝트 카드 또는 새 프로젝트 버튼 클릭 시도 (최대 6회 시도)
+    for (let attempt = 0; attempt < 6; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 1200))
+      
+      const checkUrl = flowView.webContents.getURL()
+      if (checkUrl.includes('/project/')) break
+
+      const clicked = await flowView.webContents.executeJavaScript(`
+        (function() {
+          // 1. a[href*='/project/'] 링크 (프로젝트 링크)
+          const projLinks = Array.from(document.querySelectorAll("a[href*='/project/']"));
+          if (projLinks.length > 0) {
+            projLinks[0].click();
+            return 'clicked_project_href';
+          }
+
+          // 2. 갤러리 카드 썸네일 이미지 또는 카드 컨테이너
+          const allImages = Array.from(document.querySelectorAll("img")).filter(img => {
+            const src = img.src || '';
+            return (src.includes('googleusercontent.com') || src.startsWith('blob:')) && img.naturalWidth > 50;
+          });
+          if (allImages.length > 0) {
+            const card = allImages[0].closest("div[role='button'], button, a, [data-project-id], [class*='card'], [class*='project']") || allImages[0];
+            card.click();
+            return 'clicked_card_image';
+          }
+
+          // 3. 프로젝트 날짜/제목 텍스트 카드 클릭
+          for (const el of document.querySelectorAll("div, span, p, h2, h3")) {
+            const txt = (el.textContent || '').trim();
+            if ((txt.includes('오전') || txt.includes('오후') || txt.includes('AM') || txt.includes('PM') || txt.includes('프로젝트')) && el.parentElement) {
+              const clickable = el.closest("div[role='button'], button, a") || el;
+              if (clickable && clickable !== document.body && clickable.tagName !== 'HTML') {
+                clickable.click();
+                return 'clicked_card_text';
+              }
+            }
+          }
+
+          // 4. 새 프로젝트 (+ 새 프로젝트 / add_2 / New Project) 버튼 클릭
+          try {
+            const xr = document.evaluate(
+              "//button[.//i[normalize-space(text())='add_2']] | (//button[.//i[normalize-space(.)='add_2']])",
+              document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+            );
+            if (xr.singleNodeValue) { xr.singleNodeValue.click(); return 'clicked_add_2_xpath'; }
+          } catch {}
+
+          const allButtons = Array.from(document.querySelectorAll('button'));
+          for (const b of allButtons) {
+            const icons = b.querySelectorAll('i, span.material-icons, span.material-symbols-outlined');
+            for (const icon of icons) {
+              const t = icon.textContent.trim();
+              if (t === 'add_2' || t === 'add' || t === 'arrow_forward') {
+                b.click(); return 'clicked_icon_' + t;
+              }
+            }
+          }
+          for (const b of allButtons) {
+            const text = (b.textContent || '').trim().toLowerCase();
+            if (['start', '시작', 'enter', 'new', '새로 만들기', '새 프로젝트', '새프로젝트'].some(k => text.includes(k))) {
+              b.click(); return 'clicked_text_' + text.substring(0, 30);
+            }
+          }
+          return null;
+        })()
+      `).catch(() => null)
+
+      if (clicked) {
+        console.log('[Flow Navigator] Clicked project element:', clicked)
+        break
+      }
+    }
+
+    // 프로젝트 URL 전환 대기 (최대 15초)
+    for (let w = 0; w < 30; w++) {
+      await new Promise(r => setTimeout(r, 500))
+      const projUrl = flowView.webContents.getURL()
+      if (projUrl.includes('/project/')) {
+        const m = projUrl.match(/\/project\/([a-f0-9-]{36})/)
+        if (m) capturedProjectId = m[1]
+        console.log('[Flow Navigator] Entered project:', projUrl)
+        break
+      }
+    }
+  }
+
+  // 5. 프롬프트 에디터가 화면에 나타날 때까지 대기 (최대 15초)
+  let editorReady = false
+  for (let w = 0; w < 15; w++) {
+    await new Promise(r => setTimeout(r, 1000))
+    editorReady = await flowView.webContents.executeJavaScript(
+      `!!(document.querySelector("textarea") || document.querySelector("[data-slate-editor='true']") || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('[contenteditable="true"]:not([aria-hidden])'))`
+    ).catch(() => false)
+    if (editorReady) {
+      console.log('[Flow Navigator] Editor is ready')
+      break
+    }
+  }
+
+  if (!editorReady) {
+    return { ok: false, errorKind: 'editor-not-found', error: 'Flow project editor not found. Please verify project state.' }
+  }
+
   return { ok: true }
 }
 
