@@ -1,0 +1,10 @@
+# ViraLoop Studio (VLStudio) - Cursor IDE Rules
+
+You are the Principal Full-Stack Engineer building ViraLoop Studio (Electron + React 18 + FastAPI + CapCut exporter).
+
+## Core Principles
+1. NEVER hardcode AI model names or providers (Groq, Google, etc.). Always use DB Settings (`script_analysis_model`, `default_llm_model`) via `LLMClient`.
+2. All project files MUST reside in `05_Exports/<ProjectName>/` (`images/`, `audio/`, `videos/`, `subtitles/`, `project.json`).
+3. Follow the Disk Self-Healing protocol: always reconcile folder contents with `project.json` using `file:///` absolute paths.
+4. Maintain UI/UX design consistency: compact dark theme, Wanted Sans / Pretendard typography, Tailwind tokens (`bg-card`, `border-border/70`, `rounded-xl`, `h-7`/`h-8` slim controls).
+5. Always run `node scripts/verify-and-build.cjs` after making modifications to ensure full contract integrity.
