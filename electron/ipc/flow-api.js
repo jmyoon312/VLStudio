@@ -163,43 +163,88 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       console.log('[Flow API] [DOM+Net] Starting DOM-triggered generation')
 
       // 0. Flow 프로젝트 페이지 확인 (textarea가 있어야 DOM 자동화 가능)
-      const currentUrl = flowView.webContents.getURL()
+      let currentUrl = flowView.webContents.getURL()
       console.log('[Flow API] [DOM+Net] Current Flow URL:', currentUrl)
 
-      const hasProject = currentUrl.includes('/project/') || currentUrl.includes('/tools/flow/')
-      const hasTextarea = await flowView.webContents.executeJavaScript(
+      // 에러 화면('문제가 발생했습니다' / 'Back to project') 감지 시 자동 복구
+      try {
+        await flowView.webContents.executeJavaScript(`
+          (function() {
+            for (const b of document.querySelectorAll('button')) {
+              const t = (b.textContent || '').trim();
+              if (t.includes('프로젝트로 돌아가기') || t.includes('Back to project')) {
+                b.click();
+                return true;
+              }
+            }
+            return false;
+          })()
+        `).catch(() => {})
+      } catch (_) {}
+
+      let hasTextarea = await flowView.webContents.executeJavaScript(
         `!!(document.querySelector('textarea') || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('[contenteditable="true"]'))`
       ).catch(() => false)
 
-      console.log('[Flow API] [DOM+Net] hasProject:', hasProject, 'hasTextarea:', hasTextarea)
+      console.log('[Flow API] [DOM+Net] Initial hasTextarea:', hasTextarea, 'URL:', currentUrl)
 
       if (!hasTextarea) {
-        console.log('[Flow API] [DOM+Net] No textarea found — need to create/enter project')
+        console.log('[Flow API] [DOM+Net] No textarea found — navigating to target or recent project / creating new project')
 
-        // Flow 랜딩 페이지면: Enter tool 버튼 클릭으로 프로젝트 생성
+        const targetProjectId = projectId || getCapturedProjectId()
+        
+        // 0-A. 이전 작업 프로젝트 ID가 있으면 직접 해당 프로젝트로 이동 시도
+        if (targetProjectId && !currentUrl.includes(`/project/${targetProjectId}`)) {
+          const targetProjectUrl = `https://labs.google/fx/tools/flow/project/${targetProjectId}`
+          console.log('[Flow API] Navigating to previously worked project:', targetProjectUrl)
+          try {
+            await flowView.webContents.loadURL(targetProjectUrl)
+            await new Promise(r => setTimeout(r, 2500))
+          } catch (e) {
+            console.warn('[Flow API] Failed to load previous project URL, falling back:', e.message)
+          }
+        }
+
+        currentUrl = flowView.webContents.getURL()
+
+        // 0-B. 만약 여전히 Flow 랜딩이나 프로젝트 목록 페이지라면
         if (!currentUrl.includes('/project/')) {
-          // 이미 Flow 페이지가 아니면 로드
           if (!currentUrl.includes('labs.google/fx')) {
-            console.log('[Flow API] Navigating to Flow...')
+            console.log('[Flow API] Navigating to Flow tools URL...')
             await flowView.webContents.loadURL(FLOW_URL)
             await new Promise(r => setTimeout(r, 3000))
           }
 
-          // Enter tool 버튼 찾기 + trusted click
-          for (let attempt = 0; attempt < 8; attempt++) {
-            if (attempt > 0) await new Promise(r => setTimeout(r, 2000))
+          // 1단계: 프로젝트 목록 화면에 기존 프로젝트 카드가 있으면 가장 최근 프로젝트 클릭
+          for (let attempt = 0; attempt < 6; attempt++) {
+            if (attempt > 0) await new Promise(r => setTimeout(r, 1500))
 
-            // 이미 프로젝트로 이동했는지 확인
             const checkUrl = flowView.webContents.getURL()
-            if (checkUrl.includes('/project/')) {
-              console.log('[Flow API] Already navigated to project:', checkUrl)
+            if (checkUrl.includes('/project/')) break
+
+            const projectCardClicked = await flowView.webContents.executeJavaScript(`
+              (function() {
+                // 프로젝트 링크 / 카드 찾기 (href에 /project/ 포함)
+                const projLinks = Array.from(document.querySelectorAll("a[href*='/project/'], div[role='button'][data-project-id], [data-project-card]"));
+                if (projLinks.length > 0) {
+                  const firstProj = projLinks[0];
+                  firstProj.click();
+                  return 'clicked_recent_project_card';
+                }
+                return null;
+              })()
+            `).catch(() => null)
+
+            if (projectCardClicked) {
+              console.log('[Flow API] Clicked recent project card:', projectCardClicked)
+              await new Promise(r => setTimeout(r, 2000))
               break
             }
 
-            // New Project 버튼 클릭 (AutoFlow: icon='add_2')
-            const enterClicked = await flowView.webContents.executeJavaScript(`
+            // 2단계: 프로젝트 카드가 없으면 New Project (+ 새 프로젝트 / add_2) 버튼 클릭으로 새 프로젝트 생성
+            const newProjectClicked = await flowView.webContents.executeJavaScript(`
               (function() {
-                // XPath: add_2 아이콘 버튼 (AutoFlow 검증된 방식)
+                // XPath: add_2 아이콘 버튼
                 try {
                   const xr = document.evaluate(
                     "//button[.//i[normalize-space(text())='add_2']] | (//button[.//i[normalize-space(.)='add_2']])",
@@ -208,8 +253,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
                   if (xr.singleNodeValue) { xr.singleNodeValue.click(); return 'add_2_xpath'; }
                 } catch {}
 
-                const allButtons = document.querySelectorAll('button');
-                // icon 'add_2' 또는 'add'
+                const allButtons = Array.from(document.querySelectorAll('button'));
                 for (const b of allButtons) {
                   const icons = b.querySelectorAll('i, span.material-icons, span.material-symbols-outlined');
                   for (const icon of icons) {
@@ -219,55 +263,51 @@ export function registerFlowAPIIPC(ipcMain, deps) {
                     }
                   }
                 }
-                // 텍스트 버튼
                 for (const b of allButtons) {
-                  const text = b.textContent.trim().toLowerCase();
+                  const text = (b.textContent || '').trim().toLowerCase();
                   if (['start', '시작', 'enter', 'new', '새로 만들기', '새 프로젝트', '새프로젝트'].some(k => text.includes(k))) {
                     b.click(); return 'text_' + text.substring(0, 30);
                   }
                 }
-                console.log('[DOM] Buttons:', allButtons.length, Array.from(allButtons).slice(0,10).map(b => b.textContent.trim().substring(0,30)));
                 return null;
               })()
             `).catch(() => null)
 
-            if (enterClicked) {
-              console.log('[Flow API] Enter tool button clicked:', enterClicked)
-              setEnterToolClicked(true) // 무한루프 방지
-
-              // 프로젝트 생성 대기 (최대 15초)
-              for (let w = 0; w < 30; w++) {
-                await new Promise(r => setTimeout(r, 500))
-                const projUrl = flowView.webContents.getURL()
-                if (projUrl.includes('/project/')) {
-                  const m = projUrl.match(/\/project\/([a-f0-9-]{36})/)
-                  if (m) setCapturedProjectId(m[1])
-                  console.log('[Flow API] Project created:', projUrl)
-                  break
-                }
-              }
+            if (newProjectClicked) {
+              console.log('[Flow API] Clicked New Project button:', newProjectClicked)
+              setEnterToolClicked(true)
               break
-            } else {
-              console.log('[Flow API] Enter tool button not found, attempt', attempt + 1, '/ 8')
+            }
+          }
+
+          // 프로젝트 URL 진입 대기 (최대 15초)
+          for (let w = 0; w < 30; w++) {
+            await new Promise(r => setTimeout(r, 500))
+            const projUrl = flowView.webContents.getURL()
+            if (projUrl.includes('/project/')) {
+              const m = projUrl.match(/\/project\/([a-f0-9-]{36})/)
+              if (m) setCapturedProjectId(m[1])
+              console.log('[Flow API] Successfully entered Flow project:', projUrl)
+              break
             }
           }
         }
 
-        // 프로젝트 생성 후 textarea 재확인 (최대 10초)
+        // 프로젝트 진입 후 textarea 렌더링 대기 (최대 12초)
         let textareaReady = false
-        for (let w = 0; w < 10; w++) {
+        for (let w = 0; w < 12; w++) {
           await new Promise(r => setTimeout(r, 1000))
           textareaReady = await flowView.webContents.executeJavaScript(
             `!!(document.querySelector('textarea') || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('[contenteditable="true"]'))`
           ).catch(() => false)
           if (textareaReady) {
-            console.log('[Flow API] Textarea ready after project creation')
+            console.log('[Flow API] Textarea editor is ready for generation')
             break
           }
         }
 
         if (!textareaReady) {
-          return { success: false, error: 'Flow project page not ready (no textarea found). Please check Flow tab.' }
+          return { success: false, error: 'Flow project page not ready (no textarea editor found). Please check Flow tab.' }
         }
       }
 
