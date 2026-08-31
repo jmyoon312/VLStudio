@@ -1988,18 +1988,23 @@ async function ensureOnProjectComposer(flowView, projectId) {
     `).catch(() => {})
   } catch (_) {}
 
-  // 2. 이미 프롬프트 에디터가 화면에 열려있는지 확인
-  let hasEditor = await flowView.webContents.executeJavaScript(
-    `!!(document.querySelector("textarea") || document.querySelector("[data-slate-editor='true']") || document.querySelector("div[role='textbox'][contenteditable='true']") || document.querySelector('[contenteditable="true"]:not([aria-hidden])'))`
-  ).catch(() => false)
+  let currentUrl = flowView.webContents.getURL() || ''
+  const isOnProject = currentUrl.includes('/project/')
 
-  if (hasEditor) {
-    return { ok: true }
+  // 2. 이미 프로젝트 URL 내부이고 프롬프트 에디터가 화면에 열려있는 경우에만 즉시 승인
+  if (isOnProject) {
+    let hasEditor = await flowView.webContents.executeJavaScript(
+      `!!(document.querySelector("textarea") || document.querySelector("[data-slate-editor='true']"))`
+    ).catch(() => false)
+
+    if (hasEditor) {
+      console.log('[Flow Navigator] Already inside project with active editor:', currentUrl)
+      return { ok: true }
+    }
   }
 
-  console.log('[Flow Navigator] No editor found — attempting project resume, recent card click, or new project creation...')
+  console.log('[Flow Navigator] Not inside active project editor (URL:', currentUrl, ') — navigating to target or recent project...')
 
-  let currentUrl = flowView.webContents.getURL()
   const targetProjectId = projectId || capturedProjectId
 
   // 3. 이전 작업 프로젝트 ID가 있으면 직접 해당 프로젝트 URL 로드
@@ -2014,7 +2019,7 @@ async function ensureOnProjectComposer(flowView, projectId) {
     }
   }
 
-  currentUrl = flowView.webContents.getURL()
+  currentUrl = flowView.webContents.getURL() || ''
 
   // 3-B. 여전히 프로젝트 URL이 아니면, Flow 프로젝트 목록 API를 직접 조회하여 최신 프로젝트 ID로 직행 로드
   if (!currentUrl.includes('/project/')) {
