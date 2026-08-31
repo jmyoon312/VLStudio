@@ -614,79 +614,70 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       console.log('[Flow API] [DOM+Net] expectedCount updated to', expectedImageCount,
         ', waiting for API response(s)...')
 
-      // 4. 네트워크 응답 및 빠른 Flow DOM 렌더링 동시 감지 (지연 없는 3~5초 즉시 수집)
-      const pollDomForNewImages = async (maxAttempts = 40, intervalMs = 1500) => {
-        for (let i = 0; i < maxAttempts; i++) {
-          await new Promise(r => setTimeout(r, intervalMs))
-          try {
-            const extracted = await flowView.webContents.executeJavaScript(`
-              (async function() {
-                const existing = ${JSON.stringify(existingImages)};
-                const imgs = Array.from(document.querySelectorAll('img')).filter(img => {
-                  const src = img.src || img.getAttribute('data-src') || '';
-                  if (!src) return false;
-                  if (src.includes('avatar') || src.includes('icon') || src.includes('logo') || src.includes('profile')) return false;
-                  if (existing.includes(src)) return false;
-                  return (src.includes('googleusercontent.com') || src.startsWith('blob:') || src.startsWith('data:image') || img.naturalWidth > 150);
-                });
-
-                if (imgs.length === 0) return null;
-
-                const results = [];
-                for (const img of imgs) {
-                  const src = img.src || img.getAttribute('data-src');
-                  try {
-                    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-                      const canvas = document.createElement('canvas');
-                      canvas.width = img.naturalWidth;
-                      canvas.height = img.naturalHeight;
-                      const ctx = canvas.getContext('2d');
-                      ctx.drawImage(img, 0, 0);
-                      const base64 = canvas.toDataURL('image/png');
-                      if (base64 && base64.length > 500) {
-                        results.push({ base64, mediaId: null });
-                        continue;
-                      }
-                    }
-                    const resp = await fetch(src, { mode: 'cors' }).catch(() => null);
-                    if (resp && resp.ok) {
-                      const blob = await resp.blob();
-                      const base64 = await new Promise(res => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => res(reader.result);
-                        reader.readAsDataURL(blob);
-                      });
-                      if (base64) results.push({ base64, mediaId: null });
-                    }
-                  } catch (e) {}
-                }
-                return results.length > 0 ? results : null;
-              })()
-            `)
-
-            if (extracted && extracted.length > 0) {
-              console.log('[Flow API] [DOM-Watch] Successfully captured', extracted.length, 'new generated images from Flow DOM!')
-              return { success: true, images: extracted }
-            }
-          } catch (e) {}
-        }
-        return null
-      }
-
-      const netResultPromise = responsePromise.then(res => ({ type: 'network', res }))
-      const domResultPromise = pollDomForNewImages().then(res => ({ type: 'dom', res }))
-      
-      const fastest = await Promise.race([netResultPromise, domResultPromise])
-      if (fastest.type === 'dom' && fastest.res?.success) {
-        clearTimeout(generationTimeout)
-        return fastest.res
-      }
-
-      const netResult = fastest.type === 'network' ? fastest.res : (await netResultPromise).res
+      // 4. 공식 Flow API 네트워크 응답 대기 (단일 진실 공급원)
+      const netResult = await responsePromise
 
       if (netResult.error) {
         console.warn('[Flow API] [DOM+Net] Network error/timeout:', netResult.message)
-        // Fallback: pollDomForNewImages 최종 시도
+        // Fallback: Agent 모드 또는 네트워크 누락 시에만 DOM 새 이미지 제한적 감지
+        const pollDomForNewImages = async (maxAttempts = 6, intervalMs = 1500) => {
+          for (let i = 0; i < maxAttempts; i++) {
+            await new Promise(r => setTimeout(r, intervalMs))
+            try {
+              const extracted = await flowView.webContents.executeJavaScript(`
+                (async function() {
+                  const existing = ${JSON.stringify(existingImages)};
+                  const imgs = Array.from(document.querySelectorAll('img')).filter(img => {
+                    const src = img.src || img.getAttribute('data-src') || '';
+                    if (!src) return false;
+                    if (src.includes('avatar') || src.includes('icon') || src.includes('logo') || src.includes('profile')) return false;
+                    if (existing.includes(src)) return false;
+                    return (src.includes('getMediaUrlRedirect') || src.includes('googleusercontent.com') || src.startsWith('blob:') || src.startsWith('data:image'));
+                  });
+
+                  if (imgs.length === 0) return null;
+
+                  const results = [];
+                  for (const img of imgs) {
+                    const src = img.src || img.getAttribute('data-src');
+                    try {
+                      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        const base64 = canvas.toDataURL('image/png');
+                        if (base64 && base64.length > 500) {
+                          results.push({ base64, mediaId: null });
+                          continue;
+                        }
+                      }
+                      const resp = await fetch(src, { mode: 'cors' }).catch(() => null);
+                      if (resp && resp.ok) {
+                        const blob = await resp.blob();
+                        const base64 = await new Promise(res => {
+                          const reader = new FileReader();
+                          reader.onloadend = () => res(reader.result);
+                          reader.readAsDataURL(blob);
+                        });
+                        if (base64) results.push({ base64, mediaId: null });
+                      }
+                    } catch (e) {}
+                  }
+                  return results.length > 0 ? results : null;
+                })()
+              `)
+
+              if (extracted && extracted.length > 0) {
+                console.log('[Flow API] [DOM-Watch] Successfully captured', extracted.length, 'new generated images from Flow DOM fallback!')
+                return { success: true, images: extracted }
+              }
+            } catch (e) {}
+          }
+          return null
+        }
+
         const finalDomCheck = await pollDomForNewImages(6, 1500)
         if (finalDomCheck?.success) return finalDomCheck
         return { success: false, error: netResult.message || 'Generation failed' }

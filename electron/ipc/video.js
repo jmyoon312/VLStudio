@@ -800,6 +800,10 @@ export function registerVideoIPC(ipcMain, deps) {
         }
       }, VIDEO_RESPONSE_TIMEOUT_MS)
 
+      // 제출 전 기존 비디오 mediaId 스냅샷 (이전 씬 비디오 오인칭 원천 차단)
+      const preExistingVideos = await flowView.webContents.executeJavaScript(GENERATED_VIDEO_PROBE).catch(() => [])
+      const preExistingMediaIds = new Set((preExistingVideos || []).map(v => v.mediaId).filter(Boolean))
+
       const clickResult = await trustedClickOnFlowView(generateBtnSelector, { required: true, step: 'video-submit' })
       console.log('[Flow Video I2V] Trusted click result:', clickResult)
 
@@ -810,15 +814,16 @@ export function registerVideoIPC(ipcMain, deps) {
       }
       console.log('[Flow Video I2V] pendingVideoGeneration armed BEFORE click, waiting for capture...')
 
-      // 5-b. DOM 비디오 실시간 감지 (네트워크 인터셉션 지연 시 화면의 완성된 비디오를 즉시 낚아챔)
+      // 5-b. DOM 비디오 실시간 감지 (새로 생성된 비디오만 필터링)
       const domPollInterval = setInterval(async () => {
         try {
           if (!flowView || flowView.webContents?.isDestroyed?.()) return
           const currentVideos = await flowView.webContents.executeJavaScript(GENERATED_VIDEO_PROBE).catch(() => [])
           if (Array.isArray(currentVideos) && currentVideos.length > 0) {
-            const v = currentVideos[0]
-            if (v && v.mediaId) {
-              console.log('[Flow Video I2V] ✅ 1:1 Matched generated video in DOM:', v.mediaId)
+            const freshVideos = currentVideos.filter(v => v && v.mediaId && !preExistingMediaIds.has(v.mediaId))
+            if (freshVideos.length > 0) {
+              const v = freshVideos[0]
+              console.log('[Flow Video I2V] ✅ 1:1 Matched newly generated fresh video in DOM:', v.mediaId)
               clearInterval(domPollInterval)
               if (videoOwnPending && getPendingVideoGeneration() === videoOwnPending) {
                 setPendingVideoGeneration(null)
