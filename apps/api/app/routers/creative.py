@@ -618,6 +618,129 @@ def init_project_folder(
         
     return {"status": "success", "project_dir": project_dir, "project_name": req.project_name}
 
+class SaveProjectRequest(BaseModel):
+    project_name: str
+    script: Optional[str] = ""
+    scenes: Optional[List[dict]] = []
+    subtitle_config: Optional[dict] = None
+
+@router.get("/projects")
+def list_creative_projects(
+    db: Session = Depends(database.get_db)
+):
+    """
+    05_Exports 디스크 폴더 내의 모든 프로젝트 목록을 최신 수정 순으로 반환합니다.
+    """
+    settings = crud.get_settings(db)
+    root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+    exports_dir = os.path.join(root, "05_Exports")
+    if not os.path.exists(exports_dir):
+        return []
+        
+    projects = []
+    for item in os.listdir(exports_dir):
+        item_path = os.path.join(exports_dir, item)
+        if not os.path.isdir(item_path):
+            continue
+        
+        meta_path = os.path.join(item_path, "project.json")
+        proj_info = {
+            "name": item,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getctime(item_path))),
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(item_path))),
+            "mtime": os.path.getmtime(item_path),
+            "scene_count": 0,
+            "script_preview": "",
+            "has_images": os.path.exists(os.path.join(item_path, "images")) and len(os.listdir(os.path.join(item_path, "images"))) > 0,
+            "has_videos": os.path.exists(os.path.join(item_path, "videos")) and len(os.listdir(os.path.join(item_path, "videos"))) > 0,
+            "has_audio": os.path.exists(os.path.join(item_path, "audio")) and len(os.listdir(os.path.join(item_path, "audio"))) > 0,
+        }
+        
+        if os.path.exists(meta_path):
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    pdata = json.load(f)
+                proj_info["created_at"] = pdata.get("created_at") or proj_info["created_at"]
+                proj_info["scene_count"] = pdata.get("scene_count") or len(pdata.get("scenes", []))
+                script_text = pdata.get("script", "")
+                proj_info["script_preview"] = script_text[:80] + ("..." if len(script_text) > 80 else "")
+            except Exception:
+                pass
+                
+        projects.append(proj_info)
+        
+    projects.sort(key=lambda p: p.get("mtime", 0), reverse=True)
+    return projects
+
+@router.get("/projects/{project_name}")
+def get_creative_project(
+    project_name: str,
+    db: Session = Depends(database.get_db)
+):
+    """
+    특정 프로젝트의 project.json 메타데이터 및 전체 씬 정보를 로드합니다.
+    """
+    settings = crud.get_settings(db)
+    root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+    project_dir = os.path.join(root, "05_Exports", project_name)
+    if not os.path.exists(project_dir):
+        raise HTTPException(status_code=404, detail=f"Project {project_name} not found")
+        
+    meta_path = os.path.join(project_dir, "project.json")
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                pdata = json.load(f)
+            return pdata
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to read project.json: {str(e)}")
+            
+    return {
+        "project_name": project_name,
+        "created_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getctime(project_dir))),
+        "scenes": [],
+        "script": ""
+    }
+
+@router.post("/save-project")
+def save_creative_project(
+    req: SaveProjectRequest,
+    db: Session = Depends(database.get_db)
+):
+    """
+    프로젝트의 최신 씬 상태, 대본, 자막 서식 설정을 05_Exports/{project_name}/project.json에 원자적으로 저장합니다.
+    """
+    settings = crud.get_settings(db)
+    root = settings.root_download_path or os.path.join(os.environ.get("LOCALAPPDATA", ""), "ViraLoop Studio", "media")
+    project_dir = os.path.join(root, "05_Exports", req.project_name)
+    os.makedirs(project_dir, exist_ok=True)
+    
+    meta_path = os.path.join(project_dir, "project.json")
+    existing = {}
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+        except Exception:
+            pass
+            
+    existing.update({
+        "project_name": req.project_name,
+        "created_at": existing.get("created_at") or time.strftime("%Y-%m-%d %H:%M:%S"),
+        "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "status": "active",
+        "script": req.script if req.script is not None else existing.get("script", ""),
+        "scene_count": len(req.scenes) if req.scenes else 0,
+        "scenes": req.scenes if req.scenes is not None else existing.get("scenes", []),
+    })
+    if req.subtitle_config:
+        existing["subtitle_config"] = req.subtitle_config
+        
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+        
+    return {"status": "success", "project_name": req.project_name, "scene_count": len(req.scenes or [])}
+
 class SyncSubtitlesRequest(BaseModel):
     project_name: str
     scenes: List[dict]

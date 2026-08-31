@@ -643,6 +643,93 @@ const CreativeStudio = () => {
         localStorage.setItem('viral_loop_audio_config', JSON.stringify(audioConfig));
     }, [audioConfig]);
 
+    // State: Projects Management (05_Exports 다중 프로젝트 목록 및 전환)
+    const { data: creativeProjects, refetch: refetchProjects } = useQuery({
+        queryKey: ['creativeProjects'],
+        queryFn: async () => {
+            const res = await api.get('/creative/projects');
+            return res.data || [];
+        }
+    });
+
+    const handleSwitchProject = async (targetProjName: string) => {
+        if (!targetProjName || targetProjName === currentProjectName) return;
+        try {
+            toast.info(`프로젝트 '${targetProjName}' 로드 중...`);
+            const res = await api.get(`/creative/projects/${targetProjName}`);
+            const data = res.data;
+            if (data) {
+                setCurrentProjectName(targetProjName);
+                localStorage.setItem('creative_current_project_name', targetProjName);
+                
+                if (data.scenes && Array.isArray(data.scenes)) {
+                    setScenes(data.scenes);
+                    localStorage.setItem('viral_loop_creative_scenes', JSON.stringify(data.scenes));
+                } else {
+                    setScenes([]);
+                    localStorage.setItem('viral_loop_creative_scenes', '[]');
+                }
+                
+                if (typeof data.script === 'string') {
+                    setFullScript(data.script);
+                    localStorage.setItem('viral_loop_creative_full_script', data.script);
+                }
+                
+                if (data.subtitle_config) {
+                    setSubtitleConfig(data.subtitle_config);
+                }
+                
+                toast.success(`프로젝트 '${targetProjName}' 로드 완료! (${data.scenes?.length || 0}개 씬)`);
+                queryClient.invalidateQueries({ queryKey: ['creativeProjects'] });
+            }
+        } catch (err: any) {
+            toast.error(`프로젝트 로드 실패: ${err.message || err}`);
+        }
+    };
+
+    const handleCreateNewProject = async () => {
+        const input = prompt("새 프로젝트 이름을 입력하세요 (영문, 한글, 숫자 가능):");
+        if (!input || !input.trim()) return;
+        const sanitized = input.trim().replace(/[^a-zA-Z0-9가-힣_-]/g, '_').slice(0, 30);
+        const newProjName = sanitized.startsWith('project_') ? sanitized : `project_${sanitized}`;
+        
+        try {
+            await api.post('/creative/init-project', {
+                project_name: newProjName,
+                script: "",
+                scenes: []
+            });
+            setCurrentProjectName(newProjName);
+            localStorage.setItem('creative_current_project_name', newProjName);
+            setScenes([]);
+            localStorage.setItem('viral_loop_creative_scenes', '[]');
+            setFullScript("");
+            localStorage.setItem('viral_loop_creative_full_script', "");
+            toast.success(`새 프로젝트 '${newProjName}'가 생성되었습니다!`);
+            refetchProjects();
+        } catch (e: any) {
+            toast.error("새 프로젝트 생성 실패: " + e.message);
+        }
+    };
+
+    // 현재 프로젝트의 씬 및 대본 상태를 05_Exports/<ProjectName>/project.json에 실시간 백그라운드 자동 동기화
+    useEffect(() => {
+        if (!currentProjectName) return;
+        const timer = setTimeout(async () => {
+            try {
+                await api.post('/creative/save-project', {
+                    project_name: currentProjectName,
+                    script: fullScript,
+                    scenes: scenes,
+                    subtitle_config: subtitleConfig
+                });
+            } catch (e) {
+                // silent background auto-save
+            }
+        }, 1500);
+        return () => clearTimeout(timer);
+    }, [scenes, fullScript, currentProjectName, subtitleConfig]);
+
     // State: UI Toggles (기본적으로 접힌 상태 유지)
     const [isStyleCollapsed, setIsStyleCollapsed] = useState(true);
     const [isScriptCollapsed, setIsScriptCollapsed] = useState(true);
@@ -2604,7 +2691,62 @@ const CreativeStudio = () => {
                                 {filteredScenes.length} / {scenes.length} Scenes
                             </Badge>
                             
-                            {/* Compact Project Folder Button */}
+                            {/* Project Selector Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 px-2 text-[11px] font-bold bg-primary/5 hover:bg-primary/10 text-primary gap-1.5 border-primary/20 shadow-2xs rounded-md"
+                                        title="작업 프로젝트 전환 및 관리"
+                                    >
+                                        <FolderOpen className="w-3 h-3 text-amber-500" />
+                                        <span className="max-w-[130px] truncate">{currentProjectName}</span>
+                                        <ChevronDown className="w-3 h-3 opacity-60" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-64 max-h-[320px] overflow-y-auto">
+                                    <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                        05_Exports 작업 프로젝트
+                                    </div>
+                                    <DropdownMenuSeparator />
+                                    {creativeProjects && creativeProjects.length > 0 ? (
+                                        creativeProjects.map((p: any) => (
+                                            <DropdownMenuItem
+                                                key={p.name}
+                                                onClick={() => handleSwitchProject(p.name)}
+                                                className={`flex items-center justify-between text-xs cursor-pointer py-1.5 ${p.name === currentProjectName ? 'bg-primary/10 font-bold text-primary' : ''}`}
+                                            >
+                                                <div className="flex flex-col gap-0.5 truncate max-w-[170px]">
+                                                    <span className="truncate">{p.name}</span>
+                                                    <span className="text-[10px] text-muted-foreground font-normal truncate">
+                                                        {p.scene_count > 0 ? `${p.scene_count}개 씬` : '씬 없음'} • {p.updated_at?.split(' ')[0]}
+                                                    </span>
+                                                </div>
+                                                {p.name === currentProjectName && (
+                                                    <Badge variant="default" className="h-4 px-1 text-[9px] font-bold">
+                                                        현재
+                                                    </Badge>
+                                                )}
+                                            </DropdownMenuItem>
+                                        ))
+                                    ) : (
+                                        <div className="px-2 py-2 text-xs text-muted-foreground text-center">
+                                            프로젝트 없음
+                                        </div>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={handleCreateNewProject}
+                                        className="text-xs font-bold text-primary cursor-pointer flex items-center gap-1.5 py-1.5"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        <span>새 프로젝트 생성...</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            {/* Compact Open Folder in Explorer Button */}
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -2625,7 +2767,7 @@ const CreativeStudio = () => {
                                 title={`05_Exports/${currentProjectName} 폴더 열기`}
                             >
                                 <FolderOpen className="w-3 h-3 text-amber-500" />
-                                <span>폴더 열기</span>
+                                <span>탐색기</span>
                             </Button>
                         </div>
 
