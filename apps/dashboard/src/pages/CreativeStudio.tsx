@@ -2526,10 +2526,10 @@ const CreativeStudio = () => {
                                 </button>
                             </div>
 
-                            <div className="flex items-center space-x-1.5 bg-muted/40 px-2 py-0.5 rounded-lg border border-border">
-                                <Label className="text-[11px] font-semibold">비율:</Label>
+                            <div className="flex items-center space-x-1.5 bg-muted/40 px-2 py-0.5 rounded-lg border border-border shrink-0">
+                                <Label className="text-[11px] font-semibold whitespace-nowrap">비율:</Label>
                                 <Select value={segmentMode} onValueChange={setSegmentMode}>
-                                    <SelectTrigger className="w-[110px] h-7 text-xs bg-background">
+                                    <SelectTrigger className="w-[124px] h-7 text-xs bg-background whitespace-nowrap">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
