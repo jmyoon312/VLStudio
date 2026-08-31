@@ -2047,6 +2047,29 @@ const CreativeStudio = () => {
                         구글 Flow AI 다중창과 실시간 연동하여 이미지/영상 일괄 생성 및 CapCut 완제품 내보내기
                     </p>
                 </div>
+
+                {/* Quick Action Navigation Bar */}
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            const el = document.getElementById('scene-board-container');
+                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                        className="h-8 text-xs font-bold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 shadow-2xs gap-1.5"
+                    >
+                        <Film className="w-3.5 h-3.5" /> 씬보드로 바로가기 ({scenes.length}개)
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsTimelineOpen(!isTimelineOpen)}
+                        className="h-8 text-xs font-medium text-muted-foreground hover:text-foreground border border-border/60"
+                    >
+                        {isTimelineOpen ? "타임라인 접기 ▲" : "타임라인 펼치기 ▼"}
+                    </Button>
+                </div>
             </div>
 
             {/* Zone 1 & Zone 2: Style Presets & Script Workspace (2-Column Grid 50:50 Side-by-Side) */}
@@ -2436,7 +2459,7 @@ const CreativeStudio = () => {
             />
 
             {/* Zone 3: Master Scene Board Container (롱폼 대규모 씬 스마트 관리 시스템) */}
-            <Card className="border rounded-2xl shadow-sm bg-card border-border overflow-hidden flex flex-col transition-all">
+            <Card id="scene-board-container" className="border rounded-2xl shadow-sm bg-card border-border overflow-hidden flex flex-col transition-all">
                 {/* 1. Master Sticky Header */}
                 <div className="bg-card p-3 sm:p-3.5 border-b border-border space-y-2.5">
                     {/* Row 1: Title, Project Folder, View Mode Switcher, Screen Ratio */}
@@ -2611,8 +2634,45 @@ const CreativeStudio = () => {
                     ref={sceneScrollContainerRef}
                     className="h-[640px] max-h-[calc(100vh-260px)] overflow-y-auto p-3 space-y-2.5 bg-muted/5 select-text"
                 >
+                    {/* Empty State Banner when no scenes match */}
+                    {filteredScenes.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-16 px-4 text-center border-2 border-dashed border-border/80 rounded-xl bg-card/50 my-2">
+                            <Clapperboard className="w-12 h-12 text-muted-foreground/30 mb-3" />
+                            {scenes.length === 0 ? (
+                                <>
+                                    <h3 className="text-sm font-bold text-foreground mb-1">등록된 씬이 없습니다</h3>
+                                    <p className="text-xs text-muted-foreground max-w-md mb-4 leading-relaxed">
+                                        상단 <strong>[📜 대본 작업실]</strong>에서 대본을 입력하고 [🎬 씬 분할 시작]을 누르거나,<br />
+                                        아래 버튼을 눌러 직접 첫 번째 씬을 추가하세요.
+                                    </p>
+                                    <Button onClick={handleAddScene} size="sm" className="h-8 text-xs font-bold gap-1.5 shadow-sm bg-primary text-primary-foreground">
+                                        <Plus className="w-4 h-4" /> 첫 번째 씬 추가하기
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <h3 className="text-sm font-bold text-foreground mb-1">일치하는 씬이 없습니다</h3>
+                                    <p className="text-xs text-muted-foreground max-w-md mb-4">
+                                        입력하신 검색어 또는 선택하신 상태 필터 조건에 해당하는 씬이 없습니다.
+                                    </p>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setSceneSearchQuery('');
+                                            setSceneFilterStatus('all');
+                                        }}
+                                        className="h-8 text-xs font-semibold"
+                                    >
+                                        검색 & 필터 초기화
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     {/* Mode A: Card View (Detail Compact) */}
-                    {sceneBoardViewMode === 'card' && (
+                    {sceneBoardViewMode === 'card' && filteredScenes.length > 0 && (
                         <div className="space-y-2.5">
                             {filteredScenes.map((scene, index) => (
                                 <React.Fragment key={scene.id}>
@@ -2818,7 +2878,7 @@ const CreativeStudio = () => {
                     )}
 
                     {/* Mode B: Compact List/Table View (엑셀 스프레드시트형 빠른 대본 검수) */}
-                    {sceneBoardViewMode === 'list' && (
+                    {sceneBoardViewMode === 'list' && filteredScenes.length > 0 && (
                         <div className="bg-card border rounded-xl overflow-hidden shadow-2xs">
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead className="bg-muted/60 text-muted-foreground border-b select-none">
@@ -2893,7 +2953,7 @@ const CreativeStudio = () => {
                     )}
 
                     {/* Mode C: Storyboard Grid View (썸네일 바둑판 비주얼 흐름 파악) */}
-                    {sceneBoardViewMode === 'grid' && (
+                    {sceneBoardViewMode === 'grid' && filteredScenes.length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
                             {filteredScenes.map((scene) => (
                                 <div
