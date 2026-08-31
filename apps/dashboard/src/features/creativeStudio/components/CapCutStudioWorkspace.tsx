@@ -711,6 +711,30 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               }
             }
           }}
+          onRegenerateScene={(sc, type) => {
+            if (type === 'video') {
+              if (window.electron?.flow?.generateVideo) {
+                toast.info(`Scene #${sc.scene_id} 비디오 재생성을 시작합니다.`);
+              }
+            } else {
+              onGenerateSceneFlow?.(sc);
+            }
+          }}
+          onToggleViewMode={(scId) => {
+            const sc = scenes.find((s) => s.id === scId);
+            if (sc && onUpdateScene) {
+              onUpdateScene(scId, { viewMode: sc.viewMode === 'rendered' ? 'source' : 'rendered' });
+            }
+          }}
+          onSplitScene={(scIdx) => onSplitScene?.(scIdx, 0)}
+          onRegenerateTTS={() => onBatchTTS?.()}
+          onChangeSpeed={(spd) => {
+            if (onUpdateScene && selectedScene) {
+              const curDur = selectedScene.duration || 3.5;
+              onUpdateScene(selectedScene.id, { duration: Math.max(1.0, Math.round((curDur / spd) * 10) / 10) });
+              toast.success(`Scene #${selectedScene.scene_id} 배속 ${spd}x 적용 (길이: ${(curDur / spd).toFixed(1)}s)`);
+            }
+          }}
         />
       </div>
     </div>

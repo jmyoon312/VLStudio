@@ -20,6 +20,7 @@ import HoverImageBalloon from '../HoverImageBalloon'
 import { resolveHoverPreviewSrc, findLiveClip } from './hoverPreview'
 import PreviewPanel from './PreviewPanel'
 import Playhead from './Playhead'
+import { TimelineContextMenu } from './TimelineContextMenu'
 import {
   LABEL_W_DEFAULT, LABEL_W_MIN, LABEL_W_MAX, LABEL_W_KEY,
   TRACK_H, SUB_TRACK_H, FILE_ROW_H, FILE_ROW_SFX_META_H, RULER_H,
@@ -89,7 +90,34 @@ function formatTC(ms, totalDurationMs = 0) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`
 }
 
-export default function AudioTimeline({ audioPackage, scenes, srtEntries, subtitleConfig, onClipSelect, onSaveTimecodeOverride, disabled = false, onFlag, isFlagged, onTrackDrop, compact = false, onPlayheadChange, onPlayingChange, onHiddenRolesChange, onSceneUpdate, onTitleClick = null, titleActive = false, aspectRatio = '16:9' }) {
+export default function AudioTimeline({
+  audioPackage,
+  scenes,
+  srtEntries,
+  subtitleConfig,
+  onClipSelect,
+  onSaveTimecodeOverride,
+  disabled = false,
+  onFlag,
+  isFlagged,
+  onTrackDrop,
+  compact = false,
+  onPlayheadChange,
+  onPlayingChange,
+  onHiddenRolesChange,
+  onSceneUpdate,
+  onTitleClick = null,
+  titleActive = false,
+  aspectRatio = '16:9',
+  onRegenerateScene,
+  onReplaceMedia,
+  onSplitScene,
+  onToggleViewMode,
+  onDeleteClip,
+  onEditSubtitle,
+  onRegenerateTTS,
+  onChangeSpeed,
+}) {
   const { t } = useI18n()
   // 영상 클립 호버 👁 → 해당 씬의 i2v/t2v export 제외 플래그 토글 (falsy=포함).
   const handleToggleVideo = useCallback((clip) => {
@@ -181,6 +209,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, subtit
     return LABEL_W_DEFAULT
   })
   const [labelsScrollY, setLabelsScrollY] = useState(0)
+  const [contextMenuTarget, setContextMenuTarget] = useState(null)
   const [previewHeight, setPreviewHeight] = useState(() => {
     try {
       const saved = parseInt(localStorage.getItem(PREVIEW_H_KEY), 10)
@@ -1370,6 +1399,7 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, subtit
                   onFlag={onFlag}
                   isFlagged={isFlagged}
                   onToggleVideo={onSceneUpdate ? handleToggleVideo : undefined}
+                  onClipContextMenu={setContextMenuTarget}
                   onTrackDrop={onTrackDrop}
                   onTrackDragOver={setDragOverTrackId}
                   onTrackDragLeave={() => setDragOverTrackId(null)}
@@ -1382,6 +1412,26 @@ export default function AudioTimeline({ audioPackage, scenes, srtEntries, subtit
           </div>
         </div>
       </div>
+
+      {/* 🚀 프로 NLE 우클릭 컨텍스트 메뉴 */}
+      <TimelineContextMenu
+        target={contextMenuTarget}
+        onClose={() => setContextMenuTarget(null)}
+        onRegenerateScene={onRegenerateScene}
+        onReplaceMedia={onReplaceMedia}
+        onSplitScene={onSplitScene}
+        onToggleViewMode={onToggleViewMode}
+        onDeleteClip={onDeleteClip}
+        onEditSubtitle={onEditSubtitle}
+        onRegenerateTTS={onRegenerateTTS}
+        onChangeSpeed={onChangeSpeed}
+        onPlayPause={() => {
+          if (onPlayingChange) onPlayingChange(!isGlobalPlayingRef.current);
+          else isGlobalPlayingRef.current = !isGlobalPlayingRef.current;
+        }}
+        onResetPlayhead={() => setPlayheadMs(0)}
+        onFitTimeline={zoomFit}
+      />
 
       {/* 헤더 버튼 hover 툴팁 (label + desc + hotkey) */}
       {btnTooltip && (

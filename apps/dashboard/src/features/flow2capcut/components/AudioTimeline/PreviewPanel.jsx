@@ -47,9 +47,18 @@ export function findRangeAt(ranges, t, inclusiveEnd = false) {
 const EMPTY_HIDDEN = new Set()
 
 export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleConfig, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '', kenBurns = false }) {
-  // ── CapCut 네이티브 1:1 반응형 자막 스케일러 ──
+  // ── CapCut 네이티브 1:1 반응형 자막 스케일러 & 인터랙티브 조작 ──
   const stageRef = useRef(null)
   const [stageDimensions, setStageDimensions] = useState({ width: 640, height: 360 })
+  const [canvasScale, setCanvasScale] = useState(1.0)
+  const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
+
+  // 자막 직접 드래그 이동 상태
+  const [subDragOffset, setSubDragOffset] = useState({ x: 0, y: 0 })
+  const [isDraggingSubtitle, setIsDraggingSubtitle] = useState(false)
+  const subDragStartRef = useRef({ startX: 0, startY: 0, initialMarginV: 50, initialX: 0, initialY: 0 })
 
   useEffect(() => {
     const el = stageRef.current
@@ -69,6 +78,53 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
   const refWidth = isPortrait ? 1080 : 1920
   const scaleRatio = Math.max(0.1, Math.min(3.0, (stageDimensions.width || 640) / refWidth))
 
+  // 마우스 휠 줌 핸들러
+  const handleWheel = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const zoomDelta = -e.deltaY * 0.0015
+    setCanvasScale((prev) => Math.max(0.3, Math.min(3.5, prev + zoomDelta)))
+  }
+
+  // 캔버스 더블클릭 시 100% 줌 및 팬 원복
+  const handleDoubleClick = () => {
+    setCanvasScale(1.0)
+    setCanvasPan({ x: 0, y: 0 })
+  }
+
+  // 자막 드래그 시작
+  const handleSubtitlePointerDown = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setIsDraggingSubtitle(true)
+    const curMarginV = Number(subtitleConfig?.marginV) || 50
+    subDragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialMarginV: curMarginV,
+      initialX: subDragOffset.x,
+      initialY: subDragOffset.y,
+    }
+
+    const onPointerMove = (mv) => {
+      const dx = (mv.clientX - subDragStartRef.current.startX) / (scaleRatio * canvasScale)
+      const dy = (mv.clientY - subDragStartRef.current.startY) / (scaleRatio * canvasScale)
+      setSubDragOffset({
+        x: subDragStartRef.current.initialX + dx,
+        y: subDragStartRef.current.initialY + dy,
+      })
+    }
+
+    const onPointerUp = () => {
+      setIsDraggingSubtitle(false)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+  }
+
   const subtitleStyle = useMemo(() => {
     const cfg = subtitleConfig || {}
     if (cfg.enabled === false) return { display: 'none' }
@@ -77,21 +133,23 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
     const baseSize = Number(cfg.fontSize) || 48
     const scaledFontSize = Math.max(10, Math.round(baseSize * scaleRatio))
 
-    // 위치 스케일링 (수직 마진 및 중앙 정렬)
+    // 위치 스케일링 (수직 마진 및 드래그 오프셋 적용)
     const baseMarginV = Number(cfg.marginV) || 50
     const scaledMarginV = Math.max(8, Math.round(baseMarginV * scaleRatio))
+    const dragX = subDragOffset.x * scaleRatio
+    const dragY = subDragOffset.y * scaleRatio
 
     let posStyle = {
       position: 'absolute',
-      bottom: `${scaledMarginV}px`,
+      bottom: `${scaledMarginV - dragY}px`,
       top: 'auto',
-      left: '50%',
-      transform: 'translateX(-50%)'
+      left: `calc(50% + ${dragX}px)`,
+      transform: 'translateX(-50%)',
     }
     if (cfg.position === 'top') {
-      posStyle = { position: 'absolute', top: `${scaledMarginV}px`, bottom: 'auto', left: '50%', transform: 'translateX(-50%)' }
+      posStyle = { position: 'absolute', top: `${scaledMarginV + dragY}px`, bottom: 'auto', left: `calc(50% + ${dragX}px)`, transform: 'translateX(-50%)' }
     } else if (cfg.position === 'center' || cfg.position === 'middle') {
-      posStyle = { position: 'absolute', top: '50%', bottom: 'auto', left: '50%', transform: 'translate(-50%, -50%)' }
+      posStyle = { position: 'absolute', top: `calc(50% + ${dragY}px)`, bottom: 'auto', left: `calc(50% + ${dragX}px)`, transform: 'translate(-50%, -50%)' }
     }
 
     const textColor = cfg.textColor || '#FFFFFF'
@@ -132,7 +190,7 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       'Do Hyeon': '"Do Hyeon", sans-serif',
       'Gugi': '"Gugi", cursive',
       'Wanted Sans': '"Wanted Sans", -apple-system, sans-serif',
-      'Pretendard': '"Pretendard", -apple-system, sans-serif'
+      'Pretendard': '"Pretendard", -apple-system, sans-serif',
     }
     const resolvedFont = fontFamilies[cfg.font] || (cfg.font ? `"${cfg.font}", sans-serif` : '"Wanted Sans", "Pretendard", sans-serif')
 
@@ -156,17 +214,19 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       background,
       padding: boxPadding,
       borderRadius,
-      border: borderStyle,
+      border: isDraggingSubtitle ? '1.5px dashed #3b82f6' : borderStyle,
       maxWidth: '92%',
       lineHeight: 1.35,
       letterSpacing: '0.01em',
       whiteSpace: 'pre-wrap',
       wordBreak: 'keep-all',
-      pointerEvents: 'none',
+      pointerEvents: 'auto',
+      cursor: isDraggingSubtitle ? 'grabbing' : 'grab',
+      userSelect: 'none',
       zIndex: 50,
-      ...posStyle
+      ...posStyle,
     }
-  }, [subtitleConfig, scaleRatio])
+  }, [subtitleConfig, scaleRatio, subDragOffset, isDraggingSubtitle])
   // 씬 ranges precompute — getSceneTimeRangeMs는 parseTimeToSeconds(regex+split)을 부르므로
   // playhead 매 tick (60fps) 마다 N회 반복하면 1시간/1500씬 기준 ~0.5% CPU 누적.
   // sort를 명시적으로 — binary search 정확성 보장.
@@ -350,8 +410,23 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
   }, [isVideoActive, videoPlacement, playheadMs, isPlaying])
 
   return (
-    <div className={`atl-preview ${className}`} style={{ height }}>
-      <div ref={stageRef} className="atl-preview-stage" style={{ aspectRatio: (aspectRatio === '9:16' || aspectRatio === 'shorts') ? '9 / 16' : '16 / 9' }}>
+    <div
+      className={`atl-preview ${className}`}
+      style={{ height }}
+      onWheel={handleWheel}
+      onDoubleClick={handleDoubleClick}
+      title="마우스 휠: 줌인/줌아웃 · 더블클릭: 100% 화면 맞춤"
+    >
+      <div
+        ref={stageRef}
+        className="atl-preview-stage"
+        style={{
+          aspectRatio: (aspectRatio === '9:16' || aspectRatio === 'shorts') ? '9 / 16' : '16 / 9',
+          transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
+          transformOrigin: 'center center',
+          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+        }}
+      >
         {imgPath && !hideImage ? (
           <img className={`atl-preview-img ${kenBurns ? 'atl-ken-burns' : ''}`} src={resolveImageSrc({ imagePath: imgPath, generatedAt: scene?.generatedAt, image: scene?.image })} alt="" />
         ) : (
@@ -373,7 +448,14 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
           }}
         />
         {subtitleText && !hideSubtitle && (
-          <div className="atl-preview-subtitle" style={subtitleStyle}>{subtitleText}</div>
+          <div
+            className="atl-preview-subtitle"
+            style={subtitleStyle}
+            onPointerDown={handleSubtitlePointerDown}
+            title="마우스로 자막을 잡고 원하는 위치로 드래그하세요"
+          >
+            {subtitleText}
+          </div>
         )}
       </div>
       {/* Hidden prefetch — 다음 활성 비디오를 미리 OS 캐시에 warm. 화면 표시는 안 함. */}

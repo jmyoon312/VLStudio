@@ -270,31 +270,75 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
     // 자막은 비디오/이미지 위에 얹히므로 맨 위. 모니터는 맨 위 "보이는" 비디오 트랙을
     // 재생(i2v 우선, View 끄면 t2v). 일반 NLE(Premiere/CapCut/DaVinci) 컨벤션과 동일.
     const tracks = []
-    if (subtitleClips.length > 0) {
-      tracks.push({ id: 'subtitle', name: '자막', color: COLORS.subtitle, variant: 'text', clips: subtitleClips, role: 'subtitle' })
-    }
-    if (videoI2VClips.length > 0) {
-      tracks.push({ id: 'video-i2v', name: 'Video (I2V)', color: COLORS.video, variant: 'block', clips: videoI2VClips, role: 'video-i2v' })
-    }
+    // 1. 자막 트랙 (상시 고정)
+    tracks.push({
+      id: 'subtitle',
+      name: '자막',
+      color: COLORS.subtitle,
+      variant: 'text',
+      clips: subtitleClips,
+      role: 'subtitle',
+    })
+
+    // 2. 비디오(영상) 트랙 (상시 고정)
+    tracks.push({
+      id: 'video-i2v',
+      name: '영상',
+      color: COLORS.video,
+      variant: 'block',
+      clips: videoI2VClips,
+      role: 'video-i2v',
+    })
+
     if (videoT2VClips.length > 0) {
       tracks.push({ id: 'video-t2v', name: 'Video (T2V)', color: COLORS.video, variant: 'block', clips: videoT2VClips, role: 'video-t2v' })
     }
-    if (imageClips.length > 0) {
-      tracks.push({ id: 'image', name: 'Image', color: COLORS.image, variant: 'block', clips: imageClips, role: 'image' })
-    }
+
+    // 3. 이미지 트랙 (상시 고정)
     tracks.push({
-      id: 'narration', name: 'Narration', color: COLORS.narration, variant: 'audio',
-      clips: narrationClips, role: 'narration', acceptsDrop: 'audio',
+      id: 'image',
+      name: '이미지',
+      color: COLORS.image,
+      variant: 'block',
+      clips: imageClips,
+      role: 'image',
     })
+
+    // 4. 나레이션 트랙 (상시 고정)
+    tracks.push({
+      id: 'narration',
+      name: '나레이션',
+      color: COLORS.narration,
+      variant: 'audio',
+      clips: narrationClips,
+      role: 'narration',
+      acceptsDrop: 'audio',
+    })
+
     if (voiceSubTracks.length > 0) {
       tracks.push({
-        id: 'voice', name: 'Voice', color: COLORS.voice, variant: 'audio', expandable: true,
-        clips: voiceClipsAll, subTracks: voiceSubTracks, role: 'voice',
+        id: 'voice',
+        name: 'Voice',
+        color: COLORS.voice,
+        variant: 'audio',
+        expandable: true,
+        clips: voiceClipsAll,
+        subTracks: voiceSubTracks,
+        role: 'voice',
       })
     }
+
+    // 5. 효과음 트랙 (상시 고정)
     tracks.push({
-      id: 'sfx', name: 'SFX', color: COLORS.sfx, variant: 'audio', expandable: true,
-      clips: sfxClipsAll, subTracks: sfxSubTracks, role: 'sfx', acceptsDrop: 'audio',
+      id: 'sfx',
+      name: '효과음',
+      color: COLORS.sfx,
+      variant: 'audio',
+      expandable: true,
+      clips: sfxClipsAll,
+      subTracks: sfxSubTracks,
+      role: 'sfx',
+      acceptsDrop: 'audio',
     })
 
     return { totalDurationMs, tracks }

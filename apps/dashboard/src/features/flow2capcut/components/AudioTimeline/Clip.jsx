@@ -18,7 +18,7 @@ function ClipGeneratingTimer({ startedAt, endedAt }) {
 // 클립 — click vs drag 자동 구분, draggable이면 드래그로 timecode 보정
 // onFlag(audioPath, filename, event): hover ⚠️ 버튼 클릭 시 호출 (audioPath 있고 onFlag 전달된 경우만)
 // isFlagged(filePath): bool — flagged 시각 표시
-export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDoubleClickClip, onDragClip, totalDurationMs, isPlaying, onSceneHover, onFlag, isFlagged, onToggleVideo, onInteractionChange }) {
+export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDoubleClickClip, onDragClip, totalDurationMs, isPlaying, onSceneHover, onFlag, isFlagged, onToggleVideo, onInteractionChange, onClipContextMenu }) {
   const [dragOffsetMs, setDragOffsetMs] = useState(null)
   const isDragging = dragOffsetMs !== null
   const flagged = !!(isFlagged && clip.audioPath && isFlagged(clip.audioPath))
@@ -150,12 +150,18 @@ export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDo
 
   return (
     <div
-      className={`atl-clip atl-clip-${variant}${isPlaying ? ' atl-clip-playing' : ''}${isDragging ? ' atl-clip-dragging' : ''}${flagged ? ' atl-clip-flagged' : ''}${clip.disabled ? ' atl-clip-disabled' : ''}`}
+      className={`atl-clip atl-clip-${variant || 'default'}${flagged ? ' is-flagged' : ''}${clip.generating ? ' is-generating' : ''}${clip.disabled ? ' is-disabled' : ''}${isPlaying ? ' atl-clip-playing' : ''}${isDragging ? ' atl-clip-dragging' : ''}`}
       style={style}
       onPointerDown={onPointerDown}
       onDoubleClick={dispatchDoubleClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClipContextMenu?.({ x: e.clientX, y: e.clientY, clip });
+      }}
+      data-clip-id={clip.id}
       title={clip.filename || clip.label || ''}
     >
       {variant === 'block' && (clip.imgSrc || clip.imagePath || clip.posterDataUrl || clip.sceneRef?.image) && (

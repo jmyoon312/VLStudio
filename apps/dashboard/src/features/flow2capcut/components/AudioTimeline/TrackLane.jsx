@@ -11,6 +11,7 @@ export default function TrackLane({
   track, width, height, pxPerMs, renderClips = true,
   onClipClick, onClipDoubleClick, onClipDrag, totalDurationMs, playingClipIds, onSceneHover, onFlag, isFlagged, onToggleVideo,
   visibleRangeMs = null,
+  onClipContextMenu,
   // 드래그앤드롭 (Phase 2)
   onTrackDrop, onTrackDragOver, onTrackDragLeave, dragOverTrackId,
 }) {
@@ -110,6 +111,7 @@ export default function TrackLane({
           isFlagged={isFlagged}
           onToggleVideo={onToggleVideo}
           onInteractionChange={handleClipInteractionChange}
+          onClipContextMenu={onClipContextMenu}
         />
       ))}
     </div>
