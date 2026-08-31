@@ -1151,7 +1151,7 @@ export default function AudioTimeline({
                 flexShrink: 0
               }}
             >
-              <span>📺</span> <span>{compact ? (t('bottomPanel.preview') || '프리뷰') : '멀티트랙 타임라인'}</span>
+              <span>📺</span> <span>{compact ? (t('bottomPanel.preview') || '프리뷰') : '타임라인'}</span>
             </button>
             {titleActive && (
               <button
@@ -1176,7 +1176,7 @@ export default function AudioTimeline({
           </div>
         ) : (
           <div className="atl-title" style={{ whiteSpace: 'nowrap', fontSize: '0.75rem', fontWeight: 800 }}>
-            <span>📺</span> {compact ? (t('bottomPanel.preview') || '프리뷰') : '멀티트랙 타임라인'}
+            <span>📺</span> {compact ? (t('bottomPanel.preview') || '프리뷰') : '타임라인'}
           </div>
         )}
         <div className="atl-transport">

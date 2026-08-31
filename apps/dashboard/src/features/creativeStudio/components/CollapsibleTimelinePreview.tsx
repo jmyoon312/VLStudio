@@ -324,12 +324,9 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
         <div className="flex items-center gap-2.5">
           <Film className="w-4 h-4 text-primary" />
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-bold text-foreground tracking-tight uppercase">
-              실시간 멀티트랙 타임라인 & 캔버스 프리뷰 (TIMELINE & REALTIME PREVIEW)
+            <h3 className="text-xs font-bold text-foreground tracking-tight">
+              타임라인 & 프리뷰
             </h3>
-            <Badge variant="outline" className="text-[10px] font-semibold bg-primary/10 text-primary border-primary/20 px-1.5 py-0">
-              Flow AI NLE
-            </Badge>
           </div>
         </div>
 
