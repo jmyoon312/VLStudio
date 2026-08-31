@@ -6,6 +6,7 @@
  */
 
 import { screen } from 'electron'
+import fs from 'fs'
 import { updateBounds } from './layout.js'
 import { extractServerErrorMessage } from './videoErrorExtractor.js'
 import { computeOffscreenBounds } from '../offscreen-bounds.js'
@@ -508,11 +509,24 @@ export function registerVideoIPC(ipcMain, deps) {
     const mainWindow = getMainWindow()
     if (!flowView) return { success: false, error: 'Flow view not ready' }
 
-    let effectiveStartMediaId = startImageMediaId || (typeof startImage === 'string' && !startImage.startsWith('data:') && startImage.length < 50 ? startImage : null)
-    let effectiveEndMediaId = endImageMediaId || (typeof endImage === 'string' && !endImage.startsWith('data:') && endImage.length < 50 ? endImage : null)
+    let effectiveStartMediaId = startImageMediaId || (typeof startImage === 'string' && !startImage.startsWith('data:') && !startImage.includes(':\\') && !startImage.includes(':/') && !startImage.startsWith('/') && startImage.length < 50 ? startImage : null)
+    let effectiveEndMediaId = endImageMediaId || (typeof endImage === 'string' && !endImage.startsWith('data:') && !endImage.includes(':\\') && !endImage.includes(':/') && !endImage.startsWith('/') && endImage.length < 50 ? endImage : null)
+
+    // startImage가 로컬 파일 경로인 경우 base64로 자동 변환
+    let rawStartImage = startImage || startImageMediaId
+    if (typeof rawStartImage === 'string') {
+      if ((rawStartImage.includes(':\\') || rawStartImage.includes(':/') || rawStartImage.startsWith('/')) && fs.existsSync(rawStartImage)) {
+        try {
+          const fileBuf = fs.readFileSync(rawStartImage)
+          rawStartImage = `data:image/png;base64,${fileBuf.toString('base64')}`
+          console.log('[Flow Video I2V] Loaded startImage from local disk file:', rawStartImage.substring(0, 40))
+        } catch (readErr) {
+          console.warn('[Flow Video I2V] Failed to read local disk startImage:', readErr.message)
+        }
+      }
+    }
 
     // startImage가 base64 또는 긴 문자열인 경우 Flow에 자동 레퍼런스 업로드
-    const rawStartImage = startImage || startImageMediaId
     if (!effectiveStartMediaId && typeof rawStartImage === 'string' && (rawStartImage.startsWith('data:') || rawStartImage.length > 50)) {
       try {
         if (!token) {
