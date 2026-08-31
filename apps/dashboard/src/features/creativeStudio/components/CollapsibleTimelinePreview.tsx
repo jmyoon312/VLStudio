@@ -314,7 +314,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   };
 
   return (
-    <div className="w-full my-4 bg-card rounded-lg border border-border shadow-xs overflow-hidden transition-all duration-200 select-none shrink-0 min-h-[44px]">
+    <div className="w-full my-0 bg-card rounded-xl border border-border shadow-xs overflow-hidden transition-all duration-200 select-none shrink-0 min-h-[44px]">
       
       {/* 1. 상단 어디를 눌러도 접히고 펼쳐지는 플랫 헤더 바 */}
       <div

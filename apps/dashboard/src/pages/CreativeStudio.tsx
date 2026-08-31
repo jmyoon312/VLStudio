@@ -2023,7 +2023,7 @@ const CreativeStudio = () => {
     };
 
     return (
-        <div className="h-full w-full overflow-y-auto custom-scrollbar flex flex-col gap-4 sm:gap-6 p-3 sm:p-6 pb-32 bg-background text-foreground">
+        <div className="h-full w-full overflow-y-auto custom-scrollbar flex flex-col gap-3.5 p-3 sm:p-5 pb-24 bg-background text-foreground">
             {/* 1. 상단 타이틀 헤더 바 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
                 <div>
