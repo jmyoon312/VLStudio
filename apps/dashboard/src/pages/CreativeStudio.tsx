@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -922,6 +922,65 @@ const CreativeStudio = () => {
 
             toast.success("프로젝트 폴더 및 생성물이 디스크에서 완전히 삭제되었습니다.");
         }
+    };
+
+    // [NEW] 종류별 전체 삭제 (TTS 음성 & 자막 / 이미지 / 영상)
+    const handleClearAllAudio = async () => {
+        if (scenes.length === 0) return;
+        const hasAudio = scenes.some(s => s.audio_url || s.audio_path);
+        if (!hasAudio) {
+            toast.info("삭제할 TTS 음성이 없습니다.");
+            return;
+        }
+        if (!confirm("모든 씬의 TTS 음성을 삭제하시겠습니까?\n타임라인의 음성 및 SRT 자막도 함께 초기화됩니다.")) return;
+
+        const next = scenes.map(s => ({
+            ...s,
+            audio_url: undefined,
+            audio_path: undefined,
+            audioStatus: 'idle' as const
+        }));
+        setScenes(next);
+        await syncSubtitlesToDisk(next);
+        toast.success("모든 씬의 TTS 음성 및 자막이 완전히 삭제되었습니다.");
+    };
+
+    const handleClearAllImages = () => {
+        if (scenes.length === 0) return;
+        const hasImages = scenes.some(s => s.media_url || s.media_path);
+        if (!hasImages) {
+            toast.info("삭제할 이미지가 없습니다.");
+            return;
+        }
+        if (!confirm("모든 씬의 생성된 이미지를 삭제하시겠습니까?")) return;
+
+        setScenes(prev => prev.map(s => ({
+            ...s,
+            media_url: undefined,
+            media_path: undefined,
+            mediaId: undefined,
+            visualStatus: s.video_url ? s.visualStatus : ('idle' as const)
+        })));
+        toast.success("모든 씬의 이미지가 완전히 삭제되었습니다.");
+    };
+
+    const handleClearAllVideos = () => {
+        if (scenes.length === 0) return;
+        const hasVideos = scenes.some(s => s.video_url || s.video_path);
+        if (!hasVideos) {
+            toast.info("삭제할 영상이 없습니다.");
+            return;
+        }
+        if (!confirm("모든 씬의 생성된 영상을 삭제하시겠습니까?")) return;
+
+        setScenes(prev => prev.map(s => ({
+            ...s,
+            video_url: undefined,
+            video_path: undefined,
+            viewMode: 'source' as const,
+            visualStatus: s.media_url ? 'completed' as const : ('idle' as const)
+        })));
+        toast.success("모든 씬의 영상이 완전히 삭제되었습니다.");
     };
 
     // Polling for Video Generation
@@ -2578,18 +2637,40 @@ const CreativeStudio = () => {
                                 영상 통합
                             </Button>
 
-                            {/* [전체 삭제] Button */}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs gap-1 text-red-600 dark:text-red-400 border-red-200 dark:border-red-950/60 bg-red-500/5 hover:bg-red-500/15 shadow-2xs"
-                                onClick={handleResetScenes}
-                                disabled={scenes.length === 0}
-                                title="모든 씬과 05_Exports 프로젝트 폴더 내 생성 파일 전체 영구 삭제"
-                            >
-                                <Trash2 className="w-3 h-3" />
-                                전체 삭제
-                            </Button>
+                            {/* [삭제 및 초기화 드롭다운] */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs gap-1 text-red-600 dark:text-red-400 border-red-200 dark:border-red-950/60 bg-red-500/5 hover:bg-red-500/15 shadow-2xs"
+                                        disabled={scenes.length === 0}
+                                        title="생성물 종류별 삭제 또는 프로젝트 전체 삭제"
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                        <span>삭제/초기화 ▼</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56 bg-popover border-border shadow-xl z-50">
+                                    <DropdownMenuItem onClick={handleClearAllAudio} className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer py-1.5 focus:bg-blue-500/10">
+                                        <Mic className="w-3.5 h-3.5 mr-2 text-blue-500" />
+                                        <span className="font-semibold">음성(TTS) & 자막 전체 삭제</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleClearAllImages} className="text-xs text-purple-600 dark:text-purple-400 cursor-pointer py-1.5 focus:bg-purple-500/10">
+                                        <Sparkles className="w-3.5 h-3.5 mr-2 text-purple-500" />
+                                        <span className="font-semibold">이미지 전체 삭제</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleClearAllVideos} className="text-xs text-indigo-600 dark:text-indigo-400 cursor-pointer py-1.5 focus:bg-indigo-500/10">
+                                        <Film className="w-3.5 h-3.5 mr-2 text-indigo-500" />
+                                        <span className="font-semibold">영상 전체 삭제</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleResetScenes} className="text-xs text-red-600 dark:text-red-400 font-bold cursor-pointer py-1.5 focus:bg-red-500/10">
+                                        <Trash2 className="w-3.5 h-3.5 mr-2 text-red-500" />
+                                        <span>모든 씬 & 프로젝트 전체 삭제</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
 
