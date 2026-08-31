@@ -91,7 +91,7 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
           imgSrc: (imgPath && !isGenerating) ? resolveImageSrc({ imagePath: imgPath, generatedAt: s.generatedAt, image: s.image }) : null,
           generating: isGenerating,
           placeholder: isGenerating || !imgPath,
-          label: s.script ? `Scene #${s.scene_id || s.id}: ${s.script.slice(0, 15)}...` : `Scene #${s.scene_id || s.id}`,
+          label: `씬 ${s.scene_id || s.id}`,
           generatingStartedAt: s.generatingStartedAt ?? null,
           generatingEndedAt: s.generatingEndedAt ?? null,
           sceneRef: s,
@@ -285,7 +285,7 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
     })
 
     if (videoT2VClips.length > 0) {
-      tracks.push({ id: 'video-t2v', name: 'Video (T2V)', color: COLORS.video, variant: 'block', clips: videoT2VClips, role: 'video-t2v' })
+      tracks.push({ id: 'video-t2v', name: '영상', color: COLORS.video, variant: 'block', clips: videoT2VClips, role: 'video-t2v' })
     }
 
     // 3. 이미지 트랙 (상시 고정)
@@ -312,7 +312,7 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
     if (voiceSubTracks.length > 0) {
       tracks.push({
         id: 'voice',
-        name: 'Voice',
+        name: '음성',
         color: COLORS.voice,
         variant: 'audio',
         expandable: true,

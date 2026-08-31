@@ -1242,8 +1242,8 @@ export default function AudioTimeline({
             onClick={handleSplitCurrent}
             disabled={disabled}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: '레이저 분할 (Razor Split)',
-              desc: '플레이헤드 위치에서 현재 씬을 2개로 분할',
+              label: '분할',
+              desc: '현재 위치에서 씬을 2개로 분할',
               hotkey: 'Ctrl+B',
             })}
             onMouseLeave={hideBtnTooltip}
@@ -1252,20 +1252,20 @@ export default function AudioTimeline({
             ✂️ 분할
           </button>
 
-          {/* 🧲 마그네틱 자석 스냅 (Magnetic Snapping) */}
+          {/* 🧲 자석 스냅 */}
           <button
             type="button"
             className={`atl-stop-btn ${isSnappingEnabled ? 'atl-btn-active' : ''}`}
             onClick={() => {
               setIsSnappingEnabled(prev => {
-                toast.info(`마그네틱 자석 스냅: ${!prev ? 'ON' : 'OFF'}`)
+                toast.info(`자석 스냅: ${!prev ? 'ON' : 'OFF'}`)
                 return !prev
               })
             }}
             disabled={disabled}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: `마그네틱 스냅: ${isSnappingEnabled ? 'ON (켜짐)' : 'OFF (꺼짐)'}`,
-              desc: '클립 경계 및 씬 시작/끝 지점에 자동 밀착 자석 스냅',
+              label: `자석 스냅: ${isSnappingEnabled ? '켜짐' : '꺼짐'}`,
+              desc: '클립 경계 및 씬 시작/끝 지점에 자동 밀착',
               hotkey: 'N',
             })}
             onMouseLeave={hideBtnTooltip}
@@ -1289,8 +1289,8 @@ export default function AudioTimeline({
           <label
             className={`atl-kb-toggle ${kenBurnsEnabled ? 'atl-kb-active' : ''}`}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: 'Ken Burns 다이내믹 모션',
-              desc: '스틸 이미지 씬에 자연스러운 서서히 줌인/팬 카메라 무빙을 적용합니다.',
+              label: '모션 무빙',
+              desc: '스틸 이미지 씬에 자연스러운 줌인/팬 카메라 무빙을 적용합니다.',
             })}
             onMouseLeave={hideBtnTooltip}
           >
@@ -1300,10 +1300,10 @@ export default function AudioTimeline({
               onChange={(e) => {
                 const next = e.target.checked
                 setKenBurnsEnabled(next)
-                if (next) toast.success('Ken Burns 카메라 모션 활성화')
+                if (next) toast.success('카메라 모션 무빙 활성화')
               }}
             />
-            <span style={{ fontWeight: kenBurnsEnabled ? 700 : 500 }}>{t('audioTimeline.kenBurns') || 'Ken Burns 효과'}</span>
+            <span style={{ fontWeight: kenBurnsEnabled ? 700 : 500 }}>모션 무빙</span>
           </label>
         </div>
         <div className="atl-zoom">
@@ -1330,8 +1330,8 @@ export default function AudioTimeline({
             className="atl-zoom-fit"
             onClick={handleFitToWidth}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: '전체 폭 맞춤',
-              desc: '1분~2시간 생성물 전체 길이를 타임라인 화면 너비에 딱 맞춤',
+              label: '폭 맞춤',
+              desc: '전체 길이를 화면 너비에 맞춤',
             })}
             onMouseLeave={hideBtnTooltip}
           >
@@ -1340,8 +1340,8 @@ export default function AudioTimeline({
           <button
             onClick={() => setZoomClamped(1)}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: '100% 기본 배율',
-              desc: '표준 100% 줌 배율로 초기화',
+              label: '100%',
+              desc: '표준 100% 배율로 초기화',
             })}
             onMouseLeave={hideBtnTooltip}
             style={{ fontSize: '10px', padding: '0 5px', opacity: 0.85 }}
