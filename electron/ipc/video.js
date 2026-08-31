@@ -37,9 +37,9 @@ export function registerVideoIPC(ipcMain, deps) {
     getPendingVideoGeneration, setPendingVideoGeneration,
     setFlowPageInject, clearFlowPageInject,
     getCurrentMode,
-    getApiBase, // #R33: region 대응 동적 API base (video i2v/status/upscale 호스트)
-    SESSION_URL, VIDEO_T2V_URL, VIDEO_I2V_URL, VIDEO_I2V_START_END_URL, VIDEO_STATUS_URL, VIDEO_UPSCALE_URL,
-    API_HEADERS, FLOW_URL,
+    SESSION_URL, TOKEN_INFO_URL, FLOW_URL, MEDIA_REDIRECT_URL, UPLOAD_URL,
+    VIDEO_T2V_URL, VIDEO_I2V_URL, VIDEO_I2V_START_END_URL, VIDEO_STATUS_URL, VIDEO_UPSCALE_URL,
+    API_HEADERS,
   } = deps
   // #R33: video 직접 호출 엔드포인트 — 캡처된 region origin 우선, 없으면 하드코딩 fallback.
   const videoUrls = async () => {
@@ -492,13 +492,60 @@ export function registerVideoIPC(ipcMain, deps) {
   // T2V와 동일한 DOM 흐름: 프롬프트 주입 → Generate 클릭 → CDP 응답 캡처
   // 차이점: CDP Fetch로 나가는 T2V 요청을 가로채서 startImage 주입 + URL을 I2V 엔드포인트로 변경
   ipcMain.handle('flow:generate-video-i2v', async (event, {
-    token, prompt, startImageMediaId, endImageMediaId, projectId, model, aspectRatio, duration, videoBatchCount, seed
+    token, prompt, startImageMediaId, endImageMediaId, startImage, endImage, projectId, model, aspectRatio, duration, videoBatchCount, seed
   }) => {
     if (!flowActive()) return { success: false, error: 'Flow inactive (API mode)' }  // #R25-4
     const flowView = getFlowView()
     const mainWindow = getMainWindow()
-    if (!startImageMediaId) return { success: false, error: 'No start image mediaId' }
     if (!flowView) return { success: false, error: 'Flow view not ready' }
+
+    let effectiveStartMediaId = startImageMediaId || (typeof startImage === 'string' && !startImage.startsWith('data:') && startImage.length < 50 ? startImage : null)
+    let effectiveEndMediaId = endImageMediaId || (typeof endImage === 'string' && !endImage.startsWith('data:') && endImage.length < 50 ? endImage : null)
+
+    // startImage가 base64 또는 긴 문자열인 경우 Flow에 자동 레퍼런스 업로드
+    const rawStartImage = startImage || startImageMediaId
+    if (!effectiveStartMediaId && typeof rawStartImage === 'string' && (rawStartImage.startsWith('data:') || rawStartImage.length > 50)) {
+      try {
+        if (!token) {
+          const sessionData = await flowView.webContents.executeJavaScript(
+            `fetch('${SESSION_URL}').then(r => r.ok ? r.text() : null).catch(() => null)`
+          ).catch(() => null)
+          if (sessionData) {
+            const parsed = parseFlowResponse(sessionData) || JSON.parse(sessionData)
+            token = parsed?.access_token || parsed?.accessToken || null
+          }
+        }
+        if (token && UPLOAD_URL) {
+          const cleanBase64 = rawStartImage.replace(/^data:[^;]+;base64,/, '')
+          const pid = projectId || getCapturedProjectId() || ''
+          const upBody = {
+            clientContext: { projectId: pid, tool: 'PINHOLE' },
+            imageBytes: cleanBase64,
+            isUserUploaded: true,
+            isHidden: false,
+            mimeType: 'image/png',
+            fileName: 'ref_image.png'
+          }
+          const upResp = await sessionFetch(UPLOAD_URL, {
+            method: 'POST',
+            headers: { ...API_HEADERS, 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify(upBody)
+          })
+          if (upResp.ok) {
+            const upText = await upResp.text()
+            const upData = parseFlowResponse(upText)
+            effectiveStartMediaId = upData?.media?.name || upData?.mediaGenerationId || upData?.name || null
+            console.log('[Flow Video I2V] Auto-uploaded startImage base64 → mediaId:', effectiveStartMediaId)
+          }
+        }
+      } catch (e) {
+        console.warn('[Flow Video I2V] Failed to auto-upload startImage base64:', e.message)
+      }
+    }
+
+    if (!effectiveStartMediaId) return { success: false, error: 'No start image mediaId' }
+    startImageMediaId = effectiveStartMediaId
+    endImageMediaId = effectiveEndMediaId
 
     // Seed: 숫자면 monkey-patch inject가 video 요청에 주입,
     //       null/undefined면 Flow 자체 랜덤 seed 유지

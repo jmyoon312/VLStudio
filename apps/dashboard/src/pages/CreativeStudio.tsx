@@ -1103,11 +1103,11 @@ const CreativeStudio = () => {
         });
     };
 
-    const handleGenerateVideo = (scene: SceneSegment) => {
+    const handleGenerateVideo = async (scene: SceneSegment) => {
         // Validation: If continuous motion, check if previous scene has a video
         if (scene.is_continuous_motion) {
             const prevScene = scenes.find(s => s.scene_id === scene.scene_id - 1);
-            if (!prevScene || !prevScene.video_url) {
+            if (!prevScene || (!prevScene.video_url && !prevScene.media_url)) {
                 toast.error("이전 씬과 연결 모드입니다. 선행 씬의 영상 생성을 먼저 완료해 주세요.");
                 return;
             }
@@ -1119,17 +1119,106 @@ const CreativeStudio = () => {
             return;
         }
 
-        const promptBase = scene.video_prompt || scene.visual_prompt;
+        const promptBase = scene.video_prompt || scene.visual_prompt || 'Smooth cinematic motion';
         const finalPrompt = `${promptBase}${negativePrompt ? " --no " + negativePrompt : ""}`;
         
-        // Pass continuous flag to mutation
-        generateVideoMutation.mutate({ 
-            id: scene.id, 
-            sceneId: scene.scene_id, 
-            prompt: finalPrompt, 
-            model: "kling-v1",
-            is_continuous_motion: scene.is_continuous_motion
-        });
+        updateScene(scene.id, { visualStatus: 'generating', progress: 0 });
+        toast.info(`Scene #${scene.scene_id} Google Flow AI 영상(I2V) 생성을 시작합니다...`);
+
+        const apiObj = (window as any).electronAPI;
+        if (apiObj && (apiObj.flowGenerateVideoI2V || apiObj.generateVideoI2V || apiObj.generateVideoT2V)) {
+            try {
+                let startImageMediaId = (scene as any).mediaId || '';
+                
+                // 1. mediaId가 없고 media_url이 base64이면 Flow에 레퍼런스로 업로드하여 mediaId 획득
+                if (!startImageMediaId && scene.media_url && (apiObj.flowUploadReference || apiObj.uploadReference)) {
+                    const uploadFn = apiObj.flowUploadReference || apiObj.uploadReference;
+                    let base64Data = scene.media_url;
+                    if (base64Data.startsWith('data:')) {
+                        base64Data = base64Data.replace(/^data:[^;]+;base64,/, '');
+                    }
+                    const upRes = await uploadFn({ base64: base64Data });
+                    if (upRes?.success && upRes?.mediaId) {
+                        startImageMediaId = upRes.mediaId;
+                        updateScene(scene.id, { mediaId: startImageMediaId });
+                    }
+                }
+
+                // 2. I2V 생성 트리거
+                const genI2VFn = apiObj.flowGenerateVideoI2V || apiObj.generateVideoI2V;
+                const genT2VFn = apiObj.flowGenerateVideoT2V || apiObj.generateVideoT2V;
+                
+                let res: any = null;
+                if ((startImageMediaId || scene.media_url) && genI2VFn) {
+                    res = await genI2VFn({
+                        prompt: finalPrompt,
+                        startImageMediaId: startImageMediaId || undefined,
+                        startImage: scene.media_url,
+                        aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
+                    });
+                } else if (genT2VFn) {
+                    res = await genT2VFn({
+                        prompt: finalPrompt,
+                        aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
+                    });
+                }
+
+                if (res?.success) {
+                    // 비디오 URL이 즉시 반환된 경우 (DOM probe 또는 direct return)
+                    if (res.videoUrl || res.video_url || res.url) {
+                        const vUrl = res.videoUrl || res.video_url || res.url;
+                        updateScene(scene.id, {
+                            visualStatus: 'completed',
+                            video_url: vUrl,
+                            viewMode: 'render'
+                        });
+                        toast.success(`Scene #${scene.scene_id} 영상 생성이 완료되었습니다!`);
+                        return;
+                    }
+
+                    // generationId 또는 mediaId로 완료 상태 폴링
+                    const genId = res.generationId || res.mediaId || res.taskId;
+                    if (genId && (apiObj.flowCheckVideoStatus || apiObj.checkVideoStatus)) {
+                        const checkFn = apiObj.flowCheckVideoStatus || apiObj.checkVideoStatus;
+                        for (let p = 0; p < 60; p++) {
+                            await new Promise(r => setTimeout(r, 2000));
+                            const statusRes = await checkFn({ generationIds: [genId] });
+                            if (statusRes?.success && Array.isArray(statusRes.statuses)) {
+                                const st = statusRes.statuses[0];
+                                if (st?.status === 'complete' && st?.videoUrl) {
+                                    updateScene(scene.id, {
+                                        visualStatus: 'completed',
+                                        video_url: st.videoUrl,
+                                        viewMode: 'render'
+                                    });
+                                    toast.success(`Scene #${scene.scene_id} 영상 생성이 완료되었습니다!`);
+                                    return;
+                                } else if (st?.status === 'failed') {
+                                    throw new Error(st.error || 'Video generation failed');
+                                }
+                            }
+                        }
+                    }
+                    
+                    updateScene(scene.id, { visualStatus: 'completed', viewMode: 'render' });
+                    toast.success(`Scene #${scene.scene_id} 영상 생성이 제출되었습니다.`);
+                } else {
+                    throw new Error(res?.error || 'Video generation failed');
+                }
+            } catch (err: any) {
+                console.error('[Flow Video Error]', err);
+                updateScene(scene.id, { visualStatus: 'failed' });
+                toast.error(`Scene #${scene.scene_id} 영상 생성 실패: ${err?.message || err}`);
+            }
+        } else {
+            generateVideoMutation.mutate({ 
+                id: scene.id, 
+                sceneId: scene.scene_id, 
+                prompt: finalPrompt, 
+                model: "flow-video",
+                is_continuous_motion: scene.is_continuous_motion
+            });
+        }
     };
 
     const handleVideoUpload = (sceneId: number, id: string, e: React.ChangeEvent<HTMLInputElement>) => {

@@ -2028,9 +2028,9 @@ const videoDeps = {
   setPendingVideoGeneration: (v) => { pendingVideoGeneration = v },
   getPendingI2VInjection: () => pendingI2VInjection,
   setPendingI2VInjection: (v) => { pendingI2VInjection = v },
-  setPendingSeedValue: (v) => { pendingSeedValue = v },
-  SESSION_URL, VIDEO_T2V_URL, VIDEO_I2V_URL, VIDEO_I2V_START_END_URL, VIDEO_STATUS_URL, VIDEO_UPSCALE_URL,
-  API_HEADERS, FLOW_URL,
+  SESSION_URL, TOKEN_INFO_URL, FLOW_URL, MEDIA_REDIRECT_URL, UPLOAD_URL,
+  VIDEO_T2V_URL, VIDEO_I2V_URL, VIDEO_I2V_START_END_URL, VIDEO_STATUS_URL, VIDEO_UPSCALE_URL,
+  API_HEADERS,
 }
 registerVideoIPC(ipcMain, videoDeps)
 
