@@ -79,6 +79,8 @@ export function useAudioTimeline(audioPackage, scenes, srtEntries) {
       .map(s => {
         const imgPath = s.imagePath || s.image_path || s.filePath || s.imageUrl || s.media_url
         const isGenerating = s.status === 'generating' || s.visualStatus === 'generating'
+        // 실제로 이미지가 생성되었거나 현재 생성 중일 때만 이미지 트랙에 클립 생성
+        if (!imgPath && !isGenerating) return null
         const range = getSceneTimeRangeMs(s)
         if (!range) return null
         return {
