@@ -830,14 +830,16 @@ const CreativeStudio = () => {
                 updateScene(scene.id, { visualStatus: 'generating' });
                 try {
                     if (apiObj?.generateVideoI2V) {
-                        const prompt = scene.video_prompt || scene.visual_prompt || 'Smooth cinematic motion';
+                        const prompt = scene.video_prompt || scene.visual_prompt || 'Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion';
                         const res = await apiObj.generateVideoI2V({
                             prompt,
                             startImage: scene.media_url,
+                            startImageMediaId: (scene as any).mediaId || undefined,
                             aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
                         });
-                        if (res?.success && res.videoUrl) {
-                            updateScene(scene.id, { visualStatus: 'completed', video_url: res.videoUrl, viewMode: 'render' });
+                        if (res?.success && (res.videoUrl || res.video_url || res.url)) {
+                            const vUrl = res.videoUrl || res.video_url || res.url;
+                            updateScene(scene.id, { visualStatus: 'completed', video_url: vUrl, viewMode: 'render' });
                             successCount++;
                         } else {
                             await handleGenerateVideo(scene);
@@ -1157,7 +1159,14 @@ const CreativeStudio = () => {
 
 
     const handleGenerateImage = async (sceneId: number, id: string, prompt: string) => {
-        const finalPrompt = `${stylePrompt ? `${stylePrompt}, ` : ''}${prompt}${negativePrompt ? ` --no ${negativePrompt}` : ''}`;
+        // 스마트 문화 오염 방지 Negative Guardrails: 한국 사극/조선 야담 테마 시 일본/중국 복식 및 건축물 자동 배제
+        const isKoreanTheme = /조선|한복|선비|사극|야담|hanbok|joseon|korea|hanok|k-drama/i.test(prompt + ' ' + (stylePrompt || ''));
+        const culturalNegatives = isKoreanTheme 
+            ? "japanese clothing, kimono, yukata, samurai, katana, geta, tatami, fusuma, japanese temple, torii, chinese clothing, hanfu, qipao, modern western clothing, cars, sunglasses, distorted face, extra limbs"
+            : "distorted face, extra limbs, bad anatomy, deformed";
+
+        const combinedNegative = [negativePrompt, culturalNegatives].filter(Boolean).join(', ');
+        const finalPrompt = `${stylePrompt ? `${stylePrompt}, ` : ''}${prompt}${combinedNegative ? ` --no ${combinedNegative}` : ''}`;
         updateScene(id, { visualStatus: 'generating' });
 
         const apiObj = (window as any).electronAPI;
@@ -1173,6 +1182,7 @@ const CreativeStudio = () => {
 
                 if (res?.success && (res?.images?.[0]?.base64 || res?.base64 || res?.url || res?.image_url)) {
                     const mediaUrl = res.images?.[0]?.base64 || res.base64 || res.url || res.image_url;
+                    const mediaId = res.images?.[0]?.mediaId || (res as any).mediaId || undefined;
                     
                     // 05_Exports 디스크에 자동 저장
                     let localPath = '';
@@ -1194,6 +1204,7 @@ const CreativeStudio = () => {
                         visualStatus: 'completed', 
                         media_url: mediaUrl, 
                         media_path: localPath || undefined,
+                        mediaId: mediaId,
                         viewMode: 'source' 
                     });
                     toast.success(`Scene #${sceneId} Flow 이미지 생성 및 저장 완료!`);
@@ -1254,8 +1265,13 @@ const CreativeStudio = () => {
             return;
         }
 
-        const promptBase = scene.video_prompt || scene.visual_prompt || 'Smooth cinematic motion';
-        const finalPrompt = `${promptBase}${negativePrompt ? " --no " + negativePrompt : ""}`;
+        const promptBase = scene.video_prompt || scene.visual_prompt || 'Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion';
+        const isKoreanTheme = /조선|한복|선비|사극|야담|hanbok|joseon|korea|hanok|k-drama/i.test(promptBase + ' ' + (scene.visual_prompt || '') + ' ' + (stylePrompt || ''));
+        const culturalNegatives = isKoreanTheme 
+            ? "kimono, yukata, samurai, katana, tatami, japanese architecture, chinese clothing, modern clothing, distorted anatomy, morphing"
+            : "distorted, morphing, jittery, low quality";
+        const combinedNegative = [negativePrompt, culturalNegatives].filter(Boolean).join(', ');
+        const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegative : ""}`;
         
         updateScene(scene.id, { visualStatus: 'generating', progress: 0 });
         toast.info(`Scene #${scene.scene_id} Google Flow AI 영상(I2V) 생성을 시작합니다...`);
@@ -1287,7 +1303,7 @@ const CreativeStudio = () => {
                 if ((startImageMediaId || scene.media_url) && genI2VFn) {
                     res = await genI2VFn({
                         prompt: finalPrompt,
-                        startImageMediaId: startImageMediaId || undefined,
+                        startImageMediaId: startImageMediaId || (scene as any).mediaId || undefined,
                         startImage: scene.media_url,
                         aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
                     });

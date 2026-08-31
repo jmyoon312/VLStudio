@@ -123,14 +123,24 @@ class CreativeEngine:
         if style_prompt:
             style_context = f'GLOBAL STYLE: "{style_prompt}"'
 
-        prompt = f"""You are an expert AI Video Director.
-Split the input script into 3 to 5 scenes and write an English Visual Prompt (Image) and Video Motion Prompt for each scene.
+        prompt = f"""You are an award-winning AI Film Director and Visual Storyteller.
+Split the input script into 3 to 5 scenes and create a highly detailed, culturally coherent English Visual Keyframe Prompt and a 4-Layer Cinematic Video Motion Prompt (I2V) for each scene.
 
-[RULES]
-1. Combine 2 to 3 sentences into 1 scene. Output 3 to 5 scenes total.
-2. 'script': Combined Korean script for this scene.
-3. 'visual_prompt': Detailed ENGLISH description starting with '{aspect_ratio}, [Angle], [Subject+Action], [Setting], [Lighting], {style_prompt}'. Never repeat Korean text.
-4. 'video_prompt': Concise English camera movement (e.g. 'Camera slowly zooms in, subtle cinematic motion').
+[GLOBAL CONSISTENCY & CULTURAL ANCHOR RULES]
+1. GLOBAL CHARACTER & WORLD SHEET:
+   - Identify the persistent Main Character(s): Define exact age, gender, facial traits, hairstyle (e.g. topknot/sangtusan), and exact clothing colors/materials (e.g. deep navy silk Hanbok). Keep this character's appearance IDENTICAL across all scenes.
+   - Era & Setting: If Korean historical/folklore (Joseon Dynasty/Yadam), ensure setting is authentic Hanok architecture with Giwa tiled roof, wooden daecheongmaru floor, and paper changhoji sliding doors.
+   - STRICT CULTURAL ISOLATION: NEVER output Japanese clothing (kimono, yukata, samurai, obi) or Chinese clothing (hanfu, qipao). Every Korean historical scene MUST use authentic Korean Hanbok.
+
+2. 'visual_prompt' (Keyframe Image Prompt):
+   - Format: "{aspect_ratio}, [Camera Shot & Angle], [Authentic Era & Setting], [Persistent Character with exact clothing & appearance], [Scene-specific Action/Pose/Emotion], [Atmospheric Lighting & Mood], {style_prompt}"
+   - Must be vivid, detailed, natural English. Never copy Korean text.
+
+3. 'video_prompt' (Image-to-Video Cinematic 4-Layer Motion Prompt):
+   - Layer 1 (Subject Action & Micro-expressions): Realistic narrative movement matching the script (e.g. 'Character slowly turns head toward the camera with an intense emotional gaze, subtle blinking and gentle breathing').
+   - Layer 2 (Environmental & Secondary Physics): Dynamic elements (e.g. 'Gentle breeze rippling the silk Hanbok fabric and loose hair strands, warm lantern flame flickering, soft dust particles floating in the volumetric light beam').
+   - Layer 3 (Cinematic Camera Direction): Expressive camera movement (e.g. 'Slow dramatic push-in tracking shot on the character's face', 'Gentle horizontal tracking pan revealing the background').
+   - Layer 4 (Coherence): 'Smooth 24fps fluid motion, seamless natural physics, cinematic depth of field'.
 
 Input Script:
 {text}
@@ -139,7 +149,7 @@ Output JSON Array ONLY:
 [
   {{
     "scene_id": 1,
-    "script": "...",
+    "script": "Combined Korean narration for this scene",
     "visual_prompt": "{aspect_ratio}, ...",
     "video_prompt": "..."
   }}
@@ -149,10 +159,11 @@ Output JSON Array ONLY:
         full_model_name = target_model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None)
 
         system_instruction = (
-            "You are a professional AI Video Director and strict JSON API engine. "
+            "You are a professional AI Film Director, Cinematographer, and strict JSON API engine. "
             "You MUST output ONLY a valid JSON array of scene objects. "
-            "NEVER output conversational filler, polite greetings, or explanations. "
-            "Every visual_prompt MUST be in vivid, detailed English (never copy the Korean script verbatim into visual_prompt). "
+            "NEVER output conversational filler, markdown formatting outside JSON, polite greetings, or explanations. "
+            "Ensure cross-scene character appearance consistency and strict cultural accuracy (Korean Joseon Hanbok/Hanok, strictly no Japanese/Chinese confusion). "
+            "Every visual_prompt and video_prompt MUST be in rich, cinematic English. "
             "Output valid RFC 8259 JSON array only."
         )
 
@@ -192,12 +203,12 @@ Output JSON Array ONLY:
                             has_excessive_korean = len(re.findall(r'[\uac00-\ud7a3]', vp)) > 6
 
                             if is_filler or has_excessive_korean or len(vp) < 10:
-                                vp = f"Eye-level medium shot, Joseon Dynasty Korean historical setting, person in traditional hanbok, authentic hanok architecture, warm atmospheric lighting, {style_prompt}".strip(", ")
+                                vp = f"Eye-level cinematic shot, authentic Joseon Dynasty Korean historical setting, Korean scholar in traditional fine silk Hanbok, authentic wooden Hanok architecture with Giwa tiled roof, warm atmospheric lighting, {style_prompt}".strip(", ")
 
                             final_vp = f"{aspect_ratio}, {vp}".rstrip(", ")
                             vid_p = str(s.get("video_prompt", "")).strip()
-                            if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]):
-                                vid_p = "Camera slowly zooms in, subtle cinematic motion"
+                            if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]) or len(vid_p) < 15:
+                                vid_p = "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
 
                             normalized.append({
                                 "scene_id": s.get("scene_id", i + 1),
@@ -221,12 +232,12 @@ Output JSON Array ONLY:
                             has_excessive_korean = len(re.findall(r'[\uac00-\ud7a3]', vp)) > 6
 
                             if is_filler or has_excessive_korean or len(vp) < 10:
-                                vp = f"Eye-level medium shot, Joseon Dynasty Korean historical setting, person in traditional hanbok, authentic hanok architecture, warm atmospheric lighting, {style_prompt}".strip(", ")
+                                vp = f"Eye-level cinematic shot, authentic Joseon Dynasty Korean historical setting, Korean scholar in traditional fine silk Hanbok, authentic wooden Hanok architecture with Giwa tiled roof, warm atmospheric lighting, {style_prompt}".strip(", ")
 
                             final_vp = f"{aspect_ratio}, {vp}".rstrip(", ")
                             vid_p = str(s.get("video_prompt", "")).strip()
-                            if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]):
-                                vid_p = "Camera slowly zooms in, subtle cinematic motion"
+                            if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]) or len(vid_p) < 15:
+                                vid_p = "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
 
                             normalized.append({
                                 "scene_id": s.get("scene_id", i + 1),
@@ -250,8 +261,8 @@ Output JSON Array ONLY:
             results.append({
                 "scene_id": idx + 1,
                 "script": line,
-                "visual_prompt": f"{aspect_ratio}, Cinematic scene, {line}, {style_prompt}".strip(", "),
-                "video_prompt": "Camera slowly zooms in, subtle cinematic motion"
+                "visual_prompt": f"{aspect_ratio}, Cinematic scene, authentic Joseon Dynasty Korean setting, {line}, {style_prompt}".strip(", "),
+                "video_prompt": "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
             })
         return results
 
@@ -261,16 +272,17 @@ Output JSON Array ONLY:
         """
         target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "youtube1"
         
-        system_prompt = f"""You are a Visual Director. Create a vivid English image description and motion description for this script line. Style: '{style_context}'.
+        system_prompt = f"""You are a Master Visual Director and Cinematographer. Create a vivid, culturally accurate English image keyframe description and a 4-layer cinematic motion prompt for this script line. Style: '{style_context}'.
         
         CRITICAL RULES:
-        1. Output MUST be in detailed, rich ENGLISH (never repeat Korean script).
-        2. Deduce era/culture (e.g. Joseon Dynasty, Hanbok, Hanok).
+        1. Output MUST be in detailed, rich, evocative ENGLISH (never repeat Korean script).
+        2. Deduce era/culture: If Korean historical/folklore, enforce authentic Joseon Dynasty Korean Hanbok and Hanok architecture. Strictly NO Japanese kimono or Chinese hanfu.
+        3. 'video_prompt': Provide a 4-layer cinematic motion prompt (Subject Action & Micro-expressions + Secondary Environmental Physics + Camera Motion + 24fps fluid motion).
         
         Output MUST be a valid JSON object:
         {{
-            "visual_prompt": "[Camera Angle], [Cultural & Era Context], [Subject + Action], [Background/Environment], [Lighting], [Style]",
-            "video_prompt": "Motion prompt focusing on camera movement."
+            "visual_prompt": "[Camera Angle], [Authentic Cultural & Era Context], [Subject Appearance & Action], [Background/Environment], [Lighting & Mood], [Style]",
+            "video_prompt": "[Subject micro-expression & motion], [environmental physics], [cinematic camera movement], 24fps fluid motion"
         }}
         """
 
@@ -284,13 +296,20 @@ Output JSON Array ONLY:
             text_resp = response if isinstance(response, str) else response.get("content", "")
             match = re.search(r'\{.*\}', text_resp, re.DOTALL)
             if match:
-                return json.loads(match.group(0))
-            return {"visual_prompt": text_resp, "video_prompt": "Camera slowly pans, subtle movement"}
+                parsed = json.loads(match.group(0))
+                vid_p = parsed.get("video_prompt", "")
+                if not vid_p or len(vid_p) < 15:
+                    parsed["video_prompt"] = "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
+                return parsed
+            return {
+                "visual_prompt": text_resp, 
+                "video_prompt": "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
+            }
         except Exception as e:
             logger.error(f"Visual Prompt Generation Failed: {e}")
             return {
-                "visual_prompt": f"Eye-level cinematic shot, Joseon Dynasty Korean historical setting, traditional hanbok, authentic architecture, {style_context}".strip(", "), 
-                "video_prompt": "Camera slowly pans, subtle movement"
+                "visual_prompt": f"Eye-level cinematic shot, authentic Joseon Dynasty Korean historical setting, Korean scholar in traditional fine silk Hanbok, authentic wooden Hanok architecture with Giwa tiled roof, warm atmospheric lighting, {style_context}".strip(", "), 
+                "video_prompt": "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
             }
 
 

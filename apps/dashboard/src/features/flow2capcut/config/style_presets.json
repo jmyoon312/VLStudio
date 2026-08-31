@@ -82,7 +82,7 @@
       "name_ko": "지브리",
       "name_en": "Studio Ghibli",
       "category": "animation",
-      "prompt_en": "Japanese anime watercolor style, soft pastel tones, whimsical, hand-drawn feel, lush nature backgrounds, gentle lighting"
+      "prompt_en": "Studio Ghibli-inspired nostalgic hand-drawn 2D animation aesthetic, soft pastel watercolor and gouache textures, lush picturesque backgrounds, warm gentle lighting, clean delicate linework"
     },
     {
       "id": "disney-pixar",
@@ -369,7 +369,21 @@
       "name_ko": "한복 초상",
       "name_en": "Hanbok Portrait",
       "category": "asian-traditional",
-      "prompt_en": "Traditional Korean hanbok portrait style, elegant, historical"
+      "prompt_en": "Authentic Joseon Dynasty Korean Hanbok portrait, elegant silk textures, traditional Gat and Binyeo details, dignified Joseon aesthetics, masterwork fine art lighting"
+    },
+    {
+      "id": "joseon-k-drama",
+      "name_ko": "조선 사극 시네마틱",
+      "name_en": "Joseon K-Drama Cinematic",
+      "category": "asian-traditional",
+      "prompt_en": "Authentic Joseon Dynasty Korea historical K-drama cinematography, traditional Hanok palace and village architecture, vibrant fine silk Hanbok, 35mm film movie still, emotional volumetric lighting"
+    },
+    {
+      "id": "joseon-webtoon",
+      "name_ko": "조선 야담/사극 웹툰",
+      "name_en": "Joseon Webtoon & Manhwa",
+      "category": "asian-traditional",
+      "prompt_en": "Authentic Joseon Dynasty historical Korean manhwa webtoon style, sharp dynamic linework, atmospheric cell shading, expressive character design, rich historical Hanbok details"
     },
     {
       "id": "watercolor",
