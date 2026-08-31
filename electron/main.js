@@ -38,6 +38,7 @@ import { registerVideoIPC } from './ipc/video.js'
 import { registerDomIPC } from './ipc/dom.js'
 import { registerYoutubeIPC } from './ipc/ytExportManager.js'
 import { createSharedHelpers } from './ipc/shared.js'
+import { buildFlowInjectPayload, flowInjectClearPayload } from './flow-inject-payload.js'
 import { updateBounds, registerLayoutIPC, setLayoutMode, setSplitRatio, setModalVisible, resetModalState } from './ipc/layout.js'
 import { openApiSpec, getSwaggerHtml } from './api-docs.js'
 import { setupAppMenuAndUpdater, noteProjectActivated, setMenuLocale } from './updater.js'
@@ -215,6 +216,38 @@ const {
   getRecaptchaToken, extractMediaIds, extractFifeUrls, extractBase64Images,
   fetchMediaAsBase64, configureFlowMode, switchFlowToVideoMode,
 } = helpers
+
+// ─── setFlowPageInject / clearFlowPageInject ────────────────────────────────
+// Flow 페이지의 window.__autoflowcut_inject__ 에 값을 쓴다.
+// video.js / flow-api.js / character.js 에 deps 로 주입된다.
+async function setFlowPageInject(arm) {
+  const flowView = getCurrentFlowView()
+  if (!flowView) return { success: false, error: 'No flowView' }
+  const payload = buildFlowInjectPayload(arm || {})
+  try {
+    await flowView.webContents.executeJavaScript(
+      `window.__autoflowcut_inject__ = Object.assign(window.__autoflowcut_inject__ || {}, ${JSON.stringify(payload)});`
+    )
+    console.log('[Flow Inject] armed:', JSON.stringify(payload).substring(0, 200))
+    return { success: true }
+  } catch (e) {
+    console.warn('[Flow Inject] arming failed:', e.message)
+    return { success: false, error: e.message }
+  }
+}
+
+async function clearFlowPageInject() {
+  const flowView = getCurrentFlowView()
+  if (!flowView) return
+  try {
+    const reset = flowInjectClearPayload()
+    await flowView.webContents.executeJavaScript(
+      `window.__autoflowcut_inject__ = Object.assign(window.__autoflowcut_inject__ || {}, ${JSON.stringify(reset)});`
+    )
+  } catch (e) {
+    console.warn('[Flow Inject] clear failed:', e.message)
+  }
+}
 
 // updateBounds → ipc/layout.js로 이동 (import로 사용)
 
@@ -1948,6 +1981,8 @@ const flowAPIDeps = {
   extractBase64Images,
   fetchMediaAsBase64,
   configureFlowMode,
+  setFlowPageInject,
+  clearFlowPageInject,
   getCapturedProjectId: () => capturedProjectId,
   setCapturedProjectId: (v) => { capturedProjectId = v },
   getPendingGeneration: () => pendingGeneration,
@@ -2195,12 +2230,21 @@ async function ensureOnProjectComposer(flowView, projectId) {
 
 async function ensureAgentOff() {
   const flowView = getCurrentFlowView()
-  if (!flowView || flowView.webContents?.isDestroyed?.()) return { success: true, skipped: true }
+  if (!flowView || flowView.webContents?.isDestroyed?.()) {
+    console.warn('[Agent] ensureAgentOff: flowView not available, skipped')
+    return { success: true, skipped: true }
+  }
   try {
-    const res = await flowView.webContents.executeJavaScript(AGENT_OFF_SCRIPT).catch(() => ({ found: false }))
+    const res = await flowView.webContents.executeJavaScript(AGENT_OFF_SCRIPT).catch((e) => {
+      console.warn('[Agent] AGENT_OFF_SCRIPT execution failed:', e?.message || e)
+      return { found: false, error: e?.message }
+    })
+    console.log('[Agent] ensureAgentOff result:', JSON.stringify(res))
+    // found=false意味着 에이전트 토글을 찾지 못함 → 성공으로 처리 (토글이 없으면 OFF 상태)
     return { success: true, ...res }
   } catch (e) {
-    return { success: true, skipped: true }
+    console.warn('[Agent] ensureAgentOff exception:', e?.message)
+    return { success: true, skipped: true, error: e?.message }
   }
 }
 
@@ -2221,8 +2265,11 @@ const videoDeps = {
   flowPageFetch,
   parseFlowResponse,
   getRecaptchaToken,
+  fetchMediaAsBase64,
   configureFlowMode,
   switchFlowToVideoMode,
+  setFlowPageInject,
+  clearFlowPageInject,
   ensureAgentOff,
   ensureAgentOn,
   ensureOnProjectComposer,

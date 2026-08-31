@@ -201,6 +201,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearGenerations: () => ipcRenderer.invoke('flow:clear-generations'),
   flowUploadReference: (payload) => ipcRenderer.invoke('flow:upload-reference', payload),
   uploadReference: (payload) => ipcRenderer.invoke('flow:upload-reference', payload),
+  readFileAsBase64: (payload) => ipcRenderer.invoke('flow:read-file-as-base64', payload),
   flowGenerateCharacter: (payload) => ipcRenderer.invoke('flow:generate-character', payload),
   flowRerollCharacter: (payload) => ipcRenderer.invoke('flow:reroll-character', payload),
   flowUploadCharacterEntity: (payload) => ipcRenderer.invoke('flow:upload-character-entity', payload),

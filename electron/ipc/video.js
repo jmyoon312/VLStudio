@@ -32,7 +32,7 @@ const VIDEO_RESPONSE_TIMEOUT_MS = 120000
 export function registerVideoIPC(ipcMain, deps) {
   const {
     getFlowView, getMainWindow, trustedClickOnFlowView, sessionFetch, flowPageFetch,
-    parseFlowResponse, getRecaptchaToken, configureFlowMode, switchFlowToVideoMode, ensureAgentOff, ensureAgentOn, ensureOnProjectComposer, applyAgentDefaults,
+    parseFlowResponse, getRecaptchaToken, fetchMediaAsBase64, configureFlowMode, switchFlowToVideoMode, ensureAgentOff, ensureAgentOn, ensureOnProjectComposer, applyAgentDefaults,
     getFlowAgentOn,
     getCapturedProjectId, setCapturedProjectId,
     getPendingVideoGeneration, setPendingVideoGeneration,
@@ -195,7 +195,8 @@ export function registerVideoIPC(ipcMain, deps) {
       //   (applyAgentDefaults/findAgentSettingsPanel 은 새 패널에서 panel_not_found 로 죽는다.)
       try { _vmodeRes = await configureFlowMode("VIDEO", 1, aspectRatio) } catch (e) { console.warn("[Flow Video] configureFlowMode skipped:", e.message) }
       if (_vmodeRes && _vmodeRes.success === false) {
-        console.warn("[Flow Video] configureFlowMode unconfirmed, proceeding:", _vmodeRes.error)
+        console.warn("[Flow Video T2V] configureFlowMode FAILED:", _vmodeRes.error)
+        return { success: false, error: 'Could not switch Flow to VIDEO mode: ' + (_vmodeRes.error || 'unknown') }
       }
 
       // 화면비(설정>씬)는 위 configureFlowMode 가 같은 열린 메뉴에서 적용한다(Flow 새 통합 패널에서
@@ -627,7 +628,8 @@ export function registerVideoIPC(ipcMain, deps) {
       //   (applyAgentDefaults/findAgentSettingsPanel 은 새 패널에서 panel_not_found 로 죽는다.)
       try { _vmodeRes = await configureFlowMode("VIDEO", 1, aspectRatio) } catch (e) { console.warn("[Flow Video] configureFlowMode skipped:", e.message) }
       if (_vmodeRes && _vmodeRes.success === false) {
-        console.warn("[Flow Video I2V] configureFlowMode unconfirmed, proceeding with direct I2V injection:", _vmodeRes.error)
+        console.warn("[Flow Video I2V] configureFlowMode FAILED:", _vmodeRes.error)
+        return { success: false, error: 'Could not switch Flow to VIDEO mode: ' + (_vmodeRes.error || 'unknown') }
       }
 
       // 화면비는 위 configureFlowMode 가 적용(t2v 와 동일). 구 applyAgentDefaults(video) 는 새
@@ -813,6 +815,36 @@ export function registerVideoIPC(ipcMain, deps) {
         return { success: false, error: clickResult?.error || 'Failed to click Generate button' }
       }
       console.log('[Flow Video I2V] pendingVideoGeneration armed BEFORE click, waiting for capture...')
+
+      // 4-b. 에이전트 승인 다이얼로그 자동 처리 (에이전트 ON 상태에서 I2V 요청 시)
+      const AGENT_APPROVE_SCRIPT = `(function() {
+        // "승인" 또는 "Approve" 버튼 찾기
+        var btns = Array.from(document.querySelectorAll('button'));
+        var approveBtn = btns.find(function(b) {
+          var t = (b.textContent || '').trim();
+          return t === '승인' || t === 'Approve' || t === '승인, 다시 물지 않음';
+        });
+        if (approveBtn) {
+          approveBtn.click();
+          console.log('[Agent AutoApprove] Clicked approve button');
+          return { approved: true };
+        }
+        return { approved: false };
+      })()`;
+      
+      // 에이전트 승인 자동 처리 (최대 10초 동안 폴링)
+      const agentApproveInterval = setInterval(async () => {
+        try {
+          if (!flowView || flowView.webContents?.isDestroyed?.()) { clearInterval(agentApproveInterval); return; }
+          const approveResult = await flowView.webContents.executeJavaScript(AGENT_APPROVE_SCRIPT).catch(() => ({ approved: false }));
+          if (approveResult?.approved) {
+            console.log('[Flow Video I2V] Agent auto-approved');
+          }
+        } catch {}
+      }, 1500);
+      
+      // 10초 후 자동 정리
+      setTimeout(() => clearInterval(agentApproveInterval), 10000);
 
       // 5-b. DOM 비디오 실시간 감지 (새로 생성된 비디오만 필터링)
       const domPollInterval = setInterval(async () => {
@@ -1010,6 +1042,23 @@ export function registerVideoIPC(ipcMain, deps) {
       }
 
       console.log('[Flow VideoStatus] Final statuses:', JSON.stringify(statuses))
+      
+      // videoUrl이 null이면 mediaId로 직접 URL 가져오기 (Flow API가 URL 미반환 시 대응)
+      for (const s of statuses) {
+        if (s.status === 'complete' && !s.videoUrl && s.mediaId && token) {
+          try {
+            console.log('[Flow VideoStatus] videoUrl null, fetching via fetchMediaAsBase64:', s.mediaId.substring(0, 20))
+            const fetchedUrl = await fetchMediaAsBase64(token, s.mediaId)
+            if (fetchedUrl) {
+              s.videoUrl = fetchedUrl
+              console.log('[Flow VideoStatus] ✅ Fetched video URL via mediaId fallback')
+            }
+          } catch (fetchErr) {
+            console.warn('[Flow VideoStatus] fetchMediaAsBase64 failed:', fetchErr.message)
+          }
+        }
+      }
+
       return { success: true, statuses }
     } catch (e) {
       console.error('[Flow VideoStatus] Exception:', e.message)

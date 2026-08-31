@@ -41,31 +41,65 @@ export function isToggleOn(el) {
 
 /**
  * Locate the compose Agent toggle from its untranslated state attributes or text.
+ * Priority: toggle-like elements (aria-pressed, role=switch) > text match
  */
 export function findAgentToggle(doc) {
+  // 1st priority: Find toggle-like elements with agent-related attributes
+  const toggleSelectors = [
+    'button[aria-pressed][aria-label*="agent" i], button[aria-pressed][aria-label*="에이전트"]',
+    'button[aria-pressed][class*="agent" i]',
+    '[role="switch"][aria-label*="agent" i], [role="switch"][aria-label*="에이전트"]',
+    '[role="switch"][class*="agent" i]',
+    'button[data-state*="agent" i]',
+  ]
+  for (const sel of toggleSelectors) {
+    try {
+      const el = doc.querySelector(sel)
+      if (el) return el
+    } catch {}
+  }
+
+  // 2nd priority: Find by text, preferring toggle-like elements
   const editor = doc.querySelector("[data-slate-editor='true'], div[contenteditable='true'], textarea")
   if (editor) {
     for (let scope = editor.parentElement; scope && scope !== doc.body && scope !== doc.documentElement; scope = scope.parentElement) {
-      const btns = Array.from(scope.querySelectorAll('button, [role="button"], [role="switch"]'))
+      const btns = Array.from(scope.querySelectorAll('button, [role="button"], [role="switch"], [role="checkbox"]'))
       const matched = btns.filter((el) => {
         const text = (el.textContent || '').trim()
         const ariaLabel = el.getAttribute('aria-label') || ''
         if (text.includes('필터') || ariaLabel.includes('필터') || text.includes('검색') || ariaLabel.includes('검색')) return false
         return /agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)
       })
-      if (matched.length > 0) return matched[0]
+      if (matched.length > 0) {
+        // Prefer toggle-like elements (has aria-pressed, role=switch, etc.)
+        const toggleLike = matched.find(el => 
+          el.hasAttribute('aria-pressed') || 
+          el.getAttribute('role') === 'switch' || 
+          el.getAttribute('role') === 'checkbox' ||
+          el.hasAttribute('data-state')
+        )
+        return toggleLike || matched[0]
+      }
     }
   }
 
-  // 전역 탐색 fallback
-  const allBtns = Array.from(doc.querySelectorAll('button, [role="button"]'))
+  // 3rd priority: Global search
+  const allBtns = Array.from(doc.querySelectorAll('button, [role="button"], [role="switch"], [role="checkbox"]'))
   const matched = allBtns.filter((el) => {
     const text = (el.textContent || '').trim()
     const ariaLabel = el.getAttribute('aria-label') || ''
     if (text.includes('필터') || ariaLabel.includes('필터') || text.includes('검색') || ariaLabel.includes('검색')) return false
     return /agent|에이전트/i.test(text) || /agent|에이전트/i.test(ariaLabel)
   })
-  return matched.length > 0 ? matched[0] : null
+  if (matched.length > 0) {
+    const toggleLike = matched.find(el => 
+      el.hasAttribute('aria-pressed') || 
+      el.getAttribute('role') === 'switch' ||
+      el.hasAttribute('data-state')
+    )
+    return toggleLike || matched[0]
+  }
+  return null
 }
 
 /** Page expression returning the agent toggle ELEMENT (for trustedClickOnFlowView). */

@@ -2080,4 +2080,20 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       return { success: false, error: e.message }
     }
   })
+
+  // Read local file as base64 (CreativeStudio I2V start image upload)
+  ipcMain.handle('flow:read-file-as-base64', async (event, { path: filePath }) => {
+    if (!filePath) return { success: false, error: 'No file path' }
+    try {
+      const normalizedPath = filePath.startsWith('file://') ? filePath.slice(7) : filePath.startsWith('file:/') ? filePath.slice(6) : filePath
+      const nodeFs = require('fs')
+      const nodePath = require('path')
+      const resolvedPath = nodePath.isAbsolute(normalizedPath) ? normalizedPath : nodePath.resolve(normalizedPath)
+      if (!nodeFs.existsSync(resolvedPath)) return { success: false, error: 'File not found: ' + resolvedPath }
+      const buffer = nodeFs.readFileSync(resolvedPath)
+      const base64 = buffer.toString('base64')
+      console.log('[Flow] readFileAsBase64:', resolvedPath.substring(0, 60), '->', base64.length, 'chars')
+      return { success: true, base64 }
+    } catch (e) { return { success: false, error: e.message } }
+  })
 }

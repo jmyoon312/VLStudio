@@ -90,3 +90,189 @@ node scripts/verify-and-build.cjs
 # 2. 계약 무결성 검사기 (선택)
 node scripts/contract-checker.js
 ```
+
+---
+
+## 🔗 6. Flow API 통신 아키텍처
+
+Google Flow AI와의 통신은 AutoFlow Chrome 확장(10.7.58)을 역공학하여 구현합니다.
+
+### 6.1 핵심 통신 흐름
+```
+Renderer (React) 
+  → Preload (IPC Bridge) 
+    → Main Process (Node.js)
+      → Flow Page (Electron BrowserWindow)
+        → Google Flow API (tRPC/SSE)
+```
+
+### 6.2 주요 IPC 핸들러
+| IPC 채널 | 파일 | 용도 |
+|----------|------|------|
+| `flow:generate-image` | `electron/ipc/flow-api.js` | 이미지 생성 |
+| `flow:generate-video-t2v` | `electron/ipc/video.js` | T2V 비디오 생성 |
+| `flow:generate-video-i2v` | `electron/ipc/video.js` | I2V 비디오 생성 |
+| `flow:check-video-status` | `electron/ipc/video.js` | 비디오 상태 확인 |
+| `flow:upload-reference` | `electron/ipc/flow-api.js` | 레퍼런스 이미지 업로드 |
+
+### 6.3 의존성 주입 패턴 (deps)
+Main Process의 IPC 핸들러는 deps 객체를 통해 의존성을 주입받습니다:
+
+```javascript
+// electron/main.js
+const videoDeps = {
+  getMainWindow: () => mainWindow,
+  setFlowPageInject,      // Flow 페이지 인젝션 함수
+  clearFlowPageInject,    // 인젝션 초기화 함수
+  fetchMediaAsBase64,     // 미디어 URL → Base64 변환
+  // ... 기타 의존성
+}
+
+registerVideoIPC(ipcMain, videoDeps)
+```
+
+### 6.4 TRPC 리다이렉트 처리
+Flow API의 미디어 URL은 TRPC 엔드포인트를 통해 302 리다이렉트로 반환됩니다:
+
+```javascript
+// electron/ipc/shared.js - fetchMediaAsBase64
+const resp = await flowPageFetch(url, { redirect: 'manual' })
+// 리다이렉트 응답에서 URL 추출
+const mediaUrl = resp.url || pageResult.url
+```
+
+---
+
+## 🎬 7. I2V 비디오 생성 아키텍처
+
+### 7.1 이미지 참조 메커니즘
+I2V(Image-to-Video)에서 이미지는 **mediaId(UUID)로 참조**되며, 재업로드되지 않습니다:
+
+```
+이미지 생성 (batchGenerateImages)
+  → 응답에서 mediaId 추출 (mediaGenerationId 또는 name)
+  → 씬 객체에 mediaId 저장
+  → I2V 요청 시 startImageMediaId로 전달
+  → Flow API가 해당 mediaId의 이미지를 시작 프레임으로 사용
+```
+
+### 7.2 Flow 페이지 인젝션
+Monkey-patch가 T2V 요청을 가로채 I2V로 변환합니다:
+
+```javascript
+// electron/flow-page-injection.js
+function injectI2VBody(body, i2v) {
+  for (const req of body.requests) {
+    req.videoModelKey = toI2VModelKey(req.videoModelKey)
+    req.startImage = { 
+      mediaId: i2v.startImageMediaId, 
+      name: i2v.startImageMediaId,
+      media: { name: i2v.startImageMediaId },
+      cropCoordinates: { top: 0, left: 0, bottom: 1, right: 1 }
+    }
+  }
+}
+```
+
+### 7.3 인젝션 아키텍처
+```
+window.__autoflowcut_inject__ = {
+  i2v: {
+    startImageMediaId: "<uuid>",
+    endImageMediaId: "<uuid>" | null,
+    i2vUrl: "https://.../video:batchAsyncGenerateVideoStartImage",
+    duration: "8s",
+    videoModel: "veo3"
+  },
+  seed: 12345,
+  aspects: null
+}
+```
+
+---
+
+## 🧠 8. 메모리 시스템
+
+AI 에이전트의 세션 간 기억을 유지하기 위한 인프라입니다.
+
+### 8.1 디렉토리 구조
+```
+.opencode/memory/
+├── INDEX.md                    # 마스터 인덱스
+├── current/                    # 활성 세션 기억
+│   ├── PROJECT_CONTEXT.md      # 프로젝트 아키텍처 & 규칙
+│   ├── ACTIVE_TASKS.md         # 현재 작업 & 진행 상황
+│   ├── TECHNICAL_DECISIONS.md  # 주요 기술적 결정
+│   └── SESSION_LOG.md          # 세션 기록
+├── .archive/                   # 아카이브된 오래된 기억
+└── history/                    # 히스토리 기록
+```
+
+### 8.2 메모리 카테고리
+| 카테고리 | 용도 | 파일 |
+|----------|------|------|
+| Project Context | 아키텍처, 규칙, 컨벤션 | PROJECT_CONTEXT.md |
+| Active Tasks | 현재 작업 진행 상황 | ACTIVE_TASKS.md |
+| Technical Decisions | 기술적 결정 및 이유 | TECHNICAL_DECISIONS.md |
+| Session History | 세션별 작업 기록 | SESSION_LOG.md |
+
+### 8.3 미디어 폴더와의 차이
+| 시스템 | 위치 | 용도 |
+|--------|------|------|
+| 메모리 시스템 | `.opencode/memory/` | AI 에이전트의 기억 |
+| 미디어 폴더 | `AppData/.../media/` | 생성된 파일 저장 |
+
+---
+
+## 🐛 9. 디버깅 체크리스트
+
+### 9.1 I2V 비디오 생성 실패 시
+- [ ] `scene.mediaId`가 유효한 Flow mediaId(UUID)인지 확인
+- [ ] `setFlowPageInject`가 main.js에서 정의되어 있는지 확인
+- [ ] `videoDeps`에 `setFlowPageInject`/`clearFlowPageInject`가 주입되어 있는지 확인
+- [ ] `window.__autoflowcut_inject__`에 i2v 설정이 기록되는지 확인
+- [ ] Monkey-patch가 T2V 요청을 가로채는지 확인
+
+### 9.2 비디오 상태 확인 실패 시
+- [ ] `fetchMediaAsBase64`가 `redirect: 'manual'`을 사용하는지 확인
+- [ ] TRPC 엔드포인트가 302 리다이렉트를 반환하는지 확인
+- [ ] CDN 직접 URL 접근이 가능한지 확인 (mediaId가 UUID 형태인지)
+
+### 9.3 이미지 생성 실패 시
+- [ ] Flow 프로젝트 ID가 올바른지 확인
+- [ ] 토큰이 유효한지 확인
+- [ ] `batchGenerateImages` 응답에서 `mediaGenerationId`가 반환되는지 확인
+
+### 9.4 빌드 검증
+```bash
+# 필수 빌드 검증
+node scripts/verify-and-build.cjs
+
+# 계약 무결성 검사
+node scripts/contract-checker.js
+```
+
+---
+
+## 📁 10. 주요 파일 참조
+
+### 10.1 Electron 메인 프로세스
+| 파일 | 용도 |
+|------|------|
+| `electron/main.js` | IPC 핸들러 등록, deps 객체, 유틸리티 함수 |
+| `electron/preload.js` | IPC 브릿지 (Renderer ↔ Main) |
+| `electron/flow-page-injection.js` | Flow 페이지 monkey-patch |
+| `electron/flow-inject-payload.js` | 인젝션 페이로드 빌더 |
+
+### 10.2 IPC 핸들러
+| 파일 | 용도 |
+|------|------|
+| `electron/ipc/video.js` | 비디오 생성 IPC (T2V, I2V, 상태 확인) |
+| `electron/ipc/flow-api.js` | Flow API IPC (이미지 생성, 업로드) |
+| `electron/ipc/shared.js` | 공유 헬퍼 (fetchMediaAsBase64 등) |
+
+### 10.3 프론트엔드
+| 파일 | 용도 |
+|------|------|
+| `apps/dashboard/src/pages/CreativeStudio.tsx` | 메인 크리에이티브 스튜디오 UI |
+| `apps/dashboard/src/features/flow2capcut/` | Flow → CapCut 내보내기 엔진 |

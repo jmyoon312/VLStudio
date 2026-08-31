@@ -62,6 +62,9 @@ interface SceneSegment {
     // View State
     viewMode?: 'source' | 'render'; // Controls which media is shown
 
+    // Flow AI Integration
+    mediaId?: string; // Flow media reference ID for I2V generation
+
     // Manual Asset Override
     is_manual_asset?: boolean;
     frozen_effect?: string; // static, zoom, pan_left, pan_right
@@ -1035,12 +1038,17 @@ const CreativeStudio = () => {
 
             setScenes([]);
             // 새 프로젝트 폴더 규칙 자동 생성 (예: project_260830_221000)
-            const now = new Date();
-            const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
-            const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
-            const newProjName = `project_${dateStr}_${timeStr}`;
-            setCurrentProjectName(newProjName);
-            localStorage.setItem('creative_current_project_name', newProjName);
+            const projName2 = currentProjectName || (() => {
+                const now = new Date();
+                const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
+                const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+                return `project_${dateStr}_${timeStr}`;
+            })();
+            
+            if (!currentProjectName) {
+                setCurrentProjectName(projName2);
+                localStorage.setItem('creative_current_project_name', projName2);
+            }
 
             toast.success("프로젝트 폴더 및 생성물이 디스크에서 완전히 삭제되었습니다.");
         }
@@ -1193,26 +1201,31 @@ const CreativeStudio = () => {
             setScenes(mappedScenes);
             setSrtEntries([]); // TTS 생성 전까지 타임라인 자막 트랙 비움 (음성 기반 실제 SRT 생성 대기)
 
-            // [PROJECT LIFECYCLE] 대본 분석이 완료되어 씬들이 구성된 정확한 시점에 프로젝트 폴더 생성 및 메타데이터 저장
-            const now = new Date();
-            const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
-            const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
-            const newProjName = `project_${dateStr}_${timeStr}`;
-            setCurrentProjectName(newProjName);
-            localStorage.setItem('creative_current_project_name', newProjName);
+            // [PROJECT LIFECYCLE] 기존 프로젝트가 있으면 재사용, 없으면 새 프로젝트 생성
+            const projName = currentProjectName || (() => {
+                const now = new Date();
+                const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
+                const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+                return `project_${dateStr}_${timeStr}`;
+            })();
+            
+            if (!currentProjectName) {
+                setCurrentProjectName(projName);
+                localStorage.setItem('creative_current_project_name', projName);
+            }
 
             try {
                 await api.post('/creative/init-project', {
-                    project_name: newProjName,
+                    project_name: projName,
                     scenes: mappedScenes,
                     script: fullScript
                 });
-                console.log(`[Storage] Project folder initialized after scenes constructed: 05_Exports/${newProjName}`);
+                console.log(`[Storage] Project folder initialized: 05_Exports/${projName}`);
             } catch (e) {
                 console.warn("Project init warning:", e);
             }
 
-            toast.success(`${data.length}개 씬 구성 완료! 프로젝트 폴더(05_Exports/${newProjName})가 생성되었습니다.`);
+            toast.success(`${data.length}개 씬 구성 완료! 프로젝트(${projName})${currentProjectName ? '에 씬 추가됨' : '가 생성되었습니다.'}`);
         },
         onError: async (err) => {
             console.warn("Backend split failed, activating client self-healing fallback:", err);
@@ -1242,7 +1255,7 @@ const CreativeStudio = () => {
 
             try {
                 await api.post('/creative/init-project', {
-                    project_name: newProjName,
+                    project_name: projName2,
                     scenes: fallbackScenes,
                     script: fullScript
                 });
@@ -1348,6 +1361,9 @@ const CreativeStudio = () => {
             effectiveVisualPrompt = stylePrompt || 'Cinematic picturesque scene';
         }
 
+        // Google Flow AI(Imagen)는 --no 네거티브 프롬프트 구문을 지원하지 않음
+        // Flow AI 경로에는 깔끔한 프롬프트만, 백엔드 폴백에만 --no 포함
+        const flowPrompt = effectiveVisualPrompt;
         const finalPrompt = `${effectiveVisualPrompt}${combinedNegative ? ` --no ${combinedNegative}` : ''}`.trim();
         updateScene(id, { visualStatus: 'generating' });
 
@@ -1357,7 +1373,7 @@ const CreativeStudio = () => {
                 toast.info(`Scene #${sceneId} Google Flow AI 이미지 생성을 시작합니다...`);
                 const fn = apiObj.flowGenerateImage || apiObj.generateImage;
                 const res = await fn({
-                    prompt: finalPrompt,
+                    prompt: flowPrompt,
                     aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9',
                     batchCount: 1
                 });
@@ -1457,7 +1473,10 @@ const CreativeStudio = () => {
             ? "kimono, yukata, samurai, katana, tatami, japanese architecture, chinese clothing, modern clothing, distorted anatomy, morphing"
             : "distorted, morphing, jittery, low quality";
         const combinedNegative = [negativePrompt, culturalNegatives].filter(Boolean).join(', ');
-        const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegative : ""}`;
+                // Google Flow AI(Veo)는 --no 네거티브 프롬프트 구문을 지원하지 않음
+        // Flow AI 경로에는 깔끔한 프롬프트만, 백엔드 폴백에만 --no 포함
+        const flowPrompt = promptBase;
+const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegative : ""}`;
         
         updateScene(scene.id, { visualStatus: 'generating', progress: 0 });
         toast.info(`Scene #${scene.scene_id} Google Flow AI 영상(I2V) 생성을 시작합니다...`);
@@ -1465,19 +1484,55 @@ const CreativeStudio = () => {
         const apiObj = (window as any).electronAPI;
         if (apiObj && (apiObj.flowGenerateVideoI2V || apiObj.generateVideoI2V || apiObj.generateVideoT2V)) {
             try {
+                // Flow AI Access Token & Project ID 획득 (useFlowAPI.js와 동일 패턴)
+                let flowToken = '';
+                let flowProjectId = '';
+                try {
+                    const tokenRes = await apiObj.extractToken();
+                    if (tokenRes?.success && tokenRes?.token) {
+                        flowToken = tokenRes.token;
+                    }
+                    const pidRes = await apiObj.extractProjectId();
+                    if (pidRes?.success && pidRes?.projectId) {
+                        flowProjectId = pidRes.projectId;
+                    }
+                } catch (e) {
+                    console.warn('[CreativeStudio] Flow token/projectId extraction failed:', e);
+                }
+
+                // Flow AI 기본 영상 설정 (IPC 핸들러에서 optional이지만 명시적으로 전달)
+                const VIDEO_MODEL_DEFAULT = 'veo-3.1-fast-generate-preview';
+                const VIDEO_DURATION_DEFAULT = 8; // Veo 3.1 기본 영상 길이 (초)
+                const currentAspectRatio = segmentMode === 'shorts' ? '9:16' : '16:9';
+
                 let startImageMediaId = (scene as any).mediaId || '';
                 
-                // 1. mediaId가 없고 media_url이 base64이면 Flow에 레퍼런스로 업로드하여 mediaId 획득
+                // 1. mediaId가 없고 media_url이 base64/파일경로이면 Flow에 레퍼런스로 업로드하여 mediaId 획득
+                // 1. mediaId가 없으면 media_url을 Flow에 업로드하여 mediaId 획득
                 if (!startImageMediaId && scene.media_url && (apiObj.flowUploadReference || apiObj.uploadReference)) {
                     const uploadFn = apiObj.flowUploadReference || apiObj.uploadReference;
-                    let base64Data = scene.media_url;
-                    if (base64Data.startsWith('data:')) {
-                        base64Data = base64Data.replace(/^data:[^;]+;base64,/, '');
+                    let base64Data = '';
+                    if (scene.media_url.startsWith('data:')) {
+                        // base64 data URL
+                        base64Data = scene.media_url.replace(/^data:[^;]+;base64,/, '');
+                    } else if (scene.media_url.startsWith('file://') || scene.media_url.includes(':/') || scene.media_url.startsWith('/')) {
+                        // 로컬 파일 경로 → Electron에서 base64로 변환
+                        try {
+                            const filePath = scene.media_url.replace('file:///', '').replace('file://', '');
+                            const readRes = await apiObj.readFileAsBase64?.({ path: filePath });
+                            if (readRes?.success && readRes?.base64) base64Data = readRes.base64;
+                        } catch (e) { console.warn('[CreativeStudio] Failed to read local file for upload:', e.message); }
                     }
-                    const upRes = await uploadFn({ base64: base64Data });
-                    if (upRes?.success && upRes?.mediaId) {
-                        startImageMediaId = upRes.mediaId;
-                        updateScene(scene.id, { mediaId: startImageMediaId });
+                    if (base64Data) {
+                        const upRes = await uploadFn({ token: flowToken, base64: base64Data, projectId: flowProjectId });
+                        if (upRes?.success && upRes?.mediaId) {
+                            startImageMediaId = upRes.mediaId;
+                            updateScene(scene.id, { mediaId: startImageMediaId });
+                        } else {
+                            console.warn('[CreativeStudio] Flow upload-reference failed:', upRes?.error);
+                        }
+                    } else {
+                        console.warn('[CreativeStudio] No base64 data available for start image upload');
                     }
                 }
 
@@ -1487,16 +1542,29 @@ const CreativeStudio = () => {
                 
                 let res: any = null;
                 if ((startImageMediaId || scene.media_url) && genI2VFn) {
+                    // flow:generate-video-i2v IPC에 token, projectId, model, duration, seed 포함
                     res = await genI2VFn({
-                        prompt: finalPrompt,
+                        token: flowToken,
+                        prompt: flowPrompt,
                         startImageMediaId: startImageMediaId || (scene as any).mediaId || undefined,
                         startImage: scene.media_url,
-                        aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
+                        projectId: flowProjectId,
+                        model: VIDEO_MODEL_DEFAULT,
+                        aspectRatio: currentAspectRatio,
+                        duration: VIDEO_DURATION_DEFAULT,
+                        seed: null,
+                        videoBatchCount: 1
                     });
                 } else if (genT2VFn) {
+                    // flow:generate-video-t2v IPC에 token, projectId, model, duration, seed 포함
                     res = await genT2VFn({
-                        prompt: finalPrompt,
-                        aspectRatio: segmentMode === 'shorts' ? '9:16' : '16:9'
+                        token: flowToken,
+                        prompt: flowPrompt,
+                        projectId: flowProjectId,
+                        model: VIDEO_MODEL_DEFAULT,
+                        aspectRatio: currentAspectRatio,
+                        duration: VIDEO_DURATION_DEFAULT,
+                        seed: null
                     });
                 }
 
@@ -1519,7 +1587,8 @@ const CreativeStudio = () => {
                         const checkFn = apiObj.flowCheckVideoStatus || apiObj.checkVideoStatus;
                         for (let p = 0; p < 60; p++) {
                             await new Promise(r => setTimeout(r, 2000));
-                            const statusRes = await checkFn({ generationIds: [genId] });
+                            // flow:check-video-status IPC는 token, generationIds, projectId 필수
+                            const statusRes = await checkFn({ token: flowToken, generationIds: [genId], projectId: flowProjectId });
                             if (statusRes?.success && Array.isArray(statusRes.statuses)) {
                                 const st = statusRes.statuses[0];
                                 if (st?.status === 'complete' && st?.videoUrl) {
@@ -2446,6 +2515,7 @@ const CreativeStudio = () => {
                                         <Label className="text-[11px] font-bold text-foreground flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                                             부정 프롬프트
+                                            <span className="text-[8px] font-normal text-muted-foreground/60 ml-1">(Flow AI 미지원)</span>
                                         </Label>
                                         <span className="text-[9px] font-mono text-muted-foreground">{negativePrompt.length}자</span>
                                     </div>
@@ -2453,7 +2523,7 @@ const CreativeStudio = () => {
                                         value={negativePrompt}
                                         onChange={(e) => setNegativePrompt(e.target.value)}
                                         className="flex-1 resize-none text-xs font-mono leading-relaxed bg-background border-border text-foreground min-h-[65px] max-h-[90px] p-2 rounded-lg shadow-2xs"
-                                        placeholder="제외할 요소 (예: text, watermark...)"
+                                        placeholder="제외할 요소 (백엔드 렌더러용, Flow AI에서는 무시됨)"
                                     />
                                 </div>
                             </div>

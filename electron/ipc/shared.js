@@ -326,52 +326,72 @@ export function createSharedHelpers(ctx) {
   async function fetchMediaAsBase64(token, mediaId) {
     const redirectUrl = `${MEDIA_REDIRECT_URL}?name=${encodeURIComponent(mediaId)}`
 
-    // Step 1: media redirect URL 가져오기
+    // Step 1: redirect:'manual'로 미디어 URL 획득 (TRPC redirect 엔드포인트는 302로 URL 반환)
     // flowPageFetch 우선 (페이지 쿠키 포함 → TRPC 인증 성공률 높음)
-    // 실패 시 sessionFetch 폴백 (이미지 등 쿠키 불필요한 경우)
-    let redirectText = ''
-    let redirectOk = false
+    // 실패 시 sessionFetch 폴백
+    let mediaUrl = null
 
+    // 1a. flowPageFetch + redirect:'manual' → resp.url 로 리다이렉트 URL 캡처
     try {
       const pageResult = await flowPageFetch(redirectUrl, {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        redirect: 'manual',
       })
-      redirectOk = pageResult.ok
-      redirectText = pageResult.text || ''
-      if (!redirectOk) {
-        console.warn(`[fetchMedia] flowPageFetch HTTP ${pageResult.status}, trying sessionFetch...`)
+      // redirect:'manual'일 때 resp.url 이 리다이렉트 대상 URL
+      if (pageResult.url && pageResult.url.startsWith('http')) {
+        mediaUrl = pageResult.url
+      } else if (pageResult.ok && pageResult.text) {
+        // 리다이렉트가 없고 200이면 JSON 응답에서 URL 추출 시도
+        const parsed = parseFlowResponse(pageResult.text)
+        mediaUrl = parsed?.result?.data?.json?.url || parsed?.result?.data?.json?.redirectUrl || null
+      }
+      if (!mediaUrl) {
+        console.warn(`[fetchMedia] flowPageFetch no URL, status: ${pageResult.status}, url: ${pageResult.url}`)
       }
     } catch (e) {
-      console.warn('[fetchMedia] flowPageFetch failed:', e.message, ', trying sessionFetch...')
+      console.warn('[fetchMedia] flowPageFetch failed:', e.message)
     }
 
-    // flowPageFetch 실패 시 sessionFetch 폴백
-    if (!redirectOk) {
-      const redirectRes = await sessionFetch(redirectUrl, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (!redirectRes.ok) {
-        throw new Error(`Media redirect HTTP ${redirectRes.status}`)
+    // 1b. flowPageFetch 실패 시 sessionFetch + redirect:'manual' 폴백
+    if (!mediaUrl) {
+      try {
+        const redirectRes = await sessionFetch(redirectUrl, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          redirect: 'manual',
+        })
+        // sessionFetch에서 redirect:'manual' → redirects 배열에서 URL 추출
+        if (redirectRes.redirected && redirectRes.url) {
+          mediaUrl = redirectRes.url
+        } else if (redirectRes.ok) {
+          const text = await redirectRes.text()
+          const parsed = parseFlowResponse(text)
+          mediaUrl = parsed?.result?.data?.json?.url || parsed?.result?.data?.json?.redirectUrl || null
+        }
+      } catch (e) {
+        console.warn('[fetchMedia] sessionFetch failed:', e.message)
       }
-      redirectText = await redirectRes.text()
     }
 
-    const redirectData = parseFlowResponse(redirectText)
-    const mediaUrl = redirectData?.result?.data?.json?.url || redirectData?.result?.data?.json?.redirectUrl
+    // 1c. 최종 폴백: 직접 URL 구성 (mediaId가 유효한 UUID 형태면 Flow CDN 직접 접근)
+    if (!mediaUrl && mediaId && /^[0-9a-f-]{36}$/i.test(mediaId)) {
+      // Flow 미디어 URL 패턴 직접 구성
+      mediaUrl = `https://flow-content.google/fx/tools/flow/media/${mediaId}`
+      console.log('[fetchMedia] Using direct CDN URL fallback for mediaId:', mediaId.substring(0, 20))
+    }
 
     if (!mediaUrl) {
-      throw new Error('No media URL in redirect response')
+      throw new Error(`No media URL in redirect response for mediaId: ${mediaId?.substring(0, 20)}`)
     }
 
     // Step 2: 실제 미디어 다운로드 → base64 (CDN은 쿠키 불필요)
     const mediaRes = await sessionFetch(mediaUrl)
     if (!mediaRes.ok) {
-      throw new Error(`Media fetch HTTP ${mediaRes.status}`)
+      throw new Error(`Media fetch HTTP ${mediaRes.status} for URL: ${mediaUrl.substring(0, 100)}`)
     }
     const buffer = await mediaRes.arrayBuffer()
     const base64 = Buffer.from(buffer).toString('base64')
-    const contentType = mediaRes.headers?.get?.('content-type') || 'image/png'
+    const contentType = mediaRes.headers?.get?.('content-type') || 'video/mp4'
     return `data:${contentType};base64,${base64}`
   }
 
@@ -398,6 +418,8 @@ export function createSharedHelpers(ctx) {
     const SEL = {
       SETTINGS_BTN: "button[aria-haspopup='menu']:has(div[data-type='button-overlay'])",
       MODE_TAB: `button[role='tab'][id*='-trigger-${modeKey}']:not([id*='FRAMES']):not([id*='REFERENCES'])`,
+      // Fallback: role='tab' 없이 텍스트로 매칭 (새 Flow UI 대응)
+      MODE_TAB_TEXT: modeKey === 'VIDEO' ? '동영상' : '이미지',
       SETTINGS_MENU: "[role='menu'][data-state='open'], [data-radix-menu-content][data-state='open'], [role='menu']",
     }
     const batchLabel = `x${Math.max(1, Math.min(4, batchCount))}`
@@ -496,16 +518,35 @@ export function createSharedHelpers(ctx) {
 
             // Step 3: 모드 탭 찾기 + 필요하면 클릭
             let modeTab = menu.querySelector("${SEL.MODE_TAB}") || document.querySelector("${SEL.MODE_TAB}");
+            // Fallback: role='tab' 없이 텍스트로 매칭 (새 Flow UI: 일반 버튼 사용)
+            if (!modeTab || !isVisible(modeTab)) {
+              const allMenuBtns = Array.from(menu.querySelectorAll('button')).filter(isVisible);
+              modeTab = allMenuBtns.find(function(b) {
+                return (b.textContent || '').trim().includes('${modeKey}' === 'VIDEO' ? '동영상' : '이미지');
+              });
+              if (!modeTab) {
+                // 전역 fallback: 메뉴 외부에서도 텍스트 매칭
+                const allBtns = Array.from(document.querySelectorAll('button')).filter(isVisible);
+                modeTab = allBtns.find(function(b) {
+                  return (b.textContent || '').trim() === ('${modeKey}' === 'VIDEO' ? '동영상' : '이미지');
+                });
+              }
+              if (modeTab) console.log('[Flow Mode] Found tab by text fallback:', modeTab.textContent.trim());
+            }
             let modeMethod = 'already_active';
             if (modeTab && isVisible(modeTab)) {
               const isActive = modeTab.getAttribute('aria-selected') === 'true'
-                || modeTab.getAttribute('data-state') === 'active';
+                || modeTab.getAttribute('data-state') === 'active'
+                || modeTab.classList.contains('active')
+                || modeTab.classList.contains('selected');
               if (!isActive) {
                 humanClick(modeTab);
                 await sleep(300);
                 modeMethod = 'switched';
               }
             } else {
+              // 최종 fallback: 메뉴 HTML 로깅 후 실패
+              console.warn('[Flow Mode] mode_tab_not_found. Menu HTML:', menu ? menu.innerHTML.substring(0, 300) : 'null');
               escapeMenu(); await sleep(150);
               return { ok: false, error: 'mode_tab_not_found', target: '${modeKey}' };
             }

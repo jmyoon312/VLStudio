@@ -52,6 +52,10 @@ theme_converter.py
 apps/dashboard/public/test_font.woff2
 .kanbots/
 
+# OpenCode (ignore node_modules, keep memory and skills)
+.opencode/node_modules/
+.opencode/package-lock.json
+
 apps/api/models*/
 apps/api/temp/
 apps/temp_storage/
