@@ -532,7 +532,7 @@ export function registerFilesystemIPC(ipcMain) {
           mtime,
           scene_count: sceneCount,
           script_preview: scriptPreview,
-          thumbnail_url: thumbnailPath ? `file://${thumbnailPath.replace(/\\/g, '/')}` : null,
+          thumbnail_url: thumbnailPath ? `file:///${thumbnailPath.replace(/\\/g, '/')}` : null,
           has_images: hasImages,
           has_videos: hasVideos,
           has_audio: hasAudio
@@ -573,16 +573,92 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   // 3. fs:load-project-data
   // ----------------------------------------------------------
-  ipcMain.handle('fs:load-project-data', async (_event, { workFolder, project }) => {
+  ipcMain.handle('fs:load-project-data', async (_event, params = {}) => {
     try {
-      const jsonPath = path.join(workFolder, project, 'project.json')
+      let workFolder = params?.workFolder
+      if (!workFolder) {
+        const localAppData = process.env.LOCALAPPDATA || ''
+        workFolder = process.platform === 'win32'
+          ? path.join(localAppData, 'ViraLoop Studio', 'media', '05_Exports')
+          : path.join(app.getPath('documents'), 'ViraLoop Studio', 'media', '05_Exports')
+      }
+      const project = params?.project
+      if (!project) return { success: false, error: 'Project name required' }
+      const projDir = path.join(workFolder, project)
+      const jsonPath = path.join(projDir, 'project.json')
 
-      if (!(await pathExists(jsonPath))) {
-        return { success: true, data: null, isNew: true }
+      let data = {}
+      if (await pathExists(jsonPath)) {
+        const text = await fs.readFile(jsonPath, 'utf-8')
+        try {
+          data = JSON.parse(text)
+        } catch (_) {}
+      } else {
+        data = { project_name: project, script: '', scenes: [] }
       }
 
-      const text = await fs.readFile(jsonPath, 'utf-8')
-      const data = JSON.parse(text)
+      // Self-Healing: Scan actual images/, audio/, videos/ folders in this specific project
+      const imgDir = path.join(projDir, 'images')
+      const audDir = path.join(projDir, 'audio')
+      const vidDir = path.join(projDir, 'videos')
+
+      let imgFiles = []
+      let audFiles = []
+      let vidFiles = []
+      try {
+        if (await pathExists(imgDir)) imgFiles = await fs.readdir(imgDir)
+      } catch (_) {}
+      try {
+        if (await pathExists(audDir)) audFiles = await fs.readdir(audDir)
+      } catch (_) {}
+      try {
+        if (await pathExists(vidDir)) vidFiles = await fs.readdir(vidDir)
+      } catch (_) {}
+
+      if (Array.isArray(data.scenes)) {
+        data.scenes = data.scenes.map(sc => {
+          const sid = sc.scene_id || 1
+          const updated = { ...sc }
+
+          // 1. Resolve Image from disk if missing or relative
+          if (!updated.media_url || updated.media_url.startsWith('blob:') || !updated.media_url.includes(project)) {
+            const matchedImgs = imgFiles.filter(f => new RegExp(`^scene_0*${sid}(_|\.|$)`, 'i').test(f))
+            matchedImgs.sort().reverse()
+            if (matchedImgs.length > 0) {
+              const fullImgPath = path.join(imgDir, matchedImgs[0])
+              updated.media_url = `file:///${fullImgPath.replace(/\\/g, '/')}`
+              updated.media_path = fullImgPath
+              updated.visualStatus = 'completed'
+            }
+          }
+
+          // 2. Resolve Audio from disk if missing
+          if (!updated.audio_url || updated.audio_url.startsWith('blob:') || !updated.audio_url.includes(project)) {
+            const matchedAuds = audFiles.filter(f => new RegExp(`^scene_0*${sid}(_|\.|$)`, 'i').test(f))
+            matchedAuds.sort().reverse()
+            if (matchedAuds.length > 0) {
+              const fullAudPath = path.join(audDir, matchedAuds[0])
+              updated.audio_url = `/api/stream?path=${encodeURIComponent(fullAudPath)}`
+              updated.audio_path = fullAudPath
+            }
+          }
+
+          // 3. Resolve Video from disk if missing
+          if (!updated.video_url || updated.video_url.startsWith('blob:') || !updated.video_url.includes(project)) {
+            const matchedVids = vidFiles.filter(f => new RegExp(`^scene_0*${sid}(_|\.|$)`, 'i').test(f))
+            matchedVids.sort().reverse()
+            if (matchedVids.length > 0) {
+              const fullVidPath = path.join(vidDir, matchedVids[0])
+              updated.video_url = `file:///${fullVidPath.replace(/\\/g, '/')}`
+              updated.video_path = fullVidPath
+              updated.visualStatus = 'completed'
+            }
+          }
+
+          return updated
+        })
+      }
+
       return { success: true, data, isNew: false }
     } catch (error) {
       return { success: false, error: error.message }
@@ -592,29 +668,39 @@ export function registerFilesystemIPC(ipcMain) {
   // ----------------------------------------------------------
   // 4. fs:save-project-data
   // ----------------------------------------------------------
-  ipcMain.handle('fs:save-project-data', async (_event, { workFolder, project, data }) => {
-    const jsonPath = path.join(workFolder, project, 'project.json')
-    // #R7-4: project.json 쓰기를 경로별로 직렬화 — merge-project-data 와 interleave 방지.
-    return withProjectWriteLock(jsonPath, async () => {
-      try {
-        await fs.mkdir(path.join(workFolder, project), { recursive: true })
-        // flowProjectId 는 **merge 전용 키**다. full save 의 payload 는 renderer 가 payload 를
-        // 만든 시점의 값이라, write-lock 뒤에서 순서가 뒤집히면 그 사이 merge 로 저장된 최신
-        // 매핑을 옛 값(또는 키 누락)으로 덮어쓴다 — merge 성공을 보고 생성 게이트를 연 renderer
-        // 는 그걸 알 수 없다. 그래서 파일이 이미 있으면 디스크 값이 항상 이긴다. 설정/해제는
-        // 둘 다 merge-project-data 로만 한다(persistFlowProjectId / clearDeadFlowMapping).
-        const next = { ...data }
-        const prev = await readJsonOrNull(jsonPath)
-        if (prev) {
-          if ('flowProjectId' in prev) next.flowProjectId = prev.flowProjectId
-          else delete next.flowProjectId
-        }
-        await fs.writeFile(jsonPath, JSON.stringify(next, null, 2), 'utf-8')
-        return { success: true }
-      } catch (error) {
-        return { success: false, error: error.message }
+  ipcMain.handle('fs:save-project-data', async (_event, params = {}) => {
+    try {
+      let workFolder = params?.workFolder
+      if (!workFolder) {
+        const localAppData = process.env.LOCALAPPDATA || ''
+        workFolder = process.platform === 'win32'
+          ? path.join(localAppData, 'ViraLoop Studio', 'media', '05_Exports')
+          : path.join(app.getPath('documents'), 'ViraLoop Studio', 'media', '05_Exports')
       }
-    })
+      const project = params?.project
+      const data = params?.data
+      if (!project || !data) return { success: false, error: 'Project name and data required' }
+      const jsonPath = path.join(workFolder, project, 'project.json')
+
+      // #R7-4: project.json 쓰기를 경로별로 직렬화 — merge-project-data 와 interleave 방지.
+      return withProjectWriteLock(jsonPath, async () => {
+        try {
+          await fs.mkdir(path.join(workFolder, project), { recursive: true })
+          const next = { ...data }
+          const prev = await readJsonOrNull(jsonPath)
+          if (prev) {
+            if ('flowProjectId' in prev) next.flowProjectId = prev.flowProjectId
+            else delete next.flowProjectId
+          }
+          await fs.writeFile(jsonPath, JSON.stringify(next, null, 2), 'utf-8')
+          return { success: true }
+        } catch (error) {
+          return { success: false, error: error.message }
+        }
+      })
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
   })
 
   // 4b. fs:merge-project-data — project.json 의 최상위 키만 원자적으로 머지(read-modify-write).
@@ -650,6 +736,12 @@ export function registerFilesystemIPC(ipcMain) {
     workFolder, project, resourceType, name, data, engine = 'flow', metadata = null, historyOnly = false
   }) => {
     try {
+      if (!workFolder) {
+        const localAppData = process.env.LOCALAPPDATA || ''
+        workFolder = process.platform === 'win32'
+          ? path.join(localAppData, 'ViraLoop Studio', 'media', '05_Exports')
+          : path.join(app.getPath('documents'), 'ViraLoop Studio', 'media', '05_Exports')
+      }
       // Detect MIME type and extension
       const { mimeType, ext } = detectMimeType(data)
       const safeName = safeResourceName(name)

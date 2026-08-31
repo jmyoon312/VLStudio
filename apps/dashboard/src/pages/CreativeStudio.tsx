@@ -745,17 +745,23 @@ const CreativeStudio = () => {
     useEffect(() => {
         if (!currentProjectName) return;
         const timer = setTimeout(async () => {
+            const payload = {
+                project_name: currentProjectName,
+                script: fullScript,
+                scenes: scenes,
+                subtitle_config: subtitleConfig,
+                updated_at: new Date().toISOString().replace('T', ' ').slice(0, 19)
+            };
             try {
-                await api.post('/creative/save-project', {
-                    project_name: currentProjectName,
-                    script: fullScript,
-                    scenes: scenes,
-                    subtitle_config: subtitleConfig
-                });
-            } catch (e) {
-                // silent background auto-save
-            }
-        }, 1500);
+                const apiObj = (window as any).electronAPI;
+                if (apiObj?.saveProjectData) {
+                    await apiObj.saveProjectData({ project: currentProjectName, data: payload });
+                }
+            } catch (_) {}
+            try {
+                await api.post('/creative/save-project', payload);
+            } catch (_) {}
+        }, 1000);
         return () => clearTimeout(timer);
     }, [scenes, fullScript, currentProjectName, subtitleConfig]);
 
@@ -1376,9 +1382,13 @@ const CreativeStudio = () => {
                         }
                     }
 
+                    const finalMediaUrl = localPath 
+                        ? (localPath.startsWith('http') ? localPath : `file://${localPath.replace(/\\/g, '/')}`)
+                        : mediaUrl;
+
                     updateScene(id, { 
                         visualStatus: 'completed', 
-                        media_url: mediaUrl, 
+                        media_url: finalMediaUrl, 
                         media_path: localPath || undefined,
                         mediaId: mediaId,
                         viewMode: 'source' 

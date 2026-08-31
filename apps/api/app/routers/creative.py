@@ -708,20 +708,64 @@ def get_creative_project(
         raise HTTPException(status_code=404, detail=f"Project {project_name} not found")
         
     meta_path = os.path.join(project_dir, "project.json")
+    pdata = {}
     if os.path.exists(meta_path):
         try:
             with open(meta_path, "r", encoding="utf-8") as f:
                 pdata = json.load(f)
-            return pdata
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to read project.json: {str(e)}")
-            
-    return {
-        "project_name": project_name,
-        "created_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getctime(project_dir))),
-        "scenes": [],
-        "script": ""
-    }
+    else:
+        pdata = {
+            "project_name": project_name,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getctime(project_dir))),
+            "scenes": [],
+            "script": ""
+        }
+
+    # 디스크 폴더 자동 동기화 및 복원 (Self-Healing)
+    img_dir = os.path.join(project_dir, "images")
+    aud_dir = os.path.join(project_dir, "audio")
+    vid_dir = os.path.join(project_dir, "videos")
+    
+    img_files = os.listdir(img_dir) if os.path.exists(img_dir) else []
+    aud_files = os.listdir(aud_dir) if os.path.exists(aud_dir) else []
+    vid_files = os.listdir(vid_dir) if os.path.exists(vid_dir) else []
+
+    scenes = pdata.get("scenes", [])
+    if isinstance(scenes, list):
+        for sc in scenes:
+            sid = sc.get("scene_id") or 1
+            # 1. 이미지 복원
+            if not sc.get("media_url") or "project_" not in str(sc.get("media_url", "")):
+                matched_imgs = [f for f in img_files if re.match(rf"^scene_0*{sid}(_|\.|$)", f, re.IGNORECASE)]
+                matched_imgs.sort(reverse=True)
+                if matched_imgs:
+                    full_p = os.path.join(img_dir, matched_imgs[0])
+                    sc["media_url"] = f"/api/stream?path={urllib.parse.quote(full_p)}"
+                    sc["media_path"] = full_p
+                    sc["visualStatus"] = "completed"
+            # 2. 오디오 복원
+            if not sc.get("audio_url"):
+                matched_auds = [f for f in aud_files if re.match(rf"^scene_0*{sid}(_|\.|$)", f, re.IGNORECASE)]
+                matched_auds.sort(reverse=True)
+                if matched_auds:
+                    full_p = os.path.join(aud_dir, matched_auds[0])
+                    sc["audio_url"] = f"/api/stream?path={urllib.parse.quote(full_p)}"
+                    sc["audio_path"] = full_p
+            # 3. 비디오 복원
+            if not sc.get("video_url"):
+                matched_vids = [f for f in vid_files if re.match(rf"^scene_0*{sid}(_|\.|$)", f, re.IGNORECASE)]
+                matched_vids.sort(reverse=True)
+                if matched_vids:
+                    full_p = os.path.join(vid_dir, matched_vids[0])
+                    sc["video_url"] = f"/api/stream?path={urllib.parse.quote(full_p)}"
+                    sc["video_path"] = full_p
+                    sc["visualStatus"] = "completed"
+
+        pdata["scenes"] = scenes
+
+    return pdata
 
 @router.delete("/projects/{project_name}")
 def delete_creative_project(
