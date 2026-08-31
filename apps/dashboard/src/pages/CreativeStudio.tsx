@@ -18,7 +18,7 @@ import {
     Loader2, ImageIcon, Music, Film, Upload, Download, Clapperboard, Plus, Trash2,
     Sparkles, Copy, ChevronDown, ChevronUp, RefreshCw, Save, Wand2, RotateCcw, Play,
     MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe, SlidersHorizontal,
-    List, Search, Grid3X3, LayoutGrid
+    List, Search, Grid3X3, LayoutGrid, FolderOpen
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 import TTSSettingsDialog from '@/components/TTSSettingsDialog';
@@ -2462,7 +2462,7 @@ const CreativeStudio = () => {
             <Card id="scene-board-container" className="border rounded-2xl shadow-sm bg-card border-border overflow-hidden flex flex-col transition-all">
                 {/* 1. Master Sticky Header */}
                 <div className="bg-card p-3 sm:p-3.5 border-b border-border space-y-2.5">
-                    {/* Row 1: Title, Project Folder, View Mode Switcher, Screen Ratio */}
+                    {/* Row 1: Title, Project Folder, View Mode Switcher, Screen Ratio, Delete All */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 text-foreground">
                             <Film className="w-4 h-4 text-primary" />
@@ -2470,30 +2470,33 @@ const CreativeStudio = () => {
                             <Badge variant="secondary" className="h-5 text-[11px] font-bold bg-primary/10 text-primary">
                                 {filteredScenes.length} / {scenes.length} Scenes
                             </Badge>
-                            <div className="hidden md:flex items-center gap-1 px-2 py-0.5 bg-muted/60 border rounded-md text-[10.5px] text-muted-foreground font-mono">
-                                <span>📁 05_Exports/{currentProjectName}</span>
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            const apiObj = (window as any).electronAPI;
-                                            if (apiObj?.openProjectFolder) {
-                                                const res = await apiObj.openProjectFolder(currentProjectName);
-                                                if (res?.success) toast.success(`폴더 열기: 05_Exports/${currentProjectName}`);
-                                            } else if (apiObj?.openWorkFolder) {
-                                                await apiObj.openWorkFolder();
-                                            }
-                                        } catch (e: any) {
-                                            toast.error("폴더 열기 실패: " + e.message);
+                            
+                            {/* Compact Project Folder Button */}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                    try {
+                                        const apiObj = (window as any).electronAPI;
+                                        if (apiObj?.openProjectFolder) {
+                                            const res = await apiObj.openProjectFolder(currentProjectName);
+                                            if (res?.success) toast.success(`폴더 열기: 05_Exports/${currentProjectName}`);
+                                        } else if (apiObj?.openWorkFolder) {
+                                            await apiObj.openWorkFolder();
                                         }
-                                    }}
-                                    className="text-primary hover:underline ml-1 font-sans text-[10px] font-semibold"
-                                >
-                                    열기
-                                </button>
-                            </div>
+                                    } catch (e: any) {
+                                        toast.error("폴더 열기 실패: " + e.message);
+                                    }
+                                }}
+                                className="h-6 px-2 text-[11px] font-medium bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground gap-1 border-border shadow-2xs rounded-md"
+                                title={`05_Exports/${currentProjectName} 폴더 열기`}
+                            >
+                                <FolderOpen className="w-3 h-3 text-amber-500" />
+                                <span>폴더 열기</span>
+                            </Button>
                         </div>
 
-                        {/* View Modes & Aspect Ratio */}
+                        {/* View Modes, Screen Ratio & Actions */}
                         <div className="flex items-center gap-2">
                             {/* 3-Way View Mode Switcher */}
                             <div className="flex bg-muted p-0.5 rounded-lg border border-border/70 shadow-2xs">
@@ -2539,6 +2542,19 @@ const CreativeStudio = () => {
                             <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleMergeScenes} disabled={isMerging}>
                                 {isMerging ? <Loader2 className="w-3 h-3 animate-spin" /> : <Film className="w-3 h-3" />}
                                 영상 통합
+                            </Button>
+
+                            {/* [전체 삭제] Button */}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1 text-red-600 dark:text-red-400 border-red-200 dark:border-red-950/60 bg-red-500/5 hover:bg-red-500/15 shadow-2xs"
+                                onClick={handleResetScenes}
+                                disabled={scenes.length === 0}
+                                title="모든 씬과 05_Exports 프로젝트 폴더 내 생성 파일 전체 영구 삭제"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                                전체 삭제
                             </Button>
                         </div>
                     </div>
