@@ -9,6 +9,7 @@ import path from 'node:path'
 import { net } from 'electron'
 import { formatGoogleApiError } from './googleApiError.js'
 import { GENERATED_IMG_PROBE } from '../flow-media-collect.js'
+import { collectAgentDomImages } from '../flow-agent-collect.js'
 
 /**
  * Register all Flow API IPC handlers.
@@ -531,6 +532,13 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return null;
       })()`
 
+      // 제출 전 기존 미디어 ID 스냅샷 (기존 갤러리 이미지 오인칭 원천 차단)
+      let preExistingGenMediaIds = []
+      try {
+        const _pre = await flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE)
+        if (Array.isArray(_pre)) preExistingGenMediaIds = _pre.map(i => i && i.mediaId).filter(Boolean)
+      } catch {}
+
       const clickResult = await trustedClickOnFlowView(generateBtnSelector)
       console.log('[Flow API] [DOM+Net] Trusted click result:', clickResult)
 
@@ -540,11 +548,8 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       }
 
       // ★ Generate 버튼 클릭 성공 직후 즉시 pending 설정!
-      //   버튼 클릭이 batchGenerateImages 요청을 트리거하므로,
-      //   expectedImageCount 감지 전에 먼저 설정해야 CDP 핸들러가 응답을 캡처할 수 있다.
-      //   2초 버퍼: 클릭과 네트워크 요청 사이의 wallTime 차이를 보정
-      const generationSetAt = Date.now() / 1000 - 2  // 2초 전부터 유효 (stale 필터 보정)
-      let generationId = null  // 비동기 모드에서만 사용
+      const generationSetAt = Date.now() / 1000 - 2
+      let generationId = null
 
       if (asyncMode) {
         // === 비동기 모드: pendingGenerations Map에 등록 ===
@@ -555,8 +560,7 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           responses: [],
           collectionTimer: null,
           completed: false,
-          token,              // 나중에 이미지 fetch용
-          // 응답↔gen 상관키 (generationMatch.js) — 요청 body 의 prompt/refs/seed/aspectRatio 와 대조
+          token,
           promptKey: prompt,
           refMediaIds: Array.isArray(referenceImages)
             ? referenceImages.map((r) => r?.mediaId).filter(Boolean).sort()
@@ -584,18 +588,15 @@ export function registerFlowAPIIPC(ipcMain, deps) {
           generationSetAt.toFixed(3), ')')
       }
 
-      // 예상 이미지 개수: 요청 시 지정한 effectiveBatchCount(기본 1)를 단일 진실 공급원으로 사용
       const expectedImageCount = effectiveBatchCount || 1
 
-      // expectedCount 업데이트
       if (asyncMode) {
         const ag = pendingGenerations.get(generationId)
         if (ag) ag.expectedCount = expectedImageCount
         console.log('[Flow API] [Async] expectedCount updated to', expectedImageCount,
           'for gen:', generationId)
 
-        // 비동기 모드: inject 정리 후 즉시 반환
-        await new Promise(r => setTimeout(r, 2000))  // 요청이 나갈 시간 확보
+        await new Promise(r => setTimeout(r, 2000))
         setPendingReferenceImages(null)
         setPendingImageAspectRatio?.(null)
         await clearFlowPageInject?.()
@@ -606,158 +607,85 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return { success: true, generationId, submitted: true }
       }
 
-      // === 동기 모드: 기존 대기 로직 ===
+      // === 동기 모드: Direct API + Agent Mode(SSE) 동시 안전 수집 ===
       const pg = getPendingGeneration()
       if (pg) {
         pg.expectedCount = expectedImageCount
       }
       console.log('[Flow API] [DOM+Net] expectedCount updated to', expectedImageCount,
-        ', waiting for API response(s)...')
+        ', waiting for API response or Agent stream...')
 
-      // 4. 공식 Flow API 네트워크 응답 대기 (단일 진실 공급원)
-      const netResult = await responsePromise
-
-      if (netResult.error) {
-        console.warn('[Flow API] [DOM+Net] Network error/timeout:', netResult.message)
-        // Fallback: Agent 모드 또는 네트워크 누락 시에만 DOM 새 이미지 제한적 감지
-        const pollDomForNewImages = async (maxAttempts = 6, intervalMs = 1500) => {
-          for (let i = 0; i < maxAttempts; i++) {
-            await new Promise(r => setTimeout(r, intervalMs))
-            try {
-              const extracted = await flowView.webContents.executeJavaScript(`
-                (async function() {
-                  const existing = ${JSON.stringify(existingImages)};
-                  const imgs = Array.from(document.querySelectorAll('img')).filter(img => {
-                    const src = img.src || img.getAttribute('data-src') || '';
-                    if (!src) return false;
-                    if (src.includes('avatar') || src.includes('icon') || src.includes('logo') || src.includes('profile')) return false;
-                    if (existing.includes(src)) return false;
-                    return (src.includes('getMediaUrlRedirect') || src.includes('googleusercontent.com') || src.startsWith('blob:') || src.startsWith('data:image'));
-                  });
-
-                  if (imgs.length === 0) return null;
-
-                  const results = [];
-                  for (const img of imgs) {
-                    const src = img.src || img.getAttribute('data-src');
-                    try {
-                      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.naturalWidth;
-                        canvas.height = img.naturalHeight;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
-                        const base64 = canvas.toDataURL('image/png');
-                        if (base64 && base64.length > 500) {
-                          results.push({ base64, mediaId: null });
-                          continue;
-                        }
-                      }
-                      const resp = await fetch(src, { mode: 'cors' }).catch(() => null);
-                      if (resp && resp.ok) {
-                        const blob = await resp.blob();
-                        const base64 = await new Promise(res => {
-                          const reader = new FileReader();
-                          reader.onloadend = () => res(reader.result);
-                          reader.readAsDataURL(blob);
-                        });
-                        if (base64) results.push({ base64, mediaId: null });
-                      }
-                    } catch (e) {}
-                  }
-                  return results.length > 0 ? results : null;
-                })()
-              `)
-
-              if (extracted && extracted.length > 0) {
-                console.log('[Flow API] [DOM-Watch] Successfully captured', extracted.length, 'new generated images from Flow DOM fallback!')
-                return { success: true, images: extracted }
-              }
-            } catch (e) {}
+      // 1. Direct API Network Promise 파서
+      const parseNetResult = async (netResult) => {
+        if (!netResult || netResult.error) return { success: false, error: netResult?.message || 'Network timeout' }
+        const successResponses = (netResult.responses || []).filter(r => !r.error)
+        const allImages = []
+        for (const resp of successResponses) {
+          const data = parseFlowResponse(resp.body)
+          if (!data || data.error) continue
+          const base64Images = extractBase64Images(data)
+          if (base64Images.length > 0) { allImages.push(...base64Images); continue }
+          const fifeResults = extractFifeUrls(data)
+          if (fifeResults.length > 0) {
+            for (const { fifeUrl, mediaId } of fifeResults) {
+              try {
+                const res = await sessionFetch(fifeUrl)
+                if (res && res.ok) {
+                  const buf = await res.arrayBuffer()
+                  const base64Raw = Buffer.from(buf).toString('base64')
+                  const contentType = res.headers?.get?.('content-type') || 'image/png'
+                  allImages.push({ base64: `data:${contentType};base64,${base64Raw}`, mediaId })
+                }
+              } catch (_) {}
+            }
+            if (allImages.length > 0) continue
           }
-          return null
-        }
-
-        const finalDomCheck = await pollDomForNewImages(6, 1500)
-        if (finalDomCheck?.success) return finalDomCheck
-        return { success: false, error: netResult.message || 'Generation failed' }
-      }
-
-      // 5. 멀티 응답 파싱 — 각 응답에서 이미지 추출 후 결합
-      const successResponses = (netResult.responses || []).filter(r => !r.error)
-      const failedCount = (netResult.responses || []).filter(r => r.error).length
-      console.log('[Flow API] [DOM+Net] Parsing', successResponses.length, 'successful responses (' +
-        failedCount, 'failed)')
-
-      // allImages: [{ base64, mediaId }] — mediaId 보존을 위해 객체 배열
-      const allImages = []
-      const allErrors = []
-
-      for (const resp of successResponses) {
-        const data = parseFlowResponse(resp.body)
-        if (!data) {
-          allErrors.push('Failed to parse response')
-          continue
-        }
-
-        // 에러 체크
-        if (data.error) {
-          // formatGoogleApiError 가 message + status 를 합쳐서 노출 — renderer 의 quota
-          // detector 가 "RESOURCE_EXHAUSTED" 같은 status-only quota 신호도 잡을 수 있게.
-          allErrors.push(formatGoogleApiError(data.error))
-          continue
-        }
-
-        // base64 이미지 직접 추출 → [{ base64, mediaId }]
-        const base64Images = extractBase64Images(data)
-        if (base64Images.length > 0) {
-          allImages.push(...base64Images)
-          continue
-        }
-
-        // fifeUrl 직접 다운로드 시도 (가장 빠름) → [{ fifeUrl, mediaId }]
-        const fifeResults = extractFifeUrls(data)
-        if (fifeResults.length > 0) {
-          console.log('[Flow API] Got fifeUrls from response:', fifeResults.length)
-          for (const { fifeUrl, mediaId } of fifeResults) {
-            try {
-              const res = await sessionFetch(fifeUrl)
-              if (!res.ok) throw new Error(`fifeUrl fetch HTTP ${res.status}`)
-              const buffer = await res.arrayBuffer()
-              const base64Raw = Buffer.from(buffer).toString('base64')
-              const contentType = res.headers.get('content-type') || 'image/png'
-              allImages.push({
-                base64: `data:${contentType};base64,${base64Raw}`,
-                mediaId
-              })
-            } catch (fifeErr) {
-              console.warn('[Flow API] fifeUrl fetch failed:', fifeErr.message)
-              allErrors.push(fifeErr.message)
+          const mediaIds = extractMediaIds(data)
+          if (mediaIds.length > 0) {
+            for (const id of mediaIds) {
+              try {
+                const b64 = await fetchMediaAsBase64(token, id)
+                if (b64) allImages.push({ base64: b64, mediaId: id })
+              } catch (_) {}
             }
           }
-          if (allImages.length > 0) continue
         }
-
-        // mediaId fallback
-        const mediaIds = extractMediaIds(data)
-        if (mediaIds.length > 0) {
-          console.log('[Flow API] Got mediaIds from response:', mediaIds)
-          for (const id of mediaIds) {
-            try {
-              const base64 = await fetchMediaAsBase64(token, id)
-              allImages.push({ base64, mediaId: id })
-            } catch (fetchErr) {
-              console.warn('[Flow API] mediaId fetch failed:', fetchErr.message)
-              allErrors.push(fetchErr.message)
-            }
-          }
-          continue
-        }
-
-        // 이 응답에서는 이미지를 찾을 수 없음
-        console.warn('[Flow API] No images in response:', JSON.stringify(data).substring(0, 300))
-        allErrors.push('No images in response')
+        if (allImages.length > 0) return { success: true, images: allImages }
+        return { success: false, error: 'No image in network response' }
       }
+
+      const netResultPromise = responsePromise.then(parseNetResult)
+
+      // 2. Agent Mode / SSE StreamChat DOM 수집기 (스냅샷 필터링으로 새 이미지만 수집)
+      const agentDomPromise = collectAgentDomImages({
+        scan: () => flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE),
+        sessionFetch,
+        sleep: (ms) => new Promise(r => setTimeout(r, ms)),
+        existingMediaIds: preExistingGenMediaIds,
+        want: expectedImageCount,
+        pollMs: 1500,
+        maxWaitMs: 120000,
+        logPrefix: '[Flow Image] (Agent/SSE)'
+      })
+
+      const finalResult = await Promise.race([netResultPromise, agentDomPromise])
+      clearTimeout(generationTimeout)
+      if (getPendingGeneration()) setPendingGeneration(null)
+
+      if (finalResult && finalResult.success && finalResult.images?.length > 0) {
+        console.log('[Flow API] Successfully captured generated image:', finalResult.images.length)
+        return finalResult
+      }
+
+      // 3. Fallback: 둘 중 하나라도 성공했는지 확인
+      const fallbackResult = await Promise.allSettled([netResultPromise, agentDomPromise])
+      for (const settled of fallbackResult) {
+        if (settled.status === 'fulfilled' && settled.value?.success && settled.value?.images?.length > 0) {
+          return settled.value
+        }
+      }
+
+      return { success: false, error: finalResult?.error || 'Image generation failed' }
 
       console.log('[Flow API] [DOM+Net] Total images collected:', allImages.length,
         '(errors:', allErrors.length, ')')

@@ -1206,14 +1206,27 @@ const CreativeStudio = () => {
 
 
     const handleGenerateImage = async (sceneId: number, id: string, prompt: string) => {
+        const scene = scenes.find(s => s.id === id || s.scene_id === sceneId);
+        const basePrompt = (prompt || scene?.visual_prompt || scene?.script_text || '').trim();
+
         // 스마트 문화 오염 방지 Negative Guardrails: 한국 사극/조선 야담 테마 시 일본/중국 복식 및 건축물 자동 배제
-        const isKoreanTheme = /조선|한복|선비|사극|야담|hanbok|joseon|korea|hanok|k-drama/i.test(prompt + ' ' + (stylePrompt || ''));
+        const isKoreanTheme = /조선|한복|선비|사극|야담|hanbok|joseon|korea|hanok|k-drama/i.test(basePrompt + ' ' + (stylePrompt || ''));
         const culturalNegatives = isKoreanTheme 
             ? "japanese clothing, kimono, yukata, samurai, katana, geta, tatami, fusuma, japanese temple, torii, chinese clothing, hanfu, qipao, modern western clothing, cars, sunglasses, distorted face, extra limbs"
             : "distorted face, extra limbs, bad anatomy, deformed";
 
         const combinedNegative = [negativePrompt, culturalNegatives].filter(Boolean).join(', ');
-        const finalPrompt = `${stylePrompt ? `${stylePrompt}, ` : ''}${prompt}${combinedNegative ? ` --no ${combinedNegative}` : ''}`;
+
+        // 화풍 프롬프트가 기본 프롬프트에 중복 포함되지 않도록 깔끔하게 결합
+        let effectiveVisualPrompt = basePrompt;
+        if (stylePrompt && !basePrompt.toLowerCase().includes(stylePrompt.toLowerCase().trim())) {
+            effectiveVisualPrompt = `${stylePrompt}, ${basePrompt}`.trim();
+        }
+        if (!effectiveVisualPrompt) {
+            effectiveVisualPrompt = stylePrompt || 'Cinematic picturesque scene';
+        }
+
+        const finalPrompt = `${effectiveVisualPrompt}${combinedNegative ? ` --no ${combinedNegative}` : ''}`.trim();
         updateScene(id, { visualStatus: 'generating' });
 
         const apiObj = (window as any).electronAPI;
