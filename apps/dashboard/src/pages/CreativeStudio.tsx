@@ -461,6 +461,39 @@ const CreativeStudio = () => {
         }
     }, [scenes]);
 
+    // Self-healing: Reset any orphaned 'generating' states on window focus or visibility change
+    useEffect(() => {
+        const handleFocusOrVisible = () => {
+            setScenes(prev => {
+                let hasStale = false;
+                const cleaned = prev.map(s => {
+                    if (s.visualStatus === 'generating') {
+                        hasStale = true;
+                        return { ...s, visualStatus: s.media_url || s.video_url ? 'completed' : 'idle' };
+                    }
+                    if (s.audioStatus === 'generating') {
+                        hasStale = true;
+                        return { ...s, audioStatus: s.audio_url ? 'completed' : 'idle' };
+                    }
+                    if (s.renderStatus === 'generating') {
+                        hasStale = true;
+                        return { ...s, renderStatus: 'idle' };
+                    }
+                    return s;
+                });
+                return hasStale ? cleaned : prev;
+            });
+        };
+
+        window.addEventListener('focus', handleFocusOrVisible);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') handleFocusOrVisible();
+        });
+        return () => {
+            window.removeEventListener('focus', handleFocusOrVisible);
+        };
+    }, []);
+
     // Auto-update aspect ratio in existing prompts when segmentMode changes
     useEffect(() => {
         setScenes(prev => prev.map(scene => {
@@ -2705,9 +2738,21 @@ const CreativeStudio = () => {
 
                                         {/* Generating Overlay */}
                                         {scene.visualStatus === 'generating' && (
-                                            <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center text-white z-10 gap-2">
+                                            <div className="absolute inset-0 bg-black/75 backdrop-blur-xs flex flex-col items-center justify-center text-white z-10 gap-2 p-2 text-center">
                                                 <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
                                                 <span className="text-xs font-bold animate-pulse">Flow AI 생성 중...</span>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="h-6 text-[10px] text-zinc-300 hover:text-white hover:bg-white/20 px-2 py-0 mt-1 border border-white/20 rounded"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        updateScene(scene.id, { visualStatus: scene.media_url ? 'completed' : 'idle' });
+                                                        toast.info(`Scene #${scene.scene_id} 생성을 취소/초기화했습니다.`);
+                                                    }}
+                                                >
+                                                    강제 취소 / 초기화
+                                                </Button>
                                             </div>
                                         )}
 
