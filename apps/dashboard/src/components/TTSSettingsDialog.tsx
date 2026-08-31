@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { TTSConfig } from '@/types/tts';
@@ -20,21 +20,44 @@ const TTSSettingsDialog = ({ open, onOpenChange, initialConfig, onSave }: TTSSet
         speed: initialConfig?.speed || 1.0,
         pitch: initialConfig?.pitch || 0,
         emotion: initialConfig?.emotion || "normal",
+        noise_scale: initialConfig?.noise_scale,
+        mix_voice_id: initialConfig?.mix_voice_id,
+        mix_ratio: initialConfig?.mix_ratio,
         xi_stability: initialConfig?.xi_stability,
         xi_similarity_boost: initialConfig?.xi_similarity_boost,
         xi_style: initialConfig?.xi_style,
         use_silence_removal: initialConfig?.silenceEnabled || initialConfig?.use_silence_removal || false,
-        silence_threshold: initialConfig?.silenceThreshold,
-        min_silence_len: initialConfig?.minSilenceLen,
-        keep_silence_len: initialConfig?.keepSilenceLen
+        silence_threshold: initialConfig?.silenceThreshold || initialConfig?.silence_threshold,
+        min_silence_len: initialConfig?.minSilenceLen || initialConfig?.min_silence_len,
+        keep_silence_len: initialConfig?.keepSilenceLen || initialConfig?.keep_silence_len
     });
+
+    useEffect(() => {
+        if (open && initialConfig) {
+            setConfig({
+                engine: initialConfig?.engine || "supertone-local",
+                language: initialConfig?.language || "ko",
+                voice_id: initialConfig?.voice_id || "",
+                speed: initialConfig?.speed || 1.0,
+                pitch: initialConfig?.pitch || 0,
+                emotion: initialConfig?.emotion || "normal",
+                noise_scale: initialConfig?.noise_scale,
+                mix_voice_id: initialConfig?.mix_voice_id,
+                mix_ratio: initialConfig?.mix_ratio,
+                xi_stability: initialConfig?.xi_stability,
+                xi_similarity_boost: initialConfig?.xi_similarity_boost,
+                xi_style: initialConfig?.xi_style,
+                use_silence_removal: initialConfig?.silenceEnabled || initialConfig?.use_silence_removal || false,
+                silence_threshold: initialConfig?.silenceThreshold || initialConfig?.silence_threshold,
+                min_silence_len: initialConfig?.minSilenceLen || initialConfig?.min_silence_len,
+                keep_silence_len: initialConfig?.keepSilenceLen || initialConfig?.keep_silence_len
+            });
+        }
+    }, [open, initialConfig]);
 
     if (!open) return null;
 
     const handleSave = () => {
-        // Convert back to format expected by parent if needed, 
-        // or just pass the clean TTSConfig. 
-        // For backward compatibility we map back:
         const rate = Math.round((config.speed - 1.0) * 100);
 
         onSave({

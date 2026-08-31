@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { apiLong } from '@/lib/api';
 
@@ -554,8 +554,10 @@ const CreativeStudio = () => {
         }
         return defaults;
     });
+    const ttsConfigRef = useRef(ttsConfig);
 
     useEffect(() => {
+        ttsConfigRef.current = ttsConfig;
         if (ttsConfig) {
             localStorage.setItem('viral_loop_tts_config', JSON.stringify(ttsConfig));
         }
@@ -1599,12 +1601,13 @@ const CreativeStudio = () => {
     };
 
     const generateTTSMutation = useMutation({
-        mutationFn: async (data: { id: string, sceneId: number, script: string }) => {
+        mutationFn: async (data: { id: string, sceneId: number, script: string, config?: any }) => {
+            const activeConfig = data.config || ttsConfigRef.current || ttsConfig;
             const res = await apiLong.post('/creative/scene-tts', {
                 scene_id: data.sceneId,
                 script: data.script,
                 image_url: "",
-                tts_config: ttsConfig,
+                tts_config: activeConfig,
                 project_name: currentProjectName,
                 // @ts-ignore
                 old_file_path: scenes.find(s => s.id === data.id)?.audio_path
@@ -1636,19 +1639,22 @@ const CreativeStudio = () => {
             toast.error("대본이 없습니다.");
             return;
         }
+        const activeConfig = ttsConfigRef.current || ttsConfig;
         updateScene(scene.id, { audioStatus: 'generating' });
-        generateTTSMutation.mutate({ id: scene.id, sceneId: scene.scene_id, script: scene.script });
+        generateTTSMutation.mutate({ id: scene.id, sceneId: scene.scene_id, script: scene.script, config: activeConfig });
     };
 
     const batchTTSMutation = useMutation({
-        mutationFn: async (scenes: SceneSegment[]) => {
+        mutationFn: async ({ scenes, config }: { scenes: SceneSegment[], config?: any }) => {
+            const activeConfig = config || ttsConfigRef.current || ttsConfig;
+            console.log("[Batch TTS] Generating with active TTS config:", activeConfig);
             // 배치 TTS는 씬 수만큼 순차 처리하므로 5분 타임아웃 사용
             const promises = scenes.map(s =>
                 apiLong.post('/creative/scene-tts', {
                     scene_id: s.scene_id,
                     script: s.script,
                     image_url: "",
-                    tts_config: ttsConfig,
+                    tts_config: activeConfig,
                     project_name: currentProjectName
                 }).then(res => ({
                     id: s.id,
@@ -1679,8 +1685,9 @@ const CreativeStudio = () => {
     const handleBatchTTS = () => {
         if (scenes.length === 0) return;
         if (!confirm("모든 씬에 대해 TTS를 생성하시겠습니까?")) return;
+        const activeConfig = ttsConfigRef.current || ttsConfig;
         setScenes(prev => prev.map(s => ({ ...s, audioStatus: 'generating' })));
-        batchTTSMutation.mutate(scenes);
+        batchTTSMutation.mutate({ scenes, config: activeConfig });
     };
 
     const triggerDownload = async (url: string, filename: string) => {
@@ -3144,7 +3151,9 @@ const CreativeStudio = () => {
                     initialConfig={ttsConfig}
                     onSave={(cfg) => {
                         setTTSConfig(cfg);
-                        toast.success("TTS 설정이 저장되었습니다.");
+                        ttsConfigRef.current = cfg;
+                        localStorage.setItem('viral_loop_tts_config', JSON.stringify(cfg));
+                        toast.success(`TTS 설정이 저장되었습니다. (엔진: ${cfg.engine || '기본'}, 목소리: ${cfg.voice_id || '기본'})`);
                     }}
                 />
 
