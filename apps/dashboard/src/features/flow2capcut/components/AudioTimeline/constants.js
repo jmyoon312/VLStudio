@@ -1,13 +1,13 @@
 // AudioTimeline UI 상수 — 메인 컴포넌트와 sub-component가 공유
-export const LABEL_W_DEFAULT = 140
+export const LABEL_W_DEFAULT = 130
 export const LABEL_W_MIN = 80
-export const LABEL_W_MAX = 400
+export const LABEL_W_MAX = 300
 export const LABEL_W_KEY = 'autoflowcut.audioTimeline.labelW'
-export const TRACK_H = 64
-export const SUB_TRACK_H = 36
-export const FILE_ROW_H = 22
-export const FILE_ROW_SFX_META_H = 64  // SFX rows with anchor/placement/prompt/duration shown (4-line label)
-export const RULER_H = 32
+export const TRACK_H = 34
+export const SUB_TRACK_H = 28
+export const FILE_ROW_H = 20
+export const FILE_ROW_SFX_META_H = 48  // SFX rows with anchor/placement/prompt/duration shown (4-line label)
+export const RULER_H = 26
 export const PX_PER_SEC_BASE = 40 // 100% 줌 기준
 export const ZOOM_MIN = 0.001
 export const ZOOM_MAX = 20

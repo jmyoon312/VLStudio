@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, Sparkles, Video, Film, Scissors, Maximize2, X, Play, Pause, RotateCcw } from 'lucide-react';
 import AudioTimeline from '@/features/flow2capcut/components/AudioTimeline/AudioTimeline';
 import PreviewPanel from '@/features/flow2capcut/components/AudioTimeline/PreviewPanel';
+import { CapCutStudioWorkspace } from './CapCutStudioWorkspace';
 import { WatermarkConfig } from './WatermarkSettingsDialog';
 import { TransitionConfig } from './TransitionSettingsDialog';
 
@@ -30,10 +31,14 @@ export interface SceneItem {
 interface Props {
   scenes: SceneItem[];
   aspectRatio: '9:16' | '16:9';
+  onAspectRatioChange?: (ratio: '9:16' | '16:9') => void;
   srtEntries?: any[];
   subtitleConfig?: any;
+  onSubtitleConfigChange?: (cfg: any) => void;
   watermarkConfig?: WatermarkConfig;
+  onWatermarkConfigChange?: (cfg: WatermarkConfig) => void;
   transitionConfig?: TransitionConfig;
+  onTransitionConfigChange?: (cfg: TransitionConfig) => void;
   isOpen: boolean;
   onToggle: () => void;
   onSelectScene?: (index: number) => void;
@@ -41,22 +46,36 @@ interface Props {
   onBatchFlowImages?: () => void;
   onBatchFlowVideos?: () => void;
   onExportCapcut?: () => void;
+  onBatchTTS?: () => void;
+  onRoughCut?: () => void;
   isFlowBatchGenerating?: boolean;
   onGenerateSceneFlow?: (scene: SceneItem) => void;
+  onUpdateScene?: (sceneId: string, patch: Partial<SceneItem>) => void;
 }
 
 export const CollapsibleTimelinePreview: React.FC<Props> = ({
   scenes,
   aspectRatio = '16:9',
+  onAspectRatioChange,
   srtEntries: externalSrtEntries,
   subtitleConfig,
+  onSubtitleConfigChange,
+  watermarkConfig,
+  onWatermarkConfigChange,
+  transitionConfig,
+  onTransitionConfigChange,
   isOpen,
   onToggle,
   onSelectScene,
+  onSplitScene,
   onBatchFlowImages,
   onBatchFlowVideos,
   onExportCapcut,
-  isFlowBatchGenerating
+  onBatchTTS,
+  onRoughCut,
+  isFlowBatchGenerating,
+  onGenerateSceneFlow,
+  onUpdateScene,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenPlayheadMs, setFullscreenPlayheadMs] = useState(0);
@@ -364,118 +383,32 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 2. Flow2CapCut 검증된 오리지널 AudioTimeline NLE 렌더링 */}
+      {/* 2. CapCut Pro 3-Zone 통합 전문 NLE 스튜디오 렌더링 */}
       {isOpen && (
-        <div className="w-full bg-background h-[660px] flex flex-col relative overflow-hidden transition-all duration-300">
-          <AudioTimeline
-            scenes={normalizedTimelineScenes}
-            audioPackage={audioPackage}
+        <div className="w-full bg-background flex flex-col relative overflow-hidden transition-all duration-300">
+          <CapCutStudioWorkspace
+            scenes={scenes}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={onAspectRatioChange}
             srtEntries={srtEntries}
             subtitleConfig={subtitleConfig}
-            compact={false}
-            aspectRatio={aspectRatio}
-            onTitleClick={() => setIsFullscreen(true)}
-            titleActive={isFullscreen}
-            onClipSelect={(clip: any) => {
-              if (clip?.sceneRef) {
-                const sceneIdx = normalizedTimelineScenes.findIndex((s) => s.id === clip.sceneRef.id);
-                if (sceneIdx >= 0) onSelectScene?.(sceneIdx);
-              }
-            }}
+            onSubtitleConfigChange={onSubtitleConfigChange}
+            watermarkConfig={watermarkConfig}
+            onWatermarkConfigChange={onWatermarkConfigChange}
+            transitionConfig={transitionConfig}
+            onTransitionConfigChange={onTransitionConfigChange}
+            onSelectScene={onSelectScene}
+            onSplitScene={onSplitScene}
+            onBatchFlowImages={onBatchFlowImages}
+            onBatchFlowVideos={onBatchFlowVideos}
+            onExportCapcut={onExportCapcut}
+            onBatchTTS={onBatchTTS}
+            onRoughCut={onRoughCut}
+            isFlowBatchGenerating={isFlowBatchGenerating}
+            onGenerateSceneFlow={onGenerateSceneFlow}
+            onUpdateScene={onUpdateScene}
           />
         </div>
-      )}
-
-      {/* 3. 전체화면 시네마틱 프리뷰 모니터 팝업 포털 (z-[99999] 완벽 고립) */}
-      {isFullscreen && createPortal(
-        <div className="fixed inset-0 z-[99999] bg-[#050811]/98 backdrop-blur-2xl flex flex-col items-center justify-between p-6 select-none animate-in fade-in duration-200">
-          {/* Header Controls */}
-          <div className="w-full flex items-center justify-between text-white/90 max-w-6xl">
-            <div className="flex items-center gap-3">
-              <Film className="w-5 h-5 text-blue-400" />
-              <span className="font-extrabold text-sm tracking-wide">시네마틱 실시간 프리뷰 모니터 (FULLSCREEN PREVIEW)</span>
-              <Badge variant="outline" className="text-[10px] bg-blue-500/20 text-blue-300 border-blue-400/40 font-bold">
-                {aspectRatio === '9:16' ? '9:16 Shorts' : '16:9 1080P HD'}
-              </Badge>
-            </div>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => { setIsFullscreen(false); setIsFullscreenPlaying(false); }}
-              className="h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 text-white hover:text-white"
-              title="전체화면 닫기 (ESC)"
-            >
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-
-          {/* Center Stage Preview */}
-          <div className="flex-1 w-full max-w-5xl flex items-center justify-center my-3 relative overflow-hidden rounded-2xl border border-white/15 shadow-2xl bg-black">
-            <PreviewPanel
-              playheadMs={fullscreenPlayheadMs}
-              scenes={normalizedTimelineScenes}
-              srtEntries={srtEntries}
-              subtitleConfig={subtitleConfig}
-              height="100%"
-              isPlaying={isFullscreenPlaying}
-              hiddenRoles={new Set()}
-              aspectRatio={aspectRatio}
-              className="!bg-black !p-0 w-full h-full flex items-center justify-center"
-            />
-          </div>
-
-          {/* Bottom Transport Bar & Interactive Scrubber */}
-          <div className="w-full max-w-3xl bg-slate-900/95 border border-white/15 rounded-2xl p-4 flex flex-col gap-3 shadow-2xl backdrop-blur-xl text-white">
-            {/* Interactive Progress Bar */}
-            <div 
-              className="w-full h-2.5 bg-white/10 hover:bg-white/20 rounded-full cursor-pointer relative overflow-hidden transition-all"
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                setFullscreenPlayheadMs(ratio * totalDurationMs);
-              }}
-            >
-              <div 
-                className="h-full bg-blue-500 rounded-full transition-all duration-75"
-                style={{ width: `${totalDurationMs > 0 ? (fullscreenPlayheadMs / totalDurationMs) * 100 : 0}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setIsFullscreenPlaying(p => !p)}
-                  className="h-8.5 px-4 font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md rounded-xl gap-1.5"
-                >
-                  {isFullscreenPlaying ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-white" />}
-                  <span>{isFullscreenPlaying ? '일시정지' : '재생'}</span>
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => { setIsFullscreenPlaying(false); setFullscreenPlayheadMs(0); }}
-                  className="h-8.5 w-8.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg"
-                  title="처음으로"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </Button>
-
-                <span className="font-mono text-xs font-bold text-white/90 bg-white/10 px-3 py-1.5 rounded-lg">
-                  <span className="text-blue-400">{formatTC(fullscreenPlayheadMs)}</span> / {formatTC(totalDurationMs)}
-                </span>
-              </div>
-
-              <div className="text-xs text-white/60 font-medium">
-                [Space] 재생/정지 · [ESC] 닫기
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
       )}
     </div>
   );

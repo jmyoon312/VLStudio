@@ -2322,10 +2322,14 @@ const CreativeStudio = () => {
             <CollapsibleTimelinePreview
                 scenes={scenes}
                 aspectRatio={segmentMode === 'shorts' ? '9:16' : '16:9'}
+                onAspectRatioChange={(r) => setSegmentMode(r === '9:16' ? 'shorts' : 'landscape')}
                 srtEntries={srtEntries}
                 subtitleConfig={subtitleConfig}
+                onSubtitleConfigChange={setSubtitleConfig}
                 watermarkConfig={watermarkConfig}
+                onWatermarkConfigChange={setWatermarkConfig}
                 transitionConfig={transitionConfig}
+                onTransitionConfigChange={setTransitionConfig}
                 isOpen={isTimelineOpen}
                 onToggle={() => setIsTimelineOpen(!isTimelineOpen)}
                 onSelectScene={(idx) => {
@@ -2370,7 +2374,11 @@ const CreativeStudio = () => {
                 onBatchFlowImages={handleBatchFlowImages}
                 onBatchFlowVideos={handleBatchFlowVideos}
                 onExportCapcut={() => setIsExportModalOpen(true)}
+                onBatchTTS={handleBatchTTS}
+                onRoughCut={handleRoughCut}
                 isFlowBatchGenerating={isFlowBatchGenerating}
+                onGenerateSceneFlow={(s) => handleGenerateImage(s.scene_id, s.id, s.visual_prompt)}
+                onUpdateScene={updateScene}
             />
 
             {/* Zone 3: Scene Board */}
