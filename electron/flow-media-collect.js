@@ -41,6 +41,7 @@ export function scanGeneratedImages(doc) {
     const link = im.closest && im.closest('a[href]')
     const href = (link && link.getAttribute('href')) || ''
     const isEditCard = /\/tools\/flow\/project\/[^/]+\/edit\//.test(href)
+    const editMatch = href.match(/\/edit\/([a-f0-9-]{36})/)
 
     // 고유 편집 카드 링크이거나 유효한 Google 미디어 URL인 경우만 수집
     const isGoogleMedia = isEditCard || src.includes('getMediaUrlRedirect') || src.includes('googleusercontent.com') || src.includes('blob:') || src.includes('/media/') || !!m
@@ -62,7 +63,7 @@ export function scanGeneratedImages(doc) {
       }
     } catch (_) {}
 
-    const mediaId = m ? m[1] : `dom-${src.split('?')[0].slice(-32)}`
+    const mediaId = m ? m[1] : (editMatch ? editMatch[1] : (src.includes('googleusercontent.com') ? src.split('?')[0].slice(-40) : `dom-${src.split('?')[0].slice(-32)}`))
     seenSrc.add(src)
     out.push({ mediaId, src, promptText, isEditCard })
   }

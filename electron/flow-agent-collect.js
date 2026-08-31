@@ -36,13 +36,15 @@ export function pickFreshImages(scanned, existingMediaIds) {
 export async function collectAgentDomImages({
   scan, sessionFetch, sleep, existingMediaIds = [], want = 1,
   pollMs = 2000, maxWaitMs = 180000, logPrefix = '[Flow Agent]', warn = () => {},
-  markCollected = () => {},
+  markCollected = () => {}, minWaitMs = 4000
 }) {
   const need = Math.max(1, want)
   let waited = 0
   while (waited < maxWaitMs) {
     await sleep(pollMs)
     waited += pollMs
+    // 구글 생성 최소 소요 시간(4초) 이전에는 DOM 가로채기 금지
+    if (waited < minWaitMs) continue
     let scanned = []
     try { scanned = await scan() } catch { /* 폴링 — 일시 실패 무시 */ }
     if (!Array.isArray(scanned)) continue

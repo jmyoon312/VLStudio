@@ -11,6 +11,9 @@ import { formatGoogleApiError } from './googleApiError.js'
 import { GENERATED_IMG_PROBE } from '../flow-media-collect.js'
 import { collectAgentDomImages } from '../flow-agent-collect.js'
 
+// 세션 전역 수집된 미디어 ID 집합 (모든 이전 씬의 생성물 및 스냅샷 누적 제외)
+const globalCollectedMediaIds = new Set()
+
 /**
  * Register all Flow API IPC handlers.
  *
@@ -532,12 +535,20 @@ export function registerFlowAPIIPC(ipcMain, deps) {
         return null;
       })()`
 
-      // 제출 전 기존 미디어 ID 스냅샷 (기존 갤러리 이미지 오인칭 원천 차단)
+      // 제출 전 기존 미디어 ID 스냅샷 + 누적 세션 mediaId 모두 결합 (과거 씬 이미지 오인칭 원천 차단)
       let preExistingGenMediaIds = []
       try {
         const _pre = await flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE)
-        if (Array.isArray(_pre)) preExistingGenMediaIds = _pre.map(i => i && i.mediaId).filter(Boolean)
+        if (Array.isArray(_pre)) {
+          _pre.forEach(i => {
+            if (i?.mediaId) {
+              preExistingGenMediaIds.push(i.mediaId)
+              globalCollectedMediaIds.add(i.mediaId)
+            }
+          })
+        }
       } catch {}
+      const combinedExistingIds = Array.from(new Set([...preExistingGenMediaIds, ...globalCollectedMediaIds]))
 
       const clickResult = await trustedClickOnFlowView(generateBtnSelector)
       console.log('[Flow API] [DOM+Net] Trusted click result:', clickResult)
@@ -656,15 +667,17 @@ export function registerFlowAPIIPC(ipcMain, deps) {
 
       const netResultPromise = responsePromise.then(parseNetResult)
 
-      // 2. Agent Mode / SSE StreamChat DOM 수집기 (스냅샷 필터링으로 새 이미지만 수집)
+      // 2. Agent Mode / SSE StreamChat DOM 수집기 (누적 스냅샷 필터링 + minWaitMs=4000 가드)
       const agentDomPromise = collectAgentDomImages({
         scan: () => flowView.webContents.executeJavaScript(GENERATED_IMG_PROBE),
         sessionFetch,
         sleep: (ms) => new Promise(r => setTimeout(r, ms)),
-        existingMediaIds: preExistingGenMediaIds,
+        existingMediaIds: combinedExistingIds,
         want: expectedImageCount,
         pollMs: 1500,
+        minWaitMs: 4000,
         maxWaitMs: 120000,
+        markCollected: (mid) => globalCollectedMediaIds.add(mid),
         logPrefix: '[Flow Image] (Agent/SSE)'
       })
 
@@ -673,6 +686,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       if (getPendingGeneration()) setPendingGeneration(null)
 
       if (finalResult && finalResult.success && finalResult.images?.length > 0) {
+        finalResult.images.forEach(img => {
+          if (img?.mediaId) globalCollectedMediaIds.add(img.mediaId)
+        })
         console.log('[Flow API] Successfully captured generated image:', finalResult.images.length)
         return finalResult
       }
@@ -681,6 +697,9 @@ export function registerFlowAPIIPC(ipcMain, deps) {
       const fallbackResult = await Promise.allSettled([netResultPromise, agentDomPromise])
       for (const settled of fallbackResult) {
         if (settled.status === 'fulfilled' && settled.value?.success && settled.value?.images?.length > 0) {
+          settled.value.images.forEach(img => {
+            if (img?.mediaId) globalCollectedMediaIds.add(img.mediaId)
+          })
           return settled.value
         }
       }
