@@ -38,10 +38,10 @@ export function computeVideoClipPlacement(scene, sceneStartMs, sceneEndMs, sourc
   const sceneDurMs = sceneEndMs - sceneStartMs
   if (sceneDurMs <= 0) return null
 
-  const i2vPath = scene.videoI2VPath || scene.video_i2v_path || null
-  const t2vPath = scene.videoT2VPath || scene.video_t2v_path || null
-  const i2vDur = scene.videoI2VDuration ?? scene.video_i2v_duration ?? null
-  const t2vDur = scene.videoT2VDuration ?? scene.video_t2v_duration ?? null
+  const i2vPath = scene.videoI2VPath || scene.video_i2v_path || scene.video_url || scene.videoPath || null
+  const t2vPath = scene.videoT2VPath || scene.video_t2v_path || (!scene.videoI2VPath ? scene.video_url : null) || scene.videoPath || null
+  const i2vDur = scene.videoI2VDuration ?? scene.video_i2v_duration ?? scene.duration ?? null
+  const t2vDur = scene.videoT2VDuration ?? scene.video_t2v_duration ?? scene.duration ?? null
 
   let videoPath, videoDurSec
   if (source === 'i2v') { videoPath = i2vPath; videoDurSec = i2vDur }

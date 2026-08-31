@@ -2698,22 +2698,22 @@ const CreativeStudio = () => {
                                             )}
                                         </div>
                                         {(scene.video_url && scene.media_url) && (
-                                            <div className="flex bg-muted rounded-md p-0.5 border">
+                                            <div className="flex bg-muted/80 rounded-lg p-0.5 border shadow-xs gap-1">
                                                 <Button
-                                                    variant={scene.viewMode === 'source' ? 'secondary' : 'ghost'}
+                                                    variant={scene.viewMode !== 'render' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className="h-6 text-[10.5px] px-2.5 font-medium"
+                                                    className={`h-6 text-[11px] px-2.5 font-semibold transition-all ${scene.viewMode !== 'render' ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                                                     onClick={() => updateScene(scene.id, { viewMode: 'source' })}
                                                 >
-                                                    Source
+                                                    🖼️ 이미지
                                                 </Button>
                                                 <Button
                                                     variant={scene.viewMode === 'render' ? 'secondary' : 'ghost'}
                                                     size="sm"
-                                                    className="h-6 text-[10.5px] px-2.5 font-medium"
+                                                    className={`h-6 text-[11px] px-2.5 font-semibold transition-all ${scene.viewMode === 'render' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
                                                     onClick={() => updateScene(scene.id, { viewMode: 'render' })}
                                                 >
-                                                    Render
+                                                    🎬 영상
                                                 </Button>
                                             </div>
                                         )}

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { resolveVideoSrc } from '../../utils/videoSrc'
 import { resolveImageSrc } from '../../utils/formatters'
 import { computeVideoClipPlacement, getSceneTimeRangeMs, isPreviewVideoVisible } from './timelinePlacement'
@@ -47,36 +47,59 @@ export function findRangeAt(ranges, t, inclusiveEnd = false) {
 const EMPTY_HIDDEN = new Set()
 
 export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleConfig, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '', kenBurns = false }) {
-  // ── CapCut 네이티브 1:1 자막 렌더링 스타일 ──
+  // ── CapCut 네이티브 1:1 반응형 자막 스케일러 ──
+  const stageRef = useRef(null)
+  const [stageDimensions, setStageDimensions] = useState({ width: 640, height: 360 })
+
+  useEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          setStageDimensions({ width: entry.contentRect.width, height: entry.contentRect.height })
+        }
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const isPortrait = (aspectRatio === '9:16' || aspectRatio === 'shorts')
+  const refWidth = isPortrait ? 1080 : 1920
+  const scaleRatio = Math.max(0.1, Math.min(3.0, (stageDimensions.width || 640) / refWidth))
+
   const subtitleStyle = useMemo(() => {
     const cfg = subtitleConfig || {}
     if (cfg.enabled === false) return { display: 'none' }
 
-    // 폰트 크기: CapCut 뷰포트 비율과 1:1 스케일링
-    const baseSize = cfg.fontSize || 36
-    const previewFontSize = Math.max(15, Math.min(26, Math.round(baseSize * 0.48)))
+    // CapCut 1080p/4k 기준 폰트 크기를 현재 뷰포트에 1:1 완벽 비례 스케일링
+    const baseSize = Number(cfg.fontSize) || 48
+    const scaledFontSize = Math.max(10, Math.round(baseSize * scaleRatio))
 
-    // 위치 (Top: -0.2 / Center: 0.0 / Bottom: -0.75)
+    // 위치 스케일링 (수직 마진 및 중앙 정렬)
+    const baseMarginV = Number(cfg.marginV) || 50
+    const scaledMarginV = Math.max(8, Math.round(baseMarginV * scaleRatio))
+
     let posStyle = {
       position: 'absolute',
-      bottom: `${Math.max(14, Math.min(80, Math.round((cfg.marginV || 24) * 0.5)))}px`,
+      bottom: `${scaledMarginV}px`,
       top: 'auto',
       left: '50%',
       transform: 'translateX(-50%)'
     }
     if (cfg.position === 'top') {
-      posStyle = { position: 'absolute', top: `${Math.max(14, Math.round((cfg.marginV || 24) * 0.5))}px`, bottom: 'auto', left: '50%', transform: 'translateX(-50%)' }
+      posStyle = { position: 'absolute', top: `${scaledMarginV}px`, bottom: 'auto', left: '50%', transform: 'translateX(-50%)' }
     } else if (cfg.position === 'center' || cfg.position === 'middle') {
       posStyle = { position: 'absolute', top: '50%', bottom: 'auto', left: '50%', transform: 'translate(-50%, -50%)' }
     }
 
-    // 사용자가 선택한 정확한 원본 텍스트 색상 (CapCut Text Color 1:1 바인딩)
     const textColor = cfg.textColor || '#FFFFFF'
 
-    // CapCut 배경 박스 렌더링 (useBox 활성화 시에만 라운드 박스 적용, 기본은 투명 오버레이)
+    // CapCut 배경 박스 스케일링
     let background = 'transparent'
-    let boxPadding = '4px 12px'
-    let borderRadius = '4px'
+    let boxPadding = `${Math.round(4 * scaleRatio)}px ${Math.round(12 * scaleRatio)}px`
+    let borderRadius = `${Math.round(6 * scaleRatio)}px`
     let borderStyle = 'none'
 
     if (cfg.useBox) {
@@ -89,14 +112,14 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
         b = parseInt(boxHex.slice(5, 7), 16) || 0
       }
       background = `rgba(${r}, ${g}, ${b}, ${alpha})`
-      boxPadding = '6px 16px'
-      borderRadius = '6px'
+      boxPadding = `${Math.round(8 * scaleRatio)}px ${Math.round(20 * scaleRatio)}px`
+      borderRadius = `${Math.round(8 * scaleRatio)}px`
     }
 
-    // CapCut 표준 텍스트 외곽선 (paint-order: stroke fill을 적용하여 글자 획 내부가 깎이지 않고 뒤쪽에 깔끔한 외곽선 생성)
-    const outlineSize = cfg.outlineSize !== undefined ? Number(cfg.outlineSize) : 2
+    // 외곽선 스케일링
+    const outlineSize = cfg.outlineSize !== undefined ? Number(cfg.outlineSize) : 3
     const outlineColor = cfg.outlineColor || '#000000'
-    const strokeWidth = outlineSize > 0 ? Math.min(2.5, Math.max(0.8, outlineSize * 0.6)) : 0
+    const strokeWidth = outlineSize > 0 ? Math.max(0.5, outlineSize * 1.2 * scaleRatio) : 0
 
     // 한국어 폰트 패밀리 매핑
     const fontFamilies = {
@@ -113,16 +136,16 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
     }
     const resolvedFont = fontFamilies[cfg.font] || (cfg.font ? `"${cfg.font}", sans-serif` : '"Wanted Sans", "Pretendard", sans-serif')
 
-    // 그림자 필터 (CapCut 드롭섀도우)
+    // 그림자 스케일링
     const shadowSize = Number(cfg.shadowSize) || 2
     const shadowColor = cfg.shadowColor || 'rgba(0, 0, 0, 0.85)'
     const shadowFilter = shadowSize > 0
-      ? `drop-shadow(0 ${Math.min(4, Math.max(1, shadowSize * 0.8))}px ${Math.min(6, Math.max(2, shadowSize * 1.2))}px ${shadowColor})`
+      ? `drop-shadow(0 ${Math.max(1, shadowSize * scaleRatio * 1.5)}px ${Math.max(2, shadowSize * scaleRatio * 2.5)}px ${shadowColor})`
       : 'none'
 
     return {
       fontFamily: resolvedFont,
-      fontSize: `${previewFontSize}px`,
+      fontSize: `${scaledFontSize}px`,
       color: textColor,
       fontWeight: cfg.isBold !== false ? 800 : 600,
       fontStyle: cfg.isItalic ? 'italic' : 'normal',
@@ -143,7 +166,7 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       zIndex: 50,
       ...posStyle
     }
-  }, [subtitleConfig])
+  }, [subtitleConfig, scaleRatio])
   // 씬 ranges precompute — getSceneTimeRangeMs는 parseTimeToSeconds(regex+split)을 부르므로
   // playhead 매 tick (60fps) 마다 N회 반복하면 1시간/1500씬 기준 ~0.5% CPU 누적.
   // sort를 명시적으로 — binary search 정확성 보장.
@@ -328,7 +351,7 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
 
   return (
     <div className={`atl-preview ${className}`} style={{ height }}>
-      <div className="atl-preview-stage" style={{ aspectRatio: (aspectRatio === '9:16' || aspectRatio === 'shorts') ? '9 / 16' : '16 / 9' }}>
+      <div ref={stageRef} className="atl-preview-stage" style={{ aspectRatio: (aspectRatio === '9:16' || aspectRatio === 'shorts') ? '9 / 16' : '16 / 9' }}>
         {imgPath && !hideImage ? (
           <img className={`atl-preview-img ${kenBurns ? 'atl-ken-burns' : ''}`} src={resolveImageSrc({ imagePath: imgPath, generatedAt: scene?.generatedAt, image: scene?.image })} alt="" />
         ) : (
