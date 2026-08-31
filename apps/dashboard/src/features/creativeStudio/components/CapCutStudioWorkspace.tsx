@@ -35,7 +35,8 @@ import {
   Clock,
   LayoutGrid
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { Textarea } from '@/components/ui/textarea';
+import { STYLE_PRESETS } from '@/features/flow2capcut/config/defaults';
 import AudioTimeline from '@/features/flow2capcut/components/AudioTimeline/AudioTimeline';
 import PreviewPanel from '@/features/flow2capcut/components/AudioTimeline/PreviewPanel';
 import SubtitleConfigPanel from '@/components/shared/SubtitleConfigPanel';
@@ -64,6 +65,11 @@ interface Props {
   isFlowBatchGenerating?: boolean;
   onGenerateSceneFlow?: (scene: SceneItem) => void;
   onUpdateScene?: (sceneId: string, patch: Partial<SceneItem>) => void;
+  scriptInput?: string;
+  onScriptInputChange?: (val: string) => void;
+  onGenerateScript?: () => void;
+  isGeneratingScript?: boolean;
+  onApplyStylePromptToAll?: (prompt: string) => void;
 }
 
 export const CapCutStudioWorkspace: React.FC<Props> = ({
@@ -87,9 +93,16 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   isFlowBatchGenerating,
   onGenerateSceneFlow,
   onUpdateScene,
+  scriptInput = '',
+  onScriptInputChange,
+  onGenerateScript,
+  isGeneratingScript = false,
+  onApplyStylePromptToAll,
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [activeInspectorTab, setActiveInspectorTab] = useState<'subtitles' | 'transitions' | 'watermark' | 'audio' | 'scene'>('subtitles');
+  const [activeInspectorTab, setActiveInspectorTab] = useState<'script' | 'style' | 'subtitles' | 'transitions' | 'watermark' | 'audio' | 'scene'>('subtitles');
+  const [selectedStyleCategory, setSelectedStyleCategory] = useState<string>('all');
+  const [styleSearchQuery, setStyleSearchQuery] = useState<string>('');
   const [canvasZoom, setCanvasZoom] = useState<'fit' | '50' | '75' | '100' | '150'>('fit');
   const [showSafeZone, setShowSafeZone] = useState(false);
   const [kenBurnsEnabled, setKenBurnsEnabled] = useState(false);
@@ -507,25 +520,147 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
         {/* Right: NLE Professional Inspector Tabs */}
         <div className="w-[380px] lg:w-[420px] bg-[#121722] flex flex-col shrink-0 border-l border-white/10 select-none">
           <Tabs value={activeInspectorTab} onValueChange={(v: any) => setActiveInspectorTab(v)} className="flex-1 flex flex-col h-full">
-            <TabsList className="h-9 bg-black/40 border-b border-white/10 rounded-none grid grid-cols-5 p-0.5">
-              <TabsTrigger value="subtitles" className="text-[11px] h-8 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
+            <TabsList className="h-9 bg-black/40 border-b border-white/10 rounded-none grid grid-cols-7 p-0.5">
+              <TabsTrigger value="script" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
+                대본
+              </TabsTrigger>
+              <TabsTrigger value="style" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
+                스타일
+              </TabsTrigger>
+              <TabsTrigger value="subtitles" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
                 자막
               </TabsTrigger>
-              <TabsTrigger value="transitions" className="text-[11px] h-8 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
+              <TabsTrigger value="transitions" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
                 전환
               </TabsTrigger>
-              <TabsTrigger value="watermark" className="text-[11px] h-8 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
+              <TabsTrigger value="watermark" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
                 워터마크
               </TabsTrigger>
-              <TabsTrigger value="audio" className="text-[11px] h-8 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
+              <TabsTrigger value="audio" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
                 오디오
               </TabsTrigger>
-              <TabsTrigger value="scene" className="text-[11px] h-8 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
+              <TabsTrigger value="scene" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
                 씬속성
               </TabsTrigger>
             </TabsList>
 
-            {/* Tab 1: Subtitles Inspector */}
+            {/* Tab 1: Script Inspector */}
+            <TabsContent value="script" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <Wand2 className="w-3.5 h-3.5 text-blue-400" /> AI 대본 생성 & 스토리라인
+                </span>
+                <p className="text-[11px] text-slate-400">아이디어를 입력하면 AI가 쇼츠/롱폼에 최적화된 씬별 대본을 작성합니다.</p>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <Textarea
+                  value={scriptInput}
+                  onChange={(e) => onScriptInputChange?.(e.target.value)}
+                  placeholder="주제, 핵심 키워드, 스토리 구상, 시청자 타겟 등을 자유롭게 입력하세요..."
+                  className="min-h-[90px] text-xs bg-black/30 border-white/15 text-slate-200 rounded-xl"
+                />
+
+                {onGenerateScript && (
+                  <Button
+                    onClick={onGenerateScript}
+                    disabled={isGeneratingScript || !scriptInput.trim()}
+                    className="w-full h-8.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl gap-1.5 shadow-md"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {isGeneratingScript ? 'AI 대본 작성 중...' : '✨ AI 대본 자동 생성 및 씬 분할'}
+                  </Button>
+                )}
+              </div>
+
+              <div className="border-t border-white/10 pt-2.5 space-y-2">
+                <Label className="text-[11px] font-bold text-slate-300">현재 씬 대본 목록 ({scenes.length}개 씬)</Label>
+                <div className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+                  {scenes.map((sc, idx) => (
+                    <div
+                      key={sc.id}
+                      onClick={() => {
+                        setSelectedSceneIndex(idx);
+                        onSelectScene?.(idx);
+                      }}
+                      className={`p-2 rounded-lg border text-left cursor-pointer transition-colors ${selectedSceneIndex === idx ? 'bg-blue-600/20 border-blue-400/60 text-white' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
+                        <span className="font-bold text-blue-400">씬 #{sc.scene_id}</span>
+                        <span>{sc.duration || 3.5}s</span>
+                      </div>
+                      <p className="text-[11px] line-clamp-2 leading-relaxed">{sc.script || '— 대본 없음 —'}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Tab 2: Visual Style Inspector */}
+            <TabsContent value="style" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <LayoutGrid className="w-3.5 h-3.5 text-purple-400" /> 화풍 & 아트 스타일 프리셋
+                </span>
+                <p className="text-[11px] text-slate-400">원하는 화풍을 선택하면 비주얼 프롬프트에 자동으로 적용됩니다.</p>
+              </div>
+
+              {/* Search & Categories */}
+              <div className="space-y-1.5 pt-1">
+                <input
+                  type="text"
+                  placeholder="스타일 검색 (예: 수묵화, 웹툰, 시네마틱...)"
+                  value={styleSearchQuery}
+                  onChange={(e) => setStyleSearchQuery(e.target.value)}
+                  className="w-full h-7.5 px-2.5 text-xs bg-black/30 border border-white/15 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-purple-400"
+                />
+
+                <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar text-[10px]">
+                  {['all', 'webtoon', 'anime', 'cinematic', 'realism', '3d', 'oriental'].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedStyleCategory(cat)}
+                      className={`px-2 py-0.5 rounded-md font-medium whitespace-nowrap transition-colors ${selectedStyleCategory === cat ? 'bg-purple-600 text-white font-bold' : 'bg-black/30 text-slate-400 hover:text-slate-200'}`}
+                    >
+                      {cat === 'all' ? '전체' : cat === 'webtoon' ? '웹툰' : cat === 'anime' ? '애니' : cat === 'cinematic' ? '시네마틱' : cat === 'realism' ? '실사' : cat === '3d' ? '3D' : '동양화/사극'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Style Presets Grid */}
+              <div className="grid grid-cols-2 gap-2 max-h-[320px] overflow-y-auto pr-1">
+                {(STYLE_PRESETS?.styles || [])
+                  .filter((s: any) => {
+                    const matchQ = !styleSearchQuery || (s.name || '').toLowerCase().includes(styleSearchQuery.toLowerCase()) || (s.category || '').toLowerCase().includes(styleSearchQuery.toLowerCase());
+                    const matchCat = selectedStyleCategory === 'all' || (s.category || '').toLowerCase().includes(selectedStyleCategory.toLowerCase());
+                    return matchQ && matchCat;
+                  })
+                  .slice(0, 40)
+                  .map((st: any) => (
+                    <div
+                      key={st.id}
+                      onClick={() => {
+                        if (onApplyStylePromptToAll) {
+                          onApplyStylePromptToAll(st.prompt || st.name);
+                        } else if (onUpdateScene && selectedScene) {
+                          onUpdateScene(selectedScene.id, { visual_prompt: `${selectedScene.visual_prompt || ''}, ${st.prompt || st.name}`.trim() });
+                          toast.success(`Scene #${selectedScene.scene_id}에 ${st.name} 화풍이 적용되었습니다.`);
+                        }
+                      }}
+                      className="p-2.5 rounded-xl border border-white/10 bg-black/25 hover:bg-purple-600/20 hover:border-purple-400/60 cursor-pointer transition-all flex flex-col gap-1 text-left group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-200 group-hover:text-purple-300">{st.name}</span>
+                        <Sparkle className="w-3 h-3 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <span className="text-[9.5px] text-slate-400 line-clamp-1">{st.category || '화풍'}</span>
+                    </div>
+                  ))}
+              </div>
+            </TabsContent>
+
+            {/* Tab 3: Subtitles Inspector */}
             <TabsContent value="subtitles" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-bold text-slate-300">⚡ 원클릭 캡컷 스타일 템플릿</Label>

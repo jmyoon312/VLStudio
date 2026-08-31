@@ -1430,7 +1430,7 @@ export default function AudioTimeline({
           else isGlobalPlayingRef.current = !isGlobalPlayingRef.current;
         }}
         onResetPlayhead={() => setPlayheadMs(0)}
-        onFitTimeline={zoomFit}
+        onFitTimeline={handleFitToWidth}
       />
 
       {/* 헤더 버튼 hover 툴팁 (label + desc + hotkey) */}

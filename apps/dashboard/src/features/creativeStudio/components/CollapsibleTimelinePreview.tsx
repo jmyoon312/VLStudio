@@ -51,6 +51,11 @@ interface Props {
   isFlowBatchGenerating?: boolean;
   onGenerateSceneFlow?: (scene: SceneItem) => void;
   onUpdateScene?: (sceneId: string, patch: Partial<SceneItem>) => void;
+  scriptInput?: string;
+  onScriptInputChange?: (val: string) => void;
+  onGenerateScript?: () => void;
+  isGeneratingScript?: boolean;
+  onApplyStylePromptToAll?: (prompt: string) => void;
 }
 
 export const CollapsibleTimelinePreview: React.FC<Props> = ({
@@ -76,6 +81,11 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   isFlowBatchGenerating,
   onGenerateSceneFlow,
   onUpdateScene,
+  scriptInput,
+  onScriptInputChange,
+  onGenerateScript,
+  isGeneratingScript,
+  onApplyStylePromptToAll,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenPlayheadMs, setFullscreenPlayheadMs] = useState(0);
@@ -407,6 +417,11 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             isFlowBatchGenerating={isFlowBatchGenerating}
             onGenerateSceneFlow={onGenerateSceneFlow}
             onUpdateScene={onUpdateScene}
+            scriptInput={scriptInput}
+            onScriptInputChange={onScriptInputChange}
+            onGenerateScript={onGenerateScript}
+            isGeneratingScript={isGeneratingScript}
+            onApplyStylePromptToAll={onApplyStylePromptToAll}
           />
         </div>
       )}

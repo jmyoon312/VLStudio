@@ -2379,6 +2379,19 @@ const CreativeStudio = () => {
                 isFlowBatchGenerating={isFlowBatchGenerating}
                 onGenerateSceneFlow={(s) => handleGenerateImage(s.scene_id, s.id, s.visual_prompt)}
                 onUpdateScene={updateScene}
+                scriptInput={scriptInput}
+                onScriptInputChange={setScriptInput}
+                onGenerateScript={handleGenerateScript}
+                isGeneratingScript={isGeneratingScript}
+                onApplyStylePromptToAll={(promptText) => {
+                    if (!scenes || scenes.length === 0) return;
+                    const updated = scenes.map(s => ({
+                        ...s,
+                        visual_prompt: `${s.visual_prompt || ''}, ${promptText}`.trim()
+                    }));
+                    setScenes(updated);
+                    toast.success(`전체 ${scenes.length}개 씬에 [${promptText}] 화풍이 적용되었습니다.`);
+                }}
             />
 
             {/* Zone 3: Scene Board */}
