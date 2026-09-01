@@ -5,6 +5,34 @@ import path from 'path';
 export default defineConfig({
     base: './',
     cacheDir: './.vite-clean',
+    optimizeDeps: {
+        include: [
+            'react',
+            'react-dom',
+            'react-router-dom',
+            'lucide-react',
+            'axios',
+            'clsx',
+            'tailwind-merge',
+            'sonner',
+            'framer-motion',
+            'lexical',
+            '@lexical/react/LexicalComposer',
+            '@lexical/react/LexicalContentEditable',
+            '@lexical/react/LexicalRichTextPlugin',
+            '@lexical/react/LexicalHistoryPlugin',
+            '@lexical/react/LexicalErrorBoundary',
+            '@lexical/react/LexicalComposerContext',
+            '@lexical/react/LexicalPlainTextPlugin',
+            'lexical-beautiful-mentions',
+            '@tanstack/react-virtual',
+            '@tanstack/virtual-core',
+            '@dnd-kit/core',
+            '@dnd-kit/sortable',
+            '@dnd-kit/utilities',
+            'react-error-boundary',
+        ]
+    },
     plugins: [react()],
     resolve: {
         alias: {

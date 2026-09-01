@@ -21,10 +21,25 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass-through for dynamic API requests, network first
-  if (event.request.url.includes('/api/')) {
+  const url = event.request.url;
+
+  // Pass-through for dynamic API requests, Vite dev server modules, hot-reloads, and WebSocket/media streams
+  if (
+    url.includes('/api/') ||
+    url.includes('/media/') ||
+    url.includes('/files/') ||
+    url.includes('/temp/') ||
+    url.includes('/node_modules/') ||
+    url.includes('/.vite/') ||
+    url.includes('/@') ||
+    url.includes('/src/') ||
+    url.includes('?v=') ||
+    url.includes('?import') ||
+    url.includes('hot-update')
+  ) {
     return;
   }
+
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );

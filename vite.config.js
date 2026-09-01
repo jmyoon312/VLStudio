@@ -116,6 +116,15 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        'lucide-react',
+        'axios',
+        'clsx',
+        'tailwind-merge',
+        'sonner',
+        'framer-motion',
         'lexical',
         '@lexical/react/LexicalComposer',
         '@lexical/react/LexicalContentEditable',
@@ -127,6 +136,9 @@ export default defineConfig(({ mode }) => {
         'lexical-beautiful-mentions',
         '@tanstack/react-virtual',
         '@tanstack/virtual-core',
+        '@dnd-kit/core',
+        '@dnd-kit/sortable',
+        '@dnd-kit/utilities',
         'react-error-boundary',
       ]
     },
