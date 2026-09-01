@@ -420,7 +420,7 @@ export function registerCapcutIPC(ipcMain) {
             const isFirstSceneImage = media.targetName.startsWith('Resources/media_scene_1.') && !media.targetName.includes('_video');
             if (media.isBase64 && media.source) {
               console.log(`[CapCut IPC] Saving base64 image as: ${media.targetName}`);
-              const base64Data = media.source.replace(/^data:image\/[^;]+;base64,/, '')
+              const base64Data = media.source.replace(/^data:[^;]+;base64,/, '')
               await fs.writeFile(destPath, Buffer.from(base64Data, 'base64'))
               
               // Also create a draft_cover.jpg from the first image

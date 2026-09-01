@@ -859,7 +859,7 @@ export async function generateCapcutProject(project, options = {}) {
 
       let textColor = customTextColorRgb;
       // fontSize를 CapCut 좌표계로 변환 (사용자 설정값을 직접 사용하되, 범위 제한)
-      let subFontSize = subCfg.fontSize ? Math.max(6.0, Math.min(48.0, subCfg.fontSize)) : fontSize;
+      let subFontSize = subCfg.fontSize ? Math.max(4.0, Math.min(12.0, subCfg.fontSize * 0.15)) : fontSize;
 
       if (trackType === 'situation') {
         targetTrack = situationTrack;
