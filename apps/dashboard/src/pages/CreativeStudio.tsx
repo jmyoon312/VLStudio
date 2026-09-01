@@ -1515,6 +1515,17 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                     if (scene.media_url.startsWith('data:')) {
                         // base64 data URL
                         base64Data = scene.media_url.replace(/^data:[^;]+;base64,/, '');
+                    } else if (scene.media_url.startsWith('http://') || scene.media_url.startsWith('https://')) {
+                        // HTTP URL → fetch로 다운로드 후 base64로 변환
+                        try {
+                            const fetchRes = await fetch(scene.media_url);
+                            const blob = await fetchRes.blob();
+                            const reader = new FileReader();
+                            base64Data = await new Promise<string>((resolve) => {
+                                reader.onloadend = () => resolve(reader.result?.toString().split(',')[1] || '');
+                                reader.readAsDataURL(blob);
+                            });
+                        } catch (e) { console.warn('[CreativeStudio] Failed to fetch HTTP image for upload:', e.message); }
                     } else if (scene.media_url.startsWith('file://') || scene.media_url.includes(':/') || scene.media_url.startsWith('/')) {
                         // 로컬 파일 경로 → Electron에서 base64로 변환
                         try {

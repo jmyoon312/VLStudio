@@ -516,14 +516,31 @@ export function registerVideoIPC(ipcMain, deps) {
     // startImage가 로컬 파일 경로인 경우 base64로 자동 변환
     let rawStartImage = startImage || startImageMediaId
     if (typeof rawStartImage === 'string') {
-      if ((rawStartImage.includes(':\\') || rawStartImage.includes(':/') || rawStartImage.startsWith('/')) && fs.existsSync(rawStartImage)) {
+      // file:// 프로토콜 제거 후 실제 파일 경로 확인
+      const cleanPath = rawStartImage.replace('file:///', '').replace('file://', '')
+      if ((cleanPath.includes(':\\') || cleanPath.includes(':/') || cleanPath.startsWith('/')) && fs.existsSync(cleanPath)) {
         try {
-          const fileBuf = fs.readFileSync(rawStartImage)
+          const fileBuf = fs.readFileSync(cleanPath)
           rawStartImage = `data:image/png;base64,${fileBuf.toString('base64')}`
-          console.log('[Flow Video I2V] Loaded startImage from local disk file:', rawStartImage.substring(0, 40))
+          console.log('[Flow Video I2V] Loaded startImage from local disk file:', cleanPath.substring(0, 60))
         } catch (readErr) {
           console.warn('[Flow Video I2V] Failed to read local disk startImage:', readErr.message)
         }
+      }
+    }
+
+    // startImage가 HTTP URL인 경우 다운로드 후 base64로 변환
+    if (!effectiveStartMediaId && typeof rawStartImage === 'string' && (rawStartImage.startsWith('http://') || rawStartImage.startsWith('https://'))) {
+      try {
+        const resp = await net.fetch(rawStartImage)
+        if (resp.ok) {
+          const arrBuf = await resp.arrayBuffer()
+          const b64 = Buffer.from(arrBuf).toString('base64')
+          rawStartImage = `data:image/png;base64,${b64}`
+          console.log('[Flow Video I2V] Downloaded HTTP startImage → base64 length:', b64.length)
+        }
+      } catch (fetchErr) {
+        console.warn('[Flow Video I2V] Failed to download HTTP startImage:', fetchErr.message)
       }
     }
 
