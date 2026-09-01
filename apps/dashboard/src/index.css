@@ -81,7 +81,12 @@
     --font-sans:         var(--font-wanted-sans);
     --font-mono:         'JetBrains Mono', 'Fira Code', monospace;
 
-    /* --- 12. 레이아웃 --- */
+    /* --- 12. 스튜디오 패널 (CapCutStudioWorkspace 등) --- */
+    --studio-bg:         oklch(0.985 0.002 255);      /* 라이트 모드: 메인 배경과 동일 */
+    --studio-panel:      oklch(1 0 0);                /* 라이트 모드: 카드 배경과 동일 */
+    --studio-surface:    oklch(0.965 0.005 255);      /* 라이트 모드: 뮤트 배경 */
+
+    /* --- 13. 레이아웃 --- */
     --sidebar-width:     288px;
     --header-height:     56px;
   }
@@ -145,6 +150,11 @@
     --shadow-xl:         0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.5);
     --shadow-2xl:        0 25px 50px -12px rgb(0 0 0 / 0.7);
     --shadow-inner:      inset 0 2px 4px 0 rgb(0 0 0 / 0.4);
+
+    /* --- 11. 스튜디오 패널 (CapCutStudioWorkspace 등) --- */
+    --studio-bg:         oklch(0.08 0.012 255);       /* #0b0e14 - 깊은 다크 배경 */
+    --studio-panel:      oklch(0.11 0.015 255);       /* #121722 - 패널 배경 */
+    --studio-surface:    oklch(0.09 0.012 255);       /* #0a0d14 - 서피스 배경 */
   }
 }
 

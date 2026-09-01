@@ -55,6 +55,7 @@ apps/dashboard/public/test_font.woff2
 # OpenCode (ignore node_modules, keep memory and skills)
 .opencode/node_modules/
 .opencode/package-lock.json
+.opencode/.gitignore
 
 apps/api/models*/
 apps/api/temp/
@@ -77,10 +78,10 @@ apps/api/app/legacy_ddalkkak/db/*.sqlite*
 # Non-essential / workflow / test bundles
 infra/workflows/
 .agent/
-skills/
-docs/
-tests/
-story/
+/skills/
+/docs/
+/tests/
+/story/
 /src/
 test_*.js
 test_*.mjs
