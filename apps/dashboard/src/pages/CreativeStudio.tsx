@@ -2122,6 +2122,25 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
         setExportLoading(true);
         setExportPhase('processing');
         try {
+            // URL 기반 비디오를 로컬 파일로 사전 다운로드
+            setExportPhase('downloading-videos');
+            for (let idx = 0; idx < currentScenes.length; idx++) {
+                const seg = currentScenes[idx];
+                const hasVideoUrl = seg.video_url && !seg.video_path;
+                if (hasVideoUrl && window.electronAPI?.downloadVideo) {
+                    try {
+                        console.log(`[Export] Pre-downloading video for scene ${idx}: ${seg.video_url}`);
+                        const result = await window.electronAPI.downloadVideo({ url: seg.video_url, sceneId: idx });
+                        if (result.success && result.path) {
+                            currentScenes[idx] = { ...currentScenes[idx], video_path: result.path };
+                            console.log(`[Export] Video downloaded to: ${result.path}`);
+                        }
+                    } catch (e) {
+                        console.warn(`[Export] Failed to pre-download video for scene ${idx}:`, e);
+                    }
+                }
+            }
+
             const aspectRatio = segmentMode === 'shorts' ? "9:16" : "16:9";
             
             const mappedScenes = [];

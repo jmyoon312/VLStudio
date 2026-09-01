@@ -215,6 +215,42 @@ export function registerCapcutIPC(ipcMain) {
   })
 
   // ----------------------------------------------------------
+  // 2.5 capcut:download-video
+  //
+  // Download a video from URL to a local temp file.
+  // Returns the local file path for use in export.
+  // ----------------------------------------------------------
+  ipcMain.handle('capcut:download-video', async (_event, { url, sceneId }) => {
+    try {
+      if (!url || !url.startsWith('http')) {
+        return { success: false, error: 'Invalid URL' };
+      }
+      
+      const tempDir = path.join(os.tmpdir(), 'viralloop', 'video_downloads');
+      await fs.mkdir(tempDir, { recursive: true });
+      
+      const filename = `scene_${sceneId}_video_${Date.now()}.mp4`;
+      const destPath = path.join(tempDir, filename);
+      
+      console.log(`[CapCut IPC] Downloading video from URL: ${url} -> ${destPath}`);
+      
+      const response = await net.fetch(url);
+      if (!response.ok) {
+        return { success: false, error: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      
+      const buffer = Buffer.from(await response.arrayBuffer());
+      await fs.writeFile(destPath, buffer);
+      
+      console.log(`[CapCut IPC] Video downloaded successfully: ${destPath} (${buffer.length} bytes)`);
+      return { success: true, path: destPath };
+    } catch (error) {
+      console.error(`[CapCut IPC] Error downloading video:`, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ----------------------------------------------------------
   // 3. capcut:write-project
   //
   // Write a complete CapCut project folder structure.
