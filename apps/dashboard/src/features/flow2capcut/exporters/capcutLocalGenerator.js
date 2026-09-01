@@ -579,7 +579,7 @@ export async function generateCapcutProject(project, options = {}) {
 
     // [영상 오버레이 처리] (이미지가 있고 생성된 비디오도 함께 있는 경우)
     const videoPath = scene.video_path || scene.videoPath;
-    const videoDurationSec = scene.video_duration || 0;
+    const videoDurationSec = scene.video_duration || duration || 0;
     if (imageSource && videoPath && videoDurationSec > 0) {
       const videoMaterialId = generateId();
       const videoSegmentId = generateId();

@@ -2143,6 +2143,7 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                     id: `scene_${idx}`,
                     duration: sceneDurationSec,
                     image_duration: sceneDurationSec,
+                    video_duration: sceneDurationSec,
                     media_path: seg.media_path,
                     video_path: seg.video_path || seg.video_url || null,
                     media_url: seg.media_url,
