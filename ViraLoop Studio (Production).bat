@@ -1,10 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
-title ViraLoop Studio (Development Mode)
+title ViraLoop Studio (Production Mode)
 
 echo ===================================================
-echo   ViraLoop Studio - Development Mode
-echo   (Electron + Real-time HMR Dev Server)
+echo   ViraLoop Studio - High Performance Production
+echo   (FastAPI Backend + Optimized Web Dashboard)
 echo ===================================================
 echo.
 
@@ -16,16 +16,16 @@ start "ViraLoop FastAPI Backend" /min cmd /c "cd /d "%ROOT_DIR%apps\api" && "%RO
 
 timeout /t 2 /nobreak >nul
 
-echo [*] Launching ViraLoop Studio (Electron + Vite Dev at port 5183)...
+echo [*] Starting High-Performance Dashboard Server (Port 5183)...
 echo [*] Local Access:  http://localhost:5183
 echo [*] Remote Tunnel: https://viraloop.gogloo.gleeze.com
 echo.
 
-call npm run dev
+call npm run preview:dashboard
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ===================================================
-    echo [ERROR] ViraLoop Studio terminated unexpectedly!
+    echo [ERROR] Dashboard server stopped unexpectedly!
     echo ===================================================
     pause
 )

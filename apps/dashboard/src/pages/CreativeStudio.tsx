@@ -21,21 +21,27 @@ import {
     List, Search, Grid3X3, LayoutGrid, FolderOpen, Type, Sparkle
 } from "lucide-react";
 import { cn } from '@/lib/utils';
-import TTSSettingsDialog from '@/components/TTSSettingsDialog';
-import MotionSettingsDialog from '@/components/MotionSettingsDialog';
-import SubtitleSettingsDialog, { SubtitleConfig } from '@/components/SubtitleSettingsDialog';
-import AudioSettingsDialog, { AudioConfig } from '@/components/AudioSettingsDialog';
 import { v4 as uuidv4 } from 'uuid';
 import AIModelSelector from '@/components/shared/AIModelSelector';
-import { StyleGalleryModal } from '@/components/shared/StyleGalleryModal';
-import { ExportModal } from '../features/flow2capcut/components/ExportModal';
+import type { SubtitleConfig } from '@/components/SubtitleSettingsDialog';
+import type { AudioConfig } from '@/components/AudioSettingsDialog';
+import type { WatermarkConfig } from '../features/creativeStudio/components/WatermarkSettingsDialog';
+import type { TransitionConfig } from '../features/creativeStudio/components/TransitionSettingsDialog';
 import { generateCapcutProject } from '../features/flow2capcut/exporters/capcutLocalGenerator';
 import { generateSRT } from '../features/flow2capcut/exporters/capcut';
-import { WatermarkSettingsDialog, WatermarkConfig } from '../features/creativeStudio/components/WatermarkSettingsDialog';
-import { TransitionSettingsDialog, TransitionConfig } from '../features/creativeStudio/components/TransitionSettingsDialog';
-import { CollapsibleTimelinePreview } from '../features/creativeStudio/components/CollapsibleTimelinePreview';
-import { ProjectManagerDialog } from '../features/creativeStudio/components/ProjectManagerDialog';
 import { flowQueue, QueueState } from '../features/flow2capcut/services/flowQueueManager';
+
+// Lazy-load secondary dialogs and complex timeline previews
+const TTSSettingsDialog = React.lazy(() => import('@/components/TTSSettingsDialog'));
+const MotionSettingsDialog = React.lazy(() => import('@/components/MotionSettingsDialog'));
+const SubtitleSettingsDialog = React.lazy(() => import('@/components/SubtitleSettingsDialog'));
+const AudioSettingsDialog = React.lazy(() => import('@/components/AudioSettingsDialog'));
+const StyleGalleryModal = React.lazy(() => import('@/components/shared/StyleGalleryModal').then(m => ({ default: m.StyleGalleryModal })));
+const ExportModal = React.lazy(() => import('../features/flow2capcut/components/ExportModal').then(m => ({ default: m.ExportModal })));
+const WatermarkSettingsDialog = React.lazy(() => import('../features/creativeStudio/components/WatermarkSettingsDialog').then(m => ({ default: m.WatermarkSettingsDialog })));
+const TransitionSettingsDialog = React.lazy(() => import('../features/creativeStudio/components/TransitionSettingsDialog').then(m => ({ default: m.TransitionSettingsDialog })));
+const CollapsibleTimelinePreview = React.lazy(() => import('../features/creativeStudio/components/CollapsibleTimelinePreview').then(m => ({ default: m.CollapsibleTimelinePreview })));
+const ProjectManagerDialog = React.lazy(() => import('../features/creativeStudio/components/ProjectManagerDialog').then(m => ({ default: m.ProjectManagerDialog })));
 
 interface SceneSegment {
     id: string; // Unique ID for frontend tracking
@@ -3684,6 +3690,7 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                     setNegativePrompt(prev => prev || "text, words, fonts, speech bubbles, dialog, comic panels, watermark, signature, UI");
                 }}
             />
+            {isExportModalOpen && (
             <ExportModal
                 isOpen={isExportModalOpen}
                 onClose={() => setIsExportModalOpen(false)}
@@ -3694,6 +3701,7 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                 hasSubtitles={scenes.some(seg => seg.script && seg.script.trim().length > 0)}
                 onUpgradeClick={() => { /* Handled elsewhere if needed */ }}
             />
+            )}
 
             {/* Watermark Dialog */}
             <WatermarkSettingsDialog

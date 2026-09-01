@@ -893,6 +893,8 @@ export const PixelingImportDialog = ({ isOpen, setIsOpen, onSuccess }: Props) =>
         );
     };
 
+    if (!isOpen) return null;
+
     return (
         <Dialog open={isOpen} onOpenChange={(v) => { setIsOpen(v); if (!v) reset(); }}>
             <DialogContent className="max-w-6xl max-h-[94vh] flex flex-col p-0 gap-0 overflow-hidden bg-card text-foreground border-border">

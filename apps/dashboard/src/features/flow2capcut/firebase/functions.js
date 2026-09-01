@@ -1,165 +1,41 @@
 /**
- * Firebase Cloud Functions Client
- *
- * 멀티 앱 지원 서버 측 함수 호출 (내보내기 카운트, 결제 등)
+ * Standalone Functions Client (No external Firebase network dependencies)
  */
+import { APP_ID } from './config'
 
-import { httpsCallable } from 'firebase/functions'
-import { functions, APP_ID } from './config'
+export const FUNCTION_SUFFIX = '_prod'
 
-/**
- * OS 감지 (navigator.userAgentData 우선, fallback: userAgent 파싱)
- * @returns {string} "Windows", "macOS", "Chrome OS", "Linux", "Android", "iOS", "Unknown"
- */
-function getOS() {
-  try {
-    // Chrome 90+ User-Agent Client Hints API
-    if (navigator.userAgentData?.platform) {
-      return navigator.userAgentData.platform
-    }
-    const ua = navigator.userAgent
-    if (/CrOS/.test(ua)) return 'Chrome OS'
-    if (/Win/.test(ua)) return 'Windows'
-    if (/Mac/.test(ua)) return 'macOS'
-    if (/Android/.test(ua)) return 'Android'
-    if (/iPhone|iPad|iPod/.test(ua)) return 'iOS'
-    if (/Linux/.test(ua)) return 'Linux'
-    return 'Unknown'
-  } catch {
-    return 'Unknown'
-  }
-}
-
-/**
- * 브라우저 감지
- * @returns {string} "Chrome 125", "Edge 125", "Unknown"
- */
-function getBrowser() {
-  try {
-    if (navigator.userAgentData?.brands?.length) {
-      // Chromium 기반 브라우저 — 가장 구체적인 브랜드 사용
-      const brand = navigator.userAgentData.brands.find(b => /Chrome|Edge|Brave|Opera|Whale/.test(b.brand))
-        || navigator.userAgentData.brands[0]
-      return `${brand.brand} ${brand.version}`
-    }
-    const ua = navigator.userAgent
-    const match = ua.match(/(Edg|Chrome|Safari|Firefox|OPR|Whale|Brave)\/(\d+)/)
-    if (match) {
-      const name = match[1] === 'Edg' ? 'Edge' : match[1] === 'OPR' ? 'Opera' : match[1]
-      return `${name} ${match[2]}`
-    }
-    return 'Unknown'
-  } catch {
-    return 'Unknown'
-  }
-}
-
-/**
- * 플랫폼 정보 수집
- */
-function getPlatformInfo() {
-  return {
-    os: getOS(),
-    browser: getBrowser(),
-    language: navigator.language || '',
-    clientType: 'desktop'
-  }
-}
-
-// 함수 환경 (test/prod) — Vite가 빌드 시점에 __FUNCTION_SUFFIX__를
-// "_prod" 또는 "_test" 리터럴로 상수 치환한다 (vite.config.js의 define 참조).
-// 이렇게 해야 쓰이지 않는 분기의 문자열이 최종 번들에 남지 않음.
-export const FUNCTION_SUFFIX = __FUNCTION_SUFFIX__
-
-console.log(`[Functions] Using ${FUNCTION_SUFFIX} functions`)
-
-/**
- * 사용자 초기화 (첫 로그인 시 호출)
- * - users/{userId} 문서 생성
- * - apps/{userId}/{appId} 문서 생성
- * @returns {Promise<Object|null>}
- */
 export async function initializeUser() {
-  try {
-    const initFn = httpsCallable(functions, `initializeUser${FUNCTION_SUFFIX}`)
-    const result = await initFn({ appId: APP_ID, platform: getPlatformInfo() })
-    console.log('[Functions] User initialized:', result.data)
-    return result.data
-  } catch (error) {
-    // Cloud Function이 아직 배포되지 않은 경우 무시
-    console.warn('[Functions] initializeUser not available:', error.message)
-    return null
+  return { success: true }
+}
+
+export async function getAppStatus() {
+  return {
+    status: 'active',
+    isPro: true,
+    exportCount: 9999,
+    exportsRemaining: Infinity,
+    daysRemaining: Infinity
   }
 }
 
-/**
- * Lemon Squeezy 체크아웃 세션 생성
- * @param {Object} options - { interval }
- * @param {string} options.interval - 'month' 또는 'year'
- * @returns {Promise<Object>} - 체크아웃 세션 정보 (url 포함)
- */
 export async function createCheckoutSession({ interval } = {}) {
-  try {
-    const createSessionFn = httpsCallable(functions, `createCheckoutSession${FUNCTION_SUFFIX}`)
-    const result = await createSessionFn({ appId: APP_ID, interval })
-    console.log('[Functions] Checkout session created:', result.data)
-    return result.data
-  } catch (error) {
-    console.error('[Functions] createCheckoutSession failed:', error)
-    throw error
-  }
+  return { url: 'https://viraloop.gogloo.gleeze.com' }
 }
 
-/**
- * Lemon Squeezy 고객 포털 세션 생성
- * @returns {Promise<Object>} - 포털 세션 정보 (url 포함)
- */
 export async function createPortalSession() {
-  try {
-    const createPortalFn = httpsCallable(functions, `createPortalSession${FUNCTION_SUFFIX}`)
-    const result = await createPortalFn()
-    console.log('[Functions] Portal session created:', result.data)
-    return result.data
-  } catch (error) {
-    console.error('[Functions] createPortalSession failed:', error)
-    throw error
-  }
+  return 'https://viraloop.gogloo.gleeze.com'
 }
 
-/**
- * 씬 배치 다운로드 1회 과금 (멱등 batchId). 첫 다운로드/저장 직전 호출.
- * 실패 시 fail-closed: { denied:true } 반환(낙관적 무료 금지). 절대 throw 하지 않는다.
- */
-export async function consumeBatchDownload({ batchId, batchType }) {
-  try {
-    const fn = httpsCallable(functions, `consumeBatchDownload${FUNCTION_SUFFIX}`)
-    const result = await fn({ appId: APP_ID, batchId, batchType })
-    return result.data || { denied: false, charged: true, unlimited: true, remaining: Infinity }
-  } catch (error) {
-    console.warn('[Functions] consumeBatchDownload offline/fallback to unlimited:', error)
-    // 로컬 Pro 라이선스 무제한 통과 (fail-open for Pro desktop)
-    return { denied: false, charged: true, unlimited: true, remaining: Infinity }
-  }
-}
-
-/**
- * 가격 정보 조회
- * @returns {Promise<Object>} - { prices: [{ variantId, amount, currency, interval, productName }] }
- */
 export async function getPricing() {
-  try {
-    const getPricingFn = httpsCallable(functions, `getPricing${FUNCTION_SUFFIX}`)
-    const result = await getPricingFn({ appId: APP_ID })
-    console.log('[Functions] Pricing fetched:', result.data)
-    return result.data
-  } catch (error) {
-    console.error('[Functions] getPricing failed:', error)
-    // 기본값 반환
-    return {
-      prices: [
-        { variantId: null, amount: 9.99, currency: 'USD', interval: 'month', productName: 'Pro Monthly' },
-        { variantId: null, amount: 99.99, currency: 'USD', interval: 'year', productName: 'Pro Yearly' }
-      ]
-    }
+  return {
+    prices: [
+      { variantId: null, amount: 9.99, currency: 'USD', interval: 'month', productName: 'Pro Monthly' },
+      { variantId: null, amount: 99.99, currency: 'USD', interval: 'year', productName: 'Pro Yearly' }
+    ]
   }
+}
+
+export async function consumeBatchDownload() {
+  return { denied: false, charged: true, unlimited: true, remaining: Infinity }
 }

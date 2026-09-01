@@ -1,7 +1,7 @@
 /**
  * ModeContext — 앱 전역 생성 모드 공급. value = useAppMode() 반환.
  */
-import { createContext, useContext } from 'react'
+import React, { createContext, useContext } from 'react'
 import { useAppMode } from '../hooks/useAppMode'
 
 const ModeContext = createContext(null)

@@ -1,5 +1,21 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+
+// Guarantee single React instance across all dynamic/pre-bundled chunks
+if (typeof window !== 'undefined') {
+  (window as any).React = React;
+  (window as any).ReactDOM = ReactDOM;
+
+  // Unregister stale service workers to prevent Response errors & caching issues
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister();
+      }
+    }).catch(() => {});
+  }
+}
+
 import App from './App'
 import './index.css'
 import axios from 'axios'

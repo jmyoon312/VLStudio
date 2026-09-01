@@ -177,15 +177,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     };
 
     const { user, subscription, logout, activeProfile } = useAuth();
-    const { avatarSrc: cachedAvatarSrc } = useCachedAvatar(user?.photoURL);
-    const [avatarFetchFailed, setAvatarFetchFailed] = React.useState(false);
+    const { src: cachedAvatarSrc, onImageError: handleAvatarError } = useCachedAvatar(user?.photoURL || null);
     const [accountOpen, setAccountOpen] = React.useState(false);
     const [profileManagerOpen, setProfileManagerOpen] = React.useState(false);
     const [portalLoading, setPortalLoading] = React.useState(false);
-
-    const handleAvatarError = () => {
-        setAvatarFetchFailed(true);
-    };
 
     const handleManageSubscription = async () => {
         try {

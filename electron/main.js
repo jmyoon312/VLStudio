@@ -46,6 +46,7 @@ import { selectCdpCase } from './video-cdp-dispatch.js'
 import { loadProfiles, saveProfiles, switchProfile, createProfile, deleteProfile, updateProfile, cleanupUnusedPartitions } from './profileManager.js'
 import { injectImageBatchBody } from './cdp-image-inject.js'
 import { AGENT_OFF_SCRIPT } from './flow-agent-toggle.js'
+import { hotPatcher } from './hot-patcher.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -943,16 +944,24 @@ function createWindow() {
     console.log('[Orchestration] Loading React app from dev server URL:', process.env.VITE_DEV_SERVER_URL)
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
-    // If running in development (not packaged), prioritize loading from Vite dev port 5183 if available
+    // 1. Check Hot-Patch bundle first, then local built bundles
     const candidatePaths = [
+      path.join(hotPatcher.getHotpatchDir(), 'index.html'),
       path.join(__dirname, '..', 'apps', 'dashboard', 'dist', 'index.html'),
       path.join(__dirname, '..', 'dist', 'index.html'),
       path.join(process.resourcesPath, 'apps', 'dashboard', 'dist', 'index.html'),
       path.join(process.resourcesPath, 'dist', 'index.html')
     ]
-    let indexPath = candidatePaths.find(p => fsSync.existsSync(p)) || candidatePaths[0]
+    let indexPath = candidatePaths.find(p => fsSync.existsSync(p)) || candidatePaths[1]
     console.log('[Orchestration] Loading React app from local file:', indexPath)
     mainWindow.loadFile(indexPath)
+
+    // Trigger background OTA Hot-Patch check
+    setTimeout(() => {
+      hotPatcher.checkForUpdate(app.getVersion(), BUILD_NUMBER).catch(err => {
+        console.warn('[HotPatcher] Background update check ignored:', err.message);
+      });
+    }, 3000);
   }
 
   mainWindow.webContents.on('did-fail-load', (e, code, desc, url) => {

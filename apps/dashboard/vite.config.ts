@@ -4,7 +4,6 @@ import path from 'path';
 
 export default defineConfig({
     base: './',
-    cacheDir: './.vite-clean',
     optimizeDeps: {
         include: [
             'react',
@@ -35,14 +34,17 @@ export default defineConfig({
     },
     plugins: [react()],
     resolve: {
+        dedupe: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
         alias: {
             "@": path.resolve(__dirname, "./src"),
+            "react": path.resolve(__dirname, "../../node_modules/react"),
+            "react-dom": path.resolve(__dirname, "../../node_modules/react-dom"),
             "remotion": path.resolve(__dirname, "../../node_modules/remotion"),
             "@remotion/paths": path.resolve(__dirname, "../../node_modules/@remotion/paths")
         },
     },
     build: {
-        outDir: path.resolve(__dirname, '../../dist'),
+        outDir: path.resolve(__dirname, 'dist'),
         emptyOutDir: true,
         chunkSizeWarningLimit: 10000,
         rollupOptions: {
@@ -66,6 +68,9 @@ export default defineConfig({
         host: '0.0.0.0', // Allow External Access
         port: 5183,
         allowedHosts: 'all', // Allow reverse proxy domains (e.g. viraloop.gogloo.gleeze.com)
+        hmr: {
+            clientPort: 443
+        },
         proxy: {
             // 0. Swarm WebSocket (Priority)
             '/api/swarm/ws': {
@@ -107,6 +112,55 @@ export default defineConfig({
                 rewrite: (path) => path.replace(/^\/swarm\//, '')
             },
             // 8. Socket.io (Standard path for Swarm Hub)
+            '/socket.io': {
+                target: 'http://127.0.0.1:4000',
+                changeOrigin: true,
+                ws: true,
+                secure: false,
+            }
+        }
+    },
+    preview: {
+        host: '0.0.0.0',
+        port: 5183,
+        allowedHosts: true,
+        cors: true,
+        proxy: {
+            '/api/swarm/ws': {
+                target: 'http://127.0.0.1:8000',
+                ws: true,
+                changeOrigin: true,
+                secure: false,
+            },
+            '/api': {
+                target: 'http://127.0.0.1:8000',
+                changeOrigin: true,
+                secure: false,
+                ws: true,
+            },
+            '/media': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/temp': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/downloads': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/static': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/files': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/thumbnails': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/status_bypass': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/health': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/io': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/agent': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/mcp': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/insights': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/workflows': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/templates': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/docs': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/redoc': { target: 'http://127.0.0.1:8000', changeOrigin: true, secure: false },
+            '/swarm/': {
+                target: 'http://127.0.0.1:4000',
+                changeOrigin: true,
+                ws: true,
+                secure: false,
+                rewrite: (path) => path.replace(/^\/swarm\//, '')
+            },
             '/socket.io': {
                 target: 'http://127.0.0.1:4000',
                 changeOrigin: true,

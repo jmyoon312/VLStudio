@@ -1060,23 +1060,68 @@ export function registerVideoIPC(ipcMain, deps) {
 
       console.log('[Flow VideoStatus] Final statuses:', JSON.stringify(statuses))
       
-      // videoUrl이 null이면 mediaId로 직접 URL 가져오기 (Flow API가 URL 미반환 시 대응)
+      // videoUrl null → mediaId로 직접 URL 가져오기 (Flow API가 URL 미반환 시 대응)
       for (const s of statuses) {
         if (s.status === 'complete' && !s.videoUrl && s.mediaId && token) {
           try {
-            console.log('[Flow VideoStatus] videoUrl null, fetching via fetchMediaAsBase64:', s.mediaId.substring(0, 20))
-            const fetchedUrl = await fetchMediaAsBase64(token, s.mediaId)
-            if (fetchedUrl) {
-              s.videoUrl = fetchedUrl
-              console.log('[Flow VideoStatus] ✅ Fetched video URL via mediaId fallback')
+            console.log('[Flow VideoStatus] videoUrl null, fetching via mediaId:', s.mediaId.substring(0, 20))
+            const redirectUrl = MEDIA_REDIRECT_URL + '?name=' + encodeURIComponent(s.mediaId)
+            let mediaUrl = null
+            // 1) flowPageFetch (페이지 쿠키 포함 → CORS 인증 성공)
+            try {
+              const pageResult = await flowPageFetch(redirectUrl, {
+                method: 'GET',
+                headers: { 'Authorization': 'Bearer ' + token },
+                redirect: 'manual',
+              })
+              if (pageResult.url && pageResult.url.startsWith('http')) {
+                mediaUrl = pageResult.url
+              } else if (pageResult.ok && pageResult.text) {
+                const parsed = parseFlowResponse(pageResult.text)
+                mediaUrl = parsed?.result?.data?.json?.url || parsed?.result?.data?.json?.redirectUrl || null
+              }
+            } catch (e) { console.warn('[Flow VideoStatus] flowPageFetch failed:', e.message) }
+            // 2) sessionFetch 폴백
+            if (!mediaUrl) {
+              try {
+                const r = await sessionFetch(redirectUrl, {
+                  headers: { 'Authorization': 'Bearer ' + token },
+                  redirect: 'manual',
+                })
+                if (r.redirected && r.url) mediaUrl = r.url
+                else if (r.ok) {
+                  const t = await r.text()
+                  const parsed = parseFlowResponse(t)
+                  mediaUrl = parsed?.result?.data?.json?.url || parsed?.result?.data?.json?.redirectUrl || null
+                }
+              } catch (e) { console.warn('[Flow VideoStatus] sessionFetch redirect failed:', e.message) }
+            }
+            // 3) 직접 CDN URL 폴백
+            if (!mediaUrl && /^[0-9a-f-]{36}$/i.test(s.mediaId)) {
+              mediaUrl = 'https://flow-content.google/fx/tools/flow/media/' + s.mediaId
+              console.log('[Flow VideoStatus] Using direct CDN URL fallback')
+            }
+            if (mediaUrl) {
+              const mediaRes = await sessionFetch(mediaUrl)
+              if (mediaRes.ok) {
+                const buf = await mediaRes.arrayBuffer()
+                const b64 = Buffer.from(buf).toString('base64')
+                const ct = mediaRes.headers?.get?.('content-type') || 'video/mp4'
+                s.videoUrl = 'data:' + ct + ';base64,' + b64
+                console.log('[Flow VideoStatus] ✅ Fetched video via mediaId, size:', b64.length)
+              } else {
+                console.warn('[Flow VideoStatus] Media download HTTP', mediaRes.status)
+              }
+            } else {
+              console.warn('[Flow VideoStatus] No media URL obtainable for:', s.mediaId.substring(0, 20))
             }
           } catch (fetchErr) {
-            console.warn('[Flow VideoStatus] fetchMediaAsBase64 failed:', fetchErr.message)
+            console.warn('[Flow VideoStatus] mediaId fetch failed:', fetchErr.message)
           }
         }
       }
 
-      return { success: true, statuses }
+            return { success: true, statuses }
     } catch (e) {
       console.error('[Flow VideoStatus] Exception:', e.message)
       return { success: false, error: e.message }

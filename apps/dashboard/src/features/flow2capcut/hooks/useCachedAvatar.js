@@ -17,7 +17,7 @@
  *   { src, failed, loading, onImageError }
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
   getCachedEntry,
   setCachedEntry,
@@ -38,9 +38,10 @@ function initialStateFor(url) {
 }
 
 export function useCachedAvatar(url) {
-  const [state, setState] = useState(() => initialStateFor(url))
+  const R = (typeof window !== 'undefined' && window.React) ? window.React : React
+  const [state, setState] = R.useState(() => initialStateFor(url))
 
-  useEffect(() => {
+  R.useEffect(() => {
     if (!url) {
       setState(EMPTY_STATE)
       return
@@ -74,7 +75,7 @@ export function useCachedAvatar(url) {
 
   // `<img>` 디코드 실패용 콜백 — 캐시 invalidate 하여 다음 mount 시 재시도, 현 세션은 placeholder 폴백.
   // setState updater 형태로 url 비교하여 in-flight url 전환 중 stale callback 호출 방어.
-  const onImageError = useCallback(() => {
+  const onImageError = R.useCallback(() => {
     if (url) clearCachedEntry(url)
     setState(prev => prev.url === url ? { ...prev, data: null, failed: true } : prev)
   }, [url])

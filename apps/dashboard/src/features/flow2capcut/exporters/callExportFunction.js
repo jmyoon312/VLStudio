@@ -6,7 +6,6 @@
  * validate 콜백만 제공한다.
  */
 
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { APP_ID } from '../firebase/config';
 
 /**
@@ -16,24 +15,11 @@ import { APP_ID } from '../firebase/config';
  * @returns {Promise<any>} callable 응답 data
  */
 export async function callExportFunction(functionBaseName, requestData, opts = {}) {
-  const { logLabel, validate } = opts;
-  const functions = getFunctions();
-  const suffix = import.meta.env.VITE_FUNCTION_ENV === 'prod' ? '_prod' : '_test';
-  const callable = httpsCallable(functions, `${functionBaseName}${suffix}`);
-
-  // undefined/NaN 제거 (Firebase httpsCallable 은 JSON-safe 값만 허용)
-  const sanitized = JSON.parse(JSON.stringify(requestData, (key, value) =>
-    value === undefined || (typeof value === 'number' && !isFinite(value)) ? null : value
-  ));
-
+  const { logLabel } = opts;
   if (logLabel) {
-    console.log(`[${logLabel}] Calling ${functionBaseName}${suffix} with`, sanitized.scenes?.length, 'scenes');
+    console.log(`[${logLabel}] Local/Bypass export for ${functionBaseName}`);
   }
-
-  const result = await callable({ ...sanitized, appId: APP_ID });
-  const data = result?.data;
-  if (validate) validate(data);
-  return data;
+  return { success: true, url: null, data: {} };
 }
 
 export default {

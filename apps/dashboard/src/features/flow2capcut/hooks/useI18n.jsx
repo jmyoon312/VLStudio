@@ -4,7 +4,7 @@
  * 브라우저 언어 자동 감지 + 수동 선택
  */
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import ko from '../locales/ko'
 import en from '../locales/en'
 

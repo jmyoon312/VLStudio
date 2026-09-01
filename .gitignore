@@ -3,6 +3,9 @@ dist/
 dist-electron/
 output/
 release/
+release_assets/*.zip
+.agents/
+.aionrs/
 .DS_Store
 *.log
 .env

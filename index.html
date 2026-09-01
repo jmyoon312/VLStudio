@@ -63,6 +63,9 @@
   <script>
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       window.addEventListener('load', () => {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(r => r.update().catch(() => {}));
+        });
         navigator.serviceWorker.register('/sw.js').catch(err => {
           console.warn('[PWA] SW register skipped:', err);
         });

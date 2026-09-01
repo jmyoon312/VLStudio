@@ -41,6 +41,18 @@ def _ensure_schema_columns(conn: sqlite3.Connection):
             conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN style TEXT DEFAULT 'shorts'")
         if scols and "cost_usd" not in scols:
             conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN cost_usd REAL DEFAULT 0")
+        if scols and "target_lang" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN target_lang TEXT DEFAULT 'ko'")
+        if scols and "detected_lang" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN detected_lang TEXT")
+        if scols and "progress_message" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN progress_message TEXT")
+        if scols and "burn_status" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN burn_status TEXT")
+        if scols and "burn_progress" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN burn_progress INTEGER DEFAULT 0")
+        if scols and "burn_error" not in scols:
+            conn.execute("ALTER TABLE subtitle_jobs ADD COLUMN burn_error TEXT")
         
         # 2. tts_dub_jobs
         tcols = {r[1] for r in conn.execute("PRAGMA table_info(tts_dub_jobs)")}
@@ -144,6 +156,21 @@ def _ensure_visual_match_columns(conn) -> None:
     for name, typ in _MASCOT_EXTRA_COLUMNS:
         if name not in existing_m:
             conn.execute(f"ALTER TABLE mascots ADD COLUMN {name} {typ}")
+    # subtitle_jobs columns
+    try:
+        existing_sub = {r[1] for r in conn.execute("PRAGMA table_info(subtitle_jobs)")}
+        for name, typ in [
+            ("target_lang", "TEXT DEFAULT 'ko'"),
+            ("tts_config", "TEXT"),
+            ("detected_lang", "TEXT"),
+            ("burn_status", "TEXT"),
+            ("burn_progress", "INTEGER DEFAULT 0"),
+            ("burn_error", "TEXT")
+        ]:
+            if name not in existing_sub:
+                conn.execute(f"ALTER TABLE subtitle_jobs ADD COLUMN {name} {typ}")
+    except Exception as e:
+        print(f"[Migration] subtitle_jobs column sync: {e}")
 
 
 def init_db():
@@ -1059,12 +1086,19 @@ def insert_subtitle_job(video_filename: str, video_path: str,
 def update_subtitle_job(job_id: int, **kwargs) -> None:
     if not kwargs:
         return
-    sets = ",".join(f"{k}=?" for k in kwargs.keys())
-    values = [
-        json.dumps(v) if isinstance(v, (list, dict)) else v
-        for v in kwargs.values()
-    ] + [job_id]
     with get_db() as conn:
+        existing_cols = {r[1] for r in conn.execute("PRAGMA table_info(subtitle_jobs)")}
+        for k in kwargs.keys():
+            if k not in existing_cols:
+                try:
+                    conn.execute(f"ALTER TABLE subtitle_jobs ADD COLUMN {k} TEXT")
+                except Exception as e:
+                    print(f"[Schema] Failed to add column {k} to subtitle_jobs: {e}")
+        sets = ",".join(f"{k}=?" for k in kwargs.keys())
+        values = [
+            json.dumps(v) if isinstance(v, (list, dict)) else v
+            for v in kwargs.values()
+        ] + [job_id]
         conn.execute(f"UPDATE subtitle_jobs SET {sets} WHERE id=?", values)
 
 

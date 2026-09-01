@@ -15,9 +15,9 @@ if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
 if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
-# BOM (유니코드 특수문자) 자동 제거 안전장치
-if "GEMINI_API_KEY" in os.environ:
-    os.environ["GEMINI_API_KEY"] = os.environ["GEMINI_API_KEY"].replace("\ufeff", "").strip()
+_legacy_dir = str(Path(__file__).parent.parent)
+if _legacy_dir not in sys.path:
+    sys.path.insert(0, _legacy_dir)
 
 # Force SOLO_MODE for VLStudio integrated version to bypass legacy auth
 os.environ["SOLO_MODE"] = "1"

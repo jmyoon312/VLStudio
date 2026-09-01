@@ -1,59 +1,52 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import ChannelManager from './components/ChannelManager'; // Use components/ChannelManager
-import Gallery from './components/Gallery';
-import Settings from './components/Settings';
-import DirectDownload from './components/DirectDownload'; // Use components/DirectDownload
-import ScriptWriter from './components/ScriptWriter';
-import SubtitleConverter from './components/SubtitleConverter';
-import SilenceRemover from './components/SilenceRemover';
-import CustomMenu from './pages/CustomMenu';
-import MultiTTS from './pages/MultiTTS';
-import CreativeStudio from './pages/CreativeStudio';
-import RemoverEditor from './pages/RemoverEditor';
-import { LiveStudio } from './pages/Studio/LiveStudio';
-import VirtualStudio from './pages/VirtualStudio';
-
-
-import { ReportsPage } from './pages/ReportsPage'; // [NEW]
-import StationManager from './pages/StationManager'; // [NEW]
-import StationDetail from './pages/StationDetail'; // [NEW]
-import RemotionPreviewPage from './pages/RemotionPreviewPage'; // [NEW] Remotion Preview
-import AICoPilotStudio from './pages/AICoPilotStudio'; // [NEW] AI Copilot
-import Shell from './features/flow2capcut/Shell'; // [NEW] Flow2CapCut Integration (Loads Shell)
-import Flow2CapCutApp from './features/flow2capcut/Flow2CapCutApp';
 import { I18nProvider } from './features/flow2capcut/hooks/useI18n';
 import { ModeProvider } from './features/flow2capcut/contexts/ModeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from './components/theme-provider';
 import ToastProvider from './features/flow2capcut/components/Toast';
 import LoginPage from './pages/LoginPage';
-
-
-
-
-import ScriptLab from './pages/ScriptLab';
-import WorkQueue from './pages/WorkQueue';  // [NEW] Work Queue
-import DdalkkakUI from './pages/DdalkkakUI';
-import SceneCutter from './pages/SceneCutter';
-import SmartDouyinSearch from './components/SmartDouyinSearch';
-import ResourceGuidePage from './pages/ResourceGuidePage';
-import CaptainDashboard from './pages/CaptainDashboard';  // [NEW] Phase 3
-import CaptainQuarters from './pages/CaptainQuarters';  // [NEW] Phase 4.1
-import Incubator from './pages/Incubator';
-import GuideCenter from './pages/GuideCenter';
 import Home from './pages/Home';
 
-import ResearchBrief from './pages/ResearchBrief';
-import ResearchConceptLab from './pages/ResearchConceptLab';
+// Standard React.lazy routes
+const Flow2CapCutApp = lazy(() => import('./features/flow2capcut/Flow2CapCutApp'));
+const Shell = lazy(() => import('./features/flow2capcut/Shell'));
+const SmartDouyinSearch = lazy(() => import('./components/SmartDouyinSearch'));
+const ResearchConceptLab = lazy(() => import('./pages/ResearchConceptLab'));
+const DdalkkakUI = lazy(() => import('./pages/DdalkkakUI'));
+const SceneCutter = lazy(() => import('./pages/SceneCutter'));
+const AICoPilotStudio = lazy(() => import('./pages/AICoPilotStudio'));
+const ChannelManager = lazy(() => import('./components/ChannelManager'));
+const DirectDownload = lazy(() => import('./components/DirectDownload'));
+const Gallery = lazy(() => import('./components/Gallery'));
+const Settings = lazy(() => import('./components/Settings'));
+const ScriptWriter = lazy(() => import('./components/ScriptWriter'));
+const SubtitleConverter = lazy(() => import('./components/SubtitleConverter'));
+const SilenceRemover = lazy(() => import('./components/SilenceRemover'));
+const CustomMenu = lazy(() => import('./pages/CustomMenu'));
+const MultiTTS = lazy(() => import('./pages/MultiTTS'));
+const CreativeStudio = lazy(() => import('./pages/CreativeStudio'));
+const RemoverEditor = lazy(() => import('./pages/RemoverEditor'));
+const LiveStudio = lazy(() => import('./pages/Studio/LiveStudio').then(m => ({ default: m.LiveStudio })));
+const VirtualStudio = lazy(() => import('./pages/VirtualStudio'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const StationManager = lazy(() => import('./pages/StationManager'));
+const StationDetail = lazy(() => import('./pages/StationDetail'));
+const RemotionPreviewPage = lazy(() => import('./pages/RemotionPreviewPage'));
+const ScriptLab = lazy(() => import('./pages/ScriptLab'));
+const WorkQueue = lazy(() => import('./pages/WorkQueue'));
+const ResourceGuidePage = lazy(() => import('./pages/ResourceGuidePage'));
+const CaptainQuarters = lazy(() => import('./pages/CaptainQuarters'));
+const Incubator = lazy(() => import('./pages/Incubator'));
+const GuideCenter = lazy(() => import('./pages/GuideCenter'));
+const ResearchBrief = lazy(() => import('./pages/ResearchBrief'));
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
         <div className="text-center">
             <h1 className="text-4xl font-bold text-slate-800 mb-4">{title}</h1>
-            <p className="text-slate-500">?당 기능? ?버 ?전 ?최적???업 중입?다. ??공???정?니??</p>
+            <p className="text-slate-500">해당 기능은 서버 버전 최적화 작업 중입니다.</p>
         </div>
     </div>
 );
@@ -73,26 +66,38 @@ class RouteErrorBoundary extends React.Component<{children: React.ReactNode}, {h
         if (this.state.hasError) {
             return (
                 <div style={{ padding: '24px', background: '#fee2e2', color: '#7f1d1d', height: '100%', overflow: 'auto', fontFamily: 'monospace' }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>APP CRASHED</h2>
+                    <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px' }}>페이지 로드 안내</h2>
                     <div style={{ background: '#fca5a5', borderRadius: '6px', padding: '12px', marginBottom: '12px' }}>
-                        <strong style={{ fontSize: '15px', display: 'block', marginBottom: '4px' }}>{this.state.error?.name}: {this.state.error?.message}</strong>
+                        <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>
+                            {this.state.error?.message || '모듈을 불러오는 중 문제가 발생했습니다.'}
+                        </strong>
+                        <p style={{ fontSize: '12px', marginTop: '6px', color: '#450a0a' }}>
+                            네트워크 터널 순단 또는 캐시 동기화 지연일 수 있습니다.
+                        </p>
                     </div>
-                    <pre style={{ fontSize: '11px', whiteSpace: 'pre-wrap', wordBreak: 'break-all', background: '#fff', padding: '12px', borderRadius: '6px', maxHeight: '300px', overflow: 'auto' }}>
-                        {this.state.error?.stack}
-                    </pre>
+                    <button
+                        onClick={() => {
+                            this.setState({ hasError: false, error: null });
+                            window.location.hash = '#/';
+                        }}
+                        style={{
+                            padding: '8px 16px',
+                            background: '#2563eb',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '13px'
+                        }}
+                    >
+                        홈으로 이동하기
+                    </button>
                 </div>
             );
         }
         return this.props.children;
     }
-}
-
-function GlobalShellWrapper({ children }: { children: React.ReactNode }) {
-    return (
-        <Shell>
-            {children}
-        </Shell>
-    );
 }
 
 function MainAppContent() {
@@ -118,67 +123,71 @@ function MainAppContent() {
 
     return (
         <Layout>
-            <Routes>
-                <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
-                <Route path="/douyin-search" element={<SmartDouyinSearch />} />
-                <Route path="/research-concept-lab" element={<RouteErrorBoundary><ResearchConceptLab /></RouteErrorBoundary>} />
-                <Route path="/ddalkkak" element={<DdalkkakUI />} />
-                <Route path="/scene-cutter-pro" element={<SceneCutter />} />
-                <Route path="/ai-copilot" element={<AICoPilotStudio />} /> {/* [NEW] AI Copilot Studio */}
-                <Route path="/flow2capcut" element={
-                    <RouteErrorBoundary>
-                        <ModeProvider>
-                            <I18nProvider>
-                                <ToastProvider>
-                                    <Shell>
-                                        <Flow2CapCutApp />
-                                    </Shell>
-                                </ToastProvider>
-                            </I18nProvider>
-                        </ModeProvider>
-                    </RouteErrorBoundary>
-                } /> {/* Content when split is active */}
-                <Route path="/agent-studio" element={<Navigate to="/flow2capcut" replace />} />
-                <Route path="/download" element={<DirectDownload />} />
+            <Suspense fallback={
+                <div className="flex items-center justify-center h-64 text-slate-400 text-sm animate-pulse">
+                    페이지 로딩 중...
+                </div>
+            }>
+                <Routes>
+                    <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
+                    <Route path="/douyin-search" element={<RouteErrorBoundary><SmartDouyinSearch /></RouteErrorBoundary>} />
+                    <Route path="/research-concept-lab" element={<RouteErrorBoundary><ResearchConceptLab /></RouteErrorBoundary>} />
+                    <Route path="/ddalkkak" element={<RouteErrorBoundary><DdalkkakUI /></RouteErrorBoundary>} />
+                    <Route path="/scene-cutter-pro" element={<RouteErrorBoundary><SceneCutter /></RouteErrorBoundary>} />
+                    <Route path="/ai-copilot" element={<RouteErrorBoundary><AICoPilotStudio /></RouteErrorBoundary>} />
+                    <Route path="/flow2capcut" element={
+                        <RouteErrorBoundary>
+                            <ModeProvider>
+                                <I18nProvider>
+                                    <ToastProvider>
+                                        <Shell>
+                                            <Flow2CapCutApp />
+                                        </Shell>
+                                    </ToastProvider>
+                                </I18nProvider>
+                            </ModeProvider>
+                        </RouteErrorBoundary>
+                    } />
+                    <Route path="/agent-studio" element={<Navigate to="/flow2capcut" replace />} />
+                    <Route path="/download" element={<RouteErrorBoundary><DirectDownload /></RouteErrorBoundary>} />
 
                     {/* Fallback Missing Routes */}
                     <Route path="/stealth" element={<Navigate to="/incubator" replace />} />
                     <Route path="/scissors" element={<Navigate to="/scene-cutter-pro" replace />} />
                     <Route path="/distribution-network" element={<Navigate to="/work-queue" replace />} />
 
-                    <Route path="/channels" element={<ChannelManager />} />
+                    <Route path="/channels" element={<RouteErrorBoundary><ChannelManager /></RouteErrorBoundary>} />
 
-                    {/* [NEW] Captain Management */}
-                    <Route path="/captain/dashboard" element={<CaptainQuarters />} />
-                    <Route path="/captain/:profileId/dashboard" element={<CaptainQuarters />} />
-                    <Route path="/captain/:profileId/channels" element={<CaptainQuarters />} />
-                    <Route path="/captain/:profileId/settings" element={<CaptainQuarters />} />
-                    <Route path="/captain/:profileId" element={<CaptainQuarters />} />
-                    <Route path="/captain/channels" element={<CaptainQuarters />} />
-                    <Route path="/captain" element={<CaptainQuarters />} />
-                    <Route path="/account-manager" element={<Navigate to="/incubator" replace />} />  {/* [MERGED] to incubator */}
+                    {/* Captain Management */}
+                    <Route path="/captain/dashboard" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />
+                    <Route path="/captain/:profileId/dashboard" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />
+                    <Route path="/captain/:profileId/channels" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />
+                    <Route path="/captain/:profileId/settings" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />
+                    <Route path="/captain/:profileId" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />
+                    <Route path="/captain/channels" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />
+                    <Route path="/captain" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />
+                    <Route path="/account-manager" element={<Navigate to="/incubator" replace />} />
 
-                    <Route path="/resource-guide" element={<ResourceGuidePage />} />
-                    <Route path="/work-queue" element={<WorkQueue />} /> {/* [NEW] Work Queue */}
+                    <Route path="/resource-guide" element={<RouteErrorBoundary><ResourceGuidePage /></RouteErrorBoundary>} />
+                    <Route path="/work-queue" element={<RouteErrorBoundary><WorkQueue /></RouteErrorBoundary>} />
+                    <Route path="/reports" element={<RouteErrorBoundary><ReportsPage /></RouteErrorBoundary>} />
 
+                    {/* Station Manager */}
+                    <Route path="/station-manager" element={<RouteErrorBoundary><StationManager /></RouteErrorBoundary>} />
+                    <Route path="/station-manager/:stationId" element={<RouteErrorBoundary><StationDetail /></RouteErrorBoundary>} />
 
-                    <Route path="/reports" element={<ReportsPage />} /> {/* [NEW] */}
+                    {/* Remotion Preview */}
+                    <Route path="/remotion-preview" element={<RouteErrorBoundary><RemotionPreviewPage /></RouteErrorBoundary>} />
 
-                    {/* [NEW] Professional Station Manager */}
-                    <Route path="/station-manager" element={<StationManager />} />
-                    <Route path="/station-manager/:stationId" element={<StationDetail />} />
+                    <Route path="/script-lab" element={<RouteErrorBoundary><ScriptLab /></RouteErrorBoundary>} />
+                    <Route path="/gallery" element={<RouteErrorBoundary><Gallery /></RouteErrorBoundary>} />
+                    <Route path="/settings" element={<RouteErrorBoundary><Settings /></RouteErrorBoundary>} />
+                    <Route path="/script-writer" element={<RouteErrorBoundary><ScriptWriter /></RouteErrorBoundary>} />
 
-                    {/* [NEW] Remotion Preview */}
-                    <Route path="/remotion-preview" element={<RemotionPreviewPage />} />
-
-
-                    <Route path="/script-lab" element={<ScriptLab />} />
-                    <Route path="/gallery" element={<Gallery />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/script-writer" element={<ScriptWriter />} />
-
-
-                    <Route path="/subtitle-tool" element={<SubtitleConverter />} />
+                    <Route path="/subtitle-tool" element={<RouteErrorBoundary><SubtitleConverter /></RouteErrorBoundary>} />
+                    <Route path="/multi-tts" element={<RouteErrorBoundary><MultiTTS /></RouteErrorBoundary>} />
+                    <Route path="/silence-remover" element={<RouteErrorBoundary><SilenceRemover /></RouteErrorBoundary>} />
+                    <Route path="/remover" element={<RouteErrorBoundary><RemoverEditor /></RouteErrorBoundary>} />
                     <Route path="/creative-studio" element={
                         <RouteErrorBoundary>
                             <ModeProvider>
@@ -192,15 +201,18 @@ function MainAppContent() {
                             </ModeProvider>
                         </RouteErrorBoundary>
                     } />
-                    <Route path="/live-studio" element={<LiveStudio />} />
-                    <Route path="/virtual-studio" element={<VirtualStudio />} />
-                    <Route path="/custom-menu" element={<CustomMenu />} />
-                    <Route path="/guide-center" element={<GuideCenter />} />  {/* [NEW] Guide Center */}
-                    <Route path="/incubator" element={<Incubator />} />  {/* [NEW] Incubator */}
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/research-brief" element={<ResearchBrief />} />
+                    <Route path="/live-studio" element={<RouteErrorBoundary><LiveStudio /></RouteErrorBoundary>} />
+                    <Route path="/virtual-studio" element={<RouteErrorBoundary><VirtualStudio /></RouteErrorBoundary>} />
+                    <Route path="/custom-menu" element={<RouteErrorBoundary><CustomMenu /></RouteErrorBoundary>} />
+                    <Route path="/guide-center" element={<RouteErrorBoundary><GuideCenter /></RouteErrorBoundary>} />
+                    <Route path="/incubator" element={<RouteErrorBoundary><Incubator /></RouteErrorBoundary>} />
+                    <Route path="/research-brief" element={<RouteErrorBoundary><ResearchBrief /></RouteErrorBoundary>} />
+                    
+                    {/* Catch-all redirect to Home */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
-            </Layout>
+            </Suspense>
+        </Layout>
     );
 }
 

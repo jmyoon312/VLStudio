@@ -1,5 +1,5 @@
-@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
-@import 'wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.css';
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+@import url('https://cdn.jsdelivr.net/npm/wanted-sans@1.0.3/fonts/webfonts/variable/split/WantedSansVariable.css');
 
 @tailwind base;
 @tailwind components;

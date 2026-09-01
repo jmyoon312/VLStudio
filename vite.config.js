@@ -90,8 +90,11 @@ export default defineConfig(({ mode }) => {
       renderer()
     ],
     resolve: {
+      dedupe: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
       alias: {
-        '@': resolve(__dirname, 'apps/dashboard/src')
+        '@': resolve(__dirname, 'apps/dashboard/src'),
+        'react': resolve(__dirname, 'node_modules/react'),
+        'react-dom': resolve(__dirname, 'node_modules/react-dom')
       },
       preserveSymlinks: false
     },
@@ -147,6 +150,9 @@ export default defineConfig(({ mode }) => {
       port: 5183,
       allowedHosts: true,
       cors: true,
+      hmr: {
+        clientPort: 443
+      },
       proxy: {
         '/api/swarm/ws': backendProxy,
         '/api': backendProxy,

@@ -2,7 +2,7 @@
  * AutoFlowCut - Main App
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense, lazy } from 'react'
 import './App.css'
 import './Flow2CapCutApp.css'
 import { DEFAULTS, UI, TIMING, STYLE_PRESETS } from './config/defaults'
@@ -17,7 +17,7 @@ import { useProjectData } from './hooks/useProjectData'
 import { useStoryPipeline } from './hooks/useStoryPipeline'
 import { useStoryAutoOpen } from './hooks/useStoryAutoOpen'
 import { STORY_TTS_PROVIDERS } from './config/storyTtsProviders'
-import StoryView from './components/story/StoryView'
+const StoryView = lazy(() => import('./components/story/StoryView'))
 import { useReferenceGeneration } from './hooks/useReferenceGeneration'
 import { useRefPanelVisibility } from './hooks/useRefPanelVisibility'
 import { useStyleThumbnails } from './hooks/useStyleThumbnails'
@@ -86,46 +86,46 @@ import { syncRefToFlow } from './utils/flowCharacterSync'
 import { runFlowComposerRefresh } from './utils/flowCharacterCoordinator'
 import { getAuthErrorMessage, getAuthRequiredMessage } from './utils/authMessages'
 
-// Components
 import Header from './components/Header'
-import PromptInput from './components/PromptInput'
-import SceneList from './components/SceneList'
-import GenerateMenu from './components/GenerateMenu'
-import FrameToVideoPanel from './components/FrameToVideoPanel'
-import ReferencePanel from './components/ReferencePanel'
-import SettingsModal from './components/SettingsModal'
-import ImportModal from './components/ImportModal'
 import StatusBar from './components/StatusBar'
-import ResultsTable from './components/ResultsTable'
-// SelectablePromptList 제거됨 — 체크박스 기능이 ResultsTable에 통합
-import SceneDetailModal from './components/SceneDetailModal'
-import VideoDetailModal from './components/VideoDetailModal'
 import { genModeForTab } from './utils/generationItems'
 import ResizeHandle from './components/ResizeHandle'
-import { ExportModal } from './components/ExportModal'
 import ExportSplitButton from './components/ExportSplitButton'
-import { AuthModal } from './components/AuthModal'
-import { PaywallModal } from './components/PaywallModal'
-import TagValidationModal from './components/TagValidationModal'
-import EmptyReferenceGateModal from './components/EmptyReferenceGateModal'
-import StoreRatingModal from './components/StoreRatingModal'
-import AudioResultModal from './components/AudioResultModal'
 import QAProgressBanner from './components/QAProgressBanner'
-import AudioPanel from './components/AudioPanel'
 import BottomPanelTabs from './components/BottomPanelTabs'
-import LiveTimeline from './components/LiveTimeline'
 import { useMonitor } from './hooks/useMonitor'
-import PreviewMonitor from './components/PreviewMonitor'
 import { getSceneTimeRangeMs } from './components/AudioTimeline/useAudioTimeline'
 import { resolveStorySrtEntries, withStoryAudio } from './utils/storyAudioPackage'
+
+// Lazy-loaded panels, modals, and preview components for high-concurrency tunnel stability
+const PromptInput = lazy(() => import('./components/PromptInput'))
+const SceneList = lazy(() => import('./components/SceneList'))
+const GenerateMenu = lazy(() => import('./components/GenerateMenu'))
+const FrameToVideoPanel = lazy(() => import('./components/FrameToVideoPanel'))
+const ReferencePanel = lazy(() => import('./components/ReferencePanel'))
+const ResultsTable = lazy(() => import('./components/ResultsTable'))
+const AudioPanel = lazy(() => import('./components/AudioPanel'))
+const LiveTimeline = lazy(() => import('./components/LiveTimeline'))
+const SettingsModal = lazy(() => import('./components/SettingsModal'))
+const ImportModal = lazy(() => import('./components/ImportModal'))
+const SceneDetailModal = lazy(() => import('./components/SceneDetailModal'))
+const VideoDetailModal = lazy(() => import('./components/VideoDetailModal'))
+const ExportModal = lazy(() => import('./components/ExportModal').then(m => ({ default: m.ExportModal })))
+const AuthModal = lazy(() => import('./components/AuthModal').then(m => ({ default: m.AuthModal })))
+const PaywallModal = lazy(() => import('./components/PaywallModal').then(m => ({ default: m.PaywallModal })))
+const TagValidationModal = lazy(() => import('./components/TagValidationModal'))
+const EmptyReferenceGateModal = lazy(() => import('./components/EmptyReferenceGateModal'))
+const StoreRatingModal = lazy(() => import('./components/StoreRatingModal'))
+const AudioResultModal = lazy(() => import('./components/AudioResultModal'))
+const PreviewMonitor = lazy(() => import('./components/PreviewMonitor'))
+const SubscriptionBanner = lazy(() => import('./components/SubscriptionBanner').then(m => ({ default: m.SubscriptionBanner })))
+const StylePicker = lazy(() => import('./components/StylePicker'))
+const Modal = lazy(() => import('./components/Modal'))
+const DeleteSceneConfirmModal = lazy(() => import('./components/DeleteSceneConfirmModal'))
+const FlowProjectAdoptModal = lazy(() => import('./components/FlowProjectAdoptModal'))
+const SrtImportConflictModal = lazy(() => import('./components/SrtImportConflictModal'))
+const ImportProcessingOverlay = lazy(() => import('./components/ImportProcessingOverlay'))
 import { hasImageData } from './utils/formatters'
-import { SubscriptionBanner } from './components/SubscriptionBanner'
-import StylePicker from './components/StylePicker'
-import Modal from './components/Modal'
-import DeleteSceneConfirmModal from './components/DeleteSceneConfirmModal'
-import FlowProjectAdoptModal from './components/FlowProjectAdoptModal'
-import SrtImportConflictModal from './components/SrtImportConflictModal'
-import ImportProcessingOverlay from './components/ImportProcessingOverlay'
 import { useAuth } from './contexts/AuthContext'
 import { useImportProcessing } from './hooks/useImportProcessing'
 
@@ -2134,7 +2134,8 @@ function App() {
   }
 
   return (
-    <div className={computeAppClass(mode)}>
+    <Suspense fallback={<div className="flex items-center justify-center h-full w-full text-slate-400">로딩 중...</div>}>
+      <div className={computeAppClass(mode)}>
       <QAProgressBanner />
       <ImportProcessingOverlay
         processing={importProcessing}
@@ -2999,44 +3000,50 @@ function App() {
         />
       )}
 
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        {...buildExportModalCounts(scenes)}
-        onExport={handleExportConfirm}
-        onExportPremiere={handleExportPremiere}
-        onExportVrew={handleExportVrew}
-        initialFormat={exportFormat}
-        projectName={ensureProjectName()}
-        loading={exporting}
-        exportPhase={exportPhase}
-        hasSubtitles={
-          // R12 review fix: scene.subtitle 뿐 아니라 srtTrack 또는 audioPackage SRT 도
-          // 자막 source 로 인정. audio 폴더 SRT 흡수만 한 케이스에서 export 옵션 숨겨지는
-          // 회귀 방지.
-          scenes.some(s => s.subtitle && s.subtitle.trim())
-            || (scenesHook.srtTrack || []).some(l => l.text && l.text.trim())
-            || !!audioPackage?.srtContent
-        }
-        onUpgradeClick={() => {
-          setShowExportModal(false)
-          setPaywallReason('upgrade')
-          setShowPaywallModal(true)
-        }}
-      />
+      {showExportModal && (
+        <ExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          {...buildExportModalCounts(scenes)}
+          onExport={handleExportConfirm}
+          onExportPremiere={handleExportPremiere}
+          onExportVrew={handleExportVrew}
+          initialFormat={exportFormat}
+          projectName={ensureProjectName()}
+          loading={exporting}
+          exportPhase={exportPhase}
+          hasSubtitles={
+            // R12 review fix: scene.subtitle 뿐 아니라 srtTrack 또는 audioPackage SRT 도
+            // 자막 source 로 인정. audio 폴더 SRT 흡수만 한 케이스에서 export 옵션 숨겨지는
+            // 회귀 방지.
+            scenes.some(s => s.subtitle && s.subtitle.trim())
+              || (scenesHook.srtTrack || []).some(l => l.text && l.text.trim())
+              || !!audioPackage?.srtContent
+          }
+          onUpgradeClick={() => {
+            setShowExportModal(false)
+            setPaywallReason('upgrade')
+            setShowPaywallModal(true)
+          }}
+        />
+      )}
 
       {/* Auth Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-      />
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
 
       {/* Paywall Modal */}
-      <PaywallModal
-        isOpen={showPaywallModal}
-        onClose={() => setShowPaywallModal(false)}
-        reason={paywallReason}
-      />
+      {showPaywallModal && (
+        <PaywallModal
+          isOpen={showPaywallModal}
+          onClose={() => setShowPaywallModal(false)}
+          reason={paywallReason}
+        />
+      )}
 
       {/* API 키 필요 모달 — 키 없이 생성 시도 시 설정으로 안내 */}
       <Modal
@@ -3197,12 +3204,14 @@ function App() {
         t={t}
       />
 
-      <StoreRatingModal
-        isOpen={storeRating.showModal}
-        onRate={storeRating.rateNow}
-        onLater={storeRating.remindLater}
-        onNever={storeRating.dismissForever}
-      />
+      {storeRating.showModal && (
+        <StoreRatingModal
+          isOpen={storeRating.showModal}
+          onRate={storeRating.rateNow}
+          onLater={storeRating.remindLater}
+          onNever={storeRating.dismissForever}
+        />
+      )}
 
       <SrtImportConflictModal
         isOpen={!!srtImportPending}
@@ -3214,6 +3223,7 @@ function App() {
         t={t}
       />
     </div>
+    </Suspense>
   )
 }
 

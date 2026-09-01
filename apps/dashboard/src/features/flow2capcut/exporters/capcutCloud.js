@@ -6,7 +6,6 @@
  * - 로컬 처리: 미디어 파일을 수집 후 IPC로 디스크 기록
  */
 
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { fileSystemAPI } from '../hooks/useFileSystem';
 import { cleanBase64 as stripBase64Prefix } from '../utils/urls';
 import { APP_ID } from '../firebase/config';

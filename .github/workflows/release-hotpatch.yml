@@ -1,0 +1,52 @@
+name: Release OTA Hot-Patch Bundle
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+    paths:
+      - 'apps/dashboard/**'
+      - 'scripts/build-hotpatch.cjs'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release-hotpatch:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Build OTA Hot-Patch Bundle
+        run: node scripts/build-hotpatch.cjs
+
+      - name: Upload Hot-Patch Assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          name: "ViraLoop Studio OTA Hot-Patch ${{ github.ref_name }}"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest' }}
+          draft: false
+          prerelease: false
+          files: |
+            release_assets/update-bundle.zip
+            release_assets/version.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
