@@ -63,6 +63,35 @@ def rotate_network_ip(serial: str = None, method: str = "soft"):
         logger.error(f"IP rotation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/rotate/{method}")
+def rotate_network_method(method: str, serial: str = None):
+    """
+    [SAIF-P1] 표준 경로 기반 IP 로테이션 트리거 (/api/network/rotate/{method})
+    """
+    try:
+        success = adb_service.rotate_ip(serial=serial, method=method)
+        return {"status": "rotated" if success else "failed"}
+    except Exception as e:
+        logger.error(f"IP rotation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/source/{source}")
+def switch_network_source_endpoint(source: str):
+    """
+    [SAIF-P1] 인터넷 소스 스위칭 (/api/network/source/{source})
+    """
+    try:
+        from app.services.network_core import network_service
+        network_service.set_internet_source(source)
+        if source.upper() == "WIFI":
+            adb_service.enable_wifi()
+        elif source.upper() == "LTE":
+            adb_service.disable_wifi()
+        return {"status": "success", "target": source}
+    except Exception as e:
+        logger.error(f"Source switch error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/adapters/debug")
 def get_adapter_debug():
     """

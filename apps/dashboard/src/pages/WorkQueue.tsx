@@ -109,7 +109,10 @@ const WorkQueue = () => {
     }, [activeTab, dateFilter, limit, searchQuery, selectedBatch]);
 
     const connectWebSocket = (itemId: number) => {
-        const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/work-queue/ws/progress/${itemId}`);
+        const isFile = window.location.protocol === 'file:' || !window.location.host;
+        const wsHost = isFile ? '127.0.0.1:8000' : window.location.host;
+        const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${wsProto}//${wsHost}/api/work-queue/ws/progress/${itemId}`);
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);

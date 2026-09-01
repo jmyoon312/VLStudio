@@ -52,6 +52,11 @@ class ADBService:
         # [NEW] Settings Cache
         self.config_connection_method = "usb"
 
+        # [Global Concurrency Guard] 동시 다채널 업로드 시 충돌 방지용 Mutex 락
+        import threading
+        self._rotation_lock = threading.Lock()
+        self._last_rotation_time = 0.0
+
     def refresh_config(self, db_settings=None):
         """DB 설정을 서비스에 반영"""
         if not db_settings:
@@ -261,11 +266,23 @@ class ADBService:
         return ""
 
     def rotate_ip(self, serial: Optional[str] = None, method: str = 'hard') -> bool:
-        """IP 로테이션 실행 (비행기 모드 토글) — [Bug 10] USB 테더링 재활성화 보장"""
+        """IP 로테이션 실행 (비행기 모드 토글) — [Global Mutex] 다채널 동시 회전 충돌 방지"""
         target = serial or "default"
-        logger.info(f"[REFRESH] [{target}] IP 로테이션 시작 (방식: {method})")
+        
+        # 1. 락 획득 (동시 요청 순차 제어)
+        acquired = self._rotation_lock.acquire(timeout=45.0)
+        if not acquired:
+            logger.warning(f"[WARN] [{target}] 이전 IP 로테이션이 진행 중이어서 타임아웃 발생")
+            return False
 
         try:
+            # 2. 최근 5초 이내에 이미 회전이 완료되었으면 중복 회전 방지 (Debounce)
+            now = time.time()
+            if now - self._last_rotation_time < 5.0 and method == 'soft':
+                logger.info(f"[SKIP] [{target}] 최근({now - self._last_rotation_time:.1f}초 전)에 이미 로테이션됨 — 최신 IP 유지")
+                return True
+
+            logger.info(f"[REFRESH] [{target}] IP 로테이션 시작 (방식: {method})")
             self._cached_public_ips[target] = "갱신 중..."
             setattr(self, f"_last_check_{target}", time.time())
 
@@ -299,7 +316,7 @@ class ADBService:
 
                 # [Fix] Every Proxy 사용으로 인해 더 이상 USB 테더링을 강제 활성화하지 않습니다.
                 # (구형 기기에서 USB 테더링 명령 시 커널 패닉 및 무한 재부팅 발생)
-                if device_ready:
+                if not device_ready:
                     logger.error("[Bug 10] ADB device did not come back online within 15s after airplane-off")
 
             setattr(self, f"_last_check_{target}", 0)  # 캐시 무효화
@@ -309,11 +326,14 @@ class ADBService:
             if not new_ip or not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', new_ip):
                 self._cached_public_ips.pop(target, None)
                 
+            self._last_rotation_time = time.time()
             logger.info(f"[OK] [{target}] IP 갱신 완료: {new_ip}")
             return True
         except Exception as e:
             logger.error(f"[FAIL] [{target}] 로테이션 실패: {e}")
             return False
+        finally:
+            self._rotation_lock.release()
 
     def enable_wifi(self, serial: Optional[str] = None):
         self.run_command(['shell', 'svc', 'wifi', 'enable'], serial)
