@@ -18,6 +18,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { exec } from 'child_process'
+import { net } from 'electron'
 import os from 'os'
 import { dialog, BrowserWindow } from 'electron'
 
@@ -426,6 +427,27 @@ export function registerCapcutIPC(ipcMain) {
               if (isFirstSceneImage) {
                 console.log(`[CapCut IPC] Saving draft_cover.jpg`);
                 await fs.writeFile(path.join(targetPath, 'draft_cover.jpg'), Buffer.from(base64Data, 'base64'))
+              }
+            } else if (media.isUrl && media.source) {
+              // Download from URL
+              console.log(`[CapCut IPC] Downloading from URL: ${media.source} -> ${media.targetName}`);
+              try {
+                const response = await net.fetch(media.source);
+                if (response.ok) {
+                  const buffer = Buffer.from(await response.arrayBuffer());
+                  await fs.writeFile(destPath, buffer);
+                  console.log(`[CapCut IPC] Successfully downloaded: ${media.targetName} (${buffer.length} bytes)`);
+                  
+                  // Also create a draft_cover.jpg from the first image
+                  if (isFirstSceneImage) {
+                    console.log(`[CapCut IPC] Saving draft_cover.jpg from URL`);
+                    await fs.writeFile(path.join(targetPath, 'draft_cover.jpg'), buffer);
+                  }
+                } else {
+                  console.warn(`[CapCut IPC] Failed to download URL: ${media.source} (status: ${response.status})`);
+                }
+              } catch (downloadError) {
+                console.error(`[CapCut IPC] Error downloading URL: ${media.source}`, downloadError);
               }
             } else if (media.source && await pathExists(media.source)) {
               console.log(`[CapCut IPC] Copying local file: ${media.source} -> ${media.targetName}`);

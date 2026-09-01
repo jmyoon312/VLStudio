@@ -512,11 +512,12 @@ export async function generateCapcutProject(project, options = {}) {
         const videoSegmentId = generateId();
 
         const isBase64Video = videoPath.startsWith('data:');
+        const isUrl = videoPath.startsWith('http://') || videoPath.startsWith('https://');
         let vExt = 'mp4';
         if (isBase64Video) {
           const match = videoPath.match(/^data:video\/(\w+);base64,/);
           vExt = match ? match[1] : 'mp4';
-        } else {
+        } else if (!isUrl) {
           vExt = videoPath.match(/\.(mp4|webm|mov|avi)$/i)?.[1] || 'mp4';
         }
 
@@ -526,6 +527,7 @@ export async function generateCapcutProject(project, options = {}) {
         mediaFilesToCopy.push({
           source: videoPath,
           isBase64: isBase64Video,
+          isUrl: isUrl,
           targetName: vTargetName
         });
 
@@ -583,11 +585,12 @@ export async function generateCapcutProject(project, options = {}) {
       const videoSegmentId = generateId();
 
       const isBase64Video = videoPath.startsWith('data:');
+      const isUrl = videoPath.startsWith('http://') || videoPath.startsWith('https://');
       let vExt = 'mp4';
       if (isBase64Video) {
         const match = videoPath.match(/^data:video\/(\w+);base64,/);
         vExt = match ? match[1] : 'mp4';
-      } else {
+      } else if (!isUrl) {
         vExt = videoPath.match(/\.(mp4|webm|mov|avi)$/i)?.[1] || 'mp4';
       }
 
@@ -597,6 +600,7 @@ export async function generateCapcutProject(project, options = {}) {
       mediaFilesToCopy.push({
         source: videoPath,
         isBase64: isBase64Video,
+        isUrl: isUrl,
         targetName: vTargetName
       });
 
@@ -843,15 +847,19 @@ export async function generateCapcutProject(project, options = {}) {
       const textSegmentId = generateId();
 
       let targetTrack = textTrack;
+      // marginV를 CapCut 정규화 좌표로 변환 (0-100 → -0.2 ~ +0.2)
+      const marginVOffset = subCfg.marginV ? ((subCfg.marginV - 50) / 250) : 0;
       let posY = isPortrait ? -0.65 : -0.75;
       if (subCfg.position === 'top') {
         posY = isPortrait ? 0.75 : 0.65;
       } else if (subCfg.position === 'center' || subCfg.position === 'middle') {
         posY = 0.0;
       }
+      posY += marginVOffset;
 
       let textColor = customTextColorRgb;
-      let subFontSize = subCfg.fontSize ? Math.max(6.0, Math.min(24.0, subCfg.fontSize * 0.25)) : fontSize;
+      // fontSize를 CapCut 좌표계로 변환 (사용자 설정값을 직접 사용하되, 범위 제한)
+      let subFontSize = subCfg.fontSize ? Math.max(6.0, Math.min(48.0, subCfg.fontSize)) : fontSize;
 
       if (trackType === 'situation') {
         targetTrack = situationTrack;
@@ -864,6 +872,33 @@ export async function generateCapcutProject(project, options = {}) {
         textColor = customTextColorRgb;
         subFontSize = isPortrait ? fontSize * 1.05 : fontSize;
       }
+
+      // isBold/isItalic 매핑
+      const isBold = subCfg.isBold !== undefined ? subCfg.isBold : true;
+      const isItalic = subCfg.isItalic || false;
+
+      // textAlign 매핑 (left: 0, center: 1, right: 2)
+      let alignment = 1; // 기본값: 중앙
+      if (subCfg.textAlign === 'left') alignment = 0;
+      else if (subCfg.textAlign === 'right') alignment = 2;
+
+      // outline 매핑
+      const outlineSize = subCfg.outlineSize !== undefined ? subCfg.outlineSize : 2;
+      const outlineColor = subCfg.outlineColor || '#000000';
+      const borderWidth = outlineSize > 0 ? Math.max(0.05, Math.min(0.5, outlineSize * 0.05)) : 0;
+      const borderMode = outlineSize > 0 ? 1 : 0; // 0: none, 1: stroke
+
+      // shadow 매핑
+      const shadowSize = subCfg.shadowSize !== undefined ? subCfg.shadowSize : 2;
+      const shadowColor = subCfg.shadowColor || '#000000';
+      const hasShadow = shadowSize > 0;
+      const shadowDistance = hasShadow ? Math.max(1, Math.min(10, shadowSize * 1.5)) : 0;
+
+      // box 매핑
+      const useBox = subCfg.useBox || false;
+      const boxColor = subCfg.boxColor || '#000000';
+      const boxOpacity = subCfg.boxOpacity !== undefined ? subCfg.boxOpacity / 100 : 0.5;
+      const backgroundStyle = useBox ? 1 : 0;
 
       materials.texts.push({
         recognize_task_id: "",
@@ -886,7 +921,8 @@ export async function generateCapcutProject(project, options = {}) {
                 }
               },
               size: subFontSize,
-              bold: true,
+              bold: isBold,
+              italic: isItalic,
               useLetterColor: true,
               range: [0, cleanText.length]
             }
@@ -910,22 +946,22 @@ export async function generateCapcutProject(project, options = {}) {
         text_typesetting_paths_file: "",
         text_typesetting_path_index: 0,
         line_spacing: 0.05,
-        has_shadow: true,
-        shadow_color: "#000000",
-        shadow_alpha: 0.8999999761581421,
-        shadow_smoothing: 0.45000001788139343,
-        shadow_distance: 5,
+        has_shadow: hasShadow,
+        shadow_color: shadowColor,
+        shadow_alpha: hasShadow ? 0.9 : 0,
+        shadow_smoothing: hasShadow ? 0.45 : 0,
+        shadow_distance: shadowDistance,
         shadow_point: { x: 0.6363961030678928, y: -0.6363961030678928 },
         shadow_angle: -45,
         shadow_thickness_projection_enable: false,
         shadow_thickness_projection_angle: 0,
         shadow_thickness_projection_distance: 0,
-        border_alpha: 1.0,
-        border_color: "#000000",
-        border_width: 0.1,
-        border_mode: 0,
+        border_alpha: outlineSize > 0 ? 1.0 : 0,
+        border_color: outlineColor,
+        border_width: borderWidth,
+        border_mode: borderMode,
         style_name: "",
-        text_color: textColor[0] === 1.0 && textColor[1] === 1.0 ? "#ffffff" : "#ffeb3b",
+        text_color: `rgb(${Math.round(textColor[0] * 255)}, ${Math.round(textColor[1] * 255)}, ${Math.round(textColor[2] * 255)})`,
         text_alpha: 1.0,
         font_name: fontName,
         font_title: fontName,
@@ -936,7 +972,7 @@ export async function generateCapcutProject(project, options = {}) {
         initial_scale: 1.0,
         font_url: "",
         typesetting: 0,
-        alignment: 1,
+        alignment: alignment,
         line_feed: 1,
         use_effect_default_color: true,
         is_rich_text: false,
@@ -951,15 +987,15 @@ export async function generateCapcutProject(project, options = {}) {
         operation_type: 0,
         recognize_type: 0,
         fonts: [],
-        background_color: "",
-        background_alpha: 1.0,
-        background_style: 0,
-        background_round_radius: 0,
+        background_color: boxColor,
+        background_alpha: boxOpacity,
+        background_style: backgroundStyle,
+        background_round_radius: 0.1,
         background_width: 0.14,
         background_height: 0.14,
         background_vertical_offset: 0,
         background_horizontal_offset: 0,
-        background_fill: "",
+        background_fill: boxColor,
         single_char_bg_enable: false,
         single_char_bg_color: "",
         single_char_bg_alpha: 1.0,
