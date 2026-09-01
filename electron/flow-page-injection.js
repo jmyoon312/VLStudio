@@ -112,6 +112,9 @@ export const FLOW_PAGE_INJECTION = /* js */ `
     for (const req of body.requests) {
       if (inject.seed != null)       { req.seed = inject.seed;                        modified = true }
       if (inject.aspectRatio)        { req.imageAspectRatio = inject.aspectRatio;     modified = true }
+      // 워터마크 비활성화 (서버가 수용하면 적용됨)
+      req.addWatermark = false
+      modified = true
       if (inject.references && inject.references.length > 0) {
         if (!req.imageInputs) req.imageInputs = []
         for (const ref of inject.references) {
@@ -148,6 +151,7 @@ export const FLOW_PAGE_INJECTION = /* js */ `
         : applyOmniDuration(toI2VModelKey(req.videoModelKey), dur)
       const isAbra = /^abra/i.test(finalKey || '')
       req.videoModelKey = finalKey
+      req.addWatermark = false
       req.startImage    = { mediaId: i2v.startImageMediaId, name: i2v.startImageMediaId, media: { name: i2v.startImageMediaId }, cropCoordinates: defaultCrop }
       // OmniFlash(abra) i2v 는 종료프레임 미지원 → endImage 주입 안 함. Veo 만 end 지원.
       if (i2v.endImageMediaId && !isAbra) {
@@ -265,6 +269,7 @@ export const FLOW_PAGE_INJECTION = /* js */ `
               req.videoModelKey = forceOmni
                 ? omniFlashKey(isRef ? 'r2v' : 't2v', inject.duration)
                 : applyOmniDuration(req.videoModelKey, inject.duration)  // OmniFlash 만 효과, 그 외 no-op
+              req.addWatermark = false
             }
             _init = { ..._init, body: JSON.stringify(body) }
   // 페이지 스크립트의 로그다. main 이 '[Flow Page]' 접두로 포워딩하고, beforeBreadcrumb 이 그

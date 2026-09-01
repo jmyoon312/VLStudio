@@ -1657,14 +1657,16 @@ export async function generateCapcutProject(project, options = {}) {
       background: null
     },
     tracks: [
+      // CapCut 트랙 순서: 인덱스가 작을수록 하단 (z-order: 낮음)
+      // 비디오 → 오버레이 → 워터마크 → 텍스트(자막=최상단)
+      videoTrack.segments.length > 0 ? videoTrack : null,
+      overlayTrack.segments.length > 0 ? overlayTrack : null,
       watermarkTrack.segments.length > 0 ? watermarkTrack : null,
       watermarkTextTrack.segments.length > 0 ? watermarkTextTrack : null,
       topTitleTrack.segments.length > 0 ? topTitleTrack : null,
       situationTrack.segments.length > 0 ? situationTrack : null,
       jjapjjapTrack.segments.length > 0 ? jjapjjapTrack : null,
       textTrack.segments.length > 0 ? textTrack : null,
-      videoTrack.segments.length > 0 ? videoTrack : null,
-      overlayTrack.segments.length > 0 ? overlayTrack : null,
       // 1순위 오디오: 나레이션 전용 트랙들 (겹치지 않으면 1개만 노출)
       ...narratorTracks.filter(t => t.segments.length > 0),
       // 2순위 오디오: 일반 캐릭터들의 동적 분할 트랙들

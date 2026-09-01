@@ -45,5 +45,8 @@ export function injectImageBatchBody(body, { referenceImages = null, seed = null
     applied.aspectRatio = true
   }
 
+  // 워터마크 비활성화
+  for (const req of requests) req.addWatermark = false
+
   return applied
 }
