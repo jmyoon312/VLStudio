@@ -24,7 +24,7 @@ import fs from 'fs/promises'
 import fsSync from 'fs'
 import path from 'path'
 import { execFile, execSync } from 'child_process'
-import { app, dialog } from 'electron'
+import { app, dialog, net } from 'electron'
 import { parseSfxList } from '../../apps/dashboard/src/features/flow2capcut/utils/parseSfxList.js'
 
 // ============================================================
@@ -787,6 +787,70 @@ export function registerFilesystemIPC(ipcMain) {
         dataUrl
       }
     } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // ----------------------------------------------------------
+  // 5.5 fs:save-video-from-url
+  //
+  // Download video from URL and save to project videos/ folder.
+  // Returns the local file path for use in export.
+  // ----------------------------------------------------------
+  ipcMain.handle('fs:save-video-from-url', async (_event, {
+    workFolder, project, url, name, engine = 'flow'
+  }) => {
+    try {
+      if (!url || !url.startsWith('http')) {
+        return { success: false, error: 'Invalid URL' }
+      }
+
+      if (!workFolder) {
+        const localAppData = process.env.LOCALAPPDATA || ''
+        workFolder = process.platform === 'win32'
+          ? path.join(localAppData, 'ViraLoop Studio', 'media', '05_Exports')
+          : path.join(app.getPath('documents'), 'ViraLoop Studio', 'media', '05_Exports')
+      }
+
+      const safeName = safeResourceName(name)
+      const filename = `${safeName}.mp4`
+
+      // Ensure videos directory exists
+      const resourceDir = path.join(workFolder, project, 'videos')
+      const historyDir = path.join(resourceDir, 'history')
+      await fs.mkdir(historyDir, { recursive: true })
+
+      // Download from URL
+      console.log(`[FS IPC] Downloading video from URL: ${url}`)
+      const response = await net.fetch(url)
+      if (!response.ok) {
+        return { success: false, error: `HTTP ${response.status}: ${response.statusText}` }
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer())
+
+      // Write current file
+      const currentPath = path.join(resourceDir, filename)
+      await fs.writeFile(currentPath, buffer)
+
+      // Write timestamped history copy
+      const timestamp = getTimestamp()
+      const historyFilename = `${safeName}_${timestamp}_${engine}.mp4`
+      const historyPath = path.join(historyDir, historyFilename)
+      await fs.writeFile(historyPath, buffer)
+
+      const localPath = path.join(workFolder, project, 'videos', filename)
+      console.log(`[FS IPC] Video saved to: ${localPath} (${buffer.length} bytes)`)
+
+      return {
+        success: true,
+        filename,
+        path: localPath,
+        engine,
+        historyFilename
+      }
+    } catch (error) {
+      console.error(`[FS IPC] Error saving video from URL:`, error)
       return { success: false, error: error.message }
     }
   })

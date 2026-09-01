@@ -1572,9 +1572,32 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                     // 비디오 URL이 즉시 반환된 경우 (DOM probe 또는 direct return)
                     if (res.videoUrl || res.video_url || res.url) {
                         const vUrl = res.videoUrl || res.video_url || res.url;
+
+                        // 프로젝트 폴더에 비디오 저장 (이미지와 동일 패턴)
+                        let localVideoPath = '';
+                        if (vUrl.startsWith('http') && window.electronAPI?.saveVideoFromUrl) {
+                            try {
+                                const workFolder = localStorage.getItem('workFolderPath') || '';
+                                const saveRes = await window.electronAPI.saveVideoFromUrl({
+                                    workFolder,
+                                    project: currentProjectName,
+                                    url: vUrl,
+                                    name: `scene_${scene.scene_id}_video`,
+                                    engine: 'flow'
+                                });
+                                if (saveRes?.success && saveRes?.path) {
+                                    localVideoPath = saveRes.path;
+                                    console.log(`[Video] Saved to project folder: ${localVideoPath}`);
+                                }
+                            } catch (saveErr) {
+                                console.warn('[Video Save Error]', saveErr);
+                            }
+                        }
+
                         updateScene(scene.id, {
                             visualStatus: 'completed',
                             video_url: vUrl,
+                            video_path: localVideoPath || undefined,
                             viewMode: 'render'
                         });
                         toast.success(`Scene #${scene.scene_id} 영상 생성이 완료되었습니다!`);
@@ -1592,9 +1615,31 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                             if (statusRes?.success && Array.isArray(statusRes.statuses)) {
                                 const st = statusRes.statuses[0];
                                 if (st?.status === 'complete' && st?.videoUrl) {
+                                    // 프로젝트 폴더에 비디오 저장
+                                    let localVideoPath = '';
+                                    if (st.videoUrl.startsWith('http') && window.electronAPI?.saveVideoFromUrl) {
+                                        try {
+                                            const workFolder = localStorage.getItem('workFolderPath') || '';
+                                            const saveRes = await window.electronAPI.saveVideoFromUrl({
+                                                workFolder,
+                                                project: currentProjectName,
+                                                url: st.videoUrl,
+                                                name: `scene_${scene.scene_id}_video`,
+                                                engine: 'flow'
+                                            });
+                                            if (saveRes?.success && saveRes?.path) {
+                                                localVideoPath = saveRes.path;
+                                                console.log(`[Video] Saved to project folder: ${localVideoPath}`);
+                                            }
+                                        } catch (saveErr) {
+                                            console.warn('[Video Save Error]', saveErr);
+                                        }
+                                    }
+
                                     updateScene(scene.id, {
                                         visualStatus: 'completed',
                                         video_url: st.videoUrl,
+                                        video_path: localVideoPath || undefined,
                                         viewMode: 'render'
                                     });
                                     toast.success(`Scene #${scene.scene_id} 영상 생성이 완료되었습니다!`);

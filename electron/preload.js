@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPathForFile: (file) => file?.path || file?.name || '',
   readFileAbsolute: (params) => ipcRenderer.invoke('fs:read-file-absolute', params),
   writeFileAbsolute: (params) => ipcRenderer.invoke('fs:write-file-absolute', params),
+  saveVideoFromUrl: (params) => ipcRenderer.invoke('fs:save-video-from-url', params),
 
   // CapCut
   detectCapcutPath: () => ipcRenderer.invoke('capcut:detect-path'),
