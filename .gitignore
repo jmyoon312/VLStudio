@@ -35,14 +35,14 @@ backup_*/
 *.swp
 
 # User Workspaces & Scratch Data
-story/
-projects/
+/story/
+/projects/
 .freebuff/
 undefined/
 
 # Dev, Build, and Credentials (Ignored from Commit)
-backend/
-credentials/
+/backend/
+/credentials/
 dist-backend/
 dist-dummy/
 legacy_backups/

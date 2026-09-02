@@ -1,0 +1,1624 @@
+/* ============================================
+   Story View — 스텝퍼 + 단계 패널 (다크 테마)
+   ============================================ */
+
+.story-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  height: 100%;
+  min-height: 0;
+  /* 자신은 스크롤하지 않는다 — 스텝퍼/컨트롤은 고정(flex-shrink:0), 중간 패널만
+     overflow-y:auto로 스크롤한다(generate 뷰 .main-panel/.tab-content 패턴과 동일). */
+  overflow: hidden;
+  color: var(--text-color);
+}
+
+/* ── 스텝퍼 (상단 고정) — 세그먼트 칩: 한 줄 track(좌우 스크롤) + 오른쪽 고정 'Run all' ── */
+.story-stepper {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  padding: 8px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-bottom: 10px;       /* 아래 내용과 분리 */
+  container-type: inline-size;   /* 아래 @container — 창이 아니라 스텝퍼 폭 기준으로 라벨을 접는다 */
+}
+
+/* 좁아지면 라벨을 잘라 "대…"로 만드는 대신 아예 접고 번호만 남긴다.
+   지금 보고 있는 단계만 이름을 유지해 어디인지 알 수 있게 한다(전체 이름은 title 로 남아 있다). */
+@container (max-width: 680px) {
+  .story-rail-step:not(.active) .story-rail-label { display: none; }
+}
+@container (max-width: 460px) {
+  /* 더 좁으면 진입 탭도 자리를 양보한다 — 이름은 접지 않는다(설정 탭은 이름이 전부라 빈 상자가 된다). */
+  .story-stepper {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 16px;
+  padding: 8px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03); gap: 8px; }
+  .story-gate-tab { padding: 0 7px; }
+}
+
+/* ── 진입 탭(설정/리서치/시놉시스) — 레일 왼쪽의 조용한 텍스트 탭 ── */
+.story-stepper-gates {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 auto;            /* 레일과 액션이 자리를 잃지 않게 진입 탭도 줄어든다 */
+  min-width: 0;
+}
+
+.story-gate-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.story-gate-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.story-gate-tab.active {
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-weight: 600;
+}
+.story-gate-check {
+  font-size: 0.72rem;
+  color: var(--success-color, #48bb78);
+}
+
+/* 진입 탭과 실행 스텝의 경계 */
+.story-stepper-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-color);
+  flex: 0 0 auto;
+}
+
+/* ── 실행 스텝 레일 — 번호 + 연결선 ── */
+.story-stepper-rail {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.story-rail-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.story-rail-cell:not(:first-child) {
+  flex: 1 1 auto;             /* 연결선이 남는 폭을 흡수 → 창이 좁아도 스크롤 없이 줄어든다 */
+}
+.story-rail-line {
+  flex: 1 1 auto;
+  height: 2px;
+  min-width: 12px;
+  margin: 0 4px;
+  border-radius: 2px;
+  background: var(--border-color);
+}
+.story-rail-line.filled { background: var(--success-color, #48bb78); }
+
+.story-rail-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  /* 반드시 줄어들 수 있어야 한다 — 0 0 auto 면 폭이 모자랄 때 셀끼리 겹치고
+     레일이 오른쪽 액션(자동/전체 진행) 위로 넘친다. */
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 5px 4px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+/* 상태를 담는 번호 자리 — 별도 색 점을 대체한다. */
+.story-rail-num {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.story-rail-label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  min-width: 0;              /* 없으면 flex 아이템이 내용 폭을 고집해 ellipsis 가 안 걸린다 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.story-step-done .story-rail-num {
+  background: var(--success-color, #48bb78);
+  border-color: var(--success-color, #48bb78);
+  color: #12281a;
+}
+.story-step-running .story-rail-num {
+  border-color: var(--primary-color, #4299e1);
+  color: var(--primary-color, #4299e1);
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+.story-step-error .story-rail-num {
+  border-color: var(--error-color, #f56565);
+  color: var(--error-color, #f56565);
+}
+.story-rail-step.active .story-rail-label {
+  color: var(--text-color);
+  font-weight: 700;
+}
+
+.story-step-clickable {
+  cursor: pointer;
+}
+.story-gate-tab.story-step-clickable:hover {
+  background: color-mix(in srgb, var(--text-color) 6%, transparent);
+  color: var(--text-color);
+}
+.story-rail-step.story-step-clickable:hover .story-rail-label { color: var(--text-color); }
+.story-rail-step.story-step-clickable:hover .story-rail-num { border-color: var(--primary-color); }
+
+/* 세그먼트 2줄 — 대화 + (감정) */
+.story-seg-cell { display: flex; flex-direction: column; gap: 2px; }
+.story-seg-text { }
+.story-seg-emotion { font-size: 0.8em; opacity: 0.7; }
+
+/* ── 스텝퍼 오른쪽 액션(자동 요약 + 전체 진행) ── */
+.story-stepper-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+/* 자동 진행 — 요약 버튼 하나로 모으고, 개별 스텝 on/off 는 팝오버에서. */
+.story-auto-wrap { position: relative; flex: 0 0 auto; }
+.story-auto-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.story-auto-summary.on {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+}
+.story-auto-count { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.story-auto-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.story-auto-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.story-auto-item:hover { background: color-mix(in srgb, var(--text-color) 7%, transparent); color: var(--text-color); }
+.story-auto-item input { cursor: pointer; margin: 0; width: 12px; height: 12px; }
+
+/* 'Run all' — 스텝퍼 오른쪽 끝 고정. */
+.story-step-runall {
+  flex: 0 0 auto;
+  align-self: center;
+  height: 28px;
+  padding: 0 14px;
+  border: 1px solid var(--primary-color, #4a7cff);
+  border-radius: 6px;
+  background: var(--primary-color, #4a7cff);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.story-step-runall:disabled { opacity: 0.5; cursor: default; }
+
+/* M3: 대본 자동 검토 토글 + 진행 배지 */
+.story-review-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.story-review-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.story-review-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: max-content;
+  min-height: 34px;
+  white-space: nowrap;
+}
+.story-review-rounds {
+  flex: 0 0 56px;
+  width: 56px;
+  min-width: 56px;
+  height: 34px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.story-review-run {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 34px;
+  padding: 6px 12px;
+}
+.story-review-badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--primary-color, #4a7cff);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.story-review-badge.error {
+  background: var(--error-color, #d9534f);
+}
+
+/* 0번 설정 탭 — 상태 배지가 없는 진입 탭(대본 앞). 살짝 구분되게 점선 테두리. */
+.story-step-setup {
+  border-style: dashed;
+}
+.story-step-setup.active {
+  border-style: solid;
+}
+
+/* §v2.12 B: 비활성 진입 탭(시놉시스 — imported/legacy 경로) — 회색, 클릭 불가. */
+.story-step-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── 에러 배너 ── */
+.story-error-banner {
+  padding: 10px 14px;
+  border-radius: var(--border-radius);
+  background: rgba(245, 101, 101, 0.12);
+  border: 1px solid var(--error-color);
+  color: var(--error-color);
+  font-size: 0.9rem;
+}
+
+/* ── 단계 패널 (중간, 유일한 스크롤 영역) ── */
+.story-step-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.story-script-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+/* ── 설정 화면(setup): 라벨(왼쪽) + 값(오른쪽) 2열 그리드, 폼은 가운데로 모음 ── */
+.story-setup-phase {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 각 옵션 행: [라벨 열 | 값 열] — 라벨 폭 고정으로 값 컬럼이 세로로 줄맞춰 정렬된다. */
+.story-opt-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;          /* 행 높이 통일 — 컨트롤 종류가 달라도 세로 리듬 유지 */
+}
+
+.story-opt-label {
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: var(--text-secondary);
+}
+
+/* 각 설정 항목 라벨 앞 링(○) 마커 — 항목 구분. 행 선두 라벨만(인라인 '추론 수준' 라벨 제외).
+   스텝퍼의 꽉 찬 상태 점과 구분되게 속 빈 링으로. */
+.story-opt-row > .story-opt-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.story-opt-row > .story-opt-label::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--primary-color);
+  opacity: 0.65;
+}
+
+/* 폼 컨트롤 높이 통일 — select/input 이 같은 높이로 줄맞춰 정렬된다. */
+.story-opt-row .story-input {
+  background: var(--background, #f8fafc) !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
+  border-radius: 10px !important;
+  color: var(--foreground, #1e293b) !important;
+  font-weight: 600 !important;
+  height: 38px;
+}
+
+.story-llm-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.story-model-select {
+  flex: 1 1 220px;
+}
+
+.story-llm-reasoning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 210px;
+  min-width: 170px;
+}
+
+.story-llm-inline-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.story-reasoning-select {
+  flex: 1 1 96px;
+}
+
+.story-length-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.story-length-value {
+  flex: 1 1 120px;
+  min-width: 0;
+  text-align: right;              /* 숫자 값 — 우측 정렬로 단위(분/초)에 붙게 */
+  font-variant-numeric: tabular-nums;
+}
+
+.story-length-unit {
+  flex: 0 1 96px;
+  min-width: 84px;
+}
+
+/* 씬 분리 단위 select + 씬 기준 목표 길이(min~max초) 입력. segment 모드에선 초 입력 숨김. */
+.story-granularity-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.story-granularity-group .story-granularity-select {
+  flex: 1 1 auto;
+}
+.story-scene-sec {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.story-sec-sep { color: var(--text-secondary); }
+.story-sec-unit { color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap; }
+.story-sec-input {
+  flex: 0 0 52px;
+  width: 52px;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family);
+  text-align: right;                /* 숫자 값 — 우측 정렬 */
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 대본 임포트(drag&drop / 붙여넣기 겸용) ── */
+.story-import-drop {
+  border: 1px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 6px;
+  background: var(--bg-color);
+}
+
+.story-import-drop .story-paste-textarea {
+  width: 100%;
+  min-height: 96px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--border-radius);
+  background: transparent;
+  color: var(--text-color);
+  font-family: var(--font-family);
+  resize: vertical;
+}
+
+.story-import-drop .story-paste-textarea:focus {
+  outline: none;
+}
+
+.story-import-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+.story-setup-start {
+  align-self: flex-end;
+}
+
+.story-input {
+  background: var(--background, #f8fafc) !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
+  border-radius: 10px !important;
+  color: var(--foreground, #1e293b) !important;
+  font-weight: 600 !important;
+  flex: 1 1 160px;
+  min-width: 0;              /* 그리드 값 열에서 긴 옵션 텍스트로 넘치지 않게 */
+  box-sizing: border-box;    /* padding 포함 폭 계산 — 값 열(1fr)에 딱 맞음 */
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family);
+}
+
+.story-script-stream {
+  flex: 1;
+  min-height: 200px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family);
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+/* ── 시놉시스 게이트 패널 (슬라이스5, spec §v2.5) ── */
+.story-synopsis-phase {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+
+.story-synopsis-characters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.story-character-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: auto;
+}
+
+.story-character-card {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.story-character-card .story-character-name { flex: 1 1 90px; }
+.story-character-card .story-character-gender { flex: 0 1 80px; }
+.story-character-card .story-character-age { flex: 0 1 70px; }
+.story-character-card .story-character-role { flex: 1 1 90px; }
+.story-character-card .story-character-appearance { flex: 3 1 200px; }
+
+/* 컬럼 헤더 — 카드와 동일 flex로 각 칸 위에 라벨 정렬. */
+.story-character-header {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.story-character-header > span { padding-left: 10px; }   /* 입력칸 좌패딩(10px)에 맞춰 라벨 시작 정렬 */
+.story-character-col-name { flex: 1 1 90px; }
+.story-character-col-gender { flex: 0 1 80px; }
+.story-character-col-ethnicity { flex: 1 1 160px; }       /* 기본 .story-input flex 와 동일 */
+.story-character-col-age { flex: 0 1 70px; }
+.story-character-col-role { flex: 1 1 90px; }
+.story-character-col-appearance { flex: 3 1 200px; }
+.story-character-col-remove { flex: 0 0 auto; width: 32px; padding-left: 0; }  /* ✕ 버튼 자리 */
+
+.story-character-add {
+  align-self: flex-start;
+}
+
+.story-synopsis-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+/* ── 리서치 게이트 패널 (리서치 spec §3.6) ──
+   2026-07-08 정리: 앱 공통 토큰(--bg-secondary/--border-color/--primary-color/…)과
+   오디오탭 story-status 배지 룩(pill + color-mix)을 미러해 한 세트로 보이게. 하드코딩 색 금지. */
+.story-research-phase {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.story-research-tos {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+/* 검색 폼 — 키워드 + 개수/기간 드롭다운 + 버튼을 한 줄로 정돈 */
+.story-research-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.story-research-searchbar .story-input {
+  background: var(--background, #f8fafc) !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
+  border-radius: 10px !important;
+  color: var(--foreground, #1e293b) !important;
+  font-weight: 600 !important;
+  flex: 1;
+  min-width: 0;
+}
+
+.story-research-searchbar .story-research-select {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.story-research-slow-hint,
+.story-research-lang-hint {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+/* 영상 카드 그리드 — 일정한 카드, 썸네일 16:9 고정, 제목 2줄 말줄임 */
+.story-research-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.story-research-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.story-research-card:hover {
+  border-color: color-mix(in srgb, var(--primary-color) 55%, var(--border-color));
+}
+
+.story-research-card.selected {
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--bg-secondary));
+}
+
+.story-research-card-thumb {
+  line-height: 0;
+}
+
+.story-research-card-thumb img {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: calc(var(--border-radius) - 4px);
+  background: var(--bg-color);
+  display: block;
+}
+
+/* 카드 하단 — 자막확보 배지(좌) + 선택 체크박스(우하단) */
+.story-research-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.story-research-card-footer .story-research-card-badges {
+  flex: 1 1 auto;
+}
+
+.story-research-card-check {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+.story-research-card-title {
+  font-weight: 600;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.7em; /* 2줄 고정 — 카드 높이 들쭉날쭉 방지 */
+}
+
+.story-research-card-meta {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.story-research-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 18px;
+}
+
+/* 카드 자막 상태 배지(running/done/error/langmiss) — story-status pill 미러 */
+.story-research-transcript {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+.story-research-transcript-running {
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 15%, transparent);
+}
+.story-research-transcript-done {
+  color: var(--success-color);
+  background: color-mix(in srgb, var(--success-color) 15%, transparent);
+}
+.story-research-transcript-error {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-secondary) 15%, transparent);
+}
+.story-research-transcript-langmiss {
+  color: var(--warning-color);
+  background: color-mix(in srgb, var(--warning-color) 15%, transparent);
+}
+
+/* 액션 줄 — [한꺼번에 분석](primary) + 개별 3버튼 + 확정/건너뛰기, 카드와 구분선 */
+.story-research-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* 한꺼번에 분석 진행 — 초시계 + 경과시간 + 단계 칩(자막→분석→팩트체크) */
+.story-research-auto {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: 0.8rem;
+}
+
+.story-research-auto-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.story-research-auto-stage {
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-secondary) 10%, transparent);
+}
+.story-research-auto-stage.active {
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 15%, transparent);
+}
+.story-research-auto-stage.done {
+  color: var(--success-color);
+  background: color-mix(in srgb, var(--success-color) 15%, transparent);
+}
+.story-research-auto-stage.error {
+  color: var(--error-color);
+  background: color-mix(in srgb, var(--error-color) 15%, transparent);
+}
+/* m4: 스킵된 단계(팩트체크 미실행) — done과 구분해 옅게 취소선 표시 */
+.story-research-auto-stage.skipped {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-secondary) 8%, transparent);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.story-research-auto-done {
+  color: var(--success-color);
+  font-size: 0.78rem;
+}
+
+/* 구조분석/팩트체크 결과 섹션 — 카드와 동일한 패널 룩 */
+.story-research-analysis,
+.story-research-factcheck {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+.story-research-beat {
+  display: flex;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.story-research-beat-name {
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.story-research-themes,
+.story-research-claim {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.story-research-adopt-hint {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.story-research-verdict-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  padding: 3px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 45%, transparent);
+}
+
+.story-research-verdict-row:last-child {
+  border-bottom: none;
+}
+
+.story-research-adopt-check {
+  flex: 0 0 auto;
+  accent-color: var(--primary-color);
+}
+
+/* 팩트체크 verdict 배지 — supported=녹색 / refuted=빨강 / unverified=회색(§3.6) */
+.story-verdict-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  flex: 0 0 auto;
+}
+.story-verdict-supported {
+  color: var(--success-color);
+  background: color-mix(in srgb, var(--success-color) 15%, transparent);
+}
+.story-verdict-refuted {
+  color: var(--error-color);
+  background: color-mix(in srgb, var(--error-color) 15%, transparent);
+}
+.story-verdict-unverified {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-secondary) 15%, transparent);
+}
+
+.story-research-evidence {
+  font-size: 0.74rem;
+  color: var(--primary-color);
+  word-break: break-all;
+}
+
+/* 시놉시스 게이트 "리서치 컨텍스트 포함" 토글(M2/Q5) */
+.story-research-use-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+/* ── 대본 편집 영역 (PromptInput 래퍼, M2) ── */
+.story-script-editor {
+  flex: 1;
+  /* min-height:0 — PromptInput(자체 flex:1/min-height:0, 내부 스크롤)이 부모 높이에 맞춰
+     내부 스크롤하도록 사슬을 잇는다. min-height를 양수로 두면 긴 대본이 편집 영역을 부풀려
+     아래 버튼(story-editor-controls)이 패널 스크롤 끝으로 밀려난다. */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 대본 작업 화면 (editor phase, Task 9) ── */
+.story-editor-phase {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  /* min-height:0 — 편집 영역(story-script-editor)만 내부 스크롤하고 하단 버튼
+     (story-editor-controls)은 항상 보이도록. 없으면 콘텐츠 크기로 부풀어 패널이 스크롤된다. */
+  min-height: 0;
+}
+
+.story-editor-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* ── 재분리 바 (씬 분리 탭: 단위 변경 + 다시 분리) ── */
+.story-rerun-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.story-rerun-bar .story-input {
+  background: var(--background, #f8fafc) !important;
+  border: 1px solid var(--border, #e2e8f0) !important;
+  border-radius: 10px !important;
+  color: var(--foreground, #1e293b) !important;
+  font-weight: 600 !important;
+  flex: 0 1 200px;
+}
+
+/* ── 읽기 전용 테이블 (씬/프롬프트, M1) ── */
+/* ResultsTable 룩: 격자 대신 헤더 배경 + 행 구분선 + zebra + 호버 */
+/* 주의: border-collapse:collapse 테이블에 border-radius+overflow:hidden을 함께 주면
+   Chromium(Electron)에서 행 구분선이 sub-pixel로 어긋나 아래로 갈수록 누적된다. 라운드 미적용. */
+.story-readonly-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  border: 1px solid var(--border-color);
+}
+
+/* ghost 행이 늘어나는 동안만 StoryView가 붙이는 viewport. 완료 표는 wrapper 없이 기존 렌더 유지. */
+.story-stream-table {
+  /* 화면 높이를 따라간다 — 예전엔 min(52vh, 520px) 이라 px 팔이 vh 를 덮어써서
+     4K 에서도 1080p 와 똑같이 520px 에 묶였다(목록이 안 길어짐). */
+  max-height: 52vh;
+  overflow-y: auto;
+  /* prompts auto-scroll(frontier 행 offsetTop 기반)이 이 컨테이너를 offsetParent 로 삼도록 —
+     없으면 offsetTop 이 바깥 positioned 조상 기준이라 스크롤 계산이 틀어져 화면이 "고정"된다. */
+  position: relative;
+}
+
+/* ghost table의 auto-scroll viewport 바깥에서, 유일한 패널 스크롤(.story-step-panel)에 고정된다. */
+.story-stream-progress-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.story-stream-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 30%, var(--border-color));
+  border-radius: var(--border-radius);
+  background: var(--bg-color);
+  box-shadow: 0 2px 8px color-mix(in srgb, #000 16%, transparent);
+}
+
+.story-stream-progress-label {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-stream-progress-track {
+  display: block;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-color) 12%, transparent);
+}
+
+.story-stream-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-color);
+  transition: width 180ms ease-out;
+}
+
+.story-stream-progress-fill.indeterminate {
+  width: 34%;
+  animation: story-stream-progress-indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes story-stream-progress-indeterminate {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(310%); }
+}
+
+.story-readonly-table th {
+  padding: 9px 10px;
+  text-align: left;
+  font-weight: 600;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.story-readonly-table td {
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  /* 기본 baseline이면 2줄 세그먼트 행에서 pill·버튼이 위로 떠 어긋나 보인다 → 세로 중앙 통일 */
+  vertical-align: middle;
+}
+
+.story-readonly-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* zebra + 호버 — sfx 등 특수 행 배경은 아래에서 override */
+.story-readonly-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--text-color) 3%, transparent);
+}
+
+.story-readonly-table tbody tr:hover {
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+}
+
+.story-row-revising {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary-color) 4%, transparent) 0%,
+    color-mix(in srgb, var(--primary-color) 18%, transparent) 50%,
+    color-mix(in srgb, var(--primary-color) 4%, transparent) 100%
+  );
+  background-size: 220% 100%;
+  animation: story-row-revising-shimmer 1.15s linear infinite;
+}
+
+@keyframes story-row-revising-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* 저장 전 streamed 값 — 텍스트 노드라 편집되지 않고 final story:state가 오면 즉시 사라진다. */
+.story-prompt-ghost,
+.story-scene-ghost {
+  color: var(--text-secondary, #8a8a8a);
+  font-style: italic;
+  opacity: 0.72;
+  white-space: pre-wrap;
+}
+
+/* 상태 배지 (ResultsTable의 .status 룩) — 세그먼트 상태를 색깔 pill로 */
+.story-status {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.story-status-pending {
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+.story-status-running {
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 15%, transparent);
+}
+.story-status-done {
+  color: var(--success-color);
+  background: color-mix(in srgb, var(--success-color) 15%, transparent);
+}
+.story-status-error {
+  color: var(--error-color);
+  background: color-mix(in srgb, var(--error-color) 15%, transparent);
+}
+
+/* 세그먼트 테이블: 열 폭 고정(ResultsTable처럼) — auto 레이아웃이면 행마다 마지막 열 폭이
+   흔들려 구분선 오른쪽 끝이 어긋난다. fixed + 열 width로 모든 행 열 폭을 통일. */
+.story-audio-table {
+  table-layout: fixed;
+}
+.story-audio-table th:nth-child(1),
+.story-audio-table td:nth-child(1) {
+  width: 64px;
+  min-width: 64px;
+  white-space: nowrap;
+}
+.story-audio-table th:nth-child(2),
+.story-audio-table td:nth-child(2) { width: 96px; }
+/* 3번(세그먼트)은 지정하지 않아 남는 폭을 모두 차지 */
+.story-audio-table th:nth-child(4),
+.story-audio-table td:nth-child(4) { width: 74px; }
+.story-audio-table th:nth-child(5),
+.story-audio-table td:nth-child(5) { width: 148px; }
+/* 고정 폭에서 긴 대사가 셀을 넘치지 않게 줄바꿈 */
+.story-audio-table td { overflow-wrap: break-word; }
+
+.story-empty-hint {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* ── 진행 중 표시 (옵션·기준 요약 + 초시계 + 라벨 + 경과 시간) ── */
+.story-running {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 24px;
+  color: var(--text-secondary);
+  width: 100%;
+}
+
+.story-running-detail {
+  font-size: 0.82rem;
+  text-align: center;
+  color: var(--text-secondary);
+  opacity: 0.85;
+}
+
+/* justify/wrap 을 여기 넣으면 script/audio/review 등 모든 StoryRunning 헤더가 가운데 정렬로
+   바뀐다(Fable NIT — blast radius). 배지/진행은 자체 클래스로 배치하고 기존 정렬은 유지한다. */
+.story-running-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.story-running-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.story-running-elapsed {
+  font-variant-numeric: tabular-nums;
+  color: var(--primary-color);
+}
+
+.story-thinking-badge {
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+/* 생성 중 인라인 시계 — 스트리밍 뷰(시놉시스/대본) 하단 우측. 초시계 애니메이션 + 경과시간. */
+.story-gen-clock {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.story-gen-clock-label {
+  font-weight: 600;
+}
+
+.story-progress-log {
+  width: min(720px, 100%);
+  max-height: clamp(220px, 30vh, 60vh);   /* 큰 화면에선 로그도 같이 길어진다 */
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.story-progress-log-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.12);
+}
+
+.story-progress-log-row:last-child {
+  border-bottom: none;
+}
+
+.story-progress-log-row.error .story-progress-log-message {
+  color: var(--error-color);
+}
+
+.story-progress-log-row.warn .story-progress-log-message {
+  color: var(--warning-color, #d98a2b);
+}
+
+.story-progress-log-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+
+.story-progress-log-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+}
+
+/* ── 하단 컨트롤 (하단 고정) ── */
+.story-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.story-btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%) !important;
+  border-radius: 12px !important;
+  font-weight: 800 !important;
+  font-size: 0.92rem !important;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35) !important;
+  color: var(--card, #ffffff) !important;
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--border-radius);
+  background: var(--primary-color);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.story-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.story-btn-primary.story-btn-error {
+  background: var(--error-color);
+}
+
+.story-btn-secondary {
+  padding: 8px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+}
+
+/* ── 오디오 화자→목소리 매핑 (M2a-3b) ── */
+.story-voice-map {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.story-voice-row {
+  /* [화자 | 성우 | ✨] 3열 고정 그리드 + 출처(mp3/SRT)는 **아랫줄**.
+     flex로 두면 appearance(인물 특징) 텍스트 길이가 남는 폭을 제각각 먹어 성우 버튼 x좌표와
+     출처 칩 폭이 행마다 달라진다(나레이션 행은 appearance가 없어 출처가 넓어 칩이 1줄, 인물
+     행은 좁아 2줄로 갈라졌다). 열 폭을 고정하면 모든 행에서 정확히 같은 자리에 정렬된다.
+
+     출처를 같은 줄에 두면 300px짜리 열이 통째로 필요해 appearance가 230px까지 쥐어짜였다(실측
+     스크린샷: 인물 설명이 6줄로 접힘). 아랫줄로 내려 그 폭을 appearance에 돌려준다. 화자 칸은
+     두 줄에 걸쳐(speaker/speaker) 설명이 세로로 자랄 자리를 갖는다. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 28px;
+  grid-template-areas:
+    "speaker voice run"
+    "speaker source source";
+  align-items: start;
+  gap: 8px 12px;
+  padding: 6px 8px;
+  border-radius: var(--border-radius);
+}
+/* 지브라 스트라이프 — 인물 항목을 번갈아 배경색으로 구분 */
+.story-voice-row:nth-child(even) {
+  background: var(--bg-secondary);
+}
+/* 드래그가 행 위에 올라왔을 때 — 행 전체가 드롭 타깃임을 드러낸다(칩만이 아니다). */
+.story-voice-row.drag-over {
+  outline: 1px dashed var(--accent-color, #6aa9ff);
+  outline-offset: -2px;
+  background: rgba(106, 169, 255, 0.1);
+}
+.story-voice-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* 그리드 1열. min-width:0이라야 긴 appearance가 열 안에서 줄바꿈되지 성우/출처 열을 밀지 않는다. */
+  min-width: 0;
+}
+.story-voice-speaker {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+/* A1: 캐릭터 특징(appearance) — 표시 전용, 이름 아래 회색 작은 글씨.
+   열 폭 안에서 여러 줄로 접힌다(행 높이는 늘어나도 됨). 긴 무공백 텍스트도 열을 안 넘기게 wrap. */
+.story-voice-appearance {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #8a8a8a);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+/* 화자별 진행 카운터(예: 227/230) — 이름 아래 작은 배지. 전체 초시계에 더한 화자 단위 진행. */
+.story-voice-progress {
+  align-self: flex-start;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, #8a8a8a);
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text-secondary, #8a8a8a) 14%, transparent);
+}
+.story-voice-progress.done {
+  color: #3fae6b;
+  background: color-mix(in srgb, #3fae6b 16%, transparent);
+}
+.story-voice-progress.has-error {
+  color: #e05c5c;
+  background: color-mix(in srgb, #e05c5c 16%, transparent);
+}
+
+/* C: 캐릭터 성별 배지 + 성우 성별 불일치 경고 */
+.story-voice-gender {
+  margin-left: 6px;
+  font-size: 0.8rem;
+}
+.story-voice-gender.female { color: #e05a9c; }
+.story-voice-gender.male { color: #4a90d9; }
+.story-voice-gender-warn {
+  margin-left: 6px;
+  color: #e6a23c;
+}
+/* Task 11: 드롭다운 3종(엔진/검색/목소리) → [성우 선택] 버튼(모달 오픈) */
+.story-voice-picker-btn {
+  /* 그리드 2열을 채운다 — 모든 행에서 좌우 가장자리가 같은 x에 정렬된다.
+     .story-input의 flex:1 1 160px은 그리드 아이템이라 무시된다. */
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+}
+.story-speaker-run-btn {
+  /* 아이콘 하나짜리 정사각 — 라벨 버튼이던 시절의 padding 을 남기면 출처 칩을 다시 밀어낸다. */
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+  color: var(--text-color);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.story-speaker-run-btn:hover {
+  border-color: var(--accent-color, #6aa9ff);
+  color: var(--accent-color, #6aa9ff);
+}
+
+/* ── 세그먼트 미리듣기/재생성 액션 (M2a-3c/3d) ── */
+.story-audio-actions-cell {
+  white-space: nowrap;
+}
+.story-audio-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+/* M2b-5: sfx 세그먼트 행 — 효과음 description + 소스 선택 */
+.story-sfx-row {
+  background: color-mix(in srgb, var(--accent-color, #ffb74d) 8%, transparent);
+}
+.story-sfx-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.story-sfx-desc {
+  font-style: italic;
+  opacity: 0.85;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* 소스 드롭다운은 내용 폭만 차지(자리 최소화) */
+.story-sfx-source {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 120px;
+  padding: 2px 6px;
+  font-size: 0.85em;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family);
+}
+.story-seg-btn {
+  background: var(--border-color);
+  border: none;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  color: var(--text-color);
+  font-size: 0.8rem;
+}
+.story-seg-btn:hover:not(:disabled) { background: var(--primary-color); color: #fff; }
+.story-seg-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── 영상 상세 모달(2026-07-08): 카드 더블클릭 → 상세+임베드 자동재생 ──
+   공용 Modal(.modal-overlay/.modal, App.css) 위에 뜬다 — 여기선 폭 확장 + 본문 스타일만. */
+.modal.story-video-modal {
+  max-width: 760px;
+  width: 90%;
+}
+
+.story-video-embed-wrap {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background: #000;
+  border-radius: calc(var(--border-radius) - 4px);
+  overflow: hidden;
+}
+.story-video-embed {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.story-video-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.story-video-mute {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-secondary);
+  cursor: pointer;
+}
+.story-video-mute:hover { background: var(--border-color); }
+.story-video-volume { flex: 1 1 auto; accent-color: var(--primary-color); cursor: pointer; }
+
+.story-video-loading { margin-top: 14px; color: var(--text-secondary, var(--text-color)); font-size: 0.9rem; }
+
+.story-video-detail { margin-top: 14px; }
+.story-video-detail-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 10px; }
+
+/* 바이럴 지수 — 등급별 강조 */
+.story-video-viral {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 12px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  margin-bottom: 12px;
+}
+.story-video-viral-tier { font-weight: 700; }
+.story-video-viral-ratio,
+.story-video-viral-vpd,
+.story-video-viral-eng { font-size: 0.85rem; color: var(--text-secondary, var(--text-color)); }
+.story-video-viral-explosive { border-color: #e0483d; background: color-mix(in srgb, #e0483d 12%, var(--bg-secondary)); }
+.story-video-viral-high { border-color: #e8853a; background: color-mix(in srgb, #e8853a 12%, var(--bg-secondary)); }
+.story-video-viral-ok { border-color: color-mix(in srgb, var(--primary-color) 55%, var(--border-color)); }
+
+.story-video-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin: 0; }
+.story-video-meta-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border-color); }
+.story-video-meta-label { color: var(--text-secondary, var(--text-color)); font-size: 0.85rem; }
+.story-video-meta-value { font-weight: 600; font-size: 0.9rem; }
+@media (max-width: 520px) { .story-video-meta { grid-template-columns: 1fr; } }
+
+/* 검수 채점 배지 — 텍스트창 하단. 라운드가 여럿이면 첫→마지막 변화. */
+.story-review-score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  margin-top: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-color);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.story-review-score-label { color: var(--text-secondary, #888); }
+.story-review-score-from { color: var(--text-secondary, #888); text-decoration: line-through; }
+.story-review-score-arrow { color: var(--text-secondary, #888); }
+.story-review-score-to { font-weight: 600; }
+.story-review-score-to.up { color: #22c55e; }
+.story-review-score-to.down { color: #ef4444; }
+
+/* 카운트 행(줄 수·자 수) 안에 얹힐 땐 콤팩트하게 — 별도 줄을 차지하지 않는다. */
+.prompt-input-footer .story-review-score {
+  margin-top: 0;
+  padding: 2px 8px;
+  font-size: inherit;
+}
+
+/* 자막에서 정확한 자리를 못 찾아 근처로 잘라낸 조각 — 들어보고 조정해야 한다.
+   경고 로그는 지워지지만 이 표시는 scenes.json 에 영속돼 재오픈해도 남는다. */
+.story-seg-approx {
+  display: inline-block;
+  margin-right: 4px;
+  color: #d97706;
+  font-weight: 700;
+  cursor: help;
+}
+
+/* 그리드 자리 배정 — 출처만 아랫줄이다(위 .story-voice-row 주석 참고). */
+.story-voice-info { grid-area: speaker; align-self: start; }
+.story-voice-picker-btn { grid-area: voice; }
+.story-speaker-run-btn { grid-area: run; }
+.story-voice-source { grid-area: source; min-width: 0; }
+
+
+/* 세션 토큰 인라인(UsageInline) — 진행 표시 옆 / 편집기 카운트 행 / 프롬프트 표 하단, 별도 영역 없음. */
+.story-usage-inline {
+  margin-left: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, #8a8a8a);
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+/* 프롬프트 스텝은 편집기가 없어 표 밑에 씬 수 + 토큰을 한 줄로. */
+.story-prompts-count-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 4px 2px 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary, #8a8a8a);
+}
