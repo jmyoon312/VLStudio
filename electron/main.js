@@ -60,7 +60,7 @@ app.setName('ViraLoop Studio')
 // [Fix] Persistent Storage for Google Flow & Profile Sessions
 // ═══════════════════════════════════════════════════════════════════════════════
 app.disableHardwareAcceleration()
-const persistentDataDir = path.join(app.getPath('appData'), 'ViraLoopStudio')
+const persistentDataDir = path.join(app.getPath('appData'), 'ViraLoop Studio')
 try {
   fsSync.mkdirSync(persistentDataDir, { recursive: true })
 } catch (e) {}
@@ -2538,20 +2538,32 @@ function _doStartBackend() {
 
   const isPackaged = app.isPackaged
   const resourcesPath = process.resourcesPath
-  // 1. Storage Dir (Electron이 dev 모드일때 userData를 tmpdir로 바꾸므로, DB는 실제 AppData를 유지하도록 고정)
-  const realAppData = path.join(app.getPath('appData'), 'ViraLoop Studio')
-  const storageDir = app.isPackaged ? app.getPath('userData') : realAppData
+  // 1. Storage Dir - Always bind to 'ViraLoop Studio' (with space) in LocalAppData
+  const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local')
+  const localStorageDir = path.join(localAppData, 'ViraLoop Studio')
+  const storageDir = localStorageDir
 
   let executablePath = ''
   let spawnArgs = []
-  let workingDir = path.join(__dirname, '..', 'apps', 'api')
+  
+  // 1. Search for Working Directory
+  const candidateWorkingDirs = [
+    path.join(resourcesPath, 'apps', 'api'),
+    path.join(__dirname, '..', 'apps', 'api'),
+    'C:\\ViraLoopMedia\\VLStudio\\apps\\api',
+    resourcesPath
+  ]
+  let workingDir = candidateWorkingDirs.find(d => fsSync.existsSync(d) && fsSync.existsSync(path.join(d, 'app', 'main.py'))) || candidateWorkingDirs[0]
 
-  // Search for Python runtime in root/runtime, apps/api/venv, venv, or system python
+  // 2. Search for Python runtime
   const candidatePythons = [
+    path.join(resourcesPath, 'runtime', 'python.exe'),
+    path.join(resourcesPath, 'runtime', 'Scripts', 'python.exe'),
+    path.join(resourcesPath, 'venv', 'Scripts', 'python.exe'),
+    'C:\\ViraLoopMedia\\VLStudio\\venv\\Scripts\\python.exe',
     path.join(__dirname, '..', 'runtime', 'python.exe'),
-    path.join(__dirname, '..', 'runtime', 'Scripts', 'python.exe'),
-    path.join(__dirname, '..', 'apps', 'api', 'venv', 'Scripts', 'python.exe'),
     path.join(__dirname, '..', 'venv', 'Scripts', 'python.exe'),
+    path.join(__dirname, '..', 'apps', 'api', 'venv', 'Scripts', 'python.exe'),
     path.join(resourcesPath, 'api_server.exe')
   ]
 
@@ -2563,19 +2575,14 @@ function _doStartBackend() {
     spawnArgs = []
     workingDir = resourcesPath
   } else if (foundPython) {
-    console.log('[Orchestration] Launching ViraLoop FastAPI Backend via:', foundPython)
+    console.log('[Orchestration] Launching ViraLoop FastAPI Backend via:', foundPython, 'in CWD:', workingDir)
     executablePath = foundPython
     spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000']
-    workingDir = path.join(__dirname, '..', 'apps', 'api')
   } else {
-    console.log('[Orchestration] Fallback: using system python...')
+    console.log('[Orchestration] Fallback: using system python in CWD:', workingDir)
     executablePath = 'python'
     spawnArgs = ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000']
-    workingDir = path.join(__dirname, '..', 'apps', 'api')
   }
-
-  // 대용량 미디어 및 브라우저 프로필을 위한 Local AppData 경로 생성 (AD Roaming 방지)
-  const localStorageDir = storageDir.replace('Roaming', 'Local')
 
   // SQLite 및 로컬 환경 강제 설정을 위한 환경 변수 주입
   const env = {
