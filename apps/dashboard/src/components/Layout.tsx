@@ -407,6 +407,48 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         }
     };
 
+    // Drag & Drop reordering for top tabs
+    const [draggedTopTabIndex, setDraggedTopTabIndex] = React.useState<number | null>(null);
+    const [dragOverTopTabIndex, setDragOverTopTabIndex] = React.useState<number | null>(null);
+
+    const handleTopTabDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedTopTabIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+    };
+
+    const handleTopTabDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverTopTabIndex !== index) {
+            setDragOverTopTabIndex(index);
+        }
+    };
+
+    const handleTopTabDrop = (e: React.DragEvent, dropIndex: number) => {
+        e.preventDefault();
+        if (draggedTopTabIndex === null || draggedTopTabIndex === dropIndex) {
+            setDraggedTopTabIndex(null);
+            setDragOverTopTabIndex(null);
+            return;
+        }
+
+        setTabs(prev => {
+            const reordered = [...prev];
+            const [moved] = reordered.splice(draggedTopTabIndex, 1);
+            reordered.splice(dropIndex, 0, moved);
+            return reordered;
+        });
+
+        setDraggedTopTabIndex(null);
+        setDragOverTopTabIndex(null);
+    };
+
+    const handleTopTabDragEnd = () => {
+        setDraggedTopTabIndex(null);
+        setDragOverTopTabIndex(null);
+    };
+
     React.useEffect(() => {
         for (const group of menuGroups) {
             const hasMatch = group.items.some(item =>
@@ -672,19 +714,30 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
                 {/* Pixeling-Style Modern Tab Bar (Desktop Only, Plus Button Multi-Tabs) */}
                 <div className="hidden sm:flex items-center gap-1 px-4 md:px-8 pt-2 bg-muted/30 border-b border-border overflow-x-auto dashboard-scroll-area shrink-0 select-none h-11">
-                    {tabs.map((tab) => {
+                    {tabs.map((tab, index) => {
                         const { icon: TabIcon } = getTabNameAndIcon(tab.path);
                         const isTabActive = tab.id === activeTabId;
+                        const isDragging = draggedTopTabIndex === index;
+                        const isDragOver = dragOverTopTabIndex === index && draggedTopTabIndex !== index;
+
                         return (
                             <div
                                 key={tab.id}
+                                draggable
+                                onDragStart={(e) => handleTopTabDragStart(e, index)}
+                                onDragOver={(e) => handleTopTabDragOver(e, index)}
+                                onDrop={(e) => handleTopTabDrop(e, index)}
+                                onDragEnd={handleTopTabDragEnd}
                                 onClick={() => selectTab(tab)}
                                 className={cn(
-                                    "relative flex items-center gap-2 px-3.5 py-1.5 rounded-t-xl text-xs font-bold border border-transparent transition-all duration-150 cursor-pointer group shrink-0 -mb-[1px] select-none",
+                                    "relative flex items-center gap-2 px-3.5 py-1.5 rounded-t-xl text-xs font-bold border border-transparent transition-all duration-150 cursor-grab active:cursor-grabbing group shrink-0 -mb-[1px] select-none",
+                                    isDragging && "opacity-40 scale-95",
+                                    isDragOver && "border-l-2 border-primary pl-2",
                                     isTabActive
                                         ? "bg-background border-border border-b-transparent text-primary font-extrabold z-10 shadow-[0_-2px_6px_rgba(0,0,0,0.02)]"
                                         : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                                 )}
+                                title="드래그하여 탭 순서 변경 가능"
                             >
                                 <TabIcon className={cn("w-3.5 h-3.5", isTabActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
                                 <span className="max-w-[130px] truncate">{tab.name}</span>

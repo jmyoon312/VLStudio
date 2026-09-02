@@ -147,22 +147,92 @@ export default function CustomMenu() {
         setEditingLinks(newLinks);
     };
 
+    // Drag & Drop State for Main Tab Bar
+    const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
+    const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null);
+
+    const handleTabDragStart = (e: React.DragEvent, index: number) => {
+        setDraggedTabIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+    };
+
+    const handleTabDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverTabIndex !== index) {
+            setDragOverTabIndex(index);
+        }
+    };
+
+    const handleTabDrop = async (e: React.DragEvent, dropIndex: number) => {
+        e.preventDefault();
+        if (draggedTabIndex === null || draggedTabIndex === dropIndex) {
+            setDraggedTabIndex(null);
+            setDragOverTabIndex(null);
+            return;
+        }
+
+        const reordered = [...links];
+        const [movedItem] = reordered.splice(draggedTabIndex, 1);
+        reordered.splice(dropIndex, 0, movedItem);
+
+        setLinks(reordered);
+        setDraggedTabIndex(null);
+        setDragOverTabIndex(null);
+
+        // Save reordered list to backend immediately
+        try {
+            const orderedIds = reordered.map(l => l.id);
+            await fetch(`${API_BASE_URL}/custom-links/reorder`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderedIds)
+            });
+        } catch (error) {
+            console.error("Failed to save reordered links:", error);
+            fetchLinks(); // Rollback on error
+        }
+    };
+
+    const handleTabDragEnd = () => {
+        setDraggedTabIndex(null);
+        setDragOverTabIndex(null);
+    };
+
     return (
         <div className="flex flex-col h-screen bg-background">
             {/* Zone 1: Top Bar */}
             <div className="flex items-center border-b p-2 gap-2 bg-card shadow-sm z-10">
                 <ScrollArea className="flex-1 whitespace-nowrap">
                     <div className="flex w-max space-x-2 p-1">
-                        {links.map((link) => (
-                            <Button
-                                key={link.id}
-                                variant={selectedLink?.id === link.id ? "default" : "ghost"}
-                                onClick={() => setSelectedLink(link)}
-                                className="h-9"
-                            >
-                                {link.title}
-                            </Button>
-                        ))}
+                        {links.map((link, index) => {
+                            const isDragging = draggedTabIndex === index;
+                            const isDragOver = dragOverTabIndex === index && draggedTabIndex !== index;
+
+                            return (
+                                <div
+                                    key={link.id}
+                                    draggable
+                                    onDragStart={(e) => handleTabDragStart(e, index)}
+                                    onDragOver={(e) => handleTabDragOver(e, index)}
+                                    onDrop={(e) => handleTabDrop(e, index)}
+                                    onDragEnd={handleTabDragEnd}
+                                    className={`relative transition-all duration-150 ${
+                                        isDragging ? 'opacity-40 scale-95' : ''
+                                    } ${isDragOver ? 'border-l-2 border-primary pl-1' : ''}`}
+                                >
+                                    <Button
+                                        variant={selectedLink?.id === link.id ? "default" : "ghost"}
+                                        onClick={() => setSelectedLink(link)}
+                                        className="h-9 cursor-grab active:cursor-grabbing select-none"
+                                        title="드래그하여 탭 순서 변경 가능"
+                                    >
+                                        {link.title}
+                                    </Button>
+                                </div>
+                            );
+                        })}
                         {links.length === 0 && (
                             <span className="text-sm text-muted-foreground px-2 py-2">
                                 등록된 메뉴가 없습니다. 설정에서 추가해주세요.
@@ -175,7 +245,7 @@ export default function CustomMenu() {
                         <ExternalLink className="h-5 w-5" />
                     </Button>
                 )}
-                <Button variant="ghost" size="icon" onClick={handleOpenDialog}>
+                <Button variant="ghost" size="icon" title="메뉴 관리 및 순서 설정" onClick={handleOpenDialog}>
                     <Settings className="h-5 w-5" />
                 </Button>
             </div>
