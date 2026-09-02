@@ -4,12 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-    paths:
-      - 'apps/dashboard/**'
-      - 'scripts/build-hotpatch.cjs'
-      - 'package.json'
   workflow_dispatch:
 
 permissions:
@@ -38,10 +32,10 @@ jobs:
 
       - name: Upload Hot-Patch Assets to GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           name: "ViraLoop Studio OTA Hot-Patch ${{ github.ref_name }}"
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.9.33' }}
+          tag_name: ${{ github.ref_name }}
           draft: false
           prerelease: false
           files: |

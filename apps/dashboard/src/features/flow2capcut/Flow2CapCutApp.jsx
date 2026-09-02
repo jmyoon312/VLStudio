@@ -17,7 +17,7 @@ import { useProjectData } from './hooks/useProjectData'
 import { useStoryPipeline } from './hooks/useStoryPipeline'
 import { useStoryAutoOpen } from './hooks/useStoryAutoOpen'
 import { STORY_TTS_PROVIDERS } from './config/storyTtsProviders'
-const StoryView = lazy(() => import('./components/story/StoryView'))
+const StoryView = lazy(() => import('./components/story/StoryView.jsx'))
 import { useReferenceGeneration } from './hooks/useReferenceGeneration'
 import { useRefPanelVisibility } from './hooks/useRefPanelVisibility'
 import { useStyleThumbnails } from './hooks/useStyleThumbnails'

@@ -34,6 +34,7 @@ export default defineConfig({
     },
     plugins: [react()],
     resolve: {
+        extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
         dedupe: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
         alias: {
             "@": path.resolve(__dirname, "./src"),
