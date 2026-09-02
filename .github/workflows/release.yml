@@ -3,44 +3,35 @@ name: Release & Distribute
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build-release:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: win
-          - os: macos-latest
-            target: mac
-          - os: ubuntu-latest
-            target: linux
+  build-release-windows:
+    name: Build Windows Installer (.exe)
+    runs-on: windows-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install Node Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install Python Dependencies
         run: |
@@ -52,11 +43,9 @@ jobs:
         run: npm run mcp:install
 
       - name: Build Standalone Backend Binary (Windows)
-        if: matrix.target == 'win'
         run: python apps/api/dev_utils/build_backend.py
 
-      - name: Build & Package Desktop Application (Windows)
-        if: matrix.target == 'win'
+      - name: Build & Package Desktop Application (Windows NSIS Setup.exe)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_BUILD_TARGET: nsis
@@ -64,21 +53,3 @@ jobs:
         run: |
           npm run build:prod
           npx electron-builder --win nsis --publish always
-
-      - name: Build & Package Desktop Application (macOS)
-        if: matrix.target == 'mac'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_FUNCTION_ENV: prod
-        run: |
-          npm run build:prod
-          npx electron-builder --mac --publish always
-
-      - name: Build & Package Desktop Application (Linux)
-        if: matrix.target == 'linux'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_FUNCTION_ENV: prod
-        run: |
-          npm run build:prod
-          npx electron-builder --linux --publish always
