@@ -104,11 +104,8 @@ export const ChannelManager: React.FC = () => {
                         <div>
                             <div className="flex items-center gap-1.5">
                                 <h1 className="text-sm sm:text-base font-extrabold tracking-tight text-foreground">
-                                    타겟 채널 자동 수집 2.0
+                                    타겟 채널 자동 수집
                                 </h1>
-                                <span className="text-[9px] sm:text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
-                                    PIXELING
-                                </span>
                             </div>
                             <p className="text-[10px] sm:text-xs text-muted-foreground hidden xs:block">
                                 카테고리/채널 그룹핑 및 프리셋 기반 무인 자동 수집
