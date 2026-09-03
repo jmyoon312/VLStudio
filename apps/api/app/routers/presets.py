@@ -29,11 +29,14 @@ def enrich_preset_with_stats(db: Session, preset: models.CollectionPreset) -> sc
     if channel_ids:
         today_count = db.query(models.Video).filter(
             models.Video.channel_id.in_(channel_ids),
-            models.Video.created_at >= today_midnight,
+            models.Video.downloaded_at >= today_midnight,
             models.Video.status == 'completed'
         ).count()
         
-    p_data = schemas.CollectionPreset.from_orm(preset)
+    try:
+        p_data = schemas.CollectionPreset.model_validate(preset)
+    except AttributeError:
+        p_data = schemas.CollectionPreset.from_orm(preset)
     p_data.today_collected_count = today_count
     return p_data
 
