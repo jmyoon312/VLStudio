@@ -57,17 +57,23 @@ class DailyReport(BaseModel):
 class CategoryBase(BaseModel):
     name: str
     folder_name: Optional[str] = None
+    color: Optional[str] = "#3B82F6"
+    order_index: Optional[int] = 0
 
 class CategoryCreate(BaseModel):
     name: str
     parent_id: Optional[int] = None
     level: Optional[int] = 0
+    color: Optional[str] = "#3B82F6"
+    order_index: Optional[int] = 0
 
 class Category(CategoryBase):
     id: int
     name_en: Optional[str] = None
     parent_id: Optional[int] = None
     level: Optional[int] = 0
+    color: Optional[str] = "#3B82F6"
+    order_index: Optional[int] = 0
     is_fixed: Optional[bool] = False
     ai_generated: Optional[bool] = False
     created_at: Optional[datetime] = None
@@ -88,6 +94,8 @@ class ChannelBase(BaseModel):
     folder_name: str
     thumbnail_path: Optional[str] = None
     category_id: Optional[int] = None
+    color_label: Optional[str] = "none" # none, red, orange, green, blue, purple
+    memo: Optional[str] = ""
     last_scanned_at: Optional[datetime] = None
     auto_download: bool = True
     default_script_only: bool = False
@@ -97,14 +105,26 @@ class ChannelBase(BaseModel):
     class Config:
         from_attributes = True
 
-class ChannelCreate(ChannelBase):
-    pass
+class ChannelCreate(BaseModel):
+    url: str
+    platform: Optional[str] = "youtube"
+    name: Optional[str] = "New Channel"
+    folder_name: Optional[str] = "new_channel"
+    thumbnail_path: Optional[str] = None
+    category_id: Optional[int] = None
+    color_label: Optional[str] = "none"
+    memo: Optional[str] = ""
+    auto_download: bool = True
+    default_script_only: bool = False
+    subscriber_count: Optional[int] = 0
 
 class ChannelUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
     category_id: Optional[int] = None        # 카테고리 변경 지원
     folder_name: Optional[str] = None        # 채널 폴더명 변경 시
+    color_label: Optional[str] = None
+    memo: Optional[str] = None
     status: Optional[str] = None
     auto_download: Optional[bool] = None
     default_script_only: Optional[bool] = None # [NEW]
@@ -118,6 +138,52 @@ class Channel(ChannelBase):
     default_script_only: bool # [NEW]
     created_at: datetime
     last_scanned_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Collection Preset schemas
+class CollectionPresetBase(BaseModel):
+    name: str
+    video_type: str = "shorts"
+    upload_period: str = "7d"
+    min_views: int = 100000
+    sort_by: str = "popular"
+    max_videos_per_channel: int = 3
+    outlier_ratio: float = 1.0
+    collect_video: bool = True
+    collect_script: bool = True
+    is_auto_active: bool = True
+    cron_interval_hours: int = 2
+    channel_ids: List[int] = []
+    folder_ids: List[int] = []
+
+class CollectionPresetCreate(CollectionPresetBase):
+    pass
+
+class CollectionPresetUpdate(BaseModel):
+    name: Optional[str] = None
+    video_type: Optional[str] = None
+    upload_period: Optional[str] = None
+    min_views: Optional[int] = None
+    sort_by: Optional[str] = None
+    max_videos_per_channel: Optional[int] = None
+    outlier_ratio: Optional[float] = None
+    collect_video: Optional[bool] = None
+    collect_script: Optional[bool] = None
+    is_auto_active: Optional[bool] = None
+    cron_interval_hours: Optional[int] = None
+    channel_ids: Optional[List[int]] = None
+    folder_ids: Optional[List[int]] = None
+
+class CollectionPreset(CollectionPresetBase):
+    id: int
+    last_run_at: Optional[datetime] = None
+    last_collected_count: Optional[int] = 0
+    today_collected_count: Optional[int] = 0
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

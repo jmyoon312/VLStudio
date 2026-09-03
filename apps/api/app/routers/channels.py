@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from .. import crud, schemas, database, downloader, models
 from app.scrapers.douyin_scraper import DouyinChannelScraper
 import os
@@ -131,48 +131,67 @@ def create_channel(channel: schemas.ChannelCreate, db: Session = Depends(databas
 def delete_channel(channel_id: int, db: Session = Depends(database.get_db)):
     # Get channel before deletion
     db_channel = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
-    if not db_channel:\
+    if not db_channel:
         raise HTTPException(status_code=404, detail="Channel not found")
 
-    # Get all videos for this channel
-    videos = db.query(models.Video).filter(models.Video.channel_id == channel_id).all()
-
-    # Delete video files
-    for video in videos:
-        try:
-            if video.file_path and os.path.exists(video.file_path):
-                video_folder = os.path.dirname(video.file_path)
-                if os.path.exists(video_folder):
-                    shutil.rmtree(video_folder, ignore_errors=True)
-        except Exception as e:
-            print(f"Error deleting video files for {video.id}: {e}")
-
-    # Delete videos from database
-    db.query(models.Video).filter(models.Video.channel_id == channel_id).delete()
-
-    # Delete channel folder using unified path function (avoids category folder_name=None bug)
     try:
-        from ..utils.path_utils import get_channel_download_path
-        settings = crud.get_settings(db)
-        category_name = None
-        if db_channel.category_id:
-            category = crud.get_category(db, db_channel.category_id)
-            if category:
-                category_name = category.folder_name or sanitize_folder_name(category.name)
-        channel_folder = get_channel_download_path(
-            settings,
-            category_name=category_name,
-            channel_name=db_channel.folder_name or db_channel.name
-        )
-        if os.path.exists(channel_folder):
-            shutil.rmtree(channel_folder, ignore_errors=True)
-    except Exception as e:
-        print(f"Error deleting channel folder: {e}")
+        # 1. Get all videos for this channel
+        videos = db.query(models.Video).filter(models.Video.channel_id == channel_id).all()
+        video_ids = [v.id for v in videos]
 
-    # Delete channel from database
-    db.delete(db_channel)
-    db.commit()
-    return {"ok": True}
+        # 2. Delete video files from disk
+        for video in videos:
+            try:
+                if video.file_path and os.path.exists(video.file_path):
+                    video_folder = os.path.dirname(video.file_path)
+                    if os.path.exists(video_folder):
+                        shutil.rmtree(video_folder, ignore_errors=True)
+            except Exception as e:
+                print(f"Error deleting video files for {video.id}: {e}")
+
+        # 3. Delete associated VideoHistory records first (prevents foreign key constraint failure)
+        if video_ids:
+            db.query(models.VideoHistory).filter(
+                models.VideoHistory.video_id.in_(video_ids)
+            ).delete(synchronize_session=False)
+
+        # 4. Delete videos from database
+        db.query(models.Video).filter(models.Video.channel_id == channel_id).delete(synchronize_session=False)
+
+        # 5. Unbind from CollectionPresets
+        presets = db.query(models.CollectionPreset).all()
+        for preset in presets:
+            if preset.channel_ids and channel_id in preset.channel_ids:
+                new_ids = [cid for cid in preset.channel_ids if cid != channel_id]
+                preset.channel_ids = new_ids
+
+        # 6. Delete channel folder from disk
+        try:
+            from ..utils.path_utils import get_channel_download_path
+            settings = crud.get_settings(db)
+            category_name = None
+            if db_channel.category_id:
+                category = crud.get_category(db, db_channel.category_id)
+                if category:
+                    category_name = category.folder_name or sanitize_folder_name(category.name)
+            channel_folder = get_channel_download_path(
+                settings,
+                category_name=category_name,
+                channel_name=db_channel.folder_name or db_channel.name
+            )
+            if os.path.exists(channel_folder):
+                shutil.rmtree(channel_folder, ignore_errors=True)
+        except Exception as e:
+            print(f"Error deleting channel folder: {e}")
+
+        # 7. Delete channel from database
+        db.delete(db_channel)
+        db.commit()
+        return {"ok": True, "deleted_id": channel_id}
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] Failed to delete channel {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"채널 삭제 실패: {str(e)}")
 
 @router.patch("/{channel_id}", response_model=schemas.Channel)
 def update_channel(channel_id: int, channel_update: schemas.ChannelUpdate, db: Session = Depends(database.get_db)):
@@ -351,3 +370,33 @@ def import_discovery_channel(req: ImportDiscoveryRequest, db: Session = Depends(
     db.commit()
     db.refresh(new_channel)
     return {"status": "success", "channel_id": new_channel.id}
+
+class ChannelMetaUpdate(BaseModel):
+    color_label: Optional[str] = None # none, red, orange, green, blue, purple
+    memo: Optional[str] = None
+
+@router.patch("/{channel_id}/meta")
+def update_channel_meta(channel_id: int, req: ChannelMetaUpdate, db: Session = Depends(database.get_db)):
+    ch = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if req.color_label is not None:
+        ch.color_label = req.color_label
+    if req.memo is not None:
+        ch.memo = req.memo
+    db.commit()
+    db.refresh(ch)
+    return {"status": "success", "channel": ch}
+
+class BatchMoveCategoryRequest(BaseModel):
+    channel_ids: List[int]
+    category_id: Optional[int] = None
+
+@router.post("/batch-move-category")
+def batch_move_category(req: BatchMoveCategoryRequest, db: Session = Depends(database.get_db)):
+    db.query(models.Channel).filter(models.Channel.id.in_(req.channel_ids)).update(
+        {"category_id": req.category_id}, synchronize_session=False
+    )
+    db.commit()
+    return {"status": "success", "moved_count": len(req.channel_ids)}
+

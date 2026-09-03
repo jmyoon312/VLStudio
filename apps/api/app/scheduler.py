@@ -620,6 +620,37 @@ def check_scheduled_uploads():
     finally:
         db.close()
 
+def active_presets_scan_logic():
+    """
+    Automated Background Worker for 24H Active Presets.
+    Iterates through all presets where is_auto_active == True,
+    and triggers execute_preset_collection if the preset's cron interval has elapsed.
+    """
+    if _shutdown_requested.is_set():
+        return
+    db = SessionLocal()
+    try:
+        from .routers.presets import execute_preset_collection
+        presets = db.query(models.CollectionPreset).filter(
+            models.CollectionPreset.is_auto_active == True
+        ).all()
+        now = datetime.now()
+        for p in presets:
+            interval_hours = p.cron_interval_hours or 2
+            due = False
+            if not p.last_run_at:
+                due = True
+            elif (now - p.last_run_at) >= timedelta(hours=interval_hours):
+                due = True
+            
+            if due:
+                print(f"[PRESET SCHEDULER] ⏰ Triggering due preset: {p.name} (ID: {p.id}, Interval: {interval_hours}h)")
+                threading.Thread(target=execute_preset_collection, args=(p.id,), daemon=True).start()
+    except Exception as e:
+        print(f"[PRESET SCHEDULER ERROR] {e}")
+    finally:
+        db.close()
+
 from .services.trend_signal_tracker import run_trend_signal_tracker
 def start_scheduler():
     db = SessionLocal()
@@ -634,14 +665,12 @@ def start_scheduler():
         full_channel_scan_logic()
 
     # Run channel scan at configured interval (delayed 2 min at startup to let backend settle)
-    
-    # Trend Signal Tracker (Scout & Evaluate) - Continuous Loop
-    # scheduler.add_job(run_trend_signal_tracker, 'interval', minutes=1, id='trend_signal_tracker',
-    #                   next_run_time=datetime.now() + timedelta(seconds=10))
     scheduler.add_job(full_channel_scan_thread, 'interval', minutes=interval, id='channel_scan',
                       next_run_time=datetime.now() + timedelta(minutes=2))
-    # scheduler.add_job(run_rapid_batch, 'interval', minutes=15, id='trend_batch',
-    #                   next_run_time=datetime.now() + timedelta(minutes=5))
+    
+    # [NEW] 24H Active Collection Presets Scheduler (checks every 15 min for due presets)
+    scheduler.add_job(active_presets_scan_logic, 'interval', minutes=15, id='active_presets_scan',
+                      next_run_time=datetime.now() + timedelta(minutes=1))
 
     # [FIX] Video Stats Update — single job, safe wrapper, delayed startup
     from .services.scheduler import update_video_stats

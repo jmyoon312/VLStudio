@@ -481,3 +481,139 @@ async def run_channel_scan():
         logger.info("[OK] Scheduled Channel Scan Completed.")
     except Exception as e:
         logger.error(f"Critical Scheduler Error: {e}")
+
+
+def scan_channel_with_preset(db: Session, channel: models.Channel, preset: models.CollectionPreset) -> int:
+    """
+    Scans a channel applying the conditions specified in CollectionPreset.
+    Returns the number of downloaded/processed videos.
+    """
+    logger.info(f"🎯 [PRESET SCAN] Channel '{channel.name}' with Preset '{preset.name}' (Type: {preset.video_type}, MinViews: {preset.min_views})")
+    settings = crud.get_settings(db)
+    download_path = get_channel_download_path(settings, channel)
+    os.makedirs(download_path, exist_ok=True)
+    
+    # 1. Determine time window
+    period_days_map = {'1d': 1, '3d': 3, '7d': 7, '30d': 30, 'all': 3650}
+    days = period_days_map.get(preset.upload_period, 7)
+    cutoff_dt = datetime.now() - timedelta(days=days)
+    cutoff_str = cutoff_dt.strftime('%Y%m%d')
+    
+    # 2. Extract Candidate URLs
+    candidates = []
+    try:
+        # Determine target URL based on video_type (shorts or videos)
+        target_url = channel.url.rstrip('/')
+        if preset.video_type == 'shorts' and not target_url.endswith('/shorts'):
+            target_url = f"{target_url}/shorts"
+        elif preset.video_type == 'long' and not target_url.endswith('/videos'):
+            target_url = f"{target_url}/videos"
+            
+        cookies_path = settings.cookies_path if settings and hasattr(settings, 'cookies_path') and settings.cookies_path and os.path.exists(settings.cookies_path) else None
+        
+        # Fast playlist entries extraction
+        extracted = downloader.get_channel_videos(
+            target_url, 
+            limit=max(20, preset.max_videos_per_channel * 5),
+            date_after=cutoff_str if preset.upload_period != 'all' else None,
+            cookies_path=cookies_path
+        )
+        candidates = extracted or []
+    except Exception as e:
+        logger.error(f"[PRESET] Error fetching candidate URLs for {channel.name}: {e}")
+        return 0
+
+    if not candidates:
+        logger.info(f"[PRESET] No candidate videos found for {channel.name}")
+        return 0
+
+    # 3. Filter and Download Videos
+    collected_count = 0
+    
+    # Sort candidates if requested
+    if preset.sort_by == 'popular':
+        candidates.sort(key=lambda x: x.get('view_count') or 0, reverse=True)
+    
+    for item in candidates:
+        if collected_count >= preset.max_videos_per_channel:
+            break
+            
+        url = item.get('url') or item.get('webpage_url')
+        if not url:
+            continue
+            
+        vid_id = item.get('id')
+        title = item.get('title', 'Unknown')
+        views = item.get('view_count') or 0
+        
+        # Check minimum views
+        if preset.min_views and views < preset.min_views:
+            continue
+            
+        # Check duration for shorts vs long
+        duration = item.get('duration') or 0
+        if preset.video_type == 'shorts' and duration > 65:
+            continue
+        elif preset.video_type == 'long' and duration > 0 and duration <= 60:
+            continue
+            
+        # Check existing in DB (Dedup)
+        existing = db.query(models.Video).filter(models.Video.video_id == vid_id).first()
+        if existing and existing.status == 'completed':
+            logger.debug(f"[PRESET] Video {vid_id} already exists in completed status. Skipping.")
+            continue
+            
+        # Check Outlier Ratio (compared to channel subscriber count or baseline)
+        if preset.outlier_ratio and preset.outlier_ratio > 1.0 and channel.subscriber_count and channel.subscriber_count > 0:
+            expected_views = channel.subscriber_count * 0.1 # Baseline 10%
+            if views < (expected_views * preset.outlier_ratio):
+                continue
+
+        # Execute Download
+        logger.info(f"📥 [PRESET DOWNLOAD] {channel.name} -> {title} (Views: {views})")
+        script_only = not preset.collect_video and preset.collect_script
+        
+        try:
+            download_result = downloader.download_video(
+                url=url,
+                output_path=download_path,
+                cookies_path=cookies_path,
+                script_only=script_only
+            )
+            
+            if download_result and download_result.get('status') == 'success':
+                # Upsert into DB
+                if existing:
+                    video_record = existing
+                    video_record.status = 'completed'
+                    video_record.file_path = download_result.get('file_path')
+                    video_record.is_script_only = script_only
+                else:
+                    video_record = models.Video(
+                        channel_id=channel.id,
+                        video_id=vid_id,
+                        title=title,
+                        url=url,
+                        file_path=download_result.get('file_path'),
+                        thumbnail_path=download_result.get('thumbnail_path'),
+                        upload_date=datetime.now(),
+                        view_count=views,
+                        duration=duration,
+                        status='completed',
+                        is_script_only=script_only,
+                        metadata_json={
+                            'collected_by_preset': preset.name,
+                            'preset_id': preset.id,
+                            'views': views
+                        }
+                    )
+                    db.add(video_record)
+                
+                db.commit()
+                collected_count += 1
+                logger.info(f"✅ [PRESET SUCCESS] Downloaded {collected_count}/{preset.max_videos_per_channel}: {title}")
+        except Exception as dl_err:
+            logger.error(f"❌ [PRESET ERROR] Failed downloading {title}: {dl_err}")
+            
+    return collected_count
+

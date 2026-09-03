@@ -68,10 +68,7 @@ export default defineConfig({
     server: {
         host: '0.0.0.0', // Allow External Access
         port: 5183,
-        allowedHosts: 'all', // Allow reverse proxy domains (e.g. viraloop.gogloo.gleeze.com)
-        hmr: {
-            clientPort: 443
-        },
+        hmr: process.env.VITE_HMR_CLIENT_PORT ? { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) } : true,
         proxy: {
             // 0. Swarm WebSocket (Priority)
             '/api/swarm/ws': {

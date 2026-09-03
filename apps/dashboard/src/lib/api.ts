@@ -68,6 +68,8 @@ export interface Category {
     id: number;
     name: string;
     folder_name: string;
+    color?: string;
+    order_index?: number;
     created_at: string;
 }
 
@@ -79,12 +81,36 @@ export interface Channel {
     folder_name: string;
     thumbnail_path: string | null;
     category_id: number | null;
+    color_label?: string; // none, red, orange, green, blue, purple
+    memo?: string;
     last_scanned_at: string | null;
     status: string;
     auto_download: boolean;
     subscriber_count?: number;
     default_script_only: boolean;
     created_at: string;
+}
+
+export interface CollectionPreset {
+    id: number;
+    name: string;
+    video_type: 'all' | 'shorts' | 'long';
+    upload_period: '1d' | '3d' | '7d' | '30d' | 'all';
+    min_views: number;
+    sort_by: 'popular' | 'latest';
+    max_videos_per_channel: number;
+    outlier_ratio: number;
+    collect_video: boolean;
+    collect_script: boolean;
+    is_auto_active: boolean;
+    cron_interval_hours: number;
+    channel_ids: number[];
+    folder_ids: number[];
+    last_run_at: string | null;
+    last_collected_count: number;
+    today_collected_count?: number;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Video {

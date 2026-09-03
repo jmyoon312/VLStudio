@@ -101,7 +101,7 @@ from app.routers import (
     work_queue, youtube_channels, veo_prompt_agent,
     queue_management, processing_verification, dashboard_reports, 
     health_deployment, ml_ab_search, operations, network,
-    douyin_shorts_router, capcut_remote
+    douyin_shorts_router, capcut_remote, presets
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -298,21 +298,54 @@ def get_network_status_bypass():
 
 # --- Media Hosting ---
 # Use local media folder unless overridden by docker env
+from typing import Optional
 from app.config import settings as app_settings
 download_dir = os.environ.get("MEDIA_DIR", app_settings.MEDIA_ROOT)
 os.makedirs(download_dir, exist_ok=True)
 os.makedirs(os.path.join(download_dir, "07_Downloads"), exist_ok=True)
 
+def resolve_asset_file(path: str) -> Optional[str]:
+    """
+    Finds asset file across download_dir, 07_Downloads, raw, and strips 07_Downloads if needed.
+    """
+    candidates = [
+        os.path.join(download_dir, path),
+        os.path.join(download_dir, "07_Downloads", path),
+        os.path.join(download_dir, "raw", path),
+    ]
+    # If path starts with 07_Downloads/ or 07_downloads/, also check without it
+    clean_path = path.replace("\\", "/")
+    if clean_path.lower().startswith("07_downloads/"):
+        stripped = clean_path[len("07_downloads/"):]
+        candidates.append(os.path.join(download_dir, stripped))
+        candidates.append(os.path.join(download_dir, "raw", stripped))
+
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+@app.get("/files/{path:path}")
+async def smart_files_server(path: str):
+    file_path = resolve_asset_file(path)
+    if file_path:
+        return FileResponse(file_path)
+    
+    # [Smart Fallback] profile.jpg가 유실된 경우 동적 이니셜 아바타 반환
+    if path.endswith("profile.jpg"):
+        channel_name = os.path.basename(os.path.dirname(path))
+        import urllib.parse
+        from fastapi.responses import RedirectResponse
+        safe_name = urllib.parse.quote(channel_name.replace("_", " "))
+        return RedirectResponse(url=f"https://ui-avatars.com/api/?name={safe_name}&background=random&color=fff&size=256")
+        
+    raise HTTPException(status_code=404, detail="Asset not found")
+
 @app.get("/media/{path:path}")
 async def smart_media_server(path: str):
-    root_path = os.path.join(download_dir, path)
-    if os.path.isfile(root_path): return FileResponse(root_path)
-    raw_path = os.path.join(download_dir, "raw", path)
-    if os.path.isfile(raw_path): return FileResponse(raw_path)
-    
-    # [Smart Fallback] Check if the file is actually inside '07_Downloads'
-    downloads_path = os.path.join(download_dir, "07_Downloads", path)
-    if os.path.isfile(downloads_path): return FileResponse(downloads_path)
+    file_path = resolve_asset_file(path)
+    if file_path:
+        return FileResponse(file_path)
     
     # [Smart Fallback] profile.jpg가 유실된 경우 동적 이니셜 아바타 생성
     if path.endswith("profile.jpg"):
@@ -323,8 +356,6 @@ async def smart_media_server(path: str):
         return RedirectResponse(url=f"https://ui-avatars.com/api/?name={safe_name}&background=random&color=fff&size=256")
         
     raise HTTPException(status_code=404, detail="Asset not found")
-
-app.mount("/files", StaticFiles(directory=download_dir), name="files")
 temp_mount_dir = app_settings.TEMP_DIR
 os.makedirs(temp_mount_dir, exist_ok=True)
 app.mount("/temp", StaticFiles(directory=temp_mount_dir), name="temp")
@@ -388,6 +419,7 @@ app.include_router(script_writer.router, prefix="/api/script", tags=["creative"]
 
 app.include_router(research.router, prefix="/api", tags=["research"])
 app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
+app.include_router(presets.router, prefix="/api", tags=["collection_presets"])
 app.include_router(custom_links.router, prefix="/api/custom-links", tags=["ops"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["analytics"])
 

@@ -149,10 +149,7 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: 5183,
       allowedHosts: true,
-      cors: true,
-      hmr: {
-        clientPort: 443
-      },
+      hmr: process.env.VITE_HMR_CLIENT_PORT ? { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) } : true,
       proxy: {
         '/api/swarm/ws': backendProxy,
         '/api': backendProxy,

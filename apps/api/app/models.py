@@ -195,6 +195,8 @@ class Channel(Base):
     
     worker_id = Column(Integer, nullable=True) # [Legacy Support]
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True) # [NEW]
+    color_label = Column(String, default="none") # none, red, orange, green, blue, purple
+    memo = Column(Text, default="")
     
     category = relationship("Category") # [NEW]
     
@@ -954,9 +956,39 @@ class Category(Base):
     folder_name = Column(String, nullable=True)
     parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     level = Column(Integer, default=0)
+    color = Column(String, default="#3B82F6") # [NEW] Folder theme color
+    order_index = Column(Integer, default=0)   # [NEW] Custom order
     is_fixed = Column(Boolean, default=False)
     ai_generated = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
+
+
+class CollectionPreset(Base):
+    """Target Channel Video/Script Collection Preset & Automation Rule"""
+    __tablename__ = "collection_presets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    video_type = Column(String, default="shorts")       # all, shorts, long
+    upload_period = Column(String, default="7d")         # 1d, 3d, 7d, 30d, all
+    min_views = Column(Integer, default=100000)          # 최소 조회수 (100,000 등)
+    sort_by = Column(String, default="popular")          # popular, latest
+    max_videos_per_channel = Column(Integer, default=3)
+    outlier_ratio = Column(Float, default=1.0)           # 채널 평균 대비 바이럴 가속도 배수
+    collect_video = Column(Boolean, default=True)        # 🎬 영상 수집 (보관함행)
+    collect_script = Column(Boolean, default=True)       # 📝 대본 수집 (분석실행)
+    is_auto_active = Column(Boolean, default=True)       # 24H 무인 자동 수집 ON/OFF
+    cron_interval_hours = Column(Integer, default=2)    # 자동 수집 주기 (시간)
+    
+    # 소속 채널 ID 목록 [1, 2, 5, ...]
+    channel_ids = Column(JSON, default=list)
+    # 소속 카테고리(폴더) ID 목록 [10, 12] (폴더 단위 자동 바인딩)
+    folder_ids = Column(JSON, default=list)
+
+    last_run_at = Column(DateTime, nullable=True)
+    last_collected_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class TikTokChannel(Base):

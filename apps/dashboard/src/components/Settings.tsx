@@ -1599,7 +1599,31 @@ const Settings = () => {
 
                                         </Button>
 
-                                    </div></CardContent>
+                                    </div>
+
+                                    {/* Scan Interval Setting */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-muted/30 border border-border">
+                                        <div className="space-y-1">
+                                            <Label className="font-bold text-xs sm:text-sm text-foreground">
+                                                무인 채널 자동 수집 기본 간격
+                                            </Label>
+                                            <p className="text-[11px] text-muted-foreground break-keep leading-relaxed">
+                                                백그라운드에서 신규 떡상 영상을 탐색하는 주기입니다. 2시간(120분) 설정 시 유튜브 IP 차단 없이 가장 안전하게 동작합니다.
+                                            </p>
+                                        </div>
+                                        <select
+                                            value={formData.scan_interval_minutes ?? 120}
+                                            onChange={(e) => setFormData({ ...formData, scan_interval_minutes: Number(e.target.value) })}
+                                            className="h-9 px-3 rounded-xl border border-border bg-card text-foreground font-bold text-xs focus:ring-1 focus:ring-primary outline-none cursor-pointer shrink-0"
+                                        >
+                                            <option value={30}>30분 (초고속 - 채널 3개 이하)</option>
+                                            <option value={60}>1시간 (실시간 집중 - 채널 10개 미만)</option>
+                                            <option value={120}>🌟 2시간 (권장 표준 - 안전성·정확도 최적)</option>
+                                            <option value={240}>4시간 (안전 안정 모드 - 채널 30개 이상)</option>
+                                            <option value={360}>6시간 (여유 모드)</option>
+                                        </select>
+                                    </div>
+                                </CardContent>
 
                             </Card>
 
