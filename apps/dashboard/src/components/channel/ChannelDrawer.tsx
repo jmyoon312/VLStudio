@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { Channel, Category } from '../../lib/api';
 import { 
     Folder, FolderPlus, Search, FileText, RefreshCw, Trash2, Plus, 
-    Check, X, Sparkles, ChevronRight, ExternalLink, Globe, HelpCircle, ArrowUpDown
+    Check, X, Sparkles, ChevronRight, ExternalLink, Globe, HelpCircle, ArrowUpDown,
+    MoreVertical, Download, Upload, FileSpreadsheet, FileCode, CheckSquare
 } from 'lucide-react';
 import { cn, getMediaUrl } from '../../lib/utils';
 
@@ -52,6 +53,8 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
     const [activeMemoId, setActiveMemoId] = useState<number | null>(null);
     const [memoText, setMemoText] = useState('');
     const [moveFolderDialogOpen, setMoveFolderDialogOpen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Queries
     const { data: channels = [], isLoading: isChannelsLoading } = useQuery({
@@ -214,8 +217,145 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
         setIsAddingChannelModal(true);
     };
 
+    // 1. JSON 백업 다운로드
+    const handleExportJSON = () => {
+        setIsMenuOpen(false);
+        const data = {
+            app: "ViraLoop Studio",
+            version: "1.0",
+            export_date: new Date().toISOString(),
+            categories: categories,
+            channels: channels
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        a.download = `viraloop_channels_backup_${dateStr}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // 2. CSV 목록 다운로드 (한글 엑셀 호환 BOM 포함)
+    const handleExportCSV = () => {
+        setIsMenuOpen(false);
+        const headers = ['이름', '플랫폼', 'URL', '카테고리', '구독자수', '색상라벨', '메모', '등록일'];
+        const rows = channels.map(ch => {
+            const cat = categories.find(c => c.id === ch.category_id);
+            const catName = cat ? cat.name : '미분류';
+            return [
+                `"${(ch.name || '').replace(/"/g, '""')}"`,
+                `"${(ch.platform || 'YouTube').replace(/"/g, '""')}"`,
+                `"${(ch.url || '').replace(/"/g, '""')}"`,
+                `"${catName.replace(/"/g, '""')}"`,
+                ch.subscriber_count || 0,
+                `"${ch.color_label || 'none'}"`,
+                `"${(ch.memo || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`,
+                `"${ch.created_at || ''}"`
+            ].join(',');
+        });
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        a.download = `viraloop_channels_${dateStr}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // 3. 선택 URL TXT 다운로드
+    const handleExportURLs = () => {
+        setIsMenuOpen(false);
+        const targetList = selectedChannelIds.size > 0 
+            ? channels.filter(c => selectedChannelIds.has(c.id))
+            : filteredChannels;
+        
+        if (targetList.length === 0) {
+            alert('다운로드할 채널이 없습니다.');
+            return;
+        }
+
+        const urlsText = targetList.map(c => c.url).filter(Boolean).join('\n');
+        const blob = new Blob([urlsText], { type: 'text/plain;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        a.download = `viraloop_channel_urls_${dateStr}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // 4. JSON 백업 업로드
+    const handleImportJSONFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        setIsMenuOpen(false);
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            if (!data.channels || !Array.isArray(data.channels)) {
+                throw new Error('유효한 채널 백업 파일 형식이 아닙니다.');
+            }
+            if (!window.confirm(`백업 파일에서 ${data.channels.length}개의 채널을 가져오시겠습니까?`)) {
+                return;
+            }
+            // Import categories first if present
+            const catMap = new Map<number, number>();
+            if (data.categories && Array.isArray(data.categories)) {
+                for (const cat of data.categories) {
+                    const existingCat = categories.find(c => c.name === cat.name);
+                    if (existingCat) {
+                        catMap.set(cat.id, existingCat.id);
+                    } else {
+                        try {
+                            const res = await api.post('/categories/', { name: cat.name, color: cat.color });
+                            if (res.data?.id) catMap.set(cat.id, res.data.id);
+                        } catch {}
+                    }
+                }
+            }
+            // Import channels
+            let successCount = 0;
+            for (const ch of data.channels) {
+                try {
+                    const newCatId = ch.category_id ? catMap.get(ch.category_id) || ch.category_id : null;
+                    await api.post('/channels/', {
+                        url: ch.url,
+                        name: ch.name,
+                        category_id: newCatId,
+                        color_label: ch.color_label || 'none',
+                        memo: ch.memo || ''
+                    });
+                    successCount++;
+                } catch (chErr) {
+                    // Skip duplicates
+                }
+            }
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+            alert(`총 ${successCount}개의 채널을 성공적으로 복원했습니다!`);
+        } catch (err: any) {
+            alert('JSON 파일 가져오기 실패: ' + err.message);
+        } finally {
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     return (
-        <aside className="w-full lg:w-[480px] xl:w-[520px] border-l border-border bg-card/70 backdrop-blur-md flex flex-col h-full overflow-hidden text-card-foreground select-none">
+        <aside className="w-full lg:w-[480px] xl:w-[520px] border-l border-border bg-card/70 backdrop-blur-md flex flex-col h-full overflow-hidden text-card-foreground select-none relative">
+            {/* Hidden File Input for JSON Import */}
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImportJSONFile} 
+                accept=".json" 
+                className="hidden" 
+            />
+
             {/* 1. Header */}
             <div className="p-3.5 border-b border-border flex items-center justify-between gap-2 shrink-0 bg-muted/20">
                 <div className="flex items-center gap-2">
@@ -225,7 +365,7 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
                         <p className="text-[10px] text-muted-foreground">카테고리 폴더 분류 및 정밀 라벨링</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 relative">
                     <button
                         onClick={() => queryClient.invalidateQueries({ queryKey: ['channels'] })}
                         className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
@@ -233,6 +373,59 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
                     >
                         <RefreshCw className="w-3.5 h-3.5" />
                     </button>
+
+                    {/* More Menu Dropdown (JSON/CSV Export/Import) */}
+                    <button
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        className={cn(
+                            "p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer",
+                            isMenuOpen && "bg-muted text-foreground"
+                        )}
+                        title="데이터 관리 및 내보내기"
+                    >
+                        <MoreVertical className="w-3.5 h-3.5" />
+                    </button>
+
+                    {isMenuOpen && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+                            <div className="absolute right-0 top-9 w-52 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl p-1 z-50 text-xs font-semibold space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
+                                <button
+                                    onClick={handleExportJSON}
+                                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-muted flex items-center gap-2 transition-colors cursor-pointer text-foreground"
+                                >
+                                    <Download className="w-4 h-4 text-primary" />
+                                    <span>JSON 백업 다운로드</span>
+                                </button>
+                                <button
+                                    onClick={handleExportCSV}
+                                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-muted flex items-center gap-2 transition-colors cursor-pointer text-foreground"
+                                >
+                                    <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                                    <span>CSV 목록 다운로드</span>
+                                </button>
+                                <button
+                                    onClick={handleExportURLs}
+                                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-muted flex items-center gap-2 transition-colors cursor-pointer text-foreground"
+                                >
+                                    <Download className="w-4 h-4 text-indigo-500" />
+                                    <span>선택 URL TXT 다운로드</span>
+                                </button>
+                                <div className="h-px bg-border/60 my-1" />
+                                <button
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        fileInputRef.current?.click();
+                                    }}
+                                    className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-muted flex items-center gap-2 transition-colors cursor-pointer text-foreground"
+                                >
+                                    <Upload className="w-4 h-4 text-amber-500" />
+                                    <span>JSON 백업 업로드</span>
+                                </button>
+                            </div>
+                        </>
+                    )}
+
                     {onClose && (
                         <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted lg:hidden cursor-pointer">
                             <X className="w-4 h-4" />

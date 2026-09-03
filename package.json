@@ -1,7 +1,7 @@
 {
   "name": "viraloop-studio",
   "version": "0.9.35",
-  "buildNumber": 568,
+  "buildNumber": 569,
   "description": "ViraLoop Studio - Sovereign AI Video Production Hub from Google Flow to CapCut projects",
   "main": "dist-electron/main.js",
   "type": "module",
