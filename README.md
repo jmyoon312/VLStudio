@@ -45,52 +45,64 @@ irm https://raw.githubusercontent.com/jmyoon312/VLStudio/main/install.ps1 | iex
 
 ---
 
-## 🎨 7 Core Studios & Feature Modules
+## 🎨 8 Core Studios & Feature Modules
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       ViraLoop Studio Core Architecture                     │
 ├──────────────────────────────────────┬──────────────────────────────────────┤
-│ 🎬 Creative Studio                   │ ⚡ Ddalkkak Studio (Shorts Auto)     │
-│  • Reverse-engineered Google Flow/Veo│  • Trend Sourcing & Native Rewrite   │
-│  • Batch Generation & CapCut Direct  │  • Multi-Character TTS & Assembly    │
+│ 📡 Viral Scouter 2.0 (FSD Radar)     │ 🎬 Creative Studio                   │
+│  • 4-Step Funnel: Signal ─▶ Reels    │  • Reverse-engineered Google Flow/Veo│
+│    ─▶ Incubator ─▶ Launchpad         │  • Batch Generation & CapCut Direct  │
+│  • Channel Growth Anatomy & Dual Chart│  • Dynamic Style Prompt Presets     │
 ├──────────────────────────────────────┼──────────────────────────────────────┤
-│ 🎙️ Subtitle & Dubbing Studio         │ 📋 WorkQueue & Pixeling              │
-│  • 5-Layer STT & Silence Remover     │  • OCR Meta Match & Batch Scheduling │
-│  • Voice Style Transfer & Dubbing    │  • Multi-Channel Upload Automation   │
+│ ⚡ Ddalkkak Studio (Shorts Auto)     │ 🎙️ Subtitle & Dubbing Studio         │
+│  • Trend Sourcing & Native Rewrite   │  • 5-Layer STT & Silence Remover     │
+│  • Multi-Character TTS & Assembly    │  • Voice Style Transfer & Dubbing    │
 ├──────────────────────────────────────┼──────────────────────────────────────┤
-│ 🤖 Hermes AI CoPilot                 │ 📱 Mobile LTE Incubator              │
-│  • DB Settings Single Source of Truth│  • USB Tethered Carrier Clean IPs    │
-│  • Strategic Script & Trend Analysis │  • Automated Airplane Mode Rotation  │
-├──────────────────────────────────────┴──────────────────────────────────────┤
-│ 📺 Virtual Live Studio (24/7 Unattended Multi-Channel Live Streaming)       │
-└─────────────────────────────────────────────────────────────────────────────┘
+│ 📋 WorkQueue & Pixeling              │ 🤖 Hermes AI CoPilot                 │
+│  • OCR Meta Match & Batch Scheduling │  • DB Settings Single Source of Truth│
+│  • Multi-Channel Upload Automation   │  • Strategic Script & Trend Analysis │
+├──────────────────────────────────────┼──────────────────────────────────────┤
+│ 📱 Mobile LTE Incubator              │ 📺 Virtual Live Studio (24/7 Live)   │
+│  • USB Tethered Carrier Clean IPs    │  • Unattended Multi-Stream Broadcast │
+│  • Automated Airplane Mode Rotation  │  • Simultaneous Multi-Platform Restream│
+└──────────────────────────────────────┴──────────────────────────────────────┘
 ```
 
-### 1. 🎬 Creative Studio (AI Media Batch Generation)
+### 1. 📡 Viral Scouter 2.0 (Autonomous Scouting & Channel Growth Anatomy)
+* **4-Step Pipeline Funnel**:
+  1. **STEP 1 (Viral Signals Scouting)**: Live YouTube trend sourcing via `yt-dlp` extracting actual outlier multipliers, velocity scores, and hook analyses.
+  2. **STEP 2 (Benchmark Channel Reels & Anatomy)**: Pixeling-style horizontal channel strip. Clicking any channel opens the **Channel Growth Anatomy Modal** featuring interactive dual charts (**Cumulative Views Line** & **Daily Velocity Bar**), momentum metrics (`현재 속도: 1.4만 / 가속 · 137%`), and **ViraLoop 4-Layer Actionable AI Channel Deconstruction** (Hook psychology, Outlier drivers, 10x Remake blueprint, Google Flow AI prompts) powered by the 9router LLM.
+  3. **STEP 3 (Seed Category Incubator)**: 20 Pixeling-curated seed categories (`한국인물티셋`, `심리학`, `원테이크크루`, `시니어(건강)` 등) backed by Category DNA Charters.
+  4. **STEP 4 (Brand Channel Launchpad)**: Generates 5 ready-to-launch brand channel packages (3 curated brand names, avatar/banner prompts, 3 kickoff video hooks) and automatically registers them into `BrandChannel`.
+* **Strict Target Channel Deduplication**: Channels already registered for scheduled auto-downloads (`auto_download == True`) are strictly filtered out from discovery reels so creators focus purely on new undiscovered gems.
+* **Human Review Promotion Gate**: 1-click `[✓ 타겟 채널 승인 & 정기수집 전환]` seamlessly moves newly scouted benchmark channels into Target Channels for scheduled unattended ingestion.
+
+### 2. 🎬 Creative Studio (AI Media Batch Generation)
 * **Google Flow & Veo 3.1 Native Integration**: Orchestrate Google Flow sessions directly within the desktop app to generate batch high-fidelity AI videos and images.
 * **Instant CapCut Direct Export**: Assembles clips, audio, and subtitles directly into local CapCut folders in 0.1s without archive extraction bottlenecks.
 
-### 2. ⚡ Ddalkkak Studio (Automated Shorts Production)
+### 3. ⚡ Ddalkkak Studio (Automated Shorts Production)
 * **Short-Form Sourcing & Dissection**: Ingests viral shorts from YouTube/Douyin, extracts scripts, and analyzes viral hooks.
 * **Native Rewriting & Multi-Character TTS**: Polishes scripts into native natural phrasing and synthesizes character-mapped multi-voice audio tracks.
 
-### 3. 🎙️ Subtitle & Dubbing Studio
+### 4. 🎙️ Subtitle & Dubbing Studio
 * **5-Layer Audio STT**: Precision microsecond-level timecode generation and audio sync.
 * **Silence Remover**: Automatically detects and trims dead silence intervals for fast-paced short-form dynamics.
 
-### 4. 📋 WorkQueue & Pixeling (Queue & OCR Match)
+### 5. 📋 WorkQueue & Pixeling (Queue & OCR Match)
 * **Pixeling OCR Auto-Match**: Automatically pairs recommended metadata texts with video clips using OCR visual matching.
 * **Unattended Multi-Platform Scheduling**: Dispatches automated scheduled uploads across YouTube, TikTok, and Instagram.
 
-### 5. 🤖 Hermes AI & Strategic CoPilot
+### 6. 🤖 Hermes AI & Strategic CoPilot
 * **Single Source of Truth (SSOT)**: Dynamically connects to user-configured internal LLM models in DB Settings for prompt expansion and scriptwriting.
 
-### 6. 📱 Mobile LTE Clean IP Incubator
+### 7. 📱 Mobile LTE Clean IP Incubator
 * **Carrier Clean IP Tethering**: Direct genuine 4G/5G mobile carrier Clean IPs via USB tethered Android smartphones.
 * **Automated Airplane Mode Rotation**: Automatically rotates IPs on account actions to completely eliminate platform correlation bans.
 
-### 7. 📺 Virtual Live Studio (24/7 Unattended Live)
+### 8. 📺 Virtual Live Studio (24/7 Unattended Live)
 * **Continuous Multi-Stream Broadcasting**: Stream local media libraries 24/7 across YouTube, TikTok, and Twitch simultaneously.
 
 ---

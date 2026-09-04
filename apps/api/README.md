@@ -46,14 +46,22 @@ apps/api/
 
 ---
 
-## 🧠 차세대 AI 코어 아키텍처 (Hermes & Root MCP)
+## 🧠 차세대 AI 코어 & 트렌드 레이더 아키텍처 (Hermes & Trend Radar 2.0)
 
-1. **플러그인형 두뇌 (Pluggable Brains)**:
-   LiteLLM 프록시 레이어를 통해, 특정 모델에 종속되지 않고 환경과 난이도에 따라 `OpenClaude 3.5`, `Hermes-V3`, `OpenHands` 등 다양한 최상위 AI 모델을 시스템의 뇌(Core Brain)로 즉각 교체할 수 있습니다.
-2. **LangGraph 기반 상태 머신**:
+1. **📡 바이럴 스카우터 2.0 (FSD Trend Radar & 채널 해체 엔진)**:
+   - `app/routers/trend_radar.py` & `app/services/trend_radar.py`:
+     - **실시간 트렌드 발굴**: `yt-dlp`를 통해 실시간 유튜브 인기/급상승 영상을 스크랩하고, 폭발력 배수(Outlier Ratio)와 시간당 조회수 속도(Velocity)를 자동 연산.
+     - **타겟 채널 중복 배제 (Deduplication Gate)**: 이미 정기 자동 수집(`/channels`)에 등록된 채널(`auto_download == True`)을 발굴 릴에서 완전 배제하여 새로운 옥석에만 집중.
+     - **픽셀링식 성장 분석 (`/growth-analysis`)**: 7일/30일/90일 누적 성장 곡선 및 일간 속도 스파이크 시계열 데이터 반환.
+     - **바이럴루프 4대 AI 채널 해체 리포트 (`/ai-insight`)**: 9router LLM(`youtube1/auto/best-fast`)을 실시간 호출하여 후킹 심리 기제, 떡상 동력, 10x 리메이크 플랜, Google Flow AI 프롬프트 생성.
+     - **신설 채널 론치패드 (`/categories/{id}/launchpad-pack`)**: 카테고리 벤치마킹 데이터를 분석하여 5대 브랜드 패키지(채널명 3종, 아바타/배너 프롬프트, 3편 훅) 자동 생성 및 브랜드 채널 등록.
+
+2. **플러그인형 두뇌 (Pluggable Brains)**:
+   LiteLLM 프록시 레이어 및 9router 라우팅을 통해, 특정 모델에 종속되지 않고 환경과 난이도에 따라 최상위 AI 모델을 시스템의 뇌(Core Brain)로 즉각 교체할 수 있습니다.
+3. **LangGraph 기반 상태 머신**:
    다형성 워크플로우(Type A: 리믹스, Type B: 생성형)를 LangGraph 상태 트리로 관리합니다. 인간의 승인이 필요한 구간(HITL)에서 프로세스를 안전하게 일시정지(Suspend)하고 UI 컨펌 후 재개(Resume)합니다.
-3. **Root MCP 완벽 통제**:
-   루트 폴더(`mcp-server`)에 위치한 고성능 Node.js MCP 서버를 `routers/mcp_registry.py`를 통해 FastAPI의 Native Tool로 완벽 바인딩하여 시스템의 딜레이 없는 제어를 보장합니다.
+4. **Root MCP 완벽 통제**:
+   루트 폴더(`mcp-server`)에 위치한 고성능 Node.js MCP 서버를 `routers/mcp_registry.py` 및 `viraloopTools.js`를 통해 FastAPI의 Native Tool로 완벽 바인딩하여 시스템의 딜레이 없는 제어를 보장합니다.
 
 ---
 

@@ -21,13 +21,19 @@ Vite 번들러와 프리미엄 Sovereign 테마 디자인 시스템을 기반으
 ```
 apps/dashboard/
  ├── 📂 src/
- │    ├── 📂 components/     # 재사용 가능한 UI 컴포넌트 (Sidebar, Layout, Gallery 등)
- │    ├── 📂 pages/          # 39개 이상의 최적화된 엔터프라이즈 모듈 페이지
- │    │    ├── 🎬 EliteCommandStudio.tsx    - AI 비디오 리믹싱 및 오케스트레이션 메인 스튜디오
- │    │    └── 🎨 Pixeling.tsx             - AI 픽셀 아트 비주얼 에디터
+ │    ├── 📂 components/     # 재사용 가능한 UI 컴포넌트
+ │    │    ├── 📂 trend/     # [신설] 바이럴 스카우터 & 채널 성장 분석 컴포넌트군
+ │    │    │    ├── 📈 ChannelAnatomyModal.tsx   - 픽셀링식 듀얼 차트 & 4대 AI 해체 분석 모달
+ │    │    │    ├── 🚀 ChannelLaunchpadModal.tsx - 5대 브랜드 신설 채널 론치패드 모달
+ │    │    │    └── 🎬 TrendRadarDetailModal.tsx - 옥석 영상 초반 3초 훅 심층 분석 모달
+ │    │    └── 📂 shared/    # 공용 모달 (CategoryDNAModal 등)
+ │    ├── 📂 pages/          # 최적화된 엔터프라이즈 모듈 페이지
+ │    │    ├── 📡 TrendRadarPage.tsx       - [핵심] 바이럴 스카우터 2.0 (4단계 비즈니스 퍼널)
+ │    │    ├── 🎬 CreativeStudio.tsx        - AI 비디오 리믹싱 및 오케스트레이션 메인 스튜디오
+ │    │    └── ✍️ ScriptLab.tsx             - 지능형 대본 작성 및 프롬프트 씬 분할 랩
  │    ├── 📂 config/         # 글로벌 메뉴, 라우팅 스키마 등 정적 메타데이터 설정
- │    │    └── 📄 menu.ts                  - 6대 엔터프라이즈 기능 그룹 매핑 정의
- │    ├── 📂 lib/            # Axios API 인스턴스 및 공용 유틸리티 함수
+ │    │    └── 📄 menu.ts                  - 엔터프라이즈 기능 그룹 매핑 정의
+ │    ├── 📂 lib/            # Axios API 인스턴스, TypeScript 계약 타입 및 유틸리티
  │    └── 📄 main.tsx        # 프론트엔드 SPA 진입 진입점
  ├── 📄 vite.config.ts       # 빌드 세팅 및 백엔드 포트 자동 프록시(Proxy) 규칙 정의
  └── 📄 package.json         # 독립 프론트엔드 의존성 및 스크립트 명세
