@@ -59,6 +59,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "DISCOVERY",
         defaultExpanded: true,
         items: [
+            { name: '바이럴 스카우터', path: '/trend-radar', icon: TrendingUp, highlight: true },
             { name: '타겟 채널 자동 수집', path: '/channels', icon: ListVideo },
             { name: '더우인 쇼츠 수집', path: '/douyin-search', icon: Globe, highlight: true },
             { name: 'URL 영상 직접 수집', path: '/download', icon: Download },

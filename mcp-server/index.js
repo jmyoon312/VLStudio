@@ -22,6 +22,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { appFetch } from './lib/appClient.js';
+import { viraloopTools } from './lib/viraloopTools.js';
 import { parseCSV, loadCSV, escapeCSVField, saveCSV } from './lib/csv.js';
 import { acquireFileLock, atomicWriteJsonSync } from './lib/fileIo.js';
 
@@ -169,6 +170,74 @@ function substituteVariables(text, variables) {
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
+    // ── 📡 ViraLoop Unified Sovereign Tools ───────────────────────────
+    {
+      name: 'scout_trending_videos',
+      description: '카테고리 DNA에 기반하여 롱폼 또는 쇼츠 바이럴 급상승 영상을 발굴하고 9router AI로 적합도를 채점하여 인큐베이터에 적재합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          video_type: { type: 'string', enum: ['shorts', 'long'], description: '비디오 포맷 (shorts: 숏폼, long: 롱폼)', default: 'shorts' },
+          category_id: { type: 'number', description: '카테고리 ID (생략 시 기본 카테고리 적용)' },
+          limit: { type: 'number', description: '발굴할 최대 후보 수 (기본: 10)', default: 10 },
+        },
+      },
+    },
+    {
+      name: 'list_incubator_candidates',
+      description: '트렌드 레이더 인큐베이터에 대기 중이거나 자율 수집된 급상승 후보 영상 목록을 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', enum: ['pending', 'approved', 'auto_collected', 'rejected'], description: '인큐베이터 상태 (기본: pending)', default: 'pending' },
+          video_type: { type: 'string', enum: ['shorts', 'long'], description: '비디오 포맷 필터' },
+          category_id: { type: 'number', description: '카테고리 ID 필터' },
+        },
+      },
+    },
+    {
+      name: 'approve_incubator_candidate',
+      description: '인큐베이터의 특정 후보 영상을 1클릭 승인하여 타겟 채널로 자동 등록하고 5대 라이프사이클 수집 영상 보관함에 입고합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          candidate_id: { type: 'number', description: '인큐베이터 후보 ID' },
+        },
+        required: ['candidate_id'],
+      },
+    },
+    {
+      name: 'reject_incubator_candidate',
+      description: '인큐베이터의 후보 영상을 기각하고 해당 사유를 카테고리 네거티브 키워드로 피드백(플릿 러닝)합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          candidate_id: { type: 'number', description: '인큐베이터 후보 ID' },
+          feedback_reason: { type: 'string', description: '제외 사유 키워드' },
+        },
+        required: ['candidate_id'],
+      },
+    },
+    {
+      name: 'get_category_dna',
+      description: '카테고리 목록과 각 카테고리의 고유 DNA(타겟 시청자 페르소나, 콘텐츠 결/톤앤매너, 네거티브 키워드, 바이럴 기준)를 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    {
+      name: 'list_vault_videos',
+      description: '수집 영상 보관함에 저장된 5대 라이프사이클 영상 자산 목록을 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          limit: { type: 'number', description: '조회할 영상 개수 (기본: 20)', default: 20 },
+          status: { type: 'string', description: '라이프사이클 상태 필터 (COLLECTED, REVIEWED 등)' },
+        },
+      },
+    },
+
     {
       name: 'get_schema',
       description: 'CSV/SRT/Audio 스키마 문서를 반환합니다. ViraLoop Studio에서 사용하는 데이터 구조를 확인할 때 사용합니다.',
@@ -841,6 +910,55 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     switch (name) {
+      // ── 📡 ViraLoop Unified Sovereign Tools ───────────────────────────
+      case 'scout_trending_videos': {
+        const result = await viraloopTools.scoutTrendingVideos(args || {});
+        return {
+          content: [{ type: 'text', text: `✅ 트렌드 레이더 스캔 완료 (발굴 후보: ${result.length}건):
+${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'list_incubator_candidates': {
+        const result = await viraloopTools.listIncubatorCandidates(args || {});
+        return {
+          content: [{ type: 'text', text: `📋 인큐베이터 후보 목록 (${result.length}건):
+${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'approve_incubator_candidate': {
+        const result = await viraloopTools.approveCandidate(args.candidate_id);
+        return {
+          content: [{ type: 'text', text: `🚀 후보 승인 완료! 채널 등록 및 영상 보관함 입고 성공:
+${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'reject_incubator_candidate': {
+        const result = await viraloopTools.rejectCandidate(args.candidate_id, args.feedback_reason);
+        return {
+          content: [{ type: 'text', text: `🚫 후보 기각 완료 (플릿 러닝 피드백 반영):
+${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'get_category_dna': {
+        const result = await viraloopTools.getCategories();
+        return {
+          content: [{ type: 'text', text: `🧬 카테고리 DNA 헌장 목록:
+${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'list_vault_videos': {
+        const result = await viraloopTools.listVaultVideos(args || {});
+        return {
+          content: [{ type: 'text', text: `🗄️ 영상 보관함 자산 목록 (${result.length || 0}건):
+${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
       case 'get_schema': {
         const schemaMap = {
           scenes: 'csv-scenes-schema',

@@ -161,6 +161,11 @@ class LLMClient:
             return json.dumps(res)
         return str(res)
 
+    async def generate_text(self, prompt: str, model_name: str = None, system_instruction: str = None, temperature: float = 0.7) -> str:
+        """Async non-blocking generation using the configured AI model (9router/Gemini/Groq)"""
+        import asyncio
+        return await asyncio.to_thread(self.generate, prompt, model_name, system_instruction)
+
     def generate_content(self, prompt: str, model_name: str, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
         """
         Unified generation method with automatic fallback (OpenCode -> Groq -> Gemini) on Rate Limits.

@@ -67,9 +67,52 @@ api.interceptors.response.use(
 export interface Category {
     id: number;
     name: string;
-    folder_name: string;
+    name_en?: string;
+    folder_name?: string;
+    parent_id?: number | null;
+    level?: number;
     color?: string;
     order_index?: number;
+    persona_target?: string;
+    content_tone?: string;
+    negative_keywords?: string[];
+    benchmark_rules?: {
+        min_views?: number;
+        min_outlier?: number;
+        match_sensitivity?: number;
+        [key: string]: any;
+    };
+    created_at?: string;
+}
+
+export interface RadarCandidate {
+    id: number;
+    video_id: string;
+    url: string;
+    title: string;
+    channel_title: string;
+    channel_url?: string;
+    thumbnail_url?: string;
+    video_type: 'shorts' | 'long' | string;
+    view_count: number;
+    like_count: number;
+    comment_count: number;
+    velocity_score: number;
+    outlier_ratio: number;
+    engagement_rate: number;
+    published_at?: string;
+    category_id?: number | null;
+    match_score: number;
+    match_reason?: string;
+    filtered_negative?: string | null;
+    status: 'pending' | 'approved' | 'rejected' | 'auto_collected' | string;
+    channel_subscribers?: string;
+    duration_text?: string;
+    hook_analysis?: string;
+    viral_triggers?: string;
+    adaptation_angle?: string;
+    sentiment_rate?: number;
+    is_hidden_gem?: boolean;
     created_at: string;
 }
 
@@ -133,6 +176,7 @@ export interface Video {
     script_analysis?: ScriptAnalysis;
     metadata_json: any;
     priority_level?: number;
+    review_status?: 'COLLECTED' | 'REVIEWED' | 'SHORTS_ADAPTED' | 'LONGFORM_CREATED' | 'ARCHIVED' | string;
     upload_status?: string;
     privacy_status?: string;
     uploaded_video_id?: string;
@@ -331,5 +375,175 @@ export const updateBrandChannel = async (id: number, data: Partial<BrandChannel>
 export const getConfigPresets = async (type: string) => (await api.get<ConfigPreset[]>('/system/config-presets/', { params: { type } })).data;
 export const createConfigPreset = async (type: string, name: string, config: any) => (await api.post<ConfigPreset>('/system/config-presets/', { type, name, config })).data;
 export const deleteConfigPreset = async (id: number) => (await api.delete(`/system/config-presets/${id}/`)).data;
+
+export const updateVideoReviewStatus = async (videoId: number, review_status: string) => {
+    return (await api.patch(`/videos/${videoId}/review-status`, { review_status })).data;
+};
+
+export const batchUpdateVideoReviewStatus = async (videoIds: number[], review_status: string) => {
+    return (await api.post('/videos/batch-review-status', { video_ids: videoIds, review_status })).data;
+};
+
+// ─── Viral Scouter & AI Channel Launchpad Interfaces ─────────
+export interface ChannelReelItem {
+    id: number;
+    video_id: string;
+    title: string;
+    thumbnail_url?: string;
+    view_count: number;
+    duration?: number;
+    duration_text?: string;
+    outlier_ratio: number;
+    published_at?: string;
+    hook_analysis?: string;
+}
+
+export interface ChannelWithReels {
+    channel_id: number;
+    name: string;
+    handle: string;
+    platform: string;
+    category_id?: number;
+    thumbnail_path?: string;
+    grade: 'S' | 'A' | 'B' | 'C' | string;
+    metrics: {
+        subscribers: string;
+        daily_views: string;
+        daily_revenue: string;
+        total_views: string;
+        video_count: number;
+        trend_status: string;
+    };
+    reels: ChannelReelItem[];
+}
+
+export interface LaunchpadBrandName {
+    name: string;
+    handle: string;
+    type: string;
+    rationale: string;
+}
+
+export interface LaunchpadAvatarConcept {
+    visual_concept: string;
+    color_palette: string[];
+    ai_prompt: string;
+}
+
+export interface LaunchpadBannerConcept {
+    headline: string;
+    sub_slogan: string;
+    ai_prompt: string;
+}
+
+export interface LaunchpadAboutBio {
+    description: string;
+    hashtags: string[];
+    business_notice: string;
+}
+
+export interface LaunchpadKickoffPlan {
+    step: string;
+    title: string;
+    hook_line: string;
+    expected_impact: string;
+}
+
+export interface ChannelLaunchpadPackage {
+    category_name: string;
+    brand_names: LaunchpadBrandName[];
+    avatar_concept: LaunchpadAvatarConcept;
+    banner_concept: LaunchpadBannerConcept;
+    about_bio: LaunchpadAboutBio;
+    kickoff_content_plan: LaunchpadKickoffPlan[];
+}
+
+export const getChannelsWithReels = async (categoryId?: number, videoType = 'shorts', limit = 20) => {
+    const params: any = { limit, video_type: videoType };
+    if (categoryId) params.category_id = categoryId;
+    return (await api.get<ChannelWithReels[]>('/trend-radar/channels-with-reels', { params })).data;
+};
+
+export const generateLaunchpadPack = async (categoryId: number) => {
+    return (await api.post<{ status: string; package: ChannelLaunchpadPackage; fallback?: boolean }>(
+        `/categories/${categoryId}/launchpad-pack`
+    )).data;
+};
+
+export const createBrandFromLaunchpad = async (categoryId: number, data: {
+    title: string;
+    channel_handle?: string;
+    description?: string;
+    avatar_prompt?: string;
+    banner_headline?: string;
+    style_signature?: any;
+}) => {
+    return (await api.post(`/categories/${categoryId}/launchpad-create-brand`, data)).data;
+};
+
+export const discoverLookalikeChannels = async (channelId: number) => {
+    return (await api.post<{ status: string; seed_channel: string; discovered_count: number; lookalikes: any[] }>(
+        `/channels/${channelId}/discover-lookalike`
+    )).data;
+};
+
+export const convertChannelToTarget = async (channelId: number) => {
+    return (await api.post<{ status: string; channel_id: number; channel_name: string; message: string }>(
+        `/channels/${channelId}/convert-to-target`
+    )).data;
+};
+
+export interface ChannelGrowthPoint {
+    date: string;
+    total_views: number;
+    subscribers: number;
+    daily_views: number;
+}
+
+export interface ChannelGrowthAnalysis {
+    channel_id: number;
+    name: string;
+    handle: string;
+    country: string;
+    grade: string;
+    thumbnail_url: string;
+    category_name: string;
+    subscribers: string;
+    monthly_revenue: string;
+    total_views: string;
+    collection_period: string;
+    actual_data_days: string;
+    period_views_gain: string;
+    subscribers_gain: string;
+    avg_daily_views: string;
+    current_velocity: string;
+    acceleration_status: string;
+    acceleration_rate: string;
+    chart_data_7d: ChannelGrowthPoint[];
+    chart_data_30d: ChannelGrowthPoint[];
+    chart_data_90d: ChannelGrowthPoint[];
+    recent_videos: {
+        video_id: string;
+        title: string;
+        thumbnail_url: string;
+        view_count: number;
+    }[];
+    ai_insights: {
+        title: string;
+        content: string;
+    }[];
+}
+
+export const getChannelGrowthAnalysis = async (channelId: number, timeSpan = '30d') => {
+    return (await api.get<ChannelGrowthAnalysis>(`/trend-radar/channels/${channelId}/growth-analysis`, {
+        params: { time_span: timeSpan }
+    })).data;
+};
+
+export const generateChannelAiInsight = async (channelId: number) => {
+    return (await api.post<{ title: string; content: string }[]>(
+        `/trend-radar/channels/${channelId}/ai-insight`
+    )).data;
+};
 
 export default api;

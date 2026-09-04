@@ -89,7 +89,7 @@ class YTDLPDownloader:
             opts['extractor_args']['instagram'] = {'client': 'android'}
         elif 'youtube.com' in url or 'youtu.be' in url:
             # YouTube smart defaults - force language to Korean
-            opts['extractor_args']['youtube'] = ['lang=ko']
+            opts['extractor_args']['youtube'] = {'lang': ['ko']}
             
         # [FIX] Enable Node.js for n-challenge solving if available
         import shutil

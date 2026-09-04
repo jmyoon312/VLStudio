@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { apiLong } from '@/lib/api';
@@ -18,7 +19,7 @@ import {
     Loader2, ImageIcon, Music, Film, Upload, Download, Clapperboard, Plus, Trash2,
     Sparkles, Copy, ChevronDown, ChevronUp, RefreshCw, Save, Wand2, RotateCcw, Play,
     MonitorPlay, Smartphone, Eye, EyeOff, Mic, DollarSign, Globe, SlidersHorizontal,
-    List, Search, Grid3X3, LayoutGrid, FolderOpen, Type, Sparkle
+    List, Search, Grid3X3, LayoutGrid, FolderOpen, Type, Sparkle, Zap
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -89,6 +90,94 @@ const DEFAULT_MODEL_OPTIONS = {
 };
 
 const CreativeStudio = () => {
+    const location = useLocation();
+
+    // [NEW] 롱폼 창작 레퍼런스 수신 및 세그먼트 모드 자동 전환
+    useEffect(() => {
+        if (location.state?.referenceScript || location.state?.referenceVideo) {
+            const rawText = location.state.referenceScript || location.state.referenceVideo?.content || (location.state.referenceVideo as any)?.extracted_text || "";
+            if (rawText) {
+                setFullScript(rawText);
+                setScriptInput(rawText);
+                setSegmentMode('longform');
+                try {
+                    localStorage.setItem('viral_loop_creative_full_script', rawText);
+                    localStorage.setItem('viral_loop_segment_mode', 'longform');
+                } catch(e) {}
+                toast.success("🎬 롱폼 AI 창작 레퍼런스 대본을 불러왔습니다!");
+            }
+        }
+    }, [location.state]);
+
+    // [NEW] 시각적 일관성 레퍼런스 앵커링 상태 & 핸들러
+    const [isExtractingAnchors, setIsExtractingAnchors] = useState(false);
+    const [anchorsData, setAnchorsData] = useState<{ characters: any[]; environments: any[]; props: any[] } | null>(null);
+
+    
+    // [NEW] HITL 인간 검수 후 무인 제작 대기열(WorkQueue) 등록 핸들러
+    const [isSubmittingQueue, setIsSubmittingQueue] = useState(false);
+    const handleAddToWorkQueue = async () => {
+        if (scenes.length === 0) {
+            toast.error("등록할 씬이 없습니다. 먼저 씬 분할을 진행해주세요.");
+            return;
+        }
+        setIsSubmittingQueue(true);
+        try {
+            await api.post('/work-queue/items', {
+                title: projectName || `롱폼 AI 창작 - ${new Date().toLocaleDateString()}`,
+                description: fullScript || `${scenes.length}개 씬으로 구성된 롱폼 프로젝트`,
+                source_type: 'CREATIVE_STUDIO',
+                target_platforms: ['youtube'],
+                upload_method: 'BROWSER_AUTO',
+                approval_required: false,
+                platform_configs: {
+                    scene_count: scenes.length,
+                    segment_mode: segmentMode,
+                    auto_generate_images: autoGenerateImages,
+                    auto_generate_audio: autoGenerateAudio,
+                    scenes: scenes.map(s => ({
+                        scene_id: s.id,
+                        script: s.script,
+                        visual_prompt: s.visual_prompt,
+                        video_prompt: s.video_prompt
+                    }))
+                }
+            });
+            toast.success("🚀 무인 제작 대기열에 성공적으로 등록되었습니다!", {
+                action: {
+                    label: "대기열 보기",
+                    onClick: () => navigate('/work-queue')
+                }
+            });
+        } catch (e: any) {
+            toast.error("대기열 등록 실패: " + (e.response?.data?.detail || e.message));
+        } finally {
+            setIsSubmittingQueue(false);
+        }
+    };
+
+    const handleExtractAnchors = async () => {
+        const textToAnalyze = fullScript || scriptInput;
+        if (!textToAnalyze.trim()) {
+            toast.error("분석할 대본을 입력해주세요.");
+            return;
+        }
+        setIsExtractingAnchors(true);
+        try {
+            const res = await api.post('/creative-scripts/extract-anchors', {
+                script_text: textToAnalyze
+            });
+            if (res.data) {
+                setAnchorsData(res.data);
+                toast.success(`일관성 앵커 추출 완료: 인물 ${res.data.characters?.length || 0}명, 배경 ${res.data.environments?.length || 0}곳`);
+            }
+        } catch (e: any) {
+            toast.error("앵커 추출 실패: " + e.message);
+        } finally {
+            setIsExtractingAnchors(false);
+        }
+    };
+
     const [selectedPresetId, setSelectedPresetId] = useState<string>(() => localStorage.getItem('vlstudio_selected_style_preset_id') || "");
     const [presetName, setPresetName] = useState("");
     const [stylePrompt, setStylePrompt] = useState("");
@@ -2461,6 +2550,17 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                 {/* Quick Action Navigation Bar */}
                 <div className="flex items-center gap-2 shrink-0">
                     <Button
+                        size="sm"
+                        onClick={handleAddToWorkQueue}
+                        disabled={isSubmittingQueue || scenes.length === 0}
+                        className="h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md gap-1.5 active:scale-95 transition-all"
+                        title="인간 검수가 완료된 씬들을 무인 제작 대기열에 일괄 등록하여 백그라운드 자동 완성"
+                    >
+                        <Zap className="w-3.5 h-3.5 text-amber-300" />
+                        <span>🚀 제작 대기열 등록 ({scenes.length}씬)</span>
+                    </Button>
+
+                    <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
@@ -2768,6 +2868,34 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                                     </div>
                                 )}
 
+                                {/* [NEW] 추출된 일관성 앵커링 배너 */}
+                                {anchorsData && (
+                                    <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40 rounded-xl space-y-2 mb-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                                                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                                                <span>일관성 앵커링 추출 결과 (Flow AI 프롬프트 연동)</span>
+                                            </span>
+                                            <span className="text-[11px] text-muted-foreground font-medium">
+                                                인물 {anchorsData.characters?.length || 0}명 · 배경 {anchorsData.environments?.length || 0}곳
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 text-xs">
+                                            {anchorsData.characters?.map((c: any, i: number) => (
+                                                <div key={i} className="px-2 py-1 bg-background rounded-lg border border-indigo-200 dark:border-indigo-800 text-[11px] max-w-xs" title={c.anchor_prompt}>
+                                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">👤 {c.name}: </span>
+                                                    <span className="text-muted-foreground line-clamp-1">{c.anchor_prompt}</span>
+                                                </div>
+                                            ))}
+                                            {anchorsData.environments?.map((env: any, i: number) => (
+                                                <div key={i} className="px-2 py-1 bg-background rounded-lg border border-emerald-200 dark:border-emerald-800 text-[11px] max-w-xs" title={env.anchor_prompt}>
+                                                    <span className="font-bold text-emerald-600 dark:text-emerald-400">🏞️ {env.name}: </span>
+                                                    <span className="text-muted-foreground line-clamp-1">{env.anchor_prompt}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                                 {/* Execution Footer Bar */}
                                 <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-1.5 gap-2 border-t border-border/60">
                                     <div className="flex items-center justify-around sm:justify-start gap-2 px-2.5 bg-background h-7.5 rounded-lg border border-border shadow-2xs">
@@ -2782,10 +2910,24 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                                         </Label>
                                     </div>
 
-                                    <Button onClick={handleSegmentScript} disabled={isSegmenting || !fullScript} size="sm" className="h-7.5 px-3 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm rounded-lg gap-1">
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            onClick={handleExtractAnchors}
+                                            disabled={isExtractingAnchors || !fullScript}
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7.5 px-2.5 text-xs font-bold border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg gap-1"
+                                            title="대본에서 반복 등장하는 인물/배경 앵커 프롬프트를 자동 추출하여 시각적 일관성 확보"
+                                        >
+                                            {isExtractingAnchors ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-indigo-500" />}
+                                            <span>🎯 일관성 앵커 추출</span>
+                                        </Button>
+
+                                        <Button onClick={handleSegmentScript} disabled={isSegmenting || !fullScript} size="sm" className="h-7.5 px-3 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm rounded-lg gap-1">
                                         {isSegmenting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clapperboard className="w-3 h-3" />}
                                         <span>🎬 씬 분할 시작</span>
                                     </Button>
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>

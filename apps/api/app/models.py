@@ -226,6 +226,8 @@ class Video(Base):
     viral_score = Column(Float, default=0.0) 
     velocity_score = Column(Float, default=0.0)
     is_script_only = Column(Boolean, default=False) # [NEW] Script Only Flag
+    transcript = Column(Text, nullable=True) # [NEW] Hybrid Zero-IO Transcript Column
+    review_status = Column(String, default="COLLECTED") # [NEW] Lifecycle: COLLECTED, REVIEWED, SHORTS_ADAPTED, LONGFORM_CREATED, ARCHIVED
     priority_level = Column(Integer, default=0) # [NEW] Phase 4: 0=Normal, 1=High
     
     viewed_at = Column(DateTime, nullable=True)
@@ -962,6 +964,12 @@ class Category(Base):
     ai_generated = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
 
+    # [DNA / Persona Standards for FSD Autonomous Scouting]
+    persona_target = Column(String, nullable=True)     # 타겟 시청자 페르소나
+    content_tone = Column(String, nullable=True)       # 콘텐츠 결 & 톤앤매너
+    negative_keywords = Column(JSON, default=list)     # 제외할 불량/이질적 키워드
+    benchmark_rules = Column(JSON, default=dict)       # 바이럴 벤치마크 및 민감도 규칙 (min_views, outlier_ratio, sensitivity 등)
+
 
 class CollectionPreset(Base):
     """Target Channel Video/Script Collection Preset & Automation Rule"""
@@ -989,6 +997,50 @@ class CollectionPreset(Base):
     last_collected_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class RadarCandidate(Base):
+    """FSD Trend Radar Discovered Video/Channel Candidate for Incubation"""
+    __tablename__ = "radar_candidates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    video_id = Column(String, unique=True, index=True, nullable=False)
+    url = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    channel_title = Column(String, nullable=False)
+    channel_url = Column(String, nullable=True)
+    thumbnail_url = Column(String, nullable=True)
+    video_type = Column(String, default="shorts")       # shorts | long
+    
+    # Viral & Performance Metrics
+    view_count = Column(Integer, default=0)
+    like_count = Column(Integer, default=0)
+    comment_count = Column(Integer, default=0)
+    velocity_score = Column(Float, default=0.0)         # 시간당 조회수 증가 속도 (views/h)
+    outlier_ratio = Column(Float, default=1.0)          # 채널 평균 대비 바이럴 배수
+    engagement_rate = Column(Float, default=0.0)        # (댓글+좋아요)/조회수
+    published_at = Column(DateTime, nullable=True)
+
+    # Category DNA & AI Matching
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    match_score = Column(Float, default=0.0)            # 0~100점 (카테고리 DNA 적합도)
+    match_reason = Column(String, nullable=True)        # AI 적합성 판정 브리핑
+    filtered_negative = Column(String, nullable=True)   # 검출된 네거티브 키워드
+
+    # [Deep Professional Intelligence Metrics]
+    channel_subscribers = Column(String, nullable=True) # 구독자 수 (예: 24.5만명)
+    duration_text = Column(String, nullable=True)       # 영상 길이 (예: "0:45", "11:24")
+    hook_analysis = Column(Text, nullable=True)         # 초반 3초 훅 및 시청 지속 요인 분석
+    viral_triggers = Column(Text, nullable=True)        # 알고리즘 폭발 심리 기제
+    adaptation_angle = Column(Text, nullable=True)      # AI 각색 및 벤치마킹 연출 가이드
+    sentiment_rate = Column(Float, default=95.0)        # 시청자 긍정 호응도 (%)
+
+    # Lifecycle Status in Incubator
+    status = Column(String, default="pending")          # pending, approved, rejected, auto_collected
+    action_taken_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    category = relationship("Category", backref="radar_candidates")
 
 
 class TikTokChannel(Base):

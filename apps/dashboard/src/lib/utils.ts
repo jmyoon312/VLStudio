@@ -131,16 +131,33 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
     // Clean path separators
     let target = path.replace(/\\/g, '/');
 
+    // 1. If rootDownloadPath is provided, strip it
+    if (rootDownloadPath) {
+        const normRoot = rootDownloadPath.replace(/\\/g, '/').replace(/\/+$/, '');
+        if (target.toLowerCase().startsWith(normRoot.toLowerCase())) {
+            target = target.substring(normRoot.length).replace(/^\/+/, '');
+        }
+    }
+
+    // 2. Strip common absolute media root folders if path was an absolute path (e.g. .../media/07_Downloads/... or .../ViraLoop Studio/media/...)
+    const mediaIdx = target.toLowerCase().indexOf('/media/');
+    if (mediaIdx !== -1) {
+        target = target.substring(mediaIdx + '/media/'.length);
+    } else if (target.toLowerCase().startsWith('media/')) {
+        target = target.substring('media/'.length);
+    }
+
     // [Fallback] Automatically convert legacy 'downloads/' prefix to '07_Downloads/'
     if (target.toLowerCase().startsWith('downloads/')) {
         target = '07_Downloads/' + target.substring('downloads/'.length);
     }
 
-
     // Ensure no absolute windows paths remain (e.g. C:/...)
     if (target.includes(':')) {
         target = target.split(':').pop()?.replace(/^\/+/, '') || target;
     }
+
+    target = target.replace(/^\/+/, '');
 
     const encodedPath = target.split('/').map(encodeURIComponent).join('/');
     const prefix = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';

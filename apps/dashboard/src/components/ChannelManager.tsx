@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { CollectionPreset, Category } from '../lib/api';
 import { 
@@ -30,6 +30,18 @@ export const ChannelManager: React.FC = () => {
         queryKey: ['categories'],
         queryFn: async () => (await api.get<Category[]>('/categories/')).data || []
     });
+
+    const parentCategories = useMemo(() => categories.filter(c => !c.parent_id || c.level === 0), [categories]);
+    const subCategoriesByParent = useMemo(() => {
+        const map: Record<number, Category[]> = {};
+        categories.forEach(c => {
+            if (c.parent_id) {
+                if (!map[c.parent_id]) map[c.parent_id] = [];
+                map[c.parent_id].push(c);
+            }
+        });
+        return map;
+    }, [categories]);
 
     // Quick Channel Add Mutation
     const addChannelMutation = useMutation({
@@ -151,12 +163,21 @@ export const ChannelManager: React.FC = () => {
                         <select
                             value={quickCategoryId || ''}
                             onChange={(e) => setQuickCategoryId(e.target.value ? Number(e.target.value) : null)}
-                            className="h-8 px-2 text-xs bg-background border border-input rounded-lg font-semibold cursor-pointer max-w-[100px] sm:max-w-[120px] truncate shrink-0"
+                            className="h-8 px-2 text-xs bg-background border border-input rounded-lg font-semibold cursor-pointer max-w-[120px] sm:max-w-[140px] truncate shrink-0"
                             disabled={isAddingChannel}
                         >
                             <option value="">📁 미분류</option>
-                            {categories.map(cat => (
-                                <option key={cat.id} value={cat.id}>📁 {cat.name}</option>
+                            {parentCategories.map(parent => (
+                                <React.Fragment key={parent.id}>
+                                    <option value={parent.id} className="font-bold">
+                                        📁 {parent.name}
+                                    </option>
+                                    {(subCategoriesByParent[parent.id] || []).map(sub => (
+                                        <option key={sub.id} value={sub.id}>
+                                            　└ 📁 {sub.name}
+                                        </option>
+                                    ))}
+                                </React.Fragment>
                             ))}
                         </select>
                         <button
@@ -203,7 +224,7 @@ export const ChannelManager: React.FC = () => {
             <div className="flex-1 flex overflow-hidden relative">
                 {/* Preset Management Board */}
                 <main className={cn(
-                    "flex-1 overflow-y-auto p-3 sm:p-6 pb-28 sm:pb-8 custom-scrollbar",
+                    "flex-1 overflow-y-auto p-3 sm:p-6 pb-28 sm:pb-8 custom-scrollbar space-y-6",
                     // On mobile, hide if drawer tab is selected
                     mobileTab === 'drawer' ? "hidden md:block" : "block"
                 )}>

@@ -506,7 +506,7 @@ def scan_channel_with_preset(db: Session, channel: models.Channel, preset: model
         target_url = channel.url.rstrip('/')
         if preset.video_type == 'shorts' and not target_url.endswith('/shorts'):
             target_url = f"{target_url}/shorts"
-        elif preset.video_type == 'long' and not target_url.endswith('/videos'):
+        elif preset.video_type in ['long', 'longform'] and not target_url.endswith('/videos'):
             target_url = f"{target_url}/videos"
             
         cookies_path = settings.cookies_path if settings and hasattr(settings, 'cookies_path') and settings.cookies_path and os.path.exists(settings.cookies_path) else None

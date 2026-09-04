@@ -29,7 +29,7 @@ npm install
 ##### 방법 A: 글로벌 설정 (모든 프로젝트에서 사용) — 권장
 
 ```bash
-claude mcp add --scope user --transport stdio flow2capcut -- node /path/to/ViraLoop Studio/mcp-server/index.js
+claude mcp add --scope user --transport stdio viraloop -- node c:/ViraLoopMedia/VLStudio/mcp-server/index.js
 ```
 
 `~/.claude.json`의 `mcpServers`에 저장됩니다.
@@ -41,9 +41,9 @@ claude mcp add --scope user --transport stdio flow2capcut -- node /path/to/ViraL
 ```json
 {
   "mcpServers": {
-    "flow2capcut": {
+    "viraloop": {
       "command": "node",
-      "args": ["/path/to/ViraLoop Studio/mcp-server/index.js"]
+      "args": ["c:/ViraLoopMedia/VLStudio/mcp-server/index.js"]
     }
   }
 }

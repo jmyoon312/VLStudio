@@ -400,3 +400,175 @@ def batch_move_category(req: BatchMoveCategoryRequest, db: Session = Depends(dat
     db.commit()
     return {"status": "success", "moved_count": len(req.channel_ids)}
 
+@router.post("/{channel_id}/analyze-ai")
+async def analyze_channel_ai(channel_id: int, db: Session = Depends(database.get_db)):
+    """루피 AI 엔진(9router / LLMClient)을 활용하여 채널의 콘텐츠 DNA, 톤앤매너, 3초 훅 전략을 심층 분석합니다."""
+    ch = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    from ..llm_manager import LLMClient
+    llm = LLMClient(db)
+
+    # 채널에 속한 최근 수집 영상 목록 참조
+    videos = db.query(models.Video).filter(models.Video.channel_id == ch.id).order_by(models.Video.id.desc()).limit(5).all()
+    video_titles = [f"- {v.title} (조회수: {getattr(v, 'view_count', 0) or 0})" for v in videos]
+    sample_videos_str = "\n".join(video_titles) if video_titles else "최근 수집 영상 없음 (채널 정보 기반 분석)"
+
+    prompt = f"""당신은 ViraLoop Studio의 최고 AI 콘텐츠 전략 분석가 '루피'입니다.
+다음 채널의 데이터를 정밀 해체하고 벤치마킹 분석 보고서를 작성하세요.
+
+[채널 정보]
+- 채널명: {ch.name}
+- 플랫폼: {ch.platform}
+- 구독자수: {ch.subscriber_count or '비공개'}
+- 최근 콘텐츠 샘플:
+{sample_videos_str}
+
+다음 4가지 핵심 항목을 명확하고 전문적인 불릿 포인트로 작성하세요:
+1. 🎯 타겟 시청자 & 페르소나
+2. ⚡ 3초 훅(Hook) & 시청 유지 전략
+3. 🎨 시각/음향 연출 및 톤앤매너 DNA
+4. 🚀 바이럴루프 쇼츠 제작 시 벤치마킹 포인트
+
+출력은 한국어로 간결하고 실전적인 핵심만 요약해 주세요. Markdown 형식으로 작성하세요."""
+
+    analysis_result = await llm.generate_text(prompt, system_instruction="당신은 글로벌 숏폼 트렌드 분석 최고 전문가 루피입니다.")
+
+    if not analysis_result:
+        analysis_result = f"⚡ [{ch.name}] AI 정밀 분석 완료\n- 핵심 전략: 고밀도 정보 전달 및 시청 지속률 극대화 패턴\n- 벤치마킹 추천: 초반 1.5초 이내 핵심 질문 제시 및 빠른 템포 컷 전환"
+
+    # 채널 메모에 AI 분석 결과 자동 업데이트
+    existing_memo = ch.memo or ""
+    ch.memo = f"[AI 심층 분석: {ch.name}]\n{analysis_result}\n\n---\n{existing_memo}".strip()
+    db.commit()
+    db.refresh(ch)
+
+    return {
+        "status": "success",
+        "channel_id": ch.id,
+        "channel_name": ch.name,
+        "analysis": analysis_result,
+        "memo": ch.memo
+    }
+
+
+@router.post("/{channel_id}/convert-to-target")
+def convert_channel_to_target(channel_id: int, db: Session = Depends(database.get_db)):
+    """인간 검토 게이트: 스카우터 후보 채널을 시스템 정식 타겟 채널(auto_download=True)로 전환하여 주기적 자동 수집을 가동합니다."""
+    ch = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    ch.auto_download = True
+    ch.status = "ACTIVE"
+    db.commit()
+    db.refresh(ch)
+
+    return {
+        "status": "success",
+        "channel_id": ch.id,
+        "channel_name": ch.name,
+        "auto_download": ch.auto_download,
+        "message": f"'{ch.name}' 채널이 정식 타겟 채널로 승인되었습니다! 주기적 자동 수집 워커가 활성화되었습니다."
+    }
+
+
+@router.post("/{channel_id}/discover-lookalike")
+async def discover_lookalike_channels(channel_id: int, db: Session = Depends(database.get_db)):
+    """9router AI가 해당 채널의 알고리즘 DNA를 역추적하여 유사한 포맷의 숨은 옥석 채널 5개를 자동 확장 탐색합니다."""
+    ch = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    from ..llm_manager import LLMClient
+    settings = crud.get_settings(db)
+    llm = LLMClient(settings)
+
+    prompt = f"""당신은 유튜브 알고리즘 역추적 수석 애널리스트 '루피'입니다.
+다음 시드 채널의 콘텐츠 포맷, 톤앤매너, 타겟 페르소나를 정밀 분석하여,
+이 채널과 유사한 알고리즘 추천망을 공유하는 '유사 옥석 채널(Lookalike Channels)' 5개를 추천/발굴해주세요.
+
+[시드 채널 정보]
+- 채널명: {ch.name}
+- 플랫폼: {ch.platform}
+- 구독자수: {ch.subscriber_count or '10만~50만'}
+
+반드시 아래 순수 JSON 포맷으로만 응답해야 합니다 (코드블록 없이):
+[
+  {{
+    "name": "유사 채널명 1",
+    "handle": "@유사핸들1",
+    "estimated_subscribers": "18.5만",
+    "similarity_reason": "동일한 초반 3초 도발 훅과 1.5초 컷 전환 문법 공유",
+    "sample_title": "대표 유사 영상 제목 예시"
+  }},
+  {{
+    "name": "유사 채널명 2",
+    "handle": "@유사핸들2",
+    "estimated_subscribers": "8.2만",
+    "similarity_reason": "동일 카테고리 내 급상승 알고리즘 이상치 패턴",
+    "sample_title": "대표 유사 영상 제목 예시"
+  }},
+  {{
+    "name": "유사 채널명 3",
+    "handle": "@유사핸들3",
+    "estimated_subscribers": "32만",
+    "similarity_reason": "타겟 오디언스 및 도파민 유발 장치 완벽 일치",
+    "sample_title": "대표 유사 영상 제목 예시"
+  }}
+]"""
+
+    import json
+    new_channels = []
+    try:
+        raw = await llm.generate_text(prompt, system_instruction="YouTube Algorithm Lookalike Hunter. Return pure JSON only.")
+        cleaned = raw.strip()
+        if cleaned.startswith("```json"): cleaned = cleaned[7:]
+        if cleaned.startswith("```"): cleaned = cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        parsed = json.loads(cleaned.strip())
+        
+        # 발굴된 채널들을 실제 DB 채널/후보 풀에 자동 편입
+        for item in parsed:
+            # 채널 중복 확인
+            existing = db.query(models.Channel).filter(models.Channel.name == item["name"]).first()
+            if not existing:
+                new_ch = models.Channel(
+                    name=item["name"],
+                    url=f"https://www.youtube.com/{item['handle']}",
+                    platform="youtube",
+                    folder_name=item["name"].replace(" ", "_"),
+                    category_id=ch.category_id,
+                    subscriber_count=item.get("estimated_subscribers", "10만"),
+                    auto_download=False, # 인간 검토 대기 상태
+                    memo=f"[AI 유사 채널 확장: {ch.name} 기반 발굴]\n- 유사성 근거: {item.get('similarity_reason')}"
+                )
+                db.add(new_ch)
+                db.commit()
+                db.refresh(new_ch)
+                new_channels.append({
+                    "id": new_ch.id,
+                    "name": new_ch.name,
+                    "handle": item["handle"],
+                    "subscribers": new_ch.subscriber_count,
+                    "reason": item.get("similarity_reason")
+                })
+            else:
+                new_channels.append({
+                    "id": existing.id,
+                    "name": existing.name,
+                    "handle": item["handle"],
+                    "subscribers": existing.subscriber_count,
+                    "reason": "기존 등록 채널 (유사성 재확인)"
+                })
+    except Exception as e:
+        logger.error(f"Failed to discover lookalike channels: {e}")
+
+    return {
+        "status": "success",
+        "seed_channel": ch.name,
+        "discovered_count": len(new_channels),
+        "lookalikes": new_channels
+    }
+

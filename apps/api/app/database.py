@@ -210,6 +210,19 @@ def migrate_source_external_id():
             db.commit()
             print("[Migration] Added name column to profiles")
 
+        # 3. videos.transcript
+        video_cols = [c["name"] for c in inspector.get_columns("videos")]
+        if "transcript" not in video_cols:
+            conn.execute(text("ALTER TABLE videos ADD COLUMN transcript TEXT"))
+            db.commit()
+            print("[Migration] Added transcript column to videos")
+
+        # 4. videos.review_status
+        if "review_status" not in video_cols:
+            conn.execute(text("ALTER TABLE videos ADD COLUMN review_status VARCHAR DEFAULT 'COLLECTED'"))
+            db.commit()
+            print("[Migration] Added review_status column to videos")
+
         db.close()
         return True
     except Exception as e:

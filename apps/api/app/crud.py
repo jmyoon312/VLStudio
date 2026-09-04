@@ -141,6 +141,7 @@ def get_videos(
     search_query: str = None,
     mode: str = "video", # 'video' or 'script'
     upload_status: str = None, 
+    review_status: str = None, # [NEW] Lifecycle status filter
     exclude_used: bool = False,
     is_script_only: bool = None, # [FIX] Add explicit filter parameter
     sort_by: str = "upload_date",
@@ -169,8 +170,6 @@ def get_videos(
         query = query.filter(models.Video.channel_id == channel_id)
 
     if folder: # [NEW] Strict Folder Filter
-        # Normalize folder separator to match DB content (usually depends on OS, but contains works)
-        # We assume file_path contains the folder name segment
         query = query.filter(models.Video.file_path.contains(folder))
 
     if category_id: # [NEW]
@@ -181,6 +180,9 @@ def get_videos(
 
     if upload_status: 
         query = query.filter(models.Video.upload_status == upload_status)
+
+    if review_status and review_status != 'ALL': # [NEW] Lifecycle status filter
+        query = query.filter(models.Video.review_status == review_status)
         
     if exclude_used:
         query = query.filter(

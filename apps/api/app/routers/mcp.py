@@ -17,15 +17,12 @@ async def mcp_info():
             <p>Protocol: Model Context Protocol v2026.1 (fastmcp v3)</p>
             <p>Transport: <code>streamable-http</code> + SSE</p>
             <hr style="border-color: #333"/>
-            <h3>Active Tools (16):</h3>
+            <h3>Active Tools (Unified Sovereign Tools + AutoFlowCut Engine):</h3>
             <ul>
-                <li><b>WRITER:</b> inject_native_ssml, generate_director_schema, mutate_script_persona, generate_vocal_track</li>
-                <li><b>RESEARCHER:</b> scout_market_gap, predict_thumbnail_ctr, analyze_viral_trend</li>
-                <li><b>MEDIA:</b> apply_sovereign_shield, generate_scene_asset, verify_and_upscale_asset</li>
-                <li><b>EDITOR:</b> validate_scene_consistency, trigger_capcut_automation</li>
-                <li><b>PUBLISHER:</b> execute_global_syndication, generate_platform_metadata</li>
-                <li><b>OPERATOR:</b> trigger_stealth_browser</li>
-                <li><b>COORDINATOR:</b> start_niche_mission, panic_stop_all</li>
+                <li><b>SCOUT (Trend Radar):</b> scout_trending_videos, list_incubator_candidates, approve_incubator_candidate, reject_incubator_candidate</li>
+                <li><b>DNA & VAULT:</b> get_category_dna, list_vault_videos</li>
+                <li><b>RENDER (AutoFlowCut Core):</b> app_generate_scene, app_generate_reference, app_start_scene_batch, load_csv, list_scenes, update_scene</li>
+                <li><b>TIMELINE & EDITOR:</b> trigger_capcut_automation, validate_scene_consistency</li>
             </ul>
             <h3>How to Start MCP Server:</h3>
             <pre style="background:#111; padding: 1rem; border-radius: 8px;">

@@ -100,3 +100,46 @@ def generate_script(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
+
+class DualTrackAdaptRequest(BaseModel):
+    source_script: str
+    track: str = "shorts"  # "shorts" | "longform"
+    style_tone: str = "바이럴 흥미 유발"
+    model: Optional[str] = None
+
+class ExtractAnchorsRequest(BaseModel):
+    script_text: str
+    model: Optional[str] = None
+
+@router.post("/dual-track-adapt")
+def adapt_script_dual_track(
+    request: DualTrackAdaptRequest,
+    engine: CreativeEngine = Depends(get_creative_engine)
+):
+    try:
+        result = engine.rewrite_script_dual_track(
+            source_script=request.source_script,
+            track=request.track,
+            style_tone=request.style_tone,
+            model=request.model
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/extract-anchors")
+def extract_script_anchors(
+    request: ExtractAnchorsRequest,
+    engine: CreativeEngine = Depends(get_creative_engine)
+):
+    try:
+        result = engine.extract_anchor_references(
+            script_text=request.script_text,
+            model=request.model
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

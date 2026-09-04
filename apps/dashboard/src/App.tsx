@@ -41,6 +41,7 @@ const CaptainQuarters = lazy(() => import('./pages/CaptainQuarters'));
 const Incubator = lazy(() => import('./pages/Incubator'));
 const GuideCenter = lazy(() => import('./pages/GuideCenter'));
 const ResearchBrief = lazy(() => import('./pages/ResearchBrief'));
+const TrendRadarPage = lazy(() => import('./pages/TrendRadarPage'));
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
@@ -157,6 +158,7 @@ function MainAppContent() {
                     <Route path="/distribution-network" element={<Navigate to="/work-queue" replace />} />
 
                     <Route path="/channels" element={<RouteErrorBoundary><ChannelManager /></RouteErrorBoundary>} />
+                    <Route path="/trend-radar" element={<RouteErrorBoundary><TrendRadarPage /></RouteErrorBoundary>} />
 
                     {/* Captain Management */}
                     <Route path="/captain/dashboard" element={<RouteErrorBoundary><CaptainQuarters /></RouteErrorBoundary>} />

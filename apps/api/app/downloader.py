@@ -505,6 +505,10 @@ class DownloaderFacade:
 
     def get_latest_videos(self, *args, **kwargs):
         return get_latest_videos(*args, **kwargs)
+
+    def get_channel_videos(self, *args, **kwargs):
+        """Alias for get_latest_videos used by channel_monitor"""
+        return get_latest_videos(*args, **kwargs)
         
     async def convert_to_h264(self, *args, **kwargs):
         return await convert_to_h264(*args, **kwargs)

@@ -7,6 +7,8 @@ import {
     MoreVertical, Download, Upload, FileSpreadsheet, FileCode, CheckSquare
 } from 'lucide-react';
 import { cn, getMediaUrl } from '../../lib/utils';
+import { CategoryDNAModal } from '../shared/CategoryDNAModal';
+import { Dna } from 'lucide-react';
 
 const COLOR_PALETTE = [
     { key: 'none', label: '없음', bg: 'bg-muted border-border', strip: 'bg-transparent', ring: 'ring-border' },
@@ -39,9 +41,11 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
     const [filterMemo, setFilterMemo] = useState<'all' | 'has_memo' | 'no_memo'>('all');
     const [filterLabel, setFilterLabel] = useState<string>('all');
     
-    // Inline folder add
+    // Inline folder add (Level 0 Top & Level 1 Sub)
     const [isAddingFolder, setIsAddingFolder] = useState(false);
     const [newFolderName, setNewFolderName] = useState('');
+    const [isAddingSubFolder, setIsAddingSubFolder] = useState(false);
+    const [newSubFolderName, setNewSubFolderName] = useState('');
 
     // Channel inline adder modal
     const [isAddingChannelModal, setIsAddingChannelModal] = useState(false);
@@ -54,6 +58,17 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
     const [memoText, setMemoText] = useState('');
     const [moveFolderDialogOpen, setMoveFolderDialogOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    // Category DNA Modal State
+    const [dnaModalOpen, setDnaModalOpen] = useState(false);
+    const [dnaModalCategory, setDnaModalCategory] = useState<Category | null>(null);
+    const [dnaModalParentCategory, setDnaModalParentCategory] = useState<Category | null>(null);
+
+    const handleOpenDnaModal = (cat: Category, parent?: Category | null) => {
+        setDnaModalCategory(cat);
+        setDnaModalParentCategory(parent || null);
+        setDnaModalOpen(true);
+    };
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Queries
@@ -69,11 +84,17 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
 
     // Mutations
     const addFolderMutation = useMutation({
-        mutationFn: (name: string) => api.post('/categories/', { name }),
+        mutationFn: ({ name, parent_id, level, color }: { name: string, parent_id?: number | null, level?: number, color?: string }) =>
+            api.post('/categories/', { name, parent_id: parent_id || null, level: level || 0, color: color || '#3B82F6' }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['categories'] });
             setNewFolderName('');
+            setNewSubFolderName('');
             setIsAddingFolder(false);
+            setIsAddingSubFolder(false);
+        },
+        onError: (err: any) => {
+            alert('폴더 생성 실패: ' + (err.response?.data?.detail || err.message));
         }
     });
 
@@ -136,14 +157,66 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
         }
     });
 
-    // Filtered & Sorted Channels calculation
+    // 2-Level Hierarchical Category Computations
+    const parentCategories = useMemo(() => {
+        return categories.filter(c => !c.parent_id || c.level === 0);
+    }, [categories]);
+
+    const subCategoriesByParent = useMemo(() => {
+        const map: Record<number, Category[]> = {};
+        categories.forEach(c => {
+            if (c.parent_id) {
+                if (!map[c.parent_id]) map[c.parent_id] = [];
+                map[c.parent_id].push(c);
+            }
+        });
+        return map;
+    }, [categories]);
+
+    const currentCategory = useMemo(() => {
+        if (typeof selectedFolderId !== 'number') return null;
+        return categories.find(c => c.id === selectedFolderId) || null;
+    }, [categories, selectedFolderId]);
+
+    const currentParentCategory = useMemo(() => {
+        if (!currentCategory) return null;
+        if (currentCategory.parent_id) {
+            return categories.find(c => c.id === currentCategory.parent_id) || null;
+        }
+        return currentCategory;
+    }, [categories, currentCategory]);
+
+    const currentSubCategories = useMemo(() => {
+        if (!currentParentCategory) return [];
+        return subCategoriesByParent[currentParentCategory.id] || [];
+    }, [currentParentCategory, subCategoriesByParent]);
+
+    // Parent folder total counts (including sub-folders)
+    const parentCategoryCounts = useMemo(() => {
+        const counts: Record<number, number> = {};
+        parentCategories.forEach(parent => {
+            const subIds = (subCategoriesByParent[parent.id] || []).map(s => s.id);
+            const allIds = new Set([parent.id, ...subIds]);
+            counts[parent.id] = channels.filter(ch => ch.category_id && allIds.has(ch.category_id)).length;
+        });
+        return counts;
+    }, [parentCategories, subCategoriesByParent, channels]);
+
+    // Filtered & Sorted Channels calculation (with Inheritance Filtering)
     const filteredChannels = useMemo(() => {
         let result = channels.filter(ch => {
             // Folder filter
             if (selectedFolderId === 'unassigned') {
                 if (ch.category_id) return false;
             } else if (selectedFolderId !== 'all') {
-                if (ch.category_id !== selectedFolderId) return false;
+                const isParent = parentCategories.some(p => p.id === selectedFolderId);
+                if (isParent) {
+                    const subIds = (subCategoriesByParent[selectedFolderId as number] || []).map(s => s.id);
+                    const validIds = new Set([selectedFolderId, ...subIds]);
+                    if (!ch.category_id || !validIds.has(ch.category_id)) return false;
+                } else {
+                    if (ch.category_id !== selectedFolderId) return false;
+                }
             }
 
             // Search query
@@ -180,7 +253,7 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
         }
 
         return result;
-    }, [channels, selectedFolderId, searchQuery, filterLabel, filterMemo, sortBy]);
+    }, [channels, selectedFolderId, parentCategories, subCategoriesByParent, searchQuery, filterLabel, filterMemo, sortBy]);
 
     // Folder counts
     const unassignedCount = useMemo(() => channels.filter(c => !c.category_id).length, [channels]);
@@ -613,10 +686,11 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
                             <span className="text-[10px] font-bold text-muted-foreground px-2">내 폴더 목록</span>
                         </div>
 
-                        {/* Custom Categories */}
-                        {categories.map((cat) => {
-                            const count = channels.filter(c => c.category_id === cat.id).length;
-                            const isSelected = selectedFolderId === cat.id;
+                        {/* Custom Categories (Level 0 Top Folders Only) */}
+                        {parentCategories.map((cat) => {
+                            const count = parentCategoryCounts[cat.id] ?? 0;
+                            const isSelected = selectedFolderId === cat.id || currentParentCategory?.id === cat.id;
+                            const hasSub = (subCategoriesByParent[cat.id] || []).length > 0;
 
                             return (
                                 <div
@@ -630,18 +704,33 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
                                     onClick={() => setSelectedFolderId(cat.id)}
                                 >
                                     <div className="flex items-center gap-1.5 truncate min-w-0">
-                                        <span 
-                                            className="w-2 h-2 rounded-full shrink-0" 
-                                            style={{ backgroundColor: cat.color || '#3B82F6' }} 
-                                        />
+                                        <Folder className={cn("w-3.5 h-3.5 shrink-0", isSelected ? "text-primary-foreground" : "text-amber-500")} />
                                         <span className="truncate" title={cat.name}>{cat.name}</span>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
-                                        <span className="text-[10px] opacity-80">{count}</span>
+                                        <span className="text-[10px] opacity-80 font-mono">{count}</span>
+                                        {hasSub && (
+                                            <span className="text-[9px] px-1 py-0.2 rounded bg-black/20 text-white/90">
+                                                +{subCategoriesByParent[cat.id].length}
+                                            </span>
+                                        )}
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (window.confirm(`'${cat.name}' 폴더를 삭제하시겠습니까? (채널은 미분류로 이동)`)) {
+                                                handleOpenDnaModal(cat);
+                                            }}
+                                            className={cn(
+                                                "p-0.5 rounded hover:bg-black/20 transition-all",
+                                                cat.persona_target ? "text-indigo-400 opacity-100" : "opacity-0 group-hover/folder:opacity-80 text-muted-foreground"
+                                            )}
+                                            title="카테고리 DNA / FSD 기준 설정"
+                                        >
+                                            <Dna className="w-3 h-3" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (window.confirm(`'${cat.name}' 상위 폴더를 삭제하시겠습니까? (하위 폴더와 소속 채널은 미분류로 이동)`)) {
                                                     deleteFolderMutation.mutate(cat.id);
                                                 }
                                             }}
@@ -666,17 +755,17 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
                                     onChange={(e) => setNewFolderName(e.target.value)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && newFolderName.trim()) {
-                                            addFolderMutation.mutate(newFolderName.trim());
+                                            addFolderMutation.mutate({ name: newFolderName.trim(), level: 0 });
                                         }
                                     }}
-                                    placeholder="폴더 이름..."
+                                    placeholder="상위 폴더 이름..."
                                     className="w-full h-6 text-xs px-1.5 rounded bg-background border border-input focus:outline-none focus:ring-1 focus:ring-primary"
                                     autoFocus
                                 />
                                 <div className="flex gap-1">
                                     <button
                                         onClick={() => {
-                                            if (newFolderName.trim()) addFolderMutation.mutate(newFolderName.trim());
+                                            if (newFolderName.trim()) addFolderMutation.mutate({ name: newFolderName.trim(), level: 0 });
                                         }}
                                         className="flex-1 h-5 text-[10px] font-bold bg-primary text-primary-foreground rounded hover:bg-primary/90"
                                     >
@@ -704,6 +793,177 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
 
                 {/* 3-B. Right Channel List Panel (flex-1) */}
                 <div className="flex-1 flex flex-col overflow-hidden bg-background">
+                    {/* 픽셀링 스타일 상단 알림 배너 */}
+                    {currentParentCategory && (
+                        <div className="px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-1.5 truncate">
+                                <span>현재</span>
+                                <span className="font-bold underline">
+                                    {currentCategory?.parent_id 
+                                        ? `${currentParentCategory.name} > ${currentCategory.name}`
+                                        : currentParentCategory.name}
+                                </span>
+                                <span>범위만 보고 있습니다. (전체 {totalCount}개 중 {filteredChannels.length}개 표시)</span>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedFolderId('all')}
+                                className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-[11px] font-bold shrink-0 ml-2 cursor-pointer transition-colors"
+                            >
+                                전체 보기
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 픽셀링 스타일 하위 폴더 목록 카드 및 + 하위 폴더 추가 섹션 */}
+                    {currentParentCategory && (
+                        <div className="p-2.5 bg-muted/20 border-b border-border/60 space-y-2 select-none shrink-0">
+                            <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5 font-bold text-foreground">
+                                    <button
+                                        onClick={() => setSelectedFolderId(currentParentCategory.id)}
+                                        className={cn(
+                                            "hover:text-primary transition-colors cursor-pointer",
+                                            !currentCategory?.parent_id ? "text-primary font-extrabold" : "text-muted-foreground"
+                                        )}
+                                    >
+                                        {currentParentCategory.name}
+                                    </button>
+                                    {currentCategory?.parent_id && (
+                                        <>
+                                            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <span className="text-primary font-extrabold">{currentCategory.name}</span>
+                                        </>
+                                    )}
+                                    <span className="text-muted-foreground text-[11px] font-normal ml-1">
+                                        채널 {filteredChannels.length}개
+                                    </span>
+                                </div>
+
+                                <button
+                                    onClick={() => handleOpenDnaModal(currentCategory || currentParentCategory, currentCategory?.parent_id ? currentParentCategory : null)}
+                                    className="px-2 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-400 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+                                    title="카테고리 페르소나 및 자율주행 탐색 기준 설정"
+                                >
+                                    <Dna className="w-3.5 h-3.5 text-indigo-400" />
+                                    <span>🧬 DNA 기준 설정</span>
+                                    {(currentCategory?.persona_target || currentParentCategory?.persona_target) && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* 하위 폴더 카드 리스트 */}
+                            {currentSubCategories.length > 0 && (
+                                <div className="space-y-1.5">
+                                    {currentSubCategories.map(sub => {
+                                        const subCount = channels.filter(c => c.category_id === sub.id).length;
+                                        const isSubSelected = selectedFolderId === sub.id;
+
+                                        return (
+                                            <div
+                                                key={sub.id}
+                                                onClick={() => setSelectedFolderId(sub.id)}
+                                                className={cn(
+                                                    "group flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer",
+                                                    isSubSelected
+                                                        ? "bg-primary/10 border-primary/60 ring-1 ring-primary/30"
+                                                        : "bg-card hover:bg-muted/50 border-border/70 shadow-2xs"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-2 truncate">
+                                                    <Folder className="w-4 h-4 text-amber-500 shrink-0" />
+                                                    <span className="font-bold text-xs text-foreground truncate">{sub.name}</span>
+                                                    <span className="text-[11px] text-muted-foreground">{subCount}개 채널</span>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleOpenDnaModal(sub, currentParentCategory);
+                                                        }}
+                                                        className={cn(
+                                                            "p-1 rounded hover:bg-muted transition-all",
+                                                            sub.persona_target ? "text-indigo-400 opacity-100" : "opacity-0 group-hover:opacity-80 text-muted-foreground"
+                                                        )}
+                                                        title="하위 폴더 DNA 설정"
+                                                    >
+                                                        <Dna className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (window.confirm(`'${sub.name}' 하위 폴더를 삭제하시겠습니까? (채널은 미분류로 이동)`)) {
+                                                                deleteFolderMutation.mutate(sub.id);
+                                                            }
+                                                        }}
+                                                        className="opacity-0 group-hover:opacity-100 hover:text-destructive p-1 rounded transition-opacity"
+                                                        title="하위 폴더 삭제"
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* + 하위 폴더 추가 버튼 및 인라인 폼 */}
+                            {isAddingSubFolder ? (
+                                <div className="p-2 rounded-xl border border-primary/40 bg-background shadow-xs space-y-1.5 animate-in fade-in">
+                                    <input
+                                        type="text"
+                                        value={newSubFolderName}
+                                        onChange={(e) => setNewSubFolderName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && newSubFolderName.trim()) {
+                                                addFolderMutation.mutate({
+                                                    name: newSubFolderName.trim(),
+                                                    parent_id: currentParentCategory.id,
+                                                    level: 1
+                                                });
+                                            }
+                                        }}
+                                        placeholder={`'${currentParentCategory.name}'의 하위 폴더 이름...`}
+                                        className="w-full h-7 text-xs px-2 rounded-lg bg-muted/30 border border-input focus:outline-none focus:ring-1 focus:ring-primary"
+                                        autoFocus
+                                    />
+                                    <div className="flex justify-end gap-1.5">
+                                        <button
+                                            onClick={() => setIsAddingSubFolder(false)}
+                                            className="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                                        >
+                                            취소
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (newSubFolderName.trim()) {
+                                                    addFolderMutation.mutate({
+                                                        name: newSubFolderName.trim(),
+                                                        parent_id: currentParentCategory.id,
+                                                        level: 1
+                                                    });
+                                                }
+                                            }}
+                                            className="px-2.5 py-1 text-[11px] font-bold bg-primary text-primary-foreground rounded-md hover:bg-primary/90 cursor-pointer shadow-xs"
+                                        >
+                                            하위 폴더 생성
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setIsAddingSubFolder(true)}
+                                    className="w-full py-1.5 px-2 rounded-xl border border-dashed border-border/80 hover:border-primary/50 text-muted-foreground hover:text-primary text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer bg-background/50 hover:bg-muted/30"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>하위 폴더 추가</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     {/* Header: Filtered Count */}
                     <div className="px-3 py-1.5 flex items-center justify-between text-[11px] bg-muted/20 border-b border-border/40 text-muted-foreground shrink-0">
                         <span className="font-semibold">
@@ -1113,6 +1373,14 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
                     </div>
                 </div>
             )}
+
+            {/* Category DNA Standards Modal */}
+            <CategoryDNAModal
+                open={dnaModalOpen}
+                onOpenChange={setDnaModalOpen}
+                category={dnaModalCategory}
+                parentCategory={dnaModalParentCategory}
+            />
         </aside>
     );
 };

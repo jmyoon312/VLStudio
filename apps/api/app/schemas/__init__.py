@@ -89,9 +89,9 @@ CategoryTreeNode.update_forward_refs()
 # Channel schemas
 class ChannelBase(BaseModel):
     url: str
-    platform: str
+    platform: Optional[str] = "youtube"
     name: str
-    folder_name: str
+    folder_name: Optional[str] = ""
     thumbnail_path: Optional[str] = None
     category_id: Optional[int] = None
     color_label: Optional[str] = "none" # none, red, orange, green, blue, purple
@@ -211,6 +211,8 @@ class VideoBase(BaseModel):
     
     # [NEW] Content preview for script mode
     content: Optional[str] = None
+    transcript: Optional[str] = None # [NEW] Zero-IO hybrid transcript
+    review_status: Optional[str] = "COLLECTED" # [NEW] Lifecycle status
 
     @classmethod
     def parse_metadata(cls, v):

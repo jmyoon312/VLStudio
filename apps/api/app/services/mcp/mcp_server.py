@@ -2527,3 +2527,124 @@ async def produce_audio_track(
         logger.error(f"Audio production failed: {e}")
         return {"success": False, "error": str(e)}
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# § 7. VIRAL SCOUTER & INTELLIGENCE SKILLS (Loopie Autonomous Scouting)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@mcp.tool()
+async def scouter_scan_trends(
+    video_type: str = "shorts",
+    category_id: Optional[int] = None,
+    limit: int = 10
+) -> Dict[str, Any]:
+    """
+    [SCOUTER 스킬] 루피 AI가 바이럴 스카우터를 가동하여 실시간 급상승 쇼츠/롱폼 후보를 발굴합니다.
+    Category DNA와 9router AI 모델로 자동 채점하여 인큐베이터에 안착시킵니다.
+    """
+    from app.services.trend_radar import TrendRadarService
+    db = SessionLocal()
+    try:
+        candidates = await TrendRadarService.scan_and_incubate(
+            db=db,
+            category_id=category_id,
+            video_type=video_type,
+            limit=limit
+        )
+        return {
+            "success": True,
+            "count": len(candidates),
+            "candidates": [
+                {
+                    "id": c.id,
+                    "title": c.title,
+                    "channel": c.channel_title,
+                    "outlier_ratio": c.outlier_ratio,
+                    "velocity_score": c.velocity_score,
+                    "match_score": c.match_score,
+                    "status": c.status,
+                    "hook_analysis": c.hook_analysis
+                } for c in candidates
+            ]
+        }
+    except Exception as e:
+        logger.error(f"[MCP:SCOUTER] scan_trends failed: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@mcp.tool()
+async def scouter_analyze_channel(
+    channel_id: int
+) -> Dict[str, Any]:
+    """
+    [SCOUTER 스킬] 루피 AI가 특정 타겟 채널의 콘텐츠 톤, 3초 훅 패턴, 벤치마킹 각색 포인트를 9router AI로 심층 분석합니다.
+    분석 결과는 채널 메모에 자동 영구 저장됩니다.
+    """
+    from app import models, crud
+    from app.llm_manager import LLMClient
+    db = SessionLocal()
+    try:
+        channel = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
+        if not channel:
+            return {"success": False, "error": "Channel not found"}
+
+        videos = db.query(models.Video).filter(models.Video.channel_id == channel_id).order_by(models.Video.id.desc()).limit(10).all()
+        video_titles = [v.title for v in videos if v.title]
+
+        settings = crud.get_settings(db)
+        client = LLMClient(settings)
+
+        prompt = f"""당신은 최고 수준의 유튜브 알고리즘 분석 수석 컨설턴트입니다.
+아래 채널의 정보와 최근 영상 목록을 심층 분석하여, 우리 채널이 벤치마킹할 수 있는 핵심 인사이트를 도출해주세요.
+
+[채널 정보]
+- 채널명: {channel.name}
+- 구독자 수: {channel.subscriber_count or '비공개'}
+- 플랫폼: {channel.platform}
+- 최근 업로드 영상 제목 목록:
+{chr(10).join(f"- {t}" for t in video_titles) if video_titles else '- 최근 수집된 영상 3건 이상 존재'}
+
+아래 4가지 항목으로 명확하고 실전적인 분석 리포트를 작성해주세요:
+1. 톤앤매너 및 타겟 오디언스 페르소나
+2. 시청자를 사로잡는 초반 3초 훅(Hook) 설계 패턴
+3. 알고리즘 추천을 유도하는 썸네일/키워드 전략
+4. 바이럴루프 스튜디오에서 벤치마킹 제작 시 추천 연출 가이드"""
+
+        ai_memo = await client.generate_text(prompt, system_instruction="YouTube Channel Growth Intelligence Expert")
+        
+        channel.memo = ai_memo
+        db.commit()
+
+        return {
+            "success": True,
+            "channel_id": channel.id,
+            "channel_name": channel.name,
+            "analysis_memo": ai_memo
+        }
+    except Exception as e:
+        logger.error(f"[MCP:SCOUTER] analyze_channel failed: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@mcp.tool()
+async def scouter_approve_candidate(
+    candidate_id: int
+) -> Dict[str, Any]:
+    """
+    [SCOUTER 스킬] 루피 AI가 스카우트 후보 영상을 정식 승인하고 채널 등록 및 보관함에 입고합니다.
+    """
+    from app.services.trend_radar import TrendRadarService
+    db = SessionLocal()
+    try:
+        res = TrendRadarService.approve_candidate(db, candidate_id)
+        return {"success": True, "result": res}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+
+

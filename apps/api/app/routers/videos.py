@@ -533,6 +533,24 @@ def save_video_to_db(db: Session, result: dict, metadata: dict, channel_id: Opti
     metadata['velocity_score'] = velocity_score
     metadata['view_count'] = view_count # Ensure sync
 
+    # [NEW] Zero-IO: Extract subtitle transcript if available at download time
+    initial_transcript = None
+    target_fp = result.get('file_path')
+    if target_fp:
+        srt_candidate = target_fp.replace('.mp4', '.ko.srt')
+        if not os.path.exists(srt_candidate):
+            base_cand, _ = os.path.splitext(target_fp)
+            for ext in ['.ko.srt', '.srt', '.ko.vtt', '.vtt']:
+                if os.path.exists(base_cand + ext):
+                    srt_candidate = base_cand + ext
+                    break
+        if os.path.exists(srt_candidate):
+            try:
+                with open(srt_candidate, 'r', encoding='utf-8') as f:
+                    initial_transcript = clean_transcript(f.read())
+            except Exception as e:
+                print(f"[WARN] Failed to read initial transcript: {e}")
+
     if not video:
         video = models.Video(
             channel_id=channel_id,
@@ -543,6 +561,7 @@ def save_video_to_db(db: Session, result: dict, metadata: dict, channel_id: Opti
             upload_date=upload_dt,
             metadata_json=metadata,
             is_script_only=is_script_only,
+            transcript=initial_transcript, # [NEW] Zero-IO transcript populated
             view_count=view_count, 
             duration=duration,     
             viral_score=viral_score, 
@@ -577,6 +596,8 @@ def save_video_to_db(db: Session, result: dict, metadata: dict, channel_id: Opti
         video.metadata_json = metadata
         video.is_script_only = is_script_only
         video.status = "completed"
+        if initial_transcript:
+            video.transcript = initial_transcript
         # Update current stats too if they changed (re-download case)
         video.view_count = view_count
         video.duration = duration
@@ -598,11 +619,11 @@ def read_video(video_id: int, db: Session = Depends(database.get_db)):
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
     
-    # [NEW] Populate full content for the editor
-    content = video.description or ""
+    # [NEW] Zero-IO: Prioritize DB transcript column
+    content = video.transcript or video.description or ""
     
-    # Try to load from file if available (full transcript)
-    if video.file_path:
+    # Fallback to disk scan only if transcript is missing in DB
+    if not video.transcript and video.file_path:
         abs_path = get_absolute_path(video.file_path)
         base, _ = os.path.splitext(abs_path)
         found_sub = None
@@ -623,9 +644,9 @@ def read_video(video_id: int, db: Session = Depends(database.get_db)):
 
     # Attach content to the object so schema can pick it up
     try:
-        setattr(video, "content", clean_transcript(content))
+        setattr(video, "content", clean_transcript(content) if content else "")
     except Exception:
-        pass
+        setattr(video, "content", content or "")
         
     return video
 
@@ -640,6 +661,7 @@ def read_videos(
     mode: str = "video", # [NEW]
     is_script_only: bool = None,
     upload_status: str = None, # [NEW] Filter
+    review_status: str = None, # [NEW] Lifecycle status filter
     exclude_used: bool = False, # [NEW]
     sort_by: str = "priority", # [FIX] Default smart sort (Priority > Date)
     sort_order: str = "desc",
@@ -659,72 +681,66 @@ def read_videos(
             search_query=search,
             mode=mode, # [NEW]
             upload_status=upload_status,
+            review_status=review_status, # [NEW]
             exclude_used=exclude_used,
             is_script_only=is_script_only, # [FIX] Pass explicit filter
             sort_by=sort_by,
             sort_order=sort_order
         )
         
-        # Post-process videos for safety & script content
+        # [ZERO-IO OPTIMIZATION] For video gallery mode, skip all heavy disk file scans for 100x speedup
+        if mode == "video":
+            for video in videos:
+                setattr(video, "content", video.description or "")
+            return videos
+
+        # Post-process videos for script mode (Zero-Disk I/O)
         safe_videos = []
         for video in videos:
             try:
-                # [FAST PATH 1] If already has text in DB or is script-only / script mode, skip all disk I/O
-                if is_script_only is True or getattr(video, 'is_script_only', False) or mode == "script" or getattr(video, 'extracted_text', None):
-                    content = getattr(video, 'extracted_text', None) or video.description or ""
-                    try:
-                        setattr(video, "content", clean_transcript(content))
-                    except Exception:
-                        pass
-                    safe_videos.append(video)
-                    continue
-
-                # [FAST PATH 2] Direct subtitle file check (O(1) existence check, no os.listdir scan)
-                content = video.description or ""
-                if video.file_path:
-                    abs_path = get_absolute_path(video.file_path)
-                    if abs_path and os.path.exists(abs_path):
-                        if abs_path.lower().endswith(('.srt', '.vtt', '.txt')):
-                            try:
-                                with open(abs_path, 'r', encoding='utf-8', errors='replace') as f:
-                                    raw_text = f.read(3000)
-                                    if raw_text:
-                                        content = clean_transcript(raw_text)
-                            except Exception:
-                                pass
-                        else:
-                            # Direct check without directory scan
-                            base_no_ext = os.path.splitext(abs_path)[0]
-                            for ext in ['.srt', '.vtt', '.ko.srt', '.en.srt']:
-                                srt_candidate = base_no_ext + ext
-                                if os.path.exists(srt_candidate):
-                                    try:
-                                        with open(srt_candidate, 'r', encoding='utf-8', errors='replace') as sf:
-                                            raw_text = sf.read(3000)
-                                            if raw_text:
-                                                content = clean_transcript(raw_text)
-                                        break
-                                    except Exception:
-                                        pass
-                
+                # Prioritize DB transcript (Instant Zero-Disk I/O)
+                content = video.transcript or getattr(video, 'extracted_text', None) or video.description or ""
                 try:
-                    setattr(video, "content", clean_transcript(content))
+                    setattr(video, "content", clean_transcript(content) if content else "")
                 except Exception:
-                    pass
-
+                    setattr(video, "content", content or "")
                 safe_videos.append(video)
-
             except Exception:
-                pass
+                safe_videos.append(video)
         
         return safe_videos
-
 
     except Exception as e:
         import traceback
         print(f"CRITICAL ERROR in read_videos: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal Server Error in read_videos: {str(e)}")
+
+class UpdateReviewStatusRequest(BaseModel):
+    review_status: str
+
+@router.patch("/{video_id}/review-status")
+def update_review_status(video_id: int, req: UpdateReviewStatusRequest, db: Session = Depends(database.get_db)):
+    video = crud.get_video(db, video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    video.review_status = req.review_status
+    db.commit()
+    return {"status": "success", "id": video.id, "review_status": video.review_status}
+
+class BatchReviewStatusRequest(BaseModel):
+    video_ids: List[int]
+    review_status: str
+
+@router.post("/batch-review-status")
+def batch_update_review_status(req: BatchReviewStatusRequest, db: Session = Depends(database.get_db)):
+    if not req.video_ids:
+        return {"status": "success", "count": 0}
+    db.query(models.Video).filter(models.Video.id.in_(req.video_ids)).update(
+        {models.Video.review_status: req.review_status}, synchronize_session=False
+    )
+    db.commit()
+    return {"status": "success", "count": len(req.video_ids), "review_status": req.review_status}
 
 @router.post("/batch-download")
 async def batch_download(

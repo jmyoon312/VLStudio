@@ -101,7 +101,7 @@ from app.routers import (
     work_queue, youtube_channels, veo_prompt_agent,
     queue_management, processing_verification, dashboard_reports, 
     health_deployment, ml_ab_search, operations, network,
-    douyin_shorts_router, capcut_remote, presets
+    douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -306,16 +306,38 @@ os.makedirs(os.path.join(download_dir, "07_Downloads"), exist_ok=True)
 
 def resolve_asset_file(path: str) -> Optional[str]:
     """
-    Finds asset file across download_dir, 07_Downloads, raw, and strips 07_Downloads if needed.
+    Finds asset file across download_dir, 07_Downloads, raw, and strips 07_Downloads/media if needed.
     """
+    clean_path = path.replace("\\", "/").strip("/")
+
+    # 1. Direct absolute path or Windows drive check (e.g. Users/jmyoo/... -> C:/Users/jmyoo/...)
+    if os.path.isfile(clean_path):
+        return clean_path
+    for drive in ['C:', 'D:', 'E:', 'F:']:
+        drive_candidate = f"{drive}/{clean_path}"
+        if os.path.isfile(drive_candidate):
+            return drive_candidate
+
     candidates = [
-        os.path.join(download_dir, path),
-        os.path.join(download_dir, "07_Downloads", path),
-        os.path.join(download_dir, "raw", path),
+        os.path.join(download_dir, clean_path),
+        os.path.join(download_dir, "07_Downloads", clean_path),
+        os.path.join(download_dir, "raw", clean_path),
     ]
+
+    # If path contains /media/ or media/, strip it
+    lower_path = clean_path.lower()
+    if "/media/" in lower_path:
+        idx = lower_path.find("/media/") + len("/media/")
+        sub = clean_path[idx:]
+        candidates.append(os.path.join(download_dir, sub))
+        candidates.append(os.path.join(download_dir, "07_Downloads", sub))
+    elif lower_path.startswith("media/"):
+        sub = clean_path[len("media/"):]
+        candidates.append(os.path.join(download_dir, sub))
+        candidates.append(os.path.join(download_dir, "07_Downloads", sub))
+
     # If path starts with 07_Downloads/ or 07_downloads/, also check without it
-    clean_path = path.replace("\\", "/")
-    if clean_path.lower().startswith("07_downloads/"):
+    if lower_path.startswith("07_downloads/"):
         stripped = clean_path[len("07_downloads/"):]
         candidates.append(os.path.join(download_dir, stripped))
         candidates.append(os.path.join(download_dir, "raw", stripped))
@@ -419,6 +441,8 @@ app.include_router(script_writer.router, prefix="/api/script", tags=["creative"]
 
 app.include_router(research.router, prefix="/api", tags=["research"])
 app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
+app.include_router(trend_radar.router, prefix="/api", tags=["trend-radar"])
+app.include_router(fsd_mission.router, prefix="/api", tags=["fsd-mission"])
 app.include_router(presets.router, prefix="/api", tags=["collection_presets"])
 app.include_router(custom_links.router, prefix="/api/custom-links", tags=["ops"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["analytics"])

@@ -40,11 +40,13 @@ def enrich_preset_with_stats(db: Session, preset: models.CollectionPreset) -> sc
     p_data.today_collected_count = today_count
     return p_data
 
+@router.get("", response_model=List[schemas.CollectionPreset])
 @router.get("/", response_model=List[schemas.CollectionPreset])
 def list_presets(db: Session = Depends(database.get_db)):
     presets = db.query(models.CollectionPreset).order_by(models.CollectionPreset.id.desc()).all()
     return [enrich_preset_with_stats(db, p) for p in presets]
 
+@router.post("", response_model=schemas.CollectionPreset)
 @router.post("/", response_model=schemas.CollectionPreset)
 def create_preset(preset: schemas.CollectionPresetCreate, db: Session = Depends(database.get_db)):
     new_preset = models.CollectionPreset(

@@ -371,3 +371,107 @@ Output JSON Array ONLY:
             
         return grouped_segments
 
+
+    def rewrite_script_dual_track(
+        self,
+        source_script: str,
+        track: str = "shorts",
+        style_tone: str = "바이럴 흥미 유발",
+        model: str = None
+    ) -> dict:
+        """
+        Dual-track AI script adaptation:
+        - track == 'shorts': 50-second viral 3-act compressed adaptation (280-360 chars, hook + tension + climax/CTA)
+        - track == 'longform': 100% original deep re-creation (1,200-2,500 chars, complete narrative rewrite preventing any copyright dispute)
+        Uses DB Settings (LLMClient) dynamically without hardcoding.
+        """
+        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "youtube1"
+
+        if track == "shorts":
+            system_instruction = (
+                "당신은 유튜브 쇼츠 및 틱톡 1,000만 조회수 전문 숏폼 크리에이티브 디렉터이자 바이럴 대본 작가입니다. "
+                "주어진 원본 대본이나 자막을 분석하여, 딱 50초 낭독 호흡(한국어 공백 포함 280~360자)에 맞춰 완벽한 3단 구조로 각색하십시오.\n"
+                "1. [0~3초 훅]: 시청자가 손가락을 멈추지 않을 수 없는 충격적 질문, 강렬한 사실, 상식을 깨는 한 문장.\n"
+                "2. [전개 및 갈등]: 핵심 알맹이만 압축 전달하고 지루한 서두/군더더기 100% 제거.\n"
+                "3. [결말 및 반전/CTA]: 예상 밖의 통쾌한 마무리 또는 자연스러운 댓글/저장 유도.\n"
+                "반드시 유효한 JSON 형식으로만 응답하십시오: "
+                '{"title": "쇼츠 제목", "hook": "3초 바이럴 훅 첫 문장", "script": "50초 전체 나레이션 대본", "estimated_duration_sec": 50}'
+            )
+            prompt = f"다음 원본 텍스트를 50초 초고속 바이럴 쇼츠로 각색해줘:\n\n{source_script}\n\n톤앤매너: {style_tone}"
+        else:
+            system_instruction = (
+                "당신은 최고 권위의 롱폼 다큐멘터리/스토리텔링 전문 시나리오 작가입니다. "
+                "제공된 원본 텍스트의 '핵심 주제와 흥미로운 모티브'만을 차용하여, 저작권 및 표절 시비를 100% 원천 차단하는 '완전한 100% 오리지널 전면 재창작(Deep Re-creation)' 롱폼 대본(분량: 1,200자~2,500자 내외, 3~5분 영상 분량)을 집필하십시오.\n"
+                "서론(몰입감 넘치는 도입) -> 본론(3~4단계 심층 전개, 구체적 예시, 드라마틱한 긴장감) -> 결론(깊은 인사이트와 여운)의 탄탄한 기승전결을 갖추어야 합니다.\n"
+                "반드시 유효한 JSON 형식으로만 응답하십시오: "
+                '{"title": "롱폼 다큐/스토리 제목", "hook": "도입부 훅 문장", "script": "전체 롱폼 나레이션 대본 전문", "estimated_duration_sec": 240}'
+            )
+            prompt = f"다음 원본 텍스트의 핵심 모티브를 바탕으로 100% 오리지널 롱폼 창작 대본을 완성해줘:\n\n{source_script}\n\n톤앤매너: {style_tone}"
+
+        try:
+            response = self.llm_client.generate_content(
+                prompt=prompt,
+                model_name=target_model,
+                system_instruction=system_instruction,
+                full_response=False
+            )
+            text_resp = response.get("content", "") if isinstance(response, dict) else str(response)
+            cleaned = re.sub(r'```json\s*', '', text_resp, flags=re.IGNORECASE)
+            cleaned = re.sub(r'```\s*', '', cleaned).strip()
+            match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+            if match:
+                data = json.loads(match.group(0))
+                data["model_used"] = target_model
+                data["track"] = track
+                return data
+            return {
+                "title": f"각색된 {track} 대본",
+                "hook": source_script[:40],
+                "script": text_resp,
+                "estimated_duration_sec": 50 if track == "shorts" else 240,
+                "model_used": target_model,
+                "track": track
+            }
+        except Exception as e:
+            logger.error(f"Dual-track script adaptation failed: {e}")
+            raise e
+
+    def extract_anchor_references(self, script_text: str, model: str = None) -> dict:
+        """
+        Extracts key recurring visual entities (characters, environments, props) from a script
+        to ensure visual identity consistency across scenes in CreativeStudio (Flow AI).
+        """
+        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "youtube1"
+
+        system_instruction = (
+            "You are a Lead Concept Artist and Character/Environment Reference Supervisor for cinematic AI production. "
+            "Analyze the given script and identify recurring visual entities that require strict cross-scene visual consistency.\n"
+            "Extract: \n"
+            "1. characters: recurring people/creatures (name, visual_anchor_prompt in rich cinematic English describing face, age, hair, clothing, physical traits)\n"
+            "2. environments: recurring locations/settings (name, visual_anchor_prompt in rich cinematic English describing architecture, lighting, atmosphere, materials)\n"
+            "3. props: recurring key objects/items (name, visual_anchor_prompt in rich cinematic English describing shape, texture, luminescence)\n"
+            "Output strictly a JSON object with keys: characters, environments, props.\n"
+            'Example: {"characters": [{"name": "...", "anchor_prompt": "..."}], "environments": [{"name": "...", "anchor_prompt": "..."}], "props": []}'
+        )
+
+        prompt = f"다음 대본에서 시각적 일관성을 유지해야 할 핵심 인물, 배경, 사물을 추출하고 앵커 프롬프트를 작성해줘:\n\n{script_text}"
+
+        try:
+            response = self.llm_client.generate_content(
+                prompt=prompt,
+                model_name=target_model,
+                system_instruction=system_instruction,
+                full_response=False
+            )
+            text_resp = response.get("content", "") if isinstance(response, dict) else str(response)
+            cleaned = re.sub(r'```json\s*', '', text_resp, flags=re.IGNORECASE)
+            cleaned = re.sub(r'```\s*', '', cleaned).strip()
+            match = re.search(r'\{.*\}', cleaned, re.DOTALL)
+            if match:
+                data = json.loads(match.group(0))
+                data["model_used"] = target_model
+                return data
+            return {"characters": [], "environments": [], "props": [], "model_used": target_model}
+        except Exception as e:
+            logger.error(f"Anchor reference extraction failed: {e}")
+            return {"characters": [], "environments": [], "props": [], "model_used": target_model, "error": str(e)}
