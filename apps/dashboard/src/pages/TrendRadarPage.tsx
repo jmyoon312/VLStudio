@@ -519,23 +519,8 @@ const TrendRadarPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 우측: 국가 필터 & 스카우터 가동 */}
+                {/* 우측: 스카우터 즉시 가동 */}
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 bg-muted/40 border border-border px-2.5 py-1 rounded-xl text-xs font-bold">
-                        <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-                        <select 
-                            value={selectedCountry}
-                            onChange={(e) => setSelectedCountry(e.target.value)}
-                            className="bg-transparent border-0 text-xs font-bold text-foreground focus:outline-none cursor-pointer"
-                        >
-                            {COUNTRY_PRESETS.map(c => (
-                                <option key={c.code} value={c.code} className="bg-card text-foreground">
-                                    {c.flag} {c.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
                     <Button
                         size="sm"
                         onClick={() => scanMutation.mutate()}
