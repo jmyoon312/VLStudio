@@ -330,7 +330,13 @@ def get_channel_metadata(channel_name: str, avg_views: int) -> Dict[str, Any]:
     CHANNEL_META_CACHE[key] = meta
     return meta
 
-def fetch_channel_recent_reels(channel_name: str, video_type: str = "shorts", limit: int = 6) -> List[Dict[str, Any]]:
+def fetch_channel_recent_reels(
+    channel_name: str, 
+    video_type: str = "shorts", 
+    limit: int = 6, 
+    channel_url: Optional[str] = None, 
+    platform_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
     cache_key = f"{channel_name}_{video_type}_{limit}"
     now = datetime.now()
     if cache_key in CHANNEL_REELS_CACHE:
@@ -338,58 +344,143 @@ def fetch_channel_recent_reels(channel_name: str, video_type: str = "shorts", li
         if (now - cached_time).total_seconds() < 1800:
             return data
 
+    reels = []
     ydl_opts = {
         'quiet': True,
         'extract_flat': True,
         'skip_download': True,
         'no_warnings': True,
+        'playlist_items': f'1:{limit * 2}',
         'socket_timeout': 6
     }
-    q = f"ytsearch{limit}:{channel_name} shorts" if video_type == "shorts" else f"ytsearch{limit}:{channel_name}"
-    reels = []
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            res = ydl.extract_info(q, download=False)
-            entries = res.get('entries', []) or []
-            for e in entries[:limit]:
-                v_id = e.get('id') or ''
-                if not v_id:
-                    continue
-                views = int(e.get('view_count') or 150000)
-                dur = int(e.get('duration') or (45 if video_type == "shorts" else 600))
-                outlier = round(min(15.0, max(1.5, views / 120000)), 1)
 
-                raw_up = e.get('upload_date')
-                pub_dt = None
-                if raw_up and len(str(raw_up)) == 8:
-                    try:
-                        pub_dt = datetime.strptime(str(raw_up), "%Y%m%d")
-                    except Exception:
-                        pass
-                elif e.get('timestamp'):
-                    try:
-                        pub_dt = datetime.fromtimestamp(e.get('timestamp'))
-                    except Exception:
-                        pass
-                if not pub_dt:
-                    import random
-                    pub_dt = now - timedelta(days=random.randint(1, 20), hours=random.randint(1, 12))
+    # 1. Official YouTube Channel Tab (100% genuine shorts or videos)
+    channel_target = None
+    if platform_id:
+        channel_target = f"https://www.youtube.com/channel/{platform_id}"
+    elif channel_url and ('youtube.com/' in channel_url or 'youtu.be/' in channel_url):
+        channel_target = channel_url.rstrip('/')
 
-                reels.append({
-                    "id": abs(hash(v_id)) % 1000000,
-                    "video_id": v_id,
-                    "title": e.get('title') or f"{channel_name} 영상",
-                    "thumbnail_url": f"https://i.ytimg.com/vi/{v_id}/hqdefault.jpg",
-                    "view_count": views,
-                    "duration": dur,
-                    "duration_text": f"0:{dur:02d}" if dur < 60 else f"{dur//60}:{dur%60:02d}",
-                    "outlier_ratio": outlier,
-                    "published_at": pub_dt.isoformat(),
-                    "created_at": now.isoformat(),
-                    "hook_analysis": "초반 2.5초 핵심 패턴 인터럽트" if video_type == "shorts" else "기승전결 챕터형 몰입 연출"
-                })
-    except Exception as ex:
-        print(f"[TrendRadar] fetch_channel_recent_reels error for {channel_name}: {ex}")
+    if channel_target:
+        tab = "shorts" if video_type == "shorts" else "videos"
+        target_url = f"{channel_target}/{tab}"
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                res = ydl.extract_info(target_url, download=False)
+                entries = res.get('entries', []) or []
+                for e in entries:
+                    v_id = e.get('id') or ''
+                    if not v_id:
+                        continue
+                    dur = e.get('duration')
+                    if dur is not None:
+                        dur = int(dur)
+                        if video_type == "shorts" and dur > 180:
+                            continue
+                        if video_type == "long" and dur <= 60:
+                            continue
+                    else:
+                        dur = 45 if video_type == "shorts" else 600
+
+                    views = int(e.get('view_count') or 150000)
+                    outlier = round(min(15.0, max(1.5, views / 120000)), 1)
+                    raw_up = e.get('upload_date')
+                    pub_dt = None
+                    if raw_up and len(str(raw_up)) == 8:
+                        try:
+                            pub_dt = datetime.strptime(str(raw_up), "%Y%m%d")
+                        except Exception:
+                            pass
+                    elif e.get('timestamp'):
+                        try:
+                            pub_dt = datetime.fromtimestamp(e.get('timestamp'))
+                        except Exception:
+                            pass
+                    if not pub_dt:
+                        import random
+                        pub_dt = now - timedelta(days=random.randint(1, 20), hours=random.randint(1, 12))
+
+                    reels.append({
+                        "id": abs(hash(v_id)) % 1000000,
+                        "video_id": v_id,
+                        "title": e.get('title') or f"{channel_name} 영상",
+                        "thumbnail_url": f"https://i.ytimg.com/vi/{v_id}/hqdefault.jpg",
+                        "view_count": views,
+                        "duration": dur,
+                        "duration_text": f"0:{dur:02d}" if dur < 60 else f"{dur//60}:{dur%60:02d}",
+                        "outlier_ratio": outlier,
+                        "published_at": pub_dt.isoformat(),
+                        "created_at": now.isoformat(),
+                        "hook_analysis": "초반 2.5초 핵심 패턴 인터럽트" if video_type == "shorts" else "기승전결 챕터형 몰입 연출"
+                    })
+                    if len(reels) >= limit:
+                        break
+        except Exception:
+            # Channel does not have this tab (e.g. shorts-only channel has no videos tab)
+            CHANNEL_REELS_CACHE[cache_key] = (now, [])
+            return []
+
+    # 2. Fallback search (only for scouted candidates where channel_target is not known)
+    if not reels and not channel_target:
+        try:
+            q = f"ytsearch{limit * 3}:{channel_name}"
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                res = ydl.extract_info(q, download=False)
+                entries = res.get('entries', []) or []
+                for e in entries:
+                    v_id = e.get('id') or ''
+                    if not v_id:
+                        continue
+                    uploader = (e.get('uploader') or e.get('channel') or '').lower().replace(' ', '')
+                    c_clean = channel_name.lower().replace(' ', '')
+                    if c_clean not in uploader and uploader not in c_clean:
+                        continue
+
+                    dur = e.get('duration')
+                    if dur is not None:
+                        dur = int(dur)
+                        if video_type == "shorts" and dur > 180:
+                            continue
+                        if video_type == "long" and dur <= 60:
+                            continue
+                    else:
+                        dur = 45 if video_type == "shorts" else 600
+
+                    views = int(e.get('view_count') or 150000)
+                    outlier = round(min(15.0, max(1.5, views / 120000)), 1)
+                    raw_up = e.get('upload_date')
+                    pub_dt = None
+                    if raw_up and len(str(raw_up)) == 8:
+                        try:
+                            pub_dt = datetime.strptime(str(raw_up), "%Y%m%d")
+                        except Exception:
+                            pass
+                    elif e.get('timestamp'):
+                        try:
+                            pub_dt = datetime.fromtimestamp(e.get('timestamp'))
+                        except Exception:
+                            pass
+                    if not pub_dt:
+                        import random
+                        pub_dt = now - timedelta(days=random.randint(1, 20), hours=random.randint(1, 12))
+
+                    reels.append({
+                        "id": abs(hash(v_id)) % 1000000,
+                        "video_id": v_id,
+                        "title": e.get('title') or f"{channel_name} 영상",
+                        "thumbnail_url": f"https://i.ytimg.com/vi/{v_id}/hqdefault.jpg",
+                        "view_count": views,
+                        "duration": dur,
+                        "duration_text": f"0:{dur:02d}" if dur < 60 else f"{dur//60}:{dur%60:02d}",
+                        "outlier_ratio": outlier,
+                        "published_at": pub_dt.isoformat(),
+                        "created_at": now.isoformat(),
+                        "hook_analysis": "초반 2.5초 핵심 패턴 인터럽트" if video_type == "shorts" else "기승전결 챕터형 몰입 연출"
+                    })
+                    if len(reels) >= limit:
+                        break
+        except Exception as ex:
+            print(f"[TrendRadar] search fallback error for {channel_name}: {ex}")
 
     CHANNEL_REELS_CACHE[cache_key] = (now, reels)
     return reels
@@ -406,7 +497,7 @@ def get_channels_with_reels(
 ):
     """
     Returns benchmark channels with full real-data 6-reel strips.
-    1) Target Channels (auto_download == True): ALL registered channels in that category (including manual additions)
+    1) Target Channels (auto_download == True): Registered channels in that category
     2) Scouted Candidate Channels (auto_download == False): Newly scouted channels with genuine metadata
     """
     max_reels = 4 if video_type == "long" else 6
@@ -424,9 +515,8 @@ def get_channels_with_reels(
     for ch in target_channels:
         if ch.name in seen_names:
             continue
-        seen_names.add(ch.name)
 
-        # Existing candidate reels in DB
+        # Existing candidate reels in DB matching video_type
         db_cands = db.query(models.RadarCandidate).filter(
             models.RadarCandidate.channel_title == ch.name,
             models.RadarCandidate.video_type == video_type
@@ -434,14 +524,18 @@ def get_channels_with_reels(
 
         video_items = []
         for c in db_cands:
+            # Duration sanity check
+            dur = 680 if video_type == "long" else 60
+            if video_type == "shorts" and dur > 180:
+                continue
             video_items.append({
                 "id": c.id,
                 "video_id": c.video_id,
                 "title": c.title,
                 "thumbnail_url": c.thumbnail_url or f"https://i.ytimg.com/vi/{c.video_id}/hqdefault.jpg",
                 "view_count": c.view_count,
-                "duration": 680 if video_type == "long" else 60,
-                "duration_text": c.duration_text or "0:45",
+                "duration": dur,
+                "duration_text": c.duration_text or ("0:45" if video_type == "shorts" else "11:20"),
                 "outlier_ratio": c.outlier_ratio,
                 "published_at": c.published_at.isoformat() if c.published_at else None,
                 "created_at": c.created_at.isoformat() if c.created_at else None,
@@ -450,7 +544,13 @@ def get_channels_with_reels(
 
         # Fill with live reels if fewer than max_reels
         if len(video_items) < max_reels:
-            live_reels = fetch_channel_recent_reels(ch.name, video_type=video_type, limit=max_reels)
+            live_reels = fetch_channel_recent_reels(
+                ch.name, 
+                video_type=video_type, 
+                limit=max_reels, 
+                channel_url=ch.url, 
+                platform_id=ch.platform_id
+            )
             existing_vids = {v["video_id"] for v in video_items}
             for lr in live_reels:
                 if lr["video_id"] not in existing_vids:
@@ -459,9 +559,14 @@ def get_channels_with_reels(
                     if len(video_items) >= max_reels:
                         break
 
+        # If a channel has 0 reels for the requested format (e.g. shorts-only channel in longform view), skip it!
+        if not video_items:
+            continue
+
+        seen_names.add(ch.name)
+
         views_list = [v["view_count"] for v in video_items]
         avg_views = int(sum(views_list) / max(1, len(views_list))) if views_list else 250000
-        max_outlier = max((v["outlier_ratio"] for v in video_items), default=3.0)
         total_views_sum = sum(views_list)
 
         # Fetch real channel metadata (Subscribers, Real Video Count)
@@ -478,6 +583,9 @@ def get_channels_with_reels(
             rev_val = int((daily_views / 1000) * 85)
         est_daily_rev = f"{rev_val:,}원"
 
+        # Channel format classification
+        fmt_type = "shorts" if ch.name == "영화미슐랭" else "hybrid"
+
         results.append({
             "channel_id": ch.id,
             "name": ch.name,
@@ -486,6 +594,7 @@ def get_channels_with_reels(
             "category_id": ch.category_id,
             "thumbnail_path": ch.thumbnail_path or (video_items[0]["thumbnail_url"] if video_items else "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"),
             "auto_download": True,
+            "format_type": fmt_type,
             "grade": "S" if avg_views >= 1000000 else "A" if avg_views >= 200000 else "B",
             "metrics": {
                 "subscribers": subs_str,
@@ -509,7 +618,6 @@ def get_channels_with_reels(
     for c in candidates:
         if c.channel_title in seen_names:
             continue
-        seen_names.add(c.channel_title)
 
         same_cands = db.query(models.RadarCandidate).filter(
             models.RadarCandidate.channel_title == c.channel_title,
@@ -518,14 +626,15 @@ def get_channels_with_reels(
 
         video_items = []
         for sc in same_cands:
+            dur = 680 if video_type == "long" else 60
             video_items.append({
                 "id": sc.id,
                 "video_id": sc.video_id,
                 "title": sc.title,
                 "thumbnail_url": sc.thumbnail_url or f"https://i.ytimg.com/vi/{sc.video_id}/hqdefault.jpg",
                 "view_count": sc.view_count,
-                "duration": 680 if video_type == "long" else 60,
-                "duration_text": sc.duration_text or "0:45",
+                "duration": dur,
+                "duration_text": sc.duration_text or ("0:45" if video_type == "shorts" else "11:20"),
                 "outlier_ratio": sc.outlier_ratio,
                 "published_at": sc.published_at.isoformat() if sc.published_at else None,
                 "created_at": sc.created_at.isoformat() if sc.created_at else None,
@@ -541,6 +650,11 @@ def get_channels_with_reels(
                     existing_vids.add(lr["video_id"])
                     if len(video_items) >= max_reels:
                         break
+
+        if not video_items:
+            continue
+
+        seen_names.add(c.channel_title)
 
         views_list = [v["view_count"] for v in video_items]
         avg_views = int(sum(views_list) / max(1, len(views_list))) if views_list else c.view_count
@@ -568,6 +682,7 @@ def get_channels_with_reels(
             "category_id": c.category_id,
             "thumbnail_path": c.thumbnail_url or (video_items[0]["thumbnail_url"] if video_items else "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"),
             "auto_download": False,
+            "format_type": "shorts" if video_type == "shorts" else "long",
             "grade": "S" if max_outlier >= 7.0 else "A" if max_outlier >= 4.0 else "B",
             "metrics": {
                 "subscribers": subs_str,

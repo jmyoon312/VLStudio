@@ -97,6 +97,8 @@ const TrendRadarPage: React.FC = () => {
     const [isDNAModalOpen, setIsDNAModalOpen] = useState(false);
     const [dnaCategory, setDnaCategory] = useState<Category | null>(null);
 
+    const [showUnassignedSeeds, setShowUnassignedSeeds] = useState(false);
+
     // 1. 카테고리 목록 (DB 실제 카테고리)
     const { data: categories = [] } = useQuery({
         queryKey: ['categories'],
@@ -265,34 +267,53 @@ const TrendRadarPage: React.FC = () => {
         }
     });
 
-    // ── 동적 카테고리 시드 태그 (DB 실데이터 단일 진실 공급원 - 채널 보관함과 100% 일치) ──
-    const dynamicTags = useMemo(() => {
+    // ── 카테고리 시드 3대 계층 구조화 (Single Source of Truth) ──
+    const { specialViews, activeCatTags, unassignedCatTags } = useMemo(() => {
         const totalTargetChans = channels.length;
+        const gemCount = (rawCandidates || []).filter(c => c && c.outlier_ratio >= 4.0).length;
 
-        const base = [
-            { id: 'pending', label: '📋 등록 예정', count: `${pendingChannels.length}채널`, isSpecial: true, hasTarget: false },
-            { id: 'all', label: '모두보기', count: `${totalTargetChans}채널`, isSpecial: true, hasTarget: false },
-            { id: 'gems', label: '💎 고배수 옥석', count: `${rawCandidates.filter(c => c.outlier_ratio >= 4.0).length}편`, isSpecial: true, hasTarget: false },
+        const special = [
+            { id: 'all', label: '전체 (All)', count: `${totalTargetChans}채널`, isSpecial: true, tooltip: '전체 등록 타겟 채널 및 추천 영상' },
+            { id: 'gems', label: '💎 고배수 옥석', count: `${gemCount}편`, isSpecial: true, tooltip: '4배 이상 터진 초고성과 영상 퀵 필터' },
+            { id: 'pending', label: '📋 등록 대기 큐', count: `${pendingChannels.length}채널`, isSpecial: true, tooltip: 'AI 스카우터가 발굴한 미등록 후보 채널' },
         ];
 
-        const catTags = (categories || []).map(cat => {
+        const active: any[] = [];
+        const unassigned: any[] = [];
+
+        (categories || []).forEach(cat => {
             const tCount = cat.target_channels_count || 0;
-            return {
+            const tag = {
                 id: String(cat.id),
                 label: cat.name,
                 count: tCount > 0 ? `🟢 ${tCount}채널` : `0채널`,
+                targetCount: tCount,
                 hasTarget: tCount > 0,
-                isSpecial: false
+                isSpecial: false,
+                rawCat: cat
             };
+            if (tCount > 0) {
+                active.push(tag);
+            } else {
+                unassigned.push(tag);
+            }
         });
 
-        return [...base, ...catTags];
+        return { specialViews: special, activeCatTags: active, unassignedCatTags: unassigned };
     }, [categories, channels, pendingChannels, rawCandidates]);
 
     // ── Step 2 채널 릴: 2-Tier 분할 (🟢 기등록 타겟 채널 vs ✨ 신규 발굴 옥석) ──
     const { targetChannels, candidateChannels } = useMemo(() => {
         let list = channelsWithReels || [];
-        if (selectedTag && selectedTag !== 'all' && selectedTag !== 'pending' && selectedTag !== 'gems') {
+        if (selectedTag === 'gems') {
+            // 고배수 옥석 선택 시: 4.0배 이상 릴만 남기고, 해당 릴이 1개 이상 있는 채널만 표출
+            list = list
+                .map(ch => ({
+                    ...ch,
+                    reels: (ch.reels || []).filter((r: any) => r.outlier_ratio >= 4.0)
+                }))
+                .filter(ch => ch.reels.length > 0);
+        } else if (selectedTag && selectedTag !== 'all' && selectedTag !== 'pending') {
             const targetCat = (categories || []).find(cat => String(cat.id) === selectedTag || cat.name === selectedTag);
             if (targetCat) {
                 const subIds = (categories || []).filter(c => c.parent_id === targetCat.id).map(c => String(c.id));
@@ -571,45 +592,124 @@ const TrendRadarPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 칩 리스트 */}
+                {/* 칩 리스트: 3대 계층 구조화 (특수 뷰 / 🟢 활성 카테고리 / ⚪ 미배정 시드) */}
                 <div className={cn(
-                    "flex flex-wrap items-center gap-1.5 transition-all overflow-hidden",
-                    !isTagBarExpanded && "max-h-[38px]"
+                    "flex flex-wrap items-center gap-2 transition-all",
+                    !isTagBarExpanded && "max-h-[84px] overflow-hidden"
                 )}>
-                    {dynamicTags.map(tag => {
-                        const isSelected = selectedTag === tag.id;
-                        return (
-                            <button
-                                key={tag.id}
-                                onClick={() => {
-                                    setSelectedTag(tag.id);
-                                    if (tag.id === 'pending') {
-                                        setPipelineStep('reels');
-                                        setViewMode('reel');
-                                    }
-                                    if (tag.id !== 'all' && tag.id !== 'pending' && tag.id !== 'gems') {
+                    {/* 그룹 1: 퀵 뷰 & 큐 (전체, 고배수 옥석, 등록 대기) */}
+                    <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/40 border border-border/60 shrink-0">
+                        {specialViews.map(tag => {
+                            const isSelected = selectedTag === tag.id;
+                            return (
+                                <button
+                                    key={tag.id}
+                                    onClick={() => {
+                                        setSelectedTag(tag.id);
+                                        if (tag.id === 'pending') {
+                                            setPipelineStep('reels');
+                                            setViewMode('reel');
+                                        }
+                                    }}
+                                    title={tag.tooltip}
+                                    className={cn(
+                                        "px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
+                                        isSelected 
+                                            ? tag.id === 'gems' ? "bg-amber-500 text-black shadow-xs ring-2 ring-amber-400/40"
+                                              : tag.id === 'pending' ? "bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-500/40"
+                                              : "bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30" 
+                                            : tag.id === 'gems'
+                                                ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/30"
+                                                : tag.id === 'pending'
+                                                    ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30"
+                                                    : "bg-background hover:bg-muted text-foreground border border-border/70"
+                                    )}
+                                >
+                                    <span>{tag.label}</span>
+                                    <span className={cn(
+                                        "text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold",
+                                        isSelected ? "bg-black/20 text-white" : "bg-muted text-muted-foreground"
+                                    )}>
+                                        {tag.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="h-5 w-px bg-border/80 shrink-0 hidden sm:block" />
+
+                    {/* 그룹 2: 🟢 활성 타겟 카테고리 (등록 채널 보유) */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {activeCatTags.map(tag => {
+                            const isSelected = selectedTag === tag.id;
+                            return (
+                                <button
+                                    key={tag.id}
+                                    onClick={() => {
+                                        setSelectedTag(tag.id);
                                         api.post('/trend-radar/worker/focus', { category_name: tag.label }).catch(() => {});
-                                    }
-                                }}
+                                    }}
+                                    className={cn(
+                                        "px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
+                                        isSelected 
+                                            ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30" 
+                                            : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30"
+                                    )}
+                                >
+                                    <span>{tag.label}</span>
+                                    <span className={cn(
+                                        "text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold",
+                                        isSelected ? "bg-white/20 text-white" : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                                    )}>
+                                        {tag.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* 그룹 3: ⚪ 시드 미배정 카테고리 (0채널 - 접기/펼치기 토글) */}
+                    {unassignedCatTags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                                onClick={() => setShowUnassignedSeeds(!showUnassignedSeeds)}
                                 className={cn(
-                                    "px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
-                                    isSelected 
-                                        ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/30" 
-                                        : tag.isSpecial
-                                            ? "bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20"
-                                            : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/70"
+                                    "px-2.5 py-1 rounded-xl text-xs font-medium transition-all flex items-center gap-1 cursor-pointer shrink-0 border",
+                                    showUnassignedSeeds 
+                                        ? "bg-muted text-foreground border-border" 
+                                        : "bg-muted/30 hover:bg-muted text-muted-foreground border-dashed border-border/70"
                                 )}
                             >
-                                <span>{tag.label}</span>
-                                <span className={cn(
-                                    "text-[10px] font-mono px-1.5 py-0.2 rounded-full flex items-center gap-1",
-                                    isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-                                )}>
-                                    {tag.count}
-                                </span>
+                                <span>{showUnassignedSeeds ? "미배정 시드 접기" : `+ 시드 발굴 대기 (${unassignedCatTags.length})`}</span>
+                                {showUnassignedSeeds ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                             </button>
-                        );
-                    })}
+
+                            {showUnassignedSeeds && unassignedCatTags.map(tag => {
+                                const isSelected = selectedTag === tag.id;
+                                return (
+                                    <button
+                                        key={tag.id}
+                                        onClick={() => {
+                                            setSelectedTag(tag.id);
+                                            api.post('/trend-radar/worker/focus', { category_name: tag.label }).catch(() => {});
+                                        }}
+                                        className={cn(
+                                            "px-2.5 py-1 rounded-xl text-xs font-normal transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
+                                            isSelected 
+                                                ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/30" 
+                                                : "bg-muted/20 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
+                                        )}
+                                    >
+                                        <span>{tag.label}</span>
+                                        <span className="text-[10px] font-mono px-1 py-0.2 rounded-full bg-muted/60 text-muted-foreground/80">
+                                            0채널
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1112,9 +1212,24 @@ const TrendRadarPage: React.FC = () => {
                                         <div className="w-full lg:w-80 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-500/20 space-y-3">
                                             <div>
                                                 <div className="flex items-center justify-between">
-                                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-400/40">
-                                                        등급: {ch.grade}
-                                                    </span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-400/40">
+                                                            등급: {ch.grade}
+                                                        </span>
+                                                        {ch.format_type === 'shorts' ? (
+                                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/30">
+                                                                ⚡ 쇼츠 전용
+                                                            </span>
+                                                        ) : ch.format_type === 'long' ? (
+                                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/30">
+                                                                🎬 롱폼 전용
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-purple-500/10 text-purple-500 dark:text-purple-400 border border-purple-500/30">
+                                                                ✨ 하이브리드
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-100/80 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full border border-emerald-400/40 flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                                         정기 수집 중
@@ -1337,14 +1452,29 @@ const TrendRadarPage: React.FC = () => {
                                         <div className="w-full lg:w-80 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-muted/30 border border-border/80 space-y-3">
                                             <div>
                                                 <div className="flex items-center justify-between">
-                                                    <span className={cn(
-                                                        "px-2 py-0.5 rounded-md text-[10px] font-black",
-                                                        ch.grade === 'S' ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-400/40" :
-                                                        ch.grade === 'A' ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-400/40" :
-                                                        "bg-muted text-muted-foreground"
-                                                    )}>
-                                                        등급: {ch.grade}
-                                                    </span>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={cn(
+                                                            "px-2 py-0.5 rounded-md text-[10px] font-black",
+                                                            ch.grade === 'S' ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-400/40" :
+                                                            ch.grade === 'A' ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-400/40" :
+                                                            "bg-muted text-muted-foreground"
+                                                        )}>
+                                                            등급: {ch.grade}
+                                                        </span>
+                                                        {ch.format_type === 'shorts' ? (
+                                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/30">
+                                                                ⚡ 쇼츠
+                                                            </span>
+                                                        ) : ch.format_type === 'long' ? (
+                                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/30">
+                                                                🎬 롱폼
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-purple-500/10 text-purple-500 dark:text-purple-400 border border-purple-500/30">
+                                                                ✨ 하이브리드
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
                                                         신규 발굴 옥석
                                                     </span>
