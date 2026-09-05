@@ -64,30 +64,12 @@ const versionInfo = {
 const versionJsonPath = path.join(OUTPUT_DIR, 'version.json');
 fs.writeFileSync(versionJsonPath, JSON.stringify(versionInfo, null, 2), 'utf8');
 
-// 5. Step: Generate latest.yml for Electron-updater
-const latestYmlContent = [
-  `version: ${version}`,
-  `files:`,
-  `  - url: update-bundle.zip`,
-  `    sha512: ${sha512}`,
-  `    size: ${sizeBytes}`,
-  `path: update-bundle.zip`,
-  `sha512: ${sha512}`,
-  `releaseDate: '${isoDate}'`,
-  ''
-].join('\n');
-
-const latestYmlPath = path.join(OUTPUT_DIR, 'latest.yml');
-fs.writeFileSync(latestYmlPath, latestYmlContent, 'utf8');
-
 console.log('\n===================================================');
 console.log('✨ [Hot-Patch Builder] Success!');
 console.log(`📌 Version:      ${version} (Build #${buildNumber})`);
 console.log(`📦 Bundle Size:  ${sizeMB} MB (${sizeBytes} bytes)`);
 console.log(`🔑 SHA-256:      ${sha256}`);
-console.log(`🔑 SHA-512:      ${sha512}`);
 console.log(`📄 Version Info: ${versionJsonPath}`);
-console.log(`📄 Latest YAML:  ${latestYmlPath}`);
 console.log(`📦 Bundle File:  ${zipPath}`);
 console.log('===================================================\n');
 

@@ -1,4 +1,5 @@
-import { app } from 'electron';
+import electronPkg from 'electron';
+const { app } = electronPkg;
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -13,15 +14,17 @@ const FALLBACK_VERSION_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/
 
 class HotPatcher {
   constructor() {
-    this.hotpatchDir = path.join(app.getPath('userData'), 'hotpatch_bundle');
-    this.metaPath = path.join(this.hotpatchDir, 'patch-meta.json');
     this.isUpdating = false;
     this.updateAvailable = false;
     this.pendingRestart = false;
   }
 
   getHotpatchDir() {
-    return this.hotpatchDir;
+    return path.join(app.getPath('userData'), 'hotpatch_bundle');
+  }
+
+  getMetaPath() {
+    return path.join(this.getHotpatchDir(), 'patch-meta.json');
   }
 
   /**
@@ -29,10 +32,10 @@ class HotPatcher {
    */
   getActiveBundlePath(builtinDistPath) {
     try {
-      const hotpatchIndex = path.join(this.hotpatchDir, 'index.html');
+      const hotpatchIndex = path.join(this.getHotpatchDir(), 'index.html');
       if (fs.existsSync(hotpatchIndex)) {
-        console.log(`[HotPatcher] Using active Hot-Patch bundle from: ${this.hotpatchDir}`);
-        return this.hotpatchDir;
+        console.log(`[HotPatcher] Using active Hot-Patch bundle from: ${this.getHotpatchDir()}`);
+        return this.getHotpatchDir();
       }
     } catch (e) {
       console.warn('[HotPatcher] Failed to check hotpatch directory:', e.message);
@@ -107,12 +110,13 @@ class HotPatcher {
       }
 
       // Atomically replace hotpatch_bundle
-      if (!fs.existsSync(this.hotpatchDir)) {
-        fs.mkdirSync(this.hotpatchDir, { recursive: true });
+      const targetDir = this.getHotpatchDir();
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
       }
 
-      this._copyDirSync(tempExtract, this.hotpatchDir);
-      fs.writeFileSync(this.metaPath, JSON.stringify(meta, null, 2), 'utf8');
+      this._copyDirSync(tempExtract, targetDir);
+      fs.writeFileSync(this.getMetaPath(), JSON.stringify(meta, null, 2), 'utf8');
 
       console.log(`✨ [HotPatcher] Successfully applied Hot-Patch v${meta.version} (#${meta.buildNumber})!`);
       this.updateAvailable = true;
