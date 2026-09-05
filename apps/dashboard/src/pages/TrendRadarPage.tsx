@@ -14,7 +14,7 @@ import {
     Share2, PlusCircle, ArrowRight, UserCheck, Bot, LineChart, Settings2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { cn, formatRelativeOrDate } from '../lib/utils';
+import { cn, formatRelativeOrDate, formatShortDate } from '../lib/utils';
 import { CategoryDNAModal } from '../components/shared/CategoryDNAModal';
 import { TrendRadarDetailModal } from '../components/trend/TrendRadarDetailModal';
 import { ChannelLaunchpadModal } from '../components/trend/ChannelLaunchpadModal';

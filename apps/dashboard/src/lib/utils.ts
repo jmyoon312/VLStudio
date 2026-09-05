@@ -59,6 +59,17 @@ export function formatRelativeOrDate(dateStr?: string | null): string {
     }
 }
 
+export function formatShortDate(dateStr?: string | null): string {
+    if (!dateStr) return '-';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '-';
+        return d.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
+    } catch {
+        return '-';
+    }
+}
+
 export function formatClipName(name: string, path?: string, source?: string, maxLength: number = 20): string {
     let displayName = name;
     let extension = '';
