@@ -858,7 +858,7 @@ def get_pending_channels_for_incubation(
         elif collected_date_range == "90d":
             p_query = p_query.filter(models.RadarCandidate.created_at >= now_dt - timedelta(days=90))
 
-    candidates = p_query.order_by(models.RadarCandidate.outlier_ratio.desc()).limit(300).all()
+    candidates = p_query.order_by(models.RadarCandidate.outlier_ratio.desc()).limit(1500).all()
 
     grouped_channels: Dict[str, List[models.RadarCandidate]] = {}
     for c in candidates:
