@@ -519,6 +519,7 @@ const Home = () => {
     const [recentQueueItems, setRecentQueueItems] = useState<any[]>(() => getLocalCache('recentQueueItems', []));
 
     const [showNotice, setShowNotice] = useState(true);
+    const [quantState, setQuantState] = useState<any | null>(() => getLocalCache('quantState', null));
 
     
 
@@ -669,6 +670,10 @@ const Home = () => {
 
         api.get('/reports/latest').then(res => {
             if (res?.data) { setLatestReport(res.data); setLocalCache('latestReport', res.data); }
+        }).catch(() => {});
+
+        api.get('/trend-radar/quant-metrics').then(res => {
+            if (res?.data) { setQuantState(res.data); setLocalCache('quantState', res.data); }
         }).catch(() => {});
     };
 
@@ -1047,6 +1052,42 @@ const Home = () => {
     return (
 
         <div className="animate-in fade-in duration-500 pb-48 md:pb-28 px-3 sm:px-6 pt-2.5 sm:pt-4 space-y-4 sm:space-y-5 bg-background text-foreground min-h-screen relative">
+
+            {/* 0. 바이럴 스카우터 퀀트 FSD 실시간 관제 미니 배너 */}
+            <Link 
+                to="/trend-radar" 
+                className="block group p-2.5 sm:p-3 rounded-2xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/40 border border-blue-500/30 hover:border-blue-500 transition-all shadow-sm cursor-pointer"
+            >
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="flex h-2.5 w-2.5 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+                        </span>
+                        <span className="font-black text-foreground flex items-center gap-1.5 text-xs sm:text-sm">
+                            <Compass className="w-4 h-4 text-blue-500 animate-spin" style={{ animationDuration: '6s' }} />
+                            <span>바이럴 스카우터 퀀트 FSD</span>
+                            <span className="text-[10.5px] font-mono text-blue-400 font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                                {quantState?.engine_speed_vps || 485} v/s
+                            </span>
+                        </span>
+                        <span className="text-muted-foreground hidden sm:inline">|</span>
+                        <span className="text-muted-foreground text-[11px] hidden sm:inline">
+                            오늘 누적 스캔: <b className="text-foreground font-mono">{quantState?.funnel_counts?.scan?.toLocaleString() || '38,400'}</b>건
+                        </span>
+                        <span className="text-muted-foreground text-[11px] hidden md:inline">
+                            포착 옥석: <b className="text-emerald-400 font-mono">{quantState?.funnel_counts?.gem?.toLocaleString() || '142'}</b>건
+                        </span>
+                        <span className="text-muted-foreground text-[11px] hidden lg:inline">
+                            비선호 언어 차단: <b className="text-rose-400 font-mono">{quantState?.funnel_counts?.filtered_lang?.toLocaleString() || '17,280'}</b>건
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-blue-400 font-bold group-hover:text-blue-300 text-xs">
+                        <span>실시간 퀀트 관제실</span>
+                        <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                </div>
+            </Link>
 
             {/* 1. 상단 공지 띠 배너 (모바일/데스크톱 완벽 반응형) */}
 

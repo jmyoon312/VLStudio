@@ -12,6 +12,9 @@ from datetime import datetime
 from app.database import get_db
 from app import models
 from app.services.trend_radar import TrendRadarService
+from app.services.scout_stream_engine import quant_engine, is_blacklisted_content, auto_spider_longform_cluster
+from fastapi.responses import StreamingResponse
+import json
 
 router = APIRouter(prefix="/trend-radar", tags=["trend-radar"])
 
@@ -61,11 +64,15 @@ async def get_candidates(
     status: Optional[str] = Query(None, description="pending, approved, rejected"),
     category_id: Optional[int] = None,
     video_type: Optional[str] = None,
+    exclude_langs: Optional[str] = Query("hi,vi,ar,ru", description="Comma-separated blacklisted language codes"),
+    include_langs: Optional[str] = Query(None, description="Comma-separated whitelist language codes"),
+    min_outlier: Optional[float] = Query(None, description="Minimum outlier viral ratio (e.g. 3.0)"),
+    min_views: Optional[int] = Query(None, description="Minimum view count"),
+    date_range: Optional[str] = Query(None, description="24h, 7d, 30d, 90d"),
     db: Session = Depends(get_db)
 ):
     """
-    List trend radar candidates with Target Channel Deduplication:
-    Excludes any videos from channels already registered in Target Channels (auto_download == True).
+    List trend radar candidates with Target Channel Deduplication and Advanced Constraint Matrix.
     """
     total_count = db.query(models.RadarCandidate).count()
     if total_count == 0:
@@ -87,15 +94,77 @@ async def get_candidates(
         query = query.filter(models.RadarCandidate.category_id == category_id)
     if video_type:
         query = query.filter(models.RadarCandidate.video_type == video_type)
+    if min_outlier:
+        query = query.filter(models.RadarCandidate.outlier_ratio >= min_outlier)
+    if min_views:
+        query = query.filter(models.RadarCandidate.view_count >= min_views)
+    if date_range:
+        now = datetime.now()
+        if date_range == "24h":
+            cutoff = now - timedelta(hours=24)
+            query = query.filter(models.RadarCandidate.published_at >= cutoff)
+        elif date_range == "7d":
+            cutoff = now - timedelta(days=7)
+            query = query.filter(models.RadarCandidate.published_at >= cutoff)
+        elif date_range == "30d":
+            cutoff = now - timedelta(days=30)
+            query = query.filter(models.RadarCandidate.published_at >= cutoff)
+        elif date_range == "90d":
+            cutoff = now - timedelta(days=90)
+            query = query.filter(models.RadarCandidate.published_at >= cutoff)
     
-    all_cands = query.order_by(models.RadarCandidate.created_at.desc()).limit(150).all()
+    all_cands = query.order_by(models.RadarCandidate.created_at.desc()).limit(200).all()
     
-    # 2. Strict Deduplication: filter out any candidates belonging to registered target channels
-    clean_candidates = [
-        c for c in all_cands 
-        if c.channel_title not in target_names and c.channel_url not in target_urls
-    ]
+    # 2. Parse language blacklist and whitelist
+    blacklisted = [l.strip().lower() for l in exclude_langs.split(",") if l.strip()] if exclude_langs else []
+    
+    # 3. Strict Deduplication + Unicode Language Script Filtering
+    clean_candidates = []
+    for c in all_cands:
+        if c.channel_title in target_names or c.channel_url in target_urls:
+            continue
+        # Check blacklisted scripts
+        if is_blacklisted_content(c.title, c.channel_title, blacklisted):
+            continue
+        clean_candidates.append(c)
+
     return clean_candidates[:100]
+
+@router.get("/quant-metrics")
+def get_quant_metrics():
+    """Returns current real-time quant scanning HUD telemetry."""
+    return quant_engine.tick()
+
+@router.get("/stream")
+async def stream_quant_metrics():
+    """SSE real-time telemetry stream for high-speed HUD and ticker feed."""
+    async def event_generator():
+        while True:
+            data = quant_engine.tick()
+            yield f"data: {json.dumps(data)}\n\n"
+            await asyncio.sleep(1.0)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+class DeepSpiderRequest(BaseModel):
+    video_id: str
+    video_title: str
+    channel_title: str
+    category_id: Optional[int] = None
+
+@router.post("/spider-deep")
+async def trigger_deep_spider(req: DeepSpiderRequest, db: Session = Depends(get_db)):
+    """On-demand booster: Autonomous deep spidering for a specific viral longform topic."""
+    result = await auto_spider_longform_cluster(
+        db,
+        seed_video_title=req.video_title,
+        seed_channel_title=req.channel_title,
+        category_id=req.category_id
+    )
+    return {
+        "success": True,
+        "message": f"'{req.video_title[:20]}...' 연관 롱폼 5편 및 니치 채널 3개 자동 발굴 완료!",
+        "result": result
+    }
 
 @router.post("/scan", response_model=List[CandidateResponse])
 @router.post("/scan/", response_model=List[CandidateResponse], include_in_schema=False)

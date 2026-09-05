@@ -110,9 +110,18 @@ class TrendRadarService:
     @staticmethod
     def _fetch_real_youtube_candidates(query_keyword: str, video_type: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Use yt-dlp to search real live YouTube candidates.
+        Use yt-dlp to search real live YouTube candidates with strict format division and blacklist script filtering.
         """
-        search_query = f"ytsearch{limit * 2}:{query_keyword} {'shorts' if video_type == 'shorts' else '인기'}"
+        from app.services.scout_stream_engine import is_blacklisted_content
+        
+        # ── Format-Specific Query Strategy
+        if video_type == "shorts":
+            # Search trending shorts using keywords and tags
+            search_query = f"ytsearch{limit * 3}:{query_keyword} shorts"
+        else:
+            # Longform: targeted niche search with storyline keywords
+            search_query = f"ytsearch{limit * 3}:{query_keyword} 분석 OR 다큐 OR 비하인드 OR 꿀팁"
+
         ydl_opts = {
             'quiet': True,
             'extract_flat': True,
@@ -133,9 +142,21 @@ class TrendRadarService:
                     
                     title = e.get('title') or f"{query_keyword} 바이럴 영상"
                     uploader = e.get('uploader') or f"{query_keyword} 크리에이터"
-                    uploader_url = e.get('uploader_url') or f"https://www.youtube.com/@{uploader.replace(' ', '')}"
-                    view_count = int(e.get('view_count') or 150000)
+                    
+                    # 1. Unicode Script Blacklist Gate (Hindi, Thai, Arabic, Cyrillic)
+                    if is_blacklisted_content(title, uploader, ["hi", "th", "ar", "ru"]):
+                        continue
+
                     duration = int(e.get('duration') or (45 if video_type == 'shorts' else 720))
+                    
+                    # 2. Strict Duration Split
+                    if video_type == "shorts" and duration > 65:
+                        continue # Skip non-shorts
+                    if video_type == "long" and duration < 120:
+                        continue # Skip shorts in longform tab
+
+                    uploader_url = e.get('uploader_url') or f"https://www.youtube.com/@{uploader.replace(' ', '')}"
+                    view_count = int(e.get('view_count') or (180000 if video_type == 'shorts' else 320000))
                     
                     # Estimate outlier ratio based on views
                     if view_count > 500000: outlier = 8.5
@@ -157,11 +178,11 @@ class TrendRadarService:
                         "velocity_score": float(view_count // 20),
                         "outlier_ratio": outlier,
                         "engagement_rate": 0.054,
-                        "channel_subscribers": f"{max(10, view_count // 8000)}만명",
-                        "duration_text": f"0:{duration}" if duration < 60 else f"{duration//60}:{duration%60:02d}",
-                        "hook_analysis": "초반 2.5초 핵심 의문 제기 및 시각적 충격 인트로",
-                        "viral_triggers": "손실 회피 심리 + 호기심 갭 + 빠른 컷 전개",
-                        "adaptation_angle": "바이럴루프 독점 10x 각색 권장 (한국형 페르소나 적용)",
+                        "channel_subscribers": f"{max(5, view_count // 8000)}만명",
+                        "duration_text": f"0:{duration:02d}" if duration < 60 else f"{duration//60}:{duration%60:02d}",
+                        "hook_analysis": "초반 2.5초 핵심 의문 제기 및 시각적 충격 인트로" if video_type == "shorts" else "기승전결 4단 챕터 전개 및 몰입형 스토리텔링",
+                        "viral_triggers": "손실 회피 심리 + 호기심 갭 + 빠른 컷 전개" if video_type == "shorts" else "고밀도 정보 압축 + 권위자 팩트 체크 + 감정적 카타르시스",
+                        "adaptation_angle": "바이럴루프 독점 한국형 각색 권장 (한국형 페르소나 적용)",
                         "sentiment_rate": 97.5,
                         "published_at": now - timedelta(hours=idx * 3 + 1)
                     })

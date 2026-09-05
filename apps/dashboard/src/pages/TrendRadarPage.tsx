@@ -19,6 +19,9 @@ import { CategoryDNAModal } from '../components/shared/CategoryDNAModal';
 import { TrendRadarDetailModal } from '../components/trend/TrendRadarDetailModal';
 import { ChannelLaunchpadModal } from '../components/trend/ChannelLaunchpadModal';
 import { ChannelAnatomyModal } from '../components/trend/ChannelAnatomyModal';
+import { LiveDiscoveryFlash } from '../components/trend/LiveDiscoveryFlash';
+import { ViralScouterQuantHUD } from '../components/trend/ViralScouterQuantHUD';
+import { ScoutingFilterPopover, ScoutFilterConfig } from '../components/trend/ScoutingFilterPopover';
 
 // 픽셀링(PixelLab) 전문가 엄선 인기 카테고리 20대 시드 (Seed Categories)
 const PIXELING_SEED_TAGS = [
@@ -68,10 +71,25 @@ const TrendRadarPage: React.FC = () => {
     const [viewMode, setViewMode] = useState<'reel' | 'grid' | 'table'>('reel');
     const [selectedTag, setSelectedTag] = useState<string>('all');
     const [isTagBarExpanded, setIsTagBarExpanded] = useState<boolean>(false);
-    const [selectedCountry, setSelectedCountry] = useState<string>('ALL');
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isScanning, setIsScanning] = useState(false);
     const [spideringChannelId, setSpideringChannelId] = useState<number | null>(null);
+
+    // ── 정밀 제약 조건 매트릭스 상태 (Persistence 지원) ───────────
+    const [filterConfig, setFilterConfig] = useState<ScoutFilterConfig>(() => {
+        try {
+            const saved = localStorage.getItem('vlstudio_scout_filter_matrix');
+            if (saved) return JSON.parse(saved);
+        } catch {}
+        return {
+            includeLangs: ['ko', 'en', 'ja'],
+            excludeLangs: ['hi', 'vi', 'ar', 'ru'],
+            dateRange: '7d',
+            minOutlier: 3.0,
+            minViews: 50000,
+            durationRange: 'all'
+        };
+    });
 
     // ── 모달 상태 ───────────────────────────────────────────────
     const [selectedCandidateForDetail, setSelectedCandidateForDetail] = useState<RadarCandidate | null>(null);
@@ -92,11 +110,18 @@ const TrendRadarPage: React.FC = () => {
         queryFn: async () => (await api.get<Category[]>('/categories/')).data || []
     });
 
-    // 2. 바이럴 후보군 (Step 1용 - 타겟 채널 중복 배제됨)
+    // 2. 바이럴 후보군 (Step 1용 - 정밀 매트릭스 필터 및 타겟 채널 중복 배제 연동)
     const { data: rawCandidates = [], isLoading: isLoadingCandidates } = useQuery({
-        queryKey: ['radar-candidates', aspectFormat],
+        queryKey: ['radar-candidates', aspectFormat, filterConfig],
         queryFn: async () => {
-            const params: any = { video_type: aspectFormat };
+            const params: any = { 
+                video_type: aspectFormat,
+                exclude_langs: filterConfig.excludeLangs.join(','),
+                include_langs: filterConfig.includeLangs.join(','),
+                min_outlier: filterConfig.minOutlier,
+                min_views: filterConfig.minViews,
+                date_range: filterConfig.dateRange !== 'all' ? filterConfig.dateRange : undefined
+            };
             const res = await api.get<RadarCandidate[]>('/trend-radar/candidates', { params });
             return res.data || [];
         }
@@ -169,11 +194,46 @@ const TrendRadarPage: React.FC = () => {
         }
     });
 
-    // 필터링된 영상 목록
+    const [deepSpideringVideoId, setDeepSpideringVideoId] = useState<string | null>(null);
+
+    // ── 롱폼 전용 AI 유사 롱폼 10편 + 채널 3개 심층 스파이더링 ───────
+    const deepSpiderMutation = useMutation({
+        mutationFn: async (videoId: string) => {
+            setDeepSpideringVideoId(videoId);
+            return (await api.post('/trend-radar/spider-deep', { video_id: videoId, count: 10 })).data;
+        },
+        onSuccess: (data) => {
+            setDeepSpideringVideoId(null);
+            queryClient.invalidateQueries({ queryKey: ['radar-candidates'] });
+            queryClient.invalidateQueries({ queryKey: ['channels-with-reels'] });
+            alert(`[롱폼 클러스터 스파이더링 완료]\n'${data.keyword}' 기준 유사 롱폼 ${data.discovered_videos_count}편 및 신규 니치 채널 ${data.discovered_channels_count}개를 발굴했습니다!`);
+        },
+        onError: (err: any) => {
+            setDeepSpideringVideoId(null);
+            alert('롱폼 스파이더링 실패: ' + (err.response?.data?.detail || err.message));
+        }
+    });
+
+    // 필터링된 영상 목록 (포맷, 검색어, 카테고리 태그 반영)
     const filteredCandidates = useMemo(() => {
         return rawCandidates.filter(c => {
             if (aspectFormat === 'shorts' && c.video_type !== 'shorts') return false;
             if (aspectFormat === 'long' && c.video_type !== 'long') return false;
+            
+            // 카테고리 태그 필터
+            if (selectedTag && selectedTag !== 'all' && selectedTag !== 'recent' && selectedTag !== 'hidden') {
+                const targetCat = categories.find(cat => String(cat.id) === selectedTag || cat.name === selectedTag);
+                if (targetCat) {
+                    const catName = targetCat.name.toLowerCase();
+                    const matchTitle = c.title.toLowerCase().includes(catName);
+                    const matchHook = (c.hook_analysis || '').toLowerCase().includes(catName);
+                    if (!matchTitle && !matchHook) return false;
+                }
+            } else if (selectedTag === 'hidden') {
+                // 숨은 옥석: 배수 4.0x 이상 & 조회수 30만 이하
+                if (c.outlier_ratio < 4.0 || c.view_count > 300000) return false;
+            }
+
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
                 const matchTitle = c.title.toLowerCase().includes(q);
@@ -182,7 +242,7 @@ const TrendRadarPage: React.FC = () => {
             }
             return true;
         });
-    }, [rawCandidates, aspectFormat, searchQuery]);
+    }, [rawCandidates, aspectFormat, searchQuery, selectedTag, categories]);
 
     // 스타 옥석 영상 (상단 루피 픽)
     const starCandidate = useMemo(() => {
@@ -193,8 +253,8 @@ const TrendRadarPage: React.FC = () => {
     const activeCatObj = categories[0] || null;
 
     return (
-        <div className="w-full min-h-screen bg-background text-foreground flex flex-col p-4 sm:p-6 space-y-5 pb-32">
-            {/* 1. 최상단 헤더 & 루피 AI 실시간 옥석 큐레이션 배너 */}
+        <div className="w-full min-h-screen bg-background text-foreground flex flex-col p-4 sm:p-6 space-y-4 pb-32">
+            {/* 1. 최상단 헤더 & LIVE 옥석 포착 플래시 롤링 위젯 */}
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-card/60 backdrop-blur-md border border-border/80 p-4 sm:p-5 rounded-3xl shadow-sm">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2.5">
@@ -209,46 +269,35 @@ const TrendRadarPage: React.FC = () => {
                         </h1>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        AI 실시간 발굴 ─▶ 픽셀링 릴 해체 ─▶ AI 유사채널 확장 ─▶ 인간 검토 승인(정기수집) ─▶ 신설 채널 론치패드
+                        초고속 알고리즘 스캔 ─▶ 픽셀링 릴 해체 ─▶ 롱폼 자율 스파이더링 ─▶ 정기수집 승인 ─▶ 신설 론치패드
                     </p>
                 </div>
 
-                {/* 루피의 오늘자 옥석 픽 위젯 */}
-                {starCandidate && (
-                    <div className="flex items-center gap-3 bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-purple-600/10 border border-indigo-500/30 p-2.5 sm:p-3 rounded-2xl max-w-xl">
-                        <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md">
-                            <Flame className="w-5 h-5 fill-amber-300 text-amber-300" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 text-[10.5px]">
-                                <span className="font-bold text-indigo-400 flex items-center gap-1">
-                                    <Sparkles className="w-3 h-3 fill-current" />
-                                    루피의 오늘자 옥석 픽
-                                </span>
-                                <span className="font-mono font-black text-amber-400 bg-black/60 px-1.5 py-0.2 rounded text-[10px]">
-                                    {starCandidate.outlier_ratio}x 폭발
-                                </span>
-                            </div>
-                            <h4 className="text-xs font-bold truncate text-foreground mt-0.5">
-                                {starCandidate.title}
-                            </h4>
-                            <p className="text-[10px] text-muted-foreground truncate">
-                                {starCandidate.channel_title} · 조회수 {starCandidate.view_count.toLocaleString()}회
-                            </p>
-                        </div>
-                        <Button
-                            size="sm"
-                            onClick={() => {
-                                setSelectedCandidateForDetail(starCandidate);
-                                setIsDetailModalOpen(true);
-                            }}
-                            className="h-8 px-3 text-[11px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs shrink-0 cursor-pointer"
-                        >
-                            <Play className="w-3 h-3 fill-white mr-1" />
-                            즉시 분석
-                        </Button>
-                    </div>
-                )}
+                {/* 2초 주기 매끄러운 슬라이드 LIVE 옥석 포착 플래시 위젯 */}
+                <LiveDiscoveryFlash 
+                    candidates={rawCandidates}
+                    onSelectCandidate={(c) => {
+                        setSelectedCandidateForDetail(c);
+                        setIsDetailModalOpen(true);
+                    }}
+                />
+            </div>
+
+            {/* 2. 🔥 FSD 퀀트 실시간 관제 센터 (High-Density Quant Ribbon) */}
+            <ViralScouterQuantHUD />
+
+            {/* 3. ⚙️ 정밀 제약 조건 매트릭스 캡슐 버튼 바 */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-card/40 border border-border/70 px-3.5 py-2 rounded-2xl">
+                <div className="flex items-center gap-2">
+                    <ScoutingFilterPopover 
+                        config={filterConfig}
+                        onChange={(newCfg) => setFilterConfig(newCfg)}
+                        aspectFormat={aspectFormat}
+                    />
+                </div>
+                <div className="text-[11px] font-mono text-muted-foreground">
+                    ⚡ 유니코드 스크립트 실시간 차단 (인도 데바나가리, 아랍어, 키릴 자동 제외)
+                </div>
             </div>
 
             {/* 2. 🔥 4단계 비즈니스 파이프라인 스테퍼 바 (4-Step Pipeline Stepper Funnel) */}
@@ -862,6 +911,27 @@ const TrendRadarPage: React.FC = () => {
                                     <span>{candidate.duration_text || (aspectFormat === 'long' ? '11:20' : '0:45')}</span>
                                 </div>
                             </div>
+
+                            {/* 롱폼 전용 AI 유사 롱폼 10편 집중 스파이더링 버튼 */}
+                            {candidate.video_type === 'long' && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        deepSpiderMutation.mutate(candidate.video_id);
+                                    }}
+                                    disabled={deepSpideringVideoId === candidate.video_id}
+                                    className="relative z-20 mt-1.5 w-full py-1 px-2 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-white text-[10px] font-black flex items-center justify-center gap-1 shadow-sm transition-all cursor-pointer"
+                                    title="이 롱폼 영상의 핵심 주제를 역추적하여 유사 롱폼 10편과 니치 채널을 집중 발굴합니다"
+                                >
+                                    {deepSpideringVideoId === candidate.video_id ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                        <Search className="w-3 h-3" />
+                                    )}
+                                    <span>유사 롱폼 10편 탐색</span>
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -915,16 +985,35 @@ const TrendRadarPage: React.FC = () => {
                                         {candidate.hook_analysis || '초반 핵심 의문 제시'}
                                     </td>
                                     <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                                        <Button
-                                            size="sm"
-                                            onClick={() => {
-                                                setPipelineStep('reels');
-                                                setViewMode('reel');
-                                            }}
-                                            className="h-7 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer"
-                                        >
-                                            채널릴 보기
-                                        </Button>
+                                        <div className="flex items-center justify-center gap-1.5">
+                                            {candidate.video_type === 'long' && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => deepSpiderMutation.mutate(candidate.video_id)}
+                                                    disabled={deepSpideringVideoId === candidate.video_id}
+                                                    className="h-7 text-[10.5px] font-bold border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 rounded-lg cursor-pointer"
+                                                    title="유사 롱폼 10편 집중 탐색"
+                                                >
+                                                    {deepSpideringVideoId === candidate.video_id ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                    ) : (
+                                                        <Search className="w-3 h-3 mr-1" />
+                                                    )}
+                                                    유사롱폼
+                                                </Button>
+                                            )}
+                                            <Button
+                                                size="sm"
+                                                onClick={() => {
+                                                    setPipelineStep('reels');
+                                                    setViewMode('reel');
+                                                }}
+                                                className="h-7 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer"
+                                            >
+                                                채널릴 보기
+                                            </Button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
