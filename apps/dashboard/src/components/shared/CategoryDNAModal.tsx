@@ -93,6 +93,8 @@ export const CategoryDNAModal: React.FC<CategoryDNAModalProps> = ({
         }
     });
 
+    const [analyzedVideos, setAnalyzedVideos] = useState<any[]>([]);
+
     // Channel-based DNA Synthesis Mutation (Analyzes registered channels' real high-performing videos & hooks)
     const channelDnaMutation = useMutation({
         mutationFn: async (categoryId: number) => {
@@ -110,10 +112,29 @@ export const CategoryDNAModal: React.FC<CategoryDNAModalProps> = ({
                     if (data.dna.benchmark_rules.match_sensitivity) setMatchSensitivity(data.dna.benchmark_rules.match_sensitivity);
                 }
             }
+            if (data.analyzed_videos && Array.isArray(data.analyzed_videos)) {
+                setAnalyzedVideos(data.analyzed_videos);
+            }
             alert(data.message || '등록 채널 기반 정밀 DNA 분석이 완료되었습니다.');
         },
         onError: (err: any) => {
             alert(`등록 채널 기반 DNA 분석 오류: ${err?.response?.data?.detail || err.message}`);
+        }
+    });
+
+    // Spider recommendations mutation
+    const spiderMutation = useMutation({
+        mutationFn: async (categoryId: number) => {
+            const res = await api.post(`/categories/${categoryId}/spider-from-channels?limit=15`);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['candidates'] });
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
+            alert(data.message || '유튜브 추천망 연관 채널 및 영상 발굴이 완료되었습니다!');
+        },
+        onError: (err: any) => {
+            alert(`추천망 발굴 오류: ${err?.response?.data?.detail || err.message}`);
         }
     });
 
@@ -193,13 +214,35 @@ export const CategoryDNAModal: React.FC<CategoryDNAModalProps> = ({
                                 )}
                             </Button>
 
+                            {/* Recommendation Spidering Button */}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/80 border-purple-200 dark:border-purple-500/40 text-purple-600 dark:text-purple-300 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all"
+                                onClick={() => spiderMutation.mutate(category.id)}
+                                disabled={spiderMutation.isPending || channelDnaMutation.isPending}
+                                title="이 카테고리의 대표 채널과 DNA를 기반으로 유튜브 추천망을 스파이더링하여 연관 채널과 바이럴 영상을 발굴합니다."
+                            >
+                                {spiderMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />
+                                        <span>추천망 탐색 중...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Target className="w-3.5 h-3.5 text-purple-500" />
+                                        <span>🎯 추천망 연관 발굴</span>
+                                    </>
+                                )}
+                            </Button>
+
                             {/* AI Auto Suggest Button */}
                             <Button
                                 size="sm"
                                 variant="outline"
                                 className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all"
                                 onClick={() => suggestMutation.mutate(category.id)}
-                                disabled={suggestMutation.isPending || channelDnaMutation.isPending}
+                                disabled={suggestMutation.isPending || channelDnaMutation.isPending || spiderMutation.isPending}
                             >
                                 {suggestMutation.isPending ? (
                                     <>
@@ -218,6 +261,28 @@ export const CategoryDNAModal: React.FC<CategoryDNAModalProps> = ({
                 </DialogHeader>
 
                 <div className="space-y-6 py-4">
+                    {/* Analyzed Videos Breakdown (if available) */}
+                    {analyzedVideos.length > 0 && (
+                        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2 animate-in fade-in">
+                            <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
+                                <span>🧬 AI가 분석한 대표 채널 실영상 ({analyzedVideos.length}건)</span>
+                                <span className="text-[11px] text-muted-foreground font-normal">온더플라이 유튜브 실데이터 검증됨</span>
+                            </div>
+                            <div className="space-y-1 max-h-36 overflow-y-auto custom-scrollbar">
+                                {analyzedVideos.map((vid: any, i: number) => (
+                                    <div key={i} className="flex items-center justify-between text-[11px] bg-background/60 p-1.5 rounded-lg border border-border/50">
+                                        <div className="truncate flex-1 pr-2">
+                                            <span className="font-semibold text-foreground">[{vid.channel}]</span> {vid.title}
+                                        </div>
+                                        <div className="shrink-0 text-muted-foreground font-mono">
+                                            조회수 {vid.view_count ? vid.view_count.toLocaleString() : 0}회
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Section 1: Target Persona */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">

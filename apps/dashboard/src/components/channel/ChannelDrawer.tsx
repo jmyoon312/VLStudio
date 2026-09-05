@@ -4,11 +4,11 @@ import api, { Channel, Category } from '../../lib/api';
 import { 
     Folder, FolderPlus, Search, FileText, RefreshCw, Trash2, Plus, 
     Check, X, Sparkles, ChevronRight, ExternalLink, Globe, HelpCircle, ArrowUpDown,
-    MoreVertical, Download, Upload, FileSpreadsheet, FileCode, CheckSquare
+    MoreVertical, Download, Upload, FileSpreadsheet, FileCode, CheckSquare,
+    Dna, Zap, Loader2, Target
 } from 'lucide-react';
 import { cn, getMediaUrl } from '../../lib/utils';
 import { CategoryDNAModal } from '../shared/CategoryDNAModal';
-import { Dna } from 'lucide-react';
 
 const COLOR_PALETTE = [
     { key: 'none', label: '없음', bg: 'bg-muted border-border', strip: 'bg-transparent', ring: 'ring-border' },
@@ -154,6 +154,35 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
         },
         onError: (err: any) => {
             alert('채널 삭제 실패: ' + (err.response?.data?.detail || err.message));
+        }
+    });
+
+    const channelDnaMutation = useMutation({
+        mutationFn: async (catId: number) => {
+            const res = await api.post(`/categories/${catId}/dna/from-channels`);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+            alert(data.message || '등록 채널 기반 정밀 DNA 합성이 완료되었습니다.');
+        },
+        onError: (err: any) => {
+            alert(`DNA 분석 실패: ${err?.response?.data?.detail || err.message}`);
+        }
+    });
+
+    const spiderFromChannelsMutation = useMutation({
+        mutationFn: async (catId: number) => {
+            const res = await api.post(`/categories/${catId}/spider-from-channels?limit=15`);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['candidates'] });
+            queryClient.invalidateQueries({ queryKey: ['channels'] });
+            alert(data.message || '유튜브 추천망 스파이더링이 완료되었습니다!');
+        },
+        onError: (err: any) => {
+            alert(`추천망 스파이더링 실패: ${err?.response?.data?.detail || err.message}`);
         }
     });
 
@@ -839,17 +868,69 @@ export const ChannelDrawer: React.FC<ChannelDrawerProps> = ({
                                     </span>
                                 </div>
 
-                                <button
-                                    onClick={() => handleOpenDnaModal(currentCategory || currentParentCategory, currentCategory?.parent_id ? currentParentCategory : null)}
-                                    className="px-2 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-400 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
-                                    title="카테고리 페르소나 및 자율주행 탐색 기준 설정"
-                                >
-                                    <Dna className="w-3.5 h-3.5 text-indigo-400" />
-                                    <span>🧬 DNA 기준 설정</span>
-                                    {(currentCategory?.persona_target || currentParentCategory?.persona_target) && (
-                                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                                    )}
-                                </button>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                        onClick={() => {
+                                            const targetCat = currentCategory || currentParentCategory;
+                                            if (targetCat) channelDnaMutation.mutate(targetCat.id);
+                                        }}
+                                        disabled={channelDnaMutation.isPending || filteredChannels.length === 0}
+                                        className={cn(
+                                            "px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs",
+                                            channelDnaMutation.isPending
+                                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                                : "bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400"
+                                        )}
+                                        title="등록된 대표 채널의 실제 영상을 온더플라이로 수집·분석하여 카테고리 DNA를 합성합니다."
+                                    >
+                                        {channelDnaMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                                                <span>실영상 AI 분석 중...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                                                <span>🧬 채널 기반 DNA 정밀 분석</span>
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            const targetCat = currentCategory || currentParentCategory;
+                                            if (targetCat) spiderFromChannelsMutation.mutate(targetCat.id);
+                                        }}
+                                        disabled={spiderFromChannelsMutation.isPending || filteredChannels.length === 0}
+                                        className={cn(
+                                            "px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs",
+                                            spiderFromChannelsMutation.isPending
+                                                ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                                : "bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-400"
+                                        )}
+                                        title="대표 채널과 DNA를 기반으로 유튜브 추천망을 스파이더링하여 연관 채널과 바이럴 영상을 발굴합니다."
+                                    >
+                                        {spiderFromChannelsMutation.isPending ? (
+                                            <>
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
+                                                <span>추천망 탐색 중...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Target className="w-3.5 h-3.5 text-purple-400" />
+                                                <span>🎯 추천망 연관 발굴</span>
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleOpenDnaModal(currentCategory || currentParentCategory, currentCategory?.parent_id ? currentParentCategory : null)}
+                                        className="p-1 rounded-lg text-xs font-bold bg-muted/60 hover:bg-muted border border-border text-muted-foreground hover:text-foreground cursor-pointer transition-all"
+                                        title="카테고리 DNA 직접 설정"
+                                    >
+                                        <Dna className="w-3.5 h-3.5 text-indigo-400" />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* 하위 폴더 카드 리스트 */}

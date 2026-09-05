@@ -38,6 +38,27 @@ export function formatDuration(seconds: number): string {
     return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
 }
 
+export function formatRelativeOrDate(dateStr?: string | null): string {
+    if (!dateStr) return '최근';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '최근';
+        const now = new Date();
+        const diffMs = now.getTime() - d.getTime();
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        if (diffHours < 24 && diffHours >= 0) {
+            return `${Math.max(1, diffHours)}시간 전`;
+        }
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays < 30 && diffDays >= 0) {
+            return `${diffDays}일 전`;
+        }
+        return d.toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit' });
+    } catch {
+        return '최근';
+    }
+}
+
 export function formatClipName(name: string, path?: string, source?: string, maxLength: number = 20): string {
     let displayName = name;
     let extension = '';

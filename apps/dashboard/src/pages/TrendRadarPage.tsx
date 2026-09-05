@@ -1,20 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { 
-    RadarCandidate, Category, ChannelWithReels, 
+    RadarCandidate, Category, ChannelWithReels, Channel,
     getChannelsWithReels, discoverLookalikeChannels, convertChannelToTarget 
 } from '../lib/api';
 import { 
     Radio, Zap, Sparkles, Check, X, ExternalLink, RefreshCw, 
     TrendingUp, Award, AlertCircle, ShieldAlert, ChevronRight,
     Loader2, Play, Eye, Flame, Filter, Folder, Compass, CheckCircle2,
-    SlidersHorizontal, Layers, Clock, Users, Gem, ThumbsUp, Rocket,
+    SlidersHorizontal, Layers, Clock, Users, Gem, ThumbsUp, Rocket, Target,
     LayoutGrid, Table, Search, CheckSquare, Square, ArrowUpDown, FilterX,
     Tv, ChevronDown, ChevronUp, Globe, DollarSign, Bookmark, Film,
     Share2, PlusCircle, ArrowRight, UserCheck, Bot, LineChart, Settings2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { cn } from '../lib/utils';
+import { cn, formatRelativeOrDate } from '../lib/utils';
 import { CategoryDNAModal } from '../components/shared/CategoryDNAModal';
 import { TrendRadarDetailModal } from '../components/trend/TrendRadarDetailModal';
 import { ChannelLaunchpadModal } from '../components/trend/ChannelLaunchpadModal';
@@ -249,6 +249,22 @@ const TrendRadarPage: React.FC = () => {
         }
     });
 
+    // ── 카테고리 대표 채널 기반 유튜브 추천망 스파이더링 ───────────
+    const spiderCategoryMutation = useMutation({
+        mutationFn: async (categoryId: number) => {
+            const res = await api.post(`/categories/${categoryId}/spider-from-channels?limit=15`);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['radar-candidates'] });
+            queryClient.invalidateQueries({ queryKey: ['channels-with-reels'] });
+            alert(data.message || '유튜브 추천망 스파이더링이 완료되었습니다!');
+        },
+        onError: (err: any) => {
+            alert(`추천망 발굴 실패: ${err?.response?.data?.detail || err.message}`);
+        }
+    });
+
     // ── 동적 카테고리 시드 태그 (DB 실데이터 단일 진실 공급원 - 채널 보관함과 100% 일치) ──
     const dynamicTags = useMemo(() => {
         const totalTargetChans = channels.length;
@@ -337,7 +353,12 @@ const TrendRadarPage: React.FC = () => {
         return [...rawCandidates].sort((a, b) => b.outlier_ratio - a.outlier_ratio)[0];
     }, [rawCandidates]);
 
-    const activeCatObj = categories[0] || null;
+    const activeCatObj = useMemo(() => {
+        if (selectedTag && selectedTag !== 'all' && selectedTag !== 'pending' && selectedTag !== 'gems') {
+            return (categories || []).find(cat => String(cat.id) === selectedTag || cat.name === selectedTag) || categories[0] || null;
+        }
+        return categories[0] || null;
+    }, [categories, selectedTag]);
 
     return (
         <div className="w-full min-h-screen bg-background text-foreground flex flex-col p-4 sm:p-6 space-y-4 pb-32">
@@ -506,6 +527,30 @@ const TrendRadarPage: React.FC = () => {
                                 className="w-full pl-8 pr-3 py-1 text-xs bg-muted/40 border border-border rounded-xl focus:outline-none focus:border-indigo-500"
                             />
                         </div>
+
+                        {/* 선택된 카테고리 추천망 스파이더링 버튼 */}
+                        {activeCatObj && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => spiderCategoryMutation.mutate(activeCatObj.id)}
+                                disabled={spiderCategoryMutation.isPending}
+                                className="h-7 text-[11px] font-black bg-purple-600/10 hover:bg-purple-600/20 border-purple-500/30 text-purple-600 dark:text-purple-300 shadow-xs rounded-xl cursor-pointer"
+                                title={`'${activeCatObj.name}' 카테고리의 대표 채널들을 기반으로 유튜브 추천망을 스파이더링합니다.`}
+                            >
+                                {spiderCategoryMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="w-3 h-3 mr-1 animate-spin text-purple-400" />
+                                        추천망 탐색 중...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Target className="w-3 h-3 mr-1 text-purple-400" />
+                                        🎯 @대표채널 추천망 발굴
+                                    </>
+                                )}
+                            </Button>
+                        )}
 
                         {/* 신설 채널 개설 모달 트리거 */}
                         <Button
