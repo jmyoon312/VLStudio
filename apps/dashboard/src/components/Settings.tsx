@@ -909,6 +909,17 @@ const Settings = () => {
             if (apiObj?.hotpatchGetStatus) {
                 const res = await apiObj.hotpatchGetStatus();
                 if (res) setHotpatchStatus(res);
+            } else {
+                // 웹 브라우저 환경: 백엔드 API에서 시스템 버전 및 패치 상태 조회
+                const res = await api.get('/system/patch/status');
+                if (res.data) {
+                    setHotpatchStatus({
+                        appVersion: res.data.version || '0.9.46',
+                        buildNumber: res.data.commit || '1046',
+                        isHotpatchActive: true,
+                        meta: res.data
+                    });
+                }
             }
         } catch (e) {
             console.warn('[HotPatch] Status fetch error:', e);
@@ -927,13 +938,23 @@ const Settings = () => {
             if (apiObj?.hotpatchCheckUpdate) {
                 const res = await apiObj.hotpatchCheckUpdate();
                 if (res.updated) {
-                    toast.success(res.message || `v${res.version} 핫패치가 적용되었습니다! 재실행 또는 새로고침하세요.`);
+                    toast.success(res.message || `v${res.version} 핫패치가 적용되었습니다! 새로고침하세요.`);
                     fetchHotpatchStatus();
                 } else {
                     toast.info(res.message || '현재 최신 버전입니다.');
                 }
             } else {
-                toast.info('브라우저 환경에서는 핫패치가 자동 서빙 모드로 동작합니다.');
+                // 웹 브라우저 환경: 백엔드 핫패치 API 호출
+                toast.info('원격 저장소에서 최신 패치를 확인 및 적용 중입니다...');
+                const res = await api.post('/system/patch/apply');
+                if (res.data?.success && res.data?.updated) {
+                    toast.success(res.data.message || '최신 패치가 적용되었습니다! 화면을 새로고침합니다.');
+                    fetchHotpatchStatus();
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    toast.info(res.data?.message || '이미 최신 패치 상태입니다.');
+                    fetchHotpatchStatus();
+                }
             }
         } catch (e: any) {
             toast.error(`핫패치 확인 실패: ${e.message}`);

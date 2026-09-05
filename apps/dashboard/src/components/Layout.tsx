@@ -473,7 +473,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             case 'AI_ORCHESTRATION': return 'AI 지휘 사령탑';
             case 'DISCOVERY': return '트렌드 분석';
             case 'CREATION': return '콘텐츠 제작';
-            case 'OPERATION_SYSTEM': return '운영 & 시스템';
+            case 'OPERATION_SYSTEM': return '운영 · 설정';
             default: return activeMode;
         }
     }, [activeMode]);
@@ -516,12 +516,12 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 </div>
 
                 <div className="px-3.5 pt-3 pb-2 shrink-0">
-                    <div className="bg-[#f0f3f8] dark:bg-zinc-900/90 dark:border dark:border-zinc-800/80 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 sidebar-mode-grid">
+                    <div className="bg-[#f0f3f8] dark:bg-zinc-900/90 dark:border dark:border-zinc-800/80 p-1.5 rounded-2xl grid grid-cols-2 gap-1 sidebar-mode-grid">
                         {[
                             { id: 'AI_ORCHESTRATION', name: 'AI 사령탑', sub: '지휘', icon: Cpu },
                             { id: 'DISCOVERY', name: '트렌드 분석', sub: '소싱', icon: Search },
                             { id: 'CREATION', name: '콘텐츠 제작', sub: '제작', icon: Palette },
-                            { id: 'OPERATION_SYSTEM', name: '운영 & 설정', sub: '채널/설정', icon: Settings2 },
+                            { id: 'OPERATION_SYSTEM', name: '운영 · 설정', sub: '관리', icon: Settings2 },
                         ].map((mode) => {
                             const Icon = mode.icon;
                             const isActive = activeMode === mode.id;
@@ -530,18 +530,18 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                                     key={mode.id}
                                     onClick={() => setActiveMode(mode.id)}
                                     className={cn(
-                                        "flex items-center gap-1.5 px-2.5 py-2 rounded-xl transition-all duration-200 shrink-0 text-left",
+                                        "flex items-center gap-1.5 px-2 py-2 rounded-xl transition-all duration-200 shrink-0 text-left",
                                         isActive
                                             ? "bg-white dark:bg-zinc-800 text-primary font-bold shadow-xs border border-border/30 dark:border-zinc-700/60"
                                             : "bg-transparent border border-transparent text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-zinc-800/50"
                                     )}
                                 >
                                     <Icon className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} strokeWidth={1.8} />
-                                    <div className="flex items-baseline gap-1 min-w-0 hide-on-slim truncate">
-                                        <span className={cn("text-[11.5px] tracking-tight truncate", isActive ? "font-bold text-foreground" : "font-medium")}>
+                                    <div className="flex items-baseline gap-1 min-w-0 hide-on-slim">
+                                        <span className={cn("text-[11px] tracking-tight whitespace-nowrap", isActive ? "font-bold text-foreground" : "font-medium")}>
                                             {mode.name}
                                         </span>
-                                        <span className="text-[9.5px] text-muted-foreground/60 font-normal shrink-0">
+                                        <span className="text-[9px] text-muted-foreground/60 font-normal shrink-0 whitespace-nowrap">
                                             {mode.sub}
                                         </span>
                                     </div>

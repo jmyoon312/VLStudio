@@ -32,7 +32,7 @@ class HotPatcher {
   /**
    * Returns current hotpatch status and bundle metadata.
    */
-  getStatus(appVersion = '0.9.46', buildNumber = 1046) {
+  getStatus(appVersion = '0.9.47', buildNumber = 1047) {
     const hotpatchDir = this.getHotpatchDir();
     const hotpatchIndex = path.join(hotpatchDir, 'index.html');
     const isHotpatchActive = fs.existsSync(hotpatchIndex);
@@ -47,8 +47,8 @@ class HotPatcher {
     }
 
     return {
-      appVersion: appVersion || (app ? app.getVersion() : '0.9.46'),
-      buildNumber: buildNumber || 1046,
+      appVersion: appVersion || (app ? app.getVersion() : '0.9.47'),
+      buildNumber: buildNumber || 1047,
       isHotpatchActive,
       hotpatchDir,
       meta,

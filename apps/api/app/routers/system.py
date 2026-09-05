@@ -1032,12 +1032,20 @@ def _check_github_updates():
 
 def _apply_github_updates():
     """
-    GitHub 저장소로부터 최신 Hermes Core, MCP Server, 파이프라인 엔진 코드를
-    자동으로 pull하여 로컬 환경에 무중단 적용합니다.
+    GitHub 저장소로부터 최신 코드(Git Pull) 또는 최신 OTA 핫패치 번들(zip)을 다운로드하여
+    로컬 환경(hotpatch_bundle)에 즉시 압축 해제 및 무중단 적용합니다.
     """
+    import urllib.request
+    import zipfile
+    import shutil
+    import json
+
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     git_dir = os.path.join(project_root, ".git")
 
+    # 1. Git pull 시도 (개발/소스 코드 환경인 경우)
+    git_updated = False
+    commit_hash = "latest"
     if os.path.exists(git_dir):
         try:
             pull_res = subprocess.run(
@@ -1052,26 +1060,61 @@ def _apply_github_updates():
                     creationflags=0x08000000 if platform.system() == "Windows" else 0
                 )
                 commit_hash = head_res.stdout.strip() if head_res.returncode == 0 else "latest"
-                return {
-                    "success": True,
-                    "updated": True,
-                    "commit": commit_hash,
-                    "message": f"GitHub로부터 최신 패치(커밋: {commit_hash})를 성공적으로 다운로드하여 적용했습니다.\nHermes Core, MCP 도구 및 백엔드 런타임이 최신화되었습니다."
-                }
-            else:
-                return {
-                    "success": False,
-                    "updated": False,
-                    "message": f"GitHub Pull 실패: {pull_res.stderr.strip() or pull_res.stdout.strip()}"
-                }
+                git_updated = True
         except Exception as e:
-            return {"success": False, "updated": False, "message": f"자동 업데이트 실패: {str(e)}"}
+            logger.warn(f"[HotPatch] Git pull failed: {e}")
 
-    return {
-        "success": True,
-        "updated": False,
-        "message": "패키징 배포 환경입니다. 데스크톱 OTA 핫패치 업데이터가 최신 번들을 동기화합니다."
-    }
+    # 2. GitHub Releases의 OTA 핫패치 번들(update-bundle.zip) 직접 다운로드 & hotpatch_bundle 추출
+    try:
+        app_data = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+        hotpatch_dir = os.path.join(app_data, "ViraLoop Studio", "hotpatch_bundle")
+        os.makedirs(hotpatch_dir, exist_ok=True)
+
+        version_url = "https://raw.githubusercontent.com/jmyoon312/VLStudio/main/release_assets/version.json"
+        req = urllib.request.Request(version_url, headers={"User-Agent": "ViraLoopStudio-BackendHotPatcher"})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            meta = json.loads(response.read().decode("utf-8"))
+
+        download_url = meta.get("downloadUrl") or "https://github.com/jmyoon312/VLStudio/releases/latest/download/update-bundle.zip"
+        temp_zip = os.path.join(os.environ.get("TEMP", "C:/Temp"), f"vlstudio_hotpatch_{int(time.time())}.zip")
+
+        logger.info(f"[HotPatch] Downloading {download_url} to {temp_zip}...")
+        dl_req = urllib.request.Request(download_url, headers={"User-Agent": "ViraLoopStudio-BackendHotPatcher"})
+        with urllib.request.urlopen(dl_req, timeout=60) as dl_resp, open(temp_zip, "wb") as out_file:
+            shutil.copyfileobj(dl_resp, out_file)
+
+        # 압축 해제
+        with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+            zip_ref.extractall(hotpatch_dir)
+
+        # 메타데이터 기록
+        meta_path = os.path.join(hotpatch_dir, "patch-meta.json")
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2, ensure_ascii=False)
+
+        if os.path.exists(temp_zip):
+            os.remove(temp_zip)
+
+        ver_str = meta.get("version", "최신")
+        build_str = meta.get("buildNumber", "")
+        return {
+            "success": True,
+            "updated": True,
+            "version": ver_str,
+            "buildNumber": build_str,
+            "commit": commit_hash,
+            "message": f"성공적으로 v{ver_str} (#{build_str}) 최신 핫패치를 다운로드하여 적용했습니다! 화면을 새로고침합니다."
+        }
+    except Exception as e:
+        logger.error(f"[HotPatch] Failed to download/extract OTA bundle: {e}")
+        if git_updated:
+            return {
+                "success": True,
+                "updated": True,
+                "commit": commit_hash,
+                "message": f"GitHub 소스코드(커밋: {commit_hash})가 동기화되었습니다."
+            }
+        return {"success": False, "updated": False, "message": f"핫패치 다운로드 실패: {str(e)}"}
 
 @router.post("/patch/check")
 async def check_patch_update():
