@@ -270,11 +270,13 @@ const TrendRadarPage: React.FC = () => {
     // ── 카테고리 시드 3대 계층 구조화 (Single Source of Truth) ──
     const { specialViews, activeCatTags, unassignedCatTags } = useMemo(() => {
         const totalTargetChans = channels.length;
-        const gemCount = (rawCandidates || []).filter(c => c && c.outlier_ratio >= 4.0).length;
+        const gemVideos = (rawCandidates || []).filter(c => c && c.outlier_ratio >= 4.0);
+        const gemCount = gemVideos.length;
+        const gemChannelsCount = new Set(gemVideos.map(v => v.channel_title)).size;
 
         const special = [
             { id: 'all', label: '전체 (All)', count: `${totalTargetChans}채널`, isSpecial: true, tooltip: '전체 등록 타겟 채널 및 추천 영상' },
-            { id: 'gems', label: '💎 고배수 옥석', count: `${gemCount}편`, isSpecial: true, tooltip: '4배 이상 터진 초고성과 영상 퀵 필터' },
+            { id: 'gems', label: '💎 고배수 옥석', count: `${gemCount}편`, isSpecial: true, tooltip: `4배 이상 터진 초고성과 영상 ${gemCount}편 (${gemChannelsCount}개 채널 보유)` },
             { id: 'pending', label: '📋 등록 대기 큐', count: `${pendingChannels.length}채널`, isSpecial: true, tooltip: 'AI 스카우터가 발굴한 미등록 후보 채널' },
         ];
 
@@ -306,13 +308,47 @@ const TrendRadarPage: React.FC = () => {
     const { targetChannels, candidateChannels } = useMemo(() => {
         let list = channelsWithReels || [];
         if (selectedTag === 'gems') {
-            // 고배수 옥석 선택 시: 4.0배 이상 릴만 남기고, 해당 릴이 1개 이상 있는 채널만 표출
-            list = list
-                .map(ch => ({
-                    ...ch,
-                    reels: (ch.reels || []).filter((r: any) => r.outlier_ratio >= 4.0)
-                }))
-                .filter(ch => ch.reels.length > 0);
+            // 고배수 옥석 선택 시: rawCandidates(72~73편)의 모든 옥석 영상들을 채널별로 완벽 그룹핑
+            const gems = (rawCandidates || []).filter(c => c && c.outlier_ratio >= 4.0);
+            const map = new Map<string, any>();
+            gems.forEach(g => {
+                const ch = g.channel_title || '미지정 채널';
+                if (!map.has(ch)) {
+                    map.set(ch, {
+                        channel_id: Math.abs(ch.split('').reduce((acc, c) => (acc << 5) - acc + c.charCodeAt(0), 0)) % 1000000,
+                        name: ch,
+                        handle: `@${ch.replace(/\s+/g, '').toLowerCase()}`,
+                        thumbnail_path: g.thumbnail_url,
+                        auto_download: false,
+                        grade: g.outlier_ratio >= 7.0 ? 'S' : 'A',
+                        metrics: {
+                            subscribers: (g.channel_subscribers && g.channel_subscribers !== '0') ? g.channel_subscribers : '스카우트 발굴',
+                            daily_views: `+${(g.view_count || 100000).toLocaleString()}`,
+                            daily_revenue: '분석 중',
+                            total_views: `${(g.view_count || 100000).toLocaleString()}회`,
+                            video_count: 0,
+                            trend_status: `${g.outlier_ratio}x 옥석 보유 🔥`
+                        },
+                        reels: []
+                    });
+                }
+                const chObj = map.get(ch);
+                chObj.metrics.video_count += 1;
+                chObj.reels.push({
+                    id: g.id,
+                    video_id: g.video_id,
+                    title: g.title,
+                    thumbnail_url: g.thumbnail_url,
+                    view_count: g.view_count,
+                    duration: 60,
+                    duration_text: g.duration_text || (aspectFormat === 'long' ? '11:20' : '0:45'),
+                    outlier_ratio: g.outlier_ratio,
+                    published_at: g.published_at,
+                    created_at: g.created_at,
+                    hook_analysis: g.hook_analysis || '초반 2.5초 핵심 패턴 인터럽트'
+                });
+            });
+            list = Array.from(map.values());
         } else if (selectedTag && selectedTag !== 'all' && selectedTag !== 'pending') {
             const targetCat = (categories || []).find(cat => String(cat.id) === selectedTag || cat.name === selectedTag);
             if (targetCat) {
@@ -606,7 +642,10 @@ const TrendRadarPage: React.FC = () => {
                                     key={tag.id}
                                     onClick={() => {
                                         setSelectedTag(tag.id);
-                                        if (tag.id === 'pending') {
+                                        if (tag.id === 'gems') {
+                                            setPipelineStep('reels');
+                                            setViewMode('grid');
+                                        } else if (tag.id === 'pending') {
                                             setPipelineStep('reels');
                                             setViewMode('reel');
                                         }
@@ -912,6 +951,42 @@ const TrendRadarPage: React.FC = () => {
             ) : viewMode === 'reel' ? (
                 /* ── [STEP 2] 2-Tier 수평 채널 릴 스트립 뷰 (🟢 기등록 타겟 채널 vs ✨ 신규 발굴 옥석) ── */
                 <div className="space-y-6 animate-in fade-in duration-200">
+                    {/* [SECTION GEMS BANNER IN REEL VIEW] */}
+                    {selectedTag === 'gems' && (
+                        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-black text-lg">
+                                    💎
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                                        <span>고배수 옥석 채널별 묶어보기</span>
+                                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500 text-black">
+                                            {candidateChannels.length}개 채널 보유
+                                        </span>
+                                    </h3>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                        4배수 이상 옥석 영상을 보유한 채널들을 모아 릴 스트립으로 확인합니다.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center bg-card p-1 rounded-xl border border-border/80 text-xs font-bold">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", viewMode === 'grid' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                >
+                                    🎬 옥석 영상 그리드로 보기 ({filteredCandidates.length}편)
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('reel')}
+                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", viewMode === 'reel' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                >
+                                    📺 채널별 묶어보기 ({candidateChannels.length}채널)
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* [SECTION PENDING] 📋 등록 예정 인큐베이션 대기 채널 (selectedTag === 'pending') */}
                     {selectedTag === 'pending' ? (
                         <div className="space-y-4 animate-in fade-in duration-200">
@@ -939,7 +1014,7 @@ const TrendRadarPage: React.FC = () => {
                                     {pendingChannels.map((ch: any) => (
                                         <div 
                                             key={ch.channel_id}
-                                            className="p-4 sm:p-5 rounded-3xl bg-card border border-indigo-500/30 shadow-xs flex flex-col lg:flex-row items-stretch gap-4 hover:border-indigo-500/60 transition-all"
+                                            className="p-4 sm:p-5 rounded-3xl bg-card border border-indigo-500/30 shadow-xs flex flex-col lg:flex-row items-start gap-4 hover:border-indigo-500/60 transition-all"
                                         >
                                             {/* 좌측: 채널 정보 & AI 카테고리 추천 액션 */}
                                             <div className="w-full lg:w-96 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/20 border border-indigo-500/20 space-y-3">
@@ -1097,7 +1172,7 @@ const TrendRadarPage: React.FC = () => {
                                             </div>
 
                                             {/* 우측: 6개 영상 릴 스트립 (화면 가득 채우는 수평 릴 스트립) */}
-                                            <div className="flex-1 min-w-0 flex items-stretch gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin">
+                                            <div className="flex-1 min-w-0 flex items-start gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin">
                                                 {((ch.reels || []).slice(0, aspectFormat === 'long' ? 4 : 6)).map((reel: any, rIdx: number) => (
                                                     <div 
                                                         key={rIdx}
@@ -1128,7 +1203,7 @@ const TrendRadarPage: React.FC = () => {
                                                             setIsDetailModalOpen(true);
                                                         }}
                                                         className={cn(
-                                                            "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-indigo-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 shrink-0",
+                                                            "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-indigo-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 shrink-0 self-start",
                                                             aspectFormat === 'long' ? "w-64 sm:w-72 aspect-video" : "w-36 sm:w-40 md:w-44 aspect-[9/16]"
                                                         )}
                                                     >
@@ -1206,7 +1281,7 @@ const TrendRadarPage: React.FC = () => {
                                 {targetChannels.map(ch => (
                                     <div 
                                         key={ch.channel_id}
-                                        className="p-4 rounded-3xl bg-card border border-emerald-500/30 shadow-xs flex flex-col lg:flex-row items-stretch gap-4 hover:border-emerald-500/60 transition-all"
+                                        className="p-4 rounded-3xl bg-card border border-emerald-500/30 shadow-xs flex flex-col lg:flex-row items-start gap-4 hover:border-emerald-500/60 transition-all"
                                     >
                                         {/* 좌측: 채널 카드 */}
                                         <div className="w-full lg:w-80 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-500/20 space-y-3">
@@ -1329,7 +1404,7 @@ const TrendRadarPage: React.FC = () => {
 
                                         {/* 우측: 6개 영상 릴 스트립 */}
                                         <div className={cn(
-                                            "flex-1 grid gap-2.5 overflow-x-auto",
+                                            "flex-1 grid gap-2.5 items-start overflow-x-auto",
                                             aspectFormat === 'long' 
                                                 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" 
                                                 : "grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
@@ -1369,8 +1444,8 @@ const TrendRadarPage: React.FC = () => {
                                                         setIsDetailModalOpen(true);
                                                     }}
                                                     className={cn(
-                                                        "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-emerald-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5",
-                                                        aspectFormat === 'long' ? "aspect-video" : "aspect-[9/16]"
+                                                        "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-emerald-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 self-start",
+                                                        aspectFormat === 'long' ? "aspect-video w-full" : "aspect-[9/16] w-full"
                                                     )}
                                                 >
                                                     <img 
@@ -1446,7 +1521,7 @@ const TrendRadarPage: React.FC = () => {
                                 {candidateChannels.map(ch => (
                                     <div 
                                         key={ch.channel_id}
-                                        className="p-4 rounded-3xl bg-card border border-border/80 shadow-xs flex flex-col lg:flex-row items-stretch gap-4 hover:border-amber-500/50 transition-all"
+                                        className="p-4 rounded-3xl bg-card border border-border/80 shadow-xs flex flex-col lg:flex-row items-start gap-4 hover:border-amber-500/50 transition-all"
                                     >
                                         {/* 좌측: 채널 카드 */}
                                         <div className="w-full lg:w-80 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-muted/30 border border-border/80 space-y-3">
@@ -1583,7 +1658,7 @@ const TrendRadarPage: React.FC = () => {
 
                                         {/* 우측: 6개 영상 릴 스트립 */}
                                         <div className={cn(
-                                            "flex-1 grid gap-2.5 overflow-x-auto",
+                                            "flex-1 grid gap-2.5 items-start overflow-x-auto",
                                             aspectFormat === 'long' 
                                                 ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" 
                                                 : "grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
@@ -1623,8 +1698,8 @@ const TrendRadarPage: React.FC = () => {
                                                         setIsDetailModalOpen(true);
                                                     }}
                                                     className={cn(
-                                                        "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-amber-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5",
-                                                        aspectFormat === 'long' ? "aspect-video" : "aspect-[9/16]"
+                                                        "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-amber-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 self-start",
+                                                        aspectFormat === 'long' ? "aspect-video w-full" : "aspect-[9/16] w-full"
                                                     )}
                                                 >
                                                     <img 
@@ -1678,7 +1753,42 @@ const TrendRadarPage: React.FC = () => {
                 </div>
             ) : viewMode === 'grid' ? (
                 /* ── [STEP 1] 6열 고밀도 영상 그리드 ── */
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                <div className="space-y-4 animate-in fade-in duration-200">
+                    {selectedTag === 'gems' && (
+                        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-black text-lg">
+                                    💎
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                                        <span>4배수 이상 고배수 옥석 영상 풀</span>
+                                        <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500 text-black">
+                                            총 {filteredCandidates.length}편 발굴
+                                        </span>
+                                    </h3>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                        평균 대비 4.0배 이상의 폭발적 조회수를 기록한 바이럴 옥석 영상들입니다. 각 카드를 클릭해 훅 및 4대 해체 리포트를 확인하세요.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center bg-card p-1 rounded-xl border border-border/80 text-xs font-bold">
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", viewMode === 'grid' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                >
+                                    🎬 옥석 영상 그리드 ({filteredCandidates.length}편)
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('reel')}
+                                    className={cn("px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer", viewMode === 'reel' ? "bg-amber-500 text-black shadow-xs" : "text-muted-foreground hover:text-foreground")}
+                                >
+                                    📺 채널별 묶어보기
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                     {filteredCandidates.map(candidate => (
                         <div
                             key={candidate.id}
@@ -1701,47 +1811,49 @@ const TrendRadarPage: React.FC = () => {
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
 
+                            {/* 상단 뱃지 */}
                             <div className="relative z-10 flex items-center justify-between">
                                 <span className={cn(
-                                    "px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase text-white",
-                                    candidate.video_type === 'shorts' ? "bg-rose-600" : "bg-blue-600"
+                                    "px-1.5 py-0.5 rounded text-[10px] font-mono font-black",
+                                    candidate.outlier_ratio >= 7 ? "bg-red-600 text-white" : "bg-amber-500 text-black"
                                 )}>
-                                    {candidate.video_type === 'shorts' ? 'SHORTS' : 'LONG'}
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-black bg-black/80 text-amber-400 border border-amber-500/30">
                                     {candidate.outlier_ratio}x 🔥
+                                </span>
+                                <span className="text-[10px] font-mono font-bold text-white/90 bg-black/60 px-1.5 py-0.5 rounded">
+                                    {candidate.velocity_score}v
                                 </span>
                             </div>
 
+                            {/* 하단 텍스트 및 메트릭 (등록일/수집일 듀얼 렌더) */}
                             <div className="relative z-10 space-y-1">
-                                <p className="text-[10px] text-white/80 font-bold truncate">{candidate.channel_title}</p>
                                 <h4 className="text-xs font-bold text-white line-clamp-2 leading-tight">
                                     {candidate.title}
                                 </h4>
-                                <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-1 border-t border-white/10">
+                                <p className="text-[10px] text-white/70 truncate">{candidate.channel_title}</p>
+                                <div className="flex items-center justify-between text-[10px] font-mono text-white/60 pt-1 border-t border-white/10">
                                     <span>{candidate.view_count.toLocaleString()}회</span>
-                                    <span>{candidate.duration_text || (aspectFormat === 'long' ? '11:20' : '0:45')}</span>
+                                    <span>{(candidate.engagement_rate * 100).toFixed(1)}%</span>
                                 </div>
-                                <div className="flex items-center justify-between text-[9px] font-mono pt-1 border-t border-white/10">
+                                <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
                                     <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${candidate.published_at || '최근'}`}>
-                                        📅 등록 {formatRelativeOrDate(candidate.published_at)}
+                                        📅 {formatRelativeOrDate(candidate.published_at)}
                                     </span>
                                     <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${candidate.created_at || '최근'}`}>
-                                        📥 수집 {formatShortDate(candidate.created_at)}
+                                        📥 {formatShortDate(candidate.created_at)}
                                     </span>
                                 </div>
                             </div>
 
-                            {/* 롱폼 전용 AI 유사 롱폼 10편 집중 스파이더링 버튼 */}
-                            {candidate.video_type === 'long' && (
+                            {/* 롱폼 전용: 유사 롱폼 10편 AI 자동 확장 버튼 */}
+                            {aspectFormat === 'long' && (
                                 <button
-                                    type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        deepSpiderMutation.mutate(candidate.video_id);
+                                        setDeepSpideringVideoId(candidate.video_id);
+                                        spiderDeepMutation.mutate(candidate.video_id);
                                     }}
                                     disabled={deepSpideringVideoId === candidate.video_id}
-                                    className="relative z-20 mt-1.5 w-full py-1 px-2 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-white text-[10px] font-black flex items-center justify-center gap-1 shadow-sm transition-all cursor-pointer"
+                                    className="relative z-10 mt-1.5 w-full py-1 bg-blue-600/90 hover:bg-blue-600 text-white rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs cursor-pointer transition-all"
                                     title="이 롱폼 영상의 핵심 주제를 역추적하여 유사 롱폼 10편과 니치 채널을 집중 발굴합니다"
                                 >
                                     {deepSpideringVideoId === candidate.video_id ? (
@@ -1754,6 +1866,7 @@ const TrendRadarPage: React.FC = () => {
                             )}
                         </div>
                     ))}
+                    </div>
                 </div>
             ) : (
                 /* ── [STEP 1 테이블 모드] ── */

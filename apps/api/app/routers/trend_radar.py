@@ -15,6 +15,7 @@ from app.services.trend_radar import TrendRadarService
 from app.services.scout_stream_engine import scout_telemetry, scout_worker, is_blacklisted_content, auto_spider_longform_cluster
 from fastapi.responses import StreamingResponse
 import json
+import re
 
 router = APIRouter(prefix="/trend-radar", tags=["trend-radar"])
 
@@ -76,6 +77,17 @@ async def get_candidates(
     """
     List trend radar candidates with Target Channel Deduplication and Advanced Constraint Matrix.
     """
+    if hasattr(exclude_langs, 'default'):
+        exclude_langs = exclude_langs.default
+    if hasattr(include_langs, 'default'):
+        include_langs = include_langs.default
+    if hasattr(upload_date_range, 'default'):
+        upload_date_range = upload_date_range.default
+    if hasattr(collected_date_range, 'default'):
+        collected_date_range = collected_date_range.default
+    if hasattr(date_range, 'default'):
+        date_range = date_range.default
+
     total_count = db.query(models.RadarCandidate).count()
     if total_count == 0:
         try:
@@ -90,16 +102,16 @@ async def get_candidates(
     target_urls = {c.url for c in target_channels if c.url}
 
     query = db.query(models.RadarCandidate)
-    if status:
+    if status and not hasattr(status, 'default'):
         query = query.filter(models.RadarCandidate.status == status)
     if category_id:
         query = query.filter(models.RadarCandidate.category_id == category_id)
-    if video_type:
+    if video_type and not hasattr(video_type, 'default'):
         query = query.filter(models.RadarCandidate.video_type == video_type)
-    if min_outlier:
-        query = query.filter(models.RadarCandidate.outlier_ratio >= min_outlier)
-    if min_views:
-        query = query.filter(models.RadarCandidate.view_count >= min_views)
+    if min_outlier and not hasattr(min_outlier, 'default'):
+        query = query.filter(models.RadarCandidate.outlier_ratio >= float(min_outlier))
+    if min_views and not hasattr(min_views, 'default'):
+        query = query.filter(models.RadarCandidate.view_count >= int(min_views))
     now = datetime.now()
     # 1. Video Upload / Publication Date Filter (Published At - Core Viral Freshness)
     eff_upload = upload_date_range or date_range
@@ -330,6 +342,13 @@ def get_channel_metadata(channel_name: str, avg_views: int) -> Dict[str, Any]:
     CHANNEL_META_CACHE[key] = meta
     return meta
 
+def is_valid_yt_video_id(v_id: str) -> bool:
+    if not v_id or not isinstance(v_id, str):
+        return False
+    if len(v_id) != 11 or v_id.startswith("UC"):
+        return False
+    return bool(re.match(r'^[a-zA-Z0-9_-]{11}$', v_id))
+
 def fetch_channel_recent_reels(
     channel_name: str, 
     video_type: str = "shorts", 
@@ -370,7 +389,7 @@ def fetch_channel_recent_reels(
                 entries = res.get('entries', []) or []
                 for e in entries:
                     v_id = e.get('id') or ''
-                    if not v_id:
+                    if not is_valid_yt_video_id(v_id):
                         continue
                     dur = e.get('duration')
                     if dur is not None:
@@ -429,7 +448,7 @@ def fetch_channel_recent_reels(
                 entries = res.get('entries', []) or []
                 for e in entries:
                     v_id = e.get('id') or ''
-                    if not v_id:
+                    if not is_valid_yt_video_id(v_id):
                         continue
                     uploader = (e.get('uploader') or e.get('channel') or '').lower().replace(' ', '')
                     c_clean = channel_name.lower().replace(' ', '')
@@ -524,6 +543,8 @@ def get_channels_with_reels(
 
         video_items = []
         for c in db_cands:
+            if not is_valid_yt_video_id(c.video_id):
+                continue
             # Duration sanity check
             dur = 680 if video_type == "long" else 60
             if video_type == "shorts" and dur > 180:
@@ -542,24 +563,28 @@ def get_channels_with_reels(
                 "hook_analysis": c.hook_analysis or "초반 2.5초 핵심 패턴 인터럽트"
             })
 
-        # Fill with live reels if fewer than max_reels
-        if len(video_items) < max_reels:
-            live_reels = fetch_channel_recent_reels(
-                ch.name, 
-                video_type=video_type, 
-                limit=max_reels, 
-                channel_url=ch.url, 
-                platform_id=ch.platform_id
-            )
-            existing_vids = {v["video_id"] for v in video_items}
-            for lr in live_reels:
-                if lr["video_id"] not in existing_vids:
-                    video_items.append(lr)
-                    existing_vids.add(lr["video_id"])
-                    if len(video_items) >= max_reels:
-                        break
+        # Fallback to recorded videos if no candidates
+        if not video_items:
+            db_vids = db.query(models.Video).filter(models.Video.channel_id == ch.id).limit(max_reels).all()
+            for v in db_vids:
+                if not is_valid_yt_video_id(v.video_id):
+                    continue
+                dur = v.duration or (680 if video_type == "long" else 60)
+                video_items.append({
+                    "id": v.id,
+                    "video_id": v.video_id,
+                    "title": v.title,
+                    "thumbnail_url": v.thumbnail_path or f"https://i.ytimg.com/vi/{v.video_id}/hqdefault.jpg",
+                    "view_count": v.view_count or 50000,
+                    "duration": dur,
+                    "duration_text": "0:45" if dur < 60 else f"{dur//60}:{dur%60:02d}",
+                    "outlier_ratio": 2.0,
+                    "published_at": v.upload_date.isoformat() if getattr(v, 'upload_date', None) else None,
+                    "created_at": v.downloaded_at.isoformat() if getattr(v, 'downloaded_at', None) else None,
+                    "hook_analysis": "채널 대표 영상"
+                })
 
-        # If a channel has 0 reels for the requested format (e.g. shorts-only channel in longform view), skip it!
+        # If a channel has 0 reels for the requested format, skip it!
         if not video_items:
             continue
 
@@ -625,7 +650,11 @@ def get_channels_with_reels(
         ).limit(max_reels).all()
 
         video_items = []
+        seen_sc_ids = set()
         for sc in same_cands:
+            if not is_valid_yt_video_id(sc.video_id) or sc.video_id in seen_sc_ids:
+                continue
+            seen_sc_ids.add(sc.video_id)
             dur = 680 if video_type == "long" else 60
             video_items.append({
                 "id": sc.id,
@@ -640,16 +669,6 @@ def get_channels_with_reels(
                 "created_at": sc.created_at.isoformat() if sc.created_at else None,
                 "hook_analysis": sc.hook_analysis or "초반 2초 패턴 인터럽트"
             })
-
-        if len(video_items) < max_reels:
-            live_reels = fetch_channel_recent_reels(c.channel_title, video_type=video_type, limit=max_reels)
-            existing_vids = {v["video_id"] for v in video_items}
-            for lr in live_reels:
-                if lr["video_id"] not in existing_vids:
-                    video_items.append(lr)
-                    existing_vids.add(lr["video_id"])
-                    if len(video_items) >= max_reels:
-                        break
 
         if not video_items:
             continue
@@ -803,33 +822,25 @@ def get_pending_channels_for_incubation(
         video_items = []
         seen_vids = set()
         for sc in cands:
-            if sc.video_id not in seen_vids:
-                video_items.append({
-                    "id": sc.id,
-                    "video_id": sc.video_id,
-                    "title": sc.title,
-                    "thumbnail_url": sc.thumbnail_url or f"https://i.ytimg.com/vi/{sc.video_id}/hqdefault.jpg",
-                    "view_count": sc.view_count,
-                    "duration": 60,
-                    "duration_text": sc.duration_text or "0:45",
-                    "outlier_ratio": sc.outlier_ratio,
-                    "published_at": sc.published_at.isoformat() if sc.published_at else None,
-                    "created_at": sc.created_at.isoformat() if sc.created_at else None,
-                    "hook_analysis": sc.hook_analysis or "초반 2.5초 핵심 패턴 인터럽트"
-                })
-                seen_vids.add(sc.video_id)
+            if not is_valid_yt_video_id(sc.video_id) or sc.video_id in seen_vids:
+                continue
+            dur = 680 if video_type == "long" else 60
+            video_items.append({
+                "id": sc.id,
+                "video_id": sc.video_id,
+                "title": sc.title,
+                "thumbnail_url": sc.thumbnail_url or f"https://i.ytimg.com/vi/{sc.video_id}/hqdefault.jpg",
+                "view_count": sc.view_count,
+                "duration": dur,
+                "duration_text": sc.duration_text or ("0:45" if video_type == "shorts" else "11:20"),
+                "outlier_ratio": sc.outlier_ratio,
+                "published_at": sc.published_at.isoformat() if sc.published_at else None,
+                "created_at": sc.created_at.isoformat() if sc.created_at else None,
+                "hook_analysis": sc.hook_analysis or "초반 2.5초 핵심 패턴 인터럽트"
+            })
+            seen_vids.add(sc.video_id)
             if len(video_items) >= max_reels:
                 break
-
-        # Top up with YouTube reels if channel has fewer than max_reels in DB
-        if len(video_items) < max_reels:
-            more_reels = fetch_channel_recent_reels(ch_name, video_type=video_type, limit=max_reels)
-            for mr in more_reels:
-                if mr["video_id"] not in seen_vids:
-                    video_items.append(mr)
-                    seen_vids.add(mr["video_id"])
-                if len(video_items) >= max_reels:
-                    break
 
         views_list = [v["view_count"] for v in video_items]
         avg_views = int(sum(views_list) / max(1, len(views_list))) if views_list else lead_c.view_count
