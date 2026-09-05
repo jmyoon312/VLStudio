@@ -1001,7 +1001,7 @@ registerMcpIPC(ipcMain)
 registerLayoutIPC(ipcMain, () => mainWindow, () => getCurrentFlowView())
 
 // ─── OmniRoute & OTA Hot-Patch IPC ──────────────────────────────────────────
-registerOmniRouteIPC(ipcMain, mainWindow)
+registerOmniRouteIPC(ipcMain, () => mainWindow)
 registerHotpatchIPC(ipcMain, () => mainWindow, BUILD_NUMBER)
 
 // ─── Mode Controller IPC (mode:set, flow:set-startup-project) ───────────────
@@ -2318,9 +2318,6 @@ registerDomIPC(ipcMain, domDeps)
 
 // === YouTube Brand Channel Switcher IPC ===
 registerYoutubeIPC(ipcMain, () => mainWindow)
-
-// === OmniRoute AI Gateway Lifecycle & Update IPC ===
-registerOmniRouteIPC(ipcMain, () => mainWindow)
 
 // === Custom Protocol: local-resource:// ===
 // 로컬 파일을 렌더러에서 안전하게 로드하기 위한 커스텀 프로토콜

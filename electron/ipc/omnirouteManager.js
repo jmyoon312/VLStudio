@@ -209,7 +209,22 @@ export function runNpmInstall(onLog) {
 /**
  * Register OmniRoute IPC handlers
  */
-export function registerOmniRouteIPC(ipcMain, mainWindow) {
+export function registerOmniRouteIPC(ipcMain, getMainWindow) {
+  const handlers = [
+    'omniroute:get-status',
+    'omniroute:check-update',
+    'omniroute:start',
+    'omniroute:stop',
+    'omniroute:restart',
+    'omniroute:install',
+    'omniroute:open-dashboard'
+  ]
+  for (const h of handlers) {
+    try {
+      ipcMain.removeHandler(h)
+    } catch {}
+  }
+
   // 1. Get full status
   ipcMain.handle('omniroute:get-status', async () => {
     const alive = await isOmniRouteListening()
