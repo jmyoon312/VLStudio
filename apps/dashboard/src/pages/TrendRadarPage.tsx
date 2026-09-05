@@ -23,8 +23,8 @@ import { LiveDiscoveryFlash } from '../components/trend/LiveDiscoveryFlash';
 import { ViralScouterQuantHUD } from '../components/trend/ViralScouterQuantHUD';
 import { ScoutingFilterPopover, ScoutFilterConfig } from '../components/trend/ScoutingFilterPopover';
 
-// 픽셀링(PixelLab) 전문가 엄선 인기 카테고리 20대 시드 (Seed Categories)
-const PIXELING_SEED_TAGS = [
+// 엄선 인기 카테고리 20대 시드 (Seed Categories)
+const CURATED_SEED_TAGS = [
     { id: 'all', label: '모두보기', count: 323, isSpecial: true },
     { id: 'latest', label: '최신등록', count: 59, isSpecial: true },
     { id: 'gems', label: '💎 숨은옥석', count: 24, isSpecial: true },
@@ -110,7 +110,7 @@ const TrendRadarPage: React.FC = () => {
         queryFn: async () => (await api.get<Category[]>('/categories/')).data || []
     });
 
-    // 2. 바이럴 후보군 (Step 1용 - 정밀 매트릭스 필터 및 타겟 채널 중복 배제 연동)
+    // 2. 바이럴 후보군 (Step 1용 - 실시간 자동 갱신 및 정밀 매트릭스 필터)
     const { data: rawCandidates = [], isLoading: isLoadingCandidates } = useQuery({
         queryKey: ['radar-candidates', aspectFormat, filterConfig],
         queryFn: async () => {
@@ -124,13 +124,15 @@ const TrendRadarPage: React.FC = () => {
             };
             const res = await api.get<RadarCandidate[]>('/trend-radar/candidates', { params });
             return res.data || [];
-        }
+        },
+        refetchInterval: 3500 // 실시간 백그라운드 수집 결과 자동 반영
     });
 
-    // 3. 채널 릴 데이터 (Step 2용 - 타겟 채널 중복 배제된 순수 옥석 후보 채널 풀)
+    // 3. 채널 릴 데이터 (Step 2용 - 실시간 자동 갱신 채널 풀)
     const { data: channelsWithReels = [], isLoading: isLoadingReels } = useQuery({
         queryKey: ['channels-with-reels', aspectFormat],
-        queryFn: () => getChannelsWithReels(undefined, aspectFormat)
+        queryFn: () => getChannelsWithReels(undefined, aspectFormat),
+        refetchInterval: 5000 // 채널 릴 실시간 동기화
     });
 
     // 4. 통계 데이터
@@ -269,7 +271,7 @@ const TrendRadarPage: React.FC = () => {
                         </h1>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        초고속 알고리즘 스캔 ─▶ 픽셀링 릴 해체 ─▶ 롱폼 자율 스파이더링 ─▶ 정기수집 승인 ─▶ 신설 론치패드
+                        초고속 알고리즘 스캔 ─▶ 벤치마크 릴 해체 ─▶ 롱폼 자율 스파이더링 ─▶ 정기수집 승인 ─▶ 신설 론치패드
                     </p>
                 </div>
 
@@ -324,7 +326,7 @@ const TrendRadarPage: React.FC = () => {
                     </span>
                 </button>
 
-                {/* Step 2: 벤치마크 채널 릴 (픽셀링 모드) */}
+                {/* Step 2: 벤치마크 채널 릴 (엄선 모드) */}
                 <button
                     onClick={() => { setPipelineStep('reels'); setViewMode('reel'); }}
                     className={cn(
@@ -358,7 +360,7 @@ const TrendRadarPage: React.FC = () => {
                 >
                     <div>
                         <span className="text-[10px] font-mono font-bold block opacity-80">STEP 3</span>
-                        <h4 className="text-xs font-black">📂 픽셀링 시드 카테고리</h4>
+                        <h4 className="text-xs font-black">📂 엄선 20대 카테고리</h4>
                     </div>
                     <span className={cn(
                         "text-[10.5px] font-mono px-2 py-0.5 rounded-full font-bold",
@@ -389,12 +391,12 @@ const TrendRadarPage: React.FC = () => {
                 </button>
             </div>
 
-            {/* 3. 픽셀링 전문가 엄선 마이크로 카테고리 시드 태그 바 */}
+            {/* 3. 엄선 전문가 엄선 마이크로 카테고리 시드 태그 바 */}
             <div className="bg-card/40 border border-border/80 p-3 sm:p-4 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs font-black text-muted-foreground">
                         <Folder className="w-3.5 h-3.5 text-blue-500" />
-                        <span>픽셀링 엄선 20대 카테고리 시드 (Seed Categories)</span>
+                        <span>엄선 20대 카테고리 시드 (Seed Categories)</span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -434,12 +436,17 @@ const TrendRadarPage: React.FC = () => {
                     "flex flex-wrap items-center gap-1.5 transition-all overflow-hidden",
                     !isTagBarExpanded && "max-h-[38px]"
                 )}>
-                    {PIXELING_SEED_TAGS.map(tag => {
+                    {CURATED_SEED_TAGS.map(tag => {
                         const isSelected = selectedTag === tag.id;
                         return (
                             <button
                                 key={tag.id}
-                                onClick={() => setSelectedTag(tag.id)}
+                                onClick={() => {
+                                    setSelectedTag(tag.id);
+                                    if (tag.id !== 'all' && tag.id !== 'recent' && tag.id !== 'hidden') {
+                                        api.post('/trend-radar/worker/focus', { category_name: tag.label }).catch(() => {});
+                                    }
+                                }}
                                 className={cn(
                                     "px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
                                     isSelected 
@@ -502,7 +509,7 @@ const TrendRadarPage: React.FC = () => {
                             onClick={() => { setViewMode('reel'); setPipelineStep('reels'); }}
                             className={cn("px-2.5 py-1 rounded-lg cursor-pointer", viewMode === 'reel' && "bg-card text-foreground shadow-xs")}
                         >
-                            채널 릴 (픽셀링)
+                            채널 릴
                         </button>
                         <button
                             onClick={() => { setViewMode('grid'); setPipelineStep('signals'); }}
@@ -546,13 +553,13 @@ const TrendRadarPage: React.FC = () => {
                     </p>
                 </div>
             ) : pipelineStep === 'incubator' ? (
-                /* ── [STEP 3 전용 메인 뷰] 📂 픽셀링 20대 카테고리 인큐베이터 & DNA 설정 ── */
+                /* ── [STEP 3 전용 메인 뷰] 📂 엄선 20대 카테고리 인큐베이터 & DNA 설정 ── */
                 <div className="space-y-4 animate-in fade-in duration-200">
                     <div className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border">
                         <div>
                             <h3 className="text-sm font-black text-foreground flex items-center gap-2">
                                 <Folder className="w-4 h-4 text-blue-500" />
-                                픽셀링 시드 카테고리 클러스터 ({categories.length}개 분야)
+                                엄선 20대 카테고리 클러스터 ({categories.length}개 분야)
                             </h3>
                             <p className="text-xs text-muted-foreground mt-0.5">
                                 엄선된 카테고리 DNA 헌장 및 신설 채널 론치패드를 실시간 관리합니다.
@@ -633,7 +640,7 @@ const TrendRadarPage: React.FC = () => {
                     </div>
                 </div>
             ) : viewMode === 'reel' ? (
-                /* ── [STEP 2] 픽셀링식 수평 채널 릴 스트립 뷰 (타겟 채널 중복 배제 + 채널 성장 분석 모달 연동) ── */
+                /* ── [STEP 2] 엄선식 수평 채널 릴 스트립 뷰 (타겟 채널 중복 배제 + 채널 성장 분석 모달 연동) ── */
                 <div className="space-y-4 animate-in fade-in duration-200">
                     {channelsWithReels.length === 0 ? (
                         <div className="py-20 text-center text-xs text-muted-foreground">
@@ -723,7 +730,7 @@ const TrendRadarPage: React.FC = () => {
 
                                     {/* 채널 핵심 액션 버튼 바 */}
                                     <div className="space-y-1.5">
-                                        {/* 1. 픽셀링식 성장 분석 모달 버튼 */}
+                                        {/* 1. 채널 성장 분석 모달 버튼 */}
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -1024,7 +1031,7 @@ const TrendRadarPage: React.FC = () => {
                 }}
             />
 
-            {/* 픽셀링식 채널 성장 분석 모달 (듀얼 차트 + AI 4대 해체 분석) */}
+            {/* 엄선식 채널 성장 분석 모달 (듀얼 차트 + AI 4대 해체 분석) */}
             <ChannelAnatomyModal
                 channelId={selectedChannelForAnatomy?.id || null}
                 channelName={selectedChannelForAnatomy?.name}

@@ -146,6 +146,10 @@ async def lifespan(app: FastAPI):
     from app.services.dependency_installer import dependency_installer
     dependency_installer.start_background_install()
     
+    # [NEW] Start genuine autonomous scout background worker
+    from app.services.scout_stream_engine import scout_worker
+    scout_worker.start()
+    
     # [DEPRECATED] Autonomous search / swarm feature disabled due to low quality
     # from app.global_swarm_master import global_master
     # asyncio.create_task(global_master.start_monitoring_loop())
@@ -216,6 +220,7 @@ async def lifespan(app: FastAPI):
         print(f"[Startup Recovery/Healing Failed]: {e}")
 
     yield
+    scout_worker.stop()
     scheduler.stop_scheduler()
 
 app = FastAPI(
