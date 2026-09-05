@@ -82,22 +82,22 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
 
     return (
         <div className={cn(
-            "p-3 sm:p-4 rounded-3xl bg-card border shadow-xs flex flex-col lg:flex-row items-start gap-3.5 transition-all",
+            "p-3.5 sm:p-4 rounded-3xl bg-card border shadow-xs flex flex-col lg:flex-row items-stretch gap-3.5 transition-all",
             borderClass
         )}>
-            {/* 좌측: 채널 정보 & AI 카테고리/상태 (높이 210px 콤팩트 3단 정렬) */}
+            {/* 좌측: 채널 정보 & AI 카테고리/상태 (우측 영상 릴 높이에 맞춰 1:1 완벽 정렬) */}
             <div className={cn(
-                "w-full lg:w-96 shrink-0 flex flex-col justify-between p-3 rounded-2xl border gap-2 h-[210px]",
+                "w-full lg:w-96 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl border gap-2.5 h-full min-h-[270px]",
                 cardBgClass
             )}>
                 {/* 1단: 아바타 + 이름 + 핸들 + 등급/상태 뱃지 */}
                 <div className="flex items-center justify-between gap-2">
                     <div 
                         onClick={() => onOpenAnatomy(ch)}
-                        className="flex items-center gap-2 min-w-0 cursor-pointer group"
+                        className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
                         title="클릭하여 채널 성장 분석 열기"
                     >
-                        <div className="w-9 h-9 rounded-full bg-muted border border-border overflow-hidden shrink-0 group-hover:ring-2 group-hover:ring-primary transition-all">
+                        <div className="w-10 h-10 rounded-full bg-muted border border-border overflow-hidden shrink-0 group-hover:ring-2 group-hover:ring-primary transition-all">
                             <img 
                                 src={ch.thumbnail_path || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"}
                                 alt={ch.name}
@@ -109,45 +109,45 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                         </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-1">
-                                <h3 className="text-xs font-black text-foreground truncate group-hover:text-primary transition-colors">
+                                <h3 className="text-sm font-black text-foreground truncate group-hover:text-primary transition-colors">
                                     {ch.name}
                                 </h3>
-                                <LineChart className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                <LineChart className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                             </div>
-                            <p className="text-[10px] font-mono text-muted-foreground truncate">{ch.handle}</p>
+                            <p className="text-[11px] font-mono text-muted-foreground truncate">{ch.handle}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <span className={cn(
-                            "px-1.5 py-0.5 rounded text-[9.5px] font-black",
+                            "px-2 py-0.5 rounded-md text-[10px] font-black",
                             ch.grade === 'S' ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-400/40" :
                             "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-400/40"
                         )}>
                             등급: {ch.grade}
                         </span>
-                        <span className={cn("text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full border", badgeColor)}>
+                        <span className={cn("text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border", badgeColor)}>
                             {statusText}
                         </span>
                     </div>
                 </div>
 
                 {/* 2단: 4분할 콤팩트 실데이터 리본 */}
-                <div className="grid grid-cols-4 gap-1 p-1.5 rounded-xl bg-card/70 border border-border/50 text-center">
+                <div className="grid grid-cols-4 gap-1 p-2 rounded-xl bg-card/80 border border-border/60 text-center shadow-xs">
                     <div>
-                        <p className="text-[9px] text-muted-foreground">구독자</p>
-                        <p className="text-[11px] font-black font-mono text-foreground">{ch.metrics?.subscribers}</p>
+                        <p className="text-[9.5px] text-muted-foreground">구독자</p>
+                        <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics?.subscribers}</p>
                     </div>
                     <div>
-                        <p className="text-[9px] text-muted-foreground">일일조회</p>
-                        <p className="text-[11px] font-black font-mono text-blue-600 dark:text-blue-400">{ch.metrics?.daily_views}</p>
+                        <p className="text-[9.5px] text-muted-foreground">일일조회</p>
+                        <p className="text-xs font-black font-mono text-blue-600 dark:text-blue-400 mt-0.5">{ch.metrics?.daily_views}</p>
                     </div>
                     <div>
-                        <p className="text-[9px] text-muted-foreground">하루수익</p>
-                        <p className="text-[11px] font-black font-mono text-emerald-600 dark:text-emerald-400">{ch.metrics?.daily_revenue}</p>
+                        <p className="text-[9.5px] text-muted-foreground">하루수익</p>
+                        <p className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{ch.metrics?.daily_revenue}</p>
                     </div>
                     <div>
-                        <p className="text-[9px] text-muted-foreground">영상수</p>
-                        <p className="text-[11px] font-black font-mono text-foreground">{ch.metrics?.video_count}편</p>
+                        <p className="text-[9.5px] text-muted-foreground">영상수</p>
+                        <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics?.video_count}편</p>
                     </div>
                 </div>
 
@@ -156,36 +156,36 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                     {type === 'pending' ? (
                         <>
                             <div className={cn(
-                                "flex-1 min-w-0 p-2 rounded-xl border flex flex-col justify-center",
+                                "flex-1 min-w-0 p-2.5 rounded-xl border flex flex-col justify-center",
                                 ch.recommendation?.is_new_cluster
                                     ? "bg-amber-50/50 dark:bg-amber-950/30 border-amber-400/40 text-amber-900 dark:text-amber-200"
                                     : "bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-400/40 text-emerald-900 dark:text-emerald-200"
                             )}>
-                                <div className="flex items-center justify-between text-[10px] font-bold">
+                                <div className="flex items-center justify-between text-[11px] font-bold">
                                     <span className="flex items-center gap-1 truncate">
                                         {ch.recommendation?.is_new_cluster ? (
-                                            <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                                            <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                         ) : (
-                                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                         )}
                                         <span className="truncate">📂 [{ch.recommendation?.recommended_category_name}]</span>
                                     </span>
-                                    <span className="font-mono text-[9px] bg-background/80 px-1 rounded border shrink-0">
+                                    <span className="font-mono text-[9.5px] bg-background/80 px-1 rounded border shrink-0">
                                         {ch.recommendation?.match_score}%
                                     </span>
                                 </div>
-                                <p className="text-[9.5px] opacity-80 truncate mt-0.5">
+                                <p className="text-[10px] opacity-80 line-clamp-1 mt-1 leading-snug">
                                     {ch.recommendation?.reason || "알고리즘 급상승 채널"}
                                 </p>
                             </div>
 
-                            <div className="shrink-0 flex flex-col gap-1 w-24 sm:w-28">
+                            <div className="shrink-0 flex flex-col gap-1.5 w-24 sm:w-28">
                                 <Button
                                     size="sm"
                                     disabled={isOnboarding}
                                     onClick={() => onApprovePending && onApprovePending(ch)}
                                     className={cn(
-                                        "h-7 text-[10.5px] font-black text-white rounded-lg shadow-xs cursor-pointer px-1.5 w-full",
+                                        "h-7 text-[10.5px] font-black text-white rounded-xl shadow-xs cursor-pointer px-1.5 w-full",
                                         ch.recommendation?.is_new_cluster
                                             ? "bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700"
                                             : "bg-emerald-600 hover:bg-emerald-700"
@@ -199,7 +199,7 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                                     variant="outline"
                                     size="sm"
                                     onClick={() => onOpenAnatomy(ch)}
-                                    className="h-6 text-[10px] font-bold border-border/80 hover:bg-muted text-foreground rounded-lg cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
+                                    className="h-6 text-[10px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
                                 >
                                     <LineChart className="w-3 h-3 text-indigo-500 shrink-0" />
                                     성장 분석
@@ -208,22 +208,22 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                         </>
                     ) : type === 'target' ? (
                         <>
-                            <div className="flex-1 min-w-0 p-2 rounded-xl border border-emerald-400/30 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 flex flex-col justify-center">
-                                <div className="flex items-center gap-1 text-[10px] font-bold truncate">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                    <span className="truncate">자동 수집 파이프라인 등록</span>
+                            <div className="flex-1 min-w-0 p-2.5 rounded-xl border border-emerald-400/30 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 flex flex-col justify-center">
+                                <div className="flex items-center gap-1 text-[11px] font-bold truncate">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    <span className="truncate">정기 자동 수집 채널</span>
                                 </div>
-                                <p className="text-[9.5px] opacity-80 truncate mt-0.5">
-                                    주기적 최신 영상 다운로드 & 해체 분석
+                                <p className="text-[10px] opacity-80 line-clamp-1 mt-1 leading-snug">
+                                    최신 영상 주기적 자동 다운로드 & AI 해체
                                 </p>
                             </div>
 
-                            <div className="shrink-0 flex flex-col gap-1 w-24 sm:w-28">
+                            <div className="shrink-0 flex flex-col gap-1.5 w-24 sm:w-28">
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => onOpenAnatomy(ch)}
-                                    className="h-7 text-[10px] font-bold border-border/80 hover:bg-muted text-foreground rounded-lg cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
+                                    className="h-7 text-[10.5px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
                                 >
                                     <LineChart className="w-3 h-3 text-emerald-500 shrink-0" />
                                     성장 분석
@@ -234,7 +234,7 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                                     size="sm"
                                     onClick={() => onSpider && onSpider(ch.channel_id)}
                                     disabled={isSpidering}
-                                    className="h-6 text-[9.5px] font-bold border-border text-foreground hover:bg-muted rounded-lg cursor-pointer flex items-center justify-center gap-0.5 px-1 w-full"
+                                    className="h-6 text-[9.5px] font-bold border-border text-foreground hover:bg-muted rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1 w-full"
                                 >
                                     {isSpidering ? (
                                         <Loader2 className="w-2.5 h-2.5 animate-spin shrink-0" />
@@ -247,22 +247,22 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                         </>
                     ) : (
                         <>
-                            <div className="flex-1 min-w-0 p-2 rounded-xl border border-amber-400/30 bg-amber-50/50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 flex flex-col justify-center">
-                                <div className="flex items-center gap-1 text-[10px] font-bold truncate">
-                                    <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                            <div className="flex-1 min-w-0 p-2.5 rounded-xl border border-amber-400/30 bg-amber-50/50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 flex flex-col justify-center">
+                                <div className="flex items-center gap-1 text-[11px] font-bold truncate">
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                     <span className="truncate">급상승 벤치마크 채널</span>
                                 </div>
-                                <p className="text-[9.5px] opacity-80 truncate mt-0.5">
+                                <p className="text-[10px] opacity-80 line-clamp-1 mt-1 leading-snug">
                                     승인 시 정기 수집 타겟으로 편입
                                 </p>
                             </div>
 
-                            <div className="shrink-0 flex flex-col gap-1 w-24 sm:w-28">
+                            <div className="shrink-0 flex flex-col gap-1.5 w-24 sm:w-28">
                                 <Button
                                     size="sm"
                                     onClick={() => onApproveCandidate && onApproveCandidate(ch.channel_id)}
                                     disabled={isConverting}
-                                    className="h-7 text-[10.5px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs cursor-pointer px-1.5 w-full"
+                                    className="h-7 text-[10.5px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs cursor-pointer px-1.5 w-full"
                                 >
                                     <CheckCircle2 className="w-3 h-3 mr-0.5 shrink-0" />
                                     타겟 승인
@@ -272,7 +272,7 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                                     variant="outline"
                                     size="sm"
                                     onClick={() => onOpenAnatomy(ch)}
-                                    className="h-6 text-[10px] font-bold border-border/80 hover:bg-muted text-foreground rounded-lg cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
+                                    className="h-6 text-[10px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
                                 >
                                     <LineChart className="w-3 h-3 text-blue-500 shrink-0" />
                                     성장 분석
@@ -283,56 +283,68 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                 </div>
             </div>
 
-            {/* 우측: 6개 영상 릴 스트립 (고정 높이 210px로 좌측 채널 카드와 1:1 완벽 정렬) */}
-            <div className="flex-1 min-w-0 flex items-start gap-2.5 overflow-x-auto pb-1 scrollbar-thin">
-                {((ch.reels || []).slice(0, 6)).map((reel: any, rIdx: number) => (
+            {/* 우측: 영상 릴 그리드 (쇼츠: 6개 꽉차게 9:16 전면 이미지 / 롱폼: 3개 꽉차게 전면 이미지) */}
+            <div className={cn(
+                "flex-1 min-w-0 grid gap-2.5 items-stretch w-full",
+                aspectFormat === 'long' 
+                    ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" 
+                    : "grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
+            )}>
+                {((ch.reels || []).slice(0, aspectFormat === 'long' ? 3 : 6)).map((reel: any, rIdx: number) => (
                     <div 
                         key={rIdx}
                         onClick={() => onSelectReel(reel, ch)}
                         className={cn(
-                            "h-[210px] shrink-0 flex flex-col justify-between p-2 rounded-2xl bg-card border border-border/70 hover:border-primary transition-all cursor-pointer group shadow-xs",
-                            aspectFormat === 'long' ? "w-64 sm:w-72" : "w-32 sm:w-36"
+                            "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-primary transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5",
+                            aspectFormat === 'long' 
+                                ? "h-full min-h-[260px] w-full" 
+                                : "aspect-[9/16] w-full"
                         )}
                     >
-                        {/* 썸네일 영역 */}
-                        <div className={cn(
-                            "relative rounded-xl overflow-hidden bg-black shrink-0",
-                            aspectFormat === 'long' ? "aspect-video w-full" : "aspect-[9/16] h-[135px] w-full"
-                        )}>
-                            <img 
-                                src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"} 
-                                alt={reel.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                onError={(e) => {
-                                    e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
-                                }}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
-                            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-rose-600 text-white shadow-xs">
-                                🔥 x{reel.outlier_ratio}
+                        {/* 배경 전면 썸네일 이미지 (이전 버전 복원) */}
+                        <img 
+                            src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"} 
+                            alt={reel.title}
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-85"
+                            onError={(e) => {
+                                e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
+                            }}
+                        />
+                        {/* 다크 그라디언트 오버레이 */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/60 pointer-events-none" />
+
+                        {/* 상단 뱃지 */}
+                        <div className="relative z-10 flex items-center justify-between">
+                            <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
+                                {rIdx + 1}
                             </span>
-                            <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-black/80 text-white">
-                                {reel.duration_text || (aspectFormat === 'long' ? '11:20' : '0:45')}
+                            <span className="px-1.5 py-0.5 rounded text-[9.5px] font-mono font-black bg-rose-600 text-white shadow-xs">
+                                🔥 {reel.outlier_ratio}x
                             </span>
                         </div>
 
-                        {/* 하단 메타데이터 */}
-                        <div className="min-w-0 flex flex-col justify-between flex-1 mt-1.5">
-                            <h4 className="text-[11px] font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors leading-snug">
+                        {/* 하단 텍스트 및 메트릭 (전면 이미지 위에 텍스트 부양) */}
+                        <div className="relative z-10 space-y-1">
+                            <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight group-hover:text-amber-300 transition-colors">
                                 {reel.title}
                             </h4>
-                            <div className="flex items-center justify-between text-[9.5px] text-muted-foreground font-mono mt-1">
-                                <span className="text-blue-600 dark:text-blue-400 font-bold">
-                                    {reel.view_count >= 10000 ? `${(reel.view_count / 10000).toFixed(1)}만회` : `${reel.view_count}회`}
-                                </span>
-                                <span className="text-amber-500 dark:text-amber-400 font-bold">
+                            <div className="flex items-center justify-between text-[10px] font-mono text-white/80 pt-0.5 border-t border-white/10">
+                                <span>{reel.view_count >= 10000 ? `${(reel.view_count / 10000).toFixed(1)}만회` : `${reel.view_count}회`}</span>
+                                <span>{reel.duration_text || (aspectFormat === 'long' ? '11:20' : '0:45')}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
+                                <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 업로드 일자: ${reel.published_at || '최근'}`}>
                                     📅 {formatRelativeOrDate(reel.published_at)}
                                 </span>
+                                <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
+                                    📥 {formatShortDate(reel.created_at)}
+                                </span>
                             </div>
-                            <div className="flex items-center justify-between text-[9px] font-mono text-sky-500/80 pt-0.5 border-t border-border/40">
-                                <span>수집</span>
-                                <span>📥 {formatShortDate(reel.created_at)}</span>
-                            </div>
+                            {aspectFormat === 'long' && reel.hook_analysis && (
+                                <div className="p-1 rounded bg-black/60 backdrop-blur-xs border border-white/10 text-[9.5px] text-white/90 truncate mt-1">
+                                    💡 {reel.hook_analysis}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}
