@@ -176,7 +176,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                             "px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer",
                                             active 
                                                 ? "bg-blue-600 text-white shadow-xs font-black" 
-                                                : "bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
+                                                : "bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700/80"
                                         )}
                                     >
                                         {active && <Check className="w-3 h-3" />}
@@ -212,7 +212,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                             "px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer",
                                             active 
                                                 ? "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800 shadow-xs font-black" 
-                                                : "bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
+                                                : "bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700/80"
                                         )}
                                     >
                                         {active && <Check className="w-3 h-3" />}
@@ -253,7 +253,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                         "py-1 text-center rounded-lg text-xs font-bold cursor-pointer transition-all",
                                         curUpload === item.id 
                                             ? "bg-amber-500 text-black font-black shadow-xs ring-1 ring-amber-600/30" 
-                                            : "bg-white dark:bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
+                                            : "bg-white hover:bg-amber-50 text-zinc-800 border border-amber-500/30 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700/80"
                                     )}
                                 >
                                     {item.label}
@@ -291,7 +291,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                         "py-1 text-center rounded-lg text-xs font-bold cursor-pointer transition-all",
                                         curCollect === item.id 
                                             ? "bg-indigo-600 text-white shadow-xs font-black" 
-                                            : "bg-white dark:bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
+                                            : "bg-white hover:bg-indigo-50 text-zinc-800 border border-indigo-500/30 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700/80"
                                     )}
                                 >
                                     {item.label}
@@ -320,7 +320,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                         "py-1 text-center rounded-lg text-xs font-bold cursor-pointer transition-all",
                                         tempConfig.minOutlier === item.val 
                                             ? "bg-amber-500 text-black font-black shadow-xs ring-1 ring-amber-600/30" 
-                                            : "bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
+                                            : "bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300/80 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-700/80"
                                     )}
                                 >
                                     {item.label}
