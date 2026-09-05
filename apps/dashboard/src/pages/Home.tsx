@@ -1147,11 +1147,15 @@ const Home = () => {
                     <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 pt-0.5">
 
                         <button 
+                            onClick={() => navigate('/trend-radar')}
+                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5 animate-pulse"
+                        >
+                            <TrendingUp className="w-3.5 h-3.5" /> 🎯 바이럴 스카우터 2.0
+                        </button>
 
+                        <button 
                             onClick={() => navigate('/download')}
-
                             className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all active:scale-95 flex items-center justify-center sm:justify-start gap-1.5"
-
                         >
 
                             <Download className="w-3.5 h-3.5" /> 레퍼런스 수집
