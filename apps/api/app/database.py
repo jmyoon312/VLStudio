@@ -87,13 +87,27 @@ else:
 
 
 
-    # Enable WAL Mode for SQLite concurrency (Development/Desktop only)
+    # Enable WAL Mode and high-performance memory caching for SQLite
     from sqlalchemy import event
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA cache_size=-64000")
+            cursor.execute("PRAGMA temp_store=MEMORY")
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_radar_cand_status_type_outlier ON radar_candidates(status, video_type, outlier_ratio DESC);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_radar_cand_channel_type ON radar_candidates(channel_title, video_type);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_radar_cand_category_type ON radar_candidates(category_id, video_type);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_radar_cand_published ON radar_candidates(published_at DESC);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_radar_cand_created ON radar_candidates(created_at DESC);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_channels_category ON channels(category_id);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_videos_channel_id ON videos(channel_id);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS ix_videos_upload_date ON videos(upload_date DESC);")
+            except Exception:
+                pass
             cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

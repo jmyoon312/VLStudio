@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import api, { 
     RadarCandidate, Category, ChannelWithReels, Channel,
     getChannelsWithReels, discoverLookalikeChannels, convertChannelToTarget 
@@ -431,8 +431,8 @@ const TrendRadarPage: React.FC = () => {
         queryFn: async () => (await api.get<Channel[]>('/channels/')).data || []
     });
 
-    // 2. 바이럴 후보군 (Step 1용 - 실시간 자동 갱신 및 정밀 매트릭스 필터)
-    const { data: rawCandidates = [], isLoading: isLoadingCandidates } = useQuery({
+    // 2. 바이럴 후보군 (Step 1용 - 고속 캐싱 & 백그라운드 동기화)
+    const { data: rawCandidates = [], isLoading: isLoadingCandidates, isFetching: isFetchingCandidates } = useQuery({
         queryKey: ['radar-candidates', aspectFormat, filterConfig],
         queryFn: async () => {
             const params: any = { 
@@ -447,20 +447,25 @@ const TrendRadarPage: React.FC = () => {
             const res = await api.get<RadarCandidate[]>('/trend-radar/candidates', { params });
             return res.data || [];
         },
-        refetchInterval: 3500 // 실시간 백그라운드 수집 결과 자동 반영
+        placeholderData: keepPreviousData,
+        staleTime: 15000,
+        refetchInterval: 25000
     });
 
-    // 3. 채널 릴 데이터 (Step 2용 - 실시간 자동 갱신 채널 풀)
-    const { data: channelsWithReels = [], isLoading: isLoadingReels } = useQuery({
+    // 3. 채널 릴 데이터 (Step 2용 - 고속 캐싱 & Zero-Network I/O 동기화)
+    const { data: channelsWithReels = [], isLoading: isLoadingReels, isFetching: isFetchingReels } = useQuery({
         queryKey: ['channels-with-reels', aspectFormat, filterConfig.uploadDateRange, filterConfig.collectedDateRange],
-        queryFn: () => getChannelsWithReels(undefined, aspectFormat, 20, filterConfig.uploadDateRange, filterConfig.collectedDateRange),
-        refetchInterval: 5000 // 채널 릴 실시간 동기화
+        queryFn: () => getChannelsWithReels(undefined, aspectFormat, 30, filterConfig.uploadDateRange, filterConfig.collectedDateRange),
+        placeholderData: keepPreviousData,
+        staleTime: 15000,
+        refetchInterval: 25000
     });
 
     // 4. 통계 데이터
     const { data: stats } = useQuery({
         queryKey: ['radar-stats'],
-        queryFn: async () => (await api.get('/trend-radar/stats')).data
+        queryFn: async () => (await api.get('/trend-radar/stats')).data,
+        staleTime: 30000
     });
 
     // ── 스카우터 자율 스캔 가동 ────────────────────────────────────
@@ -484,8 +489,8 @@ const TrendRadarPage: React.FC = () => {
         }
     });
 
-    // 3-B. 등록 예정 후보 채널 (AI 카테고리 분류 추천 대기열)
-    const { data: pendingChannels = [] } = useQuery({
+    // 3-B. 등록 예정 후보 채널 (AI 카테고리 분류 추천 대기열 - Zero-Network I/O)
+    const { data: pendingChannels = [], isLoading: isLoadingPending, isFetching: isFetchingPending } = useQuery({
         queryKey: ['pending-channels', aspectFormat, filterConfig.uploadDateRange, filterConfig.collectedDateRange],
         queryFn: async () => {
             const res = await api.get('/trend-radar/pending-channels', { 
@@ -497,8 +502,31 @@ const TrendRadarPage: React.FC = () => {
             });
             return res.data || [];
         },
-        refetchInterval: 5000
+        placeholderData: keepPreviousData,
+        staleTime: 15000,
+        refetchInterval: 25000
     });
+
+    const isBackgroundRefreshing = isFetchingCandidates || isFetchingReels || isFetchingPending;
+
+    // ── 수집 영상 보관함 규격: 가상 청크 렌더링 (Visible Count & Scroll Observer) ──
+    const [visibleChannelsCount, setVisibleChannelsCount] = useState<number>(8);
+    const observerTargetRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        setVisibleChannelsCount(8);
+    }, [selectedTag, aspectFormat, viewMode, pipelineStep]);
+
+    useEffect(() => {
+        if (!observerTargetRef.current) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                setVisibleChannelsCount(prev => prev + 8);
+            }
+        }, { threshold: 0.1 });
+        observer.observe(observerTargetRef.current);
+        return () => observer.disconnect();
+    }, [selectedTag, aspectFormat, viewMode, pipelineStep, pendingChannels.length, channelsWithReels.length]);
 
     // ── AI 카테고리 승격 / 신규 카테고리 1클릭 온보딩 ───────────────
     const onboardMutation = useMutation({
@@ -1161,11 +1189,11 @@ const TrendRadarPage: React.FC = () => {
             </div>
 
             {/* 5. 메인 뷰 렌더링 (Step 1, Step 2, Step 3, Step 4) */}
-            {isLoadingCandidates || isLoadingReels ? (
+            {(isLoadingCandidates || isLoadingReels) && channelsWithReels.length === 0 && rawCandidates.length === 0 ? (
                 <div className="py-28 flex flex-col items-center justify-center space-y-3">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                     <p className="text-xs text-muted-foreground font-mono">
-                        알고리즘 옥석 채널 및 {aspectFormat === 'long' ? '롱폼 (16:9)' : '쇼츠 (9:16)'} 스트립 데이터를 동기화 중입니다...
+                        알고리즘 옥석 채널 및 {aspectFormat === 'long' ? '롱폼 (16:9)' : aspectFormat === 'all' ? '하이브리드 (전체)' : '쇼츠 (9:16)'} 스트림 데이터를 동기화 중입니다...
                     </p>
                 </div>
             ) : pipelineStep === 'incubator' ? (
@@ -1344,7 +1372,7 @@ const TrendRadarPage: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {pendingChannels.map((ch: any) => (
+                                    {pendingChannels.slice(0, visibleChannelsCount).map((ch: any) => (
                                         <ChannelReelRow
                                             key={ch.channel_id}
                                             ch={ch}
@@ -1398,6 +1426,11 @@ const TrendRadarPage: React.FC = () => {
                                             isOnboarding={onboardMutation.isPending}
                                         />
                                     ))}
+                                    {visibleChannelsCount < pendingChannels.length && (
+                                        <div ref={observerTargetRef} className="w-full py-4 text-center text-xs text-muted-foreground animate-pulse">
+                                            후보 채널 추가 로딩 중... ({Math.min(visibleChannelsCount, pendingChannels.length)} / {pendingChannels.length})
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1426,7 +1459,7 @@ const TrendRadarPage: React.FC = () => {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {targetChannels.map(ch => (
+                                {targetChannels.slice(0, visibleChannelsCount).map(ch => (
                                     <ChannelReelRow
                                         key={ch.channel_id}
                                         ch={ch}
@@ -1471,6 +1504,11 @@ const TrendRadarPage: React.FC = () => {
                                         isSpidering={spideringChannelId === ch.channel_id}
                                     />
                                 ))}
+                                {visibleChannelsCount < targetChannels.length && (
+                                    <div ref={observerTargetRef} className="w-full py-4 text-center text-xs text-muted-foreground animate-pulse">
+                                        타겟 채널 추가 로딩 중... ({Math.min(visibleChannelsCount, targetChannels.length)} / {targetChannels.length})
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -1498,7 +1536,7 @@ const TrendRadarPage: React.FC = () => {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {candidateChannels.map(ch => (
+                                {candidateChannels.slice(0, visibleChannelsCount).map(ch => (
                                     <ChannelReelRow
                                         key={ch.channel_id}
                                         ch={ch}
