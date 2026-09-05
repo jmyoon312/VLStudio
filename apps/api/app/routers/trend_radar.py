@@ -106,8 +106,8 @@ async def get_candidates(
         query = query.filter(models.RadarCandidate.status == status)
     if category_id:
         query = query.filter(models.RadarCandidate.category_id == category_id)
-    if video_type and not hasattr(video_type, 'default'):
-        query = query.filter(models.RadarCandidate.video_type == video_type)
+    if video_type and video_type != "all" and not hasattr(video_type, 'default'):
+        query = query.filter((models.RadarCandidate.video_type == video_type if video_type != "all" else True))
     if min_outlier and not hasattr(min_outlier, 'default'):
         query = query.filter(models.RadarCandidate.outlier_ratio >= float(min_outlier))
     if min_views and not hasattr(min_views, 'default'):
@@ -342,6 +342,21 @@ def get_channel_metadata(channel_name: str, avg_views: int) -> Dict[str, Any]:
     CHANNEL_META_CACHE[key] = meta
     return meta
 
+KNOWN_BAD_VIDEO_IDS = {'9gdODPdkgN0', '6bvP09p4uOU', '5gd1fZBSGO4', 'CWqqrLX6htU', 'F_YD_0jFXcw'}
+FALLBACK_THUMBNAIL = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"
+
+def safe_thumbnail_url(thumbnail_url: Optional[str], video_id: Optional[str]) -> str:
+    if video_id and video_id in KNOWN_BAD_VIDEO_IDS:
+        return FALLBACK_THUMBNAIL
+    if not thumbnail_url:
+        if video_id and is_valid_yt_video_id(video_id):
+            return f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+        return FALLBACK_THUMBNAIL
+    for bad_id in KNOWN_BAD_VIDEO_IDS:
+        if bad_id in thumbnail_url:
+            return FALLBACK_THUMBNAIL
+    return thumbnail_url
+
 def is_valid_yt_video_id(v_id: str) -> bool:
     if not v_id or not isinstance(v_id, str):
         return False
@@ -504,6 +519,23 @@ def fetch_channel_recent_reels(
     CHANNEL_REELS_CACHE[cache_key] = (now, reels)
     return reels
 
+@router.get("/channel-reels")
+def get_channel_reels_endpoint(
+    channel_name: str,
+    channel_url: Optional[str] = None,
+    platform_id: Optional[str] = None,
+    video_type: Optional[str] = "shorts",
+    limit: int = 6
+):
+    reels = fetch_channel_recent_reels(
+        channel_name=channel_name,
+        video_type=video_type if video_type != "all" else "shorts",
+        limit=limit,
+        channel_url=channel_url,
+        platform_id=platform_id
+    )
+    return {"reels": reels}
+
 @router.get("/channels-with-reels")
 @router.get("/channels-with-reels/", include_in_schema=False)
 def get_channels_with_reels(
@@ -538,7 +570,7 @@ def get_channels_with_reels(
         # Existing candidate reels in DB matching video_type
         db_cands = db.query(models.RadarCandidate).filter(
             models.RadarCandidate.channel_title == ch.name,
-            models.RadarCandidate.video_type == video_type
+            (models.RadarCandidate.video_type == video_type if video_type != "all" else True)
         ).limit(max_reels).all()
 
         video_items = []
@@ -553,7 +585,7 @@ def get_channels_with_reels(
                 "id": c.id,
                 "video_id": c.video_id,
                 "title": c.title,
-                "thumbnail_url": c.thumbnail_url or f"https://i.ytimg.com/vi/{c.video_id}/hqdefault.jpg",
+                "thumbnail_url": safe_thumbnail_url(c.thumbnail_url, c.video_id),
                 "view_count": c.view_count,
                 "duration": dur,
                 "duration_text": c.duration_text or ("0:45" if video_type == "shorts" else "11:20"),
@@ -574,7 +606,7 @@ def get_channels_with_reels(
                     "id": v.id,
                     "video_id": v.video_id,
                     "title": v.title,
-                    "thumbnail_url": v.thumbnail_path or f"https://i.ytimg.com/vi/{v.video_id}/hqdefault.jpg",
+                    "thumbnail_url": safe_thumbnail_url(v.thumbnail_path, v.video_id),
                     "view_count": v.view_count or 50000,
                     "duration": dur,
                     "duration_text": "0:45" if dur < 60 else f"{dur//60}:{dur%60:02d}",
@@ -637,7 +669,7 @@ def get_channels_with_reels(
     if category_id:
         cand_q = cand_q.filter(models.RadarCandidate.category_id == category_id)
     if video_type:
-        cand_q = cand_q.filter(models.RadarCandidate.video_type == video_type)
+        cand_q = cand_q.filter((models.RadarCandidate.video_type == video_type if video_type != "all" else True))
 
     candidates = cand_q.order_by(models.RadarCandidate.outlier_ratio.desc()).limit(80).all()
     for c in candidates:
@@ -646,7 +678,7 @@ def get_channels_with_reels(
 
         same_cands = db.query(models.RadarCandidate).filter(
             models.RadarCandidate.channel_title == c.channel_title,
-            models.RadarCandidate.video_type == video_type
+            (models.RadarCandidate.video_type == video_type if video_type != "all" else True)
         ).limit(max_reels).all()
 
         video_items = []
@@ -660,7 +692,7 @@ def get_channels_with_reels(
                 "id": sc.id,
                 "video_id": sc.video_id,
                 "title": sc.title,
-                "thumbnail_url": sc.thumbnail_url or f"https://i.ytimg.com/vi/{sc.video_id}/hqdefault.jpg",
+                "thumbnail_url": safe_thumbnail_url(sc.thumbnail_url, sc.video_id),
                 "view_count": sc.view_count,
                 "duration": dur,
                 "duration_text": sc.duration_text or ("0:45" if video_type == "shorts" else "11:20"),
@@ -740,7 +772,7 @@ def get_pending_channels_for_incubation(
         models.RadarCandidate.status != "approved"
     )
     if video_type:
-        p_query = p_query.filter(models.RadarCandidate.video_type == video_type)
+        p_query = p_query.filter((models.RadarCandidate.video_type == video_type if video_type != "all" else True))
     now_dt = datetime.now()
     if upload_date_range and upload_date_range != "all":
         if upload_date_range == "24h":
@@ -821,7 +853,17 @@ def get_pending_channels_for_incubation(
         max_reels = 4 if video_type == "long" else 6
         video_items = []
         seen_vids = set()
-        for sc in cands:
+        
+        # Pull all candidate reels for this channel from DB
+        ch_cands_q = db.query(models.RadarCandidate).filter(
+            models.RadarCandidate.channel_title == ch_name
+        )
+        if video_type and video_type != "all":
+            ch_cands_q = ch_cands_q.filter(models.RadarCandidate.video_type == video_type)
+        all_channel_cands = ch_cands_q.order_by(models.RadarCandidate.outlier_ratio.desc()).limit(max_reels * 2).all()
+        combined_cands = cands + [c for c in all_channel_cands if c.id not in {x.id for x in cands}]
+
+        for sc in combined_cands:
             if not is_valid_yt_video_id(sc.video_id) or sc.video_id in seen_vids:
                 continue
             dur = 680 if video_type == "long" else 60
@@ -829,7 +871,7 @@ def get_pending_channels_for_incubation(
                 "id": sc.id,
                 "video_id": sc.video_id,
                 "title": sc.title,
-                "thumbnail_url": sc.thumbnail_url or f"https://i.ytimg.com/vi/{sc.video_id}/hqdefault.jpg",
+                "thumbnail_url": safe_thumbnail_url(sc.thumbnail_url, sc.video_id),
                 "view_count": sc.view_count,
                 "duration": dur,
                 "duration_text": sc.duration_text or ("0:45" if video_type == "shorts" else "11:20"),

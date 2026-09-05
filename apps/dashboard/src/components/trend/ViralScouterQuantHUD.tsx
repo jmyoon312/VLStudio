@@ -7,6 +7,7 @@ import { ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Tooltip } fr
 import { cn } from '../../lib/utils';
 import api from '../../lib/api';
 import { ScoutQuantDeepDiveModal, DeepDiveModalType } from './ScoutQuantDeepDiveModal';
+import { ScoutFilterConfig } from './ScoutingFilterPopover';
 
 interface QuantTelemetry {
     is_running: boolean;
@@ -56,7 +57,11 @@ interface QuantTelemetry {
 
 const DONUT_COLORS = ['#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
-export const ViralScouterQuantHUD: React.FC = () => {
+interface ViralScouterQuantHUDProps {
+    filterConfig?: ScoutFilterConfig;
+}
+
+export const ViralScouterQuantHUD: React.FC<ViralScouterQuantHUDProps> = ({ filterConfig }) => {
     const [telemetry, setTelemetry] = useState<QuantTelemetry | null>(null);
     const [isWorkerToggling, setIsWorkerToggling] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
@@ -485,6 +490,7 @@ export const ViralScouterQuantHUD: React.FC = () => {
                 onClose={() => setDeepDiveTab(null)}
                 initialTab={deepDiveTab || 'speed'}
                 telemetry={telemetry}
+                filterConfig={filterConfig}
             />
         </div>
     );

@@ -44,7 +44,7 @@ const TrendRadarPage: React.FC = () => {
     const [pipelineStep, setPipelineStep] = useState<'signals' | 'reels' | 'incubator' | 'launchpad'>('reels');
 
     // ── 포맷 토글: 쇼츠 (9:16) vs 롱폼 (16:9) ──────────────────────
-    const [aspectFormat, setAspectFormat] = useState<'shorts' | 'long'>('shorts');
+    const [aspectFormat, setAspectFormat] = useState<'shorts' | 'long' | 'all'>('shorts');
 
     // ── 필터 및 뷰 모드 ──────────────────────────────────────────
     const [viewMode, setViewMode] = useState<'reel' | 'grid' | 'table'>('reel');
@@ -446,7 +446,7 @@ const TrendRadarPage: React.FC = () => {
             </div>
 
             {/* 2. 🔥 FSD 퀀트 실시간 관제 센터 (High-Density Quant Ribbon) */}
-            <ViralScouterQuantHUD />
+            <ViralScouterQuantHUD filterConfig={filterConfig} />
 
             {/* 3. ⚙️ [듀얼 트랙 자율 수집 밸런서 50% : 50% 정밀 스카우트 제약 조건 매트릭스] */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
@@ -783,6 +783,19 @@ const TrendRadarPage: React.FC = () => {
                         >
                             <Film className="w-3.5 h-3.5" />
                             <span>🎬 롱폼 (16:9)</span>
+                        </button>
+                        <button
+                            onClick={() => setAspectFormat('all')}
+                            className={cn(
+                                "px-3 py-1 rounded-lg text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer",
+                                aspectFormat === 'all' 
+                                    ? "bg-purple-600 text-white shadow-xs" 
+                                    : "text-muted-foreground hover:text-foreground"
+                            )}
+                            title="쇼츠와 롱폼 채널 및 영상을 모두 조회하는 하이브리드 모드"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>✨ 하이브리드 (전체)</span>
                         </button>
                     </div>
 
@@ -1444,48 +1457,114 @@ const TrendRadarPage: React.FC = () => {
                                                         setIsDetailModalOpen(true);
                                                     }}
                                                     className={cn(
-                                                        "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-emerald-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 self-start",
-                                                        aspectFormat === 'long' ? "aspect-video w-full" : "aspect-[9/16] w-full"
+                                                        aspectFormat === 'long'
+                                                            ? "group rounded-2xl bg-card border border-border/80 hover:border-emerald-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 self-stretch h-[370px] w-full"
+                                                            : "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-emerald-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 self-start aspect-[9/16] w-full"
                                                     )}
                                                 >
-                                                    <img 
-                                                        src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
-                                                        alt={reel.title}
-                                                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform opacity-80"
-                                                        onError={(e) => {
-                                                            e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
-                                                        }}
-                                                    />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
+                                                    {aspectFormat === 'long' ? (
+                                                        <>
+                                                            {/* 상단 16:9 썸네일 */}
+                                                            <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black shrink-0">
+                                                                <img 
+                                                                    src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
+                                                                    alt={reel.title}
+                                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
+                                                                    }}
+                                                                />
+                                                                <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
+                                                                    {rIdx + 1}
+                                                                </div>
+                                                                <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9.5px] font-mono font-black bg-emerald-600 text-white shadow-xs">
+                                                                    {reel.outlier_ratio}x 🔥
+                                                                </div>
+                                                                <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded bg-black/80 text-[9.5px] font-mono text-white/90">
+                                                                    {reel.duration_text || '12:45'}
+                                                                </div>
+                                                            </div>
 
-                                                    {/* 상단 뱃지 */}
-                                                    <div className="relative z-10 flex items-center justify-between">
-                                                        <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
-                                                            {rIdx + 1}
-                                                        </span>
-                                                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-black bg-emerald-500 text-white">
-                                                            {reel.outlier_ratio}x 🔥
-                                                        </span>
-                                                    </div>
+                                                            {/* 중단: 메타데이터 & AI 분석 */}
+                                                            <div className="flex-1 flex flex-col justify-between py-2 space-y-1.5 min-w-0">
+                                                                <div>
+                                                                    <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-snug group-hover:text-emerald-600 transition-colors">
+                                                                        {reel.title}
+                                                                    </h4>
+                                                                    <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground mt-1">
+                                                                        <span>조회수 {reel.view_count?.toLocaleString()}회</span>
+                                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{reel.outlier_ratio}배 급상승</span>
+                                                                    </div>
+                                                                </div>
 
-                                                    {/* 하단 텍스트 및 메트릭 (등록일/수집일 듀얼 렌더) */}
-                                                    <div className="relative z-10 space-y-1">
-                                                        <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
-                                                            {reel.title}
-                                                        </h4>
-                                                        <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
-                                                            <span>{reel.view_count.toLocaleString()}회</span>
-                                                            <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
-                                                            <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
-                                                                📅 {formatRelativeOrDate(reel.published_at)}
-                                                            </span>
-                                                            <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
-                                                                📥 {formatShortDate(reel.created_at)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center justify-between text-[9.5px] font-mono pt-1 border-t border-border/50">
+                                                                        <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
+                                                                            📅 등록: {formatRelativeOrDate(reel.published_at)}
+                                                                        </span>
+                                                                        <span className="text-sky-600 dark:text-sky-400 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
+                                                                            📥 수집: {formatShortDate(reel.created_at)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="p-1.5 rounded-lg bg-muted/60 border border-border/60 text-[10px] text-muted-foreground line-clamp-2">
+                                                                        💡 {reel.hook_analysis || '초반 핵심 의문 제시 & 몰입형 연출'}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* 하단 버튼 */}
+                                                            <div className="pt-1.5 border-t border-border/50">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="w-full h-7 text-[11px] font-bold border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-xl cursor-pointer"
+                                                                >
+                                                                    🎬 롱폼 상세 & 각색 분석
+                                                                </Button>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <img 
+                                                                src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
+                                                                alt={reel.title}
+                                                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform opacity-80"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
+                                                                }}
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
+
+                                                            {/* 상단 뱃지 */}
+                                                            <div className="relative z-10 flex items-center justify-between">
+                                                                <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
+                                                                    {rIdx + 1}
+                                                                </span>
+                                                                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-black bg-emerald-500 text-white">
+                                                                    {reel.outlier_ratio}x 🔥
+                                                                </span>
+                                                            </div>
+
+                                                            {/* 하단 텍스트 및 메트릭 */}
+                                                            <div className="relative z-10 space-y-1">
+                                                                <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
+                                                                    {reel.title}
+                                                                </h4>
+                                                                <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
+                                                                    <span>{reel.view_count.toLocaleString()}회</span>
+                                                                    <span>{reel.duration_text || '0:58'}</span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
+                                                                    <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
+                                                                        📅 {formatRelativeOrDate(reel.published_at)}
+                                                                    </span>
+                                                                    <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
+                                                                        📥 {formatShortDate(reel.created_at)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -1698,48 +1777,114 @@ const TrendRadarPage: React.FC = () => {
                                                         setIsDetailModalOpen(true);
                                                     }}
                                                     className={cn(
-                                                        "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-amber-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 self-start",
-                                                        aspectFormat === 'long' ? "aspect-video w-full" : "aspect-[9/16] w-full"
+                                                        aspectFormat === 'long'
+                                                            ? "group rounded-2xl bg-card border border-border/80 hover:border-amber-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 self-stretch h-[370px] w-full"
+                                                            : "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-amber-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 self-start aspect-[9/16] w-full"
                                                     )}
                                                 >
-                                                    <img 
-                                                        src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
-                                                        alt={reel.title}
-                                                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform opacity-80"
-                                                        onError={(e) => {
-                                                            e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
-                                                        }}
-                                                    />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
+                                                    {aspectFormat === 'long' ? (
+                                                        <>
+                                                            {/* 상단 16:9 썸네일 */}
+                                                            <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black shrink-0">
+                                                                <img 
+                                                                    src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
+                                                                    alt={reel.title}
+                                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
+                                                                    }}
+                                                                />
+                                                                <div className="absolute top-2 left-2 w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
+                                                                    {rIdx + 1}
+                                                                </div>
+                                                                <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9.5px] font-mono font-black bg-amber-500 text-black shadow-xs">
+                                                                    {reel.outlier_ratio}x 🔥
+                                                                </div>
+                                                                <div className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded bg-black/80 text-[9.5px] font-mono text-white/90">
+                                                                    {reel.duration_text || '12:45'}
+                                                                </div>
+                                                            </div>
 
-                                                    {/* 상단 뱃지 */}
-                                                    <div className="relative z-10 flex items-center justify-between">
-                                                        <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
-                                                            {rIdx + 1}
-                                                        </span>
-                                                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-black bg-amber-500 text-black">
-                                                            {reel.outlier_ratio}x 🔥
-                                                        </span>
-                                                    </div>
+                                                            {/* 중단: 메타데이터 & AI 분석 */}
+                                                            <div className="flex-1 flex flex-col justify-between py-2 space-y-1.5 min-w-0">
+                                                                <div>
+                                                                    <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-snug group-hover:text-amber-600 transition-colors">
+                                                                        {reel.title}
+                                                                    </h4>
+                                                                    <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground mt-1">
+                                                                        <span>조회수 {reel.view_count?.toLocaleString()}회</span>
+                                                                        <span className="text-amber-600 dark:text-amber-400 font-bold">{reel.outlier_ratio}배 급상승</span>
+                                                                    </div>
+                                                                </div>
 
-                                                    {/* 하단 텍스트 및 메트릭 (등록일/수집일 듀얼 렌더) */}
-                                                    <div className="relative z-10 space-y-1">
-                                                        <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
-                                                            {reel.title}
-                                                        </h4>
-                                                        <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
-                                                            <span>{reel.view_count.toLocaleString()}회</span>
-                                                            <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
-                                                            <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
-                                                                📅 {formatRelativeOrDate(reel.published_at)}
-                                                            </span>
-                                                            <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
-                                                                📥 {formatShortDate(reel.created_at)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center justify-between text-[9.5px] font-mono pt-1 border-t border-border/50">
+                                                                        <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
+                                                                            📅 등록: {formatRelativeOrDate(reel.published_at)}
+                                                                        </span>
+                                                                        <span className="text-sky-600 dark:text-sky-400 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
+                                                                            📥 수집: {formatShortDate(reel.created_at)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="p-1.5 rounded-lg bg-muted/60 border border-border/60 text-[10px] text-muted-foreground line-clamp-2">
+                                                                        💡 {reel.hook_analysis || '초반 핵심 의문 제시 & 몰입형 연출'}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* 하단 버튼 */}
+                                                            <div className="pt-1.5 border-t border-border/50">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="w-full h-7 text-[11px] font-bold border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-xl cursor-pointer"
+                                                                >
+                                                                    🎬 롱폼 상세 & 각색 분석
+                                                                </Button>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <img 
+                                                                src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
+                                                                alt={reel.title}
+                                                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform opacity-80"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
+                                                                }}
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
+
+                                                            {/* 상단 뱃지 */}
+                                                            <div className="relative z-10 flex items-center justify-between">
+                                                                <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
+                                                                    {rIdx + 1}
+                                                                </span>
+                                                                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-black bg-amber-500 text-black">
+                                                                    {reel.outlier_ratio}x 🔥
+                                                                </span>
+                                                            </div>
+
+                                                            {/* 하단 텍스트 및 메트릭 */}
+                                                            <div className="relative z-10 space-y-1">
+                                                                <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
+                                                                    {reel.title}
+                                                                </h4>
+                                                                <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
+                                                                    <span>{reel.view_count.toLocaleString()}회</span>
+                                                                    <span>{reel.duration_text || '0:58'}</span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
+                                                                    <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
+                                                                        📅 {formatRelativeOrDate(reel.published_at)}
+                                                                    </span>
+                                                                    <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
+                                                                        📥 {formatShortDate(reel.created_at)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
