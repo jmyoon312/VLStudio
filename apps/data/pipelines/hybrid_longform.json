@@ -1,0 +1,33 @@
+{
+  "id": "hybrid_longform",
+  "name": "하이브리드 멀티소스 롱폼",
+  "category": "longform",
+  "description": "수집 컷팅 영상과 Flow AI 클립, 스톡 자료를 한 타임라인에 다중 트랙으로 교차 조립하는 5~15분 롱폼",
+  "nodes": [
+    {
+      "id": "long_outline",
+      "type": "longform_chapter_plan",
+      "title": "챕터별 롱폼 대본 기획"
+    },
+    {
+      "id": "multi_source",
+      "type": "hybrid_asset_collector",
+      "title": "수집 영상 컷 + Flow AI 씬 동시 취합"
+    },
+    {
+      "id": "tts_long",
+      "type": "multitts_voice",
+      "title": "장편 음성 합성"
+    },
+    {
+      "id": "capcut_pack",
+      "type": "capcut_assemble_multitrack",
+      "title": "CapCut 멀티트랙 타임라인 조립"
+    },
+    {
+      "id": "queue_dispatch",
+      "type": "work_queue_enqueue",
+      "title": "WorkQueue 배포 대기열 탑재"
+    }
+  ]
+}

@@ -35,6 +35,10 @@ import {
     Star,
     Heart,
     BookOpen,
+    Layers,
+    Cpu,
+    GitBranch,
+    ShieldCheck
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -47,13 +51,26 @@ export interface MenuItem {
 
 export interface MenuGroup {
     title: string;
-    mode: 'DISCOVERY' | 'CREATION' | 'OPERATION' | 'EDUCATION';
+    mode: 'AI_ORCHESTRATION' | 'DISCOVERY' | 'CREATION' | 'OPERATION_SYSTEM';
     items: MenuItem[];
     defaultExpanded?: boolean;
 }
 
 export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
-    // 1. DISCOVERY (트렌드 분석 및 소싱)
+    // 0. AI_ORCHESTRATION (인공지능 지휘 사령탑)
+    {
+        title: "🧠 AI 지휘 & 오케스트레이션",
+        mode: "AI_ORCHESTRATION",
+        defaultExpanded: true,
+        items: [
+            { name: '스튜디오 워룸 (가상 관제)', path: '/war-room', icon: Cpu, highlight: true },
+            { name: '파이프라인 빌더 & 랩', path: '/pipeline-builder', icon: GitBranch, highlight: true },
+            { name: '에이전트 인력소 & 모델 설정', path: '/agent-roster', icon: Users },
+            { name: '스튜디오 브레인 & 기억고', path: '/brain-vault', icon: BrainCircuit },
+        ]
+    },
+
+    // 1. DISCOVERY (트렌드 분석 및 소싱 - 기존 7개 전원 100% 유지)
     {
         title: "📊 트렌드 분석 및 소싱",
         mode: "DISCOVERY",
@@ -69,7 +86,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         ]
     },
 
-    // 2. CREATION (인공지능 창작 스튜디오)
+    // 2. CREATION (인공지능 창작 스튜디오 / 콘텐츠 제작 - 기존 10개 전원 100% 유지)
     {
         title: "🎬 인공지능 창작 스튜디오",
         mode: "CREATION",
@@ -88,10 +105,10 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         ]
     },
 
-    // 3. OPERATION (채널 운영 및 자동화)
+    // 3. OPERATION_SYSTEM (채널 운영 & 시스템 설정 통합 - 기존 4개 + 3개 = 7개 전원 100% 유지)
     {
         title: "📈 채널 성장 및 자동화",
-        mode: "OPERATION",
+        mode: "OPERATION_SYSTEM",
         defaultExpanded: true,
         items: [
             { name: '쇼츠 자동 배포 관리', path: '/work-queue', icon: Activity, highlight: true },
@@ -100,24 +117,21 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
     },
     {
         title: "📡 가상 라이브 센터",
-        mode: "OPERATION",
+        mode: "OPERATION_SYSTEM",
         defaultExpanded: true,
         items: [
             { name: '라이브 씬 디자인', path: '/live-studio', icon: Wand2 },
             { name: '24시 무인 라이브 송출', path: '/station-manager', icon: Radio },
         ]
     },
-
-    // 4. EDUCATION / SYSTEM (시스템 설정 및 보안)
     {
         title: "🛠️ 시스템 환경 및 보안 설정",
-        mode: "EDUCATION",
+        mode: "OPERATION_SYSTEM",
         defaultExpanded: true,
         items: [
-            { name: '작업 환경 설정', path: '/settings', icon: Settings },
+            { name: '작업 환경 설정', path: '/settings', icon: Settings, highlight: true },
             { name: '일일 리포트', path: '/reports', icon: FileText },
             { name: '사용자 안내서', path: '/guide-center', icon: BookOpen },
         ]
     }
 ];
-

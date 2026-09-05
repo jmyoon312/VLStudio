@@ -17,6 +17,8 @@ class HotPatcher {
     this.isUpdating = false;
     this.updateAvailable = false;
     this.pendingRestart = false;
+    this.lastCheckTime = null;
+    this.lastCheckStatus = null;
   }
 
   getHotpatchDir() {
@@ -25,6 +27,53 @@ class HotPatcher {
 
   getMetaPath() {
     return path.join(this.getHotpatchDir(), 'patch-meta.json');
+  }
+
+  /**
+   * Returns current hotpatch status and bundle metadata.
+   */
+  getStatus(appVersion = '0.9.45', buildNumber = 1045) {
+    const hotpatchDir = this.getHotpatchDir();
+    const hotpatchIndex = path.join(hotpatchDir, 'index.html');
+    const isHotpatchActive = fs.existsSync(hotpatchIndex);
+    let meta = null;
+
+    if (fs.existsSync(this.getMetaPath())) {
+      try {
+        meta = JSON.parse(fs.readFileSync(this.getMetaPath(), 'utf8'));
+      } catch (e) {
+        console.warn('[HotPatcher] Failed to read patch-meta.json:', e.message);
+      }
+    }
+
+    return {
+      appVersion: appVersion || (app ? app.getVersion() : '0.9.45'),
+      buildNumber: buildNumber || 1045,
+      isHotpatchActive,
+      hotpatchDir,
+      meta,
+      isUpdating: this.isUpdating,
+      lastCheckTime: this.lastCheckTime,
+      lastCheckStatus: this.lastCheckStatus
+    };
+  }
+
+  /**
+   * Clears the hotpatch cache directory so the app falls back to built-in bundle.
+   */
+  clearCache() {
+    const hotpatchDir = this.getHotpatchDir();
+    try {
+      if (fs.existsSync(hotpatchDir)) {
+        fs.rmSync(hotpatchDir, { recursive: true, force: true });
+        console.log('[HotPatcher] Hotpatch cache directory cleared successfully.');
+        return { success: true, message: '핫패치 캐시가 성공적으로 초기화되었습니다.' };
+      }
+      return { success: true, message: '핫패치 캐시가 비어 있습니다.' };
+    } catch (e) {
+      console.error('[HotPatcher] Failed to clear hotpatch cache:', e.message);
+      return { success: false, error: e.message };
+    }
   }
 
   /**
@@ -50,13 +99,15 @@ class HotPatcher {
   async checkForUpdate(currentVersion = '0.0.0', currentBuild = 0) {
     if (this.isUpdating) return { updated: false, reason: 'in_progress' };
     this.isUpdating = true;
+    this.lastCheckTime = new Date().toISOString();
 
     try {
       console.log(`[HotPatcher] Checking for OTA Hot-Patch (Current: v${currentVersion}, #${currentBuild})...`);
       const remoteMeta = await this._fetchJson(VERSION_URL).catch(() => this._fetchJson(FALLBACK_VERSION_URL));
       if (!remoteMeta || !remoteMeta.version) {
         this.isUpdating = false;
-        return { updated: false, reason: 'no_remote_meta' };
+        this.lastCheckStatus = 'no_remote_meta';
+        return { updated: false, reason: 'no_remote_meta', message: '원격 버전 정보를 가져올 수 없습니다.' };
       }
 
       const remoteBuild = Number(remoteMeta.buildNumber || 0);
@@ -65,7 +116,8 @@ class HotPatcher {
       if (!isNewer) {
         console.log(`[HotPatcher] Already running latest version (v${currentVersion} #${currentBuild}).`);
         this.isUpdating = false;
-        return { updated: false, reason: 'up_to_date' };
+        this.lastCheckStatus = 'up_to_date';
+        return { updated: false, reason: 'up_to_date', message: `이미 최신 버전입니다 (v${currentVersion} #${currentBuild}).` };
       }
 
       console.log(`[HotPatcher] New Hot-Patch found: v${remoteMeta.version} (#${remoteBuild})`);
@@ -73,11 +125,18 @@ class HotPatcher {
 
       const applied = await this._downloadAndApplyPatch(downloadUrl, remoteMeta);
       this.isUpdating = false;
-      return { updated: applied, version: remoteMeta.version, buildNumber: remoteBuild };
+      this.lastCheckStatus = applied ? 'applied' : 'failed';
+      return { 
+        updated: applied, 
+        version: remoteMeta.version, 
+        buildNumber: remoteBuild, 
+        message: applied ? `성공적으로 v${remoteMeta.version} (#${remoteBuild}) 핫패치를 적용했습니다!` : '핫패치 적용 실패' 
+      };
     } catch (err) {
       console.error('[HotPatcher] Error checking/applying hotpatch:', err.message);
       this.isUpdating = false;
-      return { updated: false, error: err.message };
+      this.lastCheckStatus = 'error';
+      return { updated: false, error: err.message, message: `업데이트 검사 중 오류: ${err.message}` };
     }
   }
 
@@ -197,3 +256,30 @@ class HotPatcher {
 }
 
 export const hotPatcher = new HotPatcher();
+
+/**
+ * Register Hot-Patch & App Version IPC handlers
+ */
+export function registerHotpatchIPC(ipcMain, getMainWindow, buildNumber = 1042) {
+  ipcMain.handle('hotpatch:get-status', async () => {
+    return hotPatcher.getStatus(app.getVersion(), buildNumber);
+  });
+
+  ipcMain.handle('hotpatch:check-update', async () => {
+    return await hotPatcher.checkForUpdate(app.getVersion(), buildNumber);
+  });
+
+  ipcMain.handle('hotpatch:clear-cache', async () => {
+    return hotPatcher.clearCache();
+  });
+
+  ipcMain.handle('hotpatch:reload', async () => {
+    const win = typeof getMainWindow === 'function' ? getMainWindow() : getMainWindow;
+    if (win && win.webContents) {
+      win.webContents.reload();
+      return { success: true };
+    }
+    return { success: false, error: 'Main window not available' };
+  });
+}
+

@@ -1,0 +1,43 @@
+{
+  "id": "script_commentary",
+  "name": "대본 해설/리캡형",
+  "category": "shorts_story",
+  "description": "원본 음성을 Whisper로 추출하여 AI가 팩트 각색 후 MultiTTS 나레이션과 자막을 싱크하는 스토리 쇼츠",
+  "nodes": [
+    {
+      "id": "source_ingest",
+      "type": "url_download",
+      "title": "영상 소스 수집"
+    },
+    {
+      "id": "whisper_extract",
+      "type": "whisper_stt",
+      "title": "Whisper 음성 대본 전사"
+    },
+    {
+      "id": "script_rewrite",
+      "type": "llm_script_rewrite",
+      "title": "AI 바이럴 대본 각색 (OmniRoute)"
+    },
+    {
+      "id": "tts_generate",
+      "type": "multitts_voice",
+      "title": "MultiTTS 다국어 보이스 합성"
+    },
+    {
+      "id": "sub_sync",
+      "type": "timeline_subtitle_sync",
+      "title": "자막 타임코드 싱크"
+    },
+    {
+      "id": "capcut_pack",
+      "type": "capcut_assemble",
+      "title": "CapCut 프로젝트 조립"
+    },
+    {
+      "id": "queue_dispatch",
+      "type": "work_queue_enqueue",
+      "title": "WorkQueue 배포 대기열 탑재"
+    }
+  ]
+}

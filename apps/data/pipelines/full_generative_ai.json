@@ -1,0 +1,38 @@
+{
+  "id": "full_generative_ai",
+  "name": "AI 완전 창작 생성형",
+  "category": "pure_creation",
+  "description": "주제 입력만으로 대본 기획부터 Google Flow AI 비주얼 렌더 및 캡컷 조립까지 무인 완결",
+  "nodes": [
+    {
+      "id": "prompt_craft",
+      "type": "topic_to_story",
+      "title": "주제 분석 및 9-Wave 대본 기획"
+    },
+    {
+      "id": "critic_check",
+      "type": "viral_critic_gate",
+      "title": "바이럴 비평가 85점 품질 검수"
+    },
+    {
+      "id": "tts_generate",
+      "type": "multitts_voice",
+      "title": "MultiTTS 나레이션 생성"
+    },
+    {
+      "id": "flow_render",
+      "type": "flow_ai_batch",
+      "title": "Google Flow AI 씬별 이미지/비디오 렌더"
+    },
+    {
+      "id": "capcut_pack",
+      "type": "capcut_assemble",
+      "title": "CapCut 프로젝트 조립"
+    },
+    {
+      "id": "queue_dispatch",
+      "type": "work_queue_enqueue",
+      "title": "WorkQueue 배포 대기열 탑재"
+    }
+  ]
+}

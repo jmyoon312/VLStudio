@@ -424,16 +424,20 @@ class LLMClient:
                         continue
                 raise last_error or Exception("All NVIDIA keys exhausted.")
 
-            elif model_name == "youtube1" or model_name.startswith("youtube1/"):
-                # YouTube1 / 9router Custom Provider (Local Gateway)
+            elif model_name in ["youtube1", "omniroute", "9router"] or model_name.startswith(("youtube1/", "omniroute/", "9router/")):
+                # OmniRoute / YouTube1 / 9router Custom Provider (Local Gateway)
                 last_error = None
                 raw_base_url = getattr(self.settings, "youtube1_base_url", None) or getattr(self.settings, "ninerouter_url", None) or "http://localhost:20128/v1"
                 clean_base_url = str(raw_base_url).strip().rstrip("/")
                 if not clean_base_url.endswith("/v1") and not clean_base_url.endswith("/chat/completions"):
                     clean_base_url = f"{clean_base_url}/v1"
 
-                keys_to_try = self.youtube1_keys if self.youtube1_keys else [getattr(self.settings, "ninerouter_api_key", None) or "sk-local-gateway"]
-                clean_model = model_name.replace("youtube1/", "") if model_name.startswith("youtube1/") else model_name
+                keys_to_try = self.youtube1_keys if self.youtube1_keys else [getattr(self.settings, "ninerouter_api_key", None) or "sk-omniroute"]
+                clean_model = model_name
+                for prefix in ["youtube1/", "omniroute/", "9router/"]:
+                    if clean_model.startswith(prefix):
+                        clean_model = clean_model[len(prefix):]
+                        break
                 
                 for key_idx, current_key in enumerate(keys_to_try):
                     if not current_key:
@@ -447,19 +451,19 @@ class LLMClient:
                             full_response=full_response,
                             base_url=clean_base_url,
                             api_key=current_key,
-                            provider_name="YouTube1",
+                            provider_name="OmniRoute",
                             images=images,
                             request_timeout=180.0
                         )
                     except Exception as e:
                         last_error = e
-                        logger.warning(f"[WAIT] [YouTube1/9router] Error on Key #{key_idx}: {e}. Retrying...")
+                        logger.warning(f"[WAIT] [OmniRoute] Error on Key #{key_idx}: {e}. Retrying...")
                         time.sleep(0.5)
                         continue
                 
-                # YouTube1 통신 실패 시 로그 기록 후 예외 전달
-                logger.error(f"[FAIL] [YouTube1/9router] All keys exhausted: {last_error}")
-                raise last_error or Exception(f"YouTube1 / 9router failed: {last_error}")
+                # 통신 실패 시 로그 기록 후 예외 전달
+                logger.error(f"[FAIL] [OmniRoute] All keys exhausted: {last_error}")
+                raise last_error or Exception(f"OmniRoute failed: {last_error}")
 
             elif model_name.startswith("google/") or model_name.startswith("gemini/"):
                 # Google/Gemini routing
@@ -913,7 +917,8 @@ class LLMClient:
             "openai": results[7] if not isinstance(results[7], Exception) else [],
             "opencode": results[8] if not isinstance(results[8], Exception) else [],
             "anthropic": results[9] if not isinstance(results[9], Exception) else [],
-            "youtube1": results[10] if not isinstance(results[10], Exception) else []
+            "youtube1": results[10] if not isinstance(results[10], Exception) else [],
+            "omniroute": results[10] if not isinstance(results[10], Exception) else []
         }
         
         # 6. NVIDIA Models (Dynamic fetch is now in results)
@@ -967,6 +972,14 @@ class LLMClient:
                         lower_mid = mid.lower()
                         
                         # Provider-specific filtering
+                        if provider_name in ["youtube1", "omniroute"]:
+                            # WHITELIST: Only allow auto/* smart router models OR slash-free user Combos
+                            # mid here is the raw model id from OmniRoute (e.g. "auto/best-coding", "viraloop1", "dva/claude-opus-4")
+                            is_auto_router = (mid == "auto" or mid.startswith("auto/"))
+                            is_user_combo = ("/" not in mid)  # slash-free = user-created Combo name
+                            if not (is_auto_router or is_user_combo):
+                                continue
+
                         if provider_name == "groq" and not any(x in lower_mid for x in ["llama", "mixtral", "gemma", "whisper"]):
                              continue
                         if provider_name == "cerebras" and "llama" not in lower_mid:
@@ -1102,13 +1115,44 @@ class LLMClient:
         return await self._fetch_openai_compatible_async(key, "https://opencode.ai/zen/v1", "opencode", fallback_models=fallback)
 
     async def _fetch_youtube1_models_async(self) -> list:
-        key = self.youtube1_keys[0] if self.youtube1_keys else None
+        key = self.youtube1_keys[0] if self.youtube1_keys else (getattr(self.settings, "ninerouter_api_key", None) or "sk-omniroute")
         fallback = [
-            {"value": "youtube1/youtube1", "label": "YouTube1 (Local API)"},
+            {"value": "youtube1/auto", "label": "🎯 OmniRoute Auto (자동 최적화 & 무료 폴백)"},
+            {"value": "youtube1/auto/fast", "label": "⚡ OmniRoute Fast (초고속 응답)"},
+            {"value": "youtube1/auto/coding", "label": "🧑‍💻 OmniRoute Coding (대본 & 기획 특화)"},
+            {"value": "youtube1/auto/cheap", "label": "💰 OmniRoute Cheap (0원 무료 우선)"},
+            {"value": "youtube1/youtube1", "label": "Viraloop1 (로컬 통합 기본)"},
         ]
         if not key:
-            return []
-        return await self._fetch_openai_compatible_async(key, "http://localhost:20128/v1", "youtube1", fallback_models=fallback)
+            return fallback
+
+        fetched = await self._fetch_openai_compatible_async(key, "http://localhost:20128/v1", "youtube1", fallback_models=fallback)
+        
+        seen = set()
+        result = []
+        for c in fallback:
+            seen.add(c["value"])
+            result.append(c)
+
+        for m in fetched:
+            val = m["value"]  # e.g. "youtube1/auto/best-coding" or "youtube1/viraloop1"
+            # Get the raw model id (strip "youtube1/" prefix)
+            raw_id = val[len("youtube1/"):] if val.startswith("youtube1/") else val
+
+            # ✅ ALLOW ONLY:
+            # 1. auto/* smart router models  (e.g. "auto/best-coding", "auto")
+            # 2. User-created Combos: simple names with NO slash (e.g. "viraloop1", "my-combo")
+            is_auto_router = (raw_id == "auto" or raw_id.startswith("auto/"))
+            is_user_combo = ("/" not in raw_id)  # no slash = user-named combo
+            if not (is_auto_router or is_user_combo):
+                continue
+
+            if val not in seen:
+                seen.add(val)
+                result.append(m)
+
+
+        return result
 
     async def _fetch_openai_models_async(self) -> list:
         key = getattr(self.settings, "openai_api_key", None) or os.getenv("OPENAI_API_KEY")
@@ -1144,9 +1188,10 @@ class LLMClient:
                 temp_client.models.list(config={"page_size": 1})
                 return {"success": True, "message": "Google API 연결 성공!"}
 
-            # 2. OpenAI Compatible Case (9router, Groq, OpenRouter, SambaNova, Cerebras, NVIDIA, Ollama)
+            # 2. OpenAI Compatible Case (OmniRoute, Groq, OpenRouter, SambaNova, Cerebras, NVIDIA, Ollama)
             # Map providers to their default base URLs if not provided
             default_urls = {
+                "omniroute": "http://localhost:20128/v1",
                 "youtube1": "http://localhost:20128/v1",
                 "9router": "http://localhost:20128/v1",
                 "ninerouter": "http://localhost:20128/v1",
@@ -1165,9 +1210,10 @@ class LLMClient:
             # Map providers to their keys from settings if not provided
             if not api_key:
                 key_map = {
-                    "youtube1": self.youtube1_keys if self.youtube1_keys else ["9router"],
-                    "9router": ["9router"],
-                    "ninerouter": ["9router"],
+                    "omniroute": self.youtube1_keys if self.youtube1_keys else ["sk-omniroute"],
+                    "youtube1": self.youtube1_keys if self.youtube1_keys else ["sk-omniroute"],
+                    "9router": ["sk-omniroute"],
+                    "ninerouter": ["sk-omniroute"],
                     "groq": self.groq_keys,
                     "openrouter": self.openrouter_keys,
                     "sambanova": self.sambanova_keys,
@@ -1176,16 +1222,16 @@ class LLMClient:
                     "opencode": self.opencode_keys,
                     "ollama": ["ollama"]
                 }
-                keys = key_map.get(provider, ["9router"])
-                api_key = keys[0] if keys else "9router"
+                keys = key_map.get(provider, ["sk-omniroute"])
+                api_key = keys[0] if keys else "sk-omniroute"
 
             if not api_key:
-                api_key = "9router"
+                api_key = "sk-omniroute"
 
             temp_client = OpenAI(api_key=api_key, base_url=target_url)
             models_res = temp_client.models.list()
             model_count = len(models_res.data) if hasattr(models_res, 'data') else 1
-            provider_label = "9router" if provider in ["youtube1", "9router", "ninerouter"] else provider.capitalize()
+            provider_label = "OmniRoute" if provider in ["youtube1", "omniroute", "9router", "ninerouter"] else provider.capitalize()
             return {"success": True, "message": f"{provider_label} 연결 성공! (사용 가능 모델: {model_count}개 감지)"}
 
         except Exception as e:

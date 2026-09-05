@@ -101,7 +101,8 @@ from app.routers import (
     work_queue, youtube_channels, veo_prompt_agent,
     queue_management, processing_verification, dashboard_reports, 
     health_deployment, ml_ab_search, operations, network,
-    douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission
+    douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission,
+    pipeline_router
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -485,6 +486,7 @@ app.include_router(ml_ab_search.router)
 # [Elite] Beats Editor — Command Studio
 app.include_router(beats_editor.router, prefix="/api/beats", tags=["elite-studio"])
 app.include_router(operations.router, prefix="/api/operations", tags=["elite-studio"])
+app.include_router(pipeline_router.router)
 
 app.include_router(browser.router)  # /api/browser/launch, /upload, /close, /engines
 

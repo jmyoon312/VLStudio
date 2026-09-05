@@ -236,6 +236,10 @@ export interface Settings {
     kie_api_key: string | null;
     default_model: string;
     ytdlp_auto_update: boolean;
+    auto_patch_enabled?: boolean;
+    auto_engine_update?: boolean;
+    patch_check_interval?: string;
+    patch_channel?: string;
     ytdlp_last_check: string | null;
     ytdlp_version: string | null;
     openclaw_preferred_provider: string | null;

@@ -113,7 +113,7 @@ export const ChannelLaunchpadModal: React.FC<ChannelLaunchpadModalProps> = ({
                                     </span>
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                    수집된 벤치마킹 채널 데이터를 9router AI로 정밀 해체하여, 즉시 개설 가능한 5대 채널 론칭 패키지를 추천합니다.
+                                    수집된 벤치마킹 채널 데이터를 OmniRoute AI로 정밀 해체하여, 즉시 개설 가능한 5대 채널 론칭 패키지를 추천합니다.
                                 </p>
                             </div>
                         </div>
@@ -140,7 +140,7 @@ export const ChannelLaunchpadModal: React.FC<ChannelLaunchpadModalProps> = ({
                                 <Sparkles className="w-6 h-6 text-indigo-500 absolute inset-0 m-auto animate-pulse" />
                             </div>
                             <div>
-                                <h4 className="text-sm font-black text-foreground">9router AI가 경쟁 채널 DNA를 해체하는 중...</h4>
+                                <h4 className="text-sm font-black text-foreground">OmniRoute AI가 경쟁 채널 DNA를 해체하는 중...</h4>
                                 <p className="text-xs text-muted-foreground mt-1">
                                     상위 1% 알고리즘 훅, 썸네일 특징, SEO 키워드를 결합하여 채널 브랜딩 패키지를 생성하고 있습니다.
                                 </p>

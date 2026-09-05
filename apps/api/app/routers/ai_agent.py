@@ -94,20 +94,25 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
     
     # Use brain_router to get the LangChain model
     try:
-        # Determine Provider and Model Name
-        target_provider = req.provider
+        # Determine Provider and Model Name dynamically from DB Settings if not specified or legacy default
+        db_model = getattr(settings, "script_analysis_model", None) or getattr(settings, "default_llm_model", None) or "viraloop1"
+        target_provider = req.provider or "omniroute"
         target_model = req.model
-        
-        # Route via 9router local gateway by default
-        if not target_model or target_model in ["auto", "cerebras/llama3.1-8b", "llama-3.3-70b-versatile"]:
-            target_provider = "youtube1"
-            target_model = "youtube1"
 
-        logger.info(f"🤖 [Loopie] Routing command request via 9router: {target_provider}/{target_model}")
+        if not target_model or target_model in ["auto", "cerebras/llama3.1-8b", "llama-3.3-70b-versatile"]:
+            target_model = db_model
+            if "/" in db_model and not (db_model.startswith("viraloop") or db_model.startswith("youtube")):
+                target_provider = db_model.split("/")[0]
+            else:
+                target_provider = "omniroute"
+
+        clean_model = target_model.split("/", 1)[1] if "/" in target_model else target_model
+
+        logger.info(f"🤖 [Loopie] Routing command request via OmniRoute/BrainRouter: {target_provider}/{clean_model} (full: {target_model})")
         current_path = req.context.get("currentPath", "")
         system_instruction = (
             "당신은 'ViraLoop Studio'의 최고 전략 에이전트, '루피(Loopie)'입니다. "
-            "단순한 챗봇이 아닌, 9router AI 두뇌와 MCP 도구 및 CapCut 직접 조립 엔진을 지휘하여 실제 바이럴 쇼츠/영상을 제작하는 '자율 영상 프로덕션 디렉터'입니다. "
+            "단순한 챗봇이 아닌, OmniRoute AI 두뇌와 MCP 도구 및 CapCut 직접 조립 엔진을 지휘하여 실제 바이럴 쇼츠/영상을 제작하는 '자율 영상 프로덕션 디렉터'입니다. "
             "지휘관(사용자)의 명령을 수행할 때 항상 다음을 고려하십시오:\n"
             "1. 3초 후킹(Hook): 첫 화면에서 이탈을 막는 강렬한 시각/음성 후킹.\n"
             "2. 9-Wave 바이럴 스토리텔링: 야담, 다크 히스토리, 랭킹형, 떡상 레퍼런스 복제 등 채널 성격에 맞는 대본 구조.\n"

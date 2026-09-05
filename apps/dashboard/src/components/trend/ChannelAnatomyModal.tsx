@@ -40,7 +40,7 @@ export const ChannelAnatomyModal: React.FC<ChannelAnatomyModalProps> = ({
         enabled: isOpen && (channelId !== null || !!channelName),
     });
 
-    // 2. 9router LLM AI Insight Regeneration Mutation
+    // 2. OmniRoute LLM AI Insight Regeneration Mutation
     const insightMutation = useMutation({
         mutationFn: async () => {
             if (!channelId) return [];
@@ -471,7 +471,7 @@ export const ChannelAnatomyModal: React.FC<ChannelAnatomyModalProps> = ({
                                         ) : (
                                             <RefreshCw className="w-3 h-3" />
                                         )}
-                                        {insightMutation.isPending ? '9router 분석 중...' : '다시 생성'}
+                                        {insightMutation.isPending ? 'OmniRoute 분석 중...' : '다시 생성'}
                                     </button>
                                 </div>
 

@@ -270,4 +270,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   keysStatus: (params) => ipcRenderer.invoke('keys:status', params),
   keysSet: (params) => ipcRenderer.invoke('keys:set', params),
   keysDelete: (params) => ipcRenderer.invoke('keys:delete', params),
+
+  // OmniRoute Local AI Gateway
+  omnirouteGetStatus: () => ipcRenderer.invoke('omniroute:get-status'),
+  omnirouteCheckUpdate: () => ipcRenderer.invoke('omniroute:check-update'),
+  omnirouteStart: () => ipcRenderer.invoke('omniroute:start'),
+  omnirouteStop: () => ipcRenderer.invoke('omniroute:stop'),
+  omnirouteRestart: () => ipcRenderer.invoke('omniroute:restart'),
+  omnirouteInstall: () => ipcRenderer.invoke('omniroute:install'),
+  omnirouteOpenDashboard: () => ipcRenderer.invoke('omniroute:open-dashboard'),
+  onOmniRouteInstallLog: (callback) => {
+    const handler = (_, log) => callback(log)
+    ipcRenderer.on('omniroute:install-log', handler)
+    return () => ipcRenderer.removeListener('omniroute:install-log', handler)
+  },
+  getInfraStatus: () => ipcRenderer.invoke('get-infra-status'),
+
+  // OTA Hot-Patch & App Version
+  hotpatchGetStatus: () => ipcRenderer.invoke('hotpatch:get-status'),
+  hotpatchCheckUpdate: () => ipcRenderer.invoke('hotpatch:check-update'),
+  hotpatchClearCache: () => ipcRenderer.invoke('hotpatch:clear-cache'),
+  hotpatchReload: () => ipcRenderer.invoke('hotpatch:reload'),
 })

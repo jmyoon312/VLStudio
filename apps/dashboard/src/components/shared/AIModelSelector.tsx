@@ -33,9 +33,9 @@ interface AIModelSelectorProps {
     onCreatePreset?: () => void;
 }
 
-// 1. Static Provider List (9router Unified Gateway)
+// 1. Static Provider List (OmniRoute Unified Gateway)
 const PROVIDER_OPTIONS = [
-    { value: "youtube1", label: "9router (로컬 AI 통합 허브)" },
+    { value: "youtube1", label: "OmniRoute (로컬 AI 통합 허브)" },
 ];
 
 const AIModelSelector = ({
@@ -91,7 +91,18 @@ const AIModelSelector = ({
                 uniqueModels.push(model);
             }
         }
-        return uniqueModels;
+
+        // [ENHANCE] Filter out image diffusion / video models from script analysis selector
+        return uniqueModels.filter((m: any) => {
+            const v = (m.value || '').toLowerCase();
+            const l = (m.label || '').toLowerCase();
+            if (v.includes('aihorde') || v.includes('diffusion') || v.includes('sdxl') || 
+                v.includes('reliberate') || v.includes('rimix') || v.includes('seedance') ||
+                l.includes('diffusion') || l.includes('sdxl') || l.includes('reliberate') || l.includes('rev animated')) {
+                return false;
+            }
+            return true;
+        });
     }, [fetchedModels, provider]);
 
     const [searchTerm, setSearchTerm] = React.useState("");
@@ -261,11 +272,46 @@ const AIModelSelector = ({
 
                             <div className="overflow-y-auto max-h-[300px]">
                                 {filteredModels.length > 0 ? (
-                                    filteredModels.map((opt: any) => (
-                                        <SelectItem key={opt.value} value={opt.value} className={itemClass}>
-                                            {opt.label}
-                                        </SelectItem>
-                                    ))
+                                    <>
+                                        {/* 1. Smart Router (auto/*) */}
+                                        {filteredModels.some((m: any) => m.value.includes('/auto') || m.value.includes('youtube1/auto')) && (
+                                            <div className="px-2 py-1 text-[10px] font-bold text-primary bg-primary/5 uppercase tracking-wider">
+                                                ⭐ 스마트 라우터 (자동 최적화)
+                                            </div>
+                                        )}
+                                        {filteredModels
+                                            .filter((opt: any) => {
+                                                const raw = opt.value.replace(/^youtube1\//, '');
+                                                return raw === 'auto' || raw.startsWith('auto/') || opt.value === 'youtube1/youtube1';
+                                            })
+                                            .map((opt: any) => (
+                                                <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "font-semibold")}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
+
+                                        {/* 2. User-created Combos: slash-free names (e.g. viraloop1) */}
+                                        {filteredModels.some((m: any) => {
+                                            const raw = m.value.replace(/^youtube1\//, '');
+                                            return !raw.startsWith('auto') && !raw.includes('/');
+                                        }) && (
+                                            <>
+                                                <div className="px-2 py-1 text-[10px] font-bold text-amber-500 bg-amber-500/5 uppercase tracking-wider mt-1 border-t border-border">
+                                                    🔧 내 Combo
+                                                </div>
+                                                {filteredModels
+                                                    .filter((opt: any) => {
+                                                        const raw = opt.value.replace(/^youtube1\//, '');
+                                                        return !raw.startsWith('auto') && !raw.includes('/');
+                                                    })
+                                                    .map((opt: any) => (
+                                                        <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "text-amber-700 dark:text-amber-400 font-medium")}>
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ))}
+                                            </>
+                                        )}
+                                    </>
                                 ) : (
                                     <div className="py-6 text-center text-xs text-muted-foreground italic">
                                         검색 결과가 없습니다

@@ -72,7 +72,7 @@ export const CategoryDNAModal: React.FC<CategoryDNAModalProps> = ({
         setNegativeKeywords(negativeKeywords.filter(k => k !== keywordToRemove));
     };
 
-    // AI Suggestion Mutation (9router LLMClient)
+    // AI Suggestion Mutation (OmniRoute LLMClient)
     const suggestMutation = useMutation({
         mutationFn: async (categoryId: number) => {
             const res = await api.post(`/categories/${categoryId}/suggest-dna`);

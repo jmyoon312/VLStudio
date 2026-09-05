@@ -237,6 +237,69 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
       },
     },
+    {
+      name: 'list_pipelines',
+      description: '사용 가능한 6대 표준 제작 템플릿(원테이크, 음악싱크, 대본해설, 영화컷팅, AI창작, 롱폼) 및 커스텀 파이프라인 목록을 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    {
+      name: 'run_pipeline',
+      description: '지정된 영상 제작 파이프라인을 실행합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          pipeline_id: { type: 'string', description: '실행할 파이프라인 ID (예: one_take_hook, full_generative_ai)' },
+          payload: { type: 'object', description: '실행 입력 파라미터 (주제, 소스 URL 등)' },
+        },
+        required: ['pipeline_id'],
+      },
+    },
+    {
+      name: 'get_studio_memory',
+      description: '루피의 디렉팅 원칙(soul.md), 누적 학습 기억(memory.md), 스킬 플레이북(skills/)을 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    {
+      name: 'generate_script',
+      description: 'AI 대본 각색 및 3초 후킹 시나리오를 자동 생성합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          topic: { type: 'string', description: '영상 주제' },
+          genre: { type: 'string', description: '장르/카테고리' },
+          target_duration_sec: { type: 'number', description: '목표 영상 길이 (초)', default: 60 },
+          model: { type: 'string', description: '사용할 LLM 모델명' },
+        },
+        required: ['topic'],
+      },
+    },
+    {
+      name: 'get_work_queue_status',
+      description: '쇼츠 자동 배포 관리(WorkQueue)의 렌더링 및 예약 업로드 진행 현황을 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+      },
+    },
+    {
+      name: 'enqueue_work_queue_job',
+      description: '제작 완료된 쇼츠/롱폼 프로젝트를 WorkQueue 대기열에 탑재하여 자동 발행합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: '영상 제목' },
+          project_dir: { type: 'string', description: '프로젝트 디렉토리 경로' },
+          scheduled_time: { type: 'string', description: '예약 업로드 시간 (ISO 문자열)' },
+        },
+        required: ['title', 'project_dir'],
+      },
+    },
 
     {
       name: 'get_schema',
@@ -956,6 +1019,48 @@ ${JSON.stringify(result, null, 2)}` }],
         return {
           content: [{ type: 'text', text: `🗄️ 영상 보관함 자산 목록 (${result.length || 0}건):
 ${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'list_pipelines': {
+        const result = await viraloopTools.listPipelines();
+        return {
+          content: [{ type: 'text', text: `🧩 사용 가능한 생산 파이프라인 목록:\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'run_pipeline': {
+        const result = await viraloopTools.runPipeline(args.pipeline_id, args.payload || {});
+        return {
+          content: [{ type: 'text', text: `🚀 파이프라인 실행 결과:\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'get_studio_memory': {
+        const result = await viraloopTools.getStudioMemory();
+        return {
+          content: [{ type: 'text', text: `🧠 스튜디오 정체성 및 기억 자산:\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'generate_script': {
+        const result = await viraloopTools.generateScript(args);
+        return {
+          content: [{ type: 'text', text: `✍️ AI 대본 생성 결과:\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'get_work_queue_status': {
+        const result = await viraloopTools.getWorkQueueStatus();
+        return {
+          content: [{ type: 'text', text: `📋 쇼츠 자동 배포 대기열 현황:\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'enqueue_work_queue_job': {
+        const result = await viraloopTools.enqueueWorkQueueJob(args);
+        return {
+          content: [{ type: 'text', text: `🚀 대기열 작업 등록 완료:\n${JSON.stringify(result, null, 2)}` }],
         };
       }
 

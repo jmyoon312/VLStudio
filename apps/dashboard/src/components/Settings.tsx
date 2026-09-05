@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 import api, { apiLong, Settings as SettingsType } from '../lib/api';
 
-import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2 } from 'lucide-react';
+import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, RotateCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2, Sparkles, Clock, Bot, Workflow, Layers } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -35,7 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 import AIModelSelector from '@/components/shared/AIModelSelector';
-
+import OmniRouteControlCard from '@/components/shared/OmniRouteControlCard';
 import { SystemSettingsTab } from './SystemSettingsTab';
 
 // Helper Component for Key Lists
@@ -194,8 +194,441 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
         }
     });
 
+    // 4. 패치 & 릴리즈 상태 및 확인
+    const { data: patchStatus, isLoading: isPatchLoading, refetch: refetchPatch } = useQuery({
+        queryKey: ['patch_status'],
+        queryFn: async () => {
+            const res = await api.get('/system/patch/status');
+            return res.data;
+        }
+    });
+
+    const checkPatchMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.post('/system/patch/check');
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(data.message || "최신 패치 버전을 사용 중입니다.");
+            queryClient.invalidateQueries({ queryKey: ['patch_status'] });
+        },
+        onError: (err: any) => {
+            toast.error("패치 확인 실패: " + err.message);
+        }
+    });
+
+    const applyPatchMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.post('/system/patch/apply');
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(data.message || "최신 패치가 성공적으로 적용되었습니다.");
+            queryClient.invalidateQueries({ queryKey: ['patch_status'] });
+            queryClient.invalidateQueries({ queryKey: ['unified_engines_status'] });
+        }
+    });
+
+    const updatePatchConfigMutation = useMutation({
+        mutationFn: async (newConfig: any) => {
+            const res = await api.post('/system/patch/config', newConfig);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(data.message || "자동 패치 및 업데이트 설정이 저장되었습니다.");
+            queryClient.invalidateQueries({ queryKey: ['patch_status'] });
+        },
+        onError: (err: any) => {
+            toast.error("설정 저장 실패: " + err.message);
+        }
+    });
+
+    const handlePatchConfigToggle = (key: string, value: any) => {
+        const currentConfig = {
+            auto_patch_enabled: patchStatus?.auto_patch_enabled ?? true,
+            auto_engine_update: patchStatus?.auto_engine_update ?? true,
+            patch_check_interval: patchStatus?.patch_check_interval ?? 'on_startup',
+            patch_channel: patchStatus?.patch_channel ?? 'stable',
+            auto_patch_notify: patchStatus?.auto_patch_notify ?? true,
+            auto_repair_on_fail: patchStatus?.auto_repair_on_fail ?? true,
+            [key]: value
+        };
+        updatePatchConfigMutation.mutate(currentConfig);
+        if (key === 'auto_engine_update') {
+            setFormData((prev: any) => ({ ...prev, ytdlp_auto_update: value }));
+        }
+    };
+
+    // 5. 루피(Loopie) 3대 코어 구성품 (MCP, Hermes Brain, OmniRoute) 상태 및 패치
+    const { data: loopieStatus, isLoading: isLoopieLoading, refetch: refetchLoopie, isFetching: isLoopieFetching } = useQuery({
+        queryKey: ['loopie_components_status'],
+        queryFn: async () => {
+            const res = await api.get('/system/loopie-components/status');
+            return res.data;
+        },
+        refetchInterval: 15000
+    });
+
+    const patchLoopieMutation = useMutation({
+        mutationFn: async (target: string) => {
+            const res = await api.post('/system/loopie-components/patch', { target });
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(data.message || "루피 구성품 패치가 성공적으로 적용되었습니다.");
+            queryClient.invalidateQueries({ queryKey: ['loopie_components_status'] });
+            queryClient.invalidateQueries({ queryKey: ['patch_status'] });
+            queryClient.invalidateQueries({ queryKey: ['unified_engines_status'] });
+        },
+        onError: (err: any) => {
+            toast.error("패치 실패: " + err.message);
+        }
+    });
+
     return (
         <div className="space-y-6">
+            {/* 🌟 0. ViraLoop 플랫폼 패치 & 릴리즈 관리자 카드 */}
+            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden border-indigo-500/20 bg-gradient-to-br from-card via-card to-indigo-500/5">
+                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-base font-bold flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            ViraLoop 플랫폼 패치 & 릴리즈 관리
+                            <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 font-bold">
+                                {patchStatus?.patch_channel || 'Stable'} 정식 채널
+                            </Badge>
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => checkPatchMutation.mutate()}
+                                disabled={checkPatchMutation.isPending}
+                                className="h-8 text-xs font-bold border-border bg-background hover:bg-muted"
+                            >
+                                <RefreshCcw className={`w-3.5 h-3.5 mr-1.5 ${checkPatchMutation.isPending ? 'animate-spin' : ''}`} />
+                                패치 확인
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() => applyPatchMutation.mutate()}
+                                disabled={applyPatchMutation.isPending}
+                                className="h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+                            >
+                                <Zap className="w-3.5 h-3.5 mr-1.5" />
+                                최신 패치 동기화
+                            </Button>
+                        </div>
+                    </div>
+                    <CardDescription className="text-xs">
+                        루피 AI 지휘 콘솔, 6대 제작 파이프라인 엔진 및 코어 백엔드 런타임의 최신 패치를 확인하고 무중단 자동 동기화를 구성합니다.
+                    </CardDescription>
+                </CardHeader>
+
+                <CardContent className="space-y-4 pt-4">
+                    {/* 버전 정보 4대 지표 */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="p-3 bg-muted/30 rounded-xl border border-border/70 space-y-1">
+                            <div className="text-[11px] text-muted-foreground font-medium">데스크톱 앱 버전</div>
+                            <div className="text-sm font-black text-foreground font-mono">{patchStatus?.app_version || 'v6.5.2'}</div>
+                        </div>
+                        <div className="p-3 bg-muted/30 rounded-xl border border-border/70 space-y-1">
+                            <div className="text-[11px] text-muted-foreground font-medium">코어 엔진 버전</div>
+                            <div className="text-sm font-black text-foreground font-mono">{patchStatus?.core_version || 'v6.5.2-sovereign'}</div>
+                        </div>
+                        <div className="p-3 bg-muted/30 rounded-xl border border-border/70 space-y-1">
+                            <div className="text-[11px] text-muted-foreground font-medium">빌드 해시</div>
+                            <div className="text-sm font-black text-indigo-600 dark:text-indigo-400 font-mono">{patchStatus?.git_commit || 'local'}</div>
+                        </div>
+                        <div className="p-3 bg-muted/30 rounded-xl border border-border/70 space-y-1">
+                            <div className="text-[11px] text-muted-foreground font-medium">마지막 확인 일시</div>
+                            <div className="text-xs font-bold text-foreground truncate">{patchStatus?.last_checked || '방금 전'}</div>
+                        </div>
+                    </div>
+
+                    {/* ⚙️ 자동 패치 & 무중단 업데이트 정책 설정 (스위치 & 제어기) */}
+                    <div className="pt-2 border-t border-border/80 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                <Shield className="w-4 h-4 text-indigo-500" />
+                                자동 패치 및 무중단 업데이트 정책
+                            </span>
+                            <Badge variant="outline" className={`text-[10px] font-bold ${patchStatus?.auto_patch_enabled !== false ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' : 'bg-muted text-muted-foreground border-border'}`}>
+                                {patchStatus?.auto_patch_enabled !== false ? "● 자동 업데이트 가동 중" : "○ 수동 패치 모드"}
+                            </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Toggle 1: 자동 핫패치 무중단 적용 */}
+                            <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/30 border border-border hover:border-indigo-500/30 transition-colors">
+                                <div className="space-y-0.5 pr-3">
+                                    <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                        <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                        백그라운드 자동 핫패치 무중단 적용
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground leading-relaxed">
+                                        앱 실행 시 및 백그라운드에서 최신 핫픽스/패치를 자동 감지하여 무중단 적용
+                                    </div>
+                                </div>
+                                <Switch
+                                    checked={patchStatus?.auto_patch_enabled !== false}
+                                    onCheckedChange={(checked) => handlePatchConfigToggle('auto_patch_enabled', checked)}
+                                    disabled={updatePatchConfigMutation.isPending}
+                                />
+                            </div>
+
+                            {/* Toggle 2: 플랫폼 코어 엔진 자동 최신화 */}
+                            <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/30 border border-border hover:border-indigo-500/30 transition-colors">
+                                <div className="space-y-0.5 pr-3">
+                                    <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                        <Rocket className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                        플랫폼 연동 코어 엔진 자동 최신화
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground leading-relaxed">
+                                        유튜브/쇼츠/틱톡 프로토콜 변경 대응을 위해 yt-dlp 등 코어 엔진 주기적 자동 업데이트
+                                    </div>
+                                </div>
+                                <Switch
+                                    checked={patchStatus?.auto_engine_update !== false}
+                                    onCheckedChange={(checked) => handlePatchConfigToggle('auto_engine_update', checked)}
+                                    disabled={updatePatchConfigMutation.isPending}
+                                />
+                            </div>
+
+                            {/* Option 3: 패치 자동 점검 주기 */}
+                            <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/30 border border-border">
+                                <div className="space-y-0.5 pr-2">
+                                    <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                        패치 자동 점검 주기
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                        새로운 패치와 엔진 버전 확인 주기
+                                    </div>
+                                </div>
+                                <Select
+                                    value={patchStatus?.patch_check_interval || 'on_startup'}
+                                    onValueChange={(val) => handlePatchConfigToggle('patch_check_interval', val)}
+                                    disabled={updatePatchConfigMutation.isPending}
+                                >
+                                    <SelectTrigger className="w-36 h-8 text-xs font-bold bg-background border-border">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="on_startup">앱 시작 시 마다</SelectItem>
+                                        <SelectItem value="6h">6시간 마다</SelectItem>
+                                        <SelectItem value="12h">12시간 마다</SelectItem>
+                                        <SelectItem value="24h">24시간 마다</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Option 4: 릴리즈 채널 */}
+                            <div className="flex items-center justify-between p-3.5 rounded-xl bg-muted/30 border border-border">
+                                <div className="space-y-0.5 pr-2">
+                                    <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                        <Code2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                                        업데이트 배포 채널
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                        정식 안정화 버전 또는 최신 프리뷰
+                                    </div>
+                                </div>
+                                <Select
+                                    value={patchStatus?.patch_channel || 'stable'}
+                                    onValueChange={(val) => handlePatchConfigToggle('patch_channel', val)}
+                                    disabled={updatePatchConfigMutation.isPending}
+                                >
+                                    <SelectTrigger className="w-36 h-8 text-xs font-bold bg-background border-border">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="stable">Stable (정식 권장)</SelectItem>
+                                        <SelectItem value="beta">Beta (미리보기)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-1 gap-1 text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                스위치 변경 시 설정이 즉시 시스템 및 로컬 환경설정에 실시간 동기화됩니다.
+                            </span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                                Storage: 09_System/patch_config.json
+                            </span>
+                        </div>
+                    </div>
+
+                    {patchStatus?.release_notes && (
+                        <div className="p-3.5 bg-muted/20 rounded-xl border border-border/60 text-xs space-y-1.5 font-medium text-muted-foreground">
+                            <div className="font-bold text-foreground flex items-center gap-1.5">
+                                <Film className="w-4 h-4 text-indigo-500" />
+                                최신 패치 주요 내역
+                            </div>
+                            <div className="whitespace-pre-line leading-relaxed pl-5">
+                                {patchStatus.release_notes}
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* 🌟 0.5. 루피 AI 지능 에이전트 코어 구성품 허브 (Loopie Core Runtime & Tools Hub) */}
+            <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden border-sky-500/20 bg-gradient-to-br from-card via-card to-sky-500/5">
+                <CardHeader className="bg-muted/30 border-b border-border py-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                            <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                                <Bot className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                                루피 AI 지능 & 도구 코어 구성품 (Loopie Runtime Hub)
+                                <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30 font-bold">
+                                    3대 독립 런타임
+                                </Badge>
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                                루피가 자율적으로 영상을 기획·제작·배포하는 3대 핵심 런타임(MCP 도구 사령탑, Hermes 기억고, OmniRoute 라우터)의 버전 확인 및 자동/수동 패치 허브입니다.
+                            </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => refetchLoopie()}
+                                disabled={isLoopieFetching}
+                                className="h-8 text-xs font-bold border-border bg-background hover:bg-muted"
+                            >
+                                <RefreshCcw className={`w-3.5 h-3.5 mr-1.5 ${isLoopieFetching ? 'animate-spin' : ''}`} />
+                                상태 갱신
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() => patchLoopieMutation.mutate('all')}
+                                disabled={patchLoopieMutation.isPending}
+                                className="h-8 text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white shadow-xs"
+                            >
+                                <Zap className="w-3.5 h-3.5 mr-1.5" />
+                                전체 코어 수동 패치
+                            </Button>
+                        </div>
+                    </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4 pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* 1. Root MCP Server */}
+                        <div className="p-4 rounded-xl bg-muted/30 border border-border/80 flex flex-col justify-between space-y-3 hover:border-sky-500/30 transition-colors">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+                                        <Workflow className="w-4 h-4 text-sky-500" />
+                                        Root MCP Server
+                                    </div>
+                                    <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-bold">
+                                        v1.2.0
+                                    </Badge>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    루피가 영상 수집, 컷팅, 대본 작성, CapCut 생성을 직접 지휘하는 24대 도구 실행 브릿지
+                                </p>
+                                <div className="p-2 rounded-lg bg-background/60 border border-border/60 text-[11px] font-mono text-muted-foreground">
+                                    도구: 24/24 Online (mcp-server/)
+                                </div>
+                            </div>
+                            <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" /> 자동 패치 연동
+                                </span>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => patchLoopieMutation.mutate('mcp_server')}
+                                    disabled={patchLoopieMutation.isPending}
+                                    className="h-7 text-[11px] font-bold border-border bg-card hover:bg-muted"
+                                >
+                                    수동 동기화
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* 2. Hermes Core & Brain Vault */}
+                        <div className="p-4 rounded-xl bg-muted/30 border border-border/80 flex flex-col justify-between space-y-3 hover:border-indigo-500/30 transition-colors">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+                                        <BrainCircuit className="w-4 h-4 text-indigo-500" />
+                                        Hermes Core & 기억고
+                                    </div>
+                                    <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 font-bold">
+                                        v6.5.2
+                                    </Badge>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    바이럴 10원칙(soul.md), 누적 기억(memory.md), 바이럴 플레이북(skills/) 자가 학습 엔진
+                                </p>
+                                <div className="p-2 rounded-lg bg-background/60 border border-border/60 text-[11px] font-mono text-muted-foreground">
+                                    지능: LangGraph & Vault 연동
+                                </div>
+                            </div>
+                            <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" /> 스킬 자동 갱신
+                                </span>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => patchLoopieMutation.mutate('hermes_brain')}
+                                    disabled={patchLoopieMutation.isPending}
+                                    className="h-7 text-[11px] font-bold border-border bg-card hover:bg-muted"
+                                >
+                                    스킬 즉시 패치
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* 3. OmniRoute Gateway */}
+                        <div className="p-4 rounded-xl bg-muted/30 border border-border/80 flex flex-col justify-between space-y-3 hover:border-teal-500/30 transition-colors">
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 font-bold text-sm text-foreground">
+                                        <Server className="w-4 h-4 text-teal-500" />
+                                        OmniRoute AI Gateway
+                                    </div>
+                                    <Badge variant="outline" className="text-[10px] bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30 font-bold">
+                                        포트 20128
+                                    </Badge>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    모든 AI 모델의 스마트 라우팅 및 단일 진실 공급원(viraloop1) 로컬 게이트웨이
+                                </p>
+                                <div className="p-2 rounded-lg bg-background/60 border border-border/60 text-[11px] font-mono text-muted-foreground">
+                                    게이트웨이: 127.0.0.1:20128 가동
+                                </div>
+                            </div>
+                            <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-500" /> 라우터 자동 갱신
+                                </span>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => patchLoopieMutation.mutate('omniroute_gateway')}
+                                    disabled={patchLoopieMutation.isPending}
+                                    className="h-7 text-[11px] font-bold border-border bg-card hover:bg-muted"
+                                >
+                                    게이트웨이 검증
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-sky-900 dark:text-sky-300 font-medium flex items-center justify-between">
+                        <span>💡 GitHub에 새 도구 명세나 바이럴 스킬이 커밋되면, <b>[자동 패치 스위치]</b>에 의해 백그라운드에서 자동 다운로드 및 갱신되며 필요 시 우측 버튼으로 언제든지 수동 즉시 패치할 수 있습니다.</span>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* 1. 플랫폼 연동 코어 엔진 카드 (yt-dlp & CloakBrowser) */}
             <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
                 <CardHeader className="bg-muted/30 border-b border-border py-3">
@@ -455,6 +888,92 @@ const Settings = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // === OTA Hot-Patch & App Version State ===
+    const [hotpatchStatus, setHotpatchStatus] = useState<{
+        appVersion: string;
+        buildNumber: string | number;
+        isHotpatchActive: boolean;
+        meta: any;
+        isUpdating?: boolean;
+    }>({
+        appVersion: '0.9.44',
+        buildNumber: 1042,
+        isHotpatchActive: true,
+        meta: null
+    });
+    const [isCheckingHotpatch, setIsCheckingHotpatch] = useState(false);
+
+    const fetchHotpatchStatus = useCallback(async () => {
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.hotpatchGetStatus) {
+                const res = await apiObj.hotpatchGetStatus();
+                if (res) setHotpatchStatus(res);
+            }
+        } catch (e) {
+            console.warn('[HotPatch] Status fetch error:', e);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchHotpatchStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // 마운트 1회만 실행 — 탭 전환마다 재호출 방지
+
+    const handleHotpatchCheck = async () => {
+        setIsCheckingHotpatch(true);
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.hotpatchCheckUpdate) {
+                const res = await apiObj.hotpatchCheckUpdate();
+                if (res.updated) {
+                    toast.success(res.message || `v${res.version} 핫패치가 적용되었습니다! 재실행 또는 새로고침하세요.`);
+                    fetchHotpatchStatus();
+                } else {
+                    toast.info(res.message || '현재 최신 버전입니다.');
+                }
+            } else {
+                toast.info('브라우저 환경에서는 핫패치가 자동 서빙 모드로 동작합니다.');
+            }
+        } catch (e: any) {
+            toast.error(`핫패치 확인 실패: ${e.message}`);
+        } finally {
+            setIsCheckingHotpatch(false);
+        }
+    };
+
+    const handleHotpatchClearCache = async () => {
+        if (!confirm('핫패치 캐시를 초기화하고 기본 내장 번들로 복원하시겠습니까?')) return;
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.hotpatchClearCache) {
+                const res = await apiObj.hotpatchClearCache();
+                toast.success(res.message || '캐시가 초기화되었습니다. 화면을 새로고침합니다.');
+                setTimeout(() => {
+                    if (apiObj?.hotpatchReload) {
+                        apiObj.hotpatchReload();
+                    } else {
+                        window.location.reload();
+                    }
+                }, 800);
+            } else {
+                localStorage.clear();
+                window.location.reload();
+            }
+        } catch (e: any) {
+            toast.error(`캐시 초기화 실패: ${e.message}`);
+        }
+    };
+
+    const handleForceReload = () => {
+        const apiObj = (window as any).electronAPI;
+        if (apiObj?.hotpatchReload) {
+            apiObj.hotpatchReload();
+        } else {
+            window.location.reload();
+        }
+    };
+
     // Logs State
 
     const [isLogOpen, setIsLogOpen] = useState(false);
@@ -467,37 +986,7 @@ const Settings = () => {
 
     const [isScanning, setIsScanning] = useState(false);
 
-    const [isUpdatingOpenClaw, setIsUpdatingOpenClaw] = useState(false);
-
-    const [isSyncingOpenClaude, setIsSyncingOpenClaude] = useState(false);
-
-    const [isUpdatingOpenClaude, setIsUpdatingOpenClaude] = useState(false);
-
     const [isUpdatingYtdlp, setIsUpdatingYtdlp] = useState(false);
-
-    const [agentVersions, setAgentVersions] = useState<Record<string, any>>({});
-
-    const fetchVersions = async () => {
-
-        try {
-
-            const res = await api.get('/settings/versions');
-
-            setAgentVersions(res.data);
-
-        } catch (e) {
-
-            console.error("Failed to fetch versions:", e);
-
-        }
-
-    };
-
-    useEffect(() => {
-
-        fetchVersions();
-
-    }, []);
 
     // [NEW] Connectivity Test State
 
@@ -1055,7 +1544,7 @@ const Settings = () => {
 
             cleanup_days: formData.cleanup_days ?? cleanupDays ?? 10,
 
-            // 2. AI 지능 및 게이트웨이 (9router AI Gateway)
+            // 2. AI 지능 및 게이트웨이 (OmniRoute AI Gateway)
 
             youtube1_api_keys: formData.youtube1_api_keys ?? [],
 
@@ -1255,7 +1744,7 @@ const Settings = () => {
 
                 const versionStr = json.schema_version ? `(v${json.schema_version})` : '(구버전 포맷)';
 
-                if (confirm(`[설정 복원 확인]\n\n• 백업 일자: ${dateStr} ${versionStr}\n• 복원 항목: 일반/저장소, 9router AI, TTS/자막, 스텔스/프록시, 시스템 유지보수\n\n현재 환경에 이 설정을 적용하시겠습니까?`)) {
+                if (confirm(`[설정 복원 확인]\n\n• 백업 일자: ${dateStr} ${versionStr}\n• 복원 항목: 일반/저장소, OmniRoute AI, TTS/자막, 스텔스/프록시, 시스템 유지보수\n\n현재 환경에 이 설정을 적용하시겠습니까?`)) {
 
                     restoreMutation.mutate(sanitizedSettings);
 
@@ -1272,78 +1761,6 @@ const Settings = () => {
         reader.readAsText(file);
 
         e.target.value = '';
-
-    };
-
-    const handleOpenClawUpdate = async () => {
-
-        if (!confirm("OpenClaw 시스템 최신 업데이트를 진행하시겠습니까?\n(git pull & npm install 수행)")) return;
-
-        setIsUpdatingOpenClaw(true);
-
-        try {
-
-            const res = await api.post('/settings/openclaw/update');
-
-            if (res.data.status === 'success') {
-
-                toast.success(res.data.message || "OpenClaw 업데이트 성공!");
-
-                fetchVersions();
-
-                queryClient.invalidateQueries({ queryKey: ['availableModels'] });
-
-            } else {
-
-                toast.error(`업데이트 실패: ${res.data.message}`);
-
-                console.error("Update logs:", res.data);
-
-            }
-
-        } catch (e: any) {
-
-            toast.error(`업데이트 서버 오류: ${e.message}`);
-
-        } finally {
-
-            setIsUpdatingOpenClaw(false);
-
-        }
-
-    };
-
-    const handleOpenClaudeSync = () => {
-
-        queryClient.invalidateQueries({ queryKey: ['availableModels'] });
-
-        toast.success("최신 모델 리스트를 동기화했습니다.");
-
-    };
-
-    const handleOpenClaudeUpdate = async () => {
-
-        if (!confirm("OpenClaude 시스템 업데이트를 진행하시겠습니까?")) return;
-
-        setIsUpdatingOpenClaude(true);
-
-        try {
-
-            const res = await api.post('/settings/openclaude/update');
-
-            toast.success(res.data.message || "OpenClaude 업데이트 완료");
-
-            fetchVersions();
-
-        } catch (e: any) {
-
-            toast.error(`업데이트 실패: ${e.response?.data?.detail || e.message}`);
-
-        } finally {
-
-            setIsUpdatingOpenClaude(false);
-
-        }
 
     };
 
@@ -1409,6 +1826,69 @@ const Settings = () => {
 
                 </div>
 
+            </div>
+
+            {/* 🚀 System Version & OTA Hot-Patch Status Bar */}
+            <div className="w-full bg-card border border-border/80 rounded-2xl p-3 sm:p-4 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0">
+                        <Zap className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-extrabold text-foreground">ViraLoop Studio 데스크톱</span>
+                            <Badge variant="secondary" className="font-mono text-[11px] font-bold px-2 py-0.5 bg-primary/10 text-primary border border-primary/20">
+                                v{hotpatchStatus.appVersion} (Build #{hotpatchStatus.buildNumber})
+                            </Badge>
+                            {hotpatchStatus.isHotpatchActive ? (
+                                <Badge variant="default" className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 px-2 py-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    OTA 핫패치 활성 (최신 번들 실시간 서빙)
+                                </Badge>
+                            ) : (
+                                <Badge variant="outline" className="bg-muted text-muted-foreground text-[10px] font-bold px-2 py-0.5">
+                                    📦 기본 패키지 번들
+                                </Badge>
+                            )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                            무중단 실시간 핫패치가 가동 중입니다. 최신 UI와 패치는 앱 재설치 없이 실시간 동기화됩니다.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full md:w-auto shrink-0 justify-end">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleHotpatchCheck} 
+                        disabled={isCheckingHotpatch}
+                        className="h-8 text-xs font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs"
+                        title="GitHub 릴리즈의 최신 핫패치를 확인하고 즉시 다운로드/적용합니다."
+                    >
+                        <RefreshCcw className={cn("w-3.5 h-3.5 mr-1.5 text-primary", isCheckingHotpatch && "animate-spin")} />
+                        핫패치 확인
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleHotpatchClearCache}
+                        className="h-8 text-xs font-bold border-border bg-card hover:bg-muted text-destructive hover:text-destructive rounded-xl shadow-2xs"
+                        title="꼬인 캐시를 삭제하고 기본 내장 번들로 복원합니다."
+                    >
+                        <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                        캐시 초기화
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleForceReload}
+                        className="h-8 text-xs font-bold border-border bg-card hover:bg-muted text-foreground rounded-xl shadow-2xs"
+                        title="앱 화면을 즉시 새로고침합니다."
+                    >
+                        새로고침
+                    </Button>
+                </div>
             </div>
 
             <div className="flex-1 w-full min-w-0">
@@ -1861,7 +2341,7 @@ const Settings = () => {
 
                     {/* ========================================================= */}
 
-                    {/* --- TAB 2: AI INTELLIGENCE & MODELS (9router 통합 허브) --- */}
+                    {/* --- TAB 2: AI INTELLIGENCE & MODELS (OmniRoute 통합 허브) --- */}
 
                     {/* ========================================================= */}
 
@@ -1869,23 +2349,12 @@ const Settings = () => {
 
                         <div className="space-y-6">
 
-                            <Alert className="bg-primary/10 border-primary/20 text-foreground">
-
-                                <BrainCircuit className="h-4 w-4 text-primary" />
-
-                                <AlertTitle className="text-foreground font-bold">9router 통합 로컬 AI 게이트웨이</AlertTitle>
-
-                                <AlertDescription className="text-muted-foreground text-xs">
-
-                                    로컬 서버의 9router가 Gemini, Claude, GPT, DeepSeek 등 모든 AI 모델을 단일 라우터로 통합 관리하고 자동 폴백합니다. 개별 API 키를 일일이 등록할 필요 없이 9router 허브 하나로 모든 영상 기획 및 분석을 수행합니다.
-
-                                </AlertDescription>
-
-                            </Alert>
+                            {/* 🚀 OmniRoute Engine Control Center (Lifecycle & Updates) */}
+                            <OmniRouteControlCard />
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                                {/* Left Column: 9router Gateway Configuration */}
+                                {/* Left Column: OmniRoute Gateway Configuration */}
 
                                 <Card className="border-border bg-card shadow-2xs rounded-2xl overflow-hidden">
 
@@ -1895,7 +2364,7 @@ const Settings = () => {
 
                                             <CardTitle className="text-base font-bold flex items-center gap-2">
 
-                                                <Server className="w-4 h-4 text-primary" /> 9router 로컬 게이트웨이
+                                                <Server className="w-4 h-4 text-primary" /> OmniRoute 로컬 게이트웨이
 
                                             </CardTitle>
 
@@ -1913,9 +2382,16 @@ const Settings = () => {
 
                                             variant="outline"
 
-                                            className="h-8 gap-1.5 border-border bg-card text-foreground rounded-xl font-bold text-xs"
+                                            className="h-8 gap-1.5 border-border bg-card text-foreground rounded-xl font-bold text-xs hover:text-primary"
 
-                                            onClick={() => window.open('http://localhost:20128/dashboard', '_blank')}
+                                            onClick={() => {
+                                                const electronAPI = (window as any).electronAPI;
+                                                if (electronAPI?.omnirouteOpenDashboard) {
+                                                    electronAPI.omnirouteOpenDashboard();
+                                                } else {
+                                                    window.open('http://localhost:20128/dashboard', '_blank');
+                                                }
+                                            }}
 
                                         >
 
@@ -1931,7 +2407,7 @@ const Settings = () => {
 
                                             <div className="flex justify-between items-center">
 
-                                                <Label className="text-xs font-bold text-foreground">9router 엔드포인트 URL</Label>
+                                                <Label className="text-xs font-bold text-foreground">OmniRoute 엔드포인트 URL</Label>
 
                                                 <Button
 
@@ -1987,13 +2463,13 @@ const Settings = () => {
 
                                         </div>
 
-                                        {/* 9router API Keys */}
+                                        {/* OmniRoute API Keys */}
 
                                         <div className="pt-2 border-t border-border space-y-2">
 
                                             <KeyListInput
 
-                                                label="9router 전용 API Key (대시보드에서 생성한 sk-... 키)"
+                                                label="OmniRoute 전용 API Key (대시보드에서 생성한 sk-... 키)"
 
                                                 keys={formData.youtube1_api_keys || []}
 
@@ -2009,13 +2485,13 @@ const Settings = () => {
 
                                             <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
 
-                                                <Zap className="w-3.5 h-3.5 text-amber-500" /> 9router 자동 라우팅 안내
+                                                <Zap className="w-3.5 h-3.5 text-amber-500" /> OmniRoute 스마트 라우팅 안내
 
                                             </p>
 
                                             <p className="text-[11px] text-muted-foreground leading-relaxed">
 
-                                                9router 대시보드의 <strong>API Keys</strong> 메뉴에서 발급받은 키를 위에 등록하시면, ViraLoop Studio가 9router에 안전하게 인증하여 연결됩니다.
+                                                대시보드의 <strong>API Keys</strong> 메뉴에서 발급받은 키를 등록하시면 안전하게 연결됩니다. 별도 유료 키 없이 무료로 사용하시려면 우측 모델에서 <strong>auto (스마트 무료 자동 폴백)</strong>를 선택하세요.
 
                                             </p>
 
@@ -2037,7 +2513,7 @@ const Settings = () => {
 
                                             <CardDescription className="text-xs">
 
-                                                대본 분석, 씬 분할 및 키워드 추출 시 사용할 9router 모델을 지정합니다.
+                                                대본 분석, 씬 분할 및 키워드 추출 시 사용할 OmniRoute 모델을 지정합니다.
 
                                             </CardDescription>
 
@@ -2051,7 +2527,7 @@ const Settings = () => {
 
                                                 onProviderChange={(val) => setFormData(prev => ({ ...prev, script_analysis_provider: val }))}
 
-                                                model={formData.script_analysis_model || 'youtube1'}
+                                                model={formData.script_analysis_model || 'youtube1/auto'}
 
                                                 onModelChange={(val) => setFormData(prev => ({ ...prev, script_analysis_model: val }))}
 
@@ -2073,13 +2549,13 @@ const Settings = () => {
 
                                             <CardTitle className="text-sm font-bold flex items-center gap-2">
 
-                                                <MessageSquare className="w-4 h-4 text-primary" /> 9router 모델 응답 검증 챗
+                                                <MessageSquare className="w-4 h-4 text-primary" /> OmniRoute 모델 응답 검증 챗
 
                                             </CardTitle>
 
                                             <CardDescription className="text-xs">
 
-                                                선택된 9router 모델과 직접 통신하여 정상 동작을 확인합니다.
+                                                선택된 OmniRoute 모델과 직접 통신하여 정상 동작을 확인합니다.
 
                                             </CardDescription>
 
@@ -2127,7 +2603,7 @@ const Settings = () => {
 
                                                 <div className="p-3.5 rounded-xl bg-muted/40 border border-border text-xs whitespace-pre-wrap font-medium">
 
-                                                    <p className="text-[10px] uppercase font-bold text-primary mb-1">9router Response</p>
+                                                    <p className="text-[10px] uppercase font-bold text-primary mb-1">OmniRoute Response</p>
 
                                                     {chatResponse}
 

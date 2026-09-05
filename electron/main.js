@@ -45,8 +45,9 @@ import { setupAppMenuAndUpdater, noteProjectActivated, setMenuLocale } from './u
 import { selectCdpCase } from './video-cdp-dispatch.js'
 import { loadProfiles, saveProfiles, switchProfile, createProfile, deleteProfile, updateProfile, cleanupUnusedPartitions } from './profileManager.js'
 import { injectImageBatchBody } from './cdp-image-inject.js'
-import { hotPatcher } from './hot-patcher.js'
+import { hotPatcher, registerHotpatchIPC } from './hot-patcher.js'
 import { startDashboardServer, stopDashboardServer } from './dashboard-server.js'
+import { registerOmniRouteIPC, startOmniRouteDaemon, stopOmniRouteDaemon, isOmniRouteListening } from './ipc/omnirouteManager.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -998,6 +999,10 @@ registerMcpIPC(ipcMain)
 
 // Layout, modal, sleep, open-external, show-in-folder IPC
 registerLayoutIPC(ipcMain, () => mainWindow, () => getCurrentFlowView())
+
+// ─── OmniRoute & OTA Hot-Patch IPC ──────────────────────────────────────────
+registerOmniRouteIPC(ipcMain, mainWindow)
+registerHotpatchIPC(ipcMain, () => mainWindow, BUILD_NUMBER)
 
 // ─── Mode Controller IPC (mode:set, flow:set-startup-project) ───────────────
 const modeController = createModeController(
@@ -2314,6 +2319,9 @@ registerDomIPC(ipcMain, domDeps)
 // === YouTube Brand Channel Switcher IPC ===
 registerYoutubeIPC(ipcMain, () => mainWindow)
 
+// === OmniRoute AI Gateway Lifecycle & Update IPC ===
+registerOmniRouteIPC(ipcMain, () => mainWindow)
+
 // === Custom Protocol: local-resource:// ===
 // 로컬 파일을 렌더러에서 안전하게 로드하기 위한 커스텀 프로토콜
 protocol.registerSchemesAsPrivileged([{
@@ -2445,8 +2453,15 @@ function killProcessOnPort(port) {
 }
 
 function startViraLoopInfrastructure() {
-  console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI & Dashboard Web Server)...')
+  console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI, OmniRoute & Dashboard Web Server)...')
   _doStartBackend()
+  try {
+    startOmniRouteDaemon().catch(err => {
+      console.warn('[Orchestration] OmniRoute auto-start skipped or failed:', err.message)
+    })
+  } catch (err) {
+    console.warn('[Orchestration] Failed to initialize OmniRoute daemon:', err.message)
+  }
   try {
     startDashboardServer(5183, 8000, hotPatcher.getHotpatchDir())
   } catch (err) {
@@ -2677,6 +2692,7 @@ app.on('before-quit', () => {
   console.log('[Orchestration] App closing — executing 철벽 방어형 클린업 프로토콜...')
   appIsQuitting = true
   try { stopDashboardServer() } catch {}
+  try { stopOmniRouteDaemon() } catch {}
   if (healthMonitorInterval) {
     clearInterval(healthMonitorInterval)
     healthMonitorInterval = null
@@ -2699,7 +2715,7 @@ app.on('before-quit', () => {
 })
 
 ipcMain.handle('get-infra-status', async () => {
-  // 백엔드 포트(8000, 5432, 6379) 응답 상태 체크
+  // 백엔드 포트(8000, 20128) 응답 상태 체크
   const checkPort = (port) => new Promise((resolve) => {
     const s = http.request({ host: 'localhost', port, method: 'HEAD', timeout: 1000 }, () => {
       resolve(true); s.destroy()
@@ -2708,8 +2724,10 @@ ipcMain.handle('get-infra-status', async () => {
   })
 
   const apiAlive = await checkPort(8000)
+  const omnirouteAlive = await isOmniRouteListening()
   return {
     api: apiAlive ? 'online' : 'offline',
+    omniroute: omnirouteAlive ? 'online' : 'offline',
     database: 'online', // Postgres/SQLite 상태
     redis: 'online',
     timestamp: Date.now()

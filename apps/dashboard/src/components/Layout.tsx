@@ -43,7 +43,8 @@ import {
     Users,
     Plus,
     Eye,
-    EyeOff
+    EyeOff,
+    Cpu
 } from 'lucide-react';
 
 import { cn } from '../lib/utils';
@@ -469,10 +470,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
     const modeName = React.useMemo(() => {
         switch (activeMode) {
+            case 'AI_ORCHESTRATION': return 'AI 지휘 사령탑';
             case 'DISCOVERY': return '트렌드 분석';
             case 'CREATION': return '콘텐츠 제작';
-            case 'OPERATION': return '채널 운영';
-            case 'EDUCATION': return '시스템 설정';
+            case 'OPERATION_SYSTEM': return '운영 & 시스템';
             default: return activeMode;
         }
     }, [activeMode]);
@@ -517,10 +518,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 <div className="px-3.5 pt-3 pb-2 shrink-0">
                     <div className="bg-[#f0f3f8] dark:bg-zinc-900/90 dark:border dark:border-zinc-800/80 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 sidebar-mode-grid">
                         {[
-                            { id: 'DISCOVERY', name: '트렌드 분석', sub: '탐색', icon: Search },
+                            { id: 'AI_ORCHESTRATION', name: 'AI 사령탑', sub: '지휘', icon: Cpu },
+                            { id: 'DISCOVERY', name: '트렌드 분석', sub: '소싱', icon: Search },
                             { id: 'CREATION', name: '콘텐츠 제작', sub: '제작', icon: Palette },
-                            { id: 'OPERATION', name: '채널 운영', sub: '운영', icon: Settings2 },
-                            { id: 'EDUCATION', name: '시스템 설정', sub: '설정', icon: GraduationCap },
+                            { id: 'OPERATION_SYSTEM', name: '운영 & 설정', sub: '채널/설정', icon: Settings2 },
                         ].map((mode) => {
                             const Icon = mode.icon;
                             const isActive = activeMode === mode.id;
@@ -647,6 +648,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         >
                             {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
                         </button>
+                    </div>
+
+                    {/* Compact Version & Hot-Patch Bar */}
+                    <div 
+                        onClick={() => navigate('/settings')}
+                        className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground/70 hide-on-slim cursor-pointer hover:text-foreground transition-colors px-1"
+                        title="작업 환경 설정으로 이동하여 핫패치 및 AI 설정을 확인합니다."
+                    >
+                        <span className="font-mono font-medium">v0.9.44 (#1042)</span>
+                        <span className="flex items-center gap-1 font-semibold text-emerald-500 text-[9.5px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            핫패치 가동
+                        </span>
                     </div>
                 </div>
             </aside>

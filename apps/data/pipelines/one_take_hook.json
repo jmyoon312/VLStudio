@@ -1,0 +1,33 @@
+{
+  "id": "one_take_hook",
+  "name": "원테이크 퀵후킹형",
+  "category": "shorts_fast",
+  "description": "해외 바이럴 영상을 상하단 블러 및 3초 후킹 자막으로 최소 가공하여 고속 대량 양산",
+  "nodes": [
+    {
+      "id": "source_ingest",
+      "type": "url_download",
+      "title": "영상 소스 수집"
+    },
+    {
+      "id": "canvas_resize",
+      "type": "blur_canvas_916",
+      "title": "9:16 상하단 블러 레이아웃"
+    },
+    {
+      "id": "hook_subtitle",
+      "type": "hook_overlay",
+      "title": "3초 후킹 자막 및 배속 최적화"
+    },
+    {
+      "id": "capcut_pack",
+      "type": "capcut_assemble",
+      "title": "CapCut 프로젝트 조립"
+    },
+    {
+      "id": "queue_dispatch",
+      "type": "work_queue_enqueue",
+      "title": "WorkQueue 배포 대기열 탑재"
+    }
+  ]
+}

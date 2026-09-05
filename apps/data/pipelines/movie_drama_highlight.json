@@ -1,0 +1,38 @@
+{
+  "id": "movie_drama_highlight",
+  "name": "영화/드라마 롱폼 컷팅형",
+  "category": "long_to_short",
+  "description": "스마트 씬 분할(SceneCutter)을 통해 롱폼에서 30~60초 명장면을 자동 추출하여 해설을 입히는 리뷰 쇼츠",
+  "nodes": [
+    {
+      "id": "source_ingest",
+      "type": "local_or_url",
+      "title": "롱폼 원본 수집"
+    },
+    {
+      "id": "scene_detect",
+      "type": "scene_cutter",
+      "title": "스마트 씬 분할 및 하이라이트 감지"
+    },
+    {
+      "id": "hook_script",
+      "type": "llm_review_script",
+      "title": "결말포함 리뷰 대본 생성"
+    },
+    {
+      "id": "tts_generate",
+      "type": "multitts_voice",
+      "title": "해설자 MultiTTS 합성"
+    },
+    {
+      "id": "capcut_pack",
+      "type": "capcut_assemble",
+      "title": "CapCut 프로젝트 조립"
+    },
+    {
+      "id": "queue_dispatch",
+      "type": "work_queue_enqueue",
+      "title": "WorkQueue 배포 대기열 탑재"
+    }
+  ]
+}

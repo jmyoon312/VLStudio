@@ -1,0 +1,33 @@
+{
+  "id": "music_beat_sync",
+  "name": "음악 비트싱크형",
+  "category": "shorts_aesthetic",
+  "description": "무음 구간을 자동 컷팅하고 트렌드 BGM 비트에 맞춰 씬 전환을 동기화하는 감성형 쇼츠",
+  "nodes": [
+    {
+      "id": "source_ingest",
+      "type": "url_download",
+      "title": "영상 소스 수집"
+    },
+    {
+      "id": "silence_cut",
+      "type": "silence_remover",
+      "title": "무음 구간 초정밀 자동 컷팅"
+    },
+    {
+      "id": "bgm_sync",
+      "type": "bgm_beat_sync",
+      "title": "트렌드 음원 비트 매핑"
+    },
+    {
+      "id": "capcut_pack",
+      "type": "capcut_assemble",
+      "title": "CapCut 프로젝트 조립"
+    },
+    {
+      "id": "queue_dispatch",
+      "type": "work_queue_enqueue",
+      "title": "WorkQueue 배포 대기열 탑재"
+    }
+  ]
+}

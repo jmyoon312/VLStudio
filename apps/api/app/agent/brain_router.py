@@ -240,10 +240,32 @@ class PluggableBrainRouter:
                     temperature=0.7
                 )
 
+            elif provider in ["omniroute", "local", "youtube1", "viraloop1"] or model_name.startswith("viraloop") or model_name.startswith("youtube"):
+                omniroute_url = getattr(settings, "omniroute_api_base_url", "http://127.0.0.1:20128/v1") if settings else "http://127.0.0.1:20128/v1"
+                clean_url = str(omniroute_url).strip().rstrip("/")
+                v1_url = clean_url if clean_url.endswith("/v1") else f"{clean_url}/v1"
+                clean_model = model_name.split("/", 1)[1] if "/" in model_name else model_name
+                logger.info(f"🚀 [BrainRouter] Routing to OmniRoute gateway: {v1_url} with model: {clean_model}")
+                return ChatOpenAI(
+                    model=clean_model,
+                    openai_api_key="omniroute",
+                    openai_api_base=v1_url,
+                    temperature=0.7
+                )
+
             else:
-                logger.warning(f"[WARN] Unsupported LangChain provider: {provider}. Falling back to default OpenAI format.")
-                # Fallback to direct ChatOpenAI
-                return ChatOpenAI(model=model_name, temperature=0.7)
+                # Check if it should be routed to OmniRoute by default if local port 20128 is available
+                omniroute_url = getattr(settings, "omniroute_api_base_url", "http://127.0.0.1:20128/v1") if settings else "http://127.0.0.1:20128/v1"
+                clean_url = str(omniroute_url).strip().rstrip("/")
+                v1_url = clean_url if clean_url.endswith("/v1") else f"{clean_url}/v1"
+                clean_model = model_name.split("/", 1)[1] if "/" in model_name else model_name
+                logger.info(f"[BrainRouter] Routing unlisted provider '{provider}' to OmniRoute fallback: {v1_url} ({clean_model})")
+                return ChatOpenAI(
+                    model=clean_model,
+                    openai_api_key="omniroute",
+                    openai_api_base=v1_url,
+                    temperature=0.7
+                )
 
         except Exception as e:
             logger.error(f"[FAIL] Failed to initialize LangChain model for provider '{provider}': {e}")

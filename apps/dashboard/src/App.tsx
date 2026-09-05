@@ -42,6 +42,10 @@ const Incubator = lazy(() => import('./pages/Incubator'));
 const GuideCenter = lazy(() => import('./pages/GuideCenter'));
 const ResearchBrief = lazy(() => import('./pages/ResearchBrief'));
 const TrendRadarPage = lazy(() => import('./pages/TrendRadarPage'));
+const StudioWarRoom = lazy(() => import('./pages/StudioWarRoom'));
+const PipelineBuilderPage = lazy(() => import('./pages/PipelineBuilderPage'));
+const BrainVaultPage = lazy(() => import('./pages/BrainVaultPage'));
+const AgentRosterPage = lazy(() => import('./pages/AgentRosterPage'));
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
@@ -149,7 +153,11 @@ function MainAppContent() {
                             </ModeProvider>
                         </RouteErrorBoundary>
                     } />
-                    <Route path="/agent-studio" element={<Navigate to="/flow2capcut" replace />} />
+                    <Route path="/agent-studio" element={<Navigate to="/war-room" replace />} />
+                    <Route path="/war-room" element={<RouteErrorBoundary><StudioWarRoom /></RouteErrorBoundary>} />
+                    <Route path="/pipeline-builder" element={<RouteErrorBoundary><PipelineBuilderPage /></RouteErrorBoundary>} />
+                    <Route path="/brain-vault" element={<RouteErrorBoundary><BrainVaultPage /></RouteErrorBoundary>} />
+                    <Route path="/agent-roster" element={<RouteErrorBoundary><AgentRosterPage /></RouteErrorBoundary>} />
                     <Route path="/download" element={<RouteErrorBoundary><DirectDownload /></RouteErrorBoundary>} />
 
                     {/* Fallback Missing Routes */}

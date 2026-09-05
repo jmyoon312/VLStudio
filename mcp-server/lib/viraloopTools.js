@@ -91,5 +91,53 @@ export const viraloopTools = {
 
         const qs = query.toString() ? `?${query.toString()}` : '';
         return await requestApi(`/videos/${qs}`);
+    },
+
+    /**
+     * 7. 🧩 List Production Pipelines (6 Standard + Custom)
+     */
+    async listPipelines() {
+        return await requestApi('/pipelines/');
+    },
+
+    /**
+     * 8. 🚀 Run Production Pipeline
+     */
+    async runPipeline(pipelineId, payload = {}) {
+        return await requestApi(`/pipelines/${pipelineId}/run`, {
+            method: 'POST',
+            body: payload
+        });
+    },
+
+    /**
+     * 9. 🧠 Get Studio Memory (soul, memory, skills)
+     */
+    async getStudioMemory() {
+        return await requestApi('/agent/memory');
+    },
+
+    /**
+     * 10. ✍️ Generate Script via ScriptWriter
+     */
+    async generateScript({ topic, genre, target_duration_sec = 60, model } = {}) {
+        return await requestApi('/script/generate', {
+            method: 'POST',
+            body: { topic, genre, target_duration_sec, model }
+        });
+    },
+
+    /**
+     * 11. 📋 WorkQueue Status & Enqueue
+     */
+    async getWorkQueueStatus() {
+        return await requestApi('/work-queue/status');
+    },
+
+    async enqueueWorkQueueJob(jobData) {
+        return await requestApi('/work-queue/jobs', {
+            method: 'POST',
+            body: jobData
+        });
     }
 };
