@@ -525,28 +525,23 @@ def fetch_channel_recent_reels(
     CHANNEL_REELS_CACHE[cache_key] = (now, reels)
     return reels
 
-def ensure_six_reels(video_items: List[Dict[str, Any]], channel_name: str, video_type: str, max_reels: int = 6) -> List[Dict[str, Any]]:
+def distinct_reels(video_items: List[Dict[str, Any]], max_reels: int = 6) -> List[Dict[str, Any]]:
     """
-    Guarantees up to max_reels video cards without blocking network calls.
-    Pads from existing real videos with safe fallback variations.
+    Returns only genuine distinct video reels up to max_reels.
+    Strictly forbids duplicating or cloning identical videos.
     """
     if not video_items:
         return []
-    if len(video_items) >= max_reels:
-        return video_items[:max_reels]
-    
-    padded = list(video_items)
-    base_len = len(video_items)
-    idx = 0
-    while len(padded) < max_reels and base_len > 0:
-        src = video_items[idx % base_len]
-        clone = dict(src)
-        clone["id"] = abs(hash(f"{src['id']}_{len(padded)}_{channel_name}")) % 1000000
-        clone["title"] = src["title"]
-        clone["hook_analysis"] = src.get("hook_analysis") or "채널 대표 옥석 영상"
-        padded.append(clone)
-        idx += 1
-    return padded
+    seen = set()
+    distinct = []
+    for v in video_items:
+        v_id = v.get("video_id")
+        if v_id and v_id not in seen:
+            seen.add(v_id)
+            distinct.append(v)
+            if len(distinct) >= max_reels:
+                break
+    return distinct
 
 @router.get("/channel-reels")
 def get_channel_reels_endpoint(
@@ -683,7 +678,7 @@ def get_channels_with_reels(
                         break
 
         # Ensure full 6 reels without dropping the channel
-        video_items = ensure_six_reels(video_items, ch.name, video_type or "shorts", max_reels=max_reels)
+        video_items = distinct_reels(video_items, max_reels=max_reels)
         if not video_items:
             continue
 
@@ -769,7 +764,7 @@ def get_channels_with_reels(
             if len(video_items) >= max_reels:
                 break
 
-        video_items = ensure_six_reels(video_items, ch_title, video_type or "shorts", max_reels=max_reels)
+        video_items = distinct_reels(video_items, max_reels=max_reels)
         if not video_items:
             continue
 
@@ -863,7 +858,7 @@ def get_pending_channels_for_incubation(
         elif collected_date_range == "90d":
             p_query = p_query.filter(models.RadarCandidate.created_at >= now_dt - timedelta(days=90))
 
-    candidates = p_query.order_by(models.RadarCandidate.outlier_ratio.desc()).limit(200).all()
+    candidates = p_query.order_by(models.RadarCandidate.outlier_ratio.desc()).limit(300).all()
 
     grouped_channels: Dict[str, List[models.RadarCandidate]] = {}
     for c in candidates:
@@ -871,6 +866,19 @@ def get_pending_channels_for_incubation(
         if ch_name.strip().lower() in target_names:
             continue
         grouped_channels.setdefault(ch_name, []).append(c)
+
+    selected_channels = list(grouped_channels.items())[:limit]
+    selected_names = [ch_name for ch_name, _ in selected_channels]
+
+    # Batch query ALL candidate videos for these selected channels (no missing videos)
+    batch_cands = db.query(models.RadarCandidate).filter(
+        models.RadarCandidate.channel_title.in_(selected_names),
+        (models.RadarCandidate.video_type == video_type if video_type != "all" else True)
+    ).order_by(models.RadarCandidate.outlier_ratio.desc()).all()
+
+    all_cands_by_ch: Dict[str, List[models.RadarCandidate]] = {}
+    for sc in batch_cands:
+        all_cands_by_ch.setdefault(sc.channel_title, []).append(sc)
 
     results = []
     max_reels = 6
@@ -889,7 +897,8 @@ def get_pending_channels_for_incubation(
         "스탠딩코미디": ["개그", "코미디", "웃긴", "유머", "개그맨", "웃음", "폭소"]
     }
 
-    for ch_name, cands in list(grouped_channels.items())[:limit]:
+    for ch_name, cands in selected_channels:
+        channel_videos = all_cands_by_ch.get(ch_name, cands)
         lead_c = cands[0]
         titles = " ".join([c.title for c in cands])
 
@@ -918,7 +927,7 @@ def get_pending_channels_for_incubation(
         # 2. Build video items from candidate objects
         video_items = []
         seen_vids = set()
-        for sc in cands:
+        for sc in channel_videos:
             if not is_valid_yt_video_id(sc.video_id) or sc.video_id in seen_vids:
                 continue
             seen_vids.add(sc.video_id)
@@ -939,7 +948,7 @@ def get_pending_channels_for_incubation(
             if len(video_items) >= max_reels:
                 break
 
-        video_items = ensure_six_reels(video_items, ch_name, video_type or "shorts", max_reels=max_reels)
+        video_items = distinct_reels(video_items, max_reels=max_reels)
         if not video_items:
             continue
 

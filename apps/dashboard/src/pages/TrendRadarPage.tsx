@@ -348,6 +348,23 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                         </div>
                     </div>
                 ))}
+
+                {/* 옥석 수집 대기 슬롯 (채널에 수집된 영상이 6개(롱폼 3개) 미만일 때 그리드 폭을 꽉 채우고 추가 수집 큐 표시) */}
+                {Array.from({ length: Math.max(0, (aspectFormat === 'long' ? 3 : 6) - (ch.reels || []).length) }).map((_, pIdx) => (
+                    <div 
+                        key={`empty-${pIdx}`} 
+                        className={cn(
+                            "rounded-2xl border border-dashed border-border/70 bg-muted/10 flex flex-col items-center justify-center p-3 text-center text-muted-foreground select-none transition-all hover:bg-muted/20",
+                            aspectFormat === 'long' 
+                                ? "h-full min-h-[260px] w-full" 
+                                : "aspect-[9/16] w-full"
+                        )}
+                    >
+                        <Sparkles className="w-5 h-5 mb-1.5 opacity-40 text-blue-500" />
+                        <span className="text-[11px] font-bold text-foreground/70">추가 옥석 수집 대기</span>
+                        <span className="text-[9.5px] text-muted-foreground/60 mt-0.5">실시간 스카우팅 큐</span>
+                    </div>
+                ))}
             </div>
         </div>
     );
