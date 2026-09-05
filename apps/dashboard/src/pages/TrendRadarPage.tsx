@@ -58,12 +58,26 @@ const TrendRadarPage: React.FC = () => {
     const [filterConfig, setFilterConfig] = useState<ScoutFilterConfig>(() => {
         try {
             const saved = localStorage.getItem('vlstudio_scout_filter_matrix');
-            if (saved) return JSON.parse(saved);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return {
+                    includeLangs: parsed.includeLangs || ['ko', 'en', 'ja'],
+                    excludeLangs: parsed.excludeLangs || ['hi', 'vi', 'ar', 'ru'],
+                    uploadDateRange: parsed.uploadDateRange || parsed.dateRange || '30d',
+                    collectedDateRange: parsed.collectedDateRange || 'all',
+                    dateRange: parsed.uploadDateRange || parsed.dateRange || '30d',
+                    minOutlier: parsed.minOutlier || 3.0,
+                    minViews: parsed.minViews || 50000,
+                    durationRange: parsed.durationRange || 'all'
+                };
+            }
         } catch {}
         return {
             includeLangs: ['ko', 'en', 'ja'],
             excludeLangs: ['hi', 'vi', 'ar', 'ru'],
-            dateRange: '7d',
+            uploadDateRange: '30d',
+            collectedDateRange: 'all',
+            dateRange: '30d',
             minOutlier: 3.0,
             minViews: 50000,
             durationRange: 'all'
@@ -105,7 +119,8 @@ const TrendRadarPage: React.FC = () => {
                 include_langs: filterConfig.includeLangs.join(','),
                 min_outlier: filterConfig.minOutlier,
                 min_views: filterConfig.minViews,
-                date_range: filterConfig.dateRange !== 'all' ? filterConfig.dateRange : undefined
+                upload_date_range: filterConfig.uploadDateRange !== 'all' ? filterConfig.uploadDateRange : undefined,
+                collected_date_range: filterConfig.collectedDateRange !== 'all' ? filterConfig.collectedDateRange : undefined
             };
             const res = await api.get<RadarCandidate[]>('/trend-radar/candidates', { params });
             return res.data || [];
@@ -115,8 +130,8 @@ const TrendRadarPage: React.FC = () => {
 
     // 3. 채널 릴 데이터 (Step 2용 - 실시간 자동 갱신 채널 풀)
     const { data: channelsWithReels = [], isLoading: isLoadingReels } = useQuery({
-        queryKey: ['channels-with-reels', aspectFormat],
-        queryFn: () => getChannelsWithReels(undefined, aspectFormat),
+        queryKey: ['channels-with-reels', aspectFormat, filterConfig.uploadDateRange, filterConfig.collectedDateRange],
+        queryFn: () => getChannelsWithReels(undefined, aspectFormat, 20, filterConfig.uploadDateRange, filterConfig.collectedDateRange),
         refetchInterval: 5000 // 채널 릴 실시간 동기화
     });
 
@@ -149,9 +164,15 @@ const TrendRadarPage: React.FC = () => {
 
     // 3-B. 등록 예정 후보 채널 (AI 카테고리 분류 추천 대기열)
     const { data: pendingChannels = [] } = useQuery({
-        queryKey: ['pending-channels', aspectFormat],
+        queryKey: ['pending-channels', aspectFormat, filterConfig.uploadDateRange, filterConfig.collectedDateRange],
         queryFn: async () => {
-            const res = await api.get('/trend-radar/pending-channels', { params: { video_type: aspectFormat } });
+            const res = await api.get('/trend-radar/pending-channels', { 
+                params: { 
+                    video_type: aspectFormat,
+                    upload_date_range: filterConfig.uploadDateRange !== 'all' ? filterConfig.uploadDateRange : undefined,
+                    collected_date_range: filterConfig.collectedDateRange !== 'all' ? filterConfig.collectedDateRange : undefined
+                } 
+            });
             return res.data || [];
         },
         refetchInterval: 5000
@@ -986,7 +1007,7 @@ const TrendRadarPage: React.FC = () => {
                                                             </span>
                                                         </div>
 
-                                                        {/* 하단 텍스트 및 메트릭 */}
+                                                        {/* 하단 텍스트 및 메트릭 (등록일/수집일 듀얼 렌더) */}
                                                         <div className="relative z-10 space-y-1">
                                                             <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
                                                                 {reel.title}
@@ -994,6 +1015,14 @@ const TrendRadarPage: React.FC = () => {
                                                             <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
                                                                 <span>{reel.view_count?.toLocaleString()}회</span>
                                                                 <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
+                                                                <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
+                                                                    📅 {formatRelativeOrDate(reel.published_at)}
+                                                                </span>
+                                                                <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
+                                                                    📥 {formatShortDate(reel.created_at)}
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1204,7 +1233,7 @@ const TrendRadarPage: React.FC = () => {
                                                         </span>
                                                     </div>
 
-                                                    {/* 하단 텍스트 및 메트릭 */}
+                                                    {/* 하단 텍스트 및 메트릭 (등록일/수집일 듀얼 렌더) */}
                                                     <div className="relative z-10 space-y-1">
                                                         <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
                                                             {reel.title}
@@ -1212,6 +1241,14 @@ const TrendRadarPage: React.FC = () => {
                                                         <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
                                                             <span>{reel.view_count.toLocaleString()}회</span>
                                                             <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
+                                                            <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
+                                                                📅 {formatRelativeOrDate(reel.published_at)}
+                                                            </span>
+                                                            <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
+                                                                📥 {formatShortDate(reel.created_at)}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1435,7 +1472,7 @@ const TrendRadarPage: React.FC = () => {
                                                         </span>
                                                     </div>
 
-                                                    {/* 하단 텍스트 및 메트릭 */}
+                                                    {/* 하단 텍스트 및 메트릭 (등록일/수집일 듀얼 렌더) */}
                                                     <div className="relative z-10 space-y-1">
                                                         <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
                                                             {reel.title}
@@ -1443,6 +1480,14 @@ const TrendRadarPage: React.FC = () => {
                                                         <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
                                                             <span>{reel.view_count.toLocaleString()}회</span>
                                                             <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-[9px] font-mono pt-0.5 border-t border-white/10">
+                                                            <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${reel.published_at || '최근'}`}>
+                                                                📅 {formatRelativeOrDate(reel.published_at)}
+                                                            </span>
+                                                            <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${reel.created_at || '최근'}`}>
+                                                                📥 {formatShortDate(reel.created_at)}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1502,6 +1547,14 @@ const TrendRadarPage: React.FC = () => {
                                     <span>{candidate.view_count.toLocaleString()}회</span>
                                     <span>{candidate.duration_text || (aspectFormat === 'long' ? '11:20' : '0:45')}</span>
                                 </div>
+                                <div className="flex items-center justify-between text-[9px] font-mono pt-1 border-t border-white/10">
+                                    <span className="text-amber-300 font-bold flex items-center gap-0.5 truncate" title={`영상 실제 등록/업로드 일자: ${candidate.published_at || '최근'}`}>
+                                        📅 등록 {formatRelativeOrDate(candidate.published_at)}
+                                    </span>
+                                    <span className="text-sky-300/80 flex items-center gap-0.5 shrink-0" title={`시스템 수집 일자: ${candidate.created_at || '최근'}`}>
+                                        📥 수집 {formatShortDate(candidate.created_at)}
+                                    </span>
+                                </div>
                             </div>
 
                             {/* 롱폼 전용 AI 유사 롱폼 10편 집중 스파이더링 버튼 */}
@@ -1537,6 +1590,8 @@ const TrendRadarPage: React.FC = () => {
                                 <th className="p-3 text-center">유형</th>
                                 <th className="p-3 text-right">조회수</th>
                                 <th className="p-3 text-right">폭발력</th>
+                                <th className="p-3 text-center">📅 등록(업로드)</th>
+                                <th className="p-3 text-center">📥 수집일</th>
                                 <th className="p-3 text-right">시간당 증가</th>
                                 <th className="p-3 text-center">초반 3초 훅</th>
                                 <th className="p-3 text-center">액션</th>
@@ -1569,6 +1624,12 @@ const TrendRadarPage: React.FC = () => {
                                     </td>
                                     <td className="p-3 text-right font-mono font-black text-amber-500">
                                         {candidate.outlier_ratio}x
+                                    </td>
+                                    <td className="p-3 text-center font-mono font-bold text-amber-500 dark:text-amber-400 text-[11px]" title={`실제 등록/업로드 일자: ${candidate.published_at || '최근'}`}>
+                                        {formatRelativeOrDate(candidate.published_at)}
+                                    </td>
+                                    <td className="p-3 text-center font-mono text-muted-foreground text-[11px]" title={`시스템 수집 일자: ${candidate.created_at || '최근'}`}>
+                                        {formatShortDate(candidate.created_at)}
                                     </td>
                                     <td className="p-3 text-right font-mono text-muted-foreground">
                                         +{Math.round(candidate.velocity_score).toLocaleString()}/h

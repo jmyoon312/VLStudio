@@ -398,6 +398,7 @@ export interface ChannelReelItem {
     duration_text?: string;
     outlier_ratio: number;
     published_at?: string;
+    created_at?: string;
     hook_analysis?: string;
 }
 
@@ -461,9 +462,17 @@ export interface ChannelLaunchpadPackage {
     kickoff_content_plan: LaunchpadKickoffPlan[];
 }
 
-export const getChannelsWithReels = async (categoryId?: number, videoType = 'shorts', limit = 20) => {
+export const getChannelsWithReels = async (
+    categoryId?: number, 
+    videoType = 'shorts', 
+    limit = 20,
+    uploadDateRange?: string,
+    collectedDateRange?: string
+) => {
     const params: any = { limit, video_type: videoType };
     if (categoryId) params.category_id = categoryId;
+    if (uploadDateRange && uploadDateRange !== 'all') params.upload_date_range = uploadDateRange;
+    if (collectedDateRange && collectedDateRange !== 'all') params.collected_date_range = collectedDateRange;
     return (await api.get<ChannelWithReels[]>('/trend-radar/channels-with-reels', { params })).data;
 };
 
@@ -491,9 +500,7 @@ export const discoverLookalikeChannels = async (channelId: number) => {
 };
 
 export const convertChannelToTarget = async (channelId: number) => {
-    return (await api.post<{ status: string; channel_id: number; channel_name: string; message: string }>(
-        `/channels/${channelId}/convert-to-target`
-    )).data;
+    return (await api.post(`/trend-radar/channels/${channelId}/convert-to-target`)).data;
 };
 
 export interface ChannelGrowthPoint {
@@ -530,6 +537,9 @@ export interface ChannelGrowthAnalysis {
         title: string;
         thumbnail_url: string;
         view_count: number;
+        outlier_ratio?: number;
+        published_at?: string;
+        created_at?: string;
     }[];
     ai_insights: {
         title: string;

@@ -141,7 +141,7 @@ export const TrendRadarDetailModal: React.FC<TrendRadarDetailModalProps> = ({
                     <div className="space-y-4">
                         {/* 1. 채널 & 영상 타이틀 헤더 */}
                         <div className="space-y-1.5 border-b border-border/70 pb-3.5">
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                     <span className="font-bold text-foreground hover:underline cursor-pointer">
                                         {candidate.channel_title}
@@ -152,9 +152,14 @@ export const TrendRadarDetailModal: React.FC<TrendRadarDetailModalProps> = ({
                                         </span>
                                     )}
                                 </div>
-                                <span className="text-[11px] font-mono">
-                                    {candidate.published_at ? new Date(candidate.published_at).toLocaleDateString('ko-KR') : '최근'}
-                                </span>
+                                <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                                    <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/30 font-bold" title="유튜브 실제 영상 업로드/발행 일자">
+                                        📅 등록 {candidate.published_at ? new Date(candidate.published_at).toLocaleDateString('ko-KR') : '최근'}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/30" title="시스템 레이더 포착 및 수집 일자">
+                                        📥 수집 {candidate.created_at ? new Date(candidate.created_at).toLocaleDateString('ko-KR') : '최근'}
+                                    </span>
+                                </div>
                             </div>
 
                             <h3 className="text-sm sm:text-base font-black text-foreground leading-snug tracking-tight">

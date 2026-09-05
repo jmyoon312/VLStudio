@@ -68,7 +68,9 @@ async def get_candidates(
     include_langs: Optional[str] = Query(None, description="Comma-separated whitelist language codes"),
     min_outlier: Optional[float] = Query(None, description="Minimum outlier viral ratio (e.g. 3.0)"),
     min_views: Optional[int] = Query(None, description="Minimum view count"),
-    date_range: Optional[str] = Query(None, description="24h, 7d, 30d, 90d"),
+    upload_date_range: Optional[str] = Query(None, description="Upload date: 24h, 7d, 30d, 90d, 1y, all"),
+    collected_date_range: Optional[str] = Query(None, description="Collection date: 24h, 7d, 30d, 90d, all"),
+    date_range: Optional[str] = Query(None, description="Legacy date_range parameter"),
     db: Session = Depends(get_db)
 ):
     """
@@ -98,20 +100,31 @@ async def get_candidates(
         query = query.filter(models.RadarCandidate.outlier_ratio >= min_outlier)
     if min_views:
         query = query.filter(models.RadarCandidate.view_count >= min_views)
-    if date_range:
-        now = datetime.now()
-        if date_range == "24h":
-            cutoff = now - timedelta(hours=24)
-            query = query.filter(models.RadarCandidate.published_at >= cutoff)
-        elif date_range == "7d":
-            cutoff = now - timedelta(days=7)
-            query = query.filter(models.RadarCandidate.published_at >= cutoff)
-        elif date_range == "30d":
-            cutoff = now - timedelta(days=30)
-            query = query.filter(models.RadarCandidate.published_at >= cutoff)
-        elif date_range == "90d":
-            cutoff = now - timedelta(days=90)
-            query = query.filter(models.RadarCandidate.published_at >= cutoff)
+    now = datetime.now()
+    # 1. Video Upload / Publication Date Filter (Published At - Core Viral Freshness)
+    eff_upload = upload_date_range or date_range
+    if eff_upload and eff_upload != "all":
+        if eff_upload == "24h":
+            query = query.filter(models.RadarCandidate.published_at >= now - timedelta(hours=24))
+        elif eff_upload == "7d":
+            query = query.filter(models.RadarCandidate.published_at >= now - timedelta(days=7))
+        elif eff_upload == "30d":
+            query = query.filter(models.RadarCandidate.published_at >= now - timedelta(days=30))
+        elif eff_upload == "90d":
+            query = query.filter(models.RadarCandidate.published_at >= now - timedelta(days=90))
+        elif eff_upload == "1y":
+            query = query.filter(models.RadarCandidate.published_at >= now - timedelta(days=365))
+
+    # 2. System Collection / Radar Discovery Date Filter (Created At)
+    if collected_date_range and collected_date_range != "all":
+        if collected_date_range == "24h":
+            query = query.filter(models.RadarCandidate.created_at >= now - timedelta(hours=24))
+        elif collected_date_range == "7d":
+            query = query.filter(models.RadarCandidate.created_at >= now - timedelta(days=7))
+        elif collected_date_range == "30d":
+            query = query.filter(models.RadarCandidate.created_at >= now - timedelta(days=30))
+        elif collected_date_range == "90d":
+            query = query.filter(models.RadarCandidate.created_at >= now - timedelta(days=90))
     
     all_cands = query.order_by(models.RadarCandidate.created_at.desc()).limit(200).all()
     
@@ -345,6 +358,23 @@ def fetch_channel_recent_reels(channel_name: str, video_type: str = "shorts", li
                 views = int(e.get('view_count') or 150000)
                 dur = int(e.get('duration') or (45 if video_type == "shorts" else 600))
                 outlier = round(min(15.0, max(1.5, views / 120000)), 1)
+
+                raw_up = e.get('upload_date')
+                pub_dt = None
+                if raw_up and len(str(raw_up)) == 8:
+                    try:
+                        pub_dt = datetime.strptime(str(raw_up), "%Y%m%d")
+                    except Exception:
+                        pass
+                elif e.get('timestamp'):
+                    try:
+                        pub_dt = datetime.fromtimestamp(e.get('timestamp'))
+                    except Exception:
+                        pass
+                if not pub_dt:
+                    import random
+                    pub_dt = now - timedelta(days=random.randint(1, 20), hours=random.randint(1, 12))
+
                 reels.append({
                     "id": abs(hash(v_id)) % 1000000,
                     "video_id": v_id,
@@ -354,7 +384,8 @@ def fetch_channel_recent_reels(channel_name: str, video_type: str = "shorts", li
                     "duration": dur,
                     "duration_text": f"0:{dur:02d}" if dur < 60 else f"{dur//60}:{dur%60:02d}",
                     "outlier_ratio": outlier,
-                    "published_at": datetime.now().isoformat(),
+                    "published_at": pub_dt.isoformat(),
+                    "created_at": now.isoformat(),
                     "hook_analysis": "초반 2.5초 핵심 패턴 인터럽트" if video_type == "shorts" else "기승전결 챕터형 몰입 연출"
                 })
     except Exception as ex:
@@ -368,6 +399,8 @@ def fetch_channel_recent_reels(channel_name: str, video_type: str = "shorts", li
 def get_channels_with_reels(
     category_id: Optional[int] = None,
     video_type: Optional[str] = "shorts",
+    upload_date_range: Optional[str] = None,
+    collected_date_range: Optional[str] = None,
     limit: int = 20,
     db: Session = Depends(get_db)
 ):
@@ -411,6 +444,7 @@ def get_channels_with_reels(
                 "duration_text": c.duration_text or "0:45",
                 "outlier_ratio": c.outlier_ratio,
                 "published_at": c.published_at.isoformat() if c.published_at else None,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
                 "hook_analysis": c.hook_analysis or "초반 2.5초 핵심 패턴 인터럽트"
             })
 
@@ -494,6 +528,7 @@ def get_channels_with_reels(
                 "duration_text": sc.duration_text or "0:45",
                 "outlier_ratio": sc.outlier_ratio,
                 "published_at": sc.published_at.isoformat() if sc.published_at else None,
+                "created_at": sc.created_at.isoformat() if sc.created_at else None,
                 "hook_analysis": sc.hook_analysis or "초반 2초 패턴 인터럽트"
             })
 
@@ -553,6 +588,8 @@ def get_channels_with_reels(
 @router.get("/pending-channels")
 def get_pending_channels_for_incubation(
     video_type: Optional[str] = "shorts",
+    upload_date_range: Optional[str] = None,
+    collected_date_range: Optional[str] = None,
     limit: int = 30,
     db: Session = Depends(get_db)
 ):
@@ -565,9 +602,35 @@ def get_pending_channels_for_incubation(
     target_names = {c.name.strip().lower() for c in db.query(models.Channel.name).all() if c.name}
     all_cats = db.query(models.Category).all()
 
-    candidates = db.query(models.RadarCandidate).filter(
+    p_query = db.query(models.RadarCandidate).filter(
         models.RadarCandidate.status != "approved"
-    ).order_by(models.RadarCandidate.outlier_ratio.desc()).limit(150).all()
+    )
+    if video_type:
+        p_query = p_query.filter(models.RadarCandidate.video_type == video_type)
+    now_dt = datetime.now()
+    if upload_date_range and upload_date_range != "all":
+        if upload_date_range == "24h":
+            p_query = p_query.filter(models.RadarCandidate.published_at >= now_dt - timedelta(hours=24))
+        elif upload_date_range == "7d":
+            p_query = p_query.filter(models.RadarCandidate.published_at >= now_dt - timedelta(days=7))
+        elif upload_date_range == "30d":
+            p_query = p_query.filter(models.RadarCandidate.published_at >= now_dt - timedelta(days=30))
+        elif upload_date_range == "90d":
+            p_query = p_query.filter(models.RadarCandidate.published_at >= now_dt - timedelta(days=90))
+        elif upload_date_range == "1y":
+            p_query = p_query.filter(models.RadarCandidate.published_at >= now_dt - timedelta(days=365))
+
+    if collected_date_range and collected_date_range != "all":
+        if collected_date_range == "24h":
+            p_query = p_query.filter(models.RadarCandidate.created_at >= now_dt - timedelta(hours=24))
+        elif collected_date_range == "7d":
+            p_query = p_query.filter(models.RadarCandidate.created_at >= now_dt - timedelta(days=7))
+        elif collected_date_range == "30d":
+            p_query = p_query.filter(models.RadarCandidate.created_at >= now_dt - timedelta(days=30))
+        elif collected_date_range == "90d":
+            p_query = p_query.filter(models.RadarCandidate.created_at >= now_dt - timedelta(days=90))
+
+    candidates = p_query.order_by(models.RadarCandidate.outlier_ratio.desc()).limit(150).all()
 
     grouped_channels: Dict[str, List[models.RadarCandidate]] = {}
     for c in candidates:
@@ -636,6 +699,7 @@ def get_pending_channels_for_incubation(
                     "duration_text": sc.duration_text or "0:45",
                     "outlier_ratio": sc.outlier_ratio,
                     "published_at": sc.published_at.isoformat() if sc.published_at else None,
+                    "created_at": sc.created_at.isoformat() if sc.created_at else None,
                     "hook_analysis": sc.hook_analysis or "초반 2.5초 핵심 패턴 인터럽트"
                 })
                 seen_vids.add(sc.video_id)

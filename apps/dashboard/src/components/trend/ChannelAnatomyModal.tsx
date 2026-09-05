@@ -523,9 +523,20 @@ export const ChannelAnatomyModal: React.FC<ChannelAnatomyModalProps> = ({
                                                 <h5 className="text-xs font-bold text-foreground truncate group-hover:text-indigo-400 transition-colors">
                                                     {vid.title}
                                                 </h5>
-                                                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                                                    조회수 {vid.view_count.toLocaleString()}회
-                                                </p>
+                                                <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono mt-0.5">
+                                                    <span>조회수 {vid.view_count.toLocaleString()}회</span>
+                                                    {vid.outlier_ratio && (
+                                                        <span className="text-amber-500 font-bold">{vid.outlier_ratio}x 🔥</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center justify-between text-[9px] font-mono pt-1 mt-1 border-t border-border/40">
+                                                    <span className="text-amber-500/90 font-bold flex items-center gap-0.5" title="실제 영상 등록/업로드 일자">
+                                                        📅 등록 {vid.published_at || '최근'}
+                                                    </span>
+                                                    <span className="text-muted-foreground flex items-center gap-0.5" title="시스템 수집 일자">
+                                                        📥 수집 {vid.created_at || '수집'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}

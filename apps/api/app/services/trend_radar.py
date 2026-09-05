@@ -393,7 +393,8 @@ class TrendRadarService:
                 "thumbnail_url": c.thumbnail_url,
                 "view_count": c.view_count,
                 "outlier_ratio": c.outlier_ratio,
-                "published_at": c.published_at.strftime("%Y-%m-%d") if c.published_at else None
+                "published_at": c.published_at.strftime("%Y-%m-%d") if c.published_at else None,
+                "created_at": c.created_at.strftime("%Y-%m-%d") if c.created_at else None
             })
 
         if len(recent_videos) < 3:
@@ -408,7 +409,8 @@ class TrendRadarService:
                         "thumbnail_url": yr["thumbnail_url"],
                         "view_count": yr["view_count"],
                         "outlier_ratio": yr.get("outlier_ratio", 3.5),
-                        "published_at": yr.get("published_at")
+                        "published_at": yr.get("published_at"),
+                        "created_at": yr.get("created_at")
                     })
                     seen_ids.add(yr["video_id"])
 

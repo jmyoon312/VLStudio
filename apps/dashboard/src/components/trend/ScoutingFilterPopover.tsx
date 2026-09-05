@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { SlidersHorizontal, Check, X, RotateCcw, ChevronDown, Globe, Clock, Flame, Eye, Film, Zap } from 'lucide-react';
+import { SlidersHorizontal, Check, X, RotateCcw, ChevronDown, Globe, Clock, Flame, Eye, Film, Zap, Calendar } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 
 export interface ScoutFilterConfig {
     includeLangs: string[];
     excludeLangs: string[];
-    dateRange: string; // 'all' | '24h' | '7d' | '30d' | '90d'
+    uploadDateRange: string; // 'all' | '24h' | '7d' | '30d' | '90d' | '1y' - 영상 실제 업로드/등록일자 (핵심 신선도)
+    collectedDateRange: string; // 'all' | '24h' | '7d' | '30d' | '90d' - 시스템 수집일자
+    dateRange?: string; // legacy fallback
     minOutlier: number; // 2.0 | 3.0 | 5.0 | 10.0
     minViews: number; // 0 | 10000 | 50000 | 100000 | 500000
     durationRange: string; // 'all' | 'under30s' | '30to60s' | '3to8m' | '8to15m' | 'over15m'
 }
 
-const DEFAULT_FILTERS: ScoutFilterConfig = {
+export const DEFAULT_FILTERS: ScoutFilterConfig = {
     includeLangs: ['ko', 'en', 'ja'],
     excludeLangs: ['hi', 'vi', 'ar', 'ru'],
-    dateRange: '7d',
+    uploadDateRange: '30d',
+    collectedDateRange: 'all',
+    dateRange: '30d',
     minOutlier: 3.0,
     minViews: 50000,
     durationRange: 'all'
@@ -35,16 +39,32 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
     aspectFormat
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [tempConfig, setTempConfig] = useState<ScoutFilterConfig>(config);
+    const [tempConfig, setTempConfig] = useState<ScoutFilterConfig>(() => {
+        return {
+            ...DEFAULT_FILTERS,
+            ...config,
+            uploadDateRange: config.uploadDateRange || config.dateRange || '30d',
+            collectedDateRange: config.collectedDateRange || 'all'
+        };
+    });
 
     useEffect(() => {
-        setTempConfig(config);
+        setTempConfig({
+            ...DEFAULT_FILTERS,
+            ...config,
+            uploadDateRange: config.uploadDateRange || config.dateRange || '30d',
+            collectedDateRange: config.collectedDateRange || 'all'
+        });
     }, [config]);
 
     const handleApply = () => {
-        onChange(tempConfig);
+        const payload: ScoutFilterConfig = {
+            ...tempConfig,
+            dateRange: tempConfig.uploadDateRange // keep legacy synced
+        };
+        onChange(payload);
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(tempConfig));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
         } catch {}
         setIsOpen(false);
     };
@@ -72,12 +92,24 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
     };
 
     // Summary badge text
-    const summaryText = [
+    const curUpload = tempConfig.uploadDateRange || tempConfig.dateRange || '30d';
+    const curCollect = tempConfig.collectedDateRange || 'all';
+
+    const uploadLabelMap: Record<string, string> = {
+        'all': '업로드 전체',
+        '24h': '업로드 24h',
+        '7d': '업로드 7일내',
+        '30d': '업로드 30일내',
+        '90d': '업로드 90일내',
+        '1y': '업로드 1년내'
+    };
+
+    const summaryParts = [
         tempConfig.includeLangs.length > 0 ? `타겟: ${tempConfig.includeLangs.map(l => l.toUpperCase()).join('/')}` : '전체국가',
-        tempConfig.excludeLangs.length > 0 ? `🚫${tempConfig.excludeLangs.map(l => l.toUpperCase()).join('/')}제외` : null,
-        tempConfig.dateRange !== 'all' ? `최근 ${tempConfig.dateRange}` : null,
+        uploadLabelMap[curUpload] || `업로드 ${curUpload}`,
+        curCollect !== 'all' ? `수집 ${curCollect}` : null,
         `${tempConfig.minOutlier}x+`
-    ].filter(Boolean).join(' · ');
+    ].filter(Boolean);
 
     return (
         <div className="relative inline-block text-left">
@@ -89,7 +121,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                 >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
                     <span className="font-mono text-[11px] text-muted-foreground">스카우팅 조건:</span>
-                    <span className="font-mono text-[11px] text-blue-400 font-bold">{summaryText}</span>
+                    <span className="font-mono text-[11px] text-blue-400 font-bold">{summaryParts.join(' · ')}</span>
                     <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
                 </button>
 
@@ -104,7 +136,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
 
             {/* Dropdown Popover Modal */}
             {isOpen && (
-                <div className="absolute left-0 top-10 z-50 w-96 sm:w-[460px] p-4 bg-popover/95 backdrop-blur-md border border-border rounded-2xl shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-0 top-10 z-50 w-96 sm:w-[490px] p-4 bg-popover/95 backdrop-blur-md border border-border rounded-2xl shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center justify-between border-b border-border/60 pb-2">
                         <div className="flex items-center gap-1.5 font-black text-xs text-foreground">
                             <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
@@ -187,29 +219,34 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                         </div>
                     </div>
 
-                    {/* 3. 발행 기간 제한 (신선도 필터 - 구형 2020년 영상 원천 차단) */}
-                    <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
+                    {/* 3. 영상 실제 등록/업로드 일자 필터 (실질적 핵심 신선도 요소) */}
+                    <div className="space-y-1.5 p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                        <label className="text-[11px] font-bold text-amber-400 flex items-center justify-between">
                             <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-indigo-400" />
-                                <span>발행 신선도 제한 (Freshness Screener)</span>
+                                <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                                <span>📅 영상 등록/업로드 일자 (Upload Date - 핵심 신선도)</span>
                             </span>
-                            <span className="text-[10px] font-mono text-indigo-400">구형 영상 차단</span>
+                            <span className="text-[10px] font-mono text-amber-400 font-bold">실제 발행일 기준</span>
                         </label>
-                        <div className="grid grid-cols-4 gap-1.5">
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                            실제 유튜브에 영상이 업로드된 시점을 필터링합니다. 최신 알고리즘 폭발 흐름을 파악하는 핵심 요소입니다.
+                        </p>
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1">
                             {[
+                                { id: 'all', label: '전체 기간' },
                                 { id: '24h', label: '⚡ 24시간' },
                                 { id: '7d', label: '📅 최근 7일' },
                                 { id: '30d', label: '🗓️ 최근 30일' },
                                 { id: '90d', label: '🗓️ 최근 90일' },
+                                { id: '1y', label: '🕰️ 1년 이내' },
                             ].map(item => (
                                 <button
                                     key={item.id}
-                                    onClick={() => setTempConfig({ ...tempConfig, dateRange: item.id })}
+                                    onClick={() => setTempConfig({ ...tempConfig, uploadDateRange: item.id, dateRange: item.id })}
                                     className={cn(
                                         "py-1 text-center rounded-lg text-xs font-bold cursor-pointer transition-all",
-                                        tempConfig.dateRange === item.id 
-                                            ? "bg-indigo-600 text-white shadow-xs" 
+                                        curUpload === item.id 
+                                            ? "bg-amber-500 text-black font-black shadow-xs" 
                                             : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/60"
                                     )}
                                 >
@@ -219,7 +256,43 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                         </div>
                     </div>
 
-                    {/* 4. 최소 폭발 배수 (Min Outlier Ratio) */}
+                    {/* 4. 시스템 수집 일자 필터 (레이더 포착 시점) */}
+                    <div className="space-y-1.5 p-2.5 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
+                        <label className="text-[11px] font-bold text-indigo-400 flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                                <span>📥 시스템 수집 일자 (Collection Date - 스카우트 포착일)</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-indigo-400">레이더 입고일 기준</span>
+                        </label>
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                            바이럴 스카우터가 영상을 탐색·포착하여 로컬 DB에 입고한 시점을 필터링합니다.
+                        </p>
+                        <div className="grid grid-cols-5 gap-1.5 pt-1">
+                            {[
+                                { id: 'all', label: '전체 수집' },
+                                { id: '24h', label: '⚡ 오늘 (24h)' },
+                                { id: '7d', label: '📅 7일내' },
+                                { id: '30d', label: '🗓️ 30일내' },
+                                { id: '90d', label: '🗓️ 90일내' },
+                            ].map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setTempConfig({ ...tempConfig, collectedDateRange: item.id })}
+                                    className={cn(
+                                        "py-1 text-center rounded-lg text-xs font-bold cursor-pointer transition-all",
+                                        curCollect === item.id 
+                                            ? "bg-indigo-600 text-white shadow-xs font-black" 
+                                            : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/60"
+                                    )}
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 5. 최소 폭발 배수 (Min Outlier Ratio) */}
                     <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
                             <Flame className="w-3 h-3 text-amber-400" />
