@@ -1043,6 +1043,19 @@ class RadarCandidate(Base):
     category = relationship("Category", backref="radar_candidates")
 
 
+class ExcludedChannel(Base):
+    """Excluded / Blacklisted Channels from Trend Radar and Scouter"""
+    __tablename__ = "excluded_channels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    channel_title = Column(String, unique=True, index=True, nullable=False)
+    channel_url = Column(String, nullable=True)
+    handle = Column(String, nullable=True)
+    reason = Column(String, default="사용자 제외 요청") # 저품질, 주제 불일치, 기타 등
+    excluded_by = Column(String, default="user")
+    created_at = Column(DateTime, default=datetime.now)
+
+
 class TikTokChannel(Base):
     """TikTok Account linked to a Browser Profile"""
     __tablename__ = "tiktok_channels"

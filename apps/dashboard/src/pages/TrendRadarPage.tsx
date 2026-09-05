@@ -2,7 +2,8 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import api, { 
     RadarCandidate, Category, ChannelWithReels, Channel,
-    getChannelsWithReels, discoverLookalikeChannels, convertChannelToTarget 
+    getChannelsWithReels, discoverLookalikeChannels, convertChannelToTarget,
+    dismissCandidateChannel, excludeCandidateChannel, getExcludedChannels 
 } from '../lib/api';
 import { 
     Radio, Zap, Sparkles, Check, X, ExternalLink, RefreshCw, 
@@ -11,7 +12,8 @@ import {
     SlidersHorizontal, Layers, Clock, Users, Gem, ThumbsUp, Rocket, Target,
     LayoutGrid, Table, Search, CheckSquare, Square, ArrowUpDown, FilterX,
     Tv, ChevronDown, ChevronUp, Globe, DollarSign, Bookmark, Film,
-    Share2, PlusCircle, ArrowRight, UserCheck, Bot, LineChart, Settings2
+    Share2, PlusCircle, ArrowRight, UserCheck, Bot, LineChart, Settings2,
+    Ban, Trash2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { cn, formatRelativeOrDate, formatShortDate } from '../lib/utils';
@@ -23,6 +25,7 @@ import { LiveDiscoveryFlash } from '../components/trend/LiveDiscoveryFlash';
 import { ViralScouterQuantHUD } from '../components/trend/ViralScouterQuantHUD';
 import { ScoutingFilterPopover, ScoutFilterConfig } from '../components/trend/ScoutingFilterPopover';
 import { DualTrackScoutBalancer } from '../components/trend/DualTrackScoutBalancer';
+import { ExcludedChannelsModal } from '../components/trend/ExcludedChannelsModal';
 
 const COUNTRY_PRESETS = [
     { code: 'ALL', name: '전체 국가', flag: '🌐' },
@@ -42,6 +45,8 @@ interface ChannelReelRowProps {
     onApprovePending?: (ch: any) => void;
     onApproveCandidate?: (channelId: number) => void;
     onSpider?: (channelId: number) => void;
+    onDismiss?: (channelName: string) => void;
+    onExclude?: (channelName: string, channelUrl?: string, handle?: string) => void;
     isSpidering?: boolean;
     isOnboarding?: boolean;
     isConverting?: boolean;
@@ -56,6 +61,8 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
     onApprovePending,
     onApproveCandidate,
     onSpider,
+    onDismiss,
+    onExclude,
     isSpidering,
     isOnboarding,
     isConverting
@@ -204,6 +211,29 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                                     <LineChart className="w-3 h-3 text-indigo-500 shrink-0" />
                                     성장 분석
                                 </Button>
+
+                                <div className="flex items-center gap-1 w-full pt-0.5">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onDismiss && onDismiss(ch.name)}
+                                        title="대기열에서 임시 삭제 (숨기기)"
+                                        className="h-6 flex-1 text-[9.5px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl px-1 cursor-pointer"
+                                    >
+                                        <Trash2 className="w-2.5 h-2.5 mr-0.5" />
+                                        숨김
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onExclude && onExclude(ch.name, ch.channel_url, ch.handle)}
+                                        title="영구 제외 (블랙리스트 등록 및 수집 차단)"
+                                        className="h-6 flex-1 text-[9.5px] font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 border-border/80 hover:border-rose-500/40 rounded-xl px-1 cursor-pointer"
+                                    >
+                                        <Ban className="w-2.5 h-2.5 mr-0.5" />
+                                        제외
+                                    </Button>
+                                </div>
                             </div>
                         </>
                     ) : type === 'target' ? (
@@ -277,6 +307,29 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                                     <LineChart className="w-3 h-3 text-blue-500 shrink-0" />
                                     성장 분석
                                 </Button>
+
+                                <div className="flex items-center gap-1 w-full pt-0.5">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onDismiss && onDismiss(ch.name)}
+                                        title="대기열에서 임시 삭제 (숨기기)"
+                                        className="h-6 flex-1 text-[9.5px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl px-1 cursor-pointer"
+                                    >
+                                        <Trash2 className="w-2.5 h-2.5 mr-0.5" />
+                                        숨김
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onExclude && onExclude(ch.name, ch.channel_url, ch.handle)}
+                                        title="영구 제외 (블랙리스트 등록 및 수집 차단)"
+                                        className="h-6 flex-1 text-[9.5px] font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 border-border/80 hover:border-rose-500/40 rounded-xl px-1 cursor-pointer"
+                                    >
+                                        <Ban className="w-2.5 h-2.5 mr-0.5" />
+                                        제외
+                                    </Button>
+                                </div>
                             </div>
                         </>
                     )}
@@ -390,6 +443,7 @@ const TrendRadarPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isScanning, setIsScanning] = useState(false);
     const [spideringChannelId, setSpideringChannelId] = useState<number | null>(null);
+    const [isExcludedModalOpen, setIsExcludedModalOpen] = useState(false);
 
     // ── 정밀 제약 조건 매트릭스 상태 (Persistence 지원) ───────────
     const [filterConfig, setFilterConfig] = useState<ScoutFilterConfig>(() => {
@@ -524,6 +578,13 @@ const TrendRadarPage: React.FC = () => {
         refetchInterval: 25000
     });
 
+    // 4-B. 제외(블랙리스트) 채널 목록 (배지 및 모달 연동)
+    const { data: excludedChannels = [] } = useQuery({
+        queryKey: ['excluded-channels'],
+        queryFn: getExcludedChannels,
+        staleTime: 15000
+    });
+
     const isBackgroundRefreshing = isFetchingCandidates || isFetchingReels || isFetchingPending;
 
     // ── 수집 영상 보관함 규격: 가상 청크 렌더링 (Visible Count & Scroll Observer) ──
@@ -613,6 +674,38 @@ const TrendRadarPage: React.FC = () => {
         onError: (err: any) => {
             setDeepSpideringVideoId(null);
             alert('롱폼 스파이더링 실패: ' + (err.response?.data?.detail || err.message));
+        }
+    });
+
+    // ── 후보 채널 임시 삭제 (대기열에서 숨김) ──────────────────────
+    const dismissMutation = useMutation({
+        mutationFn: async (channelName: string) => {
+            return await dismissCandidateChannel(channelName);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pending-channels'] });
+            queryClient.invalidateQueries({ queryKey: ['channels-with-reels'] });
+        },
+        onError: (err: any) => {
+            alert('삭제 오류: ' + (err.response?.data?.detail || err.message));
+        }
+    });
+
+    // ── 후보 채널 영구 제외 (블랙리스트 등록) ───────────────────────
+    const excludeMutation = useMutation({
+        mutationFn: async ({ channelName, channelUrl, handle }: { channelName: string; channelUrl?: string; handle?: string }) => {
+            const confirmed = window.confirm(`'${channelName}' 채널을 영구 제외(블랙리스트) 처리하시겠습니까?\n\n- 이 채널 및 영상은 더 이상 추천되거나 스카우터로 수집되지 않습니다.\n- 상단 [제외 채널] 관리 화면에서 언제든지 복원할 수 있습니다.`);
+            if (!confirmed) return null;
+            return await excludeCandidateChannel(channelName, channelUrl, handle, '사용자 제외 요청');
+        },
+        onSuccess: (data) => {
+            if (!data) return;
+            queryClient.invalidateQueries({ queryKey: ['pending-channels'] });
+            queryClient.invalidateQueries({ queryKey: ['channels-with-reels'] });
+            queryClient.invalidateQueries({ queryKey: ['excluded-channels'] });
+        },
+        onError: (err: any) => {
+            alert('제외 오류: ' + (err.response?.data?.detail || err.message));
         }
     });
 
@@ -984,6 +1077,23 @@ const TrendRadarPage: React.FC = () => {
                             신설 채널 론칭 패키지
                         </Button>
 
+                        {/* 제외 채널 관리 모달 트리거 */}
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setIsExcludedModalOpen(true)}
+                            className="h-7 text-[11px] font-bold border-rose-500/30 hover:border-rose-500/60 bg-rose-50/20 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs"
+                            title="영구 제외된 채널 목록 조회 및 복원 관리"
+                        >
+                            <Ban className="w-3 h-3 text-rose-500" />
+                            <span>제외 채널 관리</span>
+                            {excludedChannels.length > 0 && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-black">
+                                    {excludedChannels.length}
+                                </span>
+                            )}
+                        </Button>
+
                         <button 
                             onClick={() => setIsTagBarExpanded(!isTagBarExpanded)}
                             className="p-1 rounded-lg hover:bg-muted text-muted-foreground text-xs flex items-center gap-0.5 cursor-pointer"
@@ -1187,8 +1297,24 @@ const TrendRadarPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* 우측: 스카우터 즉시 가동 */}
+                {/* 우측: 제외 채널 관리 & 스카우터 즉시 가동 */}
                 <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsExcludedModalOpen(true)}
+                        className="h-8 px-3 text-xs font-bold rounded-xl border-border/90 hover:border-rose-500/40 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 cursor-pointer flex items-center gap-1.5 transition-colors"
+                        title="영구 제외(블랙리스트)된 채널 목록 조회 및 복원"
+                    >
+                        <Ban className="w-3.5 h-3.5 text-rose-500" />
+                        <span>제외 채널</span>
+                        {excludedChannels.length > 0 && (
+                            <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[10px] font-mono font-black">
+                                {excludedChannels.length}
+                            </span>
+                        )}
+                    </Button>
+
                     <Button
                         size="sm"
                         onClick={() => scanMutation.mutate()}
@@ -1441,6 +1567,8 @@ const TrendRadarPage: React.FC = () => {
                                                 }
                                             }}
                                             isOnboarding={onboardMutation.isPending}
+                                            onDismiss={(name) => dismissMutation.mutate(name)}
+                                            onExclude={(name, url, handle) => excludeMutation.mutate({ channelName: name, channelUrl: url, handle })}
                                         />
                                     ))}
                                     {visibleChannelsCount < pendingChannels.length && (
@@ -1596,6 +1724,8 @@ const TrendRadarPage: React.FC = () => {
                                         }}
                                         onApproveCandidate={(channelId) => convertTargetMutation.mutate(channelId)}
                                         isConverting={convertTargetMutation.isPending}
+                                        onDismiss={(name) => dismissMutation.mutate(name)}
+                                        onExclude={(name, url, handle) => excludeMutation.mutate({ channelName: name, channelUrl: url, handle })}
                                     />
                                 ))}
                             </div>
@@ -1871,6 +2001,12 @@ const TrendRadarPage: React.FC = () => {
                     onOpenChange={setIsDNAModalOpen}
                 />
             )}
+
+            {/* 영구 제외 (블랙리스트) 채널 관리 모달 */}
+            <ExcludedChannelsModal
+                isOpen={isExcludedModalOpen}
+                onClose={() => setIsExcludedModalOpen(false)}
+            />
         </div>
     );
 };

@@ -472,6 +472,14 @@ class RealAutonomousScoutWorker:
                                 self.telemetry.add_rejection_log("배수 미달", uploader, title, f"배수 {outlier}x (기준 {min_outlier}x 미달)")
                                 continue
 
+                            # 4.5 Excluded / Blacklisted Channel Check
+                            is_excluded = db.query(models.ExcludedChannel).filter(
+                                models.ExcludedChannel.channel_title.ilike(uploader.strip())
+                            ).first()
+                            if is_excluded:
+                                self.telemetry.add_rejection_log("제외 채널", uploader, title, f"사용자 제외 리스트 등록 채널 차단 ({is_excluded.reason or '블랙리스트'})")
+                                continue
+
                             # 5. Save genuine candidate to DB with designated incubation category
                             if track_mode == "category_deep":
                                 match_reason = f"[{cat_name}] 추천 그래프 심화 발굴 (@{seed_name} 연계)"

@@ -561,4 +561,43 @@ export const generateChannelAiInsight = async (channelId: number) => {
     )).data;
 };
 
+export interface ExcludedChannel {
+    id: number;
+    channel_title: string;
+    channel_url?: string;
+    handle?: string;
+    reason?: string;
+    excluded_by?: string;
+    created_at: string;
+}
+
+export const dismissCandidateChannel = async (channelName: string) => {
+    return (await api.post<{ success: boolean; channel_name: string; dismissed_count: number }>(
+        '/trend-radar/channels/dismiss',
+        { channel_name: channelName }
+    )).data;
+};
+
+export const excludeCandidateChannel = async (
+    channelName: string, 
+    channelUrl?: string, 
+    handle?: string, 
+    reason = '사용자 제외 요청'
+) => {
+    return (await api.post<{ success: boolean; channel_name: string; reason?: string }>(
+        '/trend-radar/channels/exclude',
+        { channel_name: channelName, channel_url: channelUrl, handle, reason }
+    )).data;
+};
+
+export const getExcludedChannels = async () => {
+    return (await api.get<ExcludedChannel[]>('/trend-radar/excluded-channels')).data;
+};
+
+export const restoreExcludedChannel = async (excludedId: number) => {
+    return (await api.delete<{ success: boolean; restored_channel: string }>(
+        `/trend-radar/excluded-channels/${excludedId}`
+    )).data;
+};
+
 export default api;

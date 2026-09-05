@@ -587,6 +587,8 @@ def get_channels_with_reels(
         all_ids = [category_id] + sub_ids
         target_q = target_q.filter(models.Channel.category_id.in_(all_ids))
     target_channels = target_q.all()
+    excluded_names = {e.channel_title.strip().lower() for e in db.query(models.ExcludedChannel.channel_title).all() if e.channel_title}
+    target_channels = [ch for ch in target_channels if ch.name and ch.name.strip().lower() not in excluded_names]
 
     target_names = [ch.name for ch in target_channels if ch.name]
     target_ids = [ch.id for ch in target_channels]
@@ -828,10 +830,11 @@ def get_pending_channels_for_incubation(
     - Guarantees 6 video reels per channel using real candidate videos
     """
     target_names = {c.name.strip().lower() for c in db.query(models.Channel.name).all() if c.name}
+    excluded_names = {e.channel_title.strip().lower() for e in db.query(models.ExcludedChannel.channel_title).all() if e.channel_title}
     all_cats = db.query(models.Category).all()
 
     p_query = db.query(models.RadarCandidate).filter(
-        models.RadarCandidate.status != "approved"
+        ~models.RadarCandidate.status.in_(["approved", "dismissed", "rejected"])
     )
     if video_type and video_type != "all":
         p_query = p_query.filter(models.RadarCandidate.video_type == video_type)
@@ -863,7 +866,8 @@ def get_pending_channels_for_incubation(
     grouped_channels: Dict[str, List[models.RadarCandidate]] = {}
     for c in candidates:
         ch_name = c.channel_title
-        if ch_name.strip().lower() in target_names:
+        ch_clean = ch_name.strip().lower()
+        if ch_clean in target_names or ch_clean in excluded_names:
             continue
         grouped_channels.setdefault(ch_name, []).append(c)
 
@@ -1088,6 +1092,111 @@ def onboard_pending_channel(req: CategoryOnboardRequest, db: Session = Depends(g
         "category_id": cat_id,
         "category_name": cat.name
     }
+
+
+class ChannelDismissRequest(BaseModel):
+    channel_name: str
+
+
+class ChannelExcludeRequest(BaseModel):
+    channel_name: str
+    channel_url: Optional[str] = None
+    handle: Optional[str] = None
+    reason: Optional[str] = "사용자 제외 요청"
+
+
+@router.post("/channels/dismiss")
+def dismiss_channel(req: ChannelDismissRequest, db: Session = Depends(get_db)):
+    """
+    Dismisses a candidate channel from current incubation queue (temporary hide).
+    """
+    ch_name = req.channel_name.strip()
+    updated = db.query(models.RadarCandidate).filter(
+        models.RadarCandidate.channel_title == ch_name
+    ).update({
+        models.RadarCandidate.status: "dismissed",
+        models.RadarCandidate.action_taken_at: datetime.now()
+    }, synchronize_session=False)
+    db.commit()
+    return {"success": True, "channel_name": ch_name, "dismissed_count": updated}
+
+
+@router.post("/channels/exclude")
+def exclude_channel(req: ChannelExcludeRequest, db: Session = Depends(get_db)):
+    """
+    Excludes/Blacklists a channel permanently from Trend Radar and Scout engine.
+    """
+    ch_name = req.channel_name.strip()
+    existing = db.query(models.ExcludedChannel).filter(
+        models.ExcludedChannel.channel_title == ch_name
+    ).first()
+    if not existing:
+        new_excluded = models.ExcludedChannel(
+            channel_title=ch_name,
+            channel_url=req.channel_url,
+            handle=req.handle or f"@{ch_name.replace(' ', '').lower()}",
+            reason=req.reason or "사용자 제외 요청",
+            excluded_by="user",
+            created_at=datetime.now()
+        )
+        db.add(new_excluded)
+
+    # Mark all existing candidates of this channel as rejected
+    db.query(models.RadarCandidate).filter(
+        models.RadarCandidate.channel_title == ch_name
+    ).update({
+        models.RadarCandidate.status: "rejected",
+        models.RadarCandidate.action_taken_at: datetime.now()
+    }, synchronize_session=False)
+
+    db.commit()
+    return {"success": True, "channel_name": ch_name, "reason": req.reason}
+
+
+@router.get("/excluded-channels")
+def get_excluded_channels(db: Session = Depends(get_db)):
+    """
+    Returns list of all permanently excluded/blacklisted channels.
+    """
+    items = db.query(models.ExcludedChannel).order_by(models.ExcludedChannel.created_at.desc()).all()
+    return [
+        {
+            "id": it.id,
+            "channel_title": it.channel_title,
+            "channel_url": it.channel_url,
+            "handle": it.handle,
+            "reason": it.reason,
+            "excluded_by": it.excluded_by,
+            "created_at": it.created_at.isoformat() if it.created_at else None
+        }
+        for it in items
+    ]
+
+
+@router.delete("/excluded-channels/{excluded_id}")
+def restore_excluded_channel(excluded_id: int, db: Session = Depends(get_db)):
+    """
+    Restores an excluded channel back to normal (unblocks from blacklist).
+    """
+    item = db.query(models.ExcludedChannel).filter(models.ExcludedChannel.id == excluded_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Excluded channel not found")
+
+    ch_name = item.channel_title
+    db.delete(item)
+
+    # Reset candidates of this channel to 'pending' so it can be scouted/viewed again
+    db.query(models.RadarCandidate).filter(
+        models.RadarCandidate.channel_title == ch_name,
+        models.RadarCandidate.status == "rejected"
+    ).update({
+        models.RadarCandidate.status: "pending",
+        models.RadarCandidate.action_taken_at: None
+    }, synchronize_session=False)
+
+    db.commit()
+    return {"success": True, "restored_channel": ch_name}
+
 
 @router.get("/channels/{channel_id}/growth-analysis")
 def get_channel_growth_analysis(
