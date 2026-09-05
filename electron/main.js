@@ -45,8 +45,8 @@ import { setupAppMenuAndUpdater, noteProjectActivated, setMenuLocale } from './u
 import { selectCdpCase } from './video-cdp-dispatch.js'
 import { loadProfiles, saveProfiles, switchProfile, createProfile, deleteProfile, updateProfile, cleanupUnusedPartitions } from './profileManager.js'
 import { injectImageBatchBody } from './cdp-image-inject.js'
-import { AGENT_OFF_SCRIPT } from './flow-agent-toggle.js'
 import { hotPatcher } from './hot-patcher.js'
+import { startDashboardServer, stopDashboardServer } from './dashboard-server.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -2445,8 +2445,13 @@ function killProcessOnPort(port) {
 }
 
 function startViraLoopInfrastructure() {
-  console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI)...')
+  console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI & Dashboard Web Server)...')
   _doStartBackend()
+  try {
+    startDashboardServer(5183, 8000, hotPatcher.getHotpatchDir())
+  } catch (err) {
+    console.warn('[Orchestration] Failed to start Dashboard Web Server on port 5183:', err.message)
+  }
 }
 
 function _doStartDdalkkak() {
@@ -2671,6 +2676,7 @@ function waitForBackendReady(maxWaitMs = 30000, intervalMs = 500) {
 app.on('before-quit', () => {
   console.log('[Orchestration] App closing — executing 철벽 방어형 클린업 프로토콜...')
   appIsQuitting = true
+  try { stopDashboardServer() } catch {}
   if (healthMonitorInterval) {
     clearInterval(healthMonitorInterval)
     healthMonitorInterval = null
