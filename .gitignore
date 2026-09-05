@@ -4,6 +4,7 @@ dist-electron/
 output/
 release/
 release_assets/*.zip
+hotpatch_bundle/
 .agents/
 .aionrs/
 .DS_Store

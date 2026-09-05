@@ -396,12 +396,17 @@ def fetch_channel_recent_reels(
         channel_target = channel_url.rstrip('/')
 
     if channel_target:
-        tab = "shorts" if video_type == "shorts" else "videos"
-        target_url = f"{channel_target}/{tab}"
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                res = ydl.extract_info(target_url, download=False)
-                entries = res.get('entries', []) or []
+        tabs_to_try = ["shorts", "videos"] if video_type == "shorts" else ["videos", "shorts"]
+        if video_type == "all":
+            tabs_to_try = ["shorts", "videos"]
+        for tab in tabs_to_try:
+            if len(reels) >= limit:
+                break
+            target_url = f"{channel_target}/{tab}"
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    res = ydl.extract_info(target_url, download=False)
+                    entries = res.get('entries', []) or []
                 for e in entries:
                     v_id = e.get('id') or ''
                     if not is_valid_yt_video_id(v_id):
@@ -449,8 +454,9 @@ def fetch_channel_recent_reels(
                     })
                     if len(reels) >= limit:
                         break
-        except Exception:
-            # Channel does not have this tab (e.g. shorts-only channel has no videos tab)
+            except Exception:
+                pass
+        if not reels:
             CHANNEL_REELS_CACHE[cache_key] = (now, [])
             return []
 
@@ -551,7 +557,7 @@ def get_channels_with_reels(
     1) Target Channels (auto_download == True): Registered channels in that category
     2) Scouted Candidate Channels (auto_download == False): Newly scouted channels with genuine metadata
     """
-    max_reels = 4 if video_type == "long" else 6
+    max_reels = 6
     results = []
     seen_names = set()
 
@@ -595,12 +601,16 @@ def get_channels_with_reels(
                 "hook_analysis": c.hook_analysis or "초반 2.5초 핵심 패턴 인터럽트"
             })
 
-        # Fallback to recorded videos if no candidates
-        if not video_items:
-            db_vids = db.query(models.Video).filter(models.Video.channel_id == ch.id).limit(max_reels).all()
+        # Fallback to recorded videos if fewer than max_reels
+        existing_vids = {v["video_id"] for v in video_items}
+        if len(video_items) < max_reels:
+            db_vids = db.query(models.Video).filter(models.Video.channel_id == ch.id).limit(max_reels * 2).all()
             for v in db_vids:
-                if not is_valid_yt_video_id(v.video_id):
+                if len(video_items) >= max_reels:
+                    break
+                if not is_valid_yt_video_id(v.video_id) or v.video_id in existing_vids:
                     continue
+                existing_vids.add(v.video_id)
                 dur = v.duration or (680 if video_type == "long" else 60)
                 video_items.append({
                     "id": v.id,
@@ -616,11 +626,29 @@ def get_channels_with_reels(
                     "hook_analysis": "채널 대표 영상"
                 })
 
-        # If a channel has 0 reels for the requested format, skip it!
-        if not video_items:
+        # If still fewer than 4 reels, attempt to fetch from YouTube
+        if len(video_items) < 4:
+            more_reels = fetch_channel_recent_reels(ch.name, video_type, limit=max_reels - len(video_items), channel_url=ch.url)
+            for mr in more_reels:
+                if mr["video_id"] not in existing_vids:
+                    existing_vids.add(mr["video_id"])
+                    video_items.append(mr)
+
+        # Minimum 4 reels required for channel view
+        if len(video_items) < 4:
             continue
 
         seen_names.add(ch.name)
+
+        if len(video_items) < 4:
+            more_reels = fetch_channel_recent_reels(ch_name, video_type, limit=max_reels - len(video_items), channel_url=lead_c.channel_url)
+            for mr in more_reels:
+                if mr["video_id"] not in seen_vids:
+                    seen_vids.add(mr["video_id"])
+                    video_items.append(mr)
+
+        if len(video_items) < 4:
+            continue
 
         views_list = [v["view_count"] for v in video_items]
         avg_views = int(sum(views_list) / max(1, len(views_list))) if views_list else 250000
@@ -702,7 +730,14 @@ def get_channels_with_reels(
                 "hook_analysis": sc.hook_analysis or "초반 2초 패턴 인터럽트"
             })
 
-        if not video_items:
+        if len(video_items) < 4:
+            more_reels = fetch_channel_recent_reels(c.channel_title, video_type, limit=max_reels - len(video_items), channel_url=c.channel_url)
+            for mr in more_reels:
+                if mr["video_id"] not in seen_sc_ids:
+                    seen_sc_ids.add(mr["video_id"])
+                    video_items.append(mr)
+
+        if len(video_items) < 4:
             continue
 
         seen_names.add(c.channel_title)
@@ -850,7 +885,7 @@ def get_pending_channels_for_incubation(
                 best_cat = cat
 
         # 2. Build 6-reel items (guaranteed 6 full video reels)
-        max_reels = 4 if video_type == "long" else 6
+        max_reels = 6
         video_items = []
         seen_vids = set()
         
@@ -883,6 +918,16 @@ def get_pending_channels_for_incubation(
             seen_vids.add(sc.video_id)
             if len(video_items) >= max_reels:
                 break
+
+        if len(video_items) < 4:
+            more_reels = fetch_channel_recent_reels(ch_name, video_type, limit=max_reels - len(video_items), channel_url=lead_c.channel_url)
+            for mr in more_reels:
+                if mr["video_id"] not in seen_vids:
+                    seen_vids.add(mr["video_id"])
+                    video_items.append(mr)
+
+        if len(video_items) < 4:
+            continue
 
         views_list = [v["view_count"] for v in video_items]
         avg_views = int(sum(views_list) / max(1, len(views_list))) if views_list else lead_c.view_count
