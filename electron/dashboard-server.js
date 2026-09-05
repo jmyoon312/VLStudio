@@ -124,6 +124,13 @@ export function startDashboardServer(port = 5183, backendPort = 8000, hotpatchDi
         return;
       }
 
+      // Assets 404: Do not return index.html for missing /assets/* files
+      if (parsedPath.startsWith('/assets/')) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end(`404 Not Found - Asset ${parsedPath} does not exist`);
+        return;
+      }
+
       // SPA Fallback: serve index.html for client-side routing
       const indexPath = path.join(staticDir, 'index.html');
       fs.stat(indexPath, (indexErr, indexStats) => {
