@@ -433,8 +433,8 @@ const TrendRadarPage: React.FC = () => {
                     </div>
 
                     <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5 pt-0.5">
-                        <span className="text-amber-500 font-bold">⚡ 자동 차단:</span>
-                        <span>인도(데바나가리)·아랍어·키릴·베트남어 유니코드 즉시 제외</span>
+                        <span className="text-amber-700 dark:text-amber-400 font-bold">⚡ 자동 차단:</span>
+                        <span className="text-foreground/80 dark:text-muted-foreground font-medium">인도(데바나가리)·아랍어·키릴·베트남어 유니코드 즉시 제외</span>
                     </div>
                 </div>
             </div>

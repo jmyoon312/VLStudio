@@ -117,11 +117,11 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
             <div className="flex items-center gap-1.5">
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="h-8 px-3 rounded-xl bg-card/80 hover:bg-card border border-border/90 text-xs font-bold text-foreground flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:border-indigo-500/50"
+                    className="h-8 px-3 rounded-xl bg-card hover:bg-muted/60 border border-border text-xs font-bold text-foreground flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:border-indigo-500/50"
                 >
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span className="font-mono text-[11px] text-muted-foreground">스카우팅 조건:</span>
-                    <span className="font-mono text-[11px] text-blue-400 font-bold">{summaryParts.join(' · ')}</span>
+                    <span className="font-mono text-[11px] text-blue-600 dark:text-blue-400 font-extrabold">{summaryParts.join(' · ')}</span>
                     <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
                 </button>
 
@@ -134,27 +134,29 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                 </button>
             </div>
 
-            {/* Dropdown Popover Modal */}
+            {/* Dropdown Popover Modal: 100% 불투명 solid 배경 적용으로 뒷배경 번짐 원천 차단 */}
             {isOpen && (
-                <div className="absolute left-0 top-10 z-50 w-96 sm:w-[490px] p-4 bg-popover/95 backdrop-blur-md border border-border rounded-2xl shadow-xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                <div className="absolute left-0 top-10 z-50 w-96 sm:w-[500px] p-4 bg-white dark:bg-zinc-950 border border-border shadow-2xl rounded-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 ring-1 ring-black/10 dark:ring-white/10">
+                    <div className="flex items-center justify-between border-b border-border/80 pb-2.5">
                         <div className="flex items-center gap-1.5 font-black text-xs text-foreground">
-                            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-500" />
+                            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                             <span>정밀 스카우팅 조건 매트릭스 (Constraint Matrix)</span>
                         </div>
-                        <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+                        <button onClick={() => setIsOpen(false)} className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
                             <X className="w-4 h-4" />
                         </button>
                     </div>
 
                     {/* 1. 타겟 허용 국가/언어 (Tier 1 고수익 Whitelist - 유튜브 RPM $4~$15) */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
-                            <span className="flex items-center gap-1">
-                                <Globe className="w-3 h-3 text-blue-400" />
+                        <label className="text-[11px] font-bold text-foreground flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                                <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                                 <span>타겟 고수익 국가/언어 (Tier 1 Whitelist)</span>
                             </span>
-                            <span className="text-[10px] font-mono text-emerald-400 font-bold">RPM $3~$15 우대</span>
+                            <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded-md">
+                                RPM $3~$15 우대
+                            </span>
                         </label>
                         <div className="flex flex-wrap gap-1.5">
                             {[
@@ -173,8 +175,8 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                         className={cn(
                                             "px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer",
                                             active 
-                                                ? "bg-blue-600 text-white shadow-xs" 
-                                                : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/60"
+                                                ? "bg-blue-600 text-white shadow-xs font-black" 
+                                                : "bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
                                         )}
                                     >
                                         {active && <Check className="w-3 h-3" />}
@@ -187,9 +189,11 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
 
                     {/* 2. 비선호 차단 국가/언어 (Blacklist - 저수익 RPM $0.1~$0.5 & 유니코드 즉시 제외) */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-rose-400 flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-rose-700 dark:text-rose-400 flex items-center justify-between">
                             <span>🚫 비선호 차단 국가 (초저수익 RPM 오염 방지)</span>
-                            <span className="text-[10px] font-mono text-rose-400 font-bold">유니코드 즉시 제외</span>
+                            <span className="text-[10px] font-mono text-rose-700 dark:text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded-md">
+                                유니코드 즉시 제외
+                            </span>
                         </label>
                         <div className="flex flex-wrap gap-1.5">
                             {[
@@ -207,8 +211,8 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                         className={cn(
                                             "px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer",
                                             active 
-                                                ? "bg-rose-600/20 text-rose-400 border border-rose-500/40 shadow-xs" 
-                                                : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/60"
+                                                ? "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800 shadow-xs font-black" 
+                                                : "bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
                                         )}
                                     >
                                         {active && <Check className="w-3 h-3" />}
@@ -220,15 +224,17 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                     </div>
 
                     {/* 3. 영상 실제 등록/업로드 일자 필터 (실질적 핵심 신선도 요소) */}
-                    <div className="space-y-1.5 p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                        <label className="text-[11px] font-bold text-amber-400 flex items-center justify-between">
-                            <span className="flex items-center gap-1">
-                                <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                                <span>📅 영상 등록/업로드 일자 (Upload Date - 핵심 신선도)</span>
+                    <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/30 dark:border-amber-500/20">
+                        <label className="text-[11px] font-bold text-amber-800 dark:text-amber-400 flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                                <span className="font-black">📅 영상 등록/업로드 일자 (Upload Date - 핵심 신선도)</span>
                             </span>
-                            <span className="text-[10px] font-mono text-amber-400 font-bold">실제 발행일 기준</span>
+                            <span className="text-[10px] font-mono text-amber-800 dark:text-amber-300 font-bold bg-amber-500/20 px-1.5 py-0.5 rounded-md">
+                                실제 발행일 기준
+                            </span>
                         </label>
-                        <p className="text-[10px] text-muted-foreground leading-tight">
+                        <p className="text-[10px] text-foreground/80 dark:text-muted-foreground leading-tight">
                             실제 유튜브에 영상이 업로드된 시점을 필터링합니다. 최신 알고리즘 폭발 흐름을 파악하는 핵심 요소입니다.
                         </p>
                         <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1">
@@ -246,8 +252,8 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                     className={cn(
                                         "py-1 text-center rounded-lg text-xs font-bold cursor-pointer transition-all",
                                         curUpload === item.id 
-                                            ? "bg-amber-500 text-black font-black shadow-xs" 
-                                            : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/60"
+                                            ? "bg-amber-500 text-black font-black shadow-xs ring-1 ring-amber-600/30" 
+                                            : "bg-white dark:bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
                                     )}
                                 >
                                     {item.label}
@@ -257,15 +263,17 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                     </div>
 
                     {/* 4. 시스템 수집 일자 필터 (레이더 포착 시점) */}
-                    <div className="space-y-1.5 p-2.5 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
-                        <label className="text-[11px] font-bold text-indigo-400 flex items-center justify-between">
-                            <span className="flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                                <span>📥 시스템 수집 일자 (Collection Date - 스카우트 포착일)</span>
+                    <div className="space-y-1.5 p-3 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/10 border border-indigo-500/30 dark:border-indigo-500/20">
+                        <label className="text-[11px] font-bold text-indigo-800 dark:text-indigo-400 flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-indigo-700 dark:text-indigo-400" />
+                                <span className="font-black">📥 시스템 수집 일자 (Collection Date - 스카우트 포착일)</span>
                             </span>
-                            <span className="text-[10px] font-mono text-indigo-400">레이더 입고일 기준</span>
+                            <span className="text-[10px] font-mono text-indigo-800 dark:text-indigo-300 font-bold bg-indigo-500/20 px-1.5 py-0.5 rounded-md">
+                                레이더 입고일 기준
+                            </span>
                         </label>
-                        <p className="text-[10px] text-muted-foreground leading-tight">
+                        <p className="text-[10px] text-foreground/80 dark:text-muted-foreground leading-tight">
                             바이럴 스카우터가 영상을 탐색·포착하여 로컬 DB에 입고한 시점을 필터링합니다.
                         </p>
                         <div className="grid grid-cols-5 gap-1.5 pt-1">
@@ -283,7 +291,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                         "py-1 text-center rounded-lg text-xs font-bold cursor-pointer transition-all",
                                         curCollect === item.id 
                                             ? "bg-indigo-600 text-white shadow-xs font-black" 
-                                            : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/60"
+                                            : "bg-white dark:bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
                                     )}
                                 >
                                     {item.label}
@@ -294,8 +302,8 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
 
                     {/* 5. 최소 폭발 배수 (Min Outlier Ratio) */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
-                            <Flame className="w-3 h-3 text-amber-400" />
+                        <label className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                            <Flame className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                             <span>최소 알고리즘 폭발 배수 (Outlier Ratio)</span>
                         </label>
                         <div className="grid grid-cols-4 gap-1.5">
@@ -311,8 +319,8 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                     className={cn(
                                         "py-1 text-center rounded-lg text-xs font-bold cursor-pointer transition-all",
                                         tempConfig.minOutlier === item.val 
-                                            ? "bg-amber-500 text-black font-black shadow-xs" 
-                                            : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/60"
+                                            ? "bg-amber-500 text-black font-black shadow-xs ring-1 ring-amber-600/30" 
+                                            : "bg-muted/40 text-foreground/80 hover:text-foreground hover:bg-muted border border-border/80"
                                     )}
                                 >
                                     {item.label}
@@ -322,10 +330,10 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                     </div>
 
                     {/* Bottom Apply Bar */}
-                    <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                    <div className="flex items-center justify-between pt-2.5 border-t border-border/80">
                         <button
                             onClick={handleReset}
-                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
+                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer transition-colors"
                         >
                             <RotateCcw className="w-3 h-3" />
                             기본값
