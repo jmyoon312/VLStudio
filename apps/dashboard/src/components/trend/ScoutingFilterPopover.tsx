@@ -115,17 +115,22 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                         </button>
                     </div>
 
-                    {/* 1. 타겟 허용 국가/언어 (Whitelist) */}
+                    {/* 1. 타겟 허용 국가/언어 (Tier 1 고수익 Whitelist - 유튜브 RPM $4~$15) */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
-                            <Globe className="w-3 h-3 text-blue-400" />
-                            <span>타겟 허용 국가/언어 (Whitelist)</span>
+                        <label className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                                <Globe className="w-3 h-3 text-blue-400" />
+                                <span>타겟 고수익 국가/언어 (Tier 1 Whitelist)</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-400 font-bold">RPM $3~$15 우대</span>
                         </label>
                         <div className="flex flex-wrap gap-1.5">
                             {[
                                 { id: 'ko', label: '🇰🇷 한국 (KO)' },
-                                { id: 'en', label: '🇺🇸 미국/글로벌 (EN)' },
+                                { id: 'en', label: '🇺🇸 미국/캐나다 (EN)' },
+                                { id: 'gb', label: '🇬🇧 영국/호주 (GB/AU)' },
                                 { id: 'ja', label: '🇯🇵 일본 (JA)' },
+                                { id: 'de', label: '🇩🇪 독일/유럽 (DE/FR)' },
                                 { id: 'zh', label: '🇹🇼 대만/중화 (ZH)' },
                             ].map(item => {
                                 const active = tempConfig.includeLangs.includes(item.id);
@@ -148,10 +153,11 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                         </div>
                     </div>
 
-                    {/* 2. 비선호 차단 국가/언어 (Blacklist - Unicode Filter) */}
+                    {/* 2. 비선호 차단 국가/언어 (Blacklist - 저수익 RPM $0.1~$0.5 & 유니코드 즉시 제외) */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
-                            <span>🚫 비선호 차단 국가/언어 (유니코드 스크립트 즉시 감지 제외)</span>
+                        <label className="text-[11px] font-bold text-rose-400 flex items-center justify-between">
+                            <span>🚫 비선호 차단 국가 (초저수익 RPM 오염 방지)</span>
+                            <span className="text-[10px] font-mono text-rose-400 font-bold">유니코드 즉시 제외</span>
                         </label>
                         <div className="flex flex-wrap gap-1.5">
                             {[
@@ -159,6 +165,7 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                                 { id: 'vi', label: '🚫 베트남/동남아 (VI/TH)' },
                                 { id: 'ar', label: '🚫 아랍권 (AR)' },
                                 { id: 'ru', label: '🚫 러시아/키릴 (RU)' },
+                                { id: 'pk', label: '🚫 파키스탄/서남아 (PK/BD)' },
                             ].map(item => {
                                 const active = tempConfig.excludeLangs.includes(item.id);
                                 return (
@@ -180,18 +187,21 @@ export const ScoutingFilterPopover: React.FC<ScoutingFilterPopoverProps> = ({
                         </div>
                     </div>
 
-                    {/* 3. 발행 기간 제한 (Date Range) */}
+                    {/* 3. 발행 기간 제한 (신선도 필터 - 구형 2020년 영상 원천 차단) */}
                     <div className="space-y-1.5">
-                        <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-indigo-400" />
-                            <span>발행 기간 제한 (Published Within)</span>
+                        <label className="text-[11px] font-bold text-muted-foreground flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-indigo-400" />
+                                <span>발행 신선도 제한 (Freshness Screener)</span>
+                            </span>
+                            <span className="text-[10px] font-mono text-indigo-400">구형 영상 차단</span>
                         </label>
                         <div className="grid grid-cols-4 gap-1.5">
                             {[
                                 { id: '24h', label: '⚡ 24시간' },
                                 { id: '7d', label: '📅 최근 7일' },
                                 { id: '30d', label: '🗓️ 최근 30일' },
-                                { id: 'all', label: '전체 기간' },
+                                { id: '90d', label: '🗓️ 최근 90일' },
                             ].map(item => (
                                 <button
                                     key={item.id}

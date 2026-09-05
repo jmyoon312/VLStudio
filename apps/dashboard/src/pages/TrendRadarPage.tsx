@@ -22,28 +22,7 @@ import { ChannelAnatomyModal } from '../components/trend/ChannelAnatomyModal';
 import { LiveDiscoveryFlash } from '../components/trend/LiveDiscoveryFlash';
 import { ViralScouterQuantHUD } from '../components/trend/ViralScouterQuantHUD';
 import { ScoutingFilterPopover, ScoutFilterConfig } from '../components/trend/ScoutingFilterPopover';
-
-// 엄선 인기 카테고리 20대 시드 (Seed Categories)
-const CURATED_SEED_TAGS = [
-    { id: 'all', label: '모두보기', count: 323, isSpecial: true },
-    { id: 'latest', label: '최신등록', count: 59, isSpecial: true },
-    { id: 'gems', label: '💎 숨은옥석', count: 24, isSpecial: true },
-    { id: 'kr_celeb', label: '한국인물티셋', count: 20 },
-    { id: 'psychology', label: '심리학', count: 9 },
-    { id: 'onetake', label: '원테이크크루', count: 28 },
-    { id: 'ranking', label: '랭킹형(TOP3)', count: 18 },
-    { id: 'senior_health', label: '시니어(건강)', count: 15 },
-    { id: 'ai_2d', label: 'AI(2D애니)', count: 14 },
-    { id: 'ai_3d', label: 'AI(3D렌더)', count: 9 },
-    { id: 'military', label: '군정보/국방', count: 16 },
-    { id: 'movie', label: '영화/드라마', count: 50 },
-    { id: 'insta', label: '인스타릴스형', count: 22 },
-    { id: 'economy', label: '경제학', count: 12 },
-    { id: 'parenting', label: '육아', count: 8 },
-    { id: 'history', label: '역사', count: 11 },
-    { id: 'comedy', label: '스탠딩코미디', count: 8 },
-    { id: 'success', label: '해외성공스토리', count: 11 },
-];
+import { DualTrackScoutBalancer } from '../components/trend/DualTrackScoutBalancer';
 
 const COUNTRY_PRESETS = [
     { code: 'ALL', name: '전체 국가', flag: '🌐' },
@@ -69,7 +48,7 @@ const TrendRadarPage: React.FC = () => {
 
     // ── 필터 및 뷰 모드 ──────────────────────────────────────────
     const [viewMode, setViewMode] = useState<'reel' | 'grid' | 'table'>('reel');
-    const [selectedTag, setSelectedTag] = useState<string>('all');
+    const [selectedTag, setSelectedTag] = useState<string>('pending');
     const [isTagBarExpanded, setIsTagBarExpanded] = useState<boolean>(false);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isScanning, setIsScanning] = useState(false);
@@ -104,10 +83,16 @@ const TrendRadarPage: React.FC = () => {
     const [isDNAModalOpen, setIsDNAModalOpen] = useState(false);
     const [dnaCategory, setDnaCategory] = useState<Category | null>(null);
 
-    // 1. 카테고리 목록 (DB 실제 20개 카테고리)
+    // 1. 카테고리 목록 (DB 실제 카테고리)
     const { data: categories = [] } = useQuery({
         queryKey: ['categories'],
         queryFn: async () => (await api.get<Category[]>('/categories/')).data || []
+    });
+
+    // 1-B. 채널 보관함 전체 타겟 채널 목록 (Single Source of Truth)
+    const { data: channels = [] } = useQuery({
+        queryKey: ['channels'],
+        queryFn: async () => (await api.get<Channel[]>('/channels/')).data || []
     });
 
     // 2. 바이럴 후보군 (Step 1용 - 실시간 자동 갱신 및 정밀 매트릭스 필터)
@@ -159,6 +144,33 @@ const TrendRadarPage: React.FC = () => {
         onError: (err: any) => {
             setIsScanning(false);
             alert('스카우터 탐색 오류: ' + (err.response?.data?.detail || err.message));
+        }
+    });
+
+    // 3-B. 등록 예정 후보 채널 (AI 카테고리 분류 추천 대기열)
+    const { data: pendingChannels = [] } = useQuery({
+        queryKey: ['pending-channels', aspectFormat],
+        queryFn: async () => {
+            const res = await api.get('/trend-radar/pending-channels', { params: { video_type: aspectFormat } });
+            return res.data || [];
+        },
+        refetchInterval: 5000
+    });
+
+    // ── AI 카테고리 승격 / 신규 카테고리 1클릭 온보딩 ───────────────
+    const onboardMutation = useMutation({
+        mutationFn: async (payload: { channel_name: string; category_id?: number; new_category_name?: string; persona_target?: string; content_tone?: string }) => {
+            const res = await api.post('/trend-radar/onboard-pending-channel', payload);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['pending-channels'] });
+            queryClient.invalidateQueries({ queryKey: ['channels-with-reels'] });
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+            alert(data.message || '타겟 채널로 승격 등록되었습니다!');
+        },
+        onError: (err: any) => {
+            alert('등록 실패: ' + (err.response?.data?.detail || err.message));
         }
     });
 
@@ -216,30 +228,82 @@ const TrendRadarPage: React.FC = () => {
         }
     });
 
+    // ── 동적 카테고리 시드 태그 (DB 실데이터 단일 진실 공급원 - 채널 보관함과 100% 일치) ──
+    const dynamicTags = useMemo(() => {
+        const totalTargetChans = channels.length;
+
+        const base = [
+            { id: 'pending', label: '📋 등록 예정', count: `${pendingChannels.length}채널`, isSpecial: true, hasTarget: false },
+            { id: 'all', label: '모두보기', count: `${totalTargetChans}채널`, isSpecial: true, hasTarget: false },
+            { id: 'gems', label: '💎 고배수 옥석', count: `${rawCandidates.filter(c => c.outlier_ratio >= 4.0).length}편`, isSpecial: true, hasTarget: false },
+        ];
+
+        const catTags = (categories || []).map(cat => {
+            const tCount = cat.target_channels_count || 0;
+            return {
+                id: String(cat.id),
+                label: cat.name,
+                count: tCount > 0 ? `🟢 ${tCount}채널` : `0채널`,
+                hasTarget: tCount > 0,
+                isSpecial: false
+            };
+        });
+
+        return [...base, ...catTags];
+    }, [categories, channels, pendingChannels, rawCandidates]);
+
+    // ── Step 2 채널 릴: 2-Tier 분할 (🟢 기등록 타겟 채널 vs ✨ 신규 발굴 옥석) ──
+    const { targetChannels, candidateChannels } = useMemo(() => {
+        let list = channelsWithReels || [];
+        if (selectedTag && selectedTag !== 'all' && selectedTag !== 'pending' && selectedTag !== 'gems') {
+            const targetCat = (categories || []).find(cat => String(cat.id) === selectedTag || cat.name === selectedTag);
+            if (targetCat) {
+                const subIds = (categories || []).filter(c => c.parent_id === targetCat.id).map(c => String(c.id));
+                const matchIds = new Set([String(targetCat.id), ...subIds]);
+
+                list = list.filter(ch => 
+                    (ch.category_id && matchIds.has(String(ch.category_id))) || 
+                    ch.name.toLowerCase().includes(targetCat.name.toLowerCase())
+                );
+            }
+        }
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter(ch => ch.name.toLowerCase().includes(q) || ch.handle.toLowerCase().includes(q));
+        }
+        return {
+            targetChannels: list.filter(ch => ch.auto_download === true),
+            candidateChannels: list.filter(ch => ch.auto_download !== true)
+        };
+    }, [channelsWithReels, selectedTag, categories, searchQuery]);
+
     // 필터링된 영상 목록 (포맷, 검색어, 카테고리 태그 반영)
     const filteredCandidates = useMemo(() => {
+        if (!Array.isArray(rawCandidates)) return [];
         return rawCandidates.filter(c => {
+            if (!c) return false;
             if (aspectFormat === 'shorts' && c.video_type !== 'shorts') return false;
             if (aspectFormat === 'long' && c.video_type !== 'long') return false;
             
             // 카테고리 태그 필터
-            if (selectedTag && selectedTag !== 'all' && selectedTag !== 'recent' && selectedTag !== 'hidden') {
-                const targetCat = categories.find(cat => String(cat.id) === selectedTag || cat.name === selectedTag);
+            if (selectedTag === 'pending') {
+                if (c.status === 'approved') return false;
+            } else if (selectedTag && selectedTag !== 'all' && selectedTag !== 'gems') {
+                const targetCat = (categories || []).find(cat => String(cat.id) === selectedTag || cat.name === selectedTag);
                 if (targetCat) {
                     const catName = targetCat.name.toLowerCase();
-                    const matchTitle = c.title.toLowerCase().includes(catName);
+                    const matchTitle = (c.title || '').toLowerCase().includes(catName);
                     const matchHook = (c.hook_analysis || '').toLowerCase().includes(catName);
                     if (!matchTitle && !matchHook) return false;
                 }
-            } else if (selectedTag === 'hidden') {
-                // 숨은 옥석: 배수 4.0x 이상 & 조회수 30만 이하
-                if (c.outlier_ratio < 4.0 || c.view_count > 300000) return false;
+            } else if (selectedTag === 'gems') {
+                if (c.outlier_ratio < 4.0) return false;
             }
 
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
-                const matchTitle = c.title.toLowerCase().includes(q);
-                const matchChannel = c.channel_title.toLowerCase().includes(q);
+                const matchTitle = (c.title || '').toLowerCase().includes(q);
+                const matchChannel = (c.channel_title || '').toLowerCase().includes(q);
                 if (!matchTitle && !matchChannel) return false;
             }
             return true;
@@ -248,7 +312,7 @@ const TrendRadarPage: React.FC = () => {
 
     // 스타 옥석 영상 (상단 루피 픽)
     const starCandidate = useMemo(() => {
-        if (rawCandidates.length === 0) return null;
+        if (!Array.isArray(rawCandidates) || rawCandidates.length === 0) return null;
         return [...rawCandidates].sort((a, b) => b.outlier_ratio - a.outlier_ratio)[0];
     }, [rawCandidates]);
 
@@ -265,9 +329,6 @@ const TrendRadarPage: React.FC = () => {
                         </div>
                         <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
                             <span>바이럴 스카우터</span>
-                            <span className="text-xs font-mono font-bold bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2.5 py-0.5 rounded-full">
-                                FSD Intelligence 2.0
-                            </span>
                         </h1>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -288,23 +349,36 @@ const TrendRadarPage: React.FC = () => {
             {/* 2. 🔥 FSD 퀀트 실시간 관제 센터 (High-Density Quant Ribbon) */}
             <ViralScouterQuantHUD />
 
-            {/* 3. ⚙️ 정밀 제약 조건 매트릭스 캡슐 버튼 바 */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-card/40 border border-border/70 px-3.5 py-2 rounded-2xl">
-                <div className="flex items-center gap-2">
-                    <ScoutingFilterPopover 
-                        config={filterConfig}
-                        onChange={(newCfg) => setFilterConfig(newCfg)}
-                        aspectFormat={aspectFormat}
-                    />
-                </div>
-                <div className="text-[11px] font-mono text-muted-foreground">
-                    ⚡ 유니코드 스크립트 실시간 차단 (인도 데바나가리, 아랍어, 키릴 자동 제외)
+            {/* 3. ⚙️ [듀얼 트랙 자율 수집 밸런서 50% : 50% 정밀 스카우트 제약 조건 매트릭스] */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
+                {/* 좌측 50%: 듀얼 트랙 자율 수집 밸런서 */}
+                <DualTrackScoutBalancer />
+
+                {/* 우측 50%: 정밀 스카우트 제약 조건 매트릭스 */}
+                <div className="bg-card/40 border border-border/70 rounded-2xl p-3 sm:px-4 sm:py-2.5 flex flex-col justify-between space-y-2 h-full shadow-2xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <ScoutingFilterPopover 
+                                config={filterConfig}
+                                onChange={(newCfg) => setFilterConfig(newCfg)}
+                                aspectFormat={aspectFormat}
+                            />
+                        </div>
+                        <span className="text-[10.5px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+                            ● 실시간 필터 가동 중
+                        </span>
+                    </div>
+
+                    <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5 pt-0.5">
+                        <span className="text-amber-500 font-bold">⚡ 자동 차단:</span>
+                        <span>인도(데바나가리)·아랍어·키릴·베트남어 유니코드 즉시 제외</span>
+                    </div>
                 </div>
             </div>
 
             {/* 2. 🔥 4단계 비즈니스 파이프라인 스테퍼 바 (4-Step Pipeline Stepper Funnel) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-muted/30 border border-border/80 p-2 rounded-2xl">
-                {/* Step 1: 시그널 발굴 */}
+                {/* Step 1: 시그널 레이더 */}
                 <button
                     onClick={() => { setPipelineStep('signals'); setViewMode('grid'); }}
                     className={cn(
@@ -316,17 +390,17 @@ const TrendRadarPage: React.FC = () => {
                 >
                     <div>
                         <span className="text-[10px] font-mono font-bold block opacity-80">STEP 1</span>
-                        <h4 className="text-xs font-black">📡 바이럴 시그널 발굴</h4>
+                        <h4 className="text-xs font-black">📡 바이럴 시그널 레이더</h4>
                     </div>
                     <span className={cn(
                         "text-[10.5px] font-mono px-2 py-0.5 rounded-full font-bold",
                         pipelineStep === 'signals' ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
                     )}>
-                        {rawCandidates.length}건
+                        {(stats?.total_discovered || (rawCandidates || []).length).toLocaleString()}건
                     </span>
                 </button>
 
-                {/* Step 2: 벤치마크 채널 릴 (엄선 모드) */}
+                {/* Step 2: 벤치마크 옥석 인큐베이터 */}
                 <button
                     onClick={() => { setPipelineStep('reels'); setViewMode('reel'); }}
                     className={cn(
@@ -338,17 +412,17 @@ const TrendRadarPage: React.FC = () => {
                 >
                     <div>
                         <span className="text-[10px] font-mono font-bold block opacity-80">STEP 2</span>
-                        <h4 className="text-xs font-black">🏢 벤치마크 채널 릴</h4>
+                        <h4 className="text-xs font-black">🏢 벤치마크 옥석 인큐베이터</h4>
                     </div>
                     <span className={cn(
                         "text-[10.5px] font-mono px-2 py-0.5 rounded-full font-bold",
                         pipelineStep === 'reels' ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
                     )}>
-                        {channelsWithReels.length}채널
+                        {(stats?.pending_channels_count || (channelsWithReels || []).length)}채널
                     </span>
                 </button>
 
-                {/* Step 3: 카테고리 인큐베이터 */}
+                {/* Step 3: 엄선 카테고리 보관함 */}
                 <button
                     onClick={() => setPipelineStep('incubator')}
                     className={cn(
@@ -360,17 +434,17 @@ const TrendRadarPage: React.FC = () => {
                 >
                     <div>
                         <span className="text-[10px] font-mono font-bold block opacity-80">STEP 3</span>
-                        <h4 className="text-xs font-black">📂 엄선 20대 카테고리</h4>
+                        <h4 className="text-xs font-black">📂 엄선 카테고리 보관함</h4>
                     </div>
                     <span className={cn(
                         "text-[10.5px] font-mono px-2 py-0.5 rounded-full font-bold",
                         pipelineStep === 'incubator' ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
                     )}>
-                        {categories.length || PIXELING_SEED_TAGS.length}분야
+                        {(categories || []).length}분야
                     </span>
                 </button>
 
-                {/* Step 4: 신규 채널 론치패드 */}
+                {/* Step 4: 내 채널 기획 론치패드 */}
                 <button
                     onClick={() => { setPipelineStep('launchpad'); setLaunchpadCategory(activeCatObj); }}
                     className={cn(
@@ -384,7 +458,7 @@ const TrendRadarPage: React.FC = () => {
                         <span className={cn("text-[10px] font-mono font-bold block", pipelineStep === 'launchpad' ? "text-white/80" : "text-indigo-300")}>STEP 4</span>
                         <h4 className="text-xs font-black flex items-center gap-1">
                             <Sparkles className="w-3.5 h-3.5" />
-                            신설 채널 론치패드
+                            내 채널 기획 론치패드
                         </h4>
                     </div>
                     <ArrowRight className="w-4 h-4" />
@@ -396,7 +470,7 @@ const TrendRadarPage: React.FC = () => {
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs font-black text-muted-foreground">
                         <Folder className="w-3.5 h-3.5 text-blue-500" />
-                        <span>엄선 20대 카테고리 시드 (Seed Categories)</span>
+                        <span>엄선 카테고리 시드 (Vetted Categories)</span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -436,14 +510,18 @@ const TrendRadarPage: React.FC = () => {
                     "flex flex-wrap items-center gap-1.5 transition-all overflow-hidden",
                     !isTagBarExpanded && "max-h-[38px]"
                 )}>
-                    {CURATED_SEED_TAGS.map(tag => {
+                    {dynamicTags.map(tag => {
                         const isSelected = selectedTag === tag.id;
                         return (
                             <button
                                 key={tag.id}
                                 onClick={() => {
                                     setSelectedTag(tag.id);
-                                    if (tag.id !== 'all' && tag.id !== 'recent' && tag.id !== 'hidden') {
+                                    if (tag.id === 'pending') {
+                                        setPipelineStep('reels');
+                                        setViewMode('reel');
+                                    }
+                                    if (tag.id !== 'all' && tag.id !== 'pending' && tag.id !== 'gems') {
                                         api.post('/trend-radar/worker/focus', { category_name: tag.label }).catch(() => {});
                                     }
                                 }}
@@ -458,7 +536,7 @@ const TrendRadarPage: React.FC = () => {
                             >
                                 <span>{tag.label}</span>
                                 <span className={cn(
-                                    "text-[10px] font-mono px-1.5 py-0.2 rounded-full",
+                                    "text-[10px] font-mono px-1.5 py-0.2 rounded-full flex items-center gap-1",
                                     isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
                                 )}>
                                     {tag.count}
@@ -553,80 +631,106 @@ const TrendRadarPage: React.FC = () => {
                     </p>
                 </div>
             ) : pipelineStep === 'incubator' ? (
-                /* ── [STEP 3 전용 메인 뷰] 📂 엄선 20대 카테고리 인큐베이터 & DNA 설정 ── */
+                /* ── [STEP 3 전용 메인 뷰] 📂 엄선 카테고리 보관함 & DNA 거버넌스 ── */
                 <div className="space-y-4 animate-in fade-in duration-200">
                     <div className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border">
                         <div>
                             <h3 className="text-sm font-black text-foreground flex items-center gap-2">
                                 <Folder className="w-4 h-4 text-blue-500" />
-                                엄선 20대 카테고리 클러스터 ({categories.length}개 분야)
+                                엄선 카테고리 보관함 ({(categories || []).length}개 분야)
                             </h3>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                                엄선된 카테고리 DNA 헌장 및 신설 채널 론치패드를 실시간 관리합니다.
+                                승인된 타겟 벤치마크 채널 풀(카테고리당 권장 정원 30~50개)과 카테고리 DNA 헌장을 통합 관리합니다.
                             </p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {categories.map(cat => (
-                            <div 
-                                key={cat.id} 
-                                className="p-4 rounded-2xl bg-card border border-border/80 hover:border-indigo-500/50 shadow-xs flex flex-col justify-between space-y-3 transition-all"
-                            >
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                        <h4 className="text-sm font-black text-foreground flex items-center gap-1.5">
-                                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                                            {cat.name}
-                                        </h4>
-                                        <span className="text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                                            ID #{cat.id}
-                                        </span>
+                        {(categories || []).map(cat => {
+                            const catChannels = (channels || []).filter((ch: any) => ch.category_id === cat.id);
+                            const count = catChannels.length;
+                            return (
+                                <div 
+                                    key={cat.id} 
+                                    className="p-4 rounded-2xl bg-card border border-border/80 hover:border-indigo-500/50 shadow-xs flex flex-col justify-between space-y-3 transition-all"
+                                >
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                {cat.name}
+                                            </h4>
+                                            <span className={cn(
+                                                "text-[10px] font-mono px-2 py-0.5 rounded-full font-bold",
+                                                count >= 30 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" :
+                                                count > 0 ? "bg-blue-500/10 text-blue-400 border border-blue-500/30" :
+                                                "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                                            )}>
+                                                정원 {count} / 50채널 {count >= 30 ? '🎯 최적' : count === 0 ? '⚠️ 수집필요' : '🌱 확장중'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground line-clamp-2">
+                                            {cat.persona_target || '해당 분야 핵심 관심 구독자'}
+                                        </p>
+                                        <div className="text-[11px] font-medium text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-lg">
+                                            톤앤매너: {cat.content_tone || '신뢰성 있고 몰입도 높은 연출'}
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-muted-foreground line-clamp-2">
-                                        {cat.persona_target || '해당 분야 핵심 관심 구독자'}
-                                    </p>
-                                    <div className="text-[11px] font-medium text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-lg">
-                                        톤앤매너: {cat.content_tone || '신뢰성 있고 몰입도 높은 연출'}
+
+                                    <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-border/40">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => { setDnaCategory(cat); setIsDNAModalOpen(true); }}
+                                            className="h-7 text-[11px] font-bold rounded-xl cursor-pointer"
+                                            title="카테고리 DNA 헌장 수정 및 채널 기반 자동 합성"
+                                        >
+                                            <Settings2 className="w-3 h-3 mr-1" />
+                                            DNA 헌장
+                                        </Button>
+
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() => {
+                                                setSelectedTag(cat.name);
+                                                setPipelineStep('reels');
+                                                setViewMode('reel');
+                                            }}
+                                            className="h-7 text-[11px] font-bold rounded-xl cursor-pointer"
+                                            title="이 카테고리의 벤치마크 채널 릴 조회"
+                                        >
+                                            <Film className="w-3 h-3 mr-1" />
+                                            채널 풀
+                                        </Button>
+
+                                        <Button
+                                            size="sm"
+                                            onClick={() => { setLaunchpadCategory(cat); setIsLaunchpadModalOpen(true); }}
+                                            className="h-7 text-[11px] font-black bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 text-white rounded-xl shadow-xs cursor-pointer"
+                                            title="이 카테고리 기반 내 신설 채널 기획 패키지 개설"
+                                        >
+                                            <Sparkles className="w-3 h-3 mr-1" />
+                                            내 채널 기획
+                                        </Button>
                                     </div>
                                 </div>
-
-                                <div className="flex items-center gap-2 pt-2 border-t border-border/40">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => { setDnaCategory(cat); setIsDNAModalOpen(true); }}
-                                        className="flex-1 h-7 text-xs font-bold rounded-xl cursor-pointer"
-                                    >
-                                        <Settings2 className="w-3 h-3 mr-1" />
-                                        DNA 헌장
-                                    </Button>
-
-                                    <Button
-                                        size="sm"
-                                        onClick={() => { setLaunchpadCategory(cat); setIsLaunchpadModalOpen(true); }}
-                                        className="flex-1 h-7 text-xs font-black bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 text-white rounded-xl shadow-xs cursor-pointer"
-                                    >
-                                        <Sparkles className="w-3 h-3 mr-1" />
-                                        신설 채널 개설
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             ) : pipelineStep === 'launchpad' ? (
-                /* ── [STEP 4 전용 메인 뷰] 🚀 신설 채널 론치패드 ── */
+                /* ── [STEP 4 전용 메인 뷰] 🚀 내 채널 기획 론치패드 (Brand Genesis) ── */
                 <div className="p-8 rounded-3xl bg-gradient-to-br from-indigo-900/10 via-card to-purple-900/10 border border-indigo-500/30 text-center space-y-4 animate-in fade-in duration-200">
                     <div className="w-14 h-14 rounded-3xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white mx-auto flex items-center justify-center shadow-lg shadow-indigo-500/20">
                         <Sparkles className="w-7 h-7" />
                     </div>
                     <div className="max-w-md mx-auto space-y-1">
                         <h2 className="text-lg font-black text-foreground">
-                            신설 채널 론치패드 (Launchpad Pack)
+                            내 채널 기획 론치패드 (Brand Genesis)
                         </h2>
                         <p className="text-xs text-muted-foreground">
-                            발굴된 벤치마크 카테고리 데이터를 바탕으로 9router AI가 5대 브랜드 기획안(채널명 3종, 아바타/배너 프롬프트, 3편 훅 플랜)을 자동 패키징합니다.
+                            엄선된 벤치마크 채널들과 카테고리 DNA를 벤치마킹하여, 내가 운영할 신규 유튜브 브랜드 채널(채널명 3선, 아바타/배너 콘셉트, 바이오, 킥오프 3편 기획안)을 완성하고 1클릭으로 제작 워크스페이스를 개설합니다.
                         </p>
                     </div>
                     <div>
@@ -640,220 +744,716 @@ const TrendRadarPage: React.FC = () => {
                     </div>
                 </div>
             ) : viewMode === 'reel' ? (
-                /* ── [STEP 2] 엄선식 수평 채널 릴 스트립 뷰 (타겟 채널 중복 배제 + 채널 성장 분석 모달 연동) ── */
-                <div className="space-y-4 animate-in fade-in duration-200">
-                    {channelsWithReels.length === 0 ? (
-                        <div className="py-20 text-center text-xs text-muted-foreground">
-                            표시할 신규 옥석 채널이 없습니다. 상단 '스카우터 가동'을 눌러 새로운 채널을 탐색하세요.
-                        </div>
-                    ) : (
-                        channelsWithReels.map(ch => (
-                            <div 
-                                key={ch.channel_id}
-                                className="p-4 rounded-3xl bg-card border border-border/80 shadow-sm flex flex-col lg:flex-row items-stretch gap-4 hover:border-indigo-500/40 transition-all"
-                            >
-                                {/* 좌측: 채널 카드 (6분할 지표 & 인간 검토 승인 & 채널 성장 분석 버튼) */}
-                                <div className="w-full lg:w-80 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-muted/30 border border-border/80 space-y-3">
-                                    <div>
-                                        <div className="flex items-center justify-between">
-                                            <span className={cn(
-                                                "px-2 py-0.5 rounded-md text-[10px] font-black",
-                                                ch.grade === 'S' ? "bg-amber-500/20 text-amber-500 border border-amber-500/30" :
-                                                ch.grade === 'A' ? "bg-blue-500/20 text-blue-500 border border-blue-500/30" :
-                                                "bg-muted text-muted-foreground"
-                                            )}>
-                                                등급: {ch.grade}
-                                            </span>
-                                            <span className="text-[10px] font-mono text-amber-500 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                                                신규 발굴 옥석
-                                            </span>
-                                        </div>
-
-                                        {/* 채널 아바타 & 타이틀 (클릭 시 성장 분석 모달 팝업!) */}
-                                        <div 
-                                            onClick={() => {
-                                                setSelectedChannelForAnatomy({ id: ch.channel_id, name: ch.name });
-                                                setIsAnatomyModalOpen(true);
-                                            }}
-                                            className="flex items-center gap-2.5 mt-2.5 p-1.5 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer group"
-                                            title="클릭하여 채널 성장 분석 및 4대 해체 리포트 열기"
-                                        >
-                                            <div className="w-11 h-11 rounded-full bg-muted border border-border overflow-hidden shrink-0 group-hover:ring-2 group-hover:ring-blue-500 transition-all">
-                                                <img 
-                                                    src={ch.thumbnail_path || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"}
-                                                    alt={ch.name}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                        e.currentTarget.src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80";
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-1">
-                                                    <h3 className="text-sm font-black text-foreground truncate group-hover:text-blue-500 transition-colors">
-                                                        {ch.name}
-                                                    </h3>
-                                                    <LineChart className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                                                </div>
-                                                <p className="text-[11px] font-mono text-muted-foreground truncate">{ch.handle}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* 6분할 데이터 그리드 (PixelLab Identity) */}
-                                    <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-card/60 border border-border/60 text-center">
-                                        <div>
-                                            <p className="text-[9.5px] text-muted-foreground">구독자</p>
-                                            <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.subscribers}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9.5px] text-muted-foreground">일일 조회</p>
-                                            <p className="text-xs font-black font-mono text-blue-500 mt-0.5">{ch.metrics.daily_views}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9.5px] text-muted-foreground">하루 수익</p>
-                                            <p className="text-xs font-black font-mono text-emerald-500 mt-0.5">{ch.metrics.daily_revenue}</p>
-                                        </div>
-                                        <div className="pt-1.5 border-t border-border/40">
-                                            <p className="text-[9.5px] text-muted-foreground">총 누적뷰</p>
-                                            <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.total_views}</p>
-                                        </div>
-                                        <div className="pt-1.5 border-t border-border/40">
-                                            <p className="text-[9.5px] text-muted-foreground">영상수</p>
-                                            <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.video_count}편</p>
-                                        </div>
-                                        <div className="pt-1.5 border-t border-border/40">
-                                            <p className="text-[9.5px] text-muted-foreground">7일 추이</p>
-                                            <p className="text-[11px] font-black text-amber-500 mt-0.5">{ch.metrics.trend_status || '상승세'}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* 채널 핵심 액션 버튼 바 */}
-                                    <div className="space-y-1.5">
-                                        {/* 1. 채널 성장 분석 모달 버튼 */}
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                setSelectedChannelForAnatomy({ id: ch.channel_id, name: ch.name });
-                                                setIsAnatomyModalOpen(true);
-                                            }}
-                                            className="w-full h-7 text-[11px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-1"
-                                        >
-                                            <LineChart className="w-3 h-3 text-blue-500" />
-                                            📈 성장 그래프 & AI 해체
-                                        </Button>
-
-                                        {/* 2. 인간 검토 게이트 승인 버튼 */}
-                                        <Button
-                                            size="sm"
-                                            onClick={() => convertTargetMutation.mutate(ch.channel_id)}
-                                            disabled={convertTargetMutation.isPending}
-                                            className="w-full h-8 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs cursor-pointer"
-                                        >
-                                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                            ✓ 타겟 채널 승인 & 정기수집 전환
-                                        </Button>
-
-                                        {/* 3. AI 유사 채널 5개 확장 탐색 */}
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => spiderMutation.mutate(ch.channel_id)}
-                                            disabled={spideringChannelId === ch.channel_id}
-                                            className="w-full h-7 text-[11px] font-bold border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 rounded-xl cursor-pointer"
-                                        >
-                                            {spideringChannelId === ch.channel_id ? (
-                                                <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                                            ) : (
-                                                <Bot className="w-3 h-3 mr-1 text-indigo-400" />
-                                            )}
-                                            🔍 AI 유사 채널 5개 확장 탐색
-                                        </Button>
-                                    </div>
+                /* ── [STEP 2] 2-Tier 수평 채널 릴 스트립 뷰 (🟢 기등록 타겟 채널 vs ✨ 신규 발굴 옥석) ── */
+                <div className="space-y-6 animate-in fade-in duration-200">
+                    {/* [SECTION PENDING] 📋 등록 예정 인큐베이션 대기 채널 (selectedTag === 'pending') */}
+                    {selectedTag === 'pending' ? (
+                        <div className="space-y-4 animate-in fade-in duration-200">
+                            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                                    <h3 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                                        <span>📋 등록 예정 옥석 채널</span>
+                                        <span className="text-xs font-mono font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-300 dark:border-indigo-800 px-2 py-0.5 rounded-full">
+                                            {pendingChannels.length}개 채널
+                                        </span>
+                                    </h3>
                                 </div>
+                                <p className="text-[11px] text-muted-foreground hidden sm:inline">
+                                    실시간 스카우팅으로 엄선된 후보 채널입니다. AI 카테고리 추천을 확인하고 원클릭으로 정기 수집 타겟 채널로 승인하세요.
+                                </p>
+                            </div>
 
-                                {/* 우측: 영상 릴 스트립 (쇼츠 9:16은 6개 / 롱폼 16:9는 3~4개 가로 배열) */}
-                                <div className={cn(
-                                    "flex-1 grid gap-2.5 overflow-x-auto",
-                                    aspectFormat === 'long' 
-                                        ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" 
-                                        : "grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
-                                )}>
-                                    {ch.reels.slice(0, aspectFormat === 'long' ? 3 : 6).map((reel, rIdx) => (
+                            {pendingChannels.length === 0 ? (
+                                <div className="p-8 rounded-2xl bg-muted/20 border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+                                    현재 등록 대기 중인 채널이 없습니다. 상단 '실제 수집 가동'을 켜두시면 고배수 영상이 포착되는 즉시 여기에 채널이 큐잉됩니다.
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {pendingChannels.map((ch: any) => (
                                         <div 
-                                            key={rIdx}
-                                            onClick={() => {
-                                                const matched = rawCandidates.find(c => c.video_id === reel.video_id);
-                                                if (matched) {
-                                                    setSelectedCandidateForDetail(matched);
-                                                } else {
-                                                    setSelectedCandidateForDetail({
-                                                        id: reel.id,
-                                                        video_id: reel.video_id,
-                                                        url: `https://www.youtube.com/${aspectFormat === 'shorts' ? 'shorts/' : 'watch?v='}${reel.video_id}`,
-                                                        title: reel.title,
-                                                        channel_title: ch.name,
-                                                        thumbnail_url: reel.thumbnail_url,
-                                                        video_type: aspectFormat,
-                                                        view_count: reel.view_count,
-                                                        like_count: 5000,
-                                                        comment_count: 240,
-                                                        velocity_score: 1200,
-                                                        outlier_ratio: reel.outlier_ratio,
-                                                        engagement_rate: 0.05,
-                                                        published_at: reel.published_at,
-                                                        match_score: 92,
-                                                        match_reason: '채널 대표 급상승 영상',
-                                                        status: 'pending',
-                                                        hook_analysis: reel.hook_analysis || '초반 핵심 의문 제시',
-                                                        viral_triggers: '시청 지속률 극대화 컷 편집',
-                                                        adaptation_angle: '바이럴루프 각색 추천',
-                                                        created_at: new Date().toISOString()
-                                                    } as any);
-                                                }
-                                                setIsDetailModalOpen(true);
-                                            }}
-                                            className={cn(
-                                                "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-indigo-500 transition-all cursor-pointer shadow-sm flex flex-col justify-between p-2.5",
-                                                aspectFormat === 'long' ? "aspect-video" : "aspect-[9/16]"
-                                            )}
+                                            key={ch.channel_id}
+                                            className="p-4 sm:p-5 rounded-3xl bg-card border border-indigo-500/30 shadow-xs flex flex-col lg:flex-row items-stretch gap-4 hover:border-indigo-500/60 transition-all"
                                         >
-                                            <img 
-                                                src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
-                                                alt={reel.title}
-                                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform opacity-80"
-                                                onError={(e) => {
-                                                    e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
-                                                }}
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
+                                            {/* 좌측: 채널 정보 & AI 카테고리 추천 액션 */}
+                                            <div className="w-full lg:w-96 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-indigo-50/20 dark:bg-indigo-950/20 border border-indigo-500/20 space-y-3">
+                                                <div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className={cn(
+                                                            "px-2 py-0.5 rounded-md text-[10px] font-black",
+                                                            ch.grade === 'S' ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-400/40" :
+                                                            "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-400/40"
+                                                        )}>
+                                                            등급: {ch.grade}
+                                                        </span>
+                                                        <span className="text-[10px] font-mono text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-100/80 dark:bg-indigo-900/40 px-2.5 py-0.5 rounded-full border border-indigo-400/40">
+                                                            등록 예정 📋
+                                                        </span>
+                                                    </div>
 
-                                            {/* 상단 뱃지 */}
-                                            <div className="relative z-10 flex items-center justify-between">
-                                                <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
-                                                    {rIdx + 1}
-                                                </span>
-                                                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-black bg-amber-500 text-black">
-                                                    {reel.outlier_ratio}x 🔥
-                                                </span>
+                                                    {/* 채널 아바타 & 타이틀 */}
+                                                    <div 
+                                                        onClick={() => {
+                                                            setSelectedChannelForAnatomy({ id: ch.channel_id, name: ch.name });
+                                                            setIsAnatomyModalOpen(true);
+                                                        }}
+                                                        className="flex items-center gap-2.5 mt-2.5 p-1.5 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer group"
+                                                        title="클릭하여 채널 성장 분석 열기"
+                                                    >
+                                                        <div className="w-11 h-11 rounded-full bg-muted border-2 border-indigo-500/40 overflow-hidden shrink-0 group-hover:ring-2 group-hover:ring-indigo-500 transition-all">
+                                                            <img 
+                                                                src={ch.thumbnail_path || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"}
+                                                                alt={ch.name}
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80";
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-1">
+                                                                <h3 className="text-sm font-black text-foreground truncate group-hover:text-indigo-600 transition-colors">
+                                                                    {ch.name}
+                                                                </h3>
+                                                                <LineChart className="w-3 h-3 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                                            </div>
+                                                            <p className="text-[11px] font-mono text-muted-foreground truncate">{ch.handle}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* 6분할 실데이터 그리드 */}
+                                                <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-card border border-border/60 text-center">
+                                                    <div>
+                                                        <p className="text-[9.5px] text-muted-foreground">구독자</p>
+                                                        <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics?.subscribers}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[9.5px] text-muted-foreground">일일 조회</p>
+                                                        <p className="text-xs font-black font-mono text-blue-600 dark:text-blue-400 mt-0.5">{ch.metrics?.daily_views}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[9.5px] text-muted-foreground">하루 수익</p>
+                                                        <p className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{ch.metrics?.daily_revenue}</p>
+                                                    </div>
+                                                    <div className="pt-1.5 border-t border-border/40">
+                                                        <p className="text-[9.5px] text-muted-foreground">총 누적뷰</p>
+                                                        <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics?.total_views}</p>
+                                                    </div>
+                                                    <div className="pt-1.5 border-t border-border/40">
+                                                        <p className="text-[9.5px] text-muted-foreground">영상수</p>
+                                                        <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics?.video_count}편</p>
+                                                    </div>
+                                                    <div className="pt-1.5 border-t border-border/40">
+                                                        <p className="text-[9.5px] text-muted-foreground">상태</p>
+                                                        <p className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{ch.metrics?.trend_status}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* AI 카테고리 추천 상자 */}
+                                                <div className={cn(
+                                                    "p-3 rounded-xl border space-y-1.5",
+                                                    ch.recommendation?.is_new_cluster
+                                                        ? "bg-amber-50/50 dark:bg-amber-950/30 border-amber-400/40 text-amber-900 dark:text-amber-200"
+                                                        : "bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-400/40 text-emerald-900 dark:text-emerald-200"
+                                                )}>
+                                                    <div className="flex items-center justify-between text-[11px] font-bold">
+                                                        <span className="flex items-center gap-1">
+                                                            {ch.recommendation?.is_new_cluster ? (
+                                                                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                                            ) : (
+                                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                                            )}
+                                                            {ch.recommendation?.is_new_cluster ? 'AI 신규 틈새 카테고리 제안' : 'AI 기존 카테고리 매칭'}
+                                                        </span>
+                                                        <span className="font-mono text-[10px] bg-background/80 px-1.5 py-0.2 rounded border">
+                                                            적합도 {ch.recommendation?.match_score}%
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs font-black">
+                                                        📂 [{ch.recommendation?.recommended_category_name}]
+                                                    </p>
+                                                    <p className="text-[10.5px] opacity-80 leading-relaxed">
+                                                        {ch.recommendation?.reason}
+                                                    </p>
+                                                    {ch.recommendation?.is_new_cluster && (
+                                                        <p className="text-[10px] opacity-75 pt-0.5 border-t border-amber-300/40">
+                                                            👤 {ch.recommendation?.suggested_persona} · 🎬 {ch.recommendation?.suggested_tone}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {/* 액션 버튼 */}
+                                                <div className="space-y-1.5">
+                                                    {ch.recommendation?.is_new_cluster ? (
+                                                        <Button
+                                                            size="sm"
+                                                            disabled={onboardMutation.isPending}
+                                                            onClick={() => onboardMutation.mutate({
+                                                                channel_name: ch.name,
+                                                                new_category_name: ch.recommendation?.recommended_category_name,
+                                                                persona_target: ch.recommendation?.suggested_persona,
+                                                                content_tone: ch.recommendation?.suggested_tone
+                                                            })}
+                                                            className="w-full h-8 text-xs font-black bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700 text-white rounded-xl shadow-xs cursor-pointer"
+                                                        >
+                                                            <Sparkles className="w-3.5 h-3.5 mr-1" />
+                                                            신규 카테고리 개설 & 타겟 채널 등록
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            size="sm"
+                                                            disabled={onboardMutation.isPending}
+                                                            onClick={() => onboardMutation.mutate({
+                                                                channel_name: ch.name,
+                                                                category_id: ch.recommendation?.recommended_category_id
+                                                            })}
+                                                            className="w-full h-8 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs cursor-pointer"
+                                                        >
+                                                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                                            [{ch.recommendation?.recommended_category_name}] 타겟 채널로 즉시 승인
+                                                        </Button>
+                                                    )}
+
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setSelectedChannelForAnatomy({ id: ch.channel_id, name: ch.name });
+                                                            setIsAnatomyModalOpen(true);
+                                                        }}
+                                                        className="w-full h-7 text-[11px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-1"
+                                                    >
+                                                        <LineChart className="w-3 h-3 text-indigo-500" />
+                                                        📈 성장 그래프 & AI 해체
+                                                    </Button>
+                                                </div>
                                             </div>
 
-                                            {/* 하단 텍스트 및 메트릭 */}
-                                            <div className="relative z-10 space-y-1">
-                                                <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
-                                                    {reel.title}
-                                                </h4>
-                                                <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
-                                                    <span>{reel.view_count.toLocaleString()}회</span>
-                                                    <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
-                                                </div>
+                                            {/* 우측: 6개 영상 릴 스트립 (화면 가득 채우는 수평 릴 스트립) */}
+                                            <div className="flex-1 min-w-0 flex items-stretch gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin">
+                                                {((ch.reels || []).slice(0, aspectFormat === 'long' ? 4 : 6)).map((reel: any, rIdx: number) => (
+                                                    <div 
+                                                        key={rIdx}
+                                                        onClick={() => {
+                                                            setSelectedCandidateForDetail({
+                                                                id: reel.id,
+                                                                video_id: reel.video_id,
+                                                                url: `https://www.youtube.com/${aspectFormat === 'shorts' ? 'shorts/' : 'watch?v='}${reel.video_id}`,
+                                                                title: reel.title,
+                                                                channel_title: ch.name,
+                                                                thumbnail_url: reel.thumbnail_url,
+                                                                video_type: aspectFormat,
+                                                                view_count: reel.view_count,
+                                                                like_count: 5000,
+                                                                comment_count: 240,
+                                                                velocity_score: 1200,
+                                                                outlier_ratio: reel.outlier_ratio,
+                                                                engagement_rate: 0.05,
+                                                                published_at: reel.published_at,
+                                                                match_score: 92,
+                                                                match_reason: '채널 대표 급상승 영상',
+                                                                status: 'pending',
+                                                                hook_analysis: reel.hook_analysis || '초반 핵심 의문 제시',
+                                                                viral_triggers: '시청 지속률 극대화 컷 편집',
+                                                                adaptation_angle: '바이럴루프 각색 추천',
+                                                                created_at: new Date().toISOString()
+                                                            } as any);
+                                                            setIsDetailModalOpen(true);
+                                                        }}
+                                                        className={cn(
+                                                            "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-indigo-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5 shrink-0",
+                                                            aspectFormat === 'long' ? "w-64 sm:w-72 aspect-video" : "w-36 sm:w-40 md:w-44 aspect-[9/16]"
+                                                        )}
+                                                    >
+                                                        <img 
+                                                            src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
+                                                            alt={reel.title}
+                                                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform opacity-80"
+                                                            onError={(e) => {
+                                                                e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
+                                                            }}
+                                                        />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
+
+                                                        {/* 상단 뱃지 */}
+                                                        <div className="relative z-10 flex items-center justify-between">
+                                                            <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
+                                                                {rIdx + 1}
+                                                            </span>
+                                                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-black bg-indigo-500 text-white">
+                                                                {reel.outlier_ratio}x 🔥
+                                                            </span>
+                                                        </div>
+
+                                                        {/* 하단 텍스트 및 메트릭 */}
+                                                        <div className="relative z-10 space-y-1">
+                                                            <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
+                                                                {reel.title}
+                                                            </h4>
+                                                            <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
+                                                                <span>{reel.view_count?.toLocaleString()}회</span>
+                                                                <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            {/* [SECTION A] 🟢 기등록 정기 수집 타겟 채널 */}
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <h3 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                                    <span>🟢 기등록 정기 수집 타겟 채널</span>
+                                    <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                                        {targetChannels.length}개 채널
+                                    </span>
+                                </h3>
                             </div>
-                        ))
+                            <p className="text-[11px] text-muted-foreground hidden sm:inline">
+                                자동 수집 파이프라인에 등록되어 주기적으로 최신 영상이 자동 다운로드/분석되는 핵심 타겟 채널입니다.
+                            </p>
+                        </div>
+
+                        {targetChannels.length === 0 ? (
+                            <div className="p-6 rounded-2xl bg-muted/20 border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+                                현재 선택된 카테고리에 등록된 정기 수집 타겟 채널이 없습니다. 아래 발굴 옥석 채널에서 <b>[✓ 타겟 채널 승인]</b>을 클릭하면 즉시 편입됩니다.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {targetChannels.map(ch => (
+                                    <div 
+                                        key={ch.channel_id}
+                                        className="p-4 rounded-3xl bg-card border border-emerald-500/30 shadow-xs flex flex-col lg:flex-row items-stretch gap-4 hover:border-emerald-500/60 transition-all"
+                                    >
+                                        {/* 좌측: 채널 카드 */}
+                                        <div className="w-full lg:w-80 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-500/20 space-y-3">
+                                            <div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-400/40">
+                                                        등급: {ch.grade}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-100/80 dark:bg-emerald-900/40 px-2 py-0.5 rounded-full border border-emerald-400/40 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                        정기 수집 중
+                                                    </span>
+                                                </div>
+
+                                                {/* 채널 아바타 & 타이틀 */}
+                                                <div 
+                                                    onClick={() => {
+                                                        setSelectedChannelForAnatomy({ id: ch.channel_id, name: ch.name });
+                                                        setIsAnatomyModalOpen(true);
+                                                    }}
+                                                    className="flex items-center gap-2.5 mt-2.5 p-1.5 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer group"
+                                                    title="클릭하여 채널 성장 분석 및 4대 해체 리포트 열기"
+                                                >
+                                                    <div className="w-11 h-11 rounded-full bg-muted border-2 border-emerald-500/40 overflow-hidden shrink-0 group-hover:ring-2 group-hover:ring-emerald-500 transition-all">
+                                                        <img 
+                                                            src={ch.thumbnail_path || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"}
+                                                            alt={ch.name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                e.currentTarget.src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80";
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1">
+                                                            <h3 className="text-sm font-black text-foreground truncate group-hover:text-emerald-600 transition-colors">
+                                                                {ch.name}
+                                                            </h3>
+                                                            <LineChart className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                                        </div>
+                                                        <p className="text-[11px] font-mono text-muted-foreground truncate">{ch.handle}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* 6분할 데이터 그리드 (실데이터) */}
+                                            <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-card border border-border/60 text-center">
+                                                <div>
+                                                    <p className="text-[9.5px] text-muted-foreground">구독자</p>
+                                                    <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.subscribers}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9.5px] text-muted-foreground">일일 조회</p>
+                                                    <p className="text-xs font-black font-mono text-blue-600 dark:text-blue-400 mt-0.5">{ch.metrics.daily_views}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9.5px] text-muted-foreground">하루 수익</p>
+                                                    <p className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{ch.metrics.daily_revenue}</p>
+                                                </div>
+                                                <div className="pt-1.5 border-t border-border/40">
+                                                    <p className="text-[9.5px] text-muted-foreground">총 누적뷰</p>
+                                                    <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.total_views}</p>
+                                                </div>
+                                                <div className="pt-1.5 border-t border-border/40">
+                                                    <p className="text-[9.5px] text-muted-foreground">영상수</p>
+                                                    <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.video_count}편</p>
+                                                </div>
+                                                <div className="pt-1.5 border-t border-border/40">
+                                                    <p className="text-[9.5px] text-muted-foreground">7일 추이</p>
+                                                    <p className="text-[11px] font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{ch.metrics.trend_status || '정기 수집 🟢'}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* 액션 버튼 */}
+                                            <div className="space-y-1.5">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setSelectedChannelForAnatomy({ id: ch.channel_id, name: ch.name });
+                                                        setIsAnatomyModalOpen(true);
+                                                    }}
+                                                    className="w-full h-7 text-[11px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-1"
+                                                >
+                                                    <LineChart className="w-3 h-3 text-emerald-500" />
+                                                    📈 성장 그래프 & AI 해체
+                                                </Button>
+
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => spiderMutation.mutate(ch.channel_id)}
+                                                    disabled={spideringChannelId === ch.channel_id}
+                                                    className="w-full h-7 text-[11px] font-bold border-border text-foreground hover:bg-muted rounded-xl cursor-pointer"
+                                                >
+                                                    {spideringChannelId === ch.channel_id ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                    ) : (
+                                                        <Bot className="w-3 h-3 mr-1 text-primary" />
+                                                    )}
+                                                    🔍 AI 유사 채널 5개 확장 탐색
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* 우측: 6개 영상 릴 스트립 */}
+                                        <div className={cn(
+                                            "flex-1 grid gap-2.5 overflow-x-auto",
+                                            aspectFormat === 'long' 
+                                                ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" 
+                                                : "grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
+                                        )}>
+                                            {((ch.reels || []).slice(0, aspectFormat === 'long' ? 3 : 6)).map((reel, rIdx) => (
+                                                <div 
+                                                    key={rIdx}
+                                                    onClick={() => {
+                                                        const matched = (rawCandidates || []).find(c => c.video_id === reel.video_id);
+                                                        if (matched) {
+                                                            setSelectedCandidateForDetail(matched);
+                                                        } else {
+                                                            setSelectedCandidateForDetail({
+                                                                id: reel.id,
+                                                                video_id: reel.video_id,
+                                                                url: `https://www.youtube.com/${aspectFormat === 'shorts' ? 'shorts/' : 'watch?v='}${reel.video_id}`,
+                                                                title: reel.title,
+                                                                channel_title: ch.name,
+                                                                thumbnail_url: reel.thumbnail_url,
+                                                                video_type: aspectFormat,
+                                                                view_count: reel.view_count,
+                                                                like_count: 5000,
+                                                                comment_count: 240,
+                                                                velocity_score: 1200,
+                                                                outlier_ratio: reel.outlier_ratio,
+                                                                engagement_rate: 0.05,
+                                                                published_at: reel.published_at,
+                                                                match_score: 92,
+                                                                match_reason: '채널 대표 급상승 영상',
+                                                                status: 'approved',
+                                                                hook_analysis: reel.hook_analysis || '초반 핵심 의문 제시',
+                                                                viral_triggers: '시청 지속률 극대화 컷 편집',
+                                                                adaptation_angle: '바이럴루프 각색 추천',
+                                                                created_at: new Date().toISOString()
+                                                            } as any);
+                                                        }
+                                                        setIsDetailModalOpen(true);
+                                                    }}
+                                                    className={cn(
+                                                        "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-emerald-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5",
+                                                        aspectFormat === 'long' ? "aspect-video" : "aspect-[9/16]"
+                                                    )}
+                                                >
+                                                    <img 
+                                                        src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
+                                                        alt={reel.title}
+                                                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform opacity-80"
+                                                        onError={(e) => {
+                                                            e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
+                                                        }}
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
+
+                                                    {/* 상단 뱃지 */}
+                                                    <div className="relative z-10 flex items-center justify-between">
+                                                        <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
+                                                            {rIdx + 1}
+                                                        </span>
+                                                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-black bg-emerald-500 text-white">
+                                                            {reel.outlier_ratio}x 🔥
+                                                        </span>
+                                                    </div>
+
+                                                    {/* 하단 텍스트 및 메트릭 */}
+                                                    <div className="relative z-10 space-y-1">
+                                                        <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
+                                                            {reel.title}
+                                                        </h4>
+                                                        <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
+                                                            <span>{reel.view_count.toLocaleString()}회</span>
+                                                            <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* [SECTION B] ✨ 신규 발굴 벤치마크 옥석 채널 */}
+                    <div className="space-y-3 pt-5 border-t border-border/70">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                                <h3 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                                    <span>✨ 신규 발굴 벤치마크 옥석</span>
+                                    <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                                        {candidateChannels.length}개 채널
+                                    </span>
+                                </h3>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground hidden sm:inline">
+                                스카우터가 실시간 발굴한 고성과 벤치마크 채널입니다. 검토 후 타겟 채널로 승인하거나 유사 채널을 확장하세요.
+                            </p>
+                        </div>
+
+                        {candidateChannels.length === 0 ? (
+                            <div className="p-6 rounded-2xl bg-muted/20 border border-dashed border-border/80 text-center text-xs text-muted-foreground">
+                                현재 선택된 카테고리에 발굴된 신규 옥석 채널이 없습니다. 상단 '스카우터 가동'을 눌러 탐색을 진행하세요.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {candidateChannels.map(ch => (
+                                    <div 
+                                        key={ch.channel_id}
+                                        className="p-4 rounded-3xl bg-card border border-border/80 shadow-xs flex flex-col lg:flex-row items-stretch gap-4 hover:border-amber-500/50 transition-all"
+                                    >
+                                        {/* 좌측: 채널 카드 */}
+                                        <div className="w-full lg:w-80 shrink-0 flex flex-col justify-between p-3.5 rounded-2xl bg-muted/30 border border-border/80 space-y-3">
+                                            <div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className={cn(
+                                                        "px-2 py-0.5 rounded-md text-[10px] font-black",
+                                                        ch.grade === 'S' ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-400/40" :
+                                                        ch.grade === 'A' ? "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-400/40" :
+                                                        "bg-muted text-muted-foreground"
+                                                    )}>
+                                                        등급: {ch.grade}
+                                                    </span>
+                                                    <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+                                                        신규 발굴 옥석
+                                                    </span>
+                                                </div>
+
+                                                {/* 채널 아바타 & 타이틀 */}
+                                                <div 
+                                                    onClick={() => {
+                                                        setSelectedChannelForAnatomy({ id: ch.channel_id, name: ch.name });
+                                                        setIsAnatomyModalOpen(true);
+                                                    }}
+                                                    className="flex items-center gap-2.5 mt-2.5 p-1.5 rounded-xl hover:bg-muted/60 transition-colors cursor-pointer group"
+                                                    title="클릭하여 채널 성장 분석 및 4대 해체 리포트 열기"
+                                                >
+                                                    <div className="w-11 h-11 rounded-full bg-muted border border-border overflow-hidden shrink-0 group-hover:ring-2 group-hover:ring-blue-500 transition-all">
+                                                        <img 
+                                                            src={ch.thumbnail_path || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"}
+                                                            alt={ch.name}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                e.currentTarget.src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80";
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1">
+                                                            <h3 className="text-sm font-black text-foreground truncate group-hover:text-blue-600 transition-colors">
+                                                                {ch.name}
+                                                            </h3>
+                                                            <LineChart className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                                        </div>
+                                                        <p className="text-[11px] font-mono text-muted-foreground truncate">{ch.handle}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* 6분할 데이터 그리드 (실데이터) */}
+                                            <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-card border border-border/60 text-center">
+                                                <div>
+                                                    <p className="text-[9.5px] text-muted-foreground">구독자</p>
+                                                    <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.subscribers}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9.5px] text-muted-foreground">일일 조회</p>
+                                                    <p className="text-xs font-black font-mono text-blue-600 dark:text-blue-400 mt-0.5">{ch.metrics.daily_views}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[9.5px] text-muted-foreground">하루 수익</p>
+                                                    <p className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{ch.metrics.daily_revenue}</p>
+                                                </div>
+                                                <div className="pt-1.5 border-t border-border/40">
+                                                    <p className="text-[9.5px] text-muted-foreground">총 누적뷰</p>
+                                                    <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.total_views}</p>
+                                                </div>
+                                                <div className="pt-1.5 border-t border-border/40">
+                                                    <p className="text-[9.5px] text-muted-foreground">영상수</p>
+                                                    <p className="text-xs font-black font-mono text-foreground mt-0.5">{ch.metrics.video_count}편</p>
+                                                </div>
+                                                <div className="pt-1.5 border-t border-border/40">
+                                                    <p className="text-[9.5px] text-muted-foreground">7일 추이</p>
+                                                    <p className="text-[11px] font-black text-amber-600 dark:text-amber-400 mt-0.5">{ch.metrics.trend_status || '상승세'}</p>
+                                                </div>
+                                            </div>
+
+                                            {/* 액션 버튼 바 */}
+                                            <div className="space-y-1.5">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setSelectedChannelForAnatomy({ id: ch.channel_id, name: ch.name });
+                                                        setIsAnatomyModalOpen(true);
+                                                    }}
+                                                    className="w-full h-7 text-[11px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-1"
+                                                >
+                                                    <LineChart className="w-3 h-3 text-blue-500" />
+                                                    📈 성장 그래프 & AI 해체
+                                                </Button>
+
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => convertTargetMutation.mutate(ch.channel_id)}
+                                                    disabled={convertTargetMutation.isPending}
+                                                    className="w-full h-8 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs cursor-pointer"
+                                                >
+                                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                                    ✓ 타겟 채널 승인 & 정기수집 전환
+                                                </Button>
+
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => spiderMutation.mutate(ch.channel_id)}
+                                                    disabled={spideringChannelId === ch.channel_id}
+                                                    className="w-full h-7 text-[11px] font-bold border-border text-foreground hover:bg-muted rounded-xl cursor-pointer"
+                                                >
+                                                    {spideringChannelId === ch.channel_id ? (
+                                                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                    ) : (
+                                                        <Bot className="w-3 h-3 mr-1 text-primary" />
+                                                    )}
+                                                    🔍 AI 유사 채널 5개 확장 탐색
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* 우측: 6개 영상 릴 스트립 */}
+                                        <div className={cn(
+                                            "flex-1 grid gap-2.5 overflow-x-auto",
+                                            aspectFormat === 'long' 
+                                                ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" 
+                                                : "grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
+                                        )}>
+                                            {((ch.reels || []).slice(0, aspectFormat === 'long' ? 3 : 6)).map((reel, rIdx) => (
+                                                <div 
+                                                    key={rIdx}
+                                                    onClick={() => {
+                                                        const matched = (rawCandidates || []).find(c => c.video_id === reel.video_id);
+                                                        if (matched) {
+                                                            setSelectedCandidateForDetail(matched);
+                                                        } else {
+                                                            setSelectedCandidateForDetail({
+                                                                id: reel.id,
+                                                                video_id: reel.video_id,
+                                                                url: `https://www.youtube.com/${aspectFormat === 'shorts' ? 'shorts/' : 'watch?v='}${reel.video_id}`,
+                                                                title: reel.title,
+                                                                channel_title: ch.name,
+                                                                thumbnail_url: reel.thumbnail_url,
+                                                                video_type: aspectFormat,
+                                                                view_count: reel.view_count,
+                                                                like_count: 5000,
+                                                                comment_count: 240,
+                                                                velocity_score: 1200,
+                                                                outlier_ratio: reel.outlier_ratio,
+                                                                engagement_rate: 0.05,
+                                                                published_at: reel.published_at,
+                                                                match_score: 92,
+                                                                match_reason: '채널 대표 급상승 영상',
+                                                                status: 'pending',
+                                                                hook_analysis: reel.hook_analysis || '초반 핵심 의문 제시',
+                                                                viral_triggers: '시청 지속률 극대화 컷 편집',
+                                                                adaptation_angle: '바이럴루프 각색 추천',
+                                                                created_at: new Date().toISOString()
+                                                            } as any);
+                                                        }
+                                                        setIsDetailModalOpen(true);
+                                                    }}
+                                                    className={cn(
+                                                        "group relative rounded-2xl overflow-hidden bg-black border border-border/80 hover:border-amber-500 transition-all cursor-pointer shadow-xs flex flex-col justify-between p-2.5",
+                                                        aspectFormat === 'long' ? "aspect-video" : "aspect-[9/16]"
+                                                    )}
+                                                >
+                                                    <img 
+                                                        src={reel.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"}
+                                                        alt={reel.title}
+                                                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform opacity-80"
+                                                        onError={(e) => {
+                                                            e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80";
+                                                        }}
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/60" />
+
+                                                    {/* 상단 뱃지 */}
+                                                    <div className="relative z-10 flex items-center justify-between">
+                                                        <span className="w-5 h-5 rounded-full bg-black/80 text-white font-mono text-[10px] font-black flex items-center justify-center border border-white/20">
+                                                            {rIdx + 1}
+                                                        </span>
+                                                        <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-black bg-amber-500 text-black">
+                                                            {reel.outlier_ratio}x 🔥
+                                                        </span>
+                                                    </div>
+
+                                                    {/* 하단 텍스트 및 메트릭 */}
+                                                    <div className="relative z-10 space-y-1">
+                                                        <h4 className="text-[11px] font-bold text-white line-clamp-2 leading-tight">
+                                                            {reel.title}
+                                                        </h4>
+                                                        <div className="flex items-center justify-between text-[10px] font-mono text-white/70 pt-0.5 border-t border-white/10">
+                                                            <span>{reel.view_count.toLocaleString()}회</span>
+                                                            <span>{reel.duration_text || (aspectFormat === 'long' ? '12:45' : '0:58')}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                        </>
                     )}
                 </div>
             ) : viewMode === 'grid' ? (
@@ -1042,7 +1642,7 @@ const TrendRadarPage: React.FC = () => {
                     queryClient.invalidateQueries({ queryKey: ['channels'] });
                 }}
                 onSelectVideo={(vId, title) => {
-                    const matched = rawCandidates.find(c => c.video_id === vId);
+                    const matched = (rawCandidates || []).find(c => c.video_id === vId);
                     if (matched) {
                         setSelectedCandidateForDetail(matched);
                         setIsDetailModalOpen(true);

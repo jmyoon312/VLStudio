@@ -82,6 +82,9 @@ export interface Category {
         match_sensitivity?: number;
         [key: string]: any;
     };
+    target_channels_count?: number;
+    candidate_channels_count?: number;
+    videos_count?: number;
     created_at?: string;
 }
 
@@ -534,9 +537,11 @@ export interface ChannelGrowthAnalysis {
     }[];
 }
 
-export const getChannelGrowthAnalysis = async (channelId: number, timeSpan = '30d') => {
+export const getChannelGrowthAnalysis = async (channelId: number, timeSpan = '30d', channelName?: string) => {
+    const params: any = { time_span: timeSpan };
+    if (channelName) params.channel_name = channelName;
     return (await api.get<ChannelGrowthAnalysis>(`/trend-radar/channels/${channelId}/growth-analysis`, {
-        params: { time_span: timeSpan }
+        params
     })).data;
 };
 

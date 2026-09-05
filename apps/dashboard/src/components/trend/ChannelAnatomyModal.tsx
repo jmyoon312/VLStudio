@@ -35,9 +35,9 @@ export const ChannelAnatomyModal: React.FC<ChannelAnatomyModalProps> = ({
 
     // 1. Fetch channel growth analysis data
     const { data: analysis, isLoading, refetch } = useQuery<ChannelGrowthAnalysis>({
-        queryKey: ['channel-growth-analysis', channelId, timeSpan],
-        queryFn: () => getChannelGrowthAnalysis(channelId!, timeSpan),
-        enabled: isOpen && channelId !== null,
+        queryKey: ['channel-growth-analysis', channelId, channelName, timeSpan],
+        queryFn: () => getChannelGrowthAnalysis(channelId!, timeSpan, channelName),
+        enabled: isOpen && (channelId !== null || !!channelName),
     });
 
     // 2. 9router LLM AI Insight Regeneration Mutation

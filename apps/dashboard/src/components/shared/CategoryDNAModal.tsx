@@ -93,6 +93,30 @@ export const CategoryDNAModal: React.FC<CategoryDNAModalProps> = ({
         }
     });
 
+    // Channel-based DNA Synthesis Mutation (Analyzes registered channels' real high-performing videos & hooks)
+    const channelDnaMutation = useMutation({
+        mutationFn: async (categoryId: number) => {
+            const res = await api.post(`/categories/${categoryId}/dna/from-channels`);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            if (data.dna) {
+                if (data.dna.persona_target) setPersonaTarget(data.dna.persona_target);
+                if (data.dna.content_tone) setContentTone(data.dna.content_tone);
+                if (Array.isArray(data.dna.negative_keywords)) setNegativeKeywords(data.dna.negative_keywords);
+                if (data.dna.benchmark_rules) {
+                    if (data.dna.benchmark_rules.min_views) setMinViews(data.dna.benchmark_rules.min_views);
+                    if (data.dna.benchmark_rules.min_outlier) setMinOutlier(data.dna.benchmark_rules.min_outlier);
+                    if (data.dna.benchmark_rules.match_sensitivity) setMatchSensitivity(data.dna.benchmark_rules.match_sensitivity);
+                }
+            }
+            alert(data.message || '등록 채널 기반 정밀 DNA 분석이 완료되었습니다.');
+        },
+        onError: (err: any) => {
+            alert(`등록 채널 기반 DNA 분석 오류: ${err?.response?.data?.detail || err.message}`);
+        }
+    });
+
     // Save Mutation
     const saveMutation = useMutation({
         mutationFn: async () => {
@@ -145,26 +169,51 @@ export const CategoryDNAModal: React.FC<CategoryDNAModalProps> = ({
                             </div>
                         </div>
 
-                        {/* AI Auto Suggest Button */}
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all"
-                            onClick={() => suggestMutation.mutate(category.id)}
-                            disabled={suggestMutation.isPending}
-                        >
-                            {suggestMutation.isPending ? (
-                                <>
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                                    <span>AI 기획 중...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                                    <span>✨ AI 페르소나 자동 기획</span>
-                                </>
-                            )}
-                        </Button>
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                            {/* Channel-based DNA Synthesis Button */}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 border-emerald-200 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-300 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all"
+                                onClick={() => channelDnaMutation.mutate(category.id)}
+                                disabled={channelDnaMutation.isPending || suggestMutation.isPending}
+                                title="이 카테고리에 등록된 채널들의 실제 고성과 영상 데이터를 분석하여 정밀 DNA를 합성합니다."
+                            >
+                                {channelDnaMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500" />
+                                        <span>채널 실데이터 분석 중...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Zap className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500/20" />
+                                        <span>🧬 등록 채널 기반 DNA 정밀 분석</span>
+                                    </>
+                                )}
+                            </Button>
+
+                            {/* AI Auto Suggest Button */}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-300 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all"
+                                onClick={() => suggestMutation.mutate(category.id)}
+                                disabled={suggestMutation.isPending || channelDnaMutation.isPending}
+                            >
+                                {suggestMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                                        <span>AI 기획 중...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                        <span>✨ AI 페르소나 기획</span>
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </div>
                 </DialogHeader>
 
