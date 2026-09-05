@@ -1007,6 +1007,14 @@ def get_pending_channels_for_incubation(
     return results
 
 
+class CategoryOnboardRequest(BaseModel):
+    channel_name: str
+    channel_url: Optional[str] = None
+    category_id: Optional[int] = None
+    new_category_name: Optional[str] = None
+    persona_target: Optional[str] = None
+    content_tone: Optional[str] = None
+
 @router.post("/onboard-pending-channel")
 def onboard_pending_channel(req: CategoryOnboardRequest, db: Session = Depends(get_db)):
     """
