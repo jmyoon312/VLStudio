@@ -329,3 +329,80 @@ def record_channel_memory(channel_id: str, payload: Dict[str, Any] = Body(...)):
     hermes_session_store.record_channel_wisdom(channel_id, topic, winning_hook, jjap_pattern, score)
     return {"success": True, "message": f"채널 {channel_id}의 승리 공식이 Hermes 장기 기억고에 각인되었습니다."}
 
+# =========================================================================
+# 🧬 Channel Virtual Clone 6-Layer Preset Endpoints
+# =========================================================================
+
+@router.get("/api/agent/clone-presets")
+def list_clone_presets():
+    from ..services.channel_clone_manager import channel_clone_manager
+    presets = channel_clone_manager.list_clone_presets()
+    return [p.dict() for p in presets]
+
+@router.get("/api/agent/clone-presets/{channel_id}")
+def get_clone_preset(channel_id: int, channel_name: str = ""):
+    from ..services.channel_clone_manager import channel_clone_manager
+    preset = channel_clone_manager.get_clone_preset(channel_id, channel_name)
+    return preset.dict()
+
+@router.post("/api/agent/clone-presets/{channel_id}")
+def save_clone_preset(channel_id: int, payload: Dict[str, Any] = Body(...)):
+    from ..services.channel_clone_manager import channel_clone_manager, ChannelClonePresetSchema
+    try:
+        preset_obj = ChannelClonePresetSchema(**payload)
+        channel_clone_manager.save_clone_preset(channel_id, preset_obj)
+        return {
+            "success": True, 
+            "message": f"채널 {channel_id} 가상 클론 6-Layer 프리셋이 성공적으로 저장되었습니다.", 
+            "preset": preset_obj.dict()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"프리셋 저장 실패: {str(e)}")
+
+# =========================================================================
+# 👥 Shadow Worker Pool (Stateless Concurrent Batch Engine) Endpoints
+# =========================================================================
+
+@router.post("/api/agent/batch-produce")
+def submit_batch_produce(payload: Dict[str, Any] = Body(...)):
+    """
+    Submits batch production jobs to Shadow Worker Pool with Zero Context Bleed.
+    """
+    from ..services.shadow_worker_pool import shadow_worker_pool
+    channel_id = payload.get("channel_id")
+    if channel_id is None:
+        raise HTTPException(status_code=400, detail="channel_id is required")
+    
+    topics = payload.get("topics", [])
+    if not topics or not isinstance(topics, list):
+        raise HTTPException(status_code=400, detail="topics must be a non-empty list of strings")
+        
+    channel_name = payload.get("channel_name", "")
+    envelopes = shadow_worker_pool.submit_batch(int(channel_id), topics, channel_name)
+    
+    return {
+        "success": True,
+        "message": f"{len(envelopes)}개의 영상 제작 과업이 Shadow Worker 스레드 풀에 격리 투입되었습니다.",
+        "jobs": [e.dict() for e in envelopes]
+    }
+
+@router.get("/api/agent/batch-produce/status/{job_id}")
+def get_batch_job_status(job_id: str):
+    from ..services.shadow_worker_pool import shadow_worker_pool
+    job = shadow_worker_pool.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job.dict()
+
+@router.get("/api/agent/batch-produce/jobs/{channel_id}")
+def list_channel_batch_jobs(channel_id: int):
+    from ..services.shadow_worker_pool import shadow_worker_pool
+    jobs = shadow_worker_pool.list_jobs(channel_id)
+    return [j.dict() for j in jobs]
+
+@router.get("/api/agent/batch-produce/jobs")
+def list_all_batch_jobs():
+    from ..services.shadow_worker_pool import shadow_worker_pool
+    jobs = shadow_worker_pool.list_jobs()
+    return [j.dict() for j in jobs]
+

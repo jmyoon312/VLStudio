@@ -29,6 +29,20 @@ interface WorkerState {
     recentLog: string;
 }
 
+
+interface ShadowJobItem {
+    job_id: string;
+    channel_id: number;
+    channel_name: string;
+    topic: string;
+    status: string;
+    progress_pct: number;
+    created_at: string;
+    completed_at?: string;
+    outputs?: Record<string, string>;
+    error?: string;
+}
+
 interface ChannelItem {
     id: number;
     name?: string;
@@ -149,6 +163,25 @@ export const StudioWarRoom: React.FC = () => {
     const [isRunningPreset, setIsRunningPreset] = useState(false);
     const [launchModalPreset, setLaunchModalPreset] = useState<any | null>(null);
     const [launchTopic, setLaunchTopic] = useState('');
+    const [shadowJobs, setShadowJobs] = useState<ShadowJobItem[]>([]);
+
+    const loadShadowJobs = async () => {
+        try {
+            const res = await api.get('/agent/batch-produce/jobs');
+            if (res.data && Array.isArray(res.data)) {
+                setShadowJobs(res.data.slice(0, 8));
+            }
+        } catch (e) {
+            // silent
+        }
+    };
+
+    useEffect(() => {
+        loadShadowJobs();
+        const interval = setInterval(loadShadowJobs, 4000);
+        return () => clearInterval(interval);
+    }, []);
+
 
     // Channel Integration
     const [channels, setChannels] = useState<ChannelItem[]>([]);
@@ -307,23 +340,44 @@ export const StudioWarRoom: React.FC = () => {
         if (!launchModalPreset) return;
         setIsRunningPreset(true);
         const preset = launchModalPreset;
-        const topic = launchTopic || '최근 떡상 바이럴 쇼츠 기획';
-        toast.info(`[CH #${selectedChannelId}] '${preset.name}' 파이프라인 출격을 시작합니다.`);
+        const rawInput = launchTopic.trim();
+        const topics = rawInput 
+            ? rawInput.split('\n').map(t => t.trim()).filter(Boolean)
+            : ['최근 떡상 바이럴 쇼츠 기획'];
+
+        const targetChannel = channels.find(c => c.id === selectedChannelId);
+        const channelName = targetChannel?.title || targetChannel?.name || `채널 ${selectedChannelId}호기`;
+
+        toast.info(`[CH #${selectedChannelId}] '${preset.name}' Shadow Worker ${topics.length}개 과업 출격을 시작합니다.`);
 
         const nowStr = new Date().toLocaleTimeString();
         setLogTicker(prev => [
-            { time: nowStr, worker: '루피 총감독', msg: `[CH #${selectedChannelId}] '${preset.name}' 일괄 출격 지휘 시작 (주제: ${topic.slice(0, 20)}...)`, type: 'director' },
+            { time: nowStr, worker: '루피 총감독', msg: `[CH #${selectedChannelId}] Shadow Worker 가상 분신 풀 가동 (${topics.length}개 주제 병렬 격리 투입)`, type: 'director' },
             ...prev.slice(0, 15)
         ]);
 
         try {
-            await api.post(`/pipelines/${preset.id}/run`, { 
-                topic, 
-                channel_id: selectedChannelId 
+            // 1. Dispatch to Shadow Worker Pool Batch API (Zero Context Bleed)
+            await api.post('/agent/batch-produce', {
+                channel_id: selectedChannelId,
+                channel_name: channelName,
+                topics: topics
             });
-            toast.success(`[CH #${selectedChannelId}] '${preset.name}' 파이프라인이 8인 워커에게 성공적으로 배치되었습니다!`);
+
+            // 2. Also trigger legacy pipeline endpoint if single
+            if (topics.length === 1) {
+                try {
+                    await api.post(`/pipelines/${preset.id}/run`, { 
+                        topic: topics[0], 
+                        channel_id: selectedChannelId 
+                    });
+                } catch (e) {}
+            }
+
+            toast.success(`[CH #${selectedChannelId}] Shadow Worker 분신 ${topics.length}개 스레드가 즉시 스폰되어 격리 제작에 착수했습니다!`);
             setLaunchModalPreset(null);
             setLaunchTopic('');
+            loadShadowJobs();
         } catch (e: any) {
             toast.error(`가동 실패: ${e.message}`);
         } finally {

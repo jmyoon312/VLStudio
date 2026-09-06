@@ -30,6 +30,55 @@ interface ChannelItem {
     category?: string;
 }
 
+
+interface ChannelClonePreset {
+    channel_id: number;
+    channel_name: string;
+    version: string;
+    persona: {
+        tone_style: string;
+        speech_speed_wpm: number;
+        forbidden_words: string[];
+        clean_shield: boolean;
+        required_ending_hook: string;
+    };
+    script_branch: {
+        mode: string;
+        pacing_jab_interval_sec: number;
+        climax_second: number;
+        active_typography_mix: string[];
+    };
+    audio: {
+        engine: string;
+        voice_id: string;
+        speed_rate: string;
+        pitch_adjust: string;
+        bgm_ducking_db: number;
+        sfx_pack_name: string;
+    };
+    visual: {
+        engine: string;
+        aspect_ratio: string;
+        lens_focal_length: string;
+        lighting_style: string;
+        seed_lock_enabled: boolean;
+        reference_image_ids: string[];
+    };
+    capcut: {
+        font_family: string;
+        font_size: number;
+        primary_color: string;
+        highlight_color: string;
+        bounce_animation: string;
+        silence_cut_threshold_db: number;
+    };
+    gatekeeper: {
+        min_pass_score: number;
+        channel_dna_strict_check: boolean;
+        auto_retry_limit: number;
+    };
+}
+
 interface FtsMemoryItem {
     id: number | string;
     channel_id: number;
@@ -50,11 +99,43 @@ export const BrainVaultPage: React.FC = () => {
     const [isLoadingChannels, setIsLoadingChannels] = useState<boolean>(false);
 
     // Main States
-    const [activeTab, setActiveTab] = useState<'skills' | 'memory' | 'soul'>('skills');
+    const [activeTab, setActiveTab] = useState<'skills' | 'memory' | 'soul' | 'clones'>('skills');
     const [soul, setSoul] = useState('');
     const [skills, setSkills] = useState<SkillItem[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [isSavingSoul, setIsSavingSoul] = useState(false);
+    // Channel Virtual Clone 6-Layer Preset States
+    const [clonePreset, setClonePreset] = useState<ChannelClonePreset | null>(null);
+    const [isLoadingClonePreset, setIsLoadingClonePreset] = useState(false);
+    const [isSavingClonePreset, setIsSavingClonePreset] = useState(false);
+
+    const loadClonePreset = async (channelId: number) => {
+        setIsLoadingClonePreset(true);
+        try {
+            const res = await api.get(`/agent/clone-presets/${channelId}`);
+            if (res.data) {
+                setClonePreset(res.data);
+            }
+        } catch (err: any) {
+            toast.error(`가상 클론 프리셋 불러오기 실패: ${err.message}`);
+        } finally {
+            setIsLoadingClonePreset(false);
+        }
+    };
+
+    const handleSaveClonePreset = async () => {
+        if (!clonePreset) return;
+        setIsSavingClonePreset(true);
+        try {
+            await api.post(`/agent/clone-presets/${selectedChannelId}`, clonePreset);
+            toast.success(`[CH #${selectedChannelId}] 가상 클론 6-Layer 프리셋이 성공적으로 저장되었습니다.`);
+        } catch (err: any) {
+            toast.error(`프리셋 저장 실패: ${err.message}`);
+        } finally {
+            setIsSavingClonePreset(false);
+        }
+    };
+
     const [isMintingSkills, setIsMintingSkills] = useState(false);
 
     // FTS Memory & Search
@@ -469,6 +550,22 @@ export const BrainVaultPage: React.FC = () => {
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>총괄 디렉터 헌법 (soul.md)</span>
                 </button>
+
+                <button
+                    onClick={() => {
+                        setActiveTab('clones');
+                        if (!clonePreset) loadClonePreset(selectedChannelId);
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                        activeTab === 'clones'
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs'
+                            : 'bg-muted/40 text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>가상 클론 6-Layer 프리셋</span>
+                </button>
+
             </div>
 
             {/* TAB 1: CHANNEL SKILLS PACK */}
@@ -784,6 +881,477 @@ export const BrainVaultPage: React.FC = () => {
                                     </button>
                                 ))}
                             </div>
+                        </Card>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB 4: CHANNEL VIRTUAL CLONE 6-LAYER PRESET EDITOR */}
+            {activeTab === 'clones' && clonePreset && (
+                <div className="space-y-6">
+                    {/* Header Bar */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 rounded-3xl bg-card border border-border">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                <Cpu className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                                    <span>[CH #{selectedChannelId}] {clonePreset.channel_name} 가상 클론 프리셋</span>
+                                    <Badge variant="outline" className="text-[10px] font-mono text-indigo-400">
+                                        v{clonePreset.version}
+                                    </Badge>
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    대량 생산 시 워커 분신이 독립 장착하는 채널 고유의 6대 심층 제작 DNA
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => loadClonePreset(selectedChannelId)}
+                                disabled={isLoadingClonePreset}
+                                className="text-xs rounded-xl h-9 font-bold"
+                            >
+                                <RefreshCcw className={`w-3.5 h-3.5 mr-1.5 ${isLoadingClonePreset ? 'animate-spin' : ''}`} />
+                                새로고침
+                            </Button>
+                            <Button 
+                                size="sm" 
+                                onClick={handleSaveClonePreset}
+                                disabled={isSavingClonePreset}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl h-9 px-4 shadow-sm"
+                            >
+                                <Save className="w-3.5 h-3.5 mr-1.5" />
+                                6-Layer 프리셋 영구 저장
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* 6 Layers Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {/* Layer 1: Persona */}
+                        <Card className="border-border bg-card rounded-3xl overflow-hidden shadow-xs">
+                            <CardHeader className="bg-muted/30 border-b border-border p-4">
+                                <CardTitle className="text-xs font-black text-foreground flex items-center gap-2">
+                                    <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 text-[10px] font-mono">L1</span>
+                                    페르소나 & 톤앤매너
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">
+                                    채널의 어투, 발화 속도, 클린 알고리즘 쉴드
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-3.5 text-xs">
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">어투 스타일</label>
+                                    <select 
+                                        value={clonePreset.persona.tone_style}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            persona: { ...clonePreset.persona, tone_style: e.target.value }
+                                        })}
+                                        className="w-full p-2 bg-muted/40 border border-border text-xs rounded-xl focus:outline-none"
+                                    >
+                                        <option value="b_grade_meme">B급 유머 / 밈 풍자 (빠른 흡입력)</option>
+                                        <option value="documentary">신뢰도 높은 다큐 / 지식 고발</option>
+                                        <option value="casual_talk">친근한 일상 대화체</option>
+                                        <option value="financial_fact">냉철한 재테크 / 팩트 폭격</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">
+                                        발화 속도 (WPM: {clonePreset.persona.speech_speed_wpm})
+                                    </label>
+                                    <input 
+                                        type="range" 
+                                        min={110} 
+                                        max={190} 
+                                        step={5}
+                                        value={clonePreset.persona.speech_speed_wpm}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            persona: { ...clonePreset.persona, speech_speed_wpm: parseInt(e.target.value) }
+                                        })}
+                                        className="w-full accent-indigo-500 cursor-pointer"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">필수 엔딩 클로징 멘트</label>
+                                    <Input 
+                                        value={clonePreset.persona.required_ending_hook}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            persona: { ...clonePreset.persona, required_ending_hook: e.target.value }
+                                        })}
+                                        className="text-xs h-8 bg-muted/40 border-border rounded-xl"
+                                    />
+                                </div>
+
+                                <div className="pt-1 flex items-center justify-between border-t border-border/60">
+                                    <span className="text-[10px] font-bold text-foreground">🛡️ 노란딱지 방지 순화 사전 자동 활성화</span>
+                                    <input 
+                                        type="checkbox"
+                                        checked={clonePreset.persona.clean_shield}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            persona: { ...clonePreset.persona, clean_shield: e.target.checked }
+                                        })}
+                                        className="rounded accent-indigo-600 h-4 w-4"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Layer 2: Script Branch & 8-Matrix */}
+                        <Card className="border-border bg-card rounded-3xl overflow-hidden shadow-xs">
+                            <CardHeader className="bg-muted/30 border-b border-border p-4">
+                                <CardTitle className="text-xs font-black text-foreground flex items-center gap-2">
+                                    <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-mono">L2</span>
+                                    대본 적응 분기 & 8대 자막 매트릭스
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">
+                                    쨉쨉이 주기 및 멀티 자막 연출 배합
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-3 text-xs">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground block mb-1">쨉쨉이 주기</label>
+                                        <Input 
+                                            type="number" 
+                                            step="0.1"
+                                            value={clonePreset.script_branch.pacing_jab_interval_sec}
+                                            onChange={(e) => setClonePreset({
+                                                ...clonePreset,
+                                                script_branch: { ...clonePreset.script_branch, pacing_jab_interval_sec: parseFloat(e.target.value) || 0.8 }
+                                            })}
+                                            className="text-xs h-8 bg-muted/40 border-border rounded-xl"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground block mb-1">클라이맥스 초(s)</label>
+                                        <Input 
+                                            type="number" 
+                                            value={clonePreset.script_branch.climax_second}
+                                            onChange={(e) => setClonePreset({
+                                                ...clonePreset,
+                                                script_branch: { ...clonePreset.script_branch, climax_second: parseInt(e.target.value) || 42 }
+                                            })}
+                                            className="text-xs h-8 bg-muted/40 border-border rounded-xl"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1.5">
+                                        활성 8대 타이포그래피 태그 배합:
+                                    </label>
+                                    <div className="flex flex-wrap gap-1">
+                                        {['HOOK_ANCHOR', 'NARRATION', 'PACING_JAB', 'POV_REACTION', 'KINETIC_KEYWORD', 'MULTI_DIALOGUE', 'SFX_GRAPHIC', 'FACT_BULLET'].map((tag) => {
+                                            const isActive = clonePreset.script_branch.active_typography_mix.includes(tag);
+                                            return (
+                                                <button
+                                                    key={tag}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const current = clonePreset.script_branch.active_typography_mix;
+                                                        const updated = isActive 
+                                                            ? current.filter(t => t !== tag) 
+                                                            : [...current, tag];
+                                                        setClonePreset({
+                                                            ...clonePreset,
+                                                            script_branch: { ...clonePreset.script_branch, active_typography_mix: updated }
+                                                        });
+                                                    }}
+                                                    className={`px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold transition-all cursor-pointer ${
+                                                        isActive 
+                                                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
+                                                            : 'bg-muted/40 text-muted-foreground border border-border/60 hover:text-foreground'
+                                                    }`}
+                                                >
+                                                    {tag}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Layer 3: Audio & Voice */}
+                        <Card className="border-border bg-card rounded-3xl overflow-hidden shadow-xs">
+                            <CardHeader className="bg-muted/30 border-b border-border p-4">
+                                <CardTitle className="text-xs font-black text-foreground flex items-center gap-2">
+                                    <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-[10px] font-mono">L3</span>
+                                    오디오 & 전속 성우 사양
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">
+                                    ElevenLabs / Typecast / Supertonic 엔진
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-3 text-xs">
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">합성 엔진</label>
+                                    <select 
+                                        value={clonePreset.audio.engine}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            audio: { ...clonePreset.audio, engine: e.target.value }
+                                        })}
+                                        className="w-full p-2 bg-muted/40 border border-border text-xs rounded-xl focus:outline-none"
+                                    >
+                                        <option value="ElevenLabs / Typecast / Supertonic">ElevenLabs / Typecast / Supertonic (고음질)</option>
+                                        <option value="Typecast Pro Studio">Typecast Pro Studio (감정 연기)</option>
+                                        <option value="Supertonic Fast Edge">Supertonic Fast Edge (초저지연)</option>
+                                    </select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground block mb-1">성우 음색 ID</label>
+                                        <Input 
+                                            value={clonePreset.audio.voice_id}
+                                            onChange={(e) => setClonePreset({
+                                                ...clonePreset,
+                                                audio: { ...clonePreset.audio, voice_id: e.target.value }
+                                            })}
+                                            className="text-xs h-8 bg-muted/40 border-border rounded-xl font-mono"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground block mb-1">배속 조절</label>
+                                        <Input 
+                                            value={clonePreset.audio.speed_rate}
+                                            onChange={(e) => setClonePreset({
+                                                ...clonePreset,
+                                                audio: { ...clonePreset.audio, speed_rate: e.target.value }
+                                            })}
+                                            className="text-xs h-8 bg-muted/40 border-border rounded-xl font-mono"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">BGM 자동 덕킹 ({clonePreset.audio.bgm_ducking_db} dB)</label>
+                                    <Input 
+                                        type="number"
+                                        step="0.5"
+                                        value={clonePreset.audio.bgm_ducking_db}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            audio: { ...clonePreset.audio, bgm_ducking_db: parseFloat(e.target.value) || -18.0 }
+                                        })}
+                                        className="text-xs h-8 bg-muted/40 border-border rounded-xl"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Layer 4: Visual & Google Flow AI */}
+                        <Card className="border-border bg-card rounded-3xl overflow-hidden shadow-xs">
+                            <CardHeader className="bg-muted/30 border-b border-border p-4">
+                                <CardTitle className="text-xs font-black text-foreground flex items-center gap-2">
+                                    <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 text-[10px] font-mono">L4</span>
+                                    비주얼 렌더 & Google Flow AI
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">
+                                    해상도, 렌즈 초점거리, 조명 및 시드 일관성
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-3 text-xs">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground block mb-1">화면 비율</label>
+                                        <select 
+                                            value={clonePreset.visual.aspect_ratio}
+                                            onChange={(e) => setClonePreset({
+                                                ...clonePreset,
+                                                visual: { ...clonePreset.visual, aspect_ratio: e.target.value }
+                                            })}
+                                            className="w-full p-2 bg-muted/40 border border-border text-xs rounded-xl focus:outline-none"
+                                        >
+                                            <option value="9:16">9:16 (숏폼/릴스/틱톡)</option>
+                                            <option value="16:9">16:9 (유튜브 롱폼)</option>
+                                            <option value="1:1">1:1 (정방형 피드)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground block mb-1">렌즈 화각</label>
+                                        <Input 
+                                            value={clonePreset.visual.lens_focal_length}
+                                            onChange={(e) => setClonePreset({
+                                                ...clonePreset,
+                                                visual: { ...clonePreset.visual, lens_focal_length: e.target.value }
+                                            })}
+                                            className="text-xs h-8 bg-muted/40 border-border rounded-xl font-mono"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">조명 & 톤 스타일</label>
+                                    <Input 
+                                        value={clonePreset.visual.lighting_style}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            visual: { ...clonePreset.visual, lighting_style: e.target.value }
+                                        })}
+                                        className="text-xs h-8 bg-muted/40 border-border rounded-xl"
+                                    />
+                                </div>
+
+                                <div className="pt-1 flex items-center justify-between border-t border-border/60">
+                                    <span className="text-[10px] font-bold text-foreground">🔒 캐릭터/배경 일관성 시드 락 고정</span>
+                                    <input 
+                                        type="checkbox"
+                                        checked={clonePreset.visual.seed_lock_enabled}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            visual: { ...clonePreset.visual, seed_lock_enabled: e.target.checked }
+                                        })}
+                                        className="rounded accent-indigo-600 h-4 w-4"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Layer 5: CapCut Assembly */}
+                        <Card className="border-border bg-card rounded-3xl overflow-hidden shadow-xs">
+                            <CardHeader className="bg-muted/30 border-b border-border p-4">
+                                <CardTitle className="text-xs font-black text-foreground flex items-center gap-2">
+                                    <span className="p-1.5 rounded-lg bg-pink-500/10 text-pink-400 text-[10px] font-mono">L5</span>
+                                    캡컷 No-ZIP 멀티트랙 조립 사양
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">
+                                    폰트, 바운스 애니메이션, 무음 절삭 감도
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-3 text-xs">
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">자막 서체 (Font Family)</label>
+                                    <Input 
+                                        value={clonePreset.capcut.font_family}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            capcut: { ...clonePreset.capcut, font_family: e.target.value }
+                                        })}
+                                        className="text-xs h-8 bg-muted/40 border-border rounded-xl"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground block mb-1">쨉쨉이 하이라이트 색상</label>
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="color" 
+                                                value={clonePreset.capcut.highlight_color}
+                                                onChange={(e) => setClonePreset({
+                                                    ...clonePreset,
+                                                    capcut: { ...clonePreset.capcut, highlight_color: e.target.value }
+                                                })}
+                                                className="w-8 h-8 rounded-lg border border-border cursor-pointer bg-transparent"
+                                            />
+                                            <span className="font-mono text-[10px]">{clonePreset.capcut.highlight_color}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-muted-foreground block mb-1">바운스 모션</label>
+                                        <select 
+                                            value={clonePreset.capcut.bounce_animation}
+                                            onChange={(e) => setClonePreset({
+                                                ...clonePreset,
+                                                capcut: { ...clonePreset.capcut, bounce_animation: e.target.value }
+                                            })}
+                                            className="w-full p-2 bg-muted/40 border border-border text-xs rounded-xl focus:outline-none"
+                                        >
+                                            <option value="POP_UP_SPRING_02">POP_UP_SPRING (탄성 팝업)</option>
+                                            <option value="ELASTIC_ZOOM">ELASTIC_ZOOM (스프링 줌)</option>
+                                            <option value="GLITCH_SHAKE">GLITCH_SHAKE (글리치 진동)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">
+                                        FFmpeg 무음 절삭 감도 ({clonePreset.capcut.silence_cut_threshold_db} dB)
+                                    </label>
+                                    <Input 
+                                        type="number"
+                                        value={clonePreset.capcut.silence_cut_threshold_db}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            capcut: { ...clonePreset.capcut, silence_cut_threshold_db: parseFloat(e.target.value) || -35.0 }
+                                        })}
+                                        className="text-xs h-8 bg-muted/40 border-border rounded-xl"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Layer 6: Gatekeeper */}
+                        <Card className="border-border bg-card rounded-3xl overflow-hidden shadow-xs">
+                            <CardHeader className="bg-muted/30 border-b border-border p-4">
+                                <CardTitle className="text-xs font-black text-foreground flex items-center gap-2">
+                                    <span className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 text-[10px] font-mono">L6</span>
+                                    게이트키퍼 품질 검수 기준
+                                </CardTitle>
+                                <CardDescription className="text-[10px]">
+                                    최소 합격 기준 점수 및 자동 재시도 한도
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-3.5 text-xs">
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">
+                                        최소 합격 기준 점수 ({clonePreset.gatekeeper.min_pass_score}점)
+                                    </label>
+                                    <input 
+                                        type="range" 
+                                        min={70} 
+                                        max={98} 
+                                        step={1}
+                                        value={clonePreset.gatekeeper.min_pass_score}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            gatekeeper: { ...clonePreset.gatekeeper, min_pass_score: parseFloat(e.target.value) }
+                                        })}
+                                        className="w-full accent-violet-500 cursor-pointer"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground block mb-1">자동 리라이트 재시도 한도</label>
+                                    <Input 
+                                        type="number"
+                                        min={1}
+                                        max={5}
+                                        value={clonePreset.gatekeeper.auto_retry_limit}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            gatekeeper: { ...clonePreset.gatekeeper, auto_retry_limit: parseInt(e.target.value) || 3 }
+                                        })}
+                                        className="text-xs h-8 bg-muted/40 border-border rounded-xl"
+                                    />
+                                </div>
+
+                                <div className="pt-2 flex items-center justify-between border-t border-border/60">
+                                    <span className="text-[10px] font-bold text-foreground">🧬 채널 DNA 엄격 검증 모드</span>
+                                    <input 
+                                        type="checkbox"
+                                        checked={clonePreset.gatekeeper.channel_dna_strict_check}
+                                        onChange={(e) => setClonePreset({
+                                            ...clonePreset,
+                                            gatekeeper: { ...clonePreset.gatekeeper, channel_dna_strict_check: e.target.checked }
+                                        })}
+                                        className="rounded accent-indigo-600 h-4 w-4"
+                                    />
+                                </div>
+                            </CardContent>
                         </Card>
                     </div>
                 </div>

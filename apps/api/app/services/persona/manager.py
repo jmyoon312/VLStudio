@@ -34,38 +34,70 @@ class PersonaManager:
     def get_persona_config(self, channel_id: int) -> dict:
         """
         Retrieves the full production configuration for a specific channel persona.
-        Matches niche names from the database to the Persona Library.
+        Integrates with Channel Virtual Clone 6-Layer Preset as Single Source of Truth.
         """
+        from ..channel_clone_manager import channel_clone_manager
         channel = self.db.query(models.BrandChannel).filter(models.BrandChannel.id == channel_id).first()
-        if not channel:
-            return self._get_default_config()
-
-        # [NEW] Dynamic Niche Matching
-        target_niche = (channel.title or "").lower()
-        matched_niche = None
+        channel_title = channel.title if channel else f"채널 {channel_id}호기"
         
-        # Simple heuristic matching
+        # 1. First priority: 6-Layer Channel Clone Preset
+        preset = channel_clone_manager.get_clone_preset(channel_id, channel_title)
+        if preset:
+            return {
+                "channel_name": channel_title,
+                "persona_name": f"{preset.persona.tone_style} Persona",
+                "tone_of_voice": preset.persona.tone_style,
+                "speech_speed_wpm": preset.persona.speech_speed_wpm,
+                "forbidden_words": preset.persona.forbidden_words,
+                "clean_shield": preset.persona.clean_shield,
+                "tts_config": {
+                    "engine": preset.audio.engine,
+                    "voice_id": preset.audio.voice_id,
+                    "rate": preset.audio.speed_rate,
+                    "pitch": preset.audio.pitch_adjust,
+                    "bgm_ducking_db": preset.audio.bgm_ducking_db
+                },
+                "visual_style": {
+                    "engine": preset.visual.engine,
+                    "template": "portrait_9_16",
+                    "aspect_ratio": preset.visual.aspect_ratio,
+                    "lighting_style": preset.visual.lighting_style,
+                    "typography": preset.script_branch.active_typography_mix,
+                    "pacing": "Fast" if preset.script_branch.pacing_jab_interval_sec < 1.0 else "Moderate"
+                },
+                "capcut_config": {
+                    "font_family": preset.capcut.font_family,
+                    "highlight_color": preset.capcut.highlight_color,
+                    "bounce_animation": preset.capcut.bounce_animation
+                },
+                "stealth_required": True if (channel and (channel.warmup_stage or 0) < 30) else False,
+                "trust_score": channel.trust_score if channel else 0,
+                "autonomy_status": channel.autonomy_status if channel else "MANUAL"
+            }
+
+        # 2. Fallback heuristic matching
+        target_niche = (channel_title or "").lower()
+        matched_niche = None
         for niche in self.library.get("niches", []):
             if niche["id"] in target_niche or any(hook.lower() in target_niche for hook in niche.get("hooks", [])):
                 matched_niche = niche
                 break
         
         if not matched_niche:
-            # Fallback to senior if no match for the user's focus
             matched_niche = next((n for n in self.library.get("niches", []) if n["id"] == "senior_care"), None)
 
         if not matched_niche:
             return self._get_default_config()
 
         return {
-            "channel_name": channel.title,
+            "channel_name": channel_title,
             "persona_name": matched_niche.get("display_name"),
             "tone_of_voice": matched_niche.get("vibe", "informative"),
             "tts_config": {
-                "engine": "edge",
-                "voice_id": "ko-KR-SunHiNeural" if "senior" in target_niche else "ko-KR-InJoonNeural",
-                "rate": 0,
-                "pitch": 0
+                "engine": "ElevenLabs / Typecast / Supertonic",
+                "voice_id": "ko-KR-Standard-A",
+                "rate": "+15%",
+                "pitch": "+2Hz"
             },
             "visual_style": {
                 "template": matched_niche.get("remotion_template", "blur_bg"),
@@ -73,14 +105,14 @@ class PersonaManager:
                 "pacing": matched_niche.get("pacing", "Moderate"),
                 "motion_speed": 1.5 if matched_niche.get("pacing") == "Fast" else 1.2
             },
-            "stealth_required": True if (channel.warmup_stage or 0) < 30 else False,
-            "trust_score": channel.trust_score or 0,
-            "autonomy_status": channel.autonomy_status or "MANUAL"
+            "stealth_required": True if (channel and (channel.warmup_stage or 0) < 30) else False,
+            "trust_score": channel.trust_score if channel else 0,
+            "autonomy_status": channel.autonomy_status if channel else "MANUAL"
         }
 
     def _get_default_config(self):
         return {
-            "tone_of_voice": "general",
-            "tts_config": {"engine": "edge", "voice_id": "ko-KR-SunHiNeural"},
+            "tone_of_voice": "b_grade_meme",
+            "tts_config": {"engine": "ElevenLabs / Typecast / Supertonic", "voice_id": "ko-KR-Standard-A"},
             "visual_style": {"template": "portrait_9_16"}
         }
