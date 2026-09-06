@@ -76,22 +76,26 @@ class PluggableBrainRouter:
             return None
 
         # Resolve provider and model based on active brain ID
+        default_sys_model = getattr(settings, "script_analysis_model", None) or getattr(settings, "default_llm_model", None) or "viraloop1"
+        default_sys_provider = "omniroute"
+        if "/" in default_sys_model and not (default_sys_model.startswith("viraloop") or default_sys_model.startswith("youtube")):
+            default_sys_provider = default_sys_model.split("/")[0]
+
         if brain_id == "openclaude":
-            provider = settings.openclaude_provider or "google"
-            model_name = settings.openclaude_model or "gemini-2.0-flash"
+            provider = settings.openclaude_provider or default_sys_provider
+            model_name = settings.openclaude_model or default_sys_model
         elif brain_id == "gpt4o":
             provider = "openai"
             model_name = "gpt-4o"
         elif brain_id == "hermes":
-            provider = settings.hermes_agent_provider or "nvidia"
-            model_name = settings.hermes_agent_model or "hermes-v3"
+            provider = settings.hermes_agent_provider or default_sys_provider
+            model_name = settings.hermes_agent_model or default_sys_model
         elif brain_id == "openhands":
-            # For OpenHands, typically default to openclaude settings or sonnet
-            provider = settings.openclaude_provider or "anthropic"
-            model_name = settings.openclaude_model or "claude-3-5-sonnet-20240620"
+            provider = settings.openclaude_provider or default_sys_provider
+            model_name = settings.openclaude_model or default_sys_model
         else:
-            provider = settings.openclaude_provider or "google"
-            model_name = settings.openclaude_model or "gemini-2.0-flash"
+            provider = getattr(settings, "openclaude_provider", None) or default_sys_provider
+            model_name = getattr(settings, "openclaude_model", None) or default_sys_model
 
         return self._create_langchain_model(provider, model_name, settings)
 
@@ -245,10 +249,28 @@ class PluggableBrainRouter:
                 clean_url = str(omniroute_url).strip().rstrip("/")
                 v1_url = clean_url if clean_url.endswith("/v1") else f"{clean_url}/v1"
                 clean_model = model_name.split("/", 1)[1] if "/" in model_name else model_name
+                
+                # Dynamic OmniRoute Key Resolution
+                omni_key = api_key or getattr(settings, "omniroute_api_key", None) or os.getenv("OMNIROUTE_API_KEY")
+                if not omni_key:
+                    try:
+                        import sqlite3
+                        sqlite_path = os.path.expanduser(r"~/.omniroute/storage.sqlite")
+                        if os.path.exists(sqlite_path):
+                            with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
+                                s_cur = s_conn.cursor()
+                                s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
+                                row = s_cur.fetchone()
+                                if row and row[0]:
+                                    omni_key = row[0]
+                    except Exception as e:
+                        logger.debug(f"[BrainRouter] OmniRoute key lookup notice: {e}")
+                
+                omni_key = omni_key or "omniroute"
                 logger.info(f"🚀 [BrainRouter] Routing to OmniRoute gateway: {v1_url} with model: {clean_model}")
                 return ChatOpenAI(
                     model=clean_model,
-                    openai_api_key="omniroute",
+                    openai_api_key=omni_key,
                     openai_api_base=v1_url,
                     temperature=0.7
                 )
@@ -259,10 +281,27 @@ class PluggableBrainRouter:
                 clean_url = str(omniroute_url).strip().rstrip("/")
                 v1_url = clean_url if clean_url.endswith("/v1") else f"{clean_url}/v1"
                 clean_model = model_name.split("/", 1)[1] if "/" in model_name else model_name
+                
+                omni_key = api_key or getattr(settings, "omniroute_api_key", None) or os.getenv("OMNIROUTE_API_KEY")
+                if not omni_key:
+                    try:
+                        import sqlite3
+                        sqlite_path = os.path.expanduser(r"~/.omniroute/storage.sqlite")
+                        if os.path.exists(sqlite_path):
+                            with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
+                                s_cur = s_conn.cursor()
+                                s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
+                                row = s_cur.fetchone()
+                                if row and row[0]:
+                                    omni_key = row[0]
+                    except Exception as e:
+                        logger.debug(f"[BrainRouter] OmniRoute key lookup notice: {e}")
+                
+                omni_key = omni_key or "omniroute"
                 logger.info(f"[BrainRouter] Routing unlisted provider '{provider}' to OmniRoute fallback: {v1_url} ({clean_model})")
                 return ChatOpenAI(
                     model=clean_model,
-                    openai_api_key="omniroute",
+                    openai_api_key=omni_key,
                     openai_api_base=v1_url,
                     temperature=0.7
                 )

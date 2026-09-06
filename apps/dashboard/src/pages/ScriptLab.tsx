@@ -1579,7 +1579,6 @@ const ScriptLab = () => {
         {
             id: 'actions',
             header: '창작 연계',
-            size: 165,
             cell: ({ row }: any) => {
                 const v = row.original;
                 return (

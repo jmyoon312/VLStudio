@@ -367,6 +367,17 @@ class SettingsBase(BaseModel):
     hermes_reflection_verbosity: Optional[str] = None
     hermes_auto_reflection: Optional[bool] = None
     hermes_auto_update_enabled: Optional[bool] = None
+
+    # [Hermes Autonomous 5-Core Capabilities & Remote Control]
+    hermes_auto_skill_creation: Optional[bool] = True
+    hermes_skill_min_score: Optional[int] = 85
+    hermes_fts5_compression: Optional[bool] = True
+    hermes_max_subagents: Optional[int] = 3
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+    telegram_notify_enabled: Optional[bool] = False
+    cron_patrol_enabled: Optional[bool] = False
+    cron_patrol_schedule: Optional[str] = "08:30,18:30"
     
     # [NEW] Multi-Hub Granular Control
     paperclip_provider: Optional[str] = None

@@ -63,10 +63,11 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         mode: "AI_ORCHESTRATION",
         defaultExpanded: true,
         items: [
-            { name: '스튜디오 워룸 (가상 관제)', path: '/war-room', icon: Cpu, highlight: true },
+            { name: '스튜디오 워룸 & 일괄 대량 생산', path: '/war-room', icon: Cpu, highlight: true },
             { name: '파이프라인 빌더 & 랩', path: '/pipeline-builder', icon: GitBranch, highlight: true },
             { name: '에이전트 인력소 & 모델 설정', path: '/agent-roster', icon: Users },
-            { name: '스튜디오 브레인 & 기억고', path: '/brain-vault', icon: BrainCircuit },
+            { name: '채널 브레인 & 스킬 팩토리', path: '/brain-vault', icon: BrainCircuit, highlight: true },
+            { name: '자율 순찰 & 원격 관제실', path: '/autonomous-patrol', icon: Radio, highlight: true },
         ]
     },
 

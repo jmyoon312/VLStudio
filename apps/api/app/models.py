@@ -458,6 +458,17 @@ class Settings(Base):
     hermes_auto_reflection = Column(Boolean, default=True)
     hermes_auto_update_enabled = Column(Boolean, default=True)
     github_token = Column(String, nullable=True) # [NEW] GitHub Personal Access Token for Updates
+
+    # [Hermes Autonomous 5-Core Capabilities & Remote Control]
+    hermes_auto_skill_creation = Column(Boolean, default=True)
+    hermes_skill_min_score = Column(Integer, default=85)
+    hermes_fts5_compression = Column(Boolean, default=True)
+    hermes_max_subagents = Column(Integer, default=3)
+    telegram_bot_token = Column(String, nullable=True)
+    telegram_chat_id = Column(String, nullable=True)
+    telegram_notify_enabled = Column(Boolean, default=False)
+    cron_patrol_enabled = Column(Boolean, default=False)
+    cron_patrol_schedule = Column(String, default="08:30,18:30")
     
     # [NEW] Model Caching
     model_cache = Column(JSON, nullable=True)

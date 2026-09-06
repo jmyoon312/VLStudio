@@ -35,7 +35,7 @@ interface AIModelSelectorProps {
 
 // 1. Static Provider List (OmniRoute Unified Gateway)
 const PROVIDER_OPTIONS = [
-    { value: "youtube1", label: "OmniRoute (로컬 AI 통합 허브)" },
+    { value: "omniroute", label: "OmniRoute (로컬 AI 통합 허브)" },
 ];
 
 const AIModelSelector = ({
@@ -75,6 +75,9 @@ const AIModelSelector = ({
     const currentProviderModels = useMemo(() => {
         if (!fetchedModels) return [];
         let models = fetchedModels[provider] || [];
+        if (provider === 'omniroute' && models.length === 0) {
+            models = fetchedModels['youtube1'] || [];
+        }
         if (provider === 'ollama') {
             models = fetchedModels['ollama'] || [];
         }
@@ -185,7 +188,7 @@ const AIModelSelector = ({
                         <SelectContent>
                             {PROVIDER_OPTIONS.filter((opt) => {
                                 // Only display providers that have models loaded from user's keys
-                                return fetchedModels?.[opt.value]?.length > 0 || ['ollama', 'nvidia', 'xai', 'openai', 'anthropic', 'youtube1'].includes(opt.value);
+                                return fetchedModels?.[opt.value]?.length > 0 || ['ollama', 'nvidia', 'xai', 'openai', 'anthropic', 'omniroute', 'youtube1'].includes(opt.value);
                             }).map((opt) => (
                                 <SelectItem key={opt.value} value={opt.value} className={itemClass}>
                                     {opt.label}
@@ -274,15 +277,15 @@ const AIModelSelector = ({
                                 {filteredModels.length > 0 ? (
                                     <>
                                         {/* 1. Smart Router (auto/*) */}
-                                        {filteredModels.some((m: any) => m.value.includes('/auto') || m.value.includes('youtube1/auto')) && (
+                                        {filteredModels.some((m: any) => m.value.includes('/auto') || m.value.includes('/viraloop1')) && (
                                             <div className="px-2 py-1 text-[10px] font-bold text-primary bg-primary/5 uppercase tracking-wider">
-                                                ⭐ 스마트 라우터 (자동 최적화)
+                                                ⭐ 스마트 라우터 (자동 최적화 & 콤보)
                                             </div>
                                         )}
                                         {filteredModels
                                             .filter((opt: any) => {
-                                                const raw = opt.value.replace(/^youtube1\//, '');
-                                                return raw === 'auto' || raw.startsWith('auto/') || opt.value === 'youtube1/youtube1';
+                                                const raw = opt.value.replace(/^(omniroute|youtube1)\//, '');
+                                                return raw === 'auto' || raw.startsWith('auto/') || raw === 'viraloop1' || opt.value.endsWith('/viraloop1');
                                             })
                                             .map((opt: any) => (
                                                 <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "font-semibold")}>
@@ -290,10 +293,10 @@ const AIModelSelector = ({
                                                 </SelectItem>
                                             ))}
 
-                                        {/* 2. User-created Combos: slash-free names (e.g. viraloop1) */}
+                                        {/* 2. User-created Combos: slash-free names (e.g. custom combos) */}
                                         {filteredModels.some((m: any) => {
-                                            const raw = m.value.replace(/^youtube1\//, '');
-                                            return !raw.startsWith('auto') && !raw.includes('/');
+                                            const raw = m.value.replace(/^(omniroute|youtube1)\//, '');
+                                            return !raw.startsWith('auto') && raw !== 'viraloop1' && !raw.includes('/');
                                         }) && (
                                             <>
                                                 <div className="px-2 py-1 text-[10px] font-bold text-amber-500 bg-amber-500/5 uppercase tracking-wider mt-1 border-t border-border">
@@ -301,8 +304,8 @@ const AIModelSelector = ({
                                                 </div>
                                                 {filteredModels
                                                     .filter((opt: any) => {
-                                                        const raw = opt.value.replace(/^youtube1\//, '');
-                                                        return !raw.startsWith('auto') && !raw.includes('/');
+                                                        const raw = opt.value.replace(/^(omniroute|youtube1)\//, '');
+                                                        return !raw.startsWith('auto') && raw !== 'viraloop1' && !raw.includes('/');
                                                     })
                                                     .map((opt: any) => (
                                                         <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "text-amber-700 dark:text-amber-400 font-medium")}>

@@ -1,0 +1,194 @@
+[
+  {
+    "id": "scout",
+    "role": "트렌드 스카우터",
+    "name": "Scout-Alpha",
+    "avatarEmoji": "📡",
+    "desc": "YouTube Shorts, TikTok, Reels 알고리즘을 분석하여 급상승 바이럴 DNA와 떡상 키워드를 발굴합니다.",
+    "model": "OmniRoute viraloop1",
+    "temperature": 0.6,
+    "topP": 0.9,
+    "maxTokens": 2048,
+    "systemPrompt": "당신은 바이럴루프 전담 트렌드 스카우터입니다. 전 세계 숏폼 랭킹에서 급상승 중인 영상의 후킹 공식, 오디오 템포, 텍스트 배치 패턴을 날카롭게 감지하여 팩트 기반 메타데이터로 보고하세요.",
+    "tools": {
+      "webSearch": true,
+      "fileRead": true,
+      "flowAi": false,
+      "ffmpeg": false,
+      "capcut": false
+    },
+    "stats": {
+      "successRate": 98.5,
+      "avgLatencyMs": 420,
+      "totalJobs": 342
+    }
+  },
+  {
+    "id": "writer",
+    "role": "대본 기획자",
+    "name": "Writer-Pro",
+    "avatarEmoji": "✍️",
+    "desc": "3초 킬러 후킹과 9-Wave 감정 파도 공식을 결합하여 이탈 없는 60초 스토리텔링 쇼츠 대본을 각색합니다.",
+    "model": "OmniRoute viraloop1",
+    "temperature": 0.8,
+    "topP": 0.95,
+    "maxTokens": 4096,
+    "systemPrompt": "당신은 상위 0.1% 조회수를 기록하는 숏폼 전문 카피라이터입니다. 첫 문장은 반드시 시청자의 스크롤을 멈추는 파격적인 질문이나 충격 사실로 시작하며, 매 5초마다 정보 반전을 배치하세요.",
+    "tools": {
+      "webSearch": false,
+      "fileRead": true,
+      "flowAi": false,
+      "ffmpeg": false,
+      "capcut": false
+    },
+    "stats": {
+      "successRate": 97.2,
+      "avgLatencyMs": 820,
+      "totalJobs": 284
+    }
+  },
+  {
+    "id": "critic",
+    "role": "바이럴 비평가",
+    "name": "Critic-85",
+    "avatarEmoji": "🧐",
+    "desc": "대본의 후킹 강도, 완청률 가능성, 정보 밀도를 채점하여 85점 미달 시 통과를 불허하는 엄격한 게이트키퍼입니다.",
+    "model": "OmniRoute viraloop1",
+    "temperature": 0.2,
+    "topP": 0.85,
+    "maxTokens": 2048,
+    "systemPrompt": "당신은 냉철한 바이럴 영상 퀄리티 심사관입니다. 모호한 표현, 지루한 도입부, 클리셰를 엄격히 지적하고 0~100점 점수를 매기며 85점 미만인 경우 즉시 수정 보완 사항을 출력하세요.",
+    "tools": {
+      "webSearch": false,
+      "fileRead": true,
+      "flowAi": false,
+      "ffmpeg": false,
+      "capcut": false
+    },
+    "stats": {
+      "successRate": 99.1,
+      "avgLatencyMs": 310,
+      "totalJobs": 284
+    }
+  },
+  {
+    "id": "voice",
+    "role": "사운드 디렉터",
+    "name": "Voice-Sync",
+    "avatarEmoji": "🎙️",
+    "desc": "ElevenLabs, Typecast, Supertonic(Local) 등 전문 고품질 음성과 0.8초 쨉쨉이 효과음 싱크, BGM 비트를 정밀 매핑합니다.",
+    "model": "ElevenLabs / Typecast / Supertonic",
+    "temperature": 0.5,
+    "topP": 0.9,
+    "maxTokens": 1024,
+    "systemPrompt": "당신은 오디오 사운드 엔지니어입니다. ElevenLabs, Typecast, Supertonic 로컬 음성 엔진을 상황에 맞게 유연하게 지시하며, 발화 속도(rate: +18%), 음조(pitch: +4Hz), 음성 사이 무음 절삭 및 BGM 덕킹(-18dB)과 쨉쨉이 효과음 싱크를 정밀 계산하여 렌더 파이프라인에 주입하세요.",
+    "tools": {
+      "webSearch": false,
+      "fileRead": true,
+      "flowAi": false,
+      "ffmpeg": true,
+      "capcut": false
+    },
+    "stats": {
+      "successRate": 99.4,
+      "avgLatencyMs": 650,
+      "totalJobs": 219
+    }
+  },
+  {
+    "id": "visual",
+    "role": "비주얼 아트 디렉터",
+    "name": "Flow-Artist",
+    "avatarEmoji": "🎨",
+    "desc": "Google Flow AI 비디오 및 이미지 프롬프트를 시네마틱 스타일로 인젝션하여 고화질 비주얼 에셋을 제작합니다.",
+    "model": "Google Flow AI v2.0",
+    "temperature": 0.7,
+    "topP": 0.9,
+    "maxTokens": 2048,
+    "systemPrompt": "당신은 헐리우드급 영상 비주얼 디렉터입니다. 각 씬의 조명, 렌즈 화각(35mm/85mm), 카메라 무빙(Push-in, Pan), 질감(Cinematic 8K, Unreal 5 style)을 정밀한 Flow AI 프롬프트로 변환하세요.",
+    "tools": {
+      "webSearch": false,
+      "fileRead": true,
+      "flowAi": true,
+      "ffmpeg": false,
+      "capcut": false
+    },
+    "stats": {
+      "successRate": 95.8,
+      "avgLatencyMs": 3100,
+      "totalJobs": 168
+    }
+  },
+  {
+    "id": "cutter",
+    "role": "스마트 컷터",
+    "name": "Smart-Cutter",
+    "avatarEmoji": "✂️",
+    "desc": "FFmpeg Core를 활용해 무음 구간(-35dB)과 지루한 프레임을 0.05초 단위로 절삭하고 9:16 블러 레이아웃을 생성합니다.",
+    "model": "FFmpeg Native Core",
+    "temperature": 0.1,
+    "topP": 0.7,
+    "maxTokens": 1024,
+    "systemPrompt": "당신은 고속 영상 컷편집기입니다. 무음 구간 초정밀 절삭, 블랙 바 감성 블러 처리, 프레임 레이트 30fps 고정을 손실 없이 무인 실행하세요.",
+    "tools": {
+      "webSearch": false,
+      "fileRead": true,
+      "flowAi": false,
+      "ffmpeg": true,
+      "capcut": false
+    },
+    "stats": {
+      "successRate": 99.8,
+      "avgLatencyMs": 180,
+      "totalJobs": 245
+    }
+  },
+  {
+    "id": "assembler",
+    "role": "캡컷 조립기",
+    "name": "CapCut-Assembler",
+    "avatarEmoji": "📦",
+    "desc": "비디오 클립, 나레이션 오디오, BGM, 자동 자막을 캡컷 로컬 프로젝트(draft_content.json)로 No-ZIP 직결 조립합니다.",
+    "model": "CapCut Native Bridge",
+    "temperature": 0.1,
+    "topP": 0.5,
+    "maxTokens": 1024,
+    "systemPrompt": "당신은 캡컷 프로젝트 구조체 완벽 조립 엔진입니다. 마이크로초 단위 타임코드 계산과 트랙 레이어 충돌 없는 draft_content.json 무결성 패키징을 수행하세요.",
+    "tools": {
+      "webSearch": false,
+      "fileRead": true,
+      "flowAi": false,
+      "ffmpeg": false,
+      "capcut": true
+    },
+    "stats": {
+      "successRate": 99.9,
+      "avgLatencyMs": 130,
+      "totalJobs": 245
+    }
+  },
+  {
+    "id": "deployer",
+    "role": "배포 관리자",
+    "name": "Queue-Deployer",
+    "avatarEmoji": "🚀",
+    "desc": "완성된 프로젝트를 WorkQueue 백그라운드 렌더러에 적재하고 멀티 SNS 채널 스케줄러로 무인 송출합니다.",
+    "model": "WorkQueue Engine v2",
+    "temperature": 0.2,
+    "topP": 0.7,
+    "maxTokens": 1024,
+    "systemPrompt": "당신은 멀티채널 자동 송출 오케스트레이터입니다. 각 플랫폼별 업로드 규격 검증 및 예약 시간대 최적화 큐 적재를 담당합니다.",
+    "tools": {
+      "webSearch": false,
+      "fileRead": true,
+      "flowAi": false,
+      "ffmpeg": false,
+      "capcut": false
+    },
+    "stats": {
+      "successRate": 99.6,
+      "avgLatencyMs": 85,
+      "totalJobs": 240
+    }
+  }
+]

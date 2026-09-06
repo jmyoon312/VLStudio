@@ -185,16 +185,25 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
                 continue
 
         if primary_err:
-            logger.warning(f"[WARN] Primary agent model ({target_provider}/{clean_model}) failed on all keys: {primary_err}. Falling back to Gemini...")
-            try:
-                fallback_llm = brain_router._create_langchain_model("google", "gemini-2.0-flash", settings)
-                if not fallback_llm:
-                    raise ValueError("Failed to initialize fallback Gemini model.")
-                response = fallback_llm.invoke(messages)
-                response_text = response.content
-            except Exception as fallback_err:
-                logger.error(f"[FAIL] Fallback Gemini model also failed: {fallback_err}")
-                raise Exception(f"Primary error: {primary_err}. Fallback error: {fallback_err}")
+            logger.warning(f"[WARN] Primary model ({target_provider}/{clean_model}) failed: {primary_err}. Checking secondary DB settings model...")
+            secondary_model = getattr(settings, "default_llm_model", None)
+            if secondary_model and secondary_model != target_model:
+                try:
+                    sec_provider = "omniroute"
+                    if "/" in secondary_model and not (secondary_model.startswith("viraloop") or secondary_model.startswith("youtube")):
+                        sec_provider = secondary_model.split("/")[0]
+                    sec_clean = secondary_model.split("/", 1)[1] if "/" in secondary_model else secondary_model
+                    
+                    fallback_llm = brain_router._create_langchain_model(sec_provider, sec_clean, settings)
+                    if fallback_llm:
+                        response = fallback_llm.invoke(messages)
+                        response_text = response.content
+                        primary_err = None
+                except Exception as sec_err:
+                    logger.error(f"[FAIL] Secondary model ({secondary_model}) also failed: {sec_err}")
+            
+            if primary_err:
+                raise Exception(f"AI 엔진({target_provider}/{clean_model}) 응답 오류: {primary_err}")
         
         # Try to parse as JSON first; otherwise treat as plain chat reply
         if isinstance(response_text, str):
@@ -211,3 +220,63 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
     except Exception as e:
         logger.error(f"Agent Error: {e}")
         return AgentResponse(actions=[], message=f"Error: {str(e)}")
+
+
+class SpeakRequest(BaseModel):
+    text: str
+    voice: str = "ko-KR-SunHiNeural"
+    rate: str = "+18%"
+    pitch: str = "+4Hz"
+
+
+@router.post("/speak")
+async def speak_text(req: SpeakRequest):
+    """
+    High-Performance Neural TTS for Loopie Assistant.
+    Powered by Microsoft Edge Neural Voice (ko-KR-SunHiNeural, ko-KR-InJoonNeural).
+    Returns MP3 audio bytes directly for instant streaming playback.
+    """
+    import re
+    import io
+    import edge_tts
+    from fastapi.responses import Response
+
+    clean_text = req.text
+    # Strip markdown, URLs, code blocks, excessive symbols for clean speech
+    clean_text = re.sub(r'```.*?```', '', clean_text, flags=re.DOTALL)
+    clean_text = re.sub(r'`.*?`', '', clean_text)
+    clean_text = re.sub(r'https?://\S+', '', clean_text)
+    clean_text = re.sub(r'[*_~#>-]', '', clean_text)
+    clean_text = (
+        clean_text
+        .replace("ViraLoop", "바이럴루프")
+        .replace("Loopie", "루피")
+        .replace("OmniRoute", "옴니라우트")
+        .replace("CapCut", "캡컷")
+        .strip()
+    )
+
+    if not clean_text:
+        raise HTTPException(status_code=400, detail="Text is empty")
+
+    # For concise real-time voice speech, take the first 2-3 sentences if very long
+    if len(clean_text) > 280:
+        sentences = [s.strip() for s in re.split(r'(?<=[.?!])\s+', clean_text) if s.strip()]
+        clean_text = " ".join(sentences[:3])
+
+    voice = req.voice or "ko-KR-SunHiNeural"
+    rate = req.rate or "+18%"
+    pitch = req.pitch or "+4Hz"
+    try:
+        communicate = edge_tts.Communicate(clean_text, voice, rate=rate, pitch=pitch)
+        mp3_buffer = io.BytesIO()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                mp3_buffer.write(chunk["data"])
+
+        mp3_bytes = mp3_buffer.getvalue()
+        return Response(content=mp3_bytes, media_type="audio/mpeg")
+    except Exception as e:
+        logger.error(f"[Loopie Speak] Edge TTS failed: {e}")
+        raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
+

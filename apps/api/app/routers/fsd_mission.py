@@ -17,6 +17,9 @@ class MissionStartRequest(BaseModel):
     goal: str
     category_id: Optional[int] = None
     fsd_level: Optional[int] = 3
+    pipeline_id: Optional[str] = "full_generative_ai"
+    duration: Optional[str] = "60s"
+    source_url: Optional[str] = None
 
 @router.get("/status")
 @router.get("/status/", include_in_schema=False)
@@ -32,7 +35,10 @@ async def start_mission(req: MissionStartRequest, db: Session = Depends(get_db))
         db=db,
         goal=req.goal,
         category_id=req.category_id,
-        fsd_level=req.fsd_level or 3
+        fsd_level=req.fsd_level or 3,
+        pipeline_id=req.pipeline_id or "full_generative_ai",
+        duration=req.duration or "60s",
+        source_url=req.source_url
     )
 
 @router.post("/approve")

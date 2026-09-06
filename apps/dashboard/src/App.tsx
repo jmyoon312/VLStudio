@@ -46,6 +46,7 @@ const StudioWarRoom = lazy(() => import('./pages/StudioWarRoom'));
 const PipelineBuilderPage = lazy(() => import('./pages/PipelineBuilderPage'));
 const BrainVaultPage = lazy(() => import('./pages/BrainVaultPage'));
 const AgentRosterPage = lazy(() => import('./pages/AgentRosterPage'));
+const AutonomousPatrolPage = lazy(() => import('./pages/AutonomousPatrolPage'));
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
@@ -158,6 +159,7 @@ function MainAppContent() {
                     <Route path="/pipeline-builder" element={<RouteErrorBoundary><PipelineBuilderPage /></RouteErrorBoundary>} />
                     <Route path="/brain-vault" element={<RouteErrorBoundary><BrainVaultPage /></RouteErrorBoundary>} />
                     <Route path="/agent-roster" element={<RouteErrorBoundary><AgentRosterPage /></RouteErrorBoundary>} />
+                    <Route path="/autonomous-patrol" element={<RouteErrorBoundary><AutonomousPatrolPage /></RouteErrorBoundary>} />
                     <Route path="/download" element={<RouteErrorBoundary><DirectDownload /></RouteErrorBoundary>} />
 
                     {/* Fallback Missing Routes */}

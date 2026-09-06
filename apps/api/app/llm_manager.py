@@ -432,7 +432,26 @@ class LLMClient:
                 if not clean_base_url.endswith("/v1") and not clean_base_url.endswith("/chat/completions"):
                     clean_base_url = f"{clean_base_url}/v1"
 
-                keys_to_try = self.youtube1_keys if self.youtube1_keys else [getattr(self.settings, "ninerouter_api_key", None) or "sk-omniroute"]
+                keys_to_try = self.youtube1_keys if self.youtube1_keys else []
+                if not keys_to_try:
+                    db_k = getattr(self.settings, "omniroute_api_key", None) or getattr(self.settings, "ninerouter_api_key", None)
+                    if db_k:
+                        keys_to_try.append(db_k)
+                    else:
+                        try:
+                            import sqlite3
+                            sqlite_path = os.path.expanduser(r"~/.omniroute/storage.sqlite")
+                            if os.path.exists(sqlite_path):
+                                with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
+                                    s_cur = s_conn.cursor()
+                                    s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
+                                    row = s_cur.fetchone()
+                                    if row and row[0]:
+                                        keys_to_try.append(row[0])
+                        except Exception:
+                            pass
+                if not keys_to_try:
+                    keys_to_try = ["sk-omniroute"]
                 clean_model = model_name
                 for prefix in ["youtube1/", "omniroute/", "9router/"]:
                     if clean_model.startswith(prefix):
@@ -1115,18 +1134,34 @@ class LLMClient:
         return await self._fetch_openai_compatible_async(key, "https://opencode.ai/zen/v1", "opencode", fallback_models=fallback)
 
     async def _fetch_youtube1_models_async(self) -> list:
-        key = self.youtube1_keys[0] if self.youtube1_keys else (getattr(self.settings, "ninerouter_api_key", None) or "sk-omniroute")
+        key = self.youtube1_keys[0] if self.youtube1_keys else None
+        if not key:
+            try:
+                import sqlite3
+                sqlite_path = os.path.expanduser(r"~/.omniroute/storage.sqlite")
+                if os.path.exists(sqlite_path):
+                    with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
+                        s_cur = s_conn.cursor()
+                        s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
+                        row = s_cur.fetchone()
+                        if row and row[0]:
+                            key = row[0]
+            except Exception:
+                pass
+        key = key or getattr(self.settings, "ninerouter_api_key", None) or "sk-omniroute"
+
         fallback = [
-            {"value": "youtube1/auto", "label": "🎯 OmniRoute Auto (자동 최적화 & 무료 폴백)"},
-            {"value": "youtube1/auto/fast", "label": "⚡ OmniRoute Fast (초고속 응답)"},
-            {"value": "youtube1/auto/coding", "label": "🧑‍💻 OmniRoute Coding (대본 & 기획 특화)"},
-            {"value": "youtube1/auto/cheap", "label": "💰 OmniRoute Cheap (0원 무료 우선)"},
-            {"value": "youtube1/youtube1", "label": "Viraloop1 (로컬 통합 기본)"},
+            {"value": "omniroute/viraloop1", "label": "Viraloop1 (로컬 통합 기본)"},
+            {"value": "omniroute/auto", "label": "🎯 OmniRoute Auto (자동 최적화 & 무료 폴백)"},
+            {"value": "omniroute/auto/fast", "label": "⚡ OmniRoute Fast (초고속 응답)"},
+            {"value": "omniroute/auto/coding", "label": "🧑‍💻 OmniRoute Coding (대본 & 기획 특화)"},
+            {"value": "omniroute/auto/cheap", "label": "💰 OmniRoute Cheap (0원 무료 우선)"},
+            {"value": "youtube1/viraloop1", "label": "Viraloop1 (레거시 호환)"},
         ]
         if not key:
             return fallback
 
-        fetched = await self._fetch_openai_compatible_async(key, "http://localhost:20128/v1", "youtube1", fallback_models=fallback)
+        fetched = await self._fetch_openai_compatible_async(key, "http://localhost:20128/v1", "omniroute", fallback_models=fallback)
         
         seen = set()
         result = []
@@ -1135,22 +1170,25 @@ class LLMClient:
             result.append(c)
 
         for m in fetched:
-            val = m["value"]  # e.g. "youtube1/auto/best-coding" or "youtube1/viraloop1"
-            # Get the raw model id (strip "youtube1/" prefix)
-            raw_id = val[len("youtube1/"):] if val.startswith("youtube1/") else val
+            val = m["value"]
+            raw_id = val
+            for pfx in ["omniroute/", "youtube1/"]:
+                if raw_id.startswith(pfx):
+                    raw_id = raw_id[len(pfx):]
+                    break
 
             # ✅ ALLOW ONLY:
             # 1. auto/* smart router models  (e.g. "auto/best-coding", "auto")
             # 2. User-created Combos: simple names with NO slash (e.g. "viraloop1", "my-combo")
             is_auto_router = (raw_id == "auto" or raw_id.startswith("auto/"))
-            is_user_combo = ("/" not in raw_id)  # no slash = user-named combo
+            is_user_combo = ("/" not in raw_id)
             if not (is_auto_router or is_user_combo):
                 continue
 
-            if val not in seen:
-                seen.add(val)
-                result.append(m)
-
+            omni_val = f"omniroute/{raw_id}"
+            if omni_val not in seen:
+                seen.add(omni_val)
+                result.append({"value": omni_val, "label": m.get("label", raw_id)})
 
         return result
 

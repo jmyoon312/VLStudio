@@ -46,9 +46,12 @@ class HotPatcher {
       }
     }
 
+    const activeVersion = (isHotpatchActive && meta?.version) ? meta.version : (appVersion || (app ? app.getVersion() : '0.9.47'));
+    const activeBuildNumber = (isHotpatchActive && meta?.buildNumber) ? meta.buildNumber : (buildNumber || 1047);
+
     return {
-      appVersion: appVersion || (app ? app.getVersion() : '0.9.47'),
-      buildNumber: buildNumber || 1047,
+      appVersion: activeVersion,
+      buildNumber: activeBuildNumber,
       isHotpatchActive,
       hotpatchDir,
       meta,

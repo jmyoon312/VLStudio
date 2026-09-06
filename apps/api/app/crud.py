@@ -53,7 +53,16 @@ def get_settings(db: Session):
             hermes_wisdom_depth=3,
             hermes_reflection_verbosity="balanced",
             hermes_auto_reflection=True,
-            hermes_auto_update_enabled=True
+            hermes_auto_update_enabled=True,
+            hermes_auto_skill_creation=True,
+            hermes_skill_min_score=85,
+            hermes_fts5_compression=True,
+            hermes_max_subagents=3,
+            telegram_bot_token=None,
+            telegram_chat_id=None,
+            telegram_notify_enabled=False,
+            cron_patrol_enabled=False,
+            cron_patrol_schedule="08:30,18:30"
         )
         db.add(settings)
         db.commit()

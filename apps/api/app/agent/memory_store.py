@@ -79,6 +79,7 @@ class StudioMemoryStore:
     def save_soul(self, content: str):
         p = self.brain_dir / "soul.md"
         p.write_text(content, encoding="utf-8")
+        self._sync_fts()
 
     def get_memory(self) -> str:
         p = self.brain_dir / "memory.md"
@@ -89,11 +90,12 @@ class StudioMemoryStore:
         current = self.get_memory()
         updated = current.strip() + f"\n- {note}\n"
         p.write_text(updated, encoding="utf-8")
+        self._sync_fts()
 
     def list_skills(self) -> List[Dict[str, str]]:
         skills = []
         if self.skills_dir.exists():
-            for f in self.skills_dir.glob("*.md"):
+            for f in sorted(self.skills_dir.glob("*.md")):
                 skills.append({
                     "name": f.stem,
                     "filename": f.name,
@@ -106,7 +108,96 @@ class StudioMemoryStore:
         return p.read_text(encoding="utf-8") if p.exists() else None
 
     def save_skill(self, name: str, content: str):
-        p = self.skills_dir / f"{name}.md"
+        clean_name = name.strip().replace(" ", "_").replace(".md", "")
+        p = self.skills_dir / f"{clean_name}.md"
         p.write_text(content, encoding="utf-8")
+        self._sync_fts()
+
+    def delete_skill(self, name: str) -> bool:
+        clean_name = name.strip().replace(".md", "")
+        p = self.skills_dir / f"{clean_name}.md"
+        if p.exists():
+            p.unlink()
+            self._sync_fts()
+            return True
+        return False
+
+    # =========================================================================
+    # 🏢 Channel-Centric Isolated Skills & Playbooks (수십~수백 개 채널 격리)
+    # =========================================================================
+    def get_channel_skills_dir(self, channel_id: str) -> Path:
+        p = self.skills_dir / "channels" / str(channel_id)
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def list_channel_skills(self, channel_id: str) -> List[Dict[str, str]]:
+        c_dir = self.get_channel_skills_dir(channel_id)
+        skills = []
+        for f in sorted(c_dir.glob("*.md")):
+            skills.append({
+                "name": f.stem,
+                "filename": f.name,
+                "content": f.read_text(encoding="utf-8")
+            })
+        return skills
+
+    def get_channel_skill(self, channel_id: str, name: str) -> Optional[str]:
+        c_dir = self.get_channel_skills_dir(channel_id)
+        p = c_dir / f"{name}.md"
+        return p.read_text(encoding="utf-8") if p.exists() else None
+
+    def save_channel_skill(self, channel_id: str, name: str, content: str):
+        c_dir = self.get_channel_skills_dir(channel_id)
+        clean_name = name.strip().replace(" ", "_").replace(".md", "")
+        p = c_dir / f"{clean_name}.md"
+        p.write_text(content, encoding="utf-8")
+        # Index into Hermes FTS5 with channel_id
+        try:
+            from .hermes_session_store import hermes_session_store
+            doc_id = f"ch_{channel_id}_skill_{clean_name}"
+            hermes_session_store.index_item(
+                doc_id=doc_id,
+                category=f"Channel Skill (채널 {channel_id} 전용)",
+                title=f"[{clean_name}] 채널 {channel_id} 실전 스킬",
+                content=content,
+                tags=f"스킬,채널_{channel_id},{clean_name}",
+                channel_id=str(channel_id)
+            )
+        except Exception as e:
+            logger.debug(f"Channel skill FTS index skipped: {e}")
+
+    def delete_channel_skill(self, channel_id: str, name: str) -> bool:
+        c_dir = self.get_channel_skills_dir(channel_id)
+        clean_name = name.strip().replace(".md", "")
+        p = c_dir / f"{clean_name}.md"
+        if p.exists():
+            p.unlink()
+            return True
+        return False
+
+    def auto_mint_skill(self, name: str, playbook_text: str, score: float, min_score: float = 85.0) -> bool:
+        """
+        Hermes Autonomous Capability 1: Auto-mint SKILL.md when score meets or exceeds min_score.
+        """
+        if score < min_score:
+            logger.info(f"[Hermes Skill Mint] Score {score} below threshold {min_score}. Skipped.")
+            return False
+
+        header = f"# [Auto-Minted Skill] {name}\n- **생성 일시**: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n- **품질 검수 점수**: {score:.1f}점 (기준: {min_score}점 통과)\n\n"
+        self.save_skill(name, header + playbook_text)
+        logger.info(f"✨ [Hermes Skill Mint] Successfully auto-minted skill: {name}.md ({score:.1f}pts)")
+        return True
+
+    def _sync_fts(self):
+        try:
+            from .hermes_session_store import hermes_session_store
+            hermes_session_store.sync_memory_store(self.get_soul(), self.get_memory(), self.list_skills())
+        except Exception as e:
+            logger.debug(f"Hermes FTS sync skipped: {e}")
 
 memory_store = StudioMemoryStore()
+# Initial sync on module load
+try:
+    memory_store._sync_fts()
+except Exception:
+    pass

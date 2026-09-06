@@ -92,7 +92,7 @@ export async function startOmniRouteDaemon() {
   try {
     const isWin = process.platform === 'win32'
     const cmd = isWin ? 'cmd.exe' : 'omniroute'
-    const args = isWin ? ['/c', 'omniroute', 'serve'] : ['serve']
+    const args = isWin ? ['/c', 'omniroute', 'serve', '--daemon', '--no-open'] : ['serve', '--daemon', '--no-open']
 
     omnirouteProcess = spawn(cmd, args, {
       detached: false,

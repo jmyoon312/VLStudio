@@ -258,6 +258,15 @@ export interface Settings {
     netshare_ip?: string;
     netshare_port?: number;
     isp_proxy_url?: string;
+    hermes_auto_skill_creation?: boolean;
+    hermes_skill_min_score?: number;
+    hermes_fts5_compression?: boolean;
+    hermes_max_subagents?: number;
+    telegram_bot_token?: string | null;
+    telegram_chat_id?: string | null;
+    telegram_notify_enabled?: boolean;
+    cron_patrol_enabled?: boolean;
+    cron_patrol_schedule?: string;
     created_at: string;
 }
 
