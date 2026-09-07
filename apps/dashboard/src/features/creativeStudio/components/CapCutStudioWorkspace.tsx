@@ -514,7 +514,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   }, [canvasZoom]);
 
   const containerContent = (
-    <div className={`flex flex-col bg-[#0b0e14] text-slate-200 border border-border/60 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${isMaximized ? 'fixed inset-0 z-[99999] rounded-none border-none' : 'w-full h-[840px]'}`}>
+    <div className={`dark flex flex-col bg-[#0b0e14] text-slate-200 border border-white/10 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${isMaximized ? 'fixed inset-0 z-[99999] rounded-none border-none' : 'w-full h-[840px]'}`}>
       {/* ── 1. Pro Studio Top Header ── */}
       <div className="h-11 bg-[#121722] border-b border-white/10 px-4 flex items-center justify-between shrink-0 select-none">
         <div className="flex items-center gap-3">
@@ -700,7 +700,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
         </div>
 
         {/* Right: NLE Professional Inspector Tabs */}
-        <div className="w-[380px] lg:w-[420px] bg-[#121722] flex flex-col shrink-0 border-l border-white/10 select-none">
+        <div className="dark w-[380px] lg:w-[420px] bg-[#121722] flex flex-col shrink-0 border-l border-white/10 select-none">
           <Tabs value={activeInspectorTab} onValueChange={(v: any) => setActiveInspectorTab(v)} className="flex-1 flex flex-col h-full">
             <TabsList className="h-9 bg-black/40 border-b border-white/10 rounded-none grid grid-cols-7 p-0.5">
               <TabsTrigger value="script" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
@@ -1275,19 +1275,19 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
             <TabsContent value="subtitles" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
               {/* Header (이미지 레퍼런스 스타일) */}
               <div className="space-y-0.5">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Type className="w-3.5 h-3.5 text-blue-500" /> 자막 설정 (Subtitle Settings)
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-blue-400" /> 자막 설정 (Subtitle Settings)
                 </span>
-                <p className="text-[11px] text-muted-foreground">영상에 삽입될 자막의 스타일과 위치를 설정합니다.</p>
+                <p className="text-[11px] text-slate-400">영상에 삽입될 자막의 스타일과 위치를 설정합니다.</p>
               </div>
 
               {/* Enable Subtitles Toggle Card */}
-              <div className="p-3 rounded-xl bg-card border border-border flex items-center justify-between shadow-2xs">
+              <div className="p-3 rounded-xl bg-black/25 border border-white/10 flex items-center justify-between shadow-2xs">
                 <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
                     <span>📝</span> 자막 표시 (Enable Subtitles)
                   </div>
-                  <p className="text-[10.5px] text-muted-foreground">켜면 대본 내용을 영상에 자막으로 입힙니다.</p>
+                  <p className="text-[10.5px] text-slate-400">켜면 대본 내용을 영상에 자막으로 입힙니다.</p>
                 </div>
                 <Switch
                   checked={subtitleConfig?.enabled !== false}
@@ -1303,13 +1303,13 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
               {/* Selected Subtitle Cue Individual Editor */}
               {selectedSubtitleCue && (
-                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2">
+                <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-500/30 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                      <Type className="w-3 h-3 text-blue-500" />
+                    <span className="text-[11px] font-bold text-blue-400 flex items-center gap-1.5">
+                      <Type className="w-3 h-3 text-blue-400" />
                       선택된 자막 클립 (#{selectedSubtitleCue.id || '선택'})
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
+                    <span className="text-[10px] text-slate-400 font-mono">
                       {(selectedSubtitleCue.start / 1000).toFixed(1)}s ~ {(selectedSubtitleCue.end / 1000).toFixed(1)}s
                     </span>
                   </div>
@@ -1319,7 +1319,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       value={editingSubText}
                       onChange={(e) => setEditingSubText(e.target.value)}
                       placeholder="자막 텍스트를 직접 수정하세요..."
-                      className="min-h-[55px] text-xs bg-background border-border text-foreground rounded-lg focus:border-blue-400"
+                      className="min-h-[55px] text-xs bg-black/40 border-white/15 text-slate-100 placeholder:text-slate-500 rounded-lg focus:border-blue-400"
                     />
                     <Button
                       size="sm"
@@ -1343,24 +1343,24 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
               {/* Subtitle Template Presets */}
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                <Label className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
                   <span>⚡</span> 원클릭 캡컷 스타일 템플릿
                 </Label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('mrbeast')} className="h-8 text-[10.5px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/25">
+                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('mrbeast')} className="h-8 text-[10.5px] font-bold bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25">
                     🟡 미스터비스트
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('cinematic')} className="h-8 text-[10.5px] font-bold bg-slate-500/15 text-slate-700 dark:text-slate-200 border-slate-500/30 hover:bg-slate-500/25">
+                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('cinematic')} className="h-8 text-[10.5px] font-bold bg-slate-500/15 text-slate-200 border-slate-500/30 hover:bg-slate-500/25">
                     ⚪ 시네마틱
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('neon')} className="h-8 text-[10.5px] font-bold bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/25">
+                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('neon')} className="h-8 text-[10.5px] font-bold bg-cyan-500/15 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/25">
                     ⚡ 네온 글로우
                   </Button>
                 </div>
               </div>
 
               {/* Subtitle Detailed Config Panel (스타일 / 위치 / 효과 / 분절) */}
-              <div className="border-t border-border pt-2">
+              <div className="border-t border-white/10 pt-2">
                 {subtitleConfig && onSubtitleConfigChange && (
                   <SubtitleConfigPanel
                     config={subtitleConfig}
@@ -1593,25 +1593,25 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               {/* Header */}
               <div className="space-y-0.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Volume2 className="w-3.5 h-3.5 text-blue-500" /> 음성(TTS) & 오디오 설정
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Volume2 className="w-3.5 h-3.5 text-blue-400" /> 음성(TTS) & 오디오 설정
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-mono text-blue-500 border-blue-500/30">
+                  <Badge variant="outline" className="text-[10px] font-mono text-blue-400 border-blue-400/30">
                     {scenes.length}개 씬
                   </Badge>
                 </div>
-                <p className="text-[11px] text-muted-foreground">음성 합성 엔진(TTS)과 목소리 오디션 및 오디오/BGM 믹싱을 설정합니다.</p>
+                <p className="text-[11px] text-slate-400">음성 합성 엔진(TTS)과 목소리 오디션 및 오디오/BGM 믹싱을 설정합니다.</p>
               </div>
 
               {/* 1. Quick Batch Action Card (전체 씬 AI 음성 일괄 생성) */}
-              <div className="p-3 rounded-xl bg-card border border-border shadow-2xs space-y-2">
+              <div className="p-3 rounded-xl bg-black/25 border border-white/10 shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                      <Mic className="w-3.5 h-3.5 text-blue-500" />
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                      <Mic className="w-3.5 h-3.5 text-blue-400" />
                       <span>전체 씬 AI 음성 일괄 생성</span>
                     </div>
-                    <p className="text-[10.5px] text-muted-foreground">
+                    <p className="text-[10.5px] text-slate-400">
                       현재 설정된 목소리({localTTSConfig.engine} · {localTTSConfig.voice_id || '기본'})로 모든 씬의 음성과 자막을 생성합니다.
                     </p>
                   </div>
@@ -1622,7 +1622,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       onClick={onOpenPronunciationOptimizer}
                       disabled={scenes.length === 0 && !fullScript.trim()}
                       variant="outline"
-                      className="h-8 text-xs font-bold border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 gap-1.5 shadow-2xs"
+                      className="h-8 text-xs font-bold border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 gap-1.5 shadow-2xs"
                       title="TTS 생성 전 대본의 숫자/영어/어색한 발음을 표음 구어체로 자동 교정하고 좌우로 비교합니다"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-purple-400" />
@@ -1644,12 +1644,12 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </div>
 
               {/* 2. TTS Voice & Engine Detailed Configuration (TTSConfigPanel 통합) */}
-              <div className="p-3 rounded-xl bg-card border border-border shadow-2xs space-y-3">
-                <div className="flex items-center justify-between border-b border-border pb-2">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-black/25 border border-white/10 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                     <span>🎙️</span> TTS 음성 엔진 & 보이스 설정
                   </span>
-                  <Badge variant="secondary" className="text-[10px] font-mono bg-muted text-muted-foreground">
+                  <Badge variant="secondary" className="text-[10px] font-mono bg-white/10 text-slate-300">
                     {localTTSConfig.engine} · {localTTSConfig.language}
                   </Badge>
                 </div>
@@ -1666,9 +1666,9 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </div>
 
               {/* 3. Audio & BGM Mastering Card */}
-              <div className="p-3 rounded-xl bg-card border border-border shadow-2xs space-y-3">
-                <div className="border-b border-border pb-1.5 flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-black/25 border border-white/10 shadow-2xs space-y-3">
+                <div className="border-b border-white/10 pb-1.5 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                     <span>🎛️</span> 오디오 & BGM 마스터링
                   </span>
                 </div>
@@ -1676,8 +1676,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 {/* Voice Volume & Speed */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-[11px]">
-                    <span className="font-bold text-foreground">🎙️ 나레이션 (TTS) 볼륨</span>
-                    <span className="text-blue-500 font-bold">{voiceVolume}%</span>
+                    <span className="font-bold text-slate-200">🎙️ 나레이션 (TTS) 볼륨</span>
+                    <span className="text-blue-400 font-bold">{voiceVolume}%</span>
                   </div>
                   <Slider
                     value={[voiceVolume]}
@@ -1687,7 +1687,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                     onValueChange={([v]) => setVoiceVolume(v)}
                   />
 
-                  <Label className="text-[11px] font-bold text-muted-foreground pt-1 block">타임라인 배속 프리셋</Label>
+                  <Label className="text-[11px] font-bold text-slate-400 pt-1 block">타임라인 배속 프리셋</Label>
                   <div className="grid grid-cols-4 gap-1.5">
                     {['0.9x', '1.0x', '1.15x', '1.3x'].map((spd) => (
                       <Button
@@ -1695,7 +1695,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                         variant="outline"
                         size="sm"
                         onClick={() => onChangeSpeed?.(parseFloat(spd))}
-                        className="h-7 text-[10.5px] font-semibold bg-background border-border text-foreground hover:bg-muted"
+                        className="h-7 text-[10.5px] font-semibold bg-black/30 border-white/15 text-slate-200 hover:bg-white/10 hover:text-white"
                       >
                         {spd}
                       </Button>
@@ -1704,10 +1704,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 </div>
 
                 {/* BGM Volume & Ducking */}
-                <div className="space-y-2 pt-2 border-t border-border">
+                <div className="space-y-2 pt-2 border-t border-white/10">
                   <div className="flex justify-between text-[11px]">
-                    <span className="font-bold text-foreground">🎵 배경음악 (BGM) 볼륨</span>
-                    <span className="text-blue-500 font-bold">{bgmVolume}%</span>
+                    <span className="font-bold text-slate-200">🎵 배경음악 (BGM) 볼륨</span>
+                    <span className="text-blue-400 font-bold">{bgmVolume}%</span>
                   </div>
                   <Slider
                     value={[bgmVolume]}
@@ -1719,8 +1719,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
                   <div className="flex items-center justify-between pt-1">
                     <div className="space-y-0.5">
-                      <span className="text-[11px] font-semibold text-foreground">스마트 덕킹 (Smart Ducking)</span>
-                      <p className="text-[9.5px] text-muted-foreground">나레이션이 재생될 때 BGM 볼륨을 자동으로 낮춥니다.</p>
+                      <span className="text-[11px] font-semibold text-slate-200">스마트 덕킹 (Smart Ducking)</span>
+                      <p className="text-[9.5px] text-slate-400">나레이션이 재생될 때 BGM 볼륨을 자동으로 낮춥니다.</p>
                     </div>
                     <Switch
                       checked={bgmDucking}
@@ -1731,8 +1731,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
                   <div className="space-y-1 pt-1">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-foreground">BGM 페이드 인/아웃</span>
-                      <span className="text-blue-500 font-bold">{bgmFadeSec}초</span>
+                      <span className="text-slate-300">BGM 페이드 인/아웃</span>
+                      <span className="text-blue-400 font-bold">{bgmFadeSec}초</span>
                     </div>
                     <Slider
                       value={[bgmFadeSec]}

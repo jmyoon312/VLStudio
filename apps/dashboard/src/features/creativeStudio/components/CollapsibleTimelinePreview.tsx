@@ -479,7 +479,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
 
       {/* 2. CapCut Pro 3-Zone 통합 전문 NLE 스튜디오 렌더링 */}
       {isOpen && (
-        <div className="w-full bg-background flex flex-col relative overflow-hidden transition-all duration-300">
+        <div className="w-full flex flex-col relative overflow-hidden transition-all duration-300">
           <CapCutStudioWorkspace
             scenes={scenes}
             aspectRatio={aspectRatio}

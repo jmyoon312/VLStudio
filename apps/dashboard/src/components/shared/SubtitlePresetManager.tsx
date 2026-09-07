@@ -114,14 +114,14 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
     return (
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
-                <Button variant={activePreset ? "default" : "outline"} size="sm" className="h-7 text-xs gap-1.5 px-2">
-                    <FolderOpen className="w-3.5 h-3.5" />
+                <Button variant={activePreset ? "default" : "outline"} size="sm" className="h-7 text-xs gap-1.5 px-2 bg-black/30 border-white/15 text-slate-200 hover:bg-white/10 hover:text-white">
+                    <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
                     {activePreset ? activePreset.name : "프리셋"}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-72 p-0 bg-popover border-border text-popover-foreground shadow-lg" align="end">
-                <div className="p-3 border-b border-border flex items-center justify-between bg-muted/30">
-                    <h4 className="font-bold text-xs text-foreground">자막 스타일 프리셋</h4>
+            <DropdownMenuContent className="w-72 p-0 bg-[#161c28] border-white/15 text-slate-200 shadow-xl" align="end">
+                <div className="p-3 border-b border-white/10 flex items-center justify-between bg-black/30">
+                    <h4 className="font-bold text-xs text-slate-200">자막 스타일 프리셋</h4>
                     <Button
                         variant="ghost"
                         size="sm"

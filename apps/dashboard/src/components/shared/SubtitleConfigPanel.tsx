@@ -83,7 +83,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
         <div className={cn("w-full transition-all text-[11px]", compact ? "p-0" : "p-4")}>
             {/* Header for Subtitle Config Panel */}
             <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-foreground">자막 상세 설정</span>
+                <span className="text-xs font-bold text-slate-200">자막 상세 설정</span>
                 <SubtitlePresetManager
                     currentConfig={localConfig}
                     onLoad={handlePresetLoad}
@@ -91,11 +91,11 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
             </div>
 
             <Tabs defaultValue="style" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 mb-2.5 h-8 bg-muted/60 p-0.5 border border-border/60 rounded-lg">
-                    <TabsTrigger value="style" title="스타일" className="text-[10px] h-7 px-1 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-2xs font-semibold"><Palette className="w-3.5 h-3.5 mr-1 text-purple-500" /> 스타일</TabsTrigger>
-                    <TabsTrigger value="layout" title="배경/위치" className="text-[10px] h-7 px-1 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-2xs font-semibold"><Layout className="w-3.5 h-3.5 mr-1 text-blue-500" /> 위치</TabsTrigger>
-                    <TabsTrigger value="anim" title="애니메이션" className="text-[10px] h-7 px-1 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-2xs font-semibold"><Move className="w-3.5 h-3.5 mr-1 text-emerald-500" /> 효과</TabsTrigger>
-                    <TabsTrigger value="segment" title="분절" className="text-[10px] h-7 px-1 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-2xs font-semibold"><Scissors className="w-3.5 h-3.5 mr-1 text-amber-500" /> 분절</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-4 mb-2.5 h-8 bg-black/40 p-0.5 border border-white/10 rounded-lg">
+                    <TabsTrigger value="style" title="스타일" className="text-[10px] h-7 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-400 hover:text-slate-200 font-semibold"><Palette className="w-3.5 h-3.5 mr-1 text-purple-400" /> 스타일</TabsTrigger>
+                    <TabsTrigger value="layout" title="배경/위치" className="text-[10px] h-7 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-400 hover:text-slate-200 font-semibold"><Layout className="w-3.5 h-3.5 mr-1 text-blue-400" /> 위치</TabsTrigger>
+                    <TabsTrigger value="anim" title="애니메이션" className="text-[10px] h-7 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-400 hover:text-slate-200 font-semibold"><Move className="w-3.5 h-3.5 mr-1 text-emerald-400" /> 효과</TabsTrigger>
+                    <TabsTrigger value="segment" title="분절" className="text-[10px] h-7 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-xs text-slate-400 hover:text-slate-200 font-semibold"><Scissors className="w-3.5 h-3.5 mr-1 text-amber-400" /> 분절</TabsTrigger>
                 </TabsList>
 
                 {/* --- 1. Style Tab --- */}
@@ -103,17 +103,17 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                     {/* Font & Size */}
                     <div className="grid grid-cols-5 gap-2 items-end">
                         <div className="col-span-3 space-y-1">
-                            <Label className="text-[10.5px] text-muted-foreground font-semibold">폰트 (Font)</Label>
+                            <Label className="text-[10.5px] text-slate-400 font-semibold">폰트 (Font)</Label>
                             <Select
                                 value={localConfig.font}
                                 onValueChange={(v) => updateInstant('font', v)}
                             >
-                                <SelectTrigger className="h-8 text-[11px] bg-background border-border text-foreground">
+                                <SelectTrigger className="h-8 text-[11px] bg-black/30 border-white/15 text-slate-200 focus:ring-1 focus:ring-blue-500">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="bg-popover border-border text-popover-foreground">
+                                <SelectContent className="bg-[#161c28] border-white/15 text-slate-200">
                                     {KOREAN_FONTS.map(f => (
-                                        <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }} className="text-xs">
+                                        <SelectItem key={f.value} value={f.value} style={{ fontFamily: f.value }} className="text-xs text-slate-200 focus:bg-blue-600 focus:text-white">
                                             {f.label}
                                         </SelectItem>
                                     ))}
@@ -122,8 +122,8 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                         </div>
                         <div className="col-span-2 space-y-1">
                             <div className="flex justify-between items-center">
-                                <Label className="text-[10.5px] text-muted-foreground font-semibold">크기 (CapCut)</Label>
-                                <span className="text-[10px] text-foreground font-mono font-bold">{localConfig.fontSize}px</span>
+                                <Label className="text-[10.5px] text-slate-400 font-semibold">크기 (CapCut)</Label>
+                                <span className="text-[10px] text-slate-200 font-mono font-bold">{localConfig.fontSize}px</span>
                             </div>
                             <Slider
                                 value={[localConfig.fontSize]}
@@ -135,56 +135,56 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                     </div>
 
                     {/* Colors & Toggles */}
-                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/40 border border-border">
+                    <div className="flex items-center gap-2 p-1.5 rounded-lg bg-black/30 border border-white/10">
                         <input
                             type="color"
                             value={localConfig.textColor}
                             onChange={(e) => updateDebounced('textColor', e.target.value)}
-                            className="w-5 h-5 rounded cursor-pointer border border-border/60 bg-transparent shrink-0"
+                            className="w-5 h-5 rounded cursor-pointer border border-white/20 bg-transparent shrink-0"
                             title="텍스트 색상"
                         />
-                        <span className="text-[10px] text-muted-foreground font-mono flex-1">{localConfig.textColor.toUpperCase()}</span>
+                        <span className="text-[10px] text-slate-400 font-mono flex-1">{localConfig.textColor.toUpperCase()}</span>
 
-                        <div className="h-4 w-px bg-border mx-1" />
+                        <div className="h-4 w-px bg-white/15 mx-1" />
 
                         {/* Alignment */}
                         <div className="flex gap-0.5">
                             <button
                                 onClick={() => updateInstant('textAlign', 'left')}
-                                className={cn("p-1 rounded transition-colors", localConfig.textAlign === 'left' ? "bg-background text-foreground border border-border shadow-xs" : "hover:bg-muted text-muted-foreground")}
+                                className={cn("p-1 rounded transition-colors", localConfig.textAlign === 'left' ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-slate-200 hover:bg-white/5")}
                                 title="왼쪽 정렬"
                             >
                                 <AlignJustify className="w-3.5 h-3.5" />
                             </button>
                             <button
                                 onClick={() => updateInstant('textAlign', 'center')}
-                                className={cn("p-1 rounded transition-colors", (localConfig.textAlign === 'center' || !localConfig.textAlign) ? "bg-background text-foreground border border-border shadow-xs" : "hover:bg-muted text-muted-foreground")}
+                                className={cn("p-1 rounded transition-colors", (localConfig.textAlign === 'center' || !localConfig.textAlign) ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-slate-200 hover:bg-white/5")}
                                 title="가운데 정렬"
                             >
                                 <AlignCenter className="w-3.5 h-3.5" />
                             </button>
                             <button
                                 onClick={() => updateInstant('textAlign', 'right')}
-                                className={cn("p-1 rounded transition-colors", localConfig.textAlign === 'right' ? "bg-background text-foreground border border-border shadow-xs" : "hover:bg-muted text-muted-foreground")}
+                                className={cn("p-1 rounded transition-colors", localConfig.textAlign === 'right' ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-slate-200 hover:bg-white/5")}
                                 title="오른쪽 정렬"
                             >
                                 <AlignJustify className="w-3.5 h-3.5 scale-x-[-1]" />
                             </button>
                         </div>
 
-                        <div className="h-4 w-px bg-border mx-1" />
+                        <div className="h-4 w-px bg-white/15 mx-1" />
 
                         <div className="flex gap-0.5">
                             <button
                                 onClick={() => updateInstant('isBold', !localConfig.isBold)}
-                                className={cn("p-1 rounded transition-colors", localConfig.isBold ? "bg-background text-foreground border border-border shadow-xs font-bold" : "hover:bg-muted text-muted-foreground")}
+                                className={cn("p-1 rounded transition-colors", localConfig.isBold ? "bg-blue-600 text-white shadow-xs font-bold" : "text-slate-400 hover:text-slate-200 hover:bg-white/5")}
                                 title="굵게"
                             >
                                 <Bold className="w-3.5 h-3.5" />
                             </button>
                             <button
                                 onClick={() => updateInstant('isItalic', !localConfig.isItalic)}
-                                className={cn("p-1 rounded transition-colors", localConfig.isItalic ? "bg-background text-foreground border border-border shadow-xs italic" : "hover:bg-muted text-muted-foreground")}
+                                className={cn("p-1 rounded transition-colors", localConfig.isItalic ? "bg-blue-600 text-white shadow-xs italic" : "text-slate-400 hover:text-slate-200 hover:bg-white/5")}
                                 title="기울임"
                             >
                                 <Italic className="w-3.5 h-3.5" />
@@ -195,9 +195,9 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                     {/* Outline */}
                     <div className="space-y-1 pt-1">
                         <div className="flex justify-between items-center">
-                            <Label className="text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium">
+                            <Label className="text-[10px] text-slate-400 flex items-center gap-1.5 font-medium">
                                 <div
-                                    className="w-2.5 h-2.5 rounded-full border border-border shadow-2xs"
+                                    className="w-2.5 h-2.5 rounded-full border border-white/20 shadow-2xs"
                                     style={{ backgroundColor: localConfig.outlineColor }}
                                 />
                                 외곽선 (Outline)
@@ -209,7 +209,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                                 className="w-0 h-0 opacity-0 absolute"
                                 id="outline-color-picker"
                             />
-                            <Label htmlFor="outline-color-picker" className="text-[9.5px] text-blue-500 dark:text-blue-400 cursor-pointer hover:underline font-semibold">색상변경</Label>
+                            <Label htmlFor="outline-color-picker" className="text-[9.5px] text-blue-400 cursor-pointer hover:underline font-semibold">색상변경</Label>
                         </div>
                         <div className="flex items-center gap-2">
                             <Slider
@@ -218,16 +218,16 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                                 onValueChange={(v) => updateDebounced('outlineSize', v[0])}
                                 className="flex-1"
                             />
-                            <span className="text-[9.5px] w-5 text-right font-mono text-foreground font-semibold">{localConfig.outlineSize}</span>
+                            <span className="text-[9.5px] w-5 text-right font-mono text-slate-200 font-semibold">{localConfig.outlineSize}</span>
                         </div>
                     </div>
 
                     {/* Shadow */}
-                    <div className="space-y-1 pt-1 border-t border-dashed border-border/60">
+                    <div className="space-y-1 pt-1 border-t border-dashed border-white/10">
                         <div className="flex justify-between items-center">
-                            <Label className="text-[10px] text-muted-foreground flex items-center gap-1.5 font-medium">
+                            <Label className="text-[10px] text-slate-400 flex items-center gap-1.5 font-medium">
                                 <div
-                                    className="w-2.5 h-2.5 rounded-full border border-border shadow-2xs"
+                                    className="w-2.5 h-2.5 rounded-full border border-white/20 shadow-2xs"
                                     style={{ backgroundColor: localConfig.shadowColor }}
                                 />
                                 그림자 (Shadow)
@@ -239,7 +239,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                                 className="w-0 h-0 opacity-0 absolute"
                                 id="shadow-color-picker"
                             />
-                            <Label htmlFor="shadow-color-picker" className="text-[9.5px] text-blue-500 dark:text-blue-400 cursor-pointer hover:underline font-semibold">색상변경</Label>
+                            <Label htmlFor="shadow-color-picker" className="text-[9.5px] text-blue-400 cursor-pointer hover:underline font-semibold">색상변경</Label>
                         </div>
                         <div className="flex items-center gap-2">
                             <Slider
@@ -248,7 +248,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                                 onValueChange={(v) => updateDebounced('shadowSize', v[0])}
                                 className="flex-1"
                             />
-                            <span className="text-[9.5px] w-5 text-right font-mono text-foreground font-semibold">{localConfig.shadowSize}</span>
+                            <span className="text-[9.5px] w-5 text-right font-mono text-slate-200 font-semibold">{localConfig.shadowSize}</span>
                         </div>
                     </div>
                 </TabsContent>
