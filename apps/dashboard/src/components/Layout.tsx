@@ -147,13 +147,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 localStorage.setItem('layoutSettings', JSON.stringify({ mode: targetMode, ratio: currentRatio }));
                 apiObj?.setLayout?.({ mode: targetMode, ratio: currentRatio });
                 setIsFlowHidden(false);
-                toast.success('Flow 브라우저 창을 표시합니다.');
                 syncViewsAndProfiles();
             } else {
                 localStorage.setItem('layoutSettings', JSON.stringify({ mode: 'hidden', ratio: currentRatio }));
                 apiObj?.setLayout?.({ mode: 'hidden', ratio: currentRatio });
                 setIsFlowHidden(true);
-                toast.info('Flow 브라우저 창을 숨겼습니다. (스튜디오 전체화면)');
             }
         } catch (e) {
             console.warn(e);
@@ -948,7 +946,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             </nav>
 
 
-            <Toaster position="top-right" richColors />
+            <Toaster position="bottom-right" richColors />
 
         </div>
     );

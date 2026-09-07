@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, LayoutGrid, MonitorPlay, X, LayoutPanelLeft, LayoutPanelTop, CheckCircle2, Layers, Eye, EyeOff, RotateCw, Home, Maximize2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Pencil, LayoutGrid, MonitorPlay, X, LayoutPanelLeft, LayoutPanelTop, CheckCircle2, Layers, Eye, EyeOff, RotateCw, Home, Maximize2, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,12 @@ export default function MultiWindowController({
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [newName, setNewName] = useState("");
     const [newEmail, setNewEmail] = useState("");
+
+    // Edit Modal State
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editEmail, setEditEmail] = useState("");
 
     const ref = useRef<HTMLDivElement>(null);
 
@@ -208,6 +214,68 @@ export default function MultiWindowController({
         }
     };
 
+    const handleStartEdit = (p: Profile, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        setEditingProfile(p);
+        setEditName(p.name);
+        setEditEmail(p.email || "");
+        setIsEditOpen(true);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingProfile) return;
+        if (!editName.trim()) {
+            toast({ variant: "destructive", title: "입력 오류", description: "프로필 이름을 입력해주세요." });
+            return;
+        }
+        try {
+            const apiObj = (window as any).electronAPI;
+            const result = await apiObj?.updateProfile?.({
+                profileId: editingProfile.id,
+                name: editName.trim(),
+                email: editEmail.trim()
+            });
+            if (result && result.success) {
+                toast({ title: "수정 완료", description: `'${editName.trim()}' 프로필 정보가 수정되었습니다.` });
+                setIsEditOpen(false);
+                setEditingProfile(null);
+                await loadProfilesList();
+                await loadProfileUsage();
+                syncViewsAndProfiles();
+            } else {
+                toast({ variant: "destructive", title: "수정 실패", description: result?.error || "프로필을 수정할 수 없습니다." });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "수정 에러", description: err.message });
+        }
+    };
+
+    const handleDeleteProfile = async (p: Profile, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        if (p.id === 'default') {
+            toast({ variant: "destructive", title: "삭제 불가", description: "기본 프로필은 삭제할 수 없습니다." });
+            return;
+        }
+        if (!confirm(`'${p.name}' 계정 프로필을 삭제하시겠습니까?\n해당 계정의 독립 세션/캐시도 함께 삭제됩니다.`)) return;
+        try {
+            const apiObj = (window as any).electronAPI;
+            const result = await apiObj?.deleteProfile?.({ profileId: p.id });
+            if (result && result.success) {
+                toast({ title: "삭제 완료", description: `'${p.name}' 프로필이 삭제되었습니다.` });
+                if (p.id === activeProfileId) {
+                    await handleSwitchWindow('default');
+                }
+                await loadProfilesList();
+                await loadProfileUsage();
+                syncViewsAndProfiles();
+            } else {
+                toast({ variant: "destructive", title: "삭제 실패", description: result?.error || "프로필을 삭제할 수 없습니다." });
+            }
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "삭제 에러", description: err.message });
+        }
+    };
+
     const flowTabs = tabs.filter(t => t.path === '/creative-studio' || t.path === '/flow2capcut');
     const displayTabs = flowTabs.length > 0 ? flowTabs : tabs;
     const conflictingItem = profileUsage.find(u => !u.isCurrentWindow && u.profileId === activeProfileId);
@@ -348,19 +416,22 @@ export default function MultiWindowController({
                                                     </span>
                                                 )}
 
+                                                {/* 수정 버튼 */}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => handleStartEdit(p, e)}
+                                                    className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
+                                                    title="프로필 정보 수정"
+                                                >
+                                                    <Pencil className="w-3 h-3" />
+                                                </button>
+
+                                                {/* 삭제 버튼 (기본 프로필은 삭제 불가) */}
                                                 {p.id !== 'default' && (
                                                     <button
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation();
-                                                            if (!confirm(`'${p.name}' 계정 프로필을 삭제하시겠습니까?`)) return;
-                                                            const apiObj = (window as any).electronAPI;
-                                                            await apiObj?.deleteProfile?.({ profileId: p.id });
-                                                            await loadProfilesList();
-                                                            await loadProfileUsage();
-                                                            await syncViewsAndProfiles();
-                                                            toast({ title: "계정 삭제 완료", description: "프로필이 삭제되었습니다." });
-                                                        }}
-                                                        className="p-1 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        type="button"
+                                                        onClick={(e) => handleDeleteProfile(p, e)}
+                                                        className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
                                                         title="계정 삭제"
                                                     >
                                                         <Trash2 className="w-3 h-3" />
@@ -459,6 +530,40 @@ export default function MultiWindowController({
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsCreateOpen(false)}>취소</Button>
                         <Button onClick={handleCreate}>추가하기</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Account Modal */}
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>계정 프로필 수정</DialogTitle>
+                        <DialogDescription>
+                            Flow 계정 프로필의 이름과 이메일을 수정합니다.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <span className="text-sm font-medium">프로필 이름</span>
+                            <Input 
+                                value={editName} 
+                                onChange={e => setEditName(e.target.value)} 
+                                placeholder="예: 메인 계정, 서브채널 1 등" 
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <span className="text-sm font-medium">계정 이메일 (선택)</span>
+                            <Input 
+                                value={editEmail} 
+                                onChange={e => setEditEmail(e.target.value)} 
+                                placeholder="예: sub@gmail.com" 
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditOpen(false)}>취소</Button>
+                        <Button onClick={handleSaveEdit}>저장하기</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
