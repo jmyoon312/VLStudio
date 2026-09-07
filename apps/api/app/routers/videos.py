@@ -338,9 +338,7 @@ def download_video(download_req: DownloadRequest, background_tasks: BackgroundTa
         profile_path = os.path.join(download_root, "profile.jpg")
         if not os.path.exists(profile_path):
             try:
-                print(f"Downloading profile image for {channel_name}...")
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(channel_thumbnail, headers=headers, timeout=10, proxies={'http': 'socks5://127.0.0.1:1080', 'https': 'socks5://127.0.0.1:1080'})
+                response = requests.get(channel_thumbnail, headers=headers, timeout=5)
                 if response.status_code == 200:
                     with open(profile_path, 'wb') as f:
                         f.write(response.content)
@@ -650,7 +648,8 @@ def read_video(video_id: int, db: Session = Depends(database.get_db)):
         
     return video
 
-@router.get("/", response_model=List[schemas.Video])
+@router.get("", response_model=List[schemas.Video])
+@router.get("/", response_model=List[schemas.Video], include_in_schema=False)
 def read_videos(
     skip: int = 0, 
     limit: int = 100, 

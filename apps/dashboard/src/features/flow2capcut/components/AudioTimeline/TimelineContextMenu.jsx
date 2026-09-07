@@ -36,19 +36,30 @@ export const TimelineContextMenu = ({
   const menuRef = useRef(null);
 
   useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        onClose();
-      }
-    };
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('pointerdown', handleOutsideClick);
-    window.addEventListener('keydown', handleKeyDown);
+    // 다음 틱에 바깥 클릭 리스너를 등록하여 우클릭 이벤트와의 레이스 컨디션 방지
+    const timer = setTimeout(() => {
+      const handleOutsideClick = (e) => {
+        if (menuRef.current && !menuRef.current.contains(e.target)) {
+          onClose();
+        }
+      };
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') onClose();
+      };
+      window.addEventListener('pointerdown', handleOutsideClick);
+      window.addEventListener('keydown', handleKeyDown);
+
+      cleanupRef.current = () => {
+        window.removeEventListener('pointerdown', handleOutsideClick);
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }, 10);
+
+    const cleanupRef = { current: null };
+
     return () => {
-      window.removeEventListener('pointerdown', handleOutsideClick);
-      window.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(timer);
+      cleanupRef.current?.();
     };
   }, [onClose]);
 
@@ -63,15 +74,16 @@ export const TimelineContextMenu = ({
   const isSfx = clip?.role === 'sfx';
 
   // Adjust menu position so it doesn't overflow screen
-  const menuWidth = 220;
-  const menuHeight = 260;
+  const menuWidth = 230;
+  const menuHeight = 280;
   const posX = Math.min(window.innerWidth - menuWidth - 10, Math.max(10, target.x));
   const posY = Math.min(window.innerHeight - menuHeight - 10, Math.max(10, target.y));
 
   return (
     <div
       ref={menuRef}
-      className="fixed z-[999999] bg-[#141923]/98 backdrop-blur-xl border border-white/15 rounded-xl shadow-2xl p-1.5 min-w-[210px] text-slate-200 text-xs select-none animate-in fade-in zoom-in-95 duration-100"
+      onPointerDown={(e) => e.stopPropagation()}
+      className="fixed z-[999999] bg-[#10141e]/98 backdrop-blur-2xl border border-white/20 rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.8)] p-1.5 min-w-[220px] text-slate-200 text-xs select-none animate-in fade-in zoom-in-95 duration-75 ring-1 ring-white/10"
       style={{ left: posX, top: posY }}
     >
       {/* Header with target info */}

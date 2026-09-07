@@ -18,9 +18,12 @@ function ClipGeneratingTimer({ startedAt, endedAt }) {
 // 클립 — click vs drag 자동 구분, draggable이면 드래그로 timecode 보정
 // onFlag(audioPath, filename, event): hover ⚠️ 버튼 클릭 시 호출 (audioPath 있고 onFlag 전달된 경우만)
 // isFlagged(filePath): bool — flagged 시각 표시
-export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDoubleClickClip, onDragClip, totalDurationMs, isPlaying, onSceneHover, onFlag, isFlagged, onToggleVideo, onInteractionChange, onClipContextMenu }) {
+export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDoubleClickClip, onDragClip, onTrimClip, totalDurationMs, isPlaying, onSceneHover, onFlag, isFlagged, onToggleVideo, onInteractionChange, onClipContextMenu }) {
   const [dragOffsetMs, setDragOffsetMs] = useState(null)
+  const [trimLeftOffsetMs, setTrimLeftOffsetMs] = useState(0)
+  const [trimRightOffsetMs, setTrimRightOffsetMs] = useState(0)
   const isDragging = dragOffsetMs !== null
+  const isTrimming = trimLeftOffsetMs !== 0 || trimRightOffsetMs !== 0
   const flagged = !!(isFlagged && clip.audioPath && isFlagged(clip.audioPath))
   // audioPath 있으면 audio clip — sub-track은 variant가 없어서 audioPath로 판정
   const showActionable = !!clip.audioPath && !!onFlag
@@ -63,9 +66,10 @@ export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDo
     onDoubleClickClip(clip)
   }
 
-  const visualStartMs = clip.startMs + (dragOffsetMs || 0)
+  const visualStartMs = Math.max(0, clip.startMs + (dragOffsetMs || 0) + trimLeftOffsetMs)
+  const visualEndMs = Math.max(visualStartMs + 200, clip.endMs + trimRightOffsetMs)
   const left = visualStartMs * pxPerMs
-  const width = Math.max(2, (clip.endMs - clip.startMs) * pxPerMs)
+  const width = Math.max(4, (visualEndMs - visualStartMs) * pxPerMs)
   const style = {
     left,
     width,
@@ -76,8 +80,80 @@ export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDo
       : `linear-gradient(180deg, ${clip.color}, ${clip.color}88)`,
     border: variant === 'text' ? `1px solid ${clip.color}` : `1px solid ${clip.color}AA`,
     cursor: clip.draggable ? (isDragging ? 'grabbing' : 'grab') : 'pointer',
-    opacity: isDragging ? 0.7 : 1,
-    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging || isTrimming ? 0.75 : 1,
+    zIndex: isDragging || isTrimming ? 10 : undefined,
+  }
+
+  // ── 좌측 엣지 트리밍 핸들러 (시작 시간 조절) ──
+  const onPointerDownLeftTrim = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    dragCleanupRef.current?.()
+    const startX = e.clientX
+    let currentOffset = 0
+
+    const onMove = (mv) => {
+      const dx = mv.clientX - startX
+      const deltaMs = dx / pxPerMs
+      const maxDelta = (clip.endMs - clip.startMs) - 200 // 최소 200ms 유지
+      const clampedDelta = Math.max(-clip.startMs, Math.min(maxDelta, deltaMs))
+      currentOffset = clampedDelta
+      setTrimLeftOffsetMs(clampedDelta)
+    }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      dragCleanupRef.current = null
+      const finalStart = Math.max(0, clip.startMs + currentOffset)
+      setTrimLeftOffsetMs(0)
+      if (Math.abs(currentOffset) > 10) {
+        onTrimClip?.(clip, finalStart, clip.endMs)
+      }
+    }
+
+    dragCleanupRef.current = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  // ── 우측 엣지 트리밍 핸들러 (종료 시간 / Duration 조절) ──
+  const onPointerDownRightTrim = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    dragCleanupRef.current?.()
+    const startX = e.clientX
+    let currentOffset = 0
+
+    const onMove = (mv) => {
+      const dx = mv.clientX - startX
+      const deltaMs = dx / pxPerMs
+      const minDelta = 200 - (clip.endMs - clip.startMs) // 최소 200ms 유지
+      const clampedDelta = Math.max(minDelta, deltaMs)
+      currentOffset = clampedDelta
+      setTrimRightOffsetMs(clampedDelta)
+    }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      dragCleanupRef.current = null
+      const finalEnd = Math.max(clip.startMs + 200, clip.endMs + currentOffset)
+      setTrimRightOffsetMs(0)
+      if (Math.abs(currentOffset) > 10) {
+        onTrimClip?.(clip, clip.startMs, finalEnd)
+      }
+    }
+
+    dragCleanupRef.current = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
   }
 
   const onMouseEnter = (e) => {
@@ -208,6 +284,24 @@ export default function Clip({ clip, variant, pxPerMs, height, onClickClip, onDo
           disabled={!!clip.disabled}
           narrow={width < 40}
           onToggle={() => onToggleVideo(clip)}
+        />
+      )}
+
+      {/* 좌측 트리밍 핸들 */}
+      {width > 12 && !clip.generating && (
+        <div
+          className="atl-clip-trim-handle atl-clip-trim-left absolute left-0 top-0 bottom-0 w-[6px] hover:w-[8px] bg-white/0 hover:bg-white/40 cursor-col-resize z-20 transition-all rounded-l"
+          onPointerDown={onPointerDownLeftTrim}
+          title="시작 지점 조절 (트리밍)"
+        />
+      )}
+
+      {/* 우측 트리밍 핸들 */}
+      {width > 12 && !clip.generating && (
+        <div
+          className="atl-clip-trim-handle atl-clip-trim-right absolute right-0 top-0 bottom-0 w-[6px] hover:w-[8px] bg-white/0 hover:bg-white/40 cursor-col-resize z-20 transition-all rounded-r"
+          onPointerDown={onPointerDownRightTrim}
+          title="종료 지점 / 재생시간 조절 (트리밍)"
         />
       )}
     </div>

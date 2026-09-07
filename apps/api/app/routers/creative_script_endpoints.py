@@ -143,3 +143,22 @@ def extract_script_anchors(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class ValidatePolicyRequest(BaseModel):
+    script_text: str
+    model: Optional[str] = None
+
+@router.post("/validate-policy")
+def validate_script_policy(
+    request: ValidatePolicyRequest,
+    engine: CreativeEngine = Depends(get_creative_engine)
+):
+    try:
+        result = engine.validate_script_policy(
+            script_text=request.script_text,
+            model=request.model
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

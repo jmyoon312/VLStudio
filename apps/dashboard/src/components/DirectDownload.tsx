@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
-import api, { Category } from '../lib/api';
+import api, { Category, apiLong } from '../lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, CheckCircle2, AlertCircle, Loader2, ExternalLink, Plus, Play, Trash2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
@@ -117,7 +117,7 @@ const DirectDownload = () => {
 
     const downloadMutation = useMutation({
         mutationFn: (data: { url: string, category_id: number | null, use_bypass: boolean, headless: boolean, script_only?: boolean, profile_id?: string | null }) =>
-            api.post('/videos/download', {
+            apiLong.post('/videos/download', {
                 url: data.url,
                 category_id: data.category_id,
                 use_bypass: data.use_bypass,
@@ -271,9 +271,15 @@ const DirectDownload = () => {
     const openFolder = async (path: string) => {
         if (!path) return;
         try {
-            // [FIX] Backend now handles directory resolution if a file path is provided
+            // 1. Electron Native OS File Explorer Reveal (최우선)
+            if ((window as any).electronAPI?.showInFolder) {
+                const res = await (window as any).electronAPI.showInFolder(path);
+                if (res?.success) return;
+            }
+            // 2. Backend Fallback
             await api.post('/system/open-folder', { path });
         } catch (e) {
+            console.error('Failed to open folder:', e);
             alert("폴더를 열 수 없습니다.");
         }
     };

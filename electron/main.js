@@ -2397,25 +2397,40 @@ let _isRestartingBackend = false  // [FIX] Guard against concurrent restarts
 function startBackendHealthMonitor() {
   if (healthMonitorInterval) return
   console.log('[Orchestration] 🩺 Starting background health monitor for FastAPI backend (every 10s)...')
+  let consecutiveFailures = 0
   healthMonitorInterval = setInterval(() => {
     if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
-    const req = http.get('http://127.0.0.1:8000/api/health', { timeout: 2000 }, (res) => {
+    const req = http.get('http://127.0.0.1:8000/api/health', { timeout: 3000 }, (res) => {
       res.resume()
       if (res.statusCode >= 500) {
-        console.warn('[Orchestration] ⚠️ Backend health check returned status', res.statusCode, '. Re-spawning...')
-        _doStartBackend()
+        consecutiveFailures++
+        if (consecutiveFailures >= 2) {
+          console.warn('[Orchestration] ⚠️ Backend health check returned status', res.statusCode, '. Re-spawning...')
+          consecutiveFailures = 0
+          _doStartBackend()
+        }
+      } else {
+        consecutiveFailures = 0
       }
     })
     req.on('error', () => {
       if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
-      console.warn('[Orchestration] ⚠️ Backend offline detected by monitor. Re-spawning...')
-      _doStartBackend()
+      consecutiveFailures++
+      if (consecutiveFailures >= 2) {
+        console.warn('[Orchestration] ⚠️ Backend offline detected by monitor (2 consecutive failures). Re-spawning...')
+        consecutiveFailures = 0
+        _doStartBackend()
+      }
     })
     req.on('timeout', () => {
       req.destroy()
       if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
-      console.warn('[Orchestration] ⚠️ Backend health check timeout. Re-spawning...')
-      _doStartBackend()
+      consecutiveFailures++
+      if (consecutiveFailures >= 2) {
+        console.warn('[Orchestration] ⚠️ Backend health check timeout (2 consecutive timeouts). Re-spawning...')
+        consecutiveFailures = 0
+        _doStartBackend()
+      }
     })
   }, 10000)
 }
@@ -2452,6 +2467,7 @@ function killProcessOnPort(port) {
 function startViraLoopInfrastructure() {
   console.log('[Orchestration] 🚀 Starting all background infrastructures (FastAPI, OmniRoute & Dashboard Web Server)...')
   _doStartBackend()
+  startBackendHealthMonitor()
   try {
     startOmniRouteDaemon().catch(err => {
       console.warn('[Orchestration] OmniRoute auto-start skipped or failed:', err.message)
@@ -2637,12 +2653,18 @@ function _doStartBackend() {
     console.log(`[Orchestration] FastAPI backend process exited with code ${code}`)
     infraProcess = null
     _isRestartingBackend = false  // [FIX] Reset guard so next restart can proceed
-    if (healthMonitorInterval) {
-      clearInterval(healthMonitorInterval)
-      healthMonitorInterval = null
-    }
-    if (!appIsQuitting) {
-      console.warn('[Orchestration] Backend process exited unexpectedly (code:', code, ').');
+    if (appIsQuitting) {
+      if (healthMonitorInterval) {
+        clearInterval(healthMonitorInterval)
+        healthMonitorInterval = null
+      }
+    } else {
+      console.warn('[Orchestration] Backend process exited unexpectedly (code:', code, '). Auto-recovering in 2s...');
+      setTimeout(() => {
+        if (!appIsQuitting && !infraProcess) {
+          _doStartBackend();
+        }
+      }, 2000);
     }
   })
 }

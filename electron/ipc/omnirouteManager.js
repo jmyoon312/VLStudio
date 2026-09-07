@@ -207,6 +207,33 @@ export function runNpmInstall(onLog) {
 }
 
 /**
+ * Apply optimal token-saving settings to OmniRoute SQLite storage
+ */
+export async function applyOptimalOmniRouteSettings() {
+  const pyCode = 'import sqlite3, os, sys; db_path = os.path.expanduser(\"~/.omniroute/storage.sqlite\"); (print(\"NO_DB\"), sys.exit(0)) if not os.path.exists(db_path) else None; conn = sqlite3.connect(db_path); cur = conn.cursor(); [(cur.execute(\"UPDATE key_value SET value = ? WHERE key = ?\", (v, k))) for k, v in [(\"enabled\", \"true\"), (\"defaultMode\", \'\"lite\"\'), (\"preserveSystemPrompt\", \"true\"), (\"semanticCacheEnabled\", \"true\"), (\"semanticCacheMaxSize\", \"200\"), (\"promptCacheEnabled\", \"true\")]]; conn.commit(); conn.close(); print(\"OPTIMAL_APPLIED\")'
+  const pyExe = 'c:\\\\ViraLoopMedia\\\\VLStudio\\\\venv\\\\Scripts\\\\python.exe'
+
+  return new Promise((resolve) => {
+    exec(`"${pyExe}" -c "${pyCode}"`, { timeout: 8000 }, async (err, stdout, stderr) => {
+      if (err) {
+        console.error('[OmniRoute] Failed to apply optimal settings:', err.message, stderr)
+        resolve({ success: false, error: err.message })
+      } else {
+        console.log('[OmniRoute] ✅ Applied optimal settings:', stdout.trim())
+        try {
+          await stopOmniRouteDaemon()
+          await new Promise(r => setTimeout(r, 1200))
+          await startOmniRouteDaemon()
+        } catch (restartErr) {
+          console.warn('[OmniRoute] Daemon restart notice:', restartErr.message)
+        }
+        resolve({ success: true, message: '최적 토큰 절약 설정이 적용되었으며 엔진이 재기동되었습니다.' })
+      }
+    })
+  })
+}
+
+/**
  * Register OmniRoute IPC handlers
  */
 export function registerOmniRouteIPC(ipcMain, getMainWindow) {
@@ -217,13 +244,19 @@ export function registerOmniRouteIPC(ipcMain, getMainWindow) {
     'omniroute:stop',
     'omniroute:restart',
     'omniroute:install',
-    'omniroute:open-dashboard'
+    'omniroute:open-dashboard',
+    'omniroute:apply-optimal'
   ]
   for (const h of handlers) {
     try {
       ipcMain.removeHandler(h)
     } catch {}
   }
+
+  // 0. Apply optimal golden settings
+  ipcMain.handle('omniroute:apply-optimal', async () => {
+    return await applyOptimalOmniRouteSettings()
+  })
 
   // 1. Get full status
   ipcMain.handle('omniroute:get-status', async () => {

@@ -56,7 +56,14 @@ interface Props {
   onGenerateScript?: () => void;
   isGeneratingScript?: boolean;
   onApplyStylePromptToAll?: (prompt: string) => void;
+  selectedPresetName?: string;
+  stylePrompt?: string;
+  negativePrompt?: string;
+  onStylePromptChange?: (val: string) => void;
+  onNegativePromptChange?: (val: string) => void;
+  presets?: any[];
 }
+
 
 export const CollapsibleTimelinePreview: React.FC<Props> = ({
   scenes,
@@ -86,7 +93,14 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   onGenerateScript,
   isGeneratingScript,
   onApplyStylePromptToAll,
+  selectedPresetName,
+  stylePrompt,
+  negativePrompt,
+  onStylePromptChange,
+  onNegativePromptChange,
+  presets,
 }) => {
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenPlayheadMs, setFullscreenPlayheadMs] = useState(0);
   const [isFullscreenPlaying, setIsFullscreenPlaying] = useState(false);
@@ -419,8 +433,15 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             onGenerateScript={onGenerateScript}
             isGeneratingScript={isGeneratingScript}
             onApplyStylePromptToAll={onApplyStylePromptToAll}
+            selectedPresetName={selectedPresetName}
+            stylePrompt={stylePrompt}
+            negativePrompt={negativePrompt}
+            onStylePromptChange={onStylePromptChange}
+            onNegativePromptChange={onNegativePromptChange}
+            presets={presets}
           />
         </div>
+
       )}
     </div>
   );

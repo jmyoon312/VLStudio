@@ -1,4 +1,4 @@
-# 🎙️ [01_조선야담_미스터리] 감정 보이스 액팅 & BGM 마스터링 가이드
+# 🎙️ [채널 1] 감정 보이스 액팅 & BGM 마스터링 가이드
 - **지원 엔진**: ElevenLabs, Typecast, Supertonic (Local Neural), Kokoro
 
 ## 1. 나레이션 음성 튜닝

@@ -40,6 +40,7 @@ import { STYLE_PRESETS } from '@/features/flow2capcut/config/defaults';
 import AudioTimeline from '@/features/flow2capcut/components/AudioTimeline/AudioTimeline';
 import PreviewPanel from '@/features/flow2capcut/components/AudioTimeline/PreviewPanel';
 import SubtitleConfigPanel from '@/components/shared/SubtitleConfigPanel';
+import { toast } from 'sonner';
 import { WatermarkConfig } from './WatermarkSettingsDialog';
 import { TransitionConfig, TRANSITION_PRESETS, TransitionType } from './TransitionSettingsDialog';
 import { SceneItem } from './CollapsibleTimelinePreview';
@@ -70,6 +71,12 @@ interface Props {
   onGenerateScript?: () => void;
   isGeneratingScript?: boolean;
   onApplyStylePromptToAll?: (prompt: string) => void;
+  selectedPresetName?: string;
+  stylePrompt?: string;
+  negativePrompt?: string;
+  onStylePromptChange?: (val: string) => void;
+  onNegativePromptChange?: (val: string) => void;
+  presets?: any[];
 }
 
 export const CapCutStudioWorkspace: React.FC<Props> = ({
@@ -98,6 +105,12 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   onGenerateScript,
   isGeneratingScript = false,
   onApplyStylePromptToAll,
+  selectedPresetName = '',
+  stylePrompt = '',
+  negativePrompt = '',
+  onStylePromptChange,
+  onNegativePromptChange,
+  presets = [],
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeInspectorTab, setActiveInspectorTab] = useState<'script' | 'style' | 'subtitles' | 'transitions' | 'watermark' | 'audio' | 'scene'>('subtitles');
@@ -110,8 +123,74 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   const [playheadMs, setPlayheadMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
+  // [NEW] 타임라인 선택 자막 큐 상태
+  const [selectedSubtitleCue, setSelectedSubtitleCue] = useState<any>(null);
+  const [editingSubText, setEditingSubText] = useState<string>('');
+
+  // [NEW] 오디오 믹서 세부 제어 상태
+  const [voiceVolume, setVoiceVolume] = useState<number>(100);
+  const [bgmVolume, setBgmVolume] = useState<number>(40);
+  const [bgmDucking, setBgmDucking] = useState<boolean>(true);
+  const [bgmFadeSec, setBgmFadeSec] = useState<number>(1.5);
+
+  // [NEW] 워터마크 로고 배경 투명화 중 상태
+  const [isProcessingLogo, setIsProcessingLogo] = useState<boolean>(false);
+
+  // 선택된 자막이 바뀔 때 편집용 텍스트 동기화
+  useEffect(() => {
+    if (selectedSubtitleCue?.text) {
+      setEditingSubText(selectedSubtitleCue.text);
+    }
+  }, [selectedSubtitleCue]);
+
+  // 워터마크 단색 배경 투명화 핸들러 (Fast Canvas Keying)
+  const applyWatermarkColorKeying = (keyType: 'white' | 'black') => {
+    if (!watermarkConfig?.imageUrl) {
+      toast.error('먼저 로고 이미지를 업로드해주세요.');
+      return;
+    }
+    setIsProcessingLogo(true);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = watermarkConfig.imageUrl;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setIsProcessingLogo(false);
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        if (keyType === 'white' && r > 230 && g > 230 && b > 230) {
+          data[i + 3] = 0;
+        } else if (keyType === 'black' && r < 30 && g < 30 && b < 30) {
+          data[i + 3] = 0;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+      const transparentDataUrl = canvas.toDataURL('image/png');
+      onWatermarkConfigChange?.({ ...watermarkConfig, imageUrl: transparentDataUrl });
+      setIsProcessingLogo(false);
+      toast.success(`${keyType === 'white' ? '흰색' : '검은색'} 배경이 투명화되었습니다!`);
+    };
+    img.onerror = () => {
+      setIsProcessingLogo(false);
+      toast.error('이미지 처리 실패');
+    };
+  };
+
   // Audio VU Meter simulation values
   const [vuLevels, setVuLevels] = useState<{ left: number; right: number }>({ left: 12, right: 15 });
+
+
 
   useEffect(() => {
     if (!isPlaying) {
@@ -467,7 +546,9 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               hiddenRoles={new Set()}
               aspectRatio={aspectRatio}
               kenBurns={kenBurnsEnabled}
+              watermarkConfig={watermarkConfig}
               className="!bg-transparent !p-0 w-full h-full flex items-center justify-center"
+
             />
 
             {/* Shorts Safe Zone Overlay */}
@@ -605,6 +686,38 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 <p className="text-[11px] text-slate-400">원하는 화풍을 선택하면 비주얼 프롬프트에 자동으로 적용됩니다.</p>
               </div>
 
+              {/* Active Selected Style Card & Prompt Inspector */}
+              <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-purple-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-purple-400" /> 현재 적용 화풍: {selectedPresetName || '기본'}
+                  </span>
+                  {onApplyStylePromptToAll && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        onApplyStylePromptToAll(stylePrompt || selectedPresetName);
+                        toast.success('전체 씬에 화풍 프롬프트가 일괄 적용되었습니다.');
+                      }}
+                      className="h-6 text-[10px] px-2 bg-purple-600/30 text-purple-200 border-purple-400/40 hover:bg-purple-600/50"
+                    >
+                      전체 씬 일괄 적용
+                    </Button>
+                  )}
+                </div>
+                {stylePrompt && (
+                  <div className="text-[10.5px] text-slate-300 bg-black/40 p-2 rounded-lg border border-purple-500/20 font-mono line-clamp-2">
+                    {stylePrompt}
+                  </div>
+                )}
+                {negativePrompt && (
+                  <div className="text-[9.5px] text-red-300/80 bg-red-950/20 p-1.5 rounded border border-red-500/20 font-mono line-clamp-1">
+                    🚫 제외: {negativePrompt}
+                  </div>
+                )}
+              </div>
+
               {/* Search & Categories */}
               <div className="space-y-1.5 pt-1">
                 <input
@@ -628,9 +741,9 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Style Presets Grid */}
-              <div className="grid grid-cols-2 gap-2 max-h-[460px] overflow-y-auto pr-1">
-                {(STYLE_PRESETS?.styles || [])
+              {/* Style Presets Grid with Thumbnails */}
+              <div className="grid grid-cols-2 gap-2 max-h-[420px] overflow-y-auto pr-1">
+                {((presets.length > 0 ? presets : STYLE_PRESETS?.styles) || [])
                   .filter((s: any) => {
                     const matchQ = !styleSearchQuery || (s.name || '').toLowerCase().includes(styleSearchQuery.toLowerCase()) || (s.category || '').toLowerCase().includes(styleSearchQuery.toLowerCase());
                     const matchCat = selectedStyleCategory === 'all' || (s.category || '').toLowerCase().includes(selectedStyleCategory.toLowerCase());
@@ -639,22 +752,36 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                   .slice(0, 40)
                   .map((st: any) => (
                     <div
-                      key={st.id}
+                      key={st.id || st.name}
                       onClick={() => {
                         if (onApplyStylePromptToAll) {
-                          onApplyStylePromptToAll(st.prompt || st.name);
+                          onApplyStylePromptToAll(st.prompt || st.stylePrompt || st.name);
                         } else if (onUpdateScene && selectedScene) {
-                          onUpdateScene(selectedScene.id, { visual_prompt: `${selectedScene.visual_prompt || ''}, ${st.prompt || st.name}`.trim() });
+                          onUpdateScene(selectedScene.id, { visual_prompt: `${selectedScene.visual_prompt || ''}, ${st.prompt || st.stylePrompt || st.name}`.trim() });
                           toast.success(`Scene #${selectedScene.scene_id}에 ${st.name} 화풍이 적용되었습니다.`);
                         }
                       }}
-                      className="p-2.5 rounded-xl border border-white/10 bg-black/25 hover:bg-purple-600/20 hover:border-purple-400/60 cursor-pointer transition-all flex flex-col gap-1 text-left group"
+                      className={`p-2 rounded-xl border transition-all flex flex-col gap-1.5 text-left cursor-pointer group ${selectedPresetName === st.name ? 'border-purple-400 bg-purple-600/20' : 'border-white/10 bg-black/25 hover:bg-purple-600/10 hover:border-purple-400/40'}`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-200 group-hover:text-purple-300">{st.name}</span>
-                        <Sparkle className="w-3 h-3 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      {/* Thumbnail Image or Gradient Box */}
+                      <div className="w-full h-16 rounded-lg overflow-hidden bg-slate-800 border border-white/10 relative">
+                        {st.thumbnail ? (
+                          <img src={st.thumbnail} alt={st.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/40 to-slate-900 text-purple-300">
+                            <Sparkle className="w-5 h-5 opacity-60" />
+                          </div>
+                        )}
+                        {selectedPresetName === st.name && (
+                          <div className="absolute top-1 right-1 bg-purple-600 rounded-full p-0.5 text-white shadow-xs">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
                       </div>
-                      <span className="text-[9.5px] text-slate-400 line-clamp-1">{st.category || '화풍'}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-200 group-hover:text-purple-300 truncate">{st.name}</span>
+                        <span className="text-[9px] text-slate-500 shrink-0">{st.category || '화풍'}</span>
+                      </div>
                     </div>
                   ))}
               </div>
@@ -662,6 +789,53 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
             {/* Tab 3: Subtitles Inspector */}
             <TabsContent value="subtitles" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
+              {/* Selected Subtitle Cue Individual Editor */}
+              <div className="p-3 rounded-xl bg-blue-950/20 border border-blue-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-blue-300 flex items-center gap-1.5">
+                    <Type className="w-3 h-3 text-blue-400" />
+                    {selectedSubtitleCue ? `선택된 자막 클립 (#${selectedSubtitleCue.id || '선택'})` : '자막 개별 편집'}
+                  </span>
+                  {selectedSubtitleCue && (
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {(selectedSubtitleCue.start / 1000).toFixed(1)}s ~ {(selectedSubtitleCue.end / 1000).toFixed(1)}s
+                    </span>
+                  )}
+                </div>
+
+                {selectedSubtitleCue ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editingSubText}
+                      onChange={(e) => setEditingSubText(e.target.value)}
+                      placeholder="자막 텍스트를 직접 수정하세요..."
+                      className="min-h-[60px] text-xs bg-black/40 border-white/15 text-slate-100 rounded-lg focus:border-blue-400"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (selectedSubtitleCue) {
+                          selectedSubtitleCue.text = editingSubText;
+                          selectedSubtitleCue.name = editingSubText;
+                          if (selectedSubtitleCue.sceneRef && onUpdateScene) {
+                            onUpdateScene(selectedSubtitleCue.sceneRef.id, { script: editingSubText });
+                          }
+                          toast.success('자막 텍스트가 수정되었습니다.');
+                        }
+                      }}
+                      className="w-full h-7 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-sm"
+                    >
+                      ✏️ 자막 텍스트 즉시 적용
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-[10.5px] text-slate-400 leading-relaxed">
+                    💡 타임라인의 자막 트랙에서 특정 자막 클립을 클릭하면 해당 구간의 텍스트를 여기서 즉시 편집할 수 있습니다.
+                  </p>
+                )}
+              </div>
+
+              {/* Subtitle Template Presets */}
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-bold text-slate-300">⚡ 원클릭 캡컷 스타일 템플릿</Label>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -688,39 +862,67 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </div>
             </TabsContent>
 
-            {/* Tab 2: Transitions Inspector */}
+            {/* Tab 4: Transitions Inspector */}
             <TabsContent value="transitions" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
               <div className="space-y-1">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-blue-400" /> 씬 전환 트랜지션 (CapCut Transitions)
                 </span>
-                <p className="text-[11px] text-slate-400">씬과 씬 사이에 자동으로 삽입될 화면전환 효과를 선택합니다.</p>
+                <p className="text-[11px] text-slate-400">클릭 시 전환이 적용되며, 이미 선택된 효과를 다시 클릭하면 해제됩니다.</p>
+              </div>
+
+              {/* None Button */}
+              <div
+                onClick={() => {
+                  if (onTransitionConfigChange && transitionConfig) {
+                    onTransitionConfigChange({ ...transitionConfig, mode: 'none', fixedType: 'none' });
+                    toast.info('전환 효과가 해제되었습니다 (미적용).');
+                  }
+                }}
+                className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${transitionConfig?.mode === 'none' || !transitionConfig?.fixedType || transitionConfig?.fixedType === 'none' ? 'bg-red-500/20 border-red-400 text-white' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🚫</span>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold">전환 효과 없음 (None)</span>
+                    <span className="text-[9.5px] text-slate-400">컷 전환 시 별도 효과 없이 바로 이어집니다.</span>
+                  </div>
+                </div>
+                {(transitionConfig?.mode === 'none' || !transitionConfig?.fixedType || transitionConfig?.fixedType === 'none') && <Check className="w-3.5 h-3.5 text-red-400" />}
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-1">
-                {TRANSITION_PRESETS.map((tr) => (
-                  <div
-                    key={tr.id}
-                    onClick={() => {
-                      if (onTransitionConfigChange && transitionConfig) {
-                        onTransitionConfigChange({ ...transitionConfig, fixedType: tr.id, mode: 'fixed' });
-                        toast.success(`${tr.name} 전환 효과가 적용되었습니다.`);
-                      }
-                    }}
-                    className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col gap-1 ${transitionConfig?.fixedType === tr.id ? 'bg-blue-600/20 border-blue-400 text-white shadow-xs' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">{tr.icon}</span>
-                      {transitionConfig?.fixedType === tr.id && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                {TRANSITION_PRESETS.map((tr) => {
+                  const isSelected = transitionConfig?.mode === 'fixed' && transitionConfig?.fixedType === tr.id;
+                  return (
+                    <div
+                      key={tr.id}
+                      onClick={() => {
+                        if (onTransitionConfigChange && transitionConfig) {
+                          if (isSelected) {
+                            onTransitionConfigChange({ ...transitionConfig, mode: 'none', fixedType: 'none' });
+                            toast.info(`${tr.name} 전환 효과가 해제되었습니다.`);
+                          } else {
+                            onTransitionConfigChange({ ...transitionConfig, fixedType: tr.id, mode: 'fixed' });
+                            toast.success(`${tr.name} 전환 효과가 적용되었습니다.`);
+                          }
+                        }
+                      }}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col gap-1 ${isSelected ? 'bg-blue-600/20 border-blue-400 text-white shadow-xs' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">{tr.icon}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                      </div>
+                      <span className="text-[11px] font-bold">{tr.name}</span>
+                      <span className="text-[9.5px] text-slate-400 leading-tight">{tr.desc}</span>
                     </div>
-                    <span className="text-[11px] font-bold">{tr.name}</span>
-                    <span className="text-[9.5px] text-slate-400 leading-tight">{tr.desc}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </TabsContent>
 
-            {/* Tab 3: Watermark Inspector */}
+            {/* Tab 5: Watermark Inspector */}
             <TabsContent value="watermark" className="flex-1 p-3.5 overflow-y-auto space-y-3.5 m-0">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-200">워터마크 / 채널 로고</span>
@@ -731,7 +933,79 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </div>
 
               {watermarkConfig?.enabled && (
-                <div className="space-y-3 pt-1">
+                <div className="space-y-3.5 pt-1">
+                  {/* Image Logo Upload & Keying */}
+                  <div className="p-3 rounded-xl bg-black/20 border border-white/10 space-y-2.5">
+                    <Label className="text-[11px] font-bold text-slate-300">🖼️ 이미지 로고 파일</Label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="watermark-file-input"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                              onWatermarkConfigChange?.({ ...watermarkConfig, imageUrl: evt.target?.result as string });
+                              toast.success('워터마크 이미지가 로드되었습니다.');
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => document.getElementById('watermark-file-input')?.click()}
+                        className="h-8 text-xs bg-white/5 border-white/15 text-slate-200 hover:bg-white/10"
+                      >
+                        로고 파일 선택
+                      </Button>
+                      {watermarkConfig.imageUrl && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onWatermarkConfigChange?.({ ...watermarkConfig, imageUrl: '' })}
+                          className="h-8 text-xs text-red-400 hover:bg-red-500/10"
+                        >
+                          제거
+                        </Button>
+                      )}
+                    </div>
+
+                    {watermarkConfig.imageUrl && (
+                      <div className="space-y-2 pt-1 border-t border-white/10">
+                        <div className="flex items-center gap-2">
+                          <img src={watermarkConfig.imageUrl} alt="watermark preview" className="w-12 h-12 object-contain bg-slate-900 border border-white/10 rounded-lg" />
+                          <div className="flex-1 space-y-1">
+                            <span className="text-[10px] text-slate-400 font-medium">단색 배경 원클릭 투명화 (Fast Keying)</span>
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                disabled={isProcessingLogo}
+                                onClick={() => applyWatermarkColorKeying('white')}
+                                className="h-6 text-[9.5px] bg-white/10 text-white border border-white/20 hover:bg-white/20"
+                              >
+                                ⚪ 흰색 투명화
+                              </Button>
+                              <Button
+                                size="sm"
+                                disabled={isProcessingLogo}
+                                onClick={() => applyWatermarkColorKeying('black')}
+                                className="h-6 text-[9.5px] bg-black/40 text-slate-200 border border-white/20 hover:bg-black/60"
+                              >
+                                ⚫ 검은색 투명화
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Text Watermark */}
                   <div className="space-y-1">
                     <Label className="text-[11px] text-slate-300">텍스트 워터마크</Label>
                     <input
@@ -743,45 +1017,149 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-300">투명도</span>
-                      <span className="text-blue-400 font-bold">{watermarkConfig.opacity}%</span>
+                  {/* 9 Anchors Grid */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] text-slate-300 font-semibold">9개 앵커 위치 지정</Label>
+                    <div className="grid grid-cols-3 gap-1 max-w-[150px]">
+                      {[
+                        { id: 'topLeft', label: '↖' },
+                        { id: 'topCenter', label: '↑' },
+                        { id: 'topRight', label: '↗' },
+                        { id: 'centerLeft', label: '←' },
+                        { id: 'center', label: '•' },
+                        { id: 'centerRight', label: '→' },
+                        { id: 'bottomLeft', label: '↙' },
+                        { id: 'bottomCenter', label: '↓' },
+                        { id: 'bottomRight', label: '↘' },
+                      ].map((pos) => (
+                        <Button
+                          key={pos.id}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onWatermarkConfigChange?.({ ...watermarkConfig, position: pos.id as any })}
+                          className={`h-7 p-0 text-xs font-bold ${watermarkConfig.position === pos.id ? 'bg-blue-600 text-white border-blue-400' : 'bg-black/30 text-slate-400 border-white/10 hover:text-white'}`}
+                        >
+                          {pos.label}
+                        </Button>
+                      ))}
                     </div>
-                    <Slider
-                      value={[watermarkConfig.opacity || 70]}
-                      min={10}
-                      max={100}
-                      step={5}
-                      onValueChange={([v]) => onWatermarkConfigChange?.({ ...watermarkConfig, opacity: v })}
-                    />
+                  </div>
+
+                  {/* Sliders: Opacity & Scale */}
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-300">투명도</span>
+                        <span className="text-blue-400 font-bold">{watermarkConfig.opacity}%</span>
+                      </div>
+                      <Slider
+                        value={[watermarkConfig.opacity || 70]}
+                        min={10}
+                        max={100}
+                        step={5}
+                        onValueChange={([v]) => onWatermarkConfigChange?.({ ...watermarkConfig, opacity: v })}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-300">크기 (Scale)</span>
+                        <span className="text-blue-400 font-bold">{watermarkConfig.scale || 100}%</span>
+                      </div>
+                      <Slider
+                        value={[watermarkConfig.scale || 100]}
+                        min={30}
+                        max={200}
+                        step={5}
+                        onValueChange={([v]) => onWatermarkConfigChange?.({ ...watermarkConfig, scale: v })}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
             </TabsContent>
 
-            {/* Tab 4: Audio & BGM Inspector */}
+            {/* Tab 6: Audio & BGM Inspector */}
             <TabsContent value="audio" className="flex-1 p-3.5 overflow-y-auto space-y-3.5 m-0">
               <div className="space-y-1">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                   <Volume2 className="w-3.5 h-3.5 text-blue-400" /> 오디오 & BGM 마스터링
                 </span>
-                <p className="text-[11px] text-slate-400">나레이션 음성 속도와 배경음악 볼륨을 조절합니다.</p>
+                <p className="text-[11px] text-slate-400">나레이션 음성과 BGM, 비디오 원본 오디오 믹싱을 정밀 제어합니다.</p>
               </div>
 
+              {/* Voice Volume & Speed */}
               <div className="space-y-2.5 p-3 rounded-xl bg-black/20 border border-white/10">
-                <Label className="text-[11px] font-bold text-slate-300">🎙️ 나레이션 TTS 재생 속도 (배속)</Label>
+                <div className="flex justify-between text-[11px]">
+                  <span className="font-bold text-slate-300">🎙️ 나레이션 (TTS) 볼륨</span>
+                  <span className="text-blue-400 font-bold">{voiceVolume}%</span>
+                </div>
+                <Slider
+                  value={[voiceVolume]}
+                  min={0}
+                  max={200}
+                  step={5}
+                  onValueChange={([v]) => setVoiceVolume(v)}
+                />
+
+                <Label className="text-[11px] font-bold text-slate-300 pt-1 block">재생 배속</Label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {['0.9x', '1.0x', '1.15x', '1.3x'].map((spd) => (
-                    <Button key={spd} variant="outline" size="sm" className="h-7 text-[10.5px] font-semibold bg-white/5 border-white/10 hover:bg-white/15">
+                    <Button
+                      key={spd}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onChangeSpeed?.(parseFloat(spd))}
+                      className="h-7 text-[10.5px] font-semibold bg-white/5 border-white/10 hover:bg-white/15"
+                    >
                       {spd}
                     </Button>
                   ))}
                 </div>
               </div>
+
+              {/* BGM Volume & Ducking */}
+              <div className="space-y-2.5 p-3 rounded-xl bg-black/20 border border-white/10">
+                <div className="flex justify-between text-[11px]">
+                  <span className="font-bold text-slate-300">🎵 배경음악 (BGM) 볼륨</span>
+                  <span className="text-blue-400 font-bold">{bgmVolume}%</span>
+                </div>
+                <Slider
+                  value={[bgmVolume]}
+                  min={0}
+                  max={100}
+                  step={5}
+                  onValueChange={([v]) => setBgmVolume(v)}
+                />
+
+                <div className="flex items-center justify-between pt-1">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] font-semibold text-slate-300">스마트 덕킹 (Smart Ducking)</span>
+                    <p className="text-[9.5px] text-slate-500">나레이션이 재생될 때 BGM 볼륨을 자동으로 낮춥니다.</p>
+                  </div>
+                  <Switch
+                    checked={bgmDucking}
+                    onCheckedChange={(c) => setBgmDucking(c)}
+                  />
+                </div>
+
+                <div className="space-y-1 pt-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-300">BGM 페이드 인/아웃</span>
+                    <span className="text-blue-400 font-bold">{bgmFadeSec}초</span>
+                  </div>
+                  <Slider
+                    value={[bgmFadeSec]}
+                    min={0}
+                    max={5}
+                    step={0.5}
+                    onValueChange={([v]) => setBgmFadeSec(v)}
+                  />
+                </div>
+              </div>
             </TabsContent>
 
-            {/* Tab 5: Selected Scene Inspector */}
+            {/* Tab 7: Selected Scene & Camera Motion Inspector */}
             <TabsContent value="scene" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
               <div className="flex items-center justify-between border-b border-white/10 pb-2">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
@@ -790,6 +1168,22 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 <Badge variant="outline" className="text-[10px] bg-blue-500/20 text-blue-300 border-blue-400/30">
                   {selectedScene?.duration || 3.5}초
                 </Badge>
+              </div>
+
+              {/* Ken Burns Camera Motion Controls */}
+              <div className="p-3 rounded-xl bg-black/25 border border-white/10 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
+                      🎥 카메라 모션 (Ken Burns)
+                    </span>
+                    <p className="text-[9.5px] text-slate-400">정적 이미지에 부드러운 줌인/줌아웃 효과를 부여합니다.</p>
+                  </div>
+                  <Switch
+                    checked={kenBurnsEnabled}
+                    onCheckedChange={(c) => setKenBurnsEnabled(c)}
+                  />
+                </div>
               </div>
 
               {selectedScene && (
@@ -844,6 +1238,15 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 setSelectedSceneIndex(sIdx);
                 onSelectScene?.(sIdx);
               }
+            }
+            if (clip?.type === 'subtitle' || clip?.type === 'caption') {
+              setActiveInspectorTab('subtitles');
+              setSelectedSubtitleCue(clip);
+              setEditingSubText(clip.name || clip.text || '');
+            } else if (clip?.type === 'audio' || clip?.type === 'tts' || clip?.type === 'bgm') {
+              setActiveInspectorTab('audio');
+            } else {
+              setActiveInspectorTab('scene');
             }
           }}
           onRegenerateScene={(sc, type) => {

@@ -1,4 +1,17 @@
 import os
+import sys
+
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 import json
 import yt_dlp
 from datetime import datetime
@@ -402,7 +415,7 @@ class YTDLPDownloader:
                 video_format = 'bestvideo[height>=720]+bestaudio/bestvideo[height<=1080]+bestaudio/best'
                 print("[VIDEO] [MANUAL HD] Using aggressive HD format selector")
             else:
-                print("📹 [DEFAULT] Using HD format (1080p max, mp4 merged)")
+                print("[VIDEO] [DEFAULT] Using HD format (1080p max, mp4 merged)")
         else:
             video_format = None
             print("[FALLBACK] Script-Only Mode: Skipping video format selection.")
@@ -427,9 +440,10 @@ class YTDLPDownloader:
             'no_warnings': True,
             'logger': StrategyFilteredLogger(),
             'ffmpeg_location': ffmpeg_location,
-            'sleep_interval': 5,
-            'max_sleep_interval': 15,
-            'sleep_subtitles': 2,
+            'concurrent_fragment_downloads': 5, # High-speed parallel fragment downloading
+            'retries': 10,
+            'fragment_retries': 10,
+            'buffersize': 1024 * 1024 * 16, # 16MB buffer for long videos/movies
             'merge_output_format': 'mp4',
             **base_opts
         }
@@ -437,7 +451,7 @@ class YTDLPDownloader:
         if script_only:
             dl_opts['skip_download'] = True
             dl_opts.pop('format', None)
-            print(f"🛑 [SCRIPT-ONLY] Enforcing skip_download for {video_id}")
+            print(f"[SKIP] [SCRIPT-ONLY] Enforcing skip_download for {video_id}")
             dl_opts['postprocessors'] = [{
                 'key': 'FFmpegSubtitlesConvertor',
                 'format': 'srt',

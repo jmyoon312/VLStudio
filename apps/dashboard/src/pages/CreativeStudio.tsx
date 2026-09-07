@@ -113,6 +113,50 @@ const CreativeStudio = () => {
     const [isExtractingAnchors, setIsExtractingAnchors] = useState(false);
     const [anchorsData, setAnchorsData] = useState<{ characters: any[]; environments: any[]; props: any[] } | null>(null);
 
+    // [NEW] 유튜브 정책 & 표현 AI 퇴고 검증 상태 & 핸들러
+    const [isValidatingPolicy, setIsValidatingPolicy] = useState(false);
+    const [policyReport, setPolicyReport] = useState<{
+        is_safe: boolean;
+        score: number;
+        summary: string;
+        issues: Array<{
+            severity: 'danger' | 'warning' | 'info';
+            category: string;
+            original: string;
+            suggestion: string;
+            reason: string;
+        }>;
+        polished_script?: string;
+    } | null>(null);
+    const [isPolicyReportOpen, setIsPolicyReportOpen] = useState(false);
+
+    const handleValidatePolicy = async () => {
+        const textToValidate = fullScript || scriptInput;
+        if (!textToValidate.trim()) {
+            toast.error("검증할 대본 내용이 없습니다.");
+            return;
+        }
+        setIsValidatingPolicy(true);
+        try {
+            const res = await api.post('/creative/validate-policy', {
+                script_text: textToValidate,
+                model: scriptModel || undefined
+            });
+            setPolicyReport(res.data);
+            setIsPolicyReportOpen(true);
+            if (res.data.is_safe && (!res.data.issues || res.data.issues.length === 0)) {
+                toast.success(`🛡️ 정책 검증 통과! (안전 점수: ${res.data.score || 100}점)`);
+            } else {
+                toast.warning(`⚠️ 검토 필요한 표현이 ${res.data.issues?.length || 0}건 발견되었습니다.`);
+            }
+        } catch (e: any) {
+            toast.error("정책 검증 실패: " + (e.response?.data?.detail || e.message));
+        } finally {
+            setIsValidatingPolicy(false);
+        }
+    };
+
+
     
     // [NEW] HITL 인간 검수 후 무인 제작 대기열(WorkQueue) 등록 핸들러
     const [isSubmittingQueue, setIsSubmittingQueue] = useState(false);
@@ -2734,13 +2778,29 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                         <CardContent className="space-y-2.5 p-3 sm:p-3.5">
                             {/* Mode Tabs */}
                             <Tabs value={scriptMode} onValueChange={setScriptMode} className="w-full">
-                                <TabsList className="inline-flex bg-muted/80 p-0.5 rounded-lg h-7.5 border border-border/60">
-                                    <TabsTrigger value="manual" className="text-xs font-bold px-3 h-6.5 rounded-md">📝 직접 입력</TabsTrigger>
-                                    <TabsTrigger value="creative" className="text-xs font-bold px-3 h-6.5 rounded-md">✨ AI 작가 생성</TabsTrigger>
-                                </TabsList>
+                                <div className="flex items-center justify-between pb-1.5 flex-wrap gap-1.5">
+                                    <TabsList className="inline-flex bg-muted/80 p-0.5 rounded-lg h-7.5 border border-border/60">
+                                        <TabsTrigger value="manual" className="text-xs font-bold px-3 h-6.5 rounded-md">📝 직접 대본 입력</TabsTrigger>
+                                        <TabsTrigger value="creative" className="text-xs font-bold px-3 h-6.5 rounded-md">✨ AI 작가 대본 생성</TabsTrigger>
+                                    </TabsList>
+
+                                    {/* 유튜브 정책 & 문맥 AI 검증 버튼 */}
+                                    <Button
+                                        onClick={handleValidatePolicy}
+                                        disabled={isValidatingPolicy || (!fullScript.trim() && !scriptInput.trim())}
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/40 gap-1.5 shadow-2xs"
+                                        title="유튜브 커뮤니티 가이드라인 준수 여부, 위험 표현, 발음 꼬임 문맥을 전문 AI로 검토"
+                                    >
+                                        {isValidatingPolicy ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" /> : <Sparkles className="w-3.5 h-3.5 text-amber-500" />}
+                                        <span>🛡️ 유튜브 정책 & 표현 퇴고 검사</span>
+                                    </Button>
+                                </div>
 
                                 <TabsContent value="creative" className="space-y-2 pt-1">
                                     <div className="p-2.5 bg-muted/20 rounded-xl border border-border space-y-2">
+                                        {/* 내부 DB Settings 기본 모델 자동 바인딩 - 제공자/모델 UI는 숨김 처리 */}
                                         <AIModelSelector
                                             provider={scriptProvider}
                                             onProviderChange={setScriptProvider}
@@ -2748,6 +2808,8 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                                             onModelChange={setScriptModel}
                                             presetId={selectedStyleId}
                                             onPresetChange={setSelectedStyleId}
+                                            showProvider={false}
+                                            showModel={false}
                                             showPreset={true}
                                             onCreatePreset={handleCreateStyle}
                                             onEditPreset={handleEditStyle}
@@ -2762,45 +2824,138 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                                                 />
                                                 <Label htmlFor="creative-web-search" className="cursor-pointer flex items-center gap-1.5 text-xs font-semibold text-foreground">
                                                     <Globe className="w-3 h-3 text-primary" />
-                                                    웹 검색
+                                                    웹 검색 (최신 트렌드/팩트 수집)
                                                 </Label>
-                                                <Badge variant={useWebSearchCreative ? "default" : "outline"} className="text-[9px] px-1.5 py-0">
-                                                    {useWebSearchCreative ? "ON" : "OFF"}
-                                                </Badge>
                                             </div>
 
-                                            <Button onClick={handleGenerateScript} disabled={isGeneratingScript || !scriptInput} size="sm" className="h-7 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-1 shadow-2xs">
+                                            <Button onClick={handleGenerateScript} disabled={isGeneratingScript || !scriptInput.trim()} size="sm" className="h-7.5 px-3.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg gap-1.5 shadow-2xs">
                                                 {isGeneratingScript ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                                대본 생성
+                                                <span>대본 자동 생성</span>
                                             </Button>
                                         </div>
 
                                         <div className="space-y-1">
-                                            <Label className="text-[11px] font-bold text-foreground">주제 또는 아이디어</Label>
+                                            <Label className="text-[11px] font-bold text-foreground">주제, 핵심 키워드 또는 스토리 구상</Label>
                                             <Textarea
                                                 value={scriptInput}
                                                 onChange={(e) => setScriptInput(e.target.value)}
-                                                placeholder="원하는 스토리 주제나 핵심 키워드를 입력하세요..."
-                                                className="min-h-[55px] text-xs bg-background border-border text-foreground rounded-lg"
+                                                placeholder="원하는 스토리 주제, 핵심 타겟, 반전 포인트 등을 자유롭게 입력하세요..."
+                                                className="min-h-[60px] max-h-[100px] text-xs bg-background border-border text-foreground rounded-lg"
                                             />
                                         </div>
                                     </div>
                                 </TabsContent>
                             </Tabs>
 
-                            {/* Full Script Text Area */}
-                            <div className="space-y-1">
+                            {/* Full Script Text Area - 해상도에 따라 유연하게 꽉 채우는 가변 반응형 뷰포트 */}
+                            <div className="space-y-1.5 flex-1 flex flex-col min-h-[150px]">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-[11px] font-bold text-foreground">전체 대본 (Full Script)</Label>
-                                    <span className="text-[10px] font-mono text-muted-foreground">총 {fullScript.length} 글자</span>
+                                    <Label className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                                        <span>전체 대본 (Full Script)</span>
+                                        {policyReport && (
+                                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-bold ${policyReport.is_safe ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' : 'bg-amber-500/10 text-amber-600 border-amber-500/30'}`}>
+                                                정책 점수: {policyReport.score}점
+                                            </Badge>
+                                        )}
+                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-mono text-muted-foreground">총 {fullScript.length} 글자</span>
+                                        {fullScript && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(fullScript);
+                                                    toast.success("대본이 클립보드에 복사되었습니다.");
+                                                }}
+                                                className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                            >
+                                                <Copy className="w-2.5 h-2.5 mr-1" /> 복사
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                                 <Textarea
                                     value={fullScript}
                                     onChange={(e) => setFullScript(e.target.value)}
-                                    className="min-h-[75px] max-h-[120px] font-sans text-xs leading-relaxed bg-background border-border text-foreground rounded-lg p-2.5 shadow-2xs"
-                                    placeholder="여기에 전체 대본을 입력하거나 붙여넣으세요..."
+                                    className="flex-1 min-h-[140px] max-h-[280px] font-sans text-xs leading-relaxed bg-background border-border text-foreground rounded-lg p-2.5 shadow-2xs resize-y"
+                                    placeholder="여기에 전체 대본을 직접 입력하거나 붙여넣으세요. AI 작가 생성 시 여기에 자동으로 채워집니다..."
                                 />
                             </div>
+
+                            {/* 정책 검증 리포트 카드 (검증 결과가 있을 때 표시) */}
+                            {policyReport && isPolicyReportOpen && (
+                                <div className="p-3 bg-card border border-amber-500/40 rounded-xl space-y-2 shadow-xs animate-in fade-in">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-foreground flex items-center gap-1">
+                                                🛡️ 유튜브 정책 & 문맥 검토 리포트
+                                            </span>
+                                            <Badge variant={policyReport.is_safe ? "default" : "destructive"} className="text-[10px]">
+                                                {policyReport.is_safe ? "안전 통과" : "주의 필요"}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            {policyReport.polished_script && (
+                                                <Button
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setFullScript(policyReport.polished_script!);
+                                                        toast.success("퇴고된 대본이 적용되었습니다!");
+                                                    }}
+                                                    className="h-6 px-2 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                >
+                                                    ✨ 퇴고 대본 일괄 적용
+                                                </Button>
+                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setIsPolicyReportOpen(false)}
+                                                className="h-6 w-6 p-0 text-muted-foreground"
+                                            >
+                                                ✕
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">{policyReport.summary}</p>
+
+                                    {policyReport.issues && policyReport.issues.length > 0 ? (
+                                        <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                                            {policyReport.issues.map((iss, idx) => (
+                                                <div key={idx} className="p-2 rounded-lg bg-muted/40 border border-border text-xs flex flex-col gap-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="font-bold text-amber-600 dark:text-amber-400">[{iss.category || '주의'}] {iss.original}</span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                if (iss.original && iss.suggestion) {
+                                                                    setFullScript(prev => prev.replace(iss.original, iss.suggestion));
+                                                                    toast.success(`'${iss.original}' -> '${iss.suggestion}' 교체 완료!`);
+                                                                }
+                                                            }}
+                                                            className="h-5 px-1.5 text-[10px] text-blue-500 hover:text-blue-600 font-bold"
+                                                        >
+                                                            대체어 교체 ➔
+                                                        </Button>
+                                                    </div>
+                                                    <div className="text-[11px] text-muted-foreground">
+                                                        <span className="font-semibold text-foreground">추천: </span>
+                                                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{iss.suggestion}</span>
+                                                        <span className="ml-2 text-slate-500">({iss.reason})</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium py-1">
+                                            🎉 정책 위반 소지나 발음 장애 표현이 발견되지 않았습니다. 안심하고 제작을 진행하세요!
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
 
                             {/* 씬 분할 전략 (Segmentation Strategy) Compact Panel */}
                             <div className="flex flex-col gap-2 p-2.5 bg-muted/20 rounded-xl border border-border">
@@ -2947,7 +3102,14 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                 onWatermarkConfigChange={setWatermarkConfig}
                 transitionConfig={transitionConfig}
                 onTransitionConfigChange={setTransitionConfig}
+                selectedPresetName={presetName}
+                stylePrompt={stylePrompt}
+                negativePrompt={negativePrompt}
+                onStylePromptChange={setStylePrompt}
+                onNegativePromptChange={setNegativePrompt}
+                presets={presets}
                 isOpen={isTimelineOpen}
+
                 onToggle={() => setIsTimelineOpen(!isTimelineOpen)}
                 onSelectScene={(idx) => {
                     const scene = scenes[idx];

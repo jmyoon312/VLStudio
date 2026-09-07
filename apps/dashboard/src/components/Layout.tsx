@@ -265,10 +265,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    return parsed.map((t: any, idx: number) => ({
-                        ...t,
-                        flowWorkerId: t.flowWorkerId || getWorkerIdForIndex(idx)
-                    }));
+                    return parsed.map((t: any, idx: number) => {
+                        let correctedName = t.name;
+                        if (t.path === '/scene-cutter-pro' || t.path === '/scenecutter' || t.path === '/scissors') {
+                            correctedName = '스마트 씬 분할 컷터';
+                        }
+                        return {
+                            ...t,
+                            name: correctedName,
+                            flowWorkerId: t.flowWorkerId || getWorkerIdForIndex(idx)
+                        };
+                    });
                 }
             }
         } catch (e) {
@@ -294,6 +301,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         const cleanName = path.split('/').pop()?.replace(/-/g, ' ') || '페이지';
         return { name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1), icon: FileText };
     }, [menuGroups]);
+
+    // 탭 이름이 최신 공식 메뉴 이름과 다를 경우 자동 동기화
+    React.useEffect(() => {
+        if (menuGroups.length > 0) {
+            setTabs(prev => prev.map(t => {
+                const { name } = getTabNameAndIcon(t.path);
+                if (name && name !== t.name) {
+                    return { ...t, name };
+                }
+                return t;
+            }));
+        }
+    }, [menuGroups, getTabNameAndIcon]);
 
     // Save tabs to localStorage
     React.useEffect(() => {

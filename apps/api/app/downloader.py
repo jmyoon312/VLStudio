@@ -1,3 +1,16 @@
+import sys
+
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 import re
 import logging
 import os
@@ -221,6 +234,9 @@ def get_downloader_strategy(url: str, force_bypass: bool = False):
         if 'douyin.com' in clean_url or 'iesdouyin.com' in clean_url:
             print(f"Strategy: Manual Bypass (Douyin) -> DouyinSmartDownloader")
             return DouyinSmartDownloader(), clean_url
+        if 'youtube.com' in clean_url or 'youtu.be' in clean_url:
+            print(f"Strategy: YouTube does not support TikVideo bypass. Retaining YTDLPDownloader.")
+            return YTDLPDownloader(), clean_url
         # Default for forced bypass
         print(f"Strategy: Manual Bypass forced for unknown domain. Defaulting to TikVideoDownloader.")
         return TikVideoDownloader(), clean_url
@@ -301,26 +317,28 @@ def download_single_video(video_url, root_download_path, cookies_path=None, user
     except Exception as e:
         print(f"[FAIL] [ERROR] YTDLP execution error: {e}")
 
-    # 2. FALLBACK: Try Specialized Bypass Strategies
-    # We only reach here if YTDLP failed
-    print(f"[REFRESH] [STEP 2] Attempting Bypass Fallback for {clean_url}...")
-    strategy, _ = get_downloader_strategy(clean_url, force_bypass=True)
-    
-    if strategy and not isinstance(strategy, YTDLPDownloader):
-        try:
-            print(f"[FALLBACK] [FALLBACK] Strategy: {strategy.__class__.__name__}")
-            if isinstance(strategy, (TikVideoDownloader, V2OBDownloader, DouyinSmartDownloader)):
-                result = strategy.download(clean_url, root_download_path, headless=headless, user_data_dir=user_data_dir)
-            
-            if result.get('status') == 'success':
-                # [NOTE] For bypass, script_only means we still download video 
-                # because we need it for metadata/script extraction.
-                return result
-        except Exception as e:
-            print(f"[FAIL] [ERROR] Fallback strategy failed: {e}")
+    # 2. FALLBACK: Try Specialized Bypass Strategies (Douyin, TikTok, Haokan, etc.)
+    # We only reach here if YTDLP failed, and YouTube NEVER uses TikVideo/CloakBrowser
+    is_youtube = ('youtube.com' in clean_url or 'youtu.be' in clean_url)
+    if not is_youtube:
+        print(f"[REFRESH] [STEP 2] Attempting Bypass Fallback for {clean_url}...")
+        strategy, _ = get_downloader_strategy(clean_url, force_bypass=True)
+        
+        if strategy and not isinstance(strategy, YTDLPDownloader):
+            try:
+                print(f"[FALLBACK] [FALLBACK] Strategy: {strategy.__class__.__name__}")
+                if isinstance(strategy, (TikVideoDownloader, V2OBDownloader, DouyinSmartDownloader)):
+                    result = strategy.download(clean_url, root_download_path, headless=headless, user_data_dir=user_data_dir)
+                
+                if result.get('status') == 'success':
+                    # [NOTE] For bypass, script_only means we still download video 
+                    # because we need it for metadata/script extraction.
+                    return result
+            except Exception as e:
+                print(f"[FAIL] [ERROR] Fallback strategy failed: {e}")
     
     # 3. YOUTUBE SPECIFIC FALLBACKS (Invidious/Piped)
-    if 'youtube.com' in clean_url or 'youtu.be' in clean_url:
+    if is_youtube:
         logger.info("[REFRESH] Primary YouTube download failed. Trying alternative sources...")
         
         # Try alternative 1: Invidious
@@ -347,7 +365,7 @@ def download_single_video(video_url, root_download_path, cookies_path=None, user
         
         # Try alternative 2: Piped (SKIP IF SCRIPT ONLY because it only downloads raw stream)
         if script_only:
-            logger.info("⏭️ Skipping Piped fallback because it does not support script-only mode (raw video stream only).")
+            logger.info("[SKIP] Skipping Piped fallback because it does not support script-only mode (raw video stream only).")
         else:
             piped_urls = [
                 "https://piped.kavin.rocks",

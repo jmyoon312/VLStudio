@@ -64,6 +64,25 @@ const versionInfo = {
 const versionJsonPath = path.join(OUTPUT_DIR, 'version.json');
 fs.writeFileSync(versionJsonPath, JSON.stringify(versionInfo, null, 2), 'utf8');
 
+// 5. Step: Synchronize directly to local AppData hotpatch_bundle (Immediate Local Reflection)
+const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME, 'Library', 'Application Support') : path.join(process.env.HOME, '.config'));
+const localHotpatchDir = path.join(appData, 'ViraLoop Studio', 'hotpatch_bundle');
+try {
+  if (fs.existsSync(path.dirname(localHotpatchDir))) {
+    console.log(`🔄 Step 5: Syncing to local AppData hotpatch_bundle: ${localHotpatchDir}...`);
+    fs.cpSync(DIST_DIR, localHotpatchDir, { recursive: true });
+    const patchMeta = {
+      version: version,
+      buildNumber: buildNumber,
+      releaseDate: isoDate
+    };
+    fs.writeFileSync(path.join(localHotpatchDir, 'patch-meta.json'), JSON.stringify(patchMeta, null, 2), 'utf8');
+    console.log(`✅ [Hot-Patch Builder] Synced to local hotpatch_bundle with Build #${buildNumber}!`);
+  }
+} catch (e) {
+  console.warn('[Hot-Patch Builder] Could not sync to local hotpatch_bundle:', e.message);
+}
+
 console.log('\n===================================================');
 console.log('✨ [Hot-Patch Builder] Success!');
 console.log(`📌 Version:      ${version} (Build #${buildNumber})`);

@@ -1976,6 +1976,19 @@ const Gallery = () => {
                         </Button>
 
                         <Button 
+                            onClick={() => {
+                                const selectedVideos = Array.from(selectedIds).map(id => videos.find(v => v.id === id)).filter(Boolean);
+                                const titles = selectedVideos.map(v => encodeURIComponent((v as any).title)).join(',');
+                                toast.success(`${selectedIds.size}개 영상을 스마트 씬 분할 컷터로 전송합니다.`);
+                                navigate(`/scene-cutter-pro?titles=${titles}`);
+                            }}
+                            className="bg-primary hover:bg-primary/90 active:scale-95 text-primary-foreground font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 shadow-md h-auto"
+                        >
+                            <Scissors className="w-3.5 h-3.5 text-amber-300" />
+                            🎬 스마트 씬 분할 컷터
+                        </Button>
+
+                        <Button 
 
                             variant="destructive"
 

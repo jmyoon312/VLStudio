@@ -22,10 +22,10 @@ const api = axios.create({
     timeout: 30000, // 30s for normal API calls
 });
 
-// Long-running operations (render, merge, TTS batch) need much longer timeout
+// Long-running operations (render, merge, full movies, TTS batch) need much longer timeout
 export const apiLong = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 300000, // 5 minutes
+    timeout: 3600000, // 60 minutes (1 hour) for long movies
 });
 
 // Apply same retry interceptor to apiLong

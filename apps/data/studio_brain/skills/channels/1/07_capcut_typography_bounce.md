@@ -1,4 +1,4 @@
-# 📦 [01_조선야담_미스터리] CapCut No-ZIP 바운스 자막 & 트랙 조립 규칙
+# 📦 [채널 1] CapCut No-ZIP 바운스 자막 & 트랙 조립 규칙
 - **담당 워커**: CapCut-Assembler
 - **규격**: CapCut draft_content.json 마이크로초(us) 타임라인
 

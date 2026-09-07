@@ -1,0 +1,61 @@
+{
+  "channel_id": 1,
+  "channel_name": "채널 1호기",
+  "version": "2.4.0",
+  "persona": {
+    "tone_style": "b_grade_meme",
+    "speech_speed_wpm": 140,
+    "forbidden_words": [
+      "비속어",
+      "과격표현",
+      "사기",
+      "무조건"
+    ],
+    "clean_shield": true,
+    "required_ending_hook": "구독하고 매일 1개씩 떡상 노하우 챙겨가세요!"
+  },
+  "script_branch": {
+    "mode": "video_present",
+    "pacing_jab_interval_sec": 0.8,
+    "climax_second": 42,
+    "active_typography_mix": [
+      "HOOK_ANCHOR",
+      "NARRATION",
+      "PACING_JAB",
+      "POV_REACTION",
+      "KINETIC_KEYWORD",
+      "MULTI_DIALOGUE",
+      "SFX_GRAPHIC",
+      "FACT_BULLET"
+    ]
+  },
+  "audio": {
+    "engine": "ElevenLabs / Typecast / Supertonic",
+    "voice_id": "ko-KR-Standard-A",
+    "speed_rate": "+18%",
+    "pitch_adjust": "+4Hz",
+    "bgm_ducking_db": -18.5,
+    "sfx_pack_name": "viral_tension_thud"
+  },
+  "visual": {
+    "engine": "Google Flow AI v2.0",
+    "aspect_ratio": "9:16",
+    "lens_focal_length": "35mm_cinematic",
+    "lighting_style": "Dramatic Studio Lighting",
+    "seed_lock_enabled": true,
+    "reference_image_ids": []
+  },
+  "capcut": {
+    "font_family": "Sandoll NeoGothic Black",
+    "font_size": 18.5,
+    "primary_color": "#FFFFFF",
+    "highlight_color": "#FFE500",
+    "bounce_animation": "POP_UP_SPRING_02",
+    "silence_cut_threshold_db": -35.0
+  },
+  "gatekeeper": {
+    "min_pass_score": 85.0,
+    "channel_dna_strict_check": true,
+    "auto_retry_limit": 3
+  }
+}

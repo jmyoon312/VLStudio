@@ -661,16 +661,22 @@ export async function generateCapcutProject(project, options = {}) {
         const pool = transitionConfig.randomPool;
         selectedType = pool[i % pool.length];
       }
-      if (!selectedType) selectedType = 'dissolve';
+      if (!selectedType || selectedType === 'none') continue;
 
       const preset = PRESETS_MAP[selectedType] || PRESETS_MAP.dissolve;
       const trId = generateId();
+
+      // [안전 클램핑] 세그먼트 재생시간 초과로 인한 CapCut 프로젝트 렌더링 충돌/프리징 방지
+      const segDurationSec = (videoTrack.segments[i]?.target_timerange?.duration || 3000000) / 1000000;
+      const nextSegDurationSec = (videoTrack.segments[i + 1]?.target_timerange?.duration || 3000000) / 1000000;
+      const maxAllowedTrSec = Math.max(0.1, Math.min(segDurationSec, nextSegDurationSec) * 0.4);
+      const safeTrDurationSec = Math.min(trDurationSec, maxAllowedTrSec);
 
       materials.transitions.push({
         id: trId,
         type: "transition",
         name: preset.name,
-        duration: toMicros(trDurationSec),
+        duration: toMicros(safeTrDurationSec),
         resource_id: preset.resourceId,
         effect_id: preset.effectId,
         is_overlap: true,

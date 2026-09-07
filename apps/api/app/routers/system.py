@@ -75,64 +75,37 @@ def pick_file():
 
 @router.post("/open-folder")
 def open_folder(request: PathRequest, db: Session = Depends(database.get_db)):
-    path = request.path
+    path = os.path.normpath(request.path.strip()) if request.path else ""
     original_path = path
 
-    # 1. Try direct check
+    # 1. Direct or relative check
     if not os.path.exists(path):
-        # 2. Try simple abspath (if relative)
-        abs_path = os.path.abspath(path)
-        if os.path.exists(abs_path):
-            path = abs_path
-        else:
-            # 3. Try resolving against Download Root (Settings)
-            try:
-                settings = db.query(models.Settings).first()
-                from app.config import settings as settings_conf
-                root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
-                if root_path:
-                    joined_path = os.path.join(root_path, original_path)
-                    if os.path.exists(joined_path):
-                        path = joined_path
-            except Exception as e:
-                print(f"Error checking settings path: {e}")
-                print(f"Error checking settings path: {e}")
+        try:
+            settings = db.query(models.Settings).first()
+            from app.config import settings as settings_conf
+            root_path = settings.root_download_path if settings and settings.root_download_path else settings_conf.MEDIA_ROOT
+            if root_path:
+                joined = os.path.normpath(os.path.join(root_path, original_path))
+                if os.path.exists(joined):
+                    path = joined
+        except Exception as e:
+            print(f"Error checking settings path: {e}")
 
-    # Final check
-    if not os.path.exists(path):
-        # Try resolving relative path against project root (assuming backend is cwd)
-        # e.g. path="downloads/rendered", cwd=".../backend" -> ".../downloads/rendered"
-        # Try resolving relative path against backend dir and project root
-        cwd = os.getcwd()
-        basename = os.path.basename(cwd)
-        
-        # Candidate 1: Direct relative to CWD
-        candidate1 = os.path.abspath(os.path.join(cwd, path))
-        if os.path.exists(candidate1):
-            path = candidate1
-        else:
-            # Candidate 2: Relative to project root (if we are in backend)
-            if basename == "backend":
-                project_root = os.path.dirname(cwd)
-                candidate2 = os.path.abspath(os.path.join(project_root, path))
-                if os.path.exists(candidate2):
-                    path = candidate2
-            # Candidate 3: Relative to backend (if we are in project root)
-            else:
-                backend_dir = os.path.join(cwd, "backend")
-                candidate3 = os.path.abspath(os.path.join(backend_dir, path))
-                if os.path.exists(candidate3):
-                    path = candidate3
-        
-        # Try to just open the parent folder if the file itself is missing
-        if not os.path.exists(path):
-            parent = os.path.dirname(path)
-            if os.path.exists(parent):
-                path = parent
-            else:
-                 print(f"Path not found: {original_path} -> {path}")
-                 raise HTTPException(status_code=404, detail=f"Path not found: {path} (Resolved: {os.path.abspath(path)})")
-    
+    # 2. Find closest existing ancestor directory if path does not exist
+    check_dir = path
+    while check_dir and not os.path.exists(check_dir):
+        parent = os.path.dirname(check_dir)
+        if parent == check_dir or not parent:
+            break
+        check_dir = parent
+
+    if check_dir and os.path.exists(check_dir):
+        path = check_dir
+    else:
+        # Fallback to system MEDIA_ROOT
+        from app.config import settings as settings_conf
+        path = settings_conf.MEDIA_ROOT
+
     # If the path exists but is a file, open its parent directory
     if os.path.isfile(path):
         path = os.path.dirname(path)

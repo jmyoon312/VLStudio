@@ -278,6 +278,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   omnirouteStop: () => ipcRenderer.invoke('omniroute:stop'),
   omnirouteRestart: () => ipcRenderer.invoke('omniroute:restart'),
   omnirouteInstall: () => ipcRenderer.invoke('omniroute:install'),
+  omnirouteApplyOptimal: () => ipcRenderer.invoke('omniroute:apply-optimal'),
   omnirouteOpenDashboard: () => ipcRenderer.invoke('omniroute:open-dashboard'),
   onOmniRouteInstallLog: (callback) => {
     const handler = (_, log) => callback(log)

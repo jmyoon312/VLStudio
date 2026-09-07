@@ -46,7 +46,40 @@ export function findRangeAt(ranges, t, inclusiveEnd = false) {
 // <video>는 DOM에 항상 1개만 존재 — 씬이 바뀔 때만 src swap (500씬 스케일 대응).
 const EMPTY_HIDDEN = new Set()
 
-export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleConfig, height = 240, isPlaying = false, hiddenRoles = EMPTY_HIDDEN, monitorVolume = 1, monitorMuted = true, aspectRatio = '16:9', className = '', kenBurns = false }) {
+// 워터마크 9방향 절대 위치 계산 헬퍼
+function getWatermarkPositionStyle(position = 'bottom-right', scale = 15, marginX = 20, marginY = 20, scaleRatio = 1) {
+  const scaledMx = Math.max(4, Math.round(marginX * scaleRatio))
+  const scaledMy = Math.max(4, Math.round(marginY * scaleRatio))
+
+  let pos = { bottom: `${scaledMy}px`, right: `${scaledMx}px` }
+  if (position === 'top-left') pos = { top: `${scaledMy}px`, left: `${scaledMx}px` }
+  else if (position === 'top-center') pos = { top: `${scaledMy}px`, left: '50%', transform: 'translateX(-50%)' }
+  else if (position === 'top-right') pos = { top: `${scaledMy}px`, right: `${scaledMx}px` }
+  else if (position === 'mid-left') pos = { top: '50%', left: `${scaledMx}px`, transform: 'translateY(-50%)' }
+  else if (position === 'center') pos = { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
+  else if (position === 'mid-right') pos = { top: '50%', right: `${scaledMx}px`, transform: 'translateY(-50%)' }
+  else if (position === 'bottom-left') pos = { bottom: `${scaledMy}px`, left: `${scaledMx}px` }
+  else if (position === 'bottom-center') pos = { bottom: `${scaledMy}px`, left: '50%', transform: 'translateX(-50%)' }
+  else if (position === 'bottom-right') pos = { bottom: `${scaledMy}px`, right: `${scaledMx}px` }
+  return pos
+}
+
+export default function PreviewPanel({
+  playheadMs,
+  scenes,
+  srtEntries,
+  subtitleConfig,
+  height = 240,
+  isPlaying = false,
+  hiddenRoles = EMPTY_HIDDEN,
+  monitorVolume = 1,
+  monitorMuted = true,
+  aspectRatio = '16:9',
+  className = '',
+  kenBurns = false,
+  watermarkConfig = null,
+  onMediaTransformChange,
+}) {
   // ── CapCut 네이티브 1:1 반응형 자막 스케일러 & 인터랙티브 조작 ──
   const stageRef = useRef(null)
   const [stageDimensions, setStageDimensions] = useState({ width: 640, height: 360 })
@@ -59,6 +92,14 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
   const [subDragOffset, setSubDragOffset] = useState({ x: 0, y: 0 })
   const [isDraggingSubtitle, setIsDraggingSubtitle] = useState(false)
   const subDragStartRef = useRef({ startX: 0, startY: 0, initialMarginV: 50, initialX: 0, initialY: 0 })
+
+  // [NEW] 자막 박스 리사이즈 상태 (너비/높이 조절)
+  const [subBoxSize, setSubBoxSize] = useState({ width: null, height: null })
+  const [isResizingSubtitle, setIsResizingSubtitle] = useState(false)
+  const [isSubtitleSelected, setIsSubtitleSelected] = useState(false)
+
+  // [NEW] 프리뷰 미디어 선택 상태 (이미지/영상 클릭 시 트랜스폼 테두리 활성화)
+  const [isMediaSelected, setIsMediaSelected] = useState(false)
 
   useEffect(() => {
     const el = stageRef.current
@@ -90,12 +131,15 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
   const handleDoubleClick = () => {
     setCanvasScale(1.0)
     setCanvasPan({ x: 0, y: 0 })
+    setIsMediaSelected(false)
+    setIsSubtitleSelected(false)
   }
 
   // 자막 드래그 시작
   const handleSubtitlePointerDown = (e) => {
     e.stopPropagation()
     e.preventDefault()
+    setIsSubtitleSelected(true)
     setIsDraggingSubtitle(true)
     const curMarginV = Number(subtitleConfig?.marginV) || 50
     subDragStartRef.current = {
@@ -124,6 +168,45 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
   }
+
+  // [NEW] 자막 박스 8방향 리사이즈 핸들 드래그
+  const handleSubtitleResizeDown = (direction, e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setIsResizingSubtitle(true)
+    const startX = e.clientX
+    const startY = e.clientY
+    const initialWidth = subBoxSize.width || (stageDimensions.width * 0.85)
+    const initialHeight = subBoxSize.height || 60
+
+    const onMove = (mv) => {
+      const deltaX = (mv.clientX - startX) / (scaleRatio * canvasScale)
+      const deltaY = (mv.clientY - startY) / (scaleRatio * canvasScale)
+      
+      let nextW = initialWidth
+      let nextH = initialHeight
+
+      if (direction.includes('e')) nextW = Math.max(120, initialWidth + deltaX * 2)
+      if (direction.includes('w')) nextW = Math.max(120, initialWidth - deltaX * 2)
+      if (direction.includes('s')) nextH = Math.max(30, initialHeight + deltaY)
+      if (direction.includes('n')) nextH = Math.max(30, initialHeight - deltaY)
+
+      setSubBoxSize({
+        width: Math.min(stageDimensions.width * 0.98, nextW),
+        height: Math.max(30, nextH)
+      })
+    }
+
+    const onUp = () => {
+      setIsResizingSubtitle(false)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
 
   const subtitleStyle = useMemo(() => {
     const cfg = subtitleConfig || {}
@@ -214,19 +297,24 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
       background,
       padding: boxPadding,
       borderRadius,
-      border: isDraggingSubtitle ? '1.5px dashed #3b82f6' : borderStyle,
-      maxWidth: '92%',
+      border: isDraggingSubtitle || isSubtitleSelected ? '1.5px dashed #3b82f6' : borderStyle,
+      width: subBoxSize.width ? `${subBoxSize.width}px` : 'auto',
+      maxWidth: subBoxSize.width ? `${subBoxSize.width}px` : '96%',
+      minWidth: '100px',
       lineHeight: 1.35,
       letterSpacing: '0.01em',
       whiteSpace: 'pre-wrap',
       wordBreak: 'keep-all',
+      overflowWrap: 'anywhere',
+      boxSizing: 'border-box',
       pointerEvents: 'auto',
       cursor: isDraggingSubtitle ? 'grabbing' : 'grab',
       userSelect: 'none',
       zIndex: 50,
       ...posStyle,
     }
-  }, [subtitleConfig, scaleRatio, subDragOffset, isDraggingSubtitle])
+  }, [subtitleConfig, scaleRatio, subDragOffset, isDraggingSubtitle, isSubtitleSelected, subBoxSize])
+
   // 씬 ranges precompute — getSceneTimeRangeMs는 parseTimeToSeconds(regex+split)을 부르므로
   // playhead 매 tick (60fps) 마다 N회 반복하면 1시간/1500씬 기준 ~0.5% CPU 누적.
   // sort를 명시적으로 — binary search 정확성 보장.
@@ -449,11 +537,26 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
         />
         {subtitleText && !hideSubtitle && (
           <div
-            className="atl-preview-subtitle"
+            className="atl-preview-subtitle relative group"
             style={subtitleStyle}
             onPointerDown={handleSubtitlePointerDown}
-            title="마우스로 자막을 잡고 원하는 위치로 드래그하세요"
+            onClick={(e) => { e.stopPropagation(); setIsSubtitleSelected(true); }}
+            title="마우스로 자막을 잡고 원하는 위치로 드래그하거나 모서리를 잡아 크기를 조절하세요"
           >
+            {/* 8-Direction Resize Handles (선택되었거나 호버 시 노출) */}
+            {(isSubtitleSelected || isResizingSubtitle) && (
+              <>
+                <div onPointerDown={(e) => handleSubtitleResizeDown('nw', e)} className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-blue-500 border border-white rounded-xs cursor-nwse-resize z-50 shadow-xs" />
+                <div onPointerDown={(e) => handleSubtitleResizeDown('n', e)} className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-blue-500 border border-white rounded-xs cursor-ns-resize z-50 shadow-xs" />
+                <div onPointerDown={(e) => handleSubtitleResizeDown('ne', e)} className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 border border-white rounded-xs cursor-nesw-resize z-50 shadow-xs" />
+                <div onPointerDown={(e) => handleSubtitleResizeDown('w', e)} className="absolute top-1/2 -left-1 -translate-y-1/2 w-2.5 h-2.5 bg-blue-500 border border-white rounded-xs cursor-ew-resize z-50 shadow-xs" />
+                <div onPointerDown={(e) => handleSubtitleResizeDown('e', e)} className="absolute top-1/2 -right-1 -translate-y-1/2 w-2.5 h-2.5 bg-blue-500 border border-white rounded-xs cursor-ew-resize z-50 shadow-xs" />
+                <div onPointerDown={(e) => handleSubtitleResizeDown('sw', e)} className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-blue-500 border border-white rounded-xs cursor-nesw-resize z-50 shadow-xs" />
+                <div onPointerDown={(e) => handleSubtitleResizeDown('s', e)} className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-blue-500 border border-white rounded-xs cursor-ns-resize z-50 shadow-xs" />
+                <div onPointerDown={(e) => handleSubtitleResizeDown('se', e)} className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-blue-500 border border-white rounded-xs cursor-nwse-resize z-50 shadow-xs" />
+              </>
+            )}
+
             {(() => {
               const cfg = subtitleConfig || {}
               if (!cfg.karaoke && cfg.animation !== 'karaoke' && cfg.animation !== 'word_pop') {
@@ -507,7 +610,58 @@ export default function PreviewPanel({ playheadMs, scenes, srtEntries, subtitleC
             })()}
           </div>
         )}
+
+        {/* 🏷️ 실시간 워터마크 및 채널 로고 오버레이 */}
+        {watermarkConfig?.enabled && (
+          <div
+            className="atl-preview-watermark pointer-events-none select-none"
+            style={{
+              position: 'absolute',
+              ...getWatermarkPositionStyle(
+                watermarkConfig.position || 'bottom-right',
+                watermarkConfig.scale || 15,
+                watermarkConfig.marginX || 24,
+                watermarkConfig.marginY || 24,
+                scaleRatio
+              ),
+              opacity: (watermarkConfig.opacity ?? 70) / 100,
+              zIndex: 60,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {watermarkConfig.type === 'image' && watermarkConfig.imageUrl ? (
+              <img
+                src={watermarkConfig.imageUrl}
+                alt="Watermark Logo"
+                style={{
+                  maxWidth: `${Math.round((watermarkConfig.scale || 15) * 3.6 * scaleRatio)}px`,
+                  maxHeight: `${Math.round((watermarkConfig.scale || 15) * 3.6 * scaleRatio)}px`,
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  fontFamily: watermarkConfig.fontFamily || '"Wanted Sans", Pretendard, sans-serif',
+                  fontSize: `${Math.max(10, Math.round((watermarkConfig.fontSize || 18) * scaleRatio))}px`,
+                  color: watermarkConfig.textColor || '#FFFFFF',
+                  fontWeight: 700,
+                  textShadow: watermarkConfig.textShadow !== false ? '0 1px 4px rgba(0,0,0,0.85)' : 'none',
+                  WebkitTextStroke: watermarkConfig.textStroke ? '0.5px rgba(0,0,0,0.85)' : 'none',
+                  padding: `${Math.round(2 * scaleRatio)}px ${Math.round(8 * scaleRatio)}px`,
+                  background: 'rgba(0,0,0,0.25)',
+                  borderRadius: `${Math.round(4 * scaleRatio)}px`,
+                }}
+              >
+                {watermarkConfig.text || '@ViraLoop'}
+              </span>
+            )}
+          </div>
+        )}
       </div>
+
       {/* Hidden prefetch — 다음 활성 비디오를 미리 OS 캐시에 warm. 화면 표시는 안 함. */}
       <video
         ref={prefetchRef}

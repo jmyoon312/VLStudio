@@ -1,4 +1,4 @@
-# 🎨 [01_조선야담_미스터리] Google Flow AI 시네마틱 화풍 프롬프트 팩
+# 🎨 [채널 1] Google Flow AI 시네마틱 화풍 프롬프트 팩
 - **적용 모델**: Google Flow AI 2.0 / Veo / Imagen 3
 
 ## 1. 채널 고유 화풍 프롬프트 키워드
