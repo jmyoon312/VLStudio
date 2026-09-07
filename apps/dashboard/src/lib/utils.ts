@@ -247,3 +247,20 @@ export function resetModalCount() {
     window.electronAPI?.setModalVisible?.({ visible: false });
 }
 
+/**
+ * 100% Domain-Agnostic & Host-Agnostic Desktop Electron Runtime Detection
+ * Returns true ONLY when running inside the native Electron app Chromium container.
+ * Returns false on ALL web browsers regardless of host, port, IP, or tunnel domain.
+ */
+export function isDesktopElectron(): boolean {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+        return false;
+    }
+    const ua = navigator.userAgent ? navigator.userAgent.toLowerCase() : '';
+    const hasElectronUA = ua.includes('electron');
+    const hasDesktopFlag = Boolean((window as any).__VIRALOOP_DESKTOP__);
+    const isMockAPI = (window as any).electronAPI?.isMock === true;
+
+    return (hasElectronUA || hasDesktopFlag) && !isMockAPI;
+}
+

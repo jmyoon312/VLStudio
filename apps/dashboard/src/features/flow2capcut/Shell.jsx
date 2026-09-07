@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
-import { resetModalCount } from '../../lib/utils'
+import { resetModalCount, isDesktopElectron } from '../../lib/utils'
 
 const DEFAULT_LAYOUT = 'hidden'
 const DEFAULT_RATIO = 0.45
@@ -291,10 +291,7 @@ function ShellContent({ children }) {
     }
   }, [isFlowPage, loadProfilesAndViews])
 
-  const isDesktop = typeof window !== 'undefined' && Boolean(
-    window.__VIRALOOP_DESKTOP__ || 
-    (window.electronAPI && !window.electronAPI.isMock && !window.__IS_WEB_BROWSER__ && navigator?.userAgent?.toLowerCase()?.includes('electron'))
-  )
+  const isDesktop = isDesktopElectron()
 
   const modeStr = typeof layoutMode === 'string' ? layoutMode : (layoutMode?.mode || 'hidden')
 

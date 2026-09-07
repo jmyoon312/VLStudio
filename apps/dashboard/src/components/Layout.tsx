@@ -48,7 +48,7 @@ import {
     ExternalLink
 } from 'lucide-react';
 
-import { cn } from '../lib/utils';
+import { cn, isDesktopElectron } from '../lib/utils';
 import { useTheme } from './theme-provider';
 import { Toaster, toast } from 'sonner';
 import api from '@/lib/api';
@@ -109,47 +109,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         syncViewsAndProfiles();
     }, []);
 
-    React.useEffect(() => {
-        const isFlowActivePage = location.pathname === '/flow2capcut' || location.pathname === '/creative-studio';
+    // 100% Domain-Agnostic & Host-Agnostic Desktop Runtime Detection
+    const isElectron = isDesktopElectron();
 
-        const apiObj = (window as any).electronAPI;
-        if (apiObj?.setFlowTabActive) {
-            apiObj.setFlowTabActive({ active: isFlowActivePage });
-        }
-        if (isFlowActivePage) {
-            // 이미 로그인된 1번 기본 프로필('default')을 단일 활성 창으로 띄움
-            if (apiObj?.createFlowView) {
-                apiObj.createFlowView({ profileId: 'default' }).catch(() => {});
-            }
-            if (apiObj?.switchProfile) {
-                apiObj.switchProfile({ profileId: 'default' }).catch(() => {});
-            }
-            syncViewsAndProfiles();
-        }
-    }, [location.pathname]);
-
-    const isElectron = typeof window !== 'undefined' && Boolean(
-        (window as any).__VIRALOOP_DESKTOP__ ||
-        (window as any).electronAPI?.isDesktopApp ||
-        (
-            Boolean((window as any).electronAPI) && 
-            !(window as any).electronAPI?.isMock && 
-            !(window as any).__IS_WEB_BROWSER__ &&
-            typeof navigator !== 'undefined' &&
-            navigator.userAgent.toLowerCase().includes('electron')
-        )
-    );
-
-    const [isFlowHidden, setIsFlowHidden] = React.useState(() => {
-        try {
-            const saved = localStorage.getItem('layoutSettings');
-            if (saved) {
-                const { mode } = JSON.parse(saved);
-                return mode === 'hidden' || mode === 'none';
-            }
-        } catch {}
-        return true; // 기본값: 숨김
-    });
+    // 기본 메뉴 클릭으로 진입 시 좌측 Flow 창은 기본 숨김(Hidden) 상태 유지
+    const [isFlowHidden, setIsFlowHidden] = React.useState<boolean>(true);
 
     React.useEffect(() => {
         const handler = (window as any).electronAPI?.onLayoutChanged;
@@ -174,14 +138,20 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     }
                 } catch {}
             }
+            const apiObj = (window as any).electronAPI;
             if (isFlowHidden) {
+                const curTab = tabs.find(t => t.id === activeTabId);
+                const curWorkerId = curTab?.flowWorkerId || 'default';
+                apiObj?.createFlowView?.({ profileId: curWorkerId }).catch(() => {});
+                apiObj?.switchProfile?.({ profileId: curWorkerId }).catch(() => {});
                 localStorage.setItem('layoutSettings', JSON.stringify({ mode: targetMode, ratio: currentRatio }));
-                (window as any).electronAPI?.setLayout?.({ mode: targetMode, ratio: currentRatio });
+                apiObj?.setLayout?.({ mode: targetMode, ratio: currentRatio });
                 setIsFlowHidden(false);
                 toast.success('Flow 브라우저 창을 표시합니다.');
+                syncViewsAndProfiles();
             } else {
                 localStorage.setItem('layoutSettings', JSON.stringify({ mode: 'hidden', ratio: currentRatio }));
-                (window as any).electronAPI?.setLayout?.({ mode: 'hidden', ratio: currentRatio });
+                apiObj?.setLayout?.({ mode: 'hidden', ratio: currentRatio });
                 setIsFlowHidden(true);
                 toast.info('Flow 브라우저 창을 숨겼습니다. (스튜디오 전체화면)');
             }
@@ -392,7 +362,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         const isFlowActivePage = location.pathname === '/flow2capcut' || location.pathname === '/creative-studio';
         const apiObj = (window as any).electronAPI;
 
-        if (apiObj) {
+        if (apiObj && isElectron) {
             apiObj.setFlowTabActive?.({ active: isFlowActivePage });
             if (isFlowActivePage) {
                 let targetMode = isFlowHidden ? 'hidden' : 'split-left';
@@ -406,13 +376,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     }
                 } catch {}
 
-                apiObj.createFlowView?.({ profileId: curWorkerId }).catch(() => {});
-                apiObj.switchProfile?.({ profileId: curWorkerId }).catch(() => {});
+                if (!isFlowHidden) {
+                    apiObj.createFlowView?.({ profileId: curWorkerId }).catch(() => {});
+                    apiObj.switchProfile?.({ profileId: curWorkerId }).catch(() => {});
+                }
                 apiObj.setLayout?.({ mode: targetMode, ratio: targetRatio }).catch(() => {});
+            } else {
+                apiObj.setLayout?.({ mode: 'hidden', ratio: 0.45 }).catch(() => {});
             }
             syncViewsAndProfiles();
         }
-    }, [location.pathname, activeTabId, getTabNameAndIcon, isFlowHidden]);
+    }, [location.pathname, activeTabId, getTabNameAndIcon, isFlowHidden, isElectron]);
 
     // Pixeling 스타일: 새 창에서 열기
     const handleOpenInNewWindow = (tab: TabItem) => {
@@ -422,9 +396,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 apiObj.openNewWindow({
                     route: tab.path,
                     title: `${tab.name} - ViraLoop Studio`
+                }).then((res: any) => {
+                    if (res && res.success === false) {
+                        toast.error(res.error || "새 창을 열 수 없습니다.");
+                    }
                 }).catch((err: any) => {
                     console.error("Failed to open new window via electron:", err);
+                    toast.info("독립 새 창 기능은 ViraLoop Studio 최신 데스크톱 설치본에서 지원됩니다.");
                 });
+                return;
+            } else {
+                toast.info("독립 새 창 기능은 ViraLoop Studio 최신 데스크톱 설치본에서 지원됩니다.");
                 return;
             }
         }
@@ -778,25 +760,23 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                        {/* Electron 데스크톱 앱에서만 노출되는 네이티브 컨트롤 */}
-                        {isElectron && (
+                        {/* Electron 데스크톱 앱의 Flow 연동 2개 메뉴(/creative-studio, /flow2capcut)에서만 노출되는 컨트롤 */}
+                        {isElectron && (location.pathname === '/creative-studio' || location.pathname === '/flow2capcut') && (
                             <>
                                 {/* Quick Flow Hide/Show Toggle Button */}
-                                {(location.pathname === '/creative-studio' || location.pathname === '/flow2capcut') && (
-                                    <button
-                                        onClick={toggleFlowVisibility}
-                                        className={cn(
-                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all shadow-xs",
-                                            isFlowHidden
-                                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-400/40 hover:bg-amber-500/25"
-                                                : "bg-card border-border hover:bg-muted text-foreground"
-                                        )}
-                                        title={isFlowHidden ? "Flow 브라우저 창 복원" : "Flow 브라우저 창 숨기기 (스튜디오 넓게 쓰기)"}
-                                    >
-                                        {isFlowHidden ? <Eye className="w-3.5 h-3.5 text-amber-500" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
-                                        <span>{isFlowHidden ? "Flow 창 표시" : "Flow 창 숨김"}</span>
-                                    </button>
-                                )}
+                                <button
+                                    onClick={toggleFlowVisibility}
+                                    className={cn(
+                                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all shadow-xs",
+                                        isFlowHidden
+                                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-400/40 hover:bg-amber-500/25"
+                                            : "bg-card border-border hover:bg-muted text-foreground"
+                                    )}
+                                    title={isFlowHidden ? "Flow 브라우저 창 복원" : "Flow 브라우저 창 숨기기 (스튜디오 넓게 쓰기)"}
+                                >
+                                    {isFlowHidden ? <Eye className="w-3.5 h-3.5 text-amber-500" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                    <span>{isFlowHidden ? "Flow 창 표시" : "Flow 창 숨김"}</span>
+                                </button>
                                 <MultiWindowController 
                                     activeViews={activeViews} 
                                     activeProfileId={activeProfileId} 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, LayoutGrid, MonitorPlay, X, LayoutPanelLeft, LayoutPanelTop, CheckCircle2, Layers, Eye, EyeOff, RotateCw, Home, Maximize2 } from 'lucide-react';
+import { Plus, Trash2, LayoutGrid, MonitorPlay, X, LayoutPanelLeft, LayoutPanelTop, CheckCircle2, Layers, Eye, EyeOff, RotateCw, Home, Maximize2, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,13 @@ interface Profile {
     email?: string;
 }
 
+interface ProfileUsageItem {
+    windowId: number;
+    profileId: string;
+    title: string;
+    isCurrentWindow: boolean;
+}
+
 export default function MultiWindowController({
     activeViews,
     activeProfileId,
@@ -34,6 +41,7 @@ export default function MultiWindowController({
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [profiles, setProfiles] = useState<Profile[]>([]);
+    const [profileUsage, setProfileUsage] = useState<ProfileUsageItem[]>([]);
     
     // Layout State
     const [mode, setMode] = useState(() => {
@@ -77,9 +85,39 @@ export default function MultiWindowController({
         }
     };
 
+    // Load Profile Usage across all windows
+    const loadProfileUsage = async () => {
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj && typeof apiObj.getProfileUsage === 'function') {
+                const res = await apiObj.getProfileUsage();
+                if (res && res.success && Array.isArray(res.usage)) {
+                    setProfileUsage(res.usage);
+                }
+            }
+        } catch (e) {
+            // silent catch
+        }
+    };
+
+    useEffect(() => {
+        const apiObj = (window as any).electronAPI;
+        if (apiObj && typeof apiObj.onProfileUsageUpdated === 'function') {
+            const unsubscribe = apiObj.onProfileUsageUpdated((data: any) => {
+                if (data && Array.isArray(data.usage)) {
+                    setProfileUsage(data.usage);
+                }
+            });
+            return () => {
+                if (typeof unsubscribe === 'function') unsubscribe();
+            };
+        }
+    }, []);
+
     useEffect(() => {
         if (open) {
             loadProfilesList();
+            loadProfileUsage();
             syncViewsAndProfiles();
         }
     }, [open]);
@@ -182,6 +220,11 @@ export default function MultiWindowController({
         }
     };
 
+    const flowTabs = tabs.filter(t => t.path === '/creative-studio' || t.path === '/flow2capcut');
+    const displayTabs = flowTabs.length > 0 ? flowTabs : tabs;
+    const conflictingItem = profileUsage.find(u => !u.isCurrentWindow && u.profileId === activeProfileId);
+    const activeProfileName = profiles.find(p => p.id === activeProfileId)?.name || (activeProfileId === 'default' ? '기본 프로필' : activeProfileId);
+
     return (
         <div ref={ref} className="relative inline-flex items-center">
             <button
@@ -198,118 +241,149 @@ export default function MultiWindowController({
             </button>
 
             {open && (
-                <div className="absolute top-[calc(100%+8px)] right-0 w-[340px] bg-card border border-border rounded-2xl shadow-2xl z-[99999] p-3.5 flex flex-col gap-3.5 animate-in fade-in zoom-in-95 duration-150">
-                    
-                    {/* 1. Open Tabs & Flow Worker Status */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between border-b border-border pb-2">
-                            <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
-                                <Layers className="w-3.5 h-3.5 text-primary" />
-                                <span>열린 탭 & Flow 창 모니터 ({tabs.length}개)</span>
-                            </span>
-                        </div>
+                <div className="absolute top-[calc(100%+8px)] right-0 w-[350px] bg-card border border-border rounded-2xl shadow-2xl z-[99999] p-3.5 flex flex-col gap-3.5 animate-in fade-in zoom-in-95 duration-150">
                         
-                        {/* Dynamic Tab / Worker List */}
-                        <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto custom-scrollbar pr-0.5">
-                            {tabs.map((t, idx) => {
-                                const workerId = t.flowWorkerId || (idx === 0 ? 'default' : `profile${idx + 1}`);
-                                const isFocused = workerId === activeProfileId;
-                                const isFlowOpen = activeViews.includes(workerId);
-                                
-                                return (
-                                    <div
-                                        key={t.id || idx}
-                                        onClick={() => {
-                                            if (onSelectTab) onSelectTab(t);
-                                            handleSwitchWindow(workerId);
-                                        }}
-                                        className={`flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer ${
-                                            isFocused 
-                                            ? 'bg-primary/10 border-primary text-primary shadow-2xs font-bold' 
-                                            : 'bg-muted/30 border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground'
-                                        }`}
-                                    >
-                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            <MonitorPlay className={`w-4 h-4 shrink-0 ${isFocused ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-xs truncate font-medium">{t.name}</span>
-                                                <span className="text-[10px] text-muted-foreground truncate">
-                                                    {idx + 1}번 창 ({workerId === 'default' ? '기본 세션' : workerId})
-                                                </span>
-                                            </div>
-                                        </div>
+                        {/* ⚠️ Duplicate Account Warning Banner */}
+                        {conflictingItem && (
+                            <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-600 dark:text-amber-400 text-xs font-medium flex items-start gap-2 animate-in fade-in">
+                                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                                <div className="flex-1 space-y-0.5">
+                                    <p className="font-bold text-[11.5px] text-amber-600 dark:text-amber-400">동일 계정 중복 작업 주의</p>
+                                    <p className="text-[10.5px] text-foreground/80 leading-snug">
+                                        현재 선택된 <strong>'{activeProfileName}'</strong> 계정은 다른 창({conflictingItem.title})에서 이미 사용 중입니다. 동시 생성 시 Google Flow 요청 한도(Rate Limit)나 세션 간섭이 발생할 수 있으니 다른 프로필 선택을 권장합니다.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
-                                        {isFocused ? (
-                                            <span className="text-[10px] bg-primary text-primary-foreground font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                                                현재 화면
-                                            </span>
-                                        ) : (
-                                            <span className="text-[10px] text-muted-foreground/80 px-2 py-0.5 rounded bg-muted/60 shrink-0">
-                                                백그라운드
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* 2. Google Flow Account & Profiles Management */}
-                    <div className="space-y-2 pt-2.5 border-t border-border">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-muted-foreground tracking-tight">구글 계정 프로필 관리</span>
-                            <button
-                                onClick={() => setIsCreateOpen(true)}
-                                className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
-                            >
-                                <Plus className="w-3 h-3" /> 새 계정 추가
-                            </button>
-                        </div>
-
-                        <div className="flex flex-col gap-1 max-h-[120px] overflow-y-auto custom-scrollbar pr-0.5">
-                            {profiles.map(p => {
-                                const isCurrent = p.id === activeProfileId;
-                                return (
-                                    <div
-                                        key={p.id}
-                                        className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-transparent hover:border-border group"
-                                    >
-                                        <div 
-                                            className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
-                                            onClick={() => handleSwitchWindow(p.id)}
+                        {/* 1. Flow Associated Tabs Status */}
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between border-b border-border pb-2">
+                                <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+                                    <Layers className="w-3.5 h-3.5 text-primary" />
+                                    <span>Flow 연동 탭 & 작업창 모니터 ({displayTabs.length}개)</span>
+                                </span>
+                            </div>
+                            
+                            {/* Dynamic Tab / Worker List */}
+                            <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto custom-scrollbar pr-0.5">
+                                {displayTabs.map((t, idx) => {
+                                    const workerId = t.flowWorkerId || (idx === 0 ? 'default' : `profile${idx + 1}`);
+                                    const isFocused = workerId === activeProfileId;
+                                    
+                                    return (
+                                        <div
+                                            key={t.id || idx}
+                                            onClick={() => {
+                                                if (onSelectTab) onSelectTab(t);
+                                                handleSwitchWindow(workerId);
+                                            }}
+                                            className={`flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer ${
+                                                isFocused 
+                                                ? 'bg-primary/10 border-primary text-primary shadow-2xs font-bold' 
+                                                : 'bg-muted/30 border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                                            }`}
                                         >
-                                            <span className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/40'}`} />
-                                            <div className="flex flex-col min-w-0">
-                                                <span className={`text-xs truncate ${isCurrent ? 'font-bold text-primary' : 'text-foreground'}`}>
-                                                    {p.name}
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <MonitorPlay className={`w-4 h-4 shrink-0 ${isFocused ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-xs truncate font-medium">{t.name}</span>
+                                                    <span className="text-[10px] text-muted-foreground truncate">
+                                                        {idx + 1}번 창 ({workerId === 'default' ? '기본 세션' : workerId})
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {isFocused ? (
+                                                <span className="text-[10px] bg-primary text-primary-foreground font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                                    현재 화면
                                                 </span>
-                                                {p.email && <span className="text-[9px] text-muted-foreground truncate">{p.email}</span>}
+                                            ) : (
+                                                <span className="text-[10px] text-muted-foreground/80 px-2 py-0.5 rounded bg-muted/60 shrink-0">
+                                                    백그라운드
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* 2. Google Flow Account & Profiles Management */}
+                        <div className="space-y-2 pt-2.5 border-t border-border">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-muted-foreground tracking-tight">구글 계정 프로필 관리</span>
+                                <button
+                                    onClick={() => setIsCreateOpen(true)}
+                                    className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
+                                >
+                                    <Plus className="w-3 h-3" /> 새 계정 추가
+                                </button>
+                            </div>
+
+                            <div className="flex flex-col gap-1 max-h-[140px] overflow-y-auto custom-scrollbar pr-0.5">
+                                {profiles.map(p => {
+                                    const isCurrent = p.id === activeProfileId;
+                                    const usedByOther = profileUsage.find(u => !u.isCurrentWindow && u.profileId === p.id);
+
+                                    return (
+                                        <div
+                                            key={p.id}
+                                            className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-transparent hover:border-border group gap-2"
+                                        >
+                                            <div 
+                                                className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer"
+                                                onClick={() => handleSwitchWindow(p.id)}
+                                            >
+                                                <span className={`w-2 h-2 rounded-full shrink-0 ${isCurrent ? 'bg-emerald-500 animate-pulse' : usedByOther ? 'bg-amber-500' : 'bg-muted-foreground/40'}`} />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className={`text-xs truncate ${isCurrent ? 'font-bold text-primary' : 'text-foreground'}`}>
+                                                        {p.name}
+                                                    </span>
+                                                    {p.email && <span className="text-[9px] text-muted-foreground truncate">{p.email}</span>}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                {usedByOther ? (
+                                                    <span className="text-[9px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold px-1.5 py-0.5 rounded border border-amber-400/40 shrink-0" title={`다른 창(${usedByOther.title})에서 사용 중`}>
+                                                        ⚠️ 다른 창 사용 중
+                                                    </span>
+                                                ) : isCurrent ? (
+                                                    <span className="text-[9px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded border border-emerald-400/40 shrink-0">
+                                                        현재 창
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] text-muted-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded shrink-0">
+                                                        선택 가능
+                                                    </span>
+                                                )}
+
+                                                {p.id !== 'default' && (
+                                                    <button
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            if (!confirm(`'${p.name}' 계정 프로필을 삭제하시겠습니까?`)) return;
+                                                            const apiObj = (window as any).electronAPI;
+                                                            await apiObj?.deleteProfile?.({ profileId: p.id });
+                                                            await loadProfilesList();
+                                                            await loadProfileUsage();
+                                                            await syncViewsAndProfiles();
+                                                            toast({ title: "계정 삭제 완료", description: "프로필이 삭제되었습니다." });
+                                                        }}
+                                                        className="p-1 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="계정 삭제"
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
-
-                                        {p.id !== 'default' && (
-                                            <button
-                                                onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    if (!confirm(`'${p.name}' 계정 프로필을 삭제하시겠습니까?`)) return;
-                                                    const apiObj = (window as any).electronAPI;
-                                                    await apiObj?.deleteProfile?.({ profileId: p.id });
-                                                    await loadProfilesList();
-                                                    await syncViewsAndProfiles();
-                                                    toast({ title: "계정 삭제 완료", description: "프로필이 삭제되었습니다." });
-                                                }}
-                                                className="p-1 text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="계정 삭제"
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
 
                     {/* 3. Layout & Visibility Controls */}
                     <div className="space-y-2.5 pt-2.5 border-t border-border">

@@ -169,7 +169,34 @@ let mainWindow = null
 let flowView = null
 global.flowViews = new Map() // Map<ProfileId, WebContentsView>
 global.activeFlowProfileId = 'default'
+global.activeWindowProfiles = new Map() // Map<windowId, { windowId: number, profileId: string, title: string, updatedAt: number }>
 const profileStates = new Map() // Map<ProfileId, { consentClicked: boolean, enterToolClicked: boolean }>
+
+function broadcastProfileUsage() {
+  try {
+    const allWindows = BrowserWindow.getAllWindows();
+    allWindows.forEach(w => {
+      if (!w.isDestroyed()) {
+        const currentWinId = w.id;
+        const list = [];
+        for (const [winId, data] of global.activeWindowProfiles.entries()) {
+          const targetWin = BrowserWindow.fromId(winId);
+          if (targetWin && !targetWin.isDestroyed()) {
+            list.push({
+              ...data,
+              isCurrentWindow: winId === currentWinId
+            });
+          } else {
+            global.activeWindowProfiles.delete(winId);
+          }
+        }
+        w.webContents.send('flow:profile-usage-updated', { usage: list });
+      }
+    });
+  } catch (e) {
+    console.warn('[ProfileUsage] broadcast error:', e.message);
+  }
+}
 
 function getCurrentFlowView() {
   if (global.flowViews && global.flowViews.size > 0) {
@@ -297,6 +324,8 @@ async function openAuxiliaryWindow({ route, title } = {}) {
     auxiliaryWindows.add(newWin)
     newWin.on('closed', () => {
       auxiliaryWindows.delete(newWin)
+      global.activeWindowProfiles.delete(newWin.id)
+      broadcastProfileUsage()
     })
 
     // 새 창 내부에서의 링크 열기도 내부/외부 분기
@@ -1261,6 +1290,16 @@ ipcMain.handle('profiles:switch', async (event, { profileId }) => {
     const result = await switchProfile(profileId)
     if (result.success) {
       global.activeFlowProfileId = profileId
+      const senderWin = BrowserWindow.fromWebContents(event.sender)
+      if (senderWin && !senderWin.isDestroyed()) {
+        global.activeWindowProfiles.set(senderWin.id, {
+          windowId: senderWin.id,
+          profileId,
+          title: senderWin.getTitle() || `창 #${senderWin.id}`,
+          updatedAt: Date.now()
+        })
+        broadcastProfileUsage()
+      }
     }
     return result
   } catch (e) {
@@ -1325,6 +1364,18 @@ ipcMain.handle('flow:create-view', async (event, { profileId } = {}) => {
     if (!profileId) return { success: false, error: 'profileId required' }
     console.log(`[flow:create-view] Creating/activating view for profile: ${profileId}`)
     global.activeFlowProfileId = profileId
+
+    const senderWin = BrowserWindow.fromWebContents(event.sender)
+    if (senderWin && !senderWin.isDestroyed()) {
+      global.activeWindowProfiles.set(senderWin.id, {
+        windowId: senderWin.id,
+        profileId,
+        title: senderWin.getTitle() || `창 #${senderWin.id}`,
+        updatedAt: Date.now()
+      })
+      broadcastProfileUsage()
+    }
+
     const view = typeof global.createOrGetFlowView === 'function' ? global.createOrGetFlowView(profileId) : null
     if (typeof updateBounds === 'function' && mainWindow) {
       updateBounds(mainWindow)
@@ -1340,6 +1391,15 @@ ipcMain.handle('flow:destroy-view', async (event, { profileId } = {}) => {
   try {
     if (!profileId) return { success: false, error: 'profileId required' }
     console.log(`[flow:destroy-view] Destroying view for profile: ${profileId}`)
+    
+    // 창 프로필 맵에서 해당 프로필 제거
+    for (const [winId, data] of global.activeWindowProfiles.entries()) {
+      if (data.profileId === profileId) {
+        global.activeWindowProfiles.delete(winId)
+      }
+    }
+    broadcastProfileUsage()
+
     if (typeof global.destroyFlowView === 'function') {
       const result = global.destroyFlowView(profileId)
       if (typeof updateBounds === 'function' && mainWindow) {
@@ -1351,6 +1411,28 @@ ipcMain.handle('flow:destroy-view', async (event, { profileId } = {}) => {
   } catch (e) {
     console.error('[flow:destroy-view] Error:', e.message)
     return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('flow:get-profile-usage', async (event) => {
+  try {
+    const senderWin = BrowserWindow.fromWebContents(event.sender)
+    const currentWindowId = senderWin ? senderWin.id : 1
+    const list = []
+    for (const [winId, data] of global.activeWindowProfiles.entries()) {
+      const targetWin = BrowserWindow.fromId(winId)
+      if (targetWin && !targetWin.isDestroyed()) {
+        list.push({
+          ...data,
+          isCurrentWindow: winId === currentWindowId
+        })
+      } else {
+        global.activeWindowProfiles.delete(winId)
+      }
+    }
+    return { success: true, usage: list }
+  } catch (e) {
+    return { success: false, usage: [], error: e.message }
   }
 })
 

@@ -47,6 +47,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearFlowSession: () => ipcRenderer.invoke('flow:clear-session'),
   reloadFlowView: (params) => ipcRenderer.invoke('flow:reload-view', params),
   navigateFlowHome: (params) => ipcRenderer.invoke('flow:navigate-home', params),
+  getProfileUsage: () => ipcRenderer.invoke('flow:get-profile-usage'),
+  onProfileUsageUpdated: (callback) => {
+    const handler = (_, data) => callback(data)
+    ipcRenderer.on('flow:profile-usage-updated', handler)
+    return () => ipcRenderer.removeListener('flow:profile-usage-updated', handler)
+  },
 
   // File System
   getDefaultWorkFolder: () => ipcRenderer.invoke('fs:get-default-work-folder'),
