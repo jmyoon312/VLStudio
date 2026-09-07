@@ -119,13 +119,13 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                     {activePreset ? activePreset.name : "프리셋"}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-72 p-0" align="end">
-                <div className="p-3 border-b flex items-center justify-between bg-slate-50/50">
-                    <h4 className="font-medium text-xs text-slate-700">자막 스타일 프리셋</h4>
+            <DropdownMenuContent className="w-72 p-0 bg-popover border-border text-popover-foreground shadow-lg" align="end">
+                <div className="p-3 border-b border-border flex items-center justify-between bg-muted/30">
+                    <h4 className="font-bold text-xs text-foreground">자막 스타일 프리셋</h4>
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0 hover:bg-slate-200"
+                        className="h-6 w-6 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
                         onClick={(e) => {
                             e.preventDefault();
                             setIsOpen(false);
@@ -138,13 +138,13 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                 <div className="p-2 space-y-2 max-h-[300px] overflow-y-auto" onKeyDown={e => e.stopPropagation()}>
                     {/* Save New Section */}
                     {isSaveMode ? (
-                        <div className="p-2 bg-indigo-50 border border-indigo-100 rounded-md space-y-2">
+                        <div className="p-2 bg-primary/10 border border-primary/20 rounded-lg space-y-2">
                             <div className="flex items-center justify-between">
-                                <Label className="text-[10px] text-indigo-700 font-semibold">새 프리셋 저장</Label>
+                                <Label className="text-[10px] text-primary font-bold">새 프리셋 저장</Label>
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-5 w-5 p-0 text-indigo-400 hover:text-indigo-600"
+                                    className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                                     onClick={() => setIsSaveMode(false)}
                                 >
                                     <X className="w-3 h-3" />
@@ -155,14 +155,14 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                     value={newPresetName}
                                     onChange={(e) => setNewPresetName(e.target.value)}
                                     placeholder="예: 예능 자막 (노란색)"
-                                    className="h-7 text-xs bg-white"
+                                    className="h-7 text-xs bg-background border-border text-foreground"
                                     autoFocus
                                     onKeyDown={(e) => {
                                         e.stopPropagation();
                                         if (e.key === 'Enter') handleSaveNew();
                                     }}
                                 />
-                                <Button size="sm" className="h-7 px-2" onClick={handleSaveNew}>
+                                <Button size="sm" className="h-7 px-2 bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleSaveNew}>
                                     <Save className="w-3.5 h-3.5" />
                                 </Button>
                             </div>
@@ -170,10 +170,10 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                     ) : (
                         <Button
                             variant="outline"
-                            className="w-full justify-start h-8 text-xs border-dashed text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50"
+                            className="w-full justify-start h-8 text-xs border-dashed text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5"
                             onClick={() => setIsSaveMode(true)}
                         >
-                            <Plus className="w-3.5 h-3.5 mr-2" />
+                            <Plus className="w-3.5 h-3.5 mr-2 text-primary" />
                             현재 스타일 저장하기
                         </Button>
                     )}
@@ -181,7 +181,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                     {/* Preset List */}
                     <div className="space-y-1">
                         {presets.length === 0 && !isSaveMode && (
-                            <div className="text-center py-6 text-slate-600 text-xs">
+                            <div className="text-center py-6 text-muted-foreground text-xs">
                                 저장된 프리셋이 없습니다.
                             </div>
                         )}
@@ -189,14 +189,14 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                         {presets.map(preset => (
                             <div
                                 key={preset.id}
-                                className="group flex items-center justify-between p-2 rounded-md hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                                className="group flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 border border-transparent hover:border-border transition-all"
                             >
                                 <div className="flex-1 min-w-0 mr-2">
                                     {editingId === preset.id ? (
                                         <div className="flex items-center gap-1">
                                             <Input
                                                 defaultValue={preset.name}
-                                                className="h-6 text-xs"
+                                                className="h-6 text-xs bg-background border-border text-foreground"
                                                 autoFocus
                                                 onKeyDown={(e) => {
                                                     e.stopPropagation();
@@ -211,8 +211,8 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                             onLoad(preset.config);
                                             setIsOpen(false);
                                         }}>
-                                            <span className="text-xs font-medium text-slate-700 truncate">{preset.name}</span>
-                                            <span className="text-[10px] text-slate-600">
+                                            <span className="text-xs font-semibold text-foreground truncate">{preset.name}</span>
+                                            <span className="text-[10px] text-muted-foreground">
                                                 {new Date(preset.updatedAt).toLocaleDateString()}
                                             </span>
                                         </div>

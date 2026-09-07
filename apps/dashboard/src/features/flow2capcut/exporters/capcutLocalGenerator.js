@@ -864,19 +864,19 @@ export async function generateCapcutProject(project, options = {}) {
       posY += marginVOffset;
 
       let textColor = customTextColorRgb;
-      // fontSize를 CapCut 좌표계로 변환 (사용자 설정값을 직접 사용하되, 범위 제한)
-      let subFontSize = subCfg.fontSize ? Math.max(4.0, Math.min(12.0, subCfg.fontSize * 0.15)) : fontSize;
+      // fontSize를 CapCut 좌표계로 변환 (CapCut 데스크톱 표준 8.0~15.0pt 스케일 매핑: 40px -> 10.0pt)
+      let subFontSize = subCfg.fontSize ? Math.max(5.0, Math.min(24.0, subCfg.fontSize * 0.25)) : (fontSize * 1.5);
 
       if (trackType === 'situation') {
         targetTrack = situationTrack;
         posY = isPortrait ? -0.15 : -0.25; // 상황설명은 중앙 상단
         textColor = [1.0, 1.0, 1.0]; // 깨끗한 백색
-        subFontSize = isPortrait ? fontSize * 0.92 : fontSize;
+        subFontSize = isPortrait ? subFontSize * 0.85 : subFontSize * 0.9;
       } else if (trackType === 'jjapjjap') {
         targetTrack = jjapjjapTrack;
         posY = isPortrait ? -0.65 : -0.75; // 쨉쨉이는 하단 강조
         textColor = customTextColorRgb;
-        subFontSize = isPortrait ? fontSize * 1.05 : fontSize;
+        subFontSize = isPortrait ? subFontSize * 1.08 : subFontSize * 1.05;
       }
 
       // isBold/isItalic 매핑
