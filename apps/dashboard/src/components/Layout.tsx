@@ -44,7 +44,8 @@ import {
     Plus,
     Eye,
     EyeOff,
-    Cpu
+    Cpu,
+    ExternalLink
 } from 'lucide-react';
 
 import { cn } from '../lib/utils';
@@ -127,6 +128,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         }
     }, [location.pathname]);
 
+    const isElectron = typeof window !== 'undefined' && Boolean((window as any).electronAPI);
+
     const [isFlowHidden, setIsFlowHidden] = React.useState(() => {
         try {
             const saved = localStorage.getItem('layoutSettings');
@@ -135,7 +138,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 return mode === 'hidden' || mode === 'none';
             }
         } catch {}
-        return false;
+        return true; // 기본값: 숨김
     });
 
     React.useEffect(() => {
@@ -336,9 +339,20 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         if (apiObj) {
             apiObj.setFlowTabActive?.({ active: isFlowActivePage });
             if (isFlowActivePage) {
+                let targetMode = isFlowHidden ? 'hidden' : 'split-left';
+                let targetRatio = 0.45;
+                try {
+                    const saved = localStorage.getItem('layoutSettings');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.mode && !isFlowHidden) targetMode = parsed.mode;
+                        if (parsed.ratio) targetRatio = parsed.ratio;
+                    }
+                } catch {}
+
                 apiObj.createFlowView?.({ profileId: workerId }).catch(() => {});
                 apiObj.switchProfile?.({ profileId: workerId }).catch(() => {});
-                apiObj.setLayout?.({ mode: 'split-left', ratio: 0.45 }).catch(() => {});
+                apiObj.setLayout?.({ mode: targetMode, ratio: targetRatio }).catch(() => {});
             }
             syncViewsAndProfiles();
         }
@@ -371,13 +385,40 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         if (apiObj) {
             apiObj.setFlowTabActive?.({ active: isFlowActivePage });
             if (isFlowActivePage) {
+                let targetMode = isFlowHidden ? 'hidden' : 'split-left';
+                let targetRatio = 0.45;
+                try {
+                    const saved = localStorage.getItem('layoutSettings');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.mode && !isFlowHidden) targetMode = parsed.mode;
+                        if (parsed.ratio) targetRatio = parsed.ratio;
+                    }
+                } catch {}
+
                 apiObj.createFlowView?.({ profileId: curWorkerId }).catch(() => {});
                 apiObj.switchProfile?.({ profileId: curWorkerId }).catch(() => {});
-                apiObj.setLayout?.({ mode: 'split-left', ratio: 0.45 }).catch(() => {});
+                apiObj.setLayout?.({ mode: targetMode, ratio: targetRatio }).catch(() => {});
             }
             syncViewsAndProfiles();
         }
-    }, [location.pathname, activeTabId, getTabNameAndIcon]);
+    }, [location.pathname, activeTabId, getTabNameAndIcon, isFlowHidden]);
+
+    // Pixeling 스타일: 새 창에서 열기 (독립적인 새 Electron 창 실행)
+    const handleOpenInNewWindow = (tab: TabItem) => {
+        const apiObj = (window as any).electronAPI;
+        if (apiObj?.openNewWindow) {
+            apiObj.openNewWindow({
+                route: tab.path,
+                title: `${tab.name} - ViraLoop Studio`
+            }).catch((err: any) => {
+                console.error("Failed to open new window via electron:", err);
+                window.open(`#${tab.path}`, '_blank');
+            });
+        } else {
+            window.open(`#${tab.path}`, '_blank');
+        }
+    };
 
     // Create a new independent tab (Pixeling [+] button)
     const addNewTab = () => {
@@ -719,29 +760,34 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 md:gap-3 shrink-0">
-                        {/* Quick Flow Hide/Show Toggle Button */}
-                        {(location.pathname === '/creative-studio' || location.pathname === '/flow2capcut') && (
-                            <button
-                                onClick={toggleFlowVisibility}
-                                className={cn(
-                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all shadow-xs",
-                                    isFlowHidden
-                                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-400/40 hover:bg-amber-500/25"
-                                        : "bg-card border-border hover:bg-muted text-foreground"
+                        {/* Electron 데스크톱 앱에서만 노출되는 네이티브 컨트롤 */}
+                        {isElectron && (
+                            <>
+                                {/* Quick Flow Hide/Show Toggle Button */}
+                                {(location.pathname === '/creative-studio' || location.pathname === '/flow2capcut') && (
+                                    <button
+                                        onClick={toggleFlowVisibility}
+                                        className={cn(
+                                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all shadow-xs",
+                                            isFlowHidden
+                                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-400/40 hover:bg-amber-500/25"
+                                                : "bg-card border-border hover:bg-muted text-foreground"
+                                        )}
+                                        title={isFlowHidden ? "Flow 브라우저 창 복원" : "Flow 브라우저 창 숨기기 (스튜디오 넓게 쓰기)"}
+                                    >
+                                        {isFlowHidden ? <Eye className="w-3.5 h-3.5 text-amber-500" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                        <span>{isFlowHidden ? "Flow 창 표시" : "Flow 창 숨김"}</span>
+                                    </button>
                                 )}
-                                title={isFlowHidden ? "Flow 브라우저 창 복원" : "Flow 브라우저 창 숨기기 (스튜디오 넓게 쓰기)"}
-                            >
-                                {isFlowHidden ? <Eye className="w-3.5 h-3.5 text-amber-500" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
-                                <span>{isFlowHidden ? "Flow 창 표시" : "Flow 창 숨김"}</span>
-                            </button>
+                                <MultiWindowController 
+                                    activeViews={activeViews} 
+                                    activeProfileId={activeProfileId} 
+                                    syncViewsAndProfiles={syncViewsAndProfiles} 
+                                    tabs={tabs}
+                                    onSelectTab={selectTab}
+                                />
+                            </>
                         )}
-                        <MultiWindowController 
-                            activeViews={activeViews} 
-                            activeProfileId={activeProfileId} 
-                            syncViewsAndProfiles={syncViewsAndProfiles} 
-                            tabs={tabs}
-                            onSelectTab={selectTab}
-                        />
                         <GlobalLoopieChat />
                     </div>
                 </header>
@@ -775,17 +821,34 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                             >
                                 <TabIcon className={cn("w-3.5 h-3.5", isTabActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
                                 <span className="max-w-[130px] truncate">{tab.name}</span>
-                                {tabs.length > 1 && (
+                                
+                                <div className="flex items-center gap-0.5 ml-1">
+                                    {/* Pixeling 스타일: 새 창에서 열기 (독립 창 분리) */}
                                     <button
-                                        onClick={(e) => closeTab(e, tab.id)}
-                                        className="p-0.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-40 hover:opacity-100"
-                                        title="탭 닫기"
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenInNewWindow(tab);
+                                        }}
+                                        className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-40 group-hover:opacity-100"
+                                        title="새 창에서 열기 (독립 창으로 분리)"
                                     >
-                                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
+                                        <ExternalLink className="w-3 h-3" />
                                     </button>
-                                )}
+
+                                    {tabs.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => closeTab(e, tab.id)}
+                                            className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-40 group-hover:opacity-100"
+                                            title="탭 닫기"
+                                        >
+                                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         );
                     })}

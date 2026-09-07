@@ -37,7 +37,7 @@ export default function MultiWindowController({
     
     // Layout State
     const [mode, setMode] = useState(() => {
-        try { return JSON.parse(localStorage.getItem('layoutSettings') || '{}').mode || 'split-left'; } catch { return 'split-left'; }
+        try { return JSON.parse(localStorage.getItem('layoutSettings') || '{}').mode || 'hidden'; } catch { return 'hidden'; }
     });
     const [ratio, setRatio] = useState(() => {
         try { return Math.round((JSON.parse(localStorage.getItem('layoutSettings') || '{}').ratio || 0.45) * 100); } catch { return 45; }

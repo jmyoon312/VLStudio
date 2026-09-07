@@ -4,7 +4,7 @@
 
 import { powerSaveBlocker, shell } from 'electron'
 
-let layoutMode = 'split-left'
+let layoutMode = 'hidden'
 let splitRatio = 0.45
 let modalVisible = false
 let flowTabActive = false

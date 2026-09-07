@@ -253,6 +253,17 @@ async function clearFlowPageInject() {
 
 // updateBounds → ipc/layout.js로 이동 (import로 사용)
 
+function getDashboardIndexPath() {
+  const candidatePaths = [
+    path.join(hotPatcher.getHotpatchDir(), 'index.html'),
+    path.join(__dirname, '..', 'apps', 'dashboard', 'dist', 'index.html'),
+    path.join(__dirname, '..', 'dist', 'index.html'),
+    path.join(process.resourcesPath, 'apps', 'dashboard', 'dist', 'index.html'),
+    path.join(process.resourcesPath, 'dist', 'index.html')
+  ]
+  return candidatePaths.find(p => fsSync.existsSync(p)) || candidatePaths[1]
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -946,14 +957,7 @@ function createWindow() {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
     // 1. Check Hot-Patch bundle first, then local built bundles
-    const candidatePaths = [
-      path.join(hotPatcher.getHotpatchDir(), 'index.html'),
-      path.join(__dirname, '..', 'apps', 'dashboard', 'dist', 'index.html'),
-      path.join(__dirname, '..', 'dist', 'index.html'),
-      path.join(process.resourcesPath, 'apps', 'dashboard', 'dist', 'index.html'),
-      path.join(process.resourcesPath, 'dist', 'index.html')
-    ]
-    let indexPath = candidatePaths.find(p => fsSync.existsSync(p)) || candidatePaths[1]
+    const indexPath = getDashboardIndexPath()
     console.log('[Orchestration] Loading React app from local file:', indexPath)
     mainWindow.loadFile(indexPath)
 
@@ -983,6 +987,9 @@ function createWindow() {
 
 }
 
+// 보조 창(새 창에서 열린 독립 인스턴스) 레지스트리
+const auxiliaryWindows = new Set()
+
 // === IPC Handlers ===
 
 // File System IPC (Node.js fs operations)
@@ -999,6 +1006,57 @@ registerMcpIPC(ipcMain)
 
 // Layout, modal, sleep, open-external, show-in-folder IPC
 registerLayoutIPC(ipcMain, () => mainWindow, () => getCurrentFlowView())
+
+// ─── Auxiliary Window IPC (app:open-new-window) ──────────────────────────────
+ipcMain.handle('app:open-new-window', async (event, { route, title } = {}) => {
+  try {
+    const targetRoute = (route || '/').replace(/^[#\/]+/, '')
+    const cleanHash = targetRoute ? `/${targetRoute}` : '/'
+
+    const preloadCandidate = path.join(__dirname, 'preload.mjs')
+    const preloadPath = fsSync.existsSync(preloadCandidate) ? preloadCandidate : path.join(__dirname, 'preload.js')
+
+    const newWin = new BrowserWindow({
+      width: 1280,
+      height: 850,
+      minWidth: 900,
+      minHeight: 600,
+      title: title || `ViraLoop Studio - ${cleanHash}`,
+      icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+      webPreferences: {
+        preload: preloadPath,
+        contextIsolation: true,
+        nodeIntegration: false,
+        webSecurity: false
+      }
+    })
+
+    if (process.platform !== 'darwin') {
+      newWin.setMenuBarVisibility(false)
+    }
+
+    auxiliaryWindows.add(newWin)
+    newWin.on('closed', () => {
+      auxiliaryWindows.delete(newWin)
+    })
+
+    if (process.env.VITE_DEV_SERVER_URL) {
+      const url = `${process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '')}/#${cleanHash}`
+      console.log('[NewWindow] Loading route in dev server:', url)
+      await newWin.loadURL(url)
+    } else {
+      const indexPath = getDashboardIndexPath()
+      console.log('[NewWindow] Loading route in local bundle:', indexPath, 'hash:', cleanHash)
+      await newWin.loadFile(indexPath, { hash: cleanHash })
+    }
+
+    newWin.focus()
+    return { success: true }
+  } catch (err) {
+    console.error('[NewWindow] Failed to open new window:', err)
+    return { success: false, error: err.message }
+  }
+})
 
 // ─── OmniRoute & OTA Hot-Patch IPC ──────────────────────────────────────────
 registerOmniRouteIPC(ipcMain, () => mainWindow)
