@@ -586,6 +586,17 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
         {/* Right Header Actions */}
         <div className="flex items-center gap-2">
+          {onOpenPronunciationOptimizer && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenPronunciationOptimizer}
+              className="h-7 text-[11px] font-semibold bg-purple-500/15 text-purple-300 hover:text-purple-200 border-purple-500/40 hover:bg-purple-500/25 gap-1 shadow-xs"
+              title="대본의 숫자, 단위, 약어를 자연스러운 구어체 발음으로 교정 (좌우 비교)"
+            >
+              <Sparkles className="w-3 h-3 text-purple-400" /> 🗣️ 발음 교정
+            </Button>
+          )}
           {onBatchTTS && (
             <Button variant="ghost" size="sm" onClick={onBatchTTS} className="h-7 text-[11px] font-semibold text-slate-300 hover:text-white gap-1 bg-white/5 hover:bg-white/10">
               🎙️ 전체 TTS
