@@ -264,6 +264,77 @@ function getDashboardIndexPath() {
   return candidatePaths.find(p => fsSync.existsSync(p)) || candidatePaths[1]
 }
 
+// 보조 창(새 창에서 열린 독립 인스턴스) 레지스트리
+const auxiliaryWindows = new Set()
+
+async function openAuxiliaryWindow({ route, title } = {}) {
+  try {
+    const targetRoute = (route || '/').replace(/^[#\/]+/, '')
+    const cleanHash = targetRoute ? `/${targetRoute}` : '/'
+
+    const preloadCandidate = path.join(__dirname, 'preload.mjs')
+    const preloadPath = fsSync.existsSync(preloadCandidate) ? preloadCandidate : path.join(__dirname, 'preload.js')
+
+    const newWin = new BrowserWindow({
+      width: 1280,
+      height: 850,
+      minWidth: 900,
+      minHeight: 600,
+      title: title || `ViraLoop Studio - ${cleanHash}`,
+      icon: path.join(__dirname, '..', 'assets', 'icon.png'),
+      webPreferences: {
+        preload: preloadPath,
+        contextIsolation: true,
+        nodeIntegration: false,
+        webSecurity: false
+      }
+    })
+
+    if (process.platform !== 'darwin') {
+      newWin.setMenuBarVisibility(false)
+    }
+
+    auxiliaryWindows.add(newWin)
+    newWin.on('closed', () => {
+      auxiliaryWindows.delete(newWin)
+    })
+
+    // 새 창 내부에서의 링크 열기도 내부/외부 분기
+    newWin.webContents.setWindowOpenHandler(({ url }) => {
+      try {
+        const isInternal = url.startsWith('file://') || 
+                           url.includes('index.html') || 
+                           url.includes('localhost:') || 
+                           url.includes('127.0.0.1:');
+        if (isInternal) {
+          const urlObj = new URL(url);
+          const hash = urlObj.hash ? urlObj.hash.replace(/^#\/?/, '/') : '/';
+          openAuxiliaryWindow({ route: hash, title: 'ViraLoop Studio' });
+          return { action: 'deny' };
+        }
+      } catch (e) {}
+      shell.openExternal(url);
+      return { action: 'deny' };
+    });
+
+    if (process.env.VITE_DEV_SERVER_URL) {
+      const url = `${process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '')}/#${cleanHash}`
+      console.log('[NewWindow] Loading route in dev server:', url)
+      await newWin.loadURL(url)
+    } else {
+      const indexPath = getDashboardIndexPath()
+      console.log('[NewWindow] Loading route in local bundle:', indexPath, 'hash:', cleanHash)
+      await newWin.loadFile(indexPath, { hash: cleanHash })
+    }
+
+    newWin.focus()
+    return { success: true }
+  } catch (err) {
+    console.error('[NewWindow] Failed to open new window:', err)
+    return { success: false, error: err.message }
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -925,10 +996,30 @@ function createWindow() {
     resetModalState(mainWindow, flowView)
   })
 
-  // Open target="_blank" links in external default browser
+  // Open target="_blank" links: 앱 내부 URL이면 새 Electron BrowserWindow 생성, 외부는 시스템 기본 브라우저
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
-    return { action: 'deny' }
+    try {
+      const isInternal = url.startsWith('file://') || 
+                         url.includes('index.html') || 
+                         url.includes('localhost:') || 
+                         url.includes('127.0.0.1:');
+      if (isInternal) {
+        let route = '/';
+        try {
+          const urlObj = new URL(url);
+          route = urlObj.hash ? urlObj.hash.replace(/^#\/?/, '/') : '/';
+        } catch {
+          const hashIdx = url.indexOf('#');
+          if (hashIdx !== -1) route = url.substring(hashIdx).replace(/^#\/?/, '/');
+        }
+        openAuxiliaryWindow({ route, title: 'ViraLoop Studio' });
+        return { action: 'deny' };
+      }
+    } catch (e) {
+      console.warn('[WindowOpenHandler] internal check error:', e);
+    }
+    shell.openExternal(url);
+    return { action: 'deny' };
   })
 
   // Open DevTools in development only if OPEN_DEVTOOLS=1 is explicitly set
@@ -987,9 +1078,6 @@ function createWindow() {
 
 }
 
-// 보조 창(새 창에서 열린 독립 인스턴스) 레지스트리
-const auxiliaryWindows = new Set()
-
 // === IPC Handlers ===
 
 // File System IPC (Node.js fs operations)
@@ -1008,55 +1096,7 @@ registerMcpIPC(ipcMain)
 registerLayoutIPC(ipcMain, () => mainWindow, () => getCurrentFlowView())
 
 // ─── Auxiliary Window IPC (app:open-new-window) ──────────────────────────────
-ipcMain.handle('app:open-new-window', async (event, { route, title } = {}) => {
-  try {
-    const targetRoute = (route || '/').replace(/^[#\/]+/, '')
-    const cleanHash = targetRoute ? `/${targetRoute}` : '/'
-
-    const preloadCandidate = path.join(__dirname, 'preload.mjs')
-    const preloadPath = fsSync.existsSync(preloadCandidate) ? preloadCandidate : path.join(__dirname, 'preload.js')
-
-    const newWin = new BrowserWindow({
-      width: 1280,
-      height: 850,
-      minWidth: 900,
-      minHeight: 600,
-      title: title || `ViraLoop Studio - ${cleanHash}`,
-      icon: path.join(__dirname, '..', 'assets', 'icon.png'),
-      webPreferences: {
-        preload: preloadPath,
-        contextIsolation: true,
-        nodeIntegration: false,
-        webSecurity: false
-      }
-    })
-
-    if (process.platform !== 'darwin') {
-      newWin.setMenuBarVisibility(false)
-    }
-
-    auxiliaryWindows.add(newWin)
-    newWin.on('closed', () => {
-      auxiliaryWindows.delete(newWin)
-    })
-
-    if (process.env.VITE_DEV_SERVER_URL) {
-      const url = `${process.env.VITE_DEV_SERVER_URL.replace(/\/+$/, '')}/#${cleanHash}`
-      console.log('[NewWindow] Loading route in dev server:', url)
-      await newWin.loadURL(url)
-    } else {
-      const indexPath = getDashboardIndexPath()
-      console.log('[NewWindow] Loading route in local bundle:', indexPath, 'hash:', cleanHash)
-      await newWin.loadFile(indexPath, { hash: cleanHash })
-    }
-
-    newWin.focus()
-    return { success: true }
-  } catch (err) {
-    console.error('[NewWindow] Failed to open new window:', err)
-    return { success: false, error: err.message }
-  }
-})
+ipcMain.handle('app:open-new-window', async (_event, params = {}) => openAuxiliaryWindow(params))
 
 // ─── OmniRoute & OTA Hot-Patch IPC ──────────────────────────────────────────
 registerOmniRouteIPC(ipcMain, () => mainWindow)

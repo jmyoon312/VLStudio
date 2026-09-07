@@ -128,7 +128,12 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         }
     }, [location.pathname]);
 
-    const isElectron = typeof window !== 'undefined' && Boolean((window as any).electronAPI);
+    const isElectron = typeof window !== 'undefined' && 
+        Boolean((window as any).electronAPI) && 
+        !(window as any).electronAPI?.isMock && 
+        !(window as any).__IS_WEB_BROWSER__ &&
+        typeof navigator !== 'undefined' &&
+        navigator.userAgent.toLowerCase().includes('electron');
 
     const [isFlowHidden, setIsFlowHidden] = React.useState(() => {
         try {
@@ -404,18 +409,26 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         }
     }, [location.pathname, activeTabId, getTabNameAndIcon, isFlowHidden]);
 
-    // Pixeling 스타일: 새 창에서 열기 (독립적인 새 Electron 창 실행)
+    // Pixeling 스타일: 새 창에서 열기
     const handleOpenInNewWindow = (tab: TabItem) => {
-        const apiObj = (window as any).electronAPI;
-        if (apiObj?.openNewWindow) {
-            apiObj.openNewWindow({
-                route: tab.path,
-                title: `${tab.name} - ViraLoop Studio`
-            }).catch((err: any) => {
-                console.error("Failed to open new window via electron:", err);
-                window.open(`#${tab.path}`, '_blank');
-            });
-        } else {
+        if (isElectron) {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj && typeof apiObj.openNewWindow === 'function') {
+                apiObj.openNewWindow({
+                    route: tab.path,
+                    title: `${tab.name} - ViraLoop Studio`
+                }).catch((err: any) => {
+                    console.error("Failed to open new window via electron:", err);
+                });
+                return;
+            }
+        }
+        // 웹 브라우저 환경에서는 현재 도메인 URL 기반의 새 탭/창으로 열기
+        try {
+            const origin = window.location.origin;
+            const pathname = window.location.pathname;
+            window.open(`${origin}${pathname}#${tab.path}`, '_blank');
+        } catch {
             window.open(`#${tab.path}`, '_blank');
         }
     };
@@ -823,7 +836,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                                 <span className="max-w-[130px] truncate">{tab.name}</span>
                                 
                                 <div className="flex items-center gap-0.5 ml-1">
-                                    {/* Pixeling 스타일: 새 창에서 열기 (독립 창 분리) */}
+                                    {/* Pixeling 스타일: 새 창에서 열기 */}
                                     <button
                                         type="button"
                                         onClick={(e) => {
@@ -831,7 +844,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                                             handleOpenInNewWindow(tab);
                                         }}
                                         className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-40 group-hover:opacity-100"
-                                        title="새 창에서 열기 (독립 창으로 분리)"
+                                        title="새 창에서 열기"
                                     >
                                         <ExternalLink className="w-3 h-3" />
                                     </button>
