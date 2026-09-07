@@ -330,8 +330,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     }
                 } catch {}
 
-                apiObj.createFlowView?.({ profileId: workerId }).catch(() => {});
-                apiObj.switchProfile?.({ profileId: workerId }).catch(() => {});
+                if (!isFlowHidden) {
+                    apiObj.createFlowView?.({ profileId: workerId }).catch(() => {});
+                    apiObj.switchProfile?.({ profileId: workerId }).catch(() => {});
+                }
                 apiObj.setLayout?.({ mode: targetMode, ratio: targetRatio }).catch(() => {});
             }
             syncViewsAndProfiles();

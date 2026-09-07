@@ -136,18 +136,6 @@ export default function MultiWindowController({
         }
     };
 
-    // Toggle Hide/Show Flow Window
-    const handleToggleFlowHide = () => {
-        if (mode === 'hidden' || mode === 'none') {
-            const target = lastSplitModeRef.current || 'split-left';
-            handleModeChange(target);
-            toast({ title: "Flow 창 표시", description: `Flow 화면을 다시 표시합니다. (${target})` });
-        } else {
-            lastSplitModeRef.current = mode;
-            handleModeChange('hidden');
-            toast({ title: "Flow 창 감춤", description: "스튜디오 전체화면 모드로 전환되었습니다." });
-        }
-    };
 
     // Flow Reload / Recovery
     const handleReloadFlow = async () => {
@@ -407,19 +395,6 @@ export default function MultiWindowController({
                                 </button>
                             ))}
                         </div>
-
-                        {/* Full Hide / Restore Toggle Button */}
-                        <button
-                            onClick={handleToggleFlowHide}
-                            className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold border transition-all ${
-                                mode === 'hidden' || mode === 'none'
-                                ? 'bg-amber-500 text-white border-amber-500 shadow-sm hover:bg-amber-600'
-                                : 'bg-muted/40 border-border hover:bg-muted text-muted-foreground hover:text-foreground'
-                            }`}
-                        >
-                            {mode === 'hidden' || mode === 'none' ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                            <span>{mode === 'hidden' || mode === 'none' ? 'Flow 창 다시 표시 (분할 복원)' : 'Flow 창 숨기기 (스튜디오 넓게 쓰기)'}</span>
-                        </button>
 
                         {/* Ratio Slider (only when visible) */}
                         {mode !== 'hidden' && mode !== 'none' && (

@@ -21,16 +21,7 @@ function isHorizontalSplit(mode) {
 }
 
 function ShellContent({ children }) {
-  const [layoutMode, setLayoutMode] = useState(() => {
-    try {
-      const saved = localStorage.getItem('layoutSettings')
-      if (saved) {
-        const { mode } = JSON.parse(saved)
-        if (mode && mode !== 'tab' && mode !== 'none') return mode
-      }
-    } catch (e) { }
-    return DEFAULT_LAYOUT
-  })
+  const [layoutMode, setLayoutMode] = useState('hidden')
   const [splitRatio, setSplitRatio] = useState(() => {
     try {
       const saved = localStorage.getItem('layoutSettings')
@@ -106,7 +97,7 @@ function ShellContent({ children }) {
 
   // 레이아웃 변경 시 localStorage 저장 및 Electron IPC 동기화
   useEffect(() => {
-    if (layoutMode && layoutMode !== 'none') {
+    if (layoutMode && layoutMode !== 'none' && layoutMode !== 'hidden') {
       localStorage.setItem('layoutSettings', JSON.stringify({ mode: layoutMode, ratio: splitRatio }))
     }
     window.electronAPI?.setLayout?.({ mode: layoutMode, ratio: splitRatio })

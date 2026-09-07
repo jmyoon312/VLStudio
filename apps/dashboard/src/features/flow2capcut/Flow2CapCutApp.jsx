@@ -302,8 +302,6 @@ function App() {
     if (mode) {
       // #R13-11: IPC 실패가 unhandled rejection 으로 새지 않게 catch (UI 는 그대로 진행).
       window.electronAPI?.setMode?.({ mode })?.catch?.((e) => console.warn('[App] setMode failed:', e?.message))
-      const layout = flowLayoutForMode(mode)
-      if (layout) window.electronAPI?.setLayout?.(layout)?.catch?.((e) => console.warn('[App] setLayout failed:', e?.message))
     }
   }, [mode])
 

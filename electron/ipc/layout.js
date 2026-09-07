@@ -115,7 +115,7 @@ export function updateBounds(mainWindow, flowView) {
  */
 export function registerLayoutIPC(ipcMain, getMainWindow, getFlowView) {
   ipcMain.handle('app:set-layout', (event, { mode, ratio, sidebarWidth }) => {
-    layoutMode = mode || 'split-left'
+    layoutMode = mode || 'hidden'
     if (ratio !== undefined) splitRatio = Math.max(0.2, Math.min(0.8, ratio))
     if (sidebarWidth !== undefined) sidebarOffset = Math.max(0, sidebarWidth)
     updateBounds(getMainWindow(), getFlowView())
