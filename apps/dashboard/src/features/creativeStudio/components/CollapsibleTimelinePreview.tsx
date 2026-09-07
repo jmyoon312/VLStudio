@@ -98,6 +98,7 @@ interface Props {
   presets?: any[];
   tttsConfig?: TTSConfig;
   onTTSConfigChange?: (cfg: TTSConfig) => void;
+  onOpenPronunciationOptimizer?: () => void;
 }
 
 
@@ -170,6 +171,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   presets,
   tttsConfig,
   onTTSConfigChange,
+  onOpenPronunciationOptimizer,
 }) => {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -545,6 +547,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             presets={presets}
             tttsConfig={tttsConfig}
             onTTSConfigChange={onTTSConfigChange}
+            onOpenPronunciationOptimizer={onOpenPronunciationOptimizer}
           />
         </div>
 

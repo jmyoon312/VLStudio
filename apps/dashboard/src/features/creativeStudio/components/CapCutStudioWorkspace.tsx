@@ -123,6 +123,7 @@ interface Props {
   presets?: any[];
   tttsConfig?: TTSConfig;
   onTTSConfigChange?: (cfg: TTSConfig) => void;
+  onOpenPronunciationOptimizer?: () => void;
 }
 
 export const CapCutStudioWorkspace: React.FC<Props> = ({
@@ -192,6 +193,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   presets = [],
   tttsConfig,
   onTTSConfigChange,
+  onOpenPronunciationOptimizer,
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeInspectorTab, setActiveInspectorTab] = useState<'script' | 'style' | 'subtitles' | 'transitions' | 'watermark' | 'audio' | 'scene'>('subtitles');
@@ -732,19 +734,34 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                   <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                     <Clapperboard className="w-3.5 h-3.5 text-blue-400" /> 대본 작업실 & 씬 분할
                   </span>
-                  {onValidatePolicy && (
-                    <Button
-                      onClick={onValidatePolicy}
-                      disabled={isValidatingPolicy || (!fullScript.trim() && !scriptInput.trim())}
-                      variant="outline"
-                      size="sm"
-                      className="h-6 text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/40 gap-1 shadow-2xs"
-                      title="유튜브 정책 및 표현 퇴고 검사"
-                    >
-                      {isValidatingPolicy ? <Loader2 className="w-3 h-3 animate-spin text-amber-400" /> : <Sparkles className="w-3 h-3 text-amber-400" />}
-                      <span>🛡️ 유튜브 정책 검사</span>
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {onOpenPronunciationOptimizer && (
+                      <Button
+                        onClick={onOpenPronunciationOptimizer}
+                        disabled={!fullScript?.trim() && scenes.length === 0}
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[10px] font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border-purple-500/40 gap-1 shadow-2xs"
+                        title="대본의 숫자 및 어색한 발음을 TTS 맞춤형 구어체로 자동 교정 (좌우 비교)"
+                      >
+                        <Sparkles className="w-3 h-3 text-purple-400" />
+                        <span>🗣️ 발음/숫자 교정</span>
+                      </Button>
+                    )}
+                    {onValidatePolicy && (
+                      <Button
+                        onClick={onValidatePolicy}
+                        disabled={isValidatingPolicy || (!fullScript.trim() && !scriptInput.trim())}
+                        variant="outline"
+                        size="sm"
+                        className="h-6 text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/40 gap-1 shadow-2xs"
+                        title="유튜브 정책 및 표현 퇴고 검사"
+                      >
+                        {isValidatingPolicy ? <Loader2 className="w-3 h-3 animate-spin text-amber-400" /> : <Sparkles className="w-3 h-3 text-amber-400" />}
+                        <span>🛡️ 유튜브 정책 검사</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Mode Segment: 직접 입력 vs AI 작가 */}
@@ -1599,17 +1616,31 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                     </p>
                   </div>
                 </div>
-                <Button
-                  onClick={() => {
-                    if (onBatchTTS) {
-                      onBatchTTS();
-                    }
-                  }}
-                  disabled={scenes.length === 0}
-                  className="w-full h-8 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white gap-1.5 shadow-xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5" /> 전체 씬 음성(TTS) 일괄 생성 시작
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                  {onOpenPronunciationOptimizer && (
+                    <Button
+                      onClick={onOpenPronunciationOptimizer}
+                      disabled={scenes.length === 0 && !fullScript.trim()}
+                      variant="outline"
+                      className="h-8 text-xs font-bold border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 gap-1.5 shadow-2xs"
+                      title="TTS 생성 전 대본의 숫자/영어/어색한 발음을 표음 구어체로 자동 교정하고 좌우로 비교합니다"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      <span>🗣️ 발음/숫자 교정 (좌우 비교)</span>
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => {
+                      if (onBatchTTS) {
+                        onBatchTTS();
+                      }
+                    }}
+                    disabled={scenes.length === 0}
+                    className={`h-8 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white gap-1.5 shadow-xs ${!onOpenPronunciationOptimizer ? 'w-full sm:col-span-2' : ''}`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> 전체 씬 음성 일괄 생성
+                  </Button>
+                </div>
               </div>
 
               {/* 2. TTS Voice & Engine Detailed Configuration (TTSConfigPanel 통합) */}

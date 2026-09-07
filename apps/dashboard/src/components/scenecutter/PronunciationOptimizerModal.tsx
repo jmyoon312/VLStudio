@@ -20,7 +20,7 @@ interface PronunciationOptimizerModalProps {
   onOpenChange: (open: boolean) => void;
   rawScript: string;
   targetLang: string;
-  onApplyOptimized: (optimizedScript: string) => void;
+  onApplyOptimized: (optimizedScript: string, appliedDiffs?: PronunciationDiff[]) => void;
 }
 
 export const PronunciationOptimizerModal: React.FC<PronunciationOptimizerModalProps> = ({
@@ -92,7 +92,8 @@ export const PronunciationOptimizerModal: React.FC<PronunciationOptimizerModalPr
   }, [rawScript, optimizedText, diffs, activeDiffs]);
 
   const handleApply = () => {
-    onApplyOptimized(computedOptimizedText);
+    const appliedDiffs = diffs.filter(d => activeDiffs.has(d.id));
+    onApplyOptimized(computedOptimizedText, appliedDiffs);
     toast.success('TTS 자연스러운 발음 최적화가 대본에 적용되었습니다!');
     onOpenChange(false);
   };

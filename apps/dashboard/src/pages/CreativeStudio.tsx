@@ -43,6 +43,7 @@ const WatermarkSettingsDialog = React.lazy(() => import('../features/creativeStu
 const TransitionSettingsDialog = React.lazy(() => import('../features/creativeStudio/components/TransitionSettingsDialog').then(m => ({ default: m.TransitionSettingsDialog })));
 const CollapsibleTimelinePreview = React.lazy(() => import('../features/creativeStudio/components/CollapsibleTimelinePreview').then(m => ({ default: m.CollapsibleTimelinePreview })));
 const ProjectManagerDialog = React.lazy(() => import('../features/creativeStudio/components/ProjectManagerDialog').then(m => ({ default: m.ProjectManagerDialog })));
+const PronunciationOptimizerModal = React.lazy(() => import('@/components/scenecutter/PronunciationOptimizerModal').then(m => ({ default: m.PronunciationOptimizerModal })));
 
 interface SceneSegment {
     id: string; // Unique ID for frontend tracking
@@ -1108,9 +1109,10 @@ const CreativeStudio = () => {
     const [pacingStrategy, setPacingStrategy] = useState<'ai' | 'rule'>('ai');
     const [pacingUnit, setPacingUnit] = useState<'sentence' | 'time'>('sentence');
     const [pacingValue, setPacingValue] = useState(2);
+    const [isPronunciationModalOpen, setIsPronunciationModalOpen] = useState(false);
 
     // [MODAL VISIBILITY FIX] 모달 다이얼로그 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
-    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen || isSelectiveVideoModalOpen || isSubtitleDialogOpen;
+    const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen || isSelectiveVideoModalOpen || isSubtitleDialogOpen || isPronunciationModalOpen;
     useEffect(() => {
         const apiObj = (window as any).electronAPI;
         if (apiObj && typeof apiObj.setModalVisible === 'function') {
@@ -3119,6 +3121,7 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                 presets={presets}
                 tttsConfig={ttsConfig}
                 onTTSConfigChange={setTTSConfig}
+                onOpenPronunciationOptimizer={() => setIsPronunciationModalOpen(true)}
                 isOpen={isTimelineOpen}
 
                 onToggle={() => setIsTimelineOpen(!isTimelineOpen)}
@@ -3442,6 +3445,15 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
 
                         {/* Batch Action Buttons */}
                         <div className="flex items-center gap-1.5">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-300/60 dark:border-purple-800/60 hover:bg-purple-500/20 shadow-2xs"
+                                onClick={() => setIsPronunciationModalOpen(true)}
+                                title="대본의 숫자, 단위, 약어를 자연스러운 구어체 발음으로 교정 (좌우 비교)"
+                            >
+                                <Sparkles className="w-3 h-3 mr-1 text-purple-500" /> 🗣️ 발음 교정
+                            </Button>
                             <Button variant="outline" size="sm" className="h-7 text-xs font-semibold bg-background hover:bg-muted shadow-2xs" onClick={handleBatchTTS}>
                                 <Mic className="w-3 h-3 mr-1 text-blue-500" /> 전체 TTS
                             </Button>
@@ -4019,6 +4031,32 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                     </DialogContent>
                 </Dialog>
             
+            <PronunciationOptimizerModal
+                open={isPronunciationModalOpen}
+                onOpenChange={setIsPronunciationModalOpen}
+                rawScript={fullScript || scenes.map(s => s.script).filter(Boolean).join('\n') || scriptInput || ''}
+                targetLang={ttsConfig?.language || 'ko'}
+                onApplyOptimized={(optimizedScript, appliedDiffs) => {
+                    setFullScript(optimizedScript);
+                    if (scenes && scenes.length > 0 && appliedDiffs && appliedDiffs.length > 0) {
+                        const updatedScenes = scenes.map(s => {
+                            let script = s.script || '';
+                            for (const diff of appliedDiffs) {
+                                if (diff.original_word && diff.replaced_word) {
+                                    script = script.split(diff.original_word).join(diff.replaced_word);
+                                }
+                            }
+                            return { ...s, script };
+                        });
+                        setScenes(updatedScenes);
+                        syncSubtitlesToDisk(updatedScenes);
+                        toast.success(`전체 대본 및 ${scenes.length}개 씬의 발음이 자연스럽게 교정되었습니다!`);
+                    } else {
+                        toast.success('발음 교정이 대본에 적용되었습니다.');
+                    }
+                }}
+            />
+
             <StyleGalleryModal
                 open={isStyleGalleryOpen}
                 onOpenChange={setIsStyleGalleryOpen}
