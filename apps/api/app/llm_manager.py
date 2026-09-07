@@ -424,7 +424,7 @@ class LLMClient:
                         continue
                 raise last_error or Exception("All NVIDIA keys exhausted.")
 
-            elif model_name in ["youtube1", "omniroute", "9router"] or model_name.startswith(("youtube1/", "omniroute/", "9router/")):
+            elif model_name in ["youtube1", "omniroute", "9router", "viraloop1"] or model_name.startswith(("youtube1/", "omniroute/", "9router/", "viraloop")):
                 # OmniRoute / YouTube1 / 9router Custom Provider (Local Gateway)
                 last_error = None
                 raw_base_url = getattr(self.settings, "youtube1_base_url", None) or getattr(self.settings, "ninerouter_url", None) or "http://localhost:20128/v1"
@@ -457,6 +457,8 @@ class LLMClient:
                     if clean_model.startswith(prefix):
                         clean_model = clean_model[len(prefix):]
                         break
+                if not clean_model or clean_model in ["omniroute", "youtube1", "9router"]:
+                    clean_model = "viraloop1"
                 
                 for key_idx, current_key in enumerate(keys_to_try):
                     if not current_key:

@@ -12,7 +12,7 @@
  * 복사본이며, parity 는 tests/electron/videoModelRules.test.js 가 고정한다.)
  */
 
-/** 앱이 고른 모델이 OmniFlash 인지 — 표시 이름('Omni Flash')/내부키('abra_*') 둘 다 감지. */
+/** 앱이 고른 모델이 OmniFlash(Omni 1.1 Flash)인지 — 표시 이름('Omni 1.1 Flash', 'Omni Flash')/내부키('abra_*') 둘 다 감지. */
 export function isOmniFlashModel(model) {
-  return /omni.?flash/i.test(model || '') || /^abra/i.test(model || '')
+  return /omni.*flash|omni.?1\.1|omni/i.test(model || '') || /^abra/i.test(model || '')
 }

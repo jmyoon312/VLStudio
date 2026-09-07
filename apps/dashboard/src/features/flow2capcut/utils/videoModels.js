@@ -73,12 +73,12 @@ export const OMNIFLASH_DURATIONS = [4, 6, 8, 10]
  * @returns {boolean}
  */
 export function isOmniFlashModel(model) {
-  // 표시 이름('Omni Flash') + 내부 videoModelKey('abra_*') 둘 다 감지 —
+  // 표시 이름('Omni 1.1 Flash', 'Omni Flash') + 내부 videoModelKey('abra_*') 둘 다 감지 —
   //   electron/flow-page-injection.js 의 주입측 판별과 일치시켜 renderer(길이그리드·종료프레임)와
   //   IPC/주입(endImage 생략·키 강제)이 같은 모델을 OmniFlash 로 보게 한다.
   if (!model) return false
   const s = String(model)
-  return /omni.?flash/i.test(s) || /^abra/i.test(s)
+  return /omni.*flash|omni.?1\.1|omni/i.test(s) || /^abra/i.test(s)
 }
 
 export function videoDurationGrid(model) {

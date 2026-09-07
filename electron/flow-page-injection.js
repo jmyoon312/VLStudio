@@ -198,15 +198,20 @@ export const FLOW_PAGE_INJECTION = /* js */ `
     try {
       if (_init.body && typeof _init.body === 'string') {
 
-        // Image batch: seed / aspectRatio / references
-        if (url.includes(URL_BATCH_IMG) && (inject.seed != null || inject.aspectRatio || inject.references)) {
-          injectionRequested = true
-          const body    = JSON.parse(_init.body)
+        // Image batch: seed / aspectRatio / references + ALWAYS strip diamond watermark
+        if (url.includes(URL_BATCH_IMG)) {
+          if (inject.seed != null || inject.aspectRatio || inject.references) {
+            injectionRequested = true
+          }
+          const body = JSON.parse(_init.body)
           const changed = injectImageBatchBody(body, inject)
-          if (changed) {
+          if (changed || Array.isArray(body.requests)) {
+            if (Array.isArray(body.requests)) {
+              for (const req of body.requests) req.addWatermark = false
+            }
             injectionApplied = true
             _init = { ..._init, body: JSON.stringify(body) }
-            console.log("[Flow Inject] batchGenerateImages modified", {
+            console.log("[Flow Inject] batchGenerateImages modified (no-watermark enforced)", {
               seed: inject.seed, aspectRatio: inject.aspectRatio, refs: inject.references?.length || 0,
             })
           }
@@ -224,9 +229,12 @@ export const FLOW_PAGE_INJECTION = /* js */ `
           const { changed, usesEndImage } = injectI2VBody(body, inject.i2v)
           if (changed) {
             injectionApplied = true
-            // Also apply seed if specified
-            if (inject.seed != null && Array.isArray(body.requests)) {
-              for (const req of body.requests) req.seed = inject.seed
+            // Also apply seed if specified and force addWatermark = false
+            if (Array.isArray(body.requests)) {
+              for (const req of body.requests) {
+                if (inject.seed != null) req.seed = inject.seed
+                req.addWatermark = false
+              }
             }
             _init = { ..._init, body: JSON.stringify(body) }
 
@@ -246,35 +254,33 @@ export const FLOW_PAGE_INJECTION = /* js */ `
             }
           }
 
-        // T2V injection (i2v 아님): seed + OmniFlash 길이 접미사 최적화(applyOmniDuration).
-        //   duration 만 있어도 동작하게 조건에 inject.duration 포함.
-        //   #R36-ref: @멘션 R2V(ReferenceImages) 도 여기서 처리 — 별도 엔드포인트라 이게 없으면 duration
-        //     주입이 스킵돼 Flow 기본 abra_r2v_8s(8초) 로 나간다. r2v 는 t2v 가 아닌 r2v 키를 강제한다.
+        // T2V / R2V injection: seed + OmniFlash 1.1 길이 접미사 최적화(applyOmniDuration) + ALWAYS strip diamond watermark
         } else if (
-          (inject.seed != null || inject.duration != null) && !inject.i2v && (
+          !inject.i2v && (
             url.includes(URL_VIDEO_T2V) ||
             url.includes(URL_VIDEO_I2V) ||
             url.includes(URL_VIDEO_I2V_END) ||
             url.includes(URL_VIDEO_REF)
           )
         ) {
-          injectionRequested = true
+          if (inject.seed != null || inject.duration != null || inject.videoModel) {
+            injectionRequested = true
+          }
           const body = JSON.parse(_init.body)
           if (Array.isArray(body.requests)) {
             injectionApplied = true
             const isRef = url.includes(URL_VIDEO_REF)  // @멘션 reference-to-video
-            const forceOmni = isOmniFlashModel(inject.videoModel)  // 앱이 OmniFlash 면 abra 키 강제
+            const forceOmni = isOmniFlashModel(inject.videoModel) || isOmniFlashModel(body.requests[0]?.videoModelKey)
             for (const req of body.requests) {
               if (inject.seed != null) req.seed = inject.seed
               req.videoModelKey = forceOmni
                 ? omniFlashKey(isRef ? 'r2v' : 't2v', inject.duration)
                 : applyOmniDuration(req.videoModelKey, inject.duration)  // OmniFlash 만 효과, 그 외 no-op
+              // 절대 규칙: 다이아몬드 워터마크 강제 배제
               req.addWatermark = false
             }
             _init = { ..._init, body: JSON.stringify(body) }
-  // 페이지 스크립트의 로그다. main 이 '[Flow Page]' 접두로 포워딩하고, beforeBreadcrumb 이 그
-  //   접두의 breadcrumb 을 통째로 버린다(페이지 = 사용자 콘텐츠). safe-log: Sentry 로 나가지 않는다.
-            console.log('[Flow Inject] video', isRef ? 'r2v' : 't2v', ':', body.requests[0] && body.requests[0].videoModelKey, 'seed', inject.seed, 'dur', inject.duration)
+            console.log('[Flow Inject] video', isRef ? 'r2v' : 't2v', ':', body.requests[0] && body.requests[0].videoModelKey, 'seed', inject.seed, 'dur', inject.duration, 'watermark: false')
           }
         }
       }

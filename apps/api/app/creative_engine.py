@@ -3,6 +3,7 @@ import logging
 from google.genai import types
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
 
@@ -71,79 +72,90 @@ class CreativeEngine:
             logger.error(f"Style Analysis Failed: {e}")
             raise e
 
-    def segment_script(self, text: str, mode: str = "shorts", provider: str = None, model: str = None, style_prompt: str = "", split_method: str = "ai_smart", pacing_config: dict = None) -> list:
+    def _chunk_text(self, text: str, max_chars: int = 2200) -> list:
         """
-        Splits a script into scenes and generates visual prompts based on the selected method.
+        Splits large text into logical narrative chunks preserving paragraph and sentence boundaries.
+        Ideal for long scripts (e.g. 50,000+ chars) to prevent LLM output token overflow (8,192 token limit).
         """
-        # Resolve dynamic defaults from settings (환경설정에 지정된 설정값을 그대로 실시간 연동)
-        target_provider = provider if provider and provider != "auto" else getattr(self.llm_client.settings, "script_analysis_provider", None) or getattr(self.llm_client.settings, "paperclip_provider", None) or getattr(self.llm_client.settings, "openclaw_preferred_provider", None)
-        target_model = model if model and model != "default" else getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or getattr(self.llm_client.settings, "paperclip_model", None) or "youtube1"
-        
-        # 0. Custom Rule Logic (사용자가 명시적으로 커스텀 규칙을 선택한 경우에만 분할)
-        if split_method == 'custom_rule' and pacing_config:
-            return self._split_by_rule(text, pacing_config)
+        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+        if not paragraphs:
+            paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
+        if not paragraphs:
+            paragraphs = [text.strip()]
 
-        # Helper to clean text
-        cleaned_text = text.replace("\r\n", "\n").strip()
+        chunks = []
+        current_chunk = []
+        current_len = 0
 
-        # 1. AI-Based Splitting ('ai_smart', 'visual_change', 'semantic')
-        pacing_instruction = ""
-        aspect_ratio = "9:16" if mode == 'shorts' else "16:9"
-        
-        if split_method == 'visual_change':
-            pacing_instruction = (
-                "SPLIT STRATEGY: VISUAL CHANGE FOCUSED.\n"
-                "- Create a new scene ONLY when the location, subject, or camera perspective changes dramatically.\n"
-                "- STRICT RULE: NEVER split line-by-line or sentence-by-sentence. Combine 2 to 4 sentences that describe the same action, place, or emotional beat into ONE single scene.\n"
-                "- Focus purely on 'What the viewer sees on screen'."
-            )
-        elif split_method == 'semantic':
-            pacing_instruction = (
-                "SPLIT STRATEGY: SEMANTIC & DURATION AUTO-OPTIMIZATION.\n"
-                "- Group logically connected sentences into coherent narrative units (typically 2 to 4 sentences per scene).\n"
-                "- STRICT RULE: DO NOT split on every line break or every short sentence. Merge consecutive lines that form a single cohesive thought or action.\n"
-                "- Target duration: Each scene should naturally cover 3 to 6 seconds of narration."
-            )
-        elif mode == 'shorts':
-            pacing_instruction = (
-                "MODE: YOUTUBE SHORTS (Fast Paced & Hook-driven).\n"
-                "- SPLIT RULE: Group **2 to 3 sentences** per scene based on semantic flow.\n"
-                "- STRICT RULE: Do NOT split every single sentence. Combine short consecutive sentences.\n"
-                "- Ensure each scene represents a meaningful visual moment."
-            )
-        else: # long-form
-            pacing_instruction = (
-                "MODE: LONG-FORM VIDEO (Cinematic Narrative).\n"
-                "- SPLIT RULE: Group **1 to 2 Paragraphs** (or 3-5 sentences) into one scene.\n"
-                "- Maintain smooth narrative continuity. Only create a new scene when topic or setting shifts."
-            )
+        for para in paragraphs:
+            # If a single paragraph is too large, split by sentences
+            if len(para) > max_chars:
+                raw_sentences = re.split(r'(?<=[.?!])\s+|\n+', para)
+                sentences = [s.strip() for s in raw_sentences if s.strip()]
+                for s in sentences:
+                    if current_len + len(s) > max_chars and current_chunk:
+                        chunks.append("\n\n".join(current_chunk))
+                        current_chunk = [s]
+                        current_len = len(s)
+                    else:
+                        current_chunk.append(s)
+                        current_len += len(s) + 2
+            else:
+                if current_len + len(para) > max_chars and current_chunk:
+                    chunks.append("\n\n".join(current_chunk))
+                    current_chunk = [para]
+                    current_len = len(para)
+                else:
+                    current_chunk.append(para)
+                    current_len += len(para) + 2
 
-        # 2. Style Instruction (Refactored for Injection at END)
-        style_context = ""
-        if style_prompt:
-            style_context = f'GLOBAL STYLE: "{style_prompt}"'
+        if current_chunk:
+            chunks.append("\n\n".join(current_chunk))
 
-        prompt = f"""You are an award-winning AI Film Director and Visual Storyteller.
-Split the input script into 3 to 5 scenes and create a highly detailed, culturally coherent English Visual Keyframe Prompt and a 4-Layer Cinematic Video Motion Prompt (I2V) for each scene.
+        return chunks if chunks else [text]
 
-[GLOBAL CONSISTENCY & CULTURAL ANCHOR RULES]
-1. GLOBAL CHARACTER & WORLD SHEET:
-   - Identify the persistent Main Character(s): Define exact age, gender, facial traits, hairstyle (e.g. topknot/sangtusan), and exact clothing colors/materials (e.g. deep navy silk Hanbok). Keep this character's appearance IDENTICAL across all scenes.
-   - Era & Setting: If Korean historical/folklore (Joseon Dynasty/Yadam), ensure setting is authentic Hanok architecture with Giwa tiled roof, wooden daecheongmaru floor, and paper changhoji sliding doors.
-   - STRICT CULTURAL ISOLATION: NEVER output Japanese clothing (kimono, yukata, samurai, obi) or Chinese clothing (hanfu, qipao). Every Korean historical scene MUST use authentic Korean Hanbok.
+    def _segment_single_chunk(
+        self,
+        chunk_text: str,
+        full_model_name: str,
+        style_context: str,
+        style_prompt: str,
+        pacing_instruction: str,
+        aspect_ratio: str
+    ) -> list:
+        """
+        Segments a single narrative chunk into scenes using the dynamic LLM.
+        Includes robust JSON parsing and self-healing fallback.
+        """
+        prompt = f"""You are an Elite AI Film Director, Cinematographer, and Google Flow AI Prompt Specialist.
+Split the input script into cohesive scenes and create a deeply synthesized, highly detailed English Visual Keyframe Prompt (optimized for Google Flow's Nano Banana Pro / Imagen 3) and a continuous Cinematic Video Motion Prompt (optimized for Google Flow's Omni 1.1 Flash) for each scene.
 
-2. 'visual_prompt' (Keyframe Image Prompt):
-   - Format: "{aspect_ratio}, [Camera Shot & Angle], [Authentic Era & Setting], [Persistent Character with exact clothing & appearance], [Scene-specific Action/Pose/Emotion], [Atmospheric Lighting & Mood], {style_prompt}"
-   - Must be vivid, detailed, natural English. Never copy Korean text.
+[SCENE PACING & SEGMENTATION STRATEGY]
+{pacing_instruction}
 
-3. 'video_prompt' (Image-to-Video Cinematic 4-Layer Motion Prompt):
-   - Layer 1 (Subject Action & Micro-expressions): Realistic narrative movement matching the script (e.g. 'Character slowly turns head toward the camera with an intense emotional gaze, subtle blinking and gentle breathing').
-   - Layer 2 (Environmental & Secondary Physics): Dynamic elements (e.g. 'Gentle breeze rippling the silk Hanbok fabric and loose hair strands, warm lantern flame flickering, soft dust particles floating in the volumetric light beam').
-   - Layer 3 (Cinematic Camera Direction): Expressive camera movement (e.g. 'Slow dramatic push-in tracking shot on the character's face', 'Gentle horizontal tracking pan revealing the background').
-   - Layer 4 (Coherence): 'Smooth 24fps fluid motion, seamless natural physics, cinematic depth of field'.
+[CORE VISUAL DIRECTION & STYLE SYNTHESIS]
+1. SUPREME STYLE SYNTHESIS DIRECTIVE:
+   - {style_context}
+   - CRITICAL STYLE SYNTHESIS: DO NOT simply paste or prepend style keywords with commas. You MUST DEEPLY RECREATE & EMBED the chosen style into the scene's actual physical elements:
+     * Custom Wardrobe & Styling: Describe the specific haute-couture fabrics, tailored cuts, textures (e.g. fine silk, tailored wool, supple leather, sheer organza), hair styling, and accessories matching the chosen style.
+     * Architectural Environment & Staging: Describe an authentic set or location that embodies the style (e.g. minimalist brutalist runway, luxury studio cyc with reflectors, or architectural gallery for fashion; sleek neon metropolis for cyberpunk; etc.).
+     * Lighting & Optics: Specify professional studio/cinematic lighting (e.g. Profoto softbox, high-contrast rim light, directional chiaroscuro, natural golden hour backlight) and camera optics (e.g. medium format Hasselblad look, 85mm f/1.4 lens, shallow depth of field, natural skin pores, fine film grain).
+   - STRICT CULTURAL ISOLATION RULE: Under NO circumstances default to Joseon Dynasty, Hanbok, Hanok, or traditional ancient Korean settings unless the script explicitly and unequivocally describes historical Joseon events. If the user selected Fashion, Contemporary, Editorial, or Anime, EVERY scene must authentically and 100% reflect that modern genre!
+
+2. 'visual_prompt' (Google Flow Nano Banana Pro / Imagen 3 Image Prompt):
+   - Nano Banana Pro thrives on fluent, descriptive photographic English prose, NOT raw comma-separated tags.
+   - Format: "{aspect_ratio}, [Genre & Medium description synthesized from user style], [Subject Appearance, bespoke wardrobe textures & expressive action fulfilling the script beat], [Specific Architectural Setting & Ambient Backdrop], [Professional Directional Lighting & Color Temperature], captured on medium format camera with shallow depth of field, sharp photographic fidelity, immaculate composition."
+   - STRICT NEGATIVE DIRECTIVE: Absolutely no diamond watermarks, no corner logos, no sparkle symbols, no text, no captions, no stamps. Clean edge-to-edge frame.
+
+3. 'video_prompt' (Google Flow Omni 1.1 Flash Video Motion Prompt):
+   - Omni 1.1 Flash is Google's state-of-the-art multimodal controllable video model. It excels at controllable camera work, realistic physical dynamics, and smooth temporal consistency.
+   - STRICT FORMAT RULE: Write a single, continuous, fluent English directorial sentence.
+   - ABSOLUTE PROHIBITION: NEVER use structured labels like "Layer 1:", "Layer 2:", "Layer 3:", or "Layer 4:".
+   - Structure: "[Cinematic Camera Movement: e.g. Smooth dolly push-in tracking shot] as [Subject's authentic motion, gentle head turn, and subtle emotive micro-expressions reflecting the narrative], [natural secondary physics: subtle drift of hair, soft fabric flutter, atmospheric particles], seamless 24fps fluid cinematic motion."
+   - STRICT NEGATIVE DIRECTIVE: No diamond watermarks, no corner logos, no jitter, no morphing.
 
 Input Script:
-{text}
+{chunk_text}
 
 Output JSON Array ONLY:
 [
@@ -151,19 +163,19 @@ Output JSON Array ONLY:
     "scene_id": 1,
     "script": "Combined Korean narration for this scene",
     "visual_prompt": "{aspect_ratio}, ...",
-    "video_prompt": "..."
+    "video_prompt": "Smooth cinematic push-in tracking shot as the subject..."
   }}
 ]"""
-        
-        # 1. 작업 환경 설정에 지정된 모델(DB Settings)을 그대로 실시간 실행
-        full_model_name = target_model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None)
 
         system_instruction = (
-            "You are a professional AI Film Director, Cinematographer, and strict JSON API engine. "
+            "You are an Elite AI Film Director, Cinematographer, and strict JSON API engine specialized in Google Flow (Nano Banana Pro & Omni 1.1 Flash). "
             "You MUST output ONLY a valid JSON array of scene objects. "
             "NEVER output conversational filler, markdown formatting outside JSON, polite greetings, or explanations. "
-            "Ensure cross-scene character appearance consistency and strict cultural accuracy (Korean Joseon Hanbok/Hanok, strictly no Japanese/Chinese confusion). "
-            "Every visual_prompt and video_prompt MUST be in rich, cinematic English. "
+            "Follow the exact [SCENE PACING & SEGMENTATION STRATEGY] specified in the prompt. "
+            "The user-specified visual style is the supreme rule. Deeply synthesize the style into wardrobe, lighting, and architecture rather than comma-separated keywords. "
+            "Never insert unrequested historical Joseon or Hanbok elements. "
+            "Never use 'Layer 1/2/3' labels in video_prompt; write seamless natural cinematic camera and subject motion for Omni 1.1 Flash. "
+            "Strictly enforce no diamond watermarks, no logos, and no text overlays. "
             "Output valid RFC 8259 JSON array only."
         )
 
@@ -180,111 +192,305 @@ Output JSON Array ONLY:
                 text_resp = response.get("content", "")
             
             if text_resp and not str(text_resp).startswith("ERROR:"):
-                # Clean markdown code blocks
                 cleaned_resp = re.sub(r'```json\s*', '', str(text_resp), flags=re.IGNORECASE)
                 cleaned_resp = re.sub(r'```\s*', '', cleaned_resp)
                 cleaned_resp = cleaned_resp.strip()
 
                 # Extract JSON array using regex
-                match = re.search(r'\[\s*\{.*\}\s*\]', cleaned_resp, re.DOTALL)
+                match = re.search(r'\[\s*\{[\s\S]*\}\s*\]', cleaned_resp)
+                parsed = None
                 if match:
                     json_str = match.group(0)
-                    parsed = json.loads(json_str)
-                    if isinstance(parsed, list) and len(parsed) > 0:
-                        normalized = []
-                        for i, s in enumerate(parsed):
-                            vp = str(s.get("visual_prompt", "")).strip()
-                            # 1. aspect ratio 중복 제거
-                            vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
-                            vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
+                    try:
+                        parsed = json.loads(json_str)
+                    except Exception:
+                        json_str_fixed = re.sub(r',\s*([\]}])', r'\1', json_str)
+                        try:
+                            parsed = json.loads(json_str_fixed)
+                        except Exception:
+                            pass
 
-                            # 2. 잡담/번역/한국어 수다 필터링 및 자가치유
-                            is_filler = any(kw in vp for kw in ["도와드릴까요", "번역", "한국어", "문법", "어떤 이야기", "궁금하네요", "안녕하세요", "이야기"])
-                            has_excessive_korean = len(re.findall(r'[\uac00-\ud7a3]', vp)) > 6
+                # Fallback direct parse if regex failed
+                if not parsed:
+                    try:
+                        parsed = json.loads(cleaned_resp)
+                    except Exception:
+                        try:
+                            cleaned_fixed = re.sub(r',\s*([\]}])', r'\1', cleaned_resp)
+                            parsed = json.loads(cleaned_fixed)
+                        except Exception:
+                            pass
 
-                            if is_filler or has_excessive_korean or len(vp) < 10:
-                                vp = f"Eye-level cinematic shot, authentic Joseon Dynasty Korean historical setting, Korean scholar in traditional fine silk Hanbok, authentic wooden Hanok architecture with Giwa tiled roof, warm atmospheric lighting, {style_prompt}".strip(", ")
+                if isinstance(parsed, list) and len(parsed) > 0:
+                    normalized = []
+                    for i, s in enumerate(parsed):
+                        vp = str(s.get("visual_prompt", "")).strip()
+                        # aspect ratio 중복 제거
+                        vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
+                        vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
 
-                            final_vp = f"{aspect_ratio}, {vp}".rstrip(", ")
-                            vid_p = str(s.get("video_prompt", "")).strip()
-                            if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]) or len(vid_p) < 15:
-                                vid_p = "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
+                        # 잡담/번역/한국어 수다 필터링 및 자가치유
+                        is_filler = any(kw in vp for kw in ["도와드릴까요", "번역", "한국어", "문법", "어떤 이야기", "궁금하네요", "안녕하세요", "이야기"])
+                        has_excessive_korean = len(re.findall(r'[\uac00-\ud7a3]', vp)) > 6
 
-                            normalized.append({
-                                "scene_id": s.get("scene_id", i + 1),
-                                "script": s.get("script", ""),
-                                "visual_prompt": final_vp,
-                                "video_prompt": vid_p
-                            })
-                        return normalized
-                
-                # Fallback direct parse
-                try:
-                    parsed = json.loads(cleaned_resp)
-                    if isinstance(parsed, list) and len(parsed) > 0:
-                        normalized = []
-                        for i, s in enumerate(parsed):
-                            vp = str(s.get("visual_prompt", "")).strip()
-                            vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
-                            vp = re.sub(r'^(9:16|16:9)[,\s]+', '', vp, flags=re.IGNORECASE).strip()
+                        if is_filler or has_excessive_korean or len(vp) < 10:
+                            shot_angles = [
+                                "Medium establishing eye-level cinematic shot",
+                                "Dramatic low-angle tracking shot",
+                                "Cinematic close-up portrait with atmospheric depth of field",
+                                "Wide storytelling composition"
+                            ]
+                            angle = shot_angles[i % len(shot_angles)]
+                            clean_style = style_prompt if style_prompt else "Contemporary cinematic film still"
+                            vp = f"High-end {clean_style}, {angle}, stylish subject with bespoke tailored styling and refined silhouette reflecting the narrative beat, elegant ambient lighting, fine tactile textures, edge-to-edge pristine photographic composition, no watermark, no diamond symbol"
 
-                            is_filler = any(kw in vp for kw in ["도와드릴까요", "번역", "한국어", "문법", "어떤 이야기", "궁금하네요", "안녕하세요", "이야기"])
-                            has_excessive_korean = len(re.findall(r'[\uac00-\ud7a3]', vp)) > 6
+                        # video_prompt에서 'Layer 1:', 'Layer 2:' 등의 불필요한 라벨 정제
+                        vid_p = str(s.get("video_prompt", "")).strip()
+                        vid_p = re.sub(r'Layer\s*\d+\s*:\s*', '', vid_p, flags=re.IGNORECASE)
+                        vid_p = re.sub(r'\s+', ' ', vid_p).strip()
 
-                            if is_filler or has_excessive_korean or len(vp) < 10:
-                                vp = f"Eye-level cinematic shot, authentic Joseon Dynasty Korean historical setting, Korean scholar in traditional fine silk Hanbok, authentic wooden Hanok architecture with Giwa tiled roof, warm atmospheric lighting, {style_prompt}".strip(", ")
+                        if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]) or len(vid_p) < 15:
+                            vid_p = "Smooth cinematic push-in tracking shot as the subject gently turns head with a subtle thoughtful gaze, soft ambient lighting drifting delicately, smooth 24fps fluid motion"
 
-                            final_vp = f"{aspect_ratio}, {vp}".rstrip(", ")
-                            vid_p = str(s.get("video_prompt", "")).strip()
-                            if not vid_p or any(kw in vid_p for kw in ["도와드릴까요", "번역"]) or len(vid_p) < 15:
-                                vid_p = "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
+                        final_vp = f"{aspect_ratio}, {vp}".rstrip(", ")
 
-                            normalized.append({
-                                "scene_id": s.get("scene_id", i + 1),
-                                "script": s.get("script", ""),
-                                "visual_prompt": final_vp,
-                                "video_prompt": vid_p
-                            })
-                        return normalized
-                except:
-                    pass
+                        normalized.append({
+                            "scene_id": s.get("scene_id", i + 1),
+                            "script": s.get("script", ""),
+                            "visual_prompt": final_vp,
+                            "video_prompt": vid_p
+                        })
+                    return normalized
         except Exception as e:
-            logger.warning(f"[ROUTER] Internal router fallback triggered: {e}")
+            logger.warning(f"[CreativeEngine] Chunk segmentation LLM call failed or timed out: {e}")
 
-        # 2. 스마트 씬 파서 (줄바꿈/문장 기반 즉각 자가치유 분할)
-        lines = [l.strip() for l in cleaned_text.split('\n') if l.strip()]
+        # 스마트 씬 파서 자가치유 폴백
+        lines = [l.strip() for l in chunk_text.split('\n') if l.strip()]
         if not lines:
-            lines = [cleaned_text]
+            lines = [chunk_text]
 
         results = []
+        shot_types = [
+            "Medium establishing eye-level shot",
+            "Dramatic low-angle tracking shot",
+            "Cinematic close-up portrait with rich bokeh",
+            "Wide storytelling composition",
+            "Intense emotional medium shot"
+        ]
+        actions = [
+            "immersed in thoughtful reflection with bespoke tailored wardrobe and poised posture",
+            "pausing in contemplation as directional lighting sculpts delicate shadows across the scene",
+            "slowly turning with an expressive, captivating gaze in a high-end editorial set",
+            "standing with poise in an elegant evocative architectural space",
+            "gazing into the distance with refined composure and subtle emotional depth"
+        ]
+
+        style_prefix = f"High-end {style_prompt}, " if style_prompt else "Contemporary cinematic film still, "
+
         for idx, line in enumerate(lines):
+            angle = shot_types[idx % len(shot_types)]
+            action = actions[idx % len(actions)]
             results.append({
                 "scene_id": idx + 1,
                 "script": line,
-                "visual_prompt": f"{aspect_ratio}, Cinematic scene, authentic Joseon Dynasty Korean setting, {line}, {style_prompt}".strip(", "),
-                "video_prompt": "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
+                "visual_prompt": f"{aspect_ratio}, {style_prefix}{angle}, stylish subject {action}, atmospheric environment, soft volumetric lighting, medium format camera fidelity, edge-to-edge clean frame, no diamond watermark".strip(", "),
+                "video_prompt": "Smooth cinematic push-in tracking shot as the subject subtly shifts gaze with measured breathing, soft breeze gently swaying hair and outfit fabric, warm ambient light, smooth 24fps fluid motion"
             })
         return results
+
+    def _build_adaptive_pacing_instruction(self, split_method: str, mode: str, text_length: int) -> str:
+        """
+        Builds optimized directorial pacing instructions tailored to script length and split strategy.
+        - Tier 1: Short / Shorts (<= 3,000 chars)
+        - Tier 2: Mid Long-form (3,001 - 15,000 chars, ~10,000 chars)
+        - Tier 3: Epic Long-form (> 15,000 chars, 50,000+ chars)
+        """
+        if text_length > 15000:
+            scale_desc = f"EPIC LONG-FORM DOCUMENTARY / MOVIE ({text_length:,} chars)"
+            tier = 3
+        elif text_length > 3000:
+            scale_desc = f"MID-TIER LONG-FORM STORY ({text_length:,} chars)"
+            tier = 2
+        else:
+            scale_desc = f"COMPACT / SHORTS STORY ({text_length:,} chars)"
+            tier = 1
+
+        if split_method == 'visual_change':
+            if tier == 3: # 50,000+ chars
+                return (
+                    f"SPLIT STRATEGY: CINEMATIC SEQUENCE VISUAL CHANGE [{scale_desc}].\n"
+                    "- STRICT OVER-SEGMENTATION PREVENTION: In an epic story, do NOT create rapid cuts. Combine 5 to 8 sentences into ONE scene as long as they take place in the same location/setting.\n"
+                    "- Only trigger a new scene when there is a DEFINITE change in physical location, major character entrance/exit, or day/night transition.\n"
+                    "- Maintain grand cinematic scale and prolonged environmental staging."
+                )
+            elif tier == 2: # ~10,000 chars
+                return (
+                    f"SPLIT STRATEGY: SCENE & LOCATION VISUAL CHANGE [{scale_desc}].\n"
+                    "- Create a new scene ONLY when setting, primary character, or camera viewpoint dramatically shifts.\n"
+                    "- Combine 3 to 5 sentences that share the same backdrop and lighting into a single cohesive scene.\n"
+                    "- Ensure scenes represent distinct physical staging environments."
+                )
+            else: # <= 3,000 chars
+                return (
+                    f"SPLIT STRATEGY: VISUAL CHANGE FOCUSED [{scale_desc}].\n"
+                    "- Create a new scene ONLY when location, subject, or camera perspective shifts.\n"
+                    "- Combine 2 to 4 sentences describing the same visual moment into one scene."
+                )
+
+        elif split_method == 'semantic':
+            if tier == 3: # 50,000+ chars
+                return (
+                    f"SPLIT STRATEGY: MACRO SEMANTIC & EXTENDED DURATION [{scale_desc}].\n"
+                    "- TARGET DURATION: Aim for 10 to 15 seconds of steady voiceover per scene (approx. 150 - 220 Korean characters / 4 to 6 full sentences).\n"
+                    "- ABSOLUTE PROHIBITION: Never split short dialogue lines or sentence-by-sentence. Merge them into complete narrative thematic units.\n"
+                    "- Balances the grand 50,000-character timeline to prevent excessive scene bloat (maintaining 200-350 total scenes)."
+                )
+            elif tier == 2: # ~10,000 chars
+                return (
+                    f"SPLIT STRATEGY: BALANCED SEMANTIC FLOW [{scale_desc}].\n"
+                    "- TARGET DURATION: Aim for 6 to 9 seconds of narration per scene (approx. 90 - 130 characters / 3 to 5 sentences).\n"
+                    "- Merge logically interconnected sentences into unified thematic blocks.\n"
+                    "- Balances subtitle rhythm and viewer retention for 10k-character long videos."
+                )
+            else: # <= 3,000 chars
+                return (
+                    f"SPLIT STRATEGY: SEMANTIC & DURATION AUTO-OPTIMIZATION [{scale_desc}].\n"
+                    "- TARGET DURATION: 3 to 6 seconds of narration per scene (typically 2 to 3 sentences).\n"
+                    "- Group connected thoughts to maintain engaging viewer pace."
+                )
+
+        else: # 'ai_smart' or fallback
+            if tier == 3: # 50,000+ chars
+                return (
+                    f"SPLIT STRATEGY: AI SMART NARRATIVE CHAPTER FLOW [{scale_desc}].\n"
+                    "- MASTER DIRECTIVE: You are directing a feature-length cinematic production. Structure the story into meaningful narrative chapter beats.\n"
+                    "- Combine 4 to 7 coherent sentences (or 1 full paragraph) per scene to give each visual keyframe substantial narrative weight.\n"
+                    "- Focus on emotional arc continuity and smooth visual transitions between long-form acts."
+                )
+            elif tier == 2: # ~10,000 chars
+                return (
+                    f"SPLIT STRATEGY: AI SMART VISUAL STORYTELLING [{scale_desc}].\n"
+                    "- Group 3 to 5 sentences into coherent narrative units representing a complete micro-story beat.\n"
+                    "- Keep scenes rich, avoiding choppy sentence cuts. Target smooth visual continuity across the 10,000-character arc."
+                )
+            elif mode == 'shorts':
+                return (
+                    f"SPLIT STRATEGY: YOUTUBE SHORTS FAST-PACED HOOK [{scale_desc}].\n"
+                    "- Group 2 to 3 punchy sentences per scene based on fast viral rhythm and dynamic camera staging.\n"
+                    "- Ensure every scene has strong visual hooks for vertical short-form engagement."
+                )
+            else:
+                return (
+                    f"SPLIT STRATEGY: AI SMART CINEMATIC FLOW [{scale_desc}].\n"
+                    "- Group 3 to 4 sentences into balanced narrative units with cinematic visual flow."
+                )
+
+    def segment_script(self, text: str, mode: str = "shorts", provider: str = None, model: str = None, style_prompt: str = "", split_method: str = "ai_smart", pacing_config: dict = None) -> list:
+        """
+        Splits a script into scenes and generates visual prompts based on the selected method.
+        Supports ultra long-form scripts (10,000 to 50,000+ chars) via smart chunking pipeline.
+        Strictly respects DB Settings standard analysis model as the Single Source of Truth.
+        """
+        # [STANDARD ANALYSIS MODEL: Single Source of Truth from DB Settings]
+        standard_model = getattr(self.llm_client.settings, "script_analysis_model", None)
+        standard_provider = getattr(self.llm_client.settings, "script_analysis_provider", None)
+
+        # DB Settings 표준 분석 모델 최우선 반영
+        target_model = standard_model or model or getattr(self.llm_client.settings, "default_llm_model", None) or getattr(self.llm_client.settings, "paperclip_model", None) or "opencode/deepseek-v4-flash-free"
+        target_provider = standard_provider or provider or "opencode"
+        aspect_ratio = "9:16" if mode == 'shorts' else "16:9"
+
+        # Helper to clean text
+        cleaned_text = text.replace("\r\n", "\n").strip()
+        text_length = len(cleaned_text)
+
+        # 0. Custom Rule Logic (사용자가 명시적으로 커스텀 규칙을 선택한 경우에만 분할)
+        if split_method == 'custom_rule' and pacing_config:
+            return self._split_by_rule(cleaned_text, pacing_config, aspect_ratio=aspect_ratio, style_prompt=style_prompt)
+
+        # 1. 길이 및 전략 맞춤형 Pacing Instruction 자동 구성 (단문 / 1만자 / 5만자 차별화)
+        pacing_instruction = self._build_adaptive_pacing_instruction(split_method, mode, text_length)
+
+        # 2. Style Instruction (User Style is the Supreme Visual Authority & Deeply Synthesized)
+        style_context = f'MANDATORY USER VISUAL STYLE: "{style_prompt}"' if style_prompt else 'CONTEMPORARY CINEMATIC PHOTO STYLE'
+        full_model_name = target_model
+
+        # 3. Large Script Detection (e.g. 10,000 to 50,000+ characters)
+        # Commercial LLM output token limits (8,192 tokens) can only safely produce ~40-60 scenes per response.
+        # Scripts > 3,000 chars are split into coherent narrative chunks and processed in parallel.
+        if text_length > 3000:
+            chunks = self._chunk_text(cleaned_text, max_chars=2200)
+            if len(chunks) > 1:
+                logger.info(f"[CreativeEngine] Standard model [{full_model_name}] executing for large script ({text_length:,} chars, {len(chunks)} chunks).")
+                ordered_results = [None] * len(chunks)
+
+                def process_chunk(idx, chunk):
+                    context_header = f"[GLOBAL CONTEXT: Part {idx+1}/{len(chunks)} of {text_length:,}-character story. Maintain character, wardrobe, and atmospheric consistency.]\n\n"
+                    return idx, self._segment_single_chunk(
+                        chunk_text=context_header + chunk,
+                        full_model_name=full_model_name,
+                        style_context=style_context,
+                        style_prompt=style_prompt,
+                        pacing_instruction=pacing_instruction,
+                        aspect_ratio=aspect_ratio
+                    )
+
+                with ThreadPoolExecutor(max_workers=3) as executor:
+                    futures = [executor.submit(process_chunk, idx, c) for idx, c in enumerate(chunks)]
+                    for future in as_completed(futures):
+                        try:
+                            idx, chunk_scenes = future.result()
+                            ordered_results[idx] = chunk_scenes
+                        except Exception as e:
+                            logger.error(f"[CreativeEngine] Error processing chunk: {e}")
+
+                # Combine all chunks and re-index scene_id sequentially
+                combined_scenes = []
+                global_id = 1
+                for chunk_scenes in ordered_results:
+                    if not chunk_scenes:
+                        continue
+                    for scene in chunk_scenes:
+                        scene["scene_id"] = global_id
+                        combined_scenes.append(scene)
+                        global_id += 1
+
+                logger.info(f"[CreativeEngine] Standard model [{full_model_name}] successfully assembled {len(combined_scenes)} scenes from {len(chunks)} chunks.")
+                return combined_scenes
+
+        # Standard path for normal length scripts
+        return self._segment_single_chunk(
+            chunk_text=cleaned_text,
+            full_model_name=full_model_name,
+            style_context=style_context,
+            style_prompt=style_prompt,
+            pacing_instruction=pacing_instruction,
+            aspect_ratio=aspect_ratio
+        )
 
     def generate_visual_prompt(self, script: str, style_context: str = "", provider: str = None, model: str = None) -> dict:
         """
         Generates a visual prompt for a single scene using the dynamic model.
         """
-        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "youtube1"
+        standard_model = getattr(self.llm_client.settings, "script_analysis_model", None)
+        target_model = standard_model or model or getattr(self.llm_client.settings, "default_llm_model", None) or "opencode/deepseek-v4-flash-free"
         
-        system_prompt = f"""You are a Master Visual Director and Cinematographer. Create a vivid, culturally accurate English image keyframe description and a 4-layer cinematic motion prompt for this script line. Style: '{style_context}'.
-        
-        CRITICAL RULES:
-        1. Output MUST be in detailed, rich, evocative ENGLISH (never repeat Korean script).
-        2. Deduce era/culture: If Korean historical/folklore, enforce authentic Joseon Dynasty Korean Hanbok and Hanok architecture. Strictly NO Japanese kimono or Chinese hanfu.
-        3. 'video_prompt': Provide a 4-layer cinematic motion prompt (Subject Action & Micro-expressions + Secondary Environmental Physics + Camera Motion + 24fps fluid motion).
-        
-        Output MUST be a valid JSON object:
-        {{
-            "visual_prompt": "[Camera Angle], [Authentic Cultural & Era Context], [Subject Appearance & Action], [Background/Environment], [Lighting & Mood], [Style]",
-            "video_prompt": "[Subject micro-expression & motion], [environmental physics], [cinematic camera movement], 24fps fluid motion"
-        }}
-        """
+        clean_style = style_context if style_context else "Contemporary cinematic film still, photographic fidelity"
+        system_prompt = f"""You are an Elite Visual Director and Google Flow Prompt Specialist (Nano Banana Pro & Omni 1.1 Flash).
+Create a vivid, evocative English image keyframe description and a smooth cinematic video motion prompt for this script line.
+MANDATORY VISUAL STYLE: '{clean_style}'.
+
+CRITICAL RULES:
+1. The user-specified visual style MUST be deeply synthesized into character appearance, tailored wardrobe, set architecture, and directional lighting.
+2. DO NOT force historical Joseon, Hanbok, or ancient settings unless the script explicitly mentions it. If the style is Fashion, Contemporary, Editorial, etc., strictly match that genre!
+3. 'visual_prompt': Write rich photographic English prose describing subject, bespoke styling, setting, lighting, and optics for Nano Banana Pro. Strictly no diamond watermarks, no corner symbols, no text.
+4. 'video_prompt': Provide a single fluent English directorial sentence for Omni 1.1 Flash without labels like 'Layer 1/2/3'. Format: '[Camera motion] as [Subject motion and expression], [subtle physics], seamless 24fps fluid motion.'
+
+Output MUST be a valid JSON object:
+{{
+    "visual_prompt": "[Synthesized Style & Medium], [Camera Shot & Angle], [Subject Appearance & bespoke styling matching script], [Setting/Background], [Lighting & Mood], shallow depth of field, sharp photographic fidelity, no watermark",
+    "video_prompt": "[Camera movement] as [Subject motion and subtle expression], [subtle physics], seamless 24fps fluid motion"
+}}"""
 
         try:
             response = self.llm_client.generate_content(
@@ -298,24 +504,27 @@ Output JSON Array ONLY:
             if match:
                 parsed = json.loads(match.group(0))
                 vid_p = parsed.get("video_prompt", "")
+                vid_p = re.sub(r'Layer\s*\d+\s*:\s*', '', vid_p, flags=re.IGNORECASE).strip()
                 if not vid_p or len(vid_p) < 15:
-                    parsed["video_prompt"] = "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
+                    vid_p = "Smooth cinematic push-in tracking shot as the subject gently turns head with a subtle thoughtful gaze, soft ambient lighting drifting delicately, smooth 24fps fluid motion"
+                parsed["video_prompt"] = vid_p
                 return parsed
             return {
                 "visual_prompt": text_resp, 
-                "video_prompt": "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
+                "video_prompt": "Smooth cinematic push-in tracking shot as the subject subtly shifts gaze with measured breathing, soft ambient light, smooth 24fps fluid motion"
             }
         except Exception as e:
             logger.error(f"Visual Prompt Generation Failed: {e}")
             return {
-                "visual_prompt": f"Eye-level cinematic shot, authentic Joseon Dynasty Korean historical setting, Korean scholar in traditional fine silk Hanbok, authentic wooden Hanok architecture with Giwa tiled roof, warm atmospheric lighting, {style_context}".strip(", "), 
-                "video_prompt": "Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion"
+                "visual_prompt": f"High-end {clean_style}, Eye-level cinematic shot, elegant subject in deep contemplation amidst a refined architectural setting, directional soft lighting with delicate shadows, sharp photographic fidelity, no watermark", 
+                "video_prompt": "Smooth cinematic push-in tracking shot as the subject gently turns head with a subtle thoughtful gaze, soft ambient lighting drifting delicately, smooth 24fps fluid motion"
             }
 
 
-    def _split_by_rule(self, text: str, config: dict) -> list:
+    def _split_by_rule(self, text: str, config: dict, aspect_ratio: str = "16:9", style_prompt: str = "") -> list:
         """
-        Splits text based on rigid rules: 'sentence_count' or 'time_duration'.
+        Splits text based on rigid rules: 'sentence_count' or 'time_duration',
+        and returns fully formed scene objects matching List[SceneSegment] schema.
         """
         unit = config.get('unit', 'sentence') # 'sentence', 'time'
         value = int(config.get('value', 1))
@@ -327,28 +536,24 @@ Output JSON Array ONLY:
         raw_sentences = re.split(pattern, cleaned_text)
         sentences = [s.strip() for s in raw_sentences if s.strip()]
         
-        if not sentences: return [text]
+        if not sentences:
+            sentences = [cleaned_text]
 
         grouped_segments = []
         
         if unit == 'sentence':
-            # Group every N sentences
             chunk = []
             for s in sentences:
                 chunk.append(s)
                 if len(chunk) >= value:
                     grouped_segments.append(" ".join(chunk))
                     chunk = []
-            if chunk: grouped_segments.append(" ".join(chunk))
+            if chunk:
+                grouped_segments.append(" ".join(chunk))
             
         elif unit == 'time':
-            # Estimate Duration and Group
-            # Rule of thumb: 15 chars (Korean) or 30 chars (English) ≈ 1 second?
-            # Let's say 5 chars = 1 second (very rough, safe for pacing)
-            # Better: 50ms per character -> 20 chars / sec.
-            CHAR_PER_SEC = 15 # Conservative reading speed
-            
-            target_chars = value * CHAR_PER_SEC
+            CHAR_PER_SEC = 15 # Reading speed approx 15 chars per sec
+            target_chars = max(15, value * CHAR_PER_SEC)
             
             chunk = []
             current_len = 0
@@ -356,7 +561,6 @@ Output JSON Array ONLY:
             for s in sentences:
                 s_len = len(s)
                 if current_len + s_len > target_chars and chunk:
-                    # Current chunk is full, push it
                     grouped_segments.append(" ".join(chunk))
                     chunk = [s]
                     current_len = s_len
@@ -364,12 +568,40 @@ Output JSON Array ONLY:
                     chunk.append(s)
                     current_len += s_len
             
-            if chunk: grouped_segments.append(" ".join(chunk))
-            
+            if chunk:
+                grouped_segments.append(" ".join(chunk))
         else:
-            return sentences # Fallback
-            
-        return grouped_segments
+            grouped_segments = sentences
+
+        # Build fully qualified SceneSegment dictionaries
+        results = []
+        style_prefix = f"High-end {style_prompt}, " if style_prompt else "Contemporary cinematic film still, "
+        shot_types = [
+            "Medium establishing eye-level shot",
+            "Dramatic low-angle tracking shot",
+            "Cinematic close-up portrait with rich bokeh",
+            "Wide storytelling composition",
+            "Intense emotional medium shot"
+        ]
+        actions = [
+            "immersed in thoughtful reflection with bespoke tailored wardrobe and poised posture",
+            "pausing in contemplation as directional lighting sculpts delicate shadows across the scene",
+            "slowly turning with an expressive, captivating gaze in a high-end editorial set",
+            "standing with poise in an elegant evocative architectural space",
+            "gazing into the distance with refined composure and subtle emotional depth"
+        ]
+
+        for idx, seg in enumerate(grouped_segments):
+            angle = shot_types[idx % len(shot_types)]
+            action = actions[idx % len(actions)]
+            results.append({
+                "scene_id": idx + 1,
+                "script": seg,
+                "visual_prompt": f"{aspect_ratio}, {style_prefix}{angle}, stylish subject {action}, atmospheric environment, soft volumetric lighting, medium format camera fidelity, edge-to-edge clean frame, no diamond watermark".strip(", "),
+                "video_prompt": "Smooth cinematic push-in tracking shot as the subject subtly shifts gaze with measured breathing, soft breeze gently swaying hair and outfit fabric, warm ambient light, smooth 24fps fluid motion"
+            })
+
+        return results
 
 
     def rewrite_script_dual_track(

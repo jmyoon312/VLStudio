@@ -70,7 +70,7 @@ def get_llm_client_and_model(db: Session):
     return llm_client, target_model, settings
 
 def parse_json_safely(raw_text: str) -> Any:
-    """Extracts JSON structure from Markdown code blocks or raw text."""
+    """Extracts JSON structure from Markdown code blocks or raw text with dirty-JSON repair."""
     clean = raw_text.strip()
     match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", clean)
     if match:
@@ -78,12 +78,17 @@ def parse_json_safely(raw_text: str) -> Any:
     try:
         return json.loads(clean)
     except Exception as e:
-        logger.warning(f"Initial JSON parse failed: {e}. Trying fallback regex...")
+        logger.warning(f"Initial JSON parse failed: {e}. Trying fallback regex & cleanup...")
         first_bracket = min([i for i in [clean.find('{'), clean.find('[')] if i != -1], default=-1)
         last_bracket = max([clean.rfind('}'), clean.rfind(']')], default=-1)
         if first_bracket != -1 and last_bracket != -1 and last_bracket > first_bracket:
             sub = clean[first_bracket:last_bracket+1]
-            return json.loads(sub)
+            # Remove trailing commas before closing braces/brackets
+            sub = re.sub(r',\s*([\]}])', r'\1', sub)
+            try:
+                return json.loads(sub)
+            except Exception:
+                pass
         raise ValueError(f"Could not parse valid JSON from AI response: {raw_text[:200]}")
 
 # ==============================================================================
@@ -128,9 +133,9 @@ def generate_custom_preset(
         "}"
     )
 
-    user_prompt = f"다음 지침서/프롬프트를 분석하여 프리셋 구조체로 변환해줘:\n\n{req.prompt}"
+    user_prompt = f"Benchmark Note / User Rule:\n{req.prompt}"
     if req.benchmark_channel:
-        user_prompt += f"\n\n벤치마크 채널: {req.benchmark_channel}"
+        user_prompt += f"\nBenchmark Target Channel/Style: {req.benchmark_channel}"
 
     try:
         resp = llm_client.generate_content(
@@ -140,13 +145,13 @@ def generate_custom_preset(
             full_response=True
         )
         raw_text = resp.get("content", "") if isinstance(resp, dict) else str(resp)
-        preset_data = parse_json_safely(raw_text)
-        if not preset_data.get("id"):
-            preset_data["id"] = f"custom_{uuid.uuid4().hex[:8]}"
-        return {"success": True, "preset": preset_data, "model_used": target_model}
+        result = parse_json_safely(raw_text)
+        if not result.get("id"):
+            result["id"] = f"custom_{uuid.uuid4().hex[:8]}"
+        return {"success": True, "preset": result, "model_used": target_model}
     except Exception as e:
-        logger.error(f"Failed to generate preset: {e}")
-        raise HTTPException(status_code=500, detail=f"프리셋 생성 오류: {str(e)}")
+        logger.error(f"Failed to generate custom preset: {e}")
+        raise HTTPException(status_code=500, detail=f"프리셋 자동 생성 실패: {str(e)}")
 
 @router.post("/optimize-pronunciation")
 def optimize_pronunciation(
@@ -154,19 +159,40 @@ def optimize_pronunciation(
     db: Session = Depends(database.get_db)
 ):
     """
-    숫자, 특수기호, 외래어, 단위, 약어를 TTS가 가장 자연스럽게 읽을 수 있는 구어체 표음 텍스트로 변환하고
-    좌우 비교(Side-by-Side Diff) 데이터를 생성
+    대본 전체 및 각 씬/클립별 나레이션의 한글 발음 최적화 (TTS 맞춤 발음 교정)
+    예: 123명 -> 백스물세 명, 2024년 -> 이천이십사년, 100% -> 백 퍼센트, Apple -> 애플 등
+    자연스러운 음성 합성을 위한 단어 변환 목록 및 교정문 반환
     """
+    if not req.text or not req.text.strip():
+        return {
+            "success": True,
+            "data": {
+                "original": "",
+                "optimized": "",
+                "diffs": []
+            },
+            "model_used": "none"
+        }
+
     llm_client, target_model, _ = get_llm_client_and_model(db)
     
     system_prompt = (
-        "You are an Expert Phonetic Script Normalizer for Text-to-Speech (TTS) engines.\n"
-        "Your job is to rewrite numbers, symbols, abbreviations, currencies, and foreign words into the MOST NATURAL SPOKEN WORDS for the given target language.\n\n"
-        "Rules by Language:\n"
-        "- Korean (ko): 123명 -> '백스물세 명' (not 일이삼명), 3일 동안 -> '사흘 동안' or '삼 일 동안', $500 -> '오백 달러', 3.5km -> '삼 점 오 킬로미터', vs -> '대', & -> '앤드'\n"
-        "- English (en): in 1995 -> 'in nineteen ninety-five', $25M -> 'twenty-five million dollars', 3.5kg -> 'three point five kilograms'\n"
-        "- Japanese (ja): 1人 -> 'ひとり', 1日 -> 'ついたち', 300円 -> 'さんびゃくえん'\n\n"
-        "CRITICAL: Output ONLY valid JSON matching this schema:\n"
+        "You are an Elite Spoken Narration and TTS Pronunciation Specialist.\n"
+        "Your task is to convert written text into natural spoken pronunciation suitable for AI Text-To-Speech (TTS) models (ElevenLabs, Typecast, Supertone, Kokoro, Edge TTS).\n\n"
+        "Key Rules for Korean Spoken TTS:\n"
+        "1. Numbers with Korean counter units MUST be converted to Native Korean numerals where appropriate:\n"
+        "   - 사람 수: 1명 -> 한 명, 2명 -> 두 명, 3명 -> 세 명, 4명 -> 네 명, 5명 -> 다섯 명, 20명 -> 스무 명, 21명 -> 스물한 명\n"
+        "   - 개수: 1개 -> 한 개, 2개 -> 두 개, 3개 -> 세 개, 10개 -> 열 개\n"
+        "   - 시간: 1시 -> 한 시, 2시 -> 두 시 / 30분 -> 삼십 분\n"
+        "   - 연도/금액/전화번호: Sino-Korean (2024년 -> 이천이십사년, 5000원 -> 오천 원)\n"
+        "2. English abbreviations & acronyms to Korean phonetics:\n"
+        "   - AI -> 에이아이, CEO -> 씨이오, SNS -> 에스엔에스, FBI -> 에프비아이, DNA -> 디엔에이\n"
+        "3. Units & Symbols:\n"
+        "   - % -> 퍼센트 (또는 프로), $ -> 달러, km -> 킬로미터, kg -> 킬로그램\n"
+        "4. Foreign brand names or words to standard Korean pronunciation:\n"
+        "   - Apple -> 애플, Google -> 구글, Tesla -> 테슬라\n"
+        "5. Preserve the exact sentence structure and tone; only optimize phonetic pronunciation where TTS would misread or stutter.\n\n"
+        "CRITICAL: Output ONLY a valid JSON Object with this exact schema:\n"
         "{\n"
         '  "original": "원본 전체 텍스트",\n'
         '  "optimized": "발음 최적화된 전체 텍스트",\n'
@@ -192,10 +218,26 @@ def optimize_pronunciation(
         )
         raw_text = resp.get("content", "") if isinstance(resp, dict) else str(resp)
         result = parse_json_safely(raw_text)
+        if not isinstance(result, dict) or "optimized" not in result:
+            result = {
+                "original": req.text,
+                "optimized": req.text,
+                "diffs": []
+            }
         return {"success": True, "data": result, "model_used": target_model}
     except Exception as e:
-        logger.error(f"Failed to optimize pronunciation: {e}")
-        raise HTTPException(status_code=500, detail=f"발음 최적화 실패: {str(e)}")
+        logger.warning(f"Pronunciation optimization LLM fallback triggered: {e}")
+        # 자가치유 폴백: 500 에러로 중단되지 않고 원본을 안전하게 유지하여 반환
+        return {
+            "success": True,
+            "data": {
+                "original": req.text,
+                "optimized": req.text,
+                "diffs": []
+            },
+            "model_used": target_model,
+            "warning": f"AI 발음 최적화 일시 지연으로 원본 유지 ({str(e)})"
+        }
 
 @router.post("/split-episodes")
 def split_episodes(

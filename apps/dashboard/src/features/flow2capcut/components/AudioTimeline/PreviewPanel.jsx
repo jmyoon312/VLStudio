@@ -79,6 +79,9 @@ export default function PreviewPanel({
   kenBurns = false,
   watermarkConfig = null,
   onMediaTransformChange,
+  showSafeZone = false,
+  canvasZoom = 'fit',
+  fitTrigger = 0,
 }) {
   // ── CapCut 네이티브 1:1 반응형 자막 스케일러 & 인터랙티브 조작 ──
   const stageRef = useRef(null)
@@ -87,6 +90,34 @@ export default function PreviewPanel({
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 })
+
+  // [NEW] 외부 canvasZoom ('fit' | '50' | '75' | '100' | '150') 반응형 자동 스케일 동기화
+  useEffect(() => {
+    if (canvasZoom === 'fit') {
+      setCanvasScale(1.0)
+      setCanvasPan({ x: 0, y: 0 })
+    } else if (canvasZoom === '50') {
+      setCanvasScale(0.5)
+      setCanvasPan({ x: 0, y: 0 })
+    } else if (canvasZoom === '75') {
+      setCanvasScale(0.75)
+      setCanvasPan({ x: 0, y: 0 })
+    } else if (canvasZoom === '100') {
+      setCanvasScale(1.0)
+      setCanvasPan({ x: 0, y: 0 })
+    } else if (canvasZoom === '150') {
+      setCanvasScale(1.5)
+      setCanvasPan({ x: 0, y: 0 })
+    }
+  }, [canvasZoom])
+
+  // [NEW] 화면 맞춤 버튼 클릭 트리거 감지 (동일 값이라도 즉시 1.0 초기화 보장)
+  useEffect(() => {
+    if (fitTrigger > 0) {
+      setCanvasScale(1.0)
+      setCanvasPan({ x: 0, y: 0 })
+    }
+  }, [fitTrigger])
 
   // 자막 직접 드래그 이동 상태
   const [subDragOffset, setSubDragOffset] = useState({ x: 0, y: 0 })
@@ -510,6 +541,10 @@ export default function PreviewPanel({
         className="atl-preview-stage"
         style={{
           aspectRatio: (aspectRatio === '9:16' || aspectRatio === 'shorts') ? '9 / 16' : '16 / 9',
+          height: '100%',
+          width: 'auto',
+          maxWidth: '100%',
+          maxHeight: '100%',
           transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
           transformOrigin: 'center center',
           transition: isPanning ? 'none' : 'transform 0.1s ease-out',
@@ -658,6 +693,26 @@ export default function PreviewPanel({
                 {watermarkConfig.text || '@ViraLoop'}
               </span>
             )}
+          </div>
+        )}
+
+        {/* 📱 Shorts Safe Zone Overlay: 유튜브 쇼츠 / 틱톡 모바일 UI 가림 안전영역 (9:16 캔버스 1:1 완벽 안착) */}
+        {showSafeZone && (aspectRatio === '9:16' || aspectRatio === 'shorts') && (
+          <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-amber-400/80 rounded-lg flex flex-col justify-between p-2.5 select-none z-40 bg-amber-500/[0.04]">
+            {/* 상단 헤더 / 검색 영역 (상단 10% 회피 가이드) */}
+            <div className="bg-black/85 text-amber-300 text-[10px] font-bold px-2.5 py-1 rounded-md border border-amber-400/60 shadow-lg w-fit self-center flex items-center gap-1 backdrop-blur-md">
+              <span>⚠️ 상단 헤더 / 검색 영역 (텍스트 배치 금지)</span>
+            </div>
+
+            {/* 하단 제목 / 계정명 UI & 우측 인터랙션 아이콘 바 */}
+            <div className="flex justify-between items-end w-full gap-2 pb-0.5 px-0.5">
+              <div className="bg-black/85 text-amber-300 text-[9.5px] font-bold px-2 py-1.5 rounded-md border border-amber-400/60 shadow-lg max-w-[145px] backdrop-blur-md leading-tight">
+                ⚠️ 하단 제목 / 계정명<br />사운드 타이틀 UI 영역
+              </div>
+              <div className="bg-black/85 text-amber-300 text-[9.5px] font-bold px-2 py-1.5 rounded-md border border-amber-400/60 shadow-lg text-right backdrop-blur-md leading-tight">
+                ⚠️ 좋아요·댓글·공유<br />우측 아이콘 바
+              </div>
+            </div>
           </div>
         )}
       </div>

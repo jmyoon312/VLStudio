@@ -1242,12 +1242,26 @@ export default function AudioTimeline({
             onClick={handleSplitCurrent}
             disabled={disabled}
             onMouseEnter={(e) => showBtnTooltip(e, {
-              label: '분할',
+              label: '분할 (Split)',
               desc: '현재 위치에서 씬을 2개로 분할',
               hotkey: 'Ctrl+B',
             })}
             onMouseLeave={hideBtnTooltip}
-            style={{ fontSize: '11px', fontWeight: 800, padding: '0 6px', color: '#60a5fa' }}
+            title="현재 위치 분할 (Ctrl+B)"
+            style={{
+              width: 'auto',
+              minWidth: '46px',
+              height: '24px',
+              fontSize: '10.5px',
+              fontWeight: 700,
+              padding: '0 6px',
+              color: '#60a5fa',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '2px',
+              whiteSpace: 'nowrap'
+            }}
           >
             ✂️ 분할
           </button>
@@ -1269,13 +1283,22 @@ export default function AudioTimeline({
               hotkey: 'N',
             })}
             onMouseLeave={hideBtnTooltip}
+            title={`자석 스냅 (${isSnappingEnabled ? 'ON' : 'OFF'}, 단축키 N)`}
             style={{
-              fontSize: '11px',
-              fontWeight: 800,
+              width: 'auto',
+              minWidth: '46px',
+              height: '24px',
+              fontSize: '10.5px',
+              fontWeight: 700,
               padding: '0 6px',
-              color: isSnappingEnabled ? '#a855f7' : '#94a3b8',
-              background: isSnappingEnabled ? 'rgba(168, 85, 247, 0.15)' : undefined,
+              color: isSnappingEnabled ? '#c084fc' : '#94a3b8',
+              background: isSnappingEnabled ? 'rgba(168, 85, 247, 0.2)' : undefined,
               borderColor: isSnappingEnabled ? 'rgba(168, 85, 247, 0.4)' : undefined,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '2px',
+              whiteSpace: 'nowrap'
             }}
           >
             🧲 스냅

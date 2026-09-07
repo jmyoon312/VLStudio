@@ -44,8 +44,18 @@ export const FLOW_MODELS = [
   //   의존하지 않는다. 패밀리별 정확한 해상도 한계·OmniFlash i2v 키·duration 주입은 비디오(이슈4)
   //   세션에서 보강. allowedResolutions 는 보수적 기본값(확정 전).
   {
+    id: 'Omni 1.1 Flash',
+    label: 'Omni 1.1 Flash',
+    displayName: 'Omni 1.1 Flash',
+    kind: 'video',
+    methods: ['predictLongRunning'],
+    cost: null,
+    unit: 'sec',
+    allowedResolutions: VEO_RES_HD,
+  },
+  {
     id: 'Omni Flash',
-    label: 'Omni Flash',
+    label: 'Omni Flash (Legacy)',
     displayName: 'Omni Flash',
     kind: 'video',
     methods: ['predictLongRunning'],

@@ -401,7 +401,7 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   };
 
   return (
-    <div className="w-full my-0 bg-card rounded-xl border border-border shadow-xs overflow-hidden transition-all duration-200 select-none shrink-0 min-h-[44px]">
+    <div className="w-full my-0 bg-card rounded-xl border border-border shadow-xs transition-all duration-200 select-none shrink-0 min-h-[44px]">
       
       {/* 1. 상단 어디를 눌러도 접히고 펼쳐지는 플랫 헤더 바 */}
       <div
@@ -418,6 +418,26 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 하단 씬보드 바로가기 버튼 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              const el = document.getElementById('scene-board-container');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              const container = document.getElementById('creative-studio-scroll-container');
+              if (container && el) {
+                const topOffset = el.getBoundingClientRect().top + container.scrollTop - 40;
+                container.scrollTo({ top: topOffset, behavior: 'smooth' });
+              }
+            }}
+            className="h-6 px-2 text-[11px] font-semibold bg-primary/10 hover:bg-primary/20 text-primary border-primary/30"
+            title="하단 씬보드로 바로 스크롤 이동"
+          >
+            <Film className="w-3 h-3 mr-1" /> 씬보드로 이동
+          </Button>
+
           {/* 전체화면 크게 보기 버튼 */}
           <Button
             variant="outline"

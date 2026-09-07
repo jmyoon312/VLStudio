@@ -41,7 +41,11 @@ import {
   Upload,
   Trash2,
   Save,
-  Mic
+  Mic,
+  Download,
+  ArrowUp,
+  ArrowDown,
+  FolderOpen
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -200,6 +204,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   const [selectedStyleCategory, setSelectedStyleCategory] = useState<string>('all');
   const [styleSearchQuery, setStyleSearchQuery] = useState<string>('');
   const [canvasZoom, setCanvasZoom] = useState<'fit' | '50' | '75' | '100' | '150'>('fit');
+  const [fitTrigger, setFitTrigger] = useState(0);
   const [showSafeZone, setShowSafeZone] = useState(false);
   const [kenBurnsEnabled, setKenBurnsEnabled] = useState(false);
   const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(0);
@@ -243,6 +248,67 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
       setEditingSubText(selectedSubtitleCue.text);
     }
   }, [selectedSubtitleCue]);
+
+  // [NEW] 대본 작업창 확장, 스크롤 점프, 입출력 상태 및 헬퍼
+  const [isScriptExpanded, setIsScriptExpanded] = useState(false);
+  const scriptTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const scriptFileInputRef = useRef<HTMLInputElement>(null);
+
+  // 예상 낭독 시간 계산 (한국어 TTS 기준 분당 약 330자)
+  const estimatedReadingTime = useMemo(() => {
+    if (!fullScript || !fullScript.trim()) return '';
+    const charCount = fullScript.trim().length;
+    const totalMin = Math.round(charCount / 330);
+    if (totalMin < 1) return '약 30초';
+    if (totalMin < 60) return `약 ${totalMin}분`;
+    const hours = Math.floor(totalMin / 60);
+    const mins = totalMin % 60;
+    return `약 ${hours}시간 ${mins}분`;
+  }, [fullScript]);
+
+  const handleScrollScriptTo = (pos: 'top' | 'bottom') => {
+    const el = scriptTextareaRef.current;
+    if (!el) return;
+    el.scrollTo({
+      top: pos === 'top' ? 0 : el.scrollHeight,
+      behavior: 'smooth',
+    });
+  };
+
+  const handleClearScript = () => {
+    if (!fullScript) return;
+    if (window.confirm('작성 중인 전체 대본을 모두 비우시겠습니까?')) {
+      onFullScriptChange?.('');
+      toast.info('대본이 모두 삭제되었습니다.');
+    }
+  };
+
+  const handleDownloadScript = () => {
+    if (!fullScript) return;
+    const blob = new Blob([fullScript], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `script_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('대본 파일(.txt)이 저장되었습니다.');
+  };
+
+  const handleImportScriptFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target?.result as string;
+      if (text) {
+        onFullScriptChange?.(text);
+        toast.success(`대본 파일 (${file.name}, ${text.length.toLocaleString()}자)을 불러왔습니다!`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   // 워터마크 단색 배경 투명화 핸들러 (Fast Canvas Keying)
   const applyWatermarkColorKeying = (keyType: 'white' | 'black') => {
@@ -514,15 +580,12 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   }, [canvasZoom]);
 
   const containerContent = (
-    <div className={`dark flex flex-col bg-[#0b0e14] text-slate-200 border border-white/10 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${isMaximized ? 'fixed inset-0 z-[99999] rounded-none border-none' : 'w-full h-[840px]'}`}>
+    <div className={`dark flex flex-col bg-[#0b0e14] text-slate-200 border border-white/10 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${isMaximized ? 'fixed inset-0 z-[99999] rounded-none border-none' : 'w-full h-[680px] xl:h-[720px]'}`}>
       {/* ── 1. Pro Studio Top Header ── */}
       <div className="h-11 bg-[#121722] border-b border-white/10 px-4 flex items-center justify-between shrink-0 select-none">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Film className="w-4 h-4 text-blue-400" />
-            <span className="font-extrabold text-xs tracking-wider text-white uppercase flex items-center gap-1.5">
-              CapCut Pro AI Studio <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-400/30">NLE v3</span>
-            </span>
+          <div className="flex items-center gap-1.5 text-blue-400">
+            <Film className="w-4 h-4" />
           </div>
 
           <div className="h-3.5 w-px bg-white/15" />
@@ -543,6 +606,20 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
             </button>
           </div>
 
+          {/* Direct "화면 맞춤 (Fit)" Button */}
+          <Button
+            variant={canvasZoom === 'fit' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => {
+              setCanvasZoom('fit');
+              setFitTrigger((c) => c + 1);
+            }}
+            className={`h-6 text-[10.5px] px-2 gap-1 font-semibold ${canvasZoom === 'fit' ? 'bg-blue-600/30 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
+            title="캔버스를 모니터/패널 화면에 100% 꽉 차게 맞춤"
+          >
+            <Maximize2 className="w-3 h-3" /> 화면 맞춤
+          </Button>
+
           {/* Canvas Zoom Dropdown */}
           <div className="flex items-center gap-1 bg-black/30 px-2 py-0.5 rounded-lg border border-white/10">
             <ZoomIn className="w-3 h-3 text-slate-400" />
@@ -550,7 +627,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               <SelectTrigger className="h-6 text-[10.5px] bg-transparent border-none focus:ring-0 text-slate-300 w-[78px] p-0 font-medium">
                 <SelectValue placeholder="화면 줌" />
               </SelectTrigger>
-              <SelectContent className="bg-[#161c28] border-white/15 text-white">
+              <SelectContent className="z-[100002] bg-[#161c28] border-white/15 text-white shadow-2xl">
                 <SelectItem value="fit" className="text-xs">화면 맞춤 (Fit)</SelectItem>
                 <SelectItem value="50" className="text-xs">50%</SelectItem>
                 <SelectItem value="75" className="text-xs">75%</SelectItem>
@@ -586,11 +663,34 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
         {/* Right Header Actions */}
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const el = document.getElementById('scene-board-container');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              const container = document.getElementById('creative-studio-scroll-container');
+              if (container && el) {
+                const topOffset = el.getBoundingClientRect().top + container.scrollTop - 40;
+                container.scrollTo({ top: topOffset, behavior: 'smooth' });
+              }
+            }}
+            className="h-7 text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 border-primary/30 gap-1 active:scale-95 transition-all"
+            title="하단 씬보드로 바로 스크롤 이동"
+          >
+            <Film className="w-3 h-3" /> 씬보드로 이동
+          </Button>
           {onOpenPronunciationOptimizer && (
             <Button
               variant="outline"
               size="sm"
-              onClick={onOpenPronunciationOptimizer}
+              onClick={() => {
+                if (!fullScript?.trim() && !scriptInput?.trim() && (!scenes || scenes.length === 0)) {
+                  toast.info('교정할 대본이나 씬이 없습니다. 대본을 먼저 입력해주세요.');
+                  return;
+                }
+                onOpenPronunciationOptimizer();
+              }}
               className="h-7 text-[11px] font-semibold bg-purple-500/15 text-purple-300 hover:text-purple-200 border-purple-500/40 hover:bg-purple-500/25 gap-1 shadow-xs"
               title="대본의 숫자, 단위, 약어를 자연스러운 구어체 발음으로 교정 (좌우 비교)"
             >
@@ -638,16 +738,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
         {/* Left: Canvas Preview Stage */}
         <div className="flex-1 flex flex-col items-center justify-center p-3 relative bg-[#07090e] border-r border-white/10 overflow-hidden select-none">
           {/* Virtual Zoomable Stage Container */}
-          <div
-            className="relative flex items-center justify-center transition-transform duration-150"
-            style={{
-              transform: canvasZoom !== 'fit' ? `scale(${zoomScale})` : 'none',
-              transformOrigin: 'center center',
-              width: '100%',
-              height: '100%',
-              maxHeight: '100%',
-            }}
-          >
+          <div className="relative flex items-center justify-center w-full h-full max-h-full overflow-hidden">
             <PreviewPanel
               playheadMs={playheadMs}
               scenes={normalizedTimelineScenes}
@@ -659,26 +750,11 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               aspectRatio={aspectRatio}
               kenBurns={kenBurnsEnabled}
               watermarkConfig={watermarkConfig}
+              showSafeZone={showSafeZone}
+              canvasZoom={canvasZoom}
+              fitTrigger={fitTrigger}
               className="!bg-transparent !p-0 w-full h-full flex items-center justify-center"
-
             />
-
-            {/* Shorts Safe Zone Overlay */}
-            {showSafeZone && aspectRatio === '9:16' && (
-              <div className="absolute inset-0 pointer-events-none border border-amber-500/40 rounded-lg flex flex-col justify-between p-3 select-none">
-                <div className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded w-fit self-center">
-                  ⚠️ 상단 헤더 / 검색 영역 (피할 위치)
-                </div>
-                <div className="flex justify-between items-end">
-                  <div className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-1 rounded max-w-[140px]">
-                    ⚠️ 하단 제목 / 사운드 UI 영역
-                  </div>
-                  <div className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-1.5 py-1 rounded text-right">
-                    ⚠️ 좋아요/댓글/공유<br />우측 아이콘 바
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Left Floating Stereo VU Meter */}
@@ -749,7 +825,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                     {onOpenPronunciationOptimizer && (
                       <Button
                         onClick={onOpenPronunciationOptimizer}
-                        disabled={!fullScript?.trim() && scenes.length === 0}
+                        disabled={!fullScript?.trim() && !scriptInput?.trim() && scenes.length === 0}
                         variant="outline"
                         size="sm"
                         className="h-6 text-[10px] font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border-purple-500/40 gap-1 shadow-2xs"
@@ -819,38 +895,132 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               )}
 
               {/* Full Script Editor Area */}
-              <div className="space-y-1.5 p-2.5 rounded-xl bg-black/20 border border-white/10">
-                <div className="flex items-center justify-between">
-                  <Label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-                    <span>전체 대본 (Full Script)</span>
-                    {policyReport && (
-                      <Badge variant="outline" className={`text-[9.5px] px-1.5 py-0 font-bold ${policyReport.is_safe ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-amber-500/20 text-amber-400 border-amber-500/40'}`}>
-                        점수: {policyReport.score}점
-                      </Badge>
-                    )}
-                  </Label>
+              <div className="space-y-2 p-2.5 rounded-xl bg-black/30 border border-white/10 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 pb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono text-slate-400">총 {fullScript.length} 글자</span>
-                    {fullScript && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(fullScript);
-                          toast.success('대본이 클립보드에 복사되었습니다.');
-                        }}
-                        className="h-5 px-1.5 text-[9.5px] text-slate-400 hover:text-white"
-                      >
-                        <Copy className="w-2.5 h-2.5 mr-0.5" /> 복사
-                      </Button>
+                    <Label className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
+                      <Clapperboard className="w-3.5 h-3.5 text-blue-400" />
+                      <span>전체 대본 (Full Script)</span>
+                    </Label>
+                    <Badge variant="outline" className="text-[9.5px] font-mono bg-blue-500/10 text-blue-300 border-blue-400/30 px-1 py-0">
+                      {fullScript.length.toLocaleString()}자
+                    </Badge>
+                    {estimatedReadingTime && (
+                      <span className="text-[9.5px] text-slate-400 font-medium" title="한국어 TTS 평균 발화 속도(분당 330자) 기준">
+                        ⏱️ {estimatedReadingTime}
+                      </span>
                     )}
                   </div>
+
+                  {/* Toolbar Actions: 스크롤 점프, 파일열기, 저장, 복사, 삭제, 대본창 확장 */}
+                  <div className="flex items-center gap-1">
+                    {/* 상/하 스크롤 이동 버튼 */}
+                    {fullScript && (
+                      <div className="flex items-center bg-black/40 rounded p-0.5 border border-white/10">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleScrollScriptTo('top')}
+                          className="h-5 px-1 text-[9px] text-slate-400 hover:text-white"
+                          title="대본 맨 위로 스크롤"
+                        >
+                          <ArrowUp className="w-2.5 h-2.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleScrollScriptTo('bottom')}
+                          className="h-5 px-1 text-[9px] text-slate-400 hover:text-white"
+                          title="대본 맨 아래로 스크롤"
+                        >
+                          <ArrowDown className="w-2.5 h-2.5" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* 파일 불러오기 */}
+                    <input
+                      type="file"
+                      ref={scriptFileInputRef}
+                      onChange={handleImportScriptFile}
+                      accept=".txt,.srt,.md"
+                      className="hidden"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => scriptFileInputRef.current?.click()}
+                      className="h-5 px-1.5 text-[9.5px] text-slate-400 hover:text-white gap-0.5"
+                      title="텍스트 파일(.txt, .srt)에서 대본 불러오기"
+                    >
+                      <FolderOpen className="w-2.5 h-2.5 text-slate-400" />
+                      <span>파일</span>
+                    </Button>
+
+                    {fullScript && (
+                      <>
+                        {/* 텍스트 파일 저장 */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDownloadScript}
+                          className="h-5 px-1.5 text-[9.5px] text-slate-400 hover:text-white gap-0.5"
+                          title="대본을 .txt 파일로 저장"
+                        >
+                          <Download className="w-2.5 h-2.5 text-slate-400" />
+                          <span>저장</span>
+                        </Button>
+
+                        {/* 복사 버튼 */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(fullScript);
+                            toast.success('대본이 클립보드에 복사되었습니다.');
+                          }}
+                          className="h-5 px-1.5 text-[9.5px] text-slate-400 hover:text-white gap-0.5"
+                          title="대본 전체 복사"
+                        >
+                          <Copy className="w-2.5 h-2.5 text-slate-400" />
+                          <span>복사</span>
+                        </Button>
+
+                        {/* 🗑️ 전체 삭제 버튼 */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleClearScript}
+                          className="h-5 px-1.5 text-[9.5px] text-red-400 hover:text-red-300 hover:bg-red-500/20 gap-0.5"
+                          title="작성된 대본 전체 비우기 (삭제)"
+                        >
+                          <Trash2 className="w-2.5 h-2.5 text-red-400" />
+                          <span>삭제</span>
+                        </Button>
+                      </>
+                    )}
+
+                    {/* 대본창 확장/축소 버튼 */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsScriptExpanded(!isScriptExpanded)}
+                      className={`h-5 px-1.5 text-[9.5px] gap-0.5 font-semibold ${isScriptExpanded ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' : 'text-slate-400 hover:text-white'}`}
+                      title={isScriptExpanded ? '대본창 기본 크기로 축소' : '대본창 크게 확장하여 롱폼 대본 편하게 보기'}
+                    >
+                      <Maximize2 className="w-2.5 h-2.5" />
+                      <span>{isScriptExpanded ? '축소' : '확대'}</span>
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Resizable Textarea with Smooth Custom Scrollbar */}
                 <Textarea
+                  ref={scriptTextareaRef}
                   value={fullScript}
                   onChange={(e) => onFullScriptChange?.(e.target.value)}
-                  placeholder="여기에 전체 대본을 직접 입력하거나 붙여넣으세요. AI 작가 생성 시 여기에 자동으로 채워집니다..."
-                  className="min-h-[110px] max-h-[180px] font-sans text-xs leading-relaxed bg-black/30 border-white/15 text-slate-100 rounded-lg p-2 resize-y focus:border-blue-400"
+                  placeholder="여기에 전체 대본을 직접 입력하거나 붙여넣으세요. (수만 자 이상의 롱폼 대본도 안정적으로 저장되며, 마우스로 우측 하단을 당겨 크기를 자유롭게 조절할 수 있습니다)..."
+                  className={`font-sans text-xs leading-relaxed bg-black/40 border-white/15 text-slate-100 rounded-lg p-2.5 resize-y focus:border-blue-400 transition-all duration-200 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-500 ${isScriptExpanded ? 'min-h-[380px] h-[480px]' : 'min-h-[160px] h-[220px]'}`}
                 />
               </div>
 
@@ -1631,7 +1801,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                   {onOpenPronunciationOptimizer && (
                     <Button
                       onClick={onOpenPronunciationOptimizer}
-                      disabled={scenes.length === 0 && !fullScript.trim()}
+                      disabled={scenes.length === 0 && !fullScript?.trim() && !scriptInput?.trim()}
                       variant="outline"
                       className="h-8 text-xs font-bold border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 gap-1.5 shadow-2xs"
                       title="TTS 생성 전 대본의 숫자/영어/어색한 발음을 표음 구어체로 자동 교정하고 좌우로 비교합니다"

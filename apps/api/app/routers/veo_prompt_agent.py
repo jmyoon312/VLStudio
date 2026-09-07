@@ -60,10 +60,10 @@ def enhance_veo_prompt(req: EnhancePromptRequest, db: Session = Depends(database
 
         brand_context = f"\n브랜드/채널 페르소나 (이 가이드라인을 최우선으로 반영할 것): {req.brand_persona}" if req.brand_persona else ""
 
-        if req.model_type == "omni":
-            model_guideline = "You are an expert prompt engineer for Google Omni Flash. Omni Flash prefers descriptive, natural language flowing text rather than comma-separated cinematic keywords."
+        if req.model_type in ["omni", "omni_flash", "omni_1.1_flash", "default"]:
+            model_guideline = "You are an expert prompt engineer for Google Omni 1.1 Flash. Omni 1.1 Flash prefers descriptive, natural language flowing text with smooth camera navigation and physical realism rather than comma-separated keywords."
         else:
-            model_guideline = "You are an expert cinematic prompt engineer and script analyst for Google Veo and Midjourney. Focus on precise cinematic keywords."
+            model_guideline = "You are an expert cinematic prompt engineer and script analyst for Google Veo and Google Flow AI. Focus on precise directorial cinematography and coherent subject action."
 
         full_context_instruction = f"\n전체 대본 맥락 (반드시 이 맥락의 시대, 장소, 정황을 유지하세요!):\n{req.full_context}\n" if req.full_context else ""
 
@@ -72,13 +72,14 @@ def enhance_veo_prompt(req: EnhancePromptRequest, db: Session = Depends(database
             f"{brand_context}\n"
             f"{full_context_instruction}\n"
             "Your task is to analyze the provided Korean script and output a valid JSON object with the following keys ONLY:\n"
-            "1. 'subject_action': Extract the 'Subject' and 'Action' and translate to descriptive English (under 20 words). DO NOT include camera/lighting. **CRITICAL: If the full_context indicates a specific historical era (e.g., Joseon Dynasty) or location, YOU MUST explicitly include those keywords in the subject_action to prevent context loss.**\n"
+            "1. 'subject_action': Extract the 'Subject' and 'Action' and translate to descriptive English (under 20 words). DO NOT include camera/lighting. **CRITICAL: Accurately reflect the narrative's actual era, genre, and setting as indicated by the user and context (e.g. Modern, Editorial Fashion, Sci-Fi, etc.). Never force historical or traditional settings unless the script explicitly states so.**\n"
             "2. 'mood': The emotional mood of the scene.\n"
-            "3. 'category': Choose exactly one from: Cinematic, Anime, Cyberpunk, Watercolor, 3D Render, Vintage/Retro, Fantasy.\n"
-            "4. 'camera_vibe': A short keyword for camera style (e.g. Close-up, Wide shot, Low angle, Tracking shot).\n"
-            "5. 'lighting_vibe': A short keyword for lighting style (e.g. Neon, Cinematic, Moody, Soft, Bright).\n"
+            "3. 'category': Choose exactly one from: Cinematic, Fashion/Editorial, Anime, Cyberpunk, Watercolor, 3D Render, Vintage/Retro, Fantasy.\n"
+            "4. 'camera_vibe': A short keyword for camera style (e.g. Close-up, Wide shot, Low angle, Tracking shot, Dolly push-in).\n"
+            "5. 'lighting_vibe': A short keyword for lighting style (e.g. Studio Strobe, Neon, Cinematic, Moody, Soft, Bright, Chiaroscuro).\n"
             "6. 'reasoning': A brief 1-sentence Korean explanation of why this style fits the script and brand persona.\n"
             "7. 'is_continuation': A boolean (true/false) indicating if this scene is a direct continuation of the previous action in the exact same location and time, with no cutaways or hard transitions.\n"
+            "STRICT NEGATIVE CONSTRAINT: Strictly no diamond watermarks, logos, or corner symbols.\n"
             "Output strictly valid JSON."
         )
 

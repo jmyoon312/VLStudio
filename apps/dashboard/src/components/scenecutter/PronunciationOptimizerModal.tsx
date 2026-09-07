@@ -205,18 +205,19 @@ export const PronunciationOptimizerModal: React.FC<PronunciationOptimizerModalPr
           </div>
         )}
 
-        <DialogFooter className="flex items-center justify-between pt-3 border-t border-border shrink-0">
-          <div className="text-[11px] text-muted-foreground">
-            적용 시 우측 클립 카드의 나레이션 및 TTS 음성 생성에 즉시 반영됩니다.
+        <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-border shrink-0">
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+            <span>선택된 교정 단어가 전체 대본 및 분할된 모든 씬의 나레이션에 일괄 반영됩니다.</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={() => onOpenChange(false)}
               className="rounded-xl text-xs"
             >
-              닫기
+              취소
             </Button>
             <Button
               size="sm"
@@ -225,7 +226,7 @@ export const PronunciationOptimizerModal: React.FC<PronunciationOptimizerModalPr
               className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md"
             >
               <Check className="w-3.5 h-3.5" />
-              <span>✨ 최적화 발음 전체 대본에 적용</span>
+              <span>✨ 최적화 발음 적용하기</span>
             </Button>
           </div>
         </DialogFooter>

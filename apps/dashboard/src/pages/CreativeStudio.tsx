@@ -43,7 +43,8 @@ const WatermarkSettingsDialog = React.lazy(() => import('../features/creativeStu
 const TransitionSettingsDialog = React.lazy(() => import('../features/creativeStudio/components/TransitionSettingsDialog').then(m => ({ default: m.TransitionSettingsDialog })));
 const CollapsibleTimelinePreview = React.lazy(() => import('../features/creativeStudio/components/CollapsibleTimelinePreview').then(m => ({ default: m.CollapsibleTimelinePreview })));
 const ProjectManagerDialog = React.lazy(() => import('../features/creativeStudio/components/ProjectManagerDialog').then(m => ({ default: m.ProjectManagerDialog })));
-const PronunciationOptimizerModal = React.lazy(() => import('@/components/scenecutter/PronunciationOptimizerModal').then(m => ({ default: m.PronunciationOptimizerModal })));
+import { PronunciationOptimizerModal } from '@/components/scenecutter/PronunciationOptimizerModal';
+import { safeStorage } from '@/utils/safeStorage';
 
 interface SceneSegment {
     id: string; // Unique ID for frontend tracking
@@ -102,7 +103,7 @@ const CreativeStudio = () => {
                 setScriptInput(rawText);
                 setSegmentMode('longform');
                 try {
-                    localStorage.setItem('viral_loop_creative_full_script', rawText);
+                    safeStorage.setItem('viral_loop_creative_full_script', rawText);
                     localStorage.setItem('viral_loop_segment_mode', 'longform');
                 } catch(e) {}
                 toast.success("🎬 롱폼 AI 창작 레퍼런스 대본을 불러왔습니다!");
@@ -390,7 +391,7 @@ const CreativeStudio = () => {
     // State: Script Workspace (DB Settings 기반 동적 연동)
     const [scriptMode, setScriptMode] = useState("manual"); // Default to Manual
     const [fullScript, setFullScript] = useState(() => {
-        return localStorage.getItem('viral_loop_creative_full_script') || "";
+        return safeStorage.getItem('viral_loop_creative_full_script') || "";
     });
     const [scriptProvider, setScriptProvider] = useState<string>("");
     const [scriptModel, setScriptModel] = useState<string>("");
@@ -443,19 +444,39 @@ const CreativeStudio = () => {
     const [scriptStyles, setScriptStyles] = useState<ScriptStyle[]>([]);
     const [selectedStyleId, setSelectedStyleId] = useState<string>("");
     const [scriptInput, setScriptInput] = useState(() => {
-        return localStorage.getItem('viral_loop_creative_script_input') || "";
+        return safeStorage.getItem('viral_loop_creative_script_input') || "";
     });
     const [isGeneratingScript, setIsGeneratingScript] = useState(false);
     const [useWebSearchCreative, setUseWebSearchCreative] = useState<boolean>(true);
 
-    // Auto-save script drafts to localStorage
+    // Auto-save script drafts to safeStorage (IndexedDB auto-fallback for 30k~100k+ chars)
     useEffect(() => {
-        localStorage.setItem('viral_loop_creative_full_script', fullScript);
+        safeStorage.setItem('viral_loop_creative_full_script', fullScript);
     }, [fullScript]);
 
     useEffect(() => {
-        localStorage.setItem('viral_loop_creative_script_input', scriptInput);
+        safeStorage.setItem('viral_loop_creative_script_input', scriptInput);
     }, [scriptInput]);
+
+    // [Hydration] 3만~10만자 대용량 대본 및 씬 데이터 IndexedDB 비동기 완전 복원
+    useEffect(() => {
+        safeStorage.getItemAsync('viral_loop_creative_full_script').then(val => {
+            if (val) setFullScript(prev => prev || val);
+        });
+        safeStorage.getItemAsync('viral_loop_creative_script_input').then(val => {
+            if (val) setScriptInput(prev => prev || val);
+        });
+        safeStorage.getItemAsync('viral_loop_creative_scenes').then(val => {
+            if (val) {
+                try {
+                    const parsed = JSON.parse(val);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setScenes(prev => (prev.length === 0 ? parsed : prev));
+                    }
+                } catch(e) {}
+            }
+        });
+    }, []);
 
     // Style Management Dialog
     const [isStyleDialogOpen, setIsStyleDialogOpen] = useState(false);
@@ -566,7 +587,7 @@ const CreativeStudio = () => {
     // State: Scene Board
     const [scenes, setScenes] = useState<SceneSegment[]>(() => {
         try {
-            const saved = localStorage.getItem('viral_loop_creative_scenes');
+            const saved = safeStorage.getItem('viral_loop_creative_scenes');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed)) {
@@ -597,10 +618,12 @@ const CreativeStudio = () => {
         localStorage.setItem('viral_loop_segment_mode', segmentMode);
     }, [segmentMode]);
 
-    // Auto-save creative scene board to localStorage
+    // Auto-save creative scene board to safeStorage (IndexedDB auto-fallback for large scene arrays)
     useEffect(() => {
         try {
-            localStorage.setItem('viral_loop_creative_scenes', JSON.stringify(scenes));
+            if (scenes && scenes.length > 0) {
+                safeStorage.setItem('viral_loop_creative_scenes', JSON.stringify(scenes));
+            }
         } catch (e) {
             console.error("Failed to save creative scenes:", e);
         }
@@ -1105,11 +1128,11 @@ const CreativeStudio = () => {
     const [autoGenerateImages, setAutoGenerateImages] = useState(false);
     const [autoGenerateAudio, setAutoGenerateAudio] = useState(false);
 
-    // [NEW] Pacing Options
     const [pacingStrategy, setPacingStrategy] = useState<'ai' | 'rule'>('ai');
     const [pacingUnit, setPacingUnit] = useState<'sentence' | 'time'>('sentence');
     const [pacingValue, setPacingValue] = useState(2);
     const [isPronunciationModalOpen, setIsPronunciationModalOpen] = useState(false);
+    const [selectedSceneForPronunciation, setSelectedSceneForPronunciation] = useState<SceneSegment | null>(null);
 
     // [MODAL VISIBILITY FIX] 모달 다이얼로그 오픈 시 네이티브 Flow WebContentsView 가림 방지 자동 숨김/복원
     const isAnyModalOpen = isStyleGalleryOpen || isWatermarkDialogOpen || isTransitionDialogOpen || isExportModalOpen || isTTSDialogOpen || isMotionDialogOpen || isAudioDialogOpen || isSelectiveVideoModalOpen || isSubtitleDialogOpen || isPronunciationModalOpen;
@@ -1373,17 +1396,38 @@ const CreativeStudio = () => {
             // 자가치유 폴백: 대본을 줄바꿈/문장 단위로 즉시 로컬 분할하여 복원
             const lines = fullScript.split('\n').map(l => l.trim()).filter(Boolean);
             const fallbackLines = lines.length > 0 ? lines : [fullScript];
-            const fallbackScenes: SceneSegment[] = fallbackLines.map((line, idx) => ({
-                id: uuidv4(),
-                scene_id: idx + 1,
-                script: line,
-                visual_prompt: `${segmentMode === 'shorts' ? '9:16' : '16:9'}, ${line}${stylePrompt ? `, ${stylePrompt}` : ''}`,
-                video_prompt: 'Camera slowly zooms in, subtle cinematic motion',
-                audioStatus: 'idle',
-                visualStatus: 'idle',
-                renderStatus: 'idle',
-                viewMode: 'source'
-            }));
+            const ratio = segmentMode === 'shorts' ? '9:16' : '16:9';
+            const shotAngles = [
+                "Medium establishing eye-level cinematic shot",
+                "Dramatic low-angle tracking shot",
+                "Cinematic close-up portrait with atmospheric depth of field",
+                "Wide storytelling composition",
+                "Intense emotional medium shot"
+            ];
+            const sceneActions = [
+                "seated quietly in deep contemplation before an ancient desk",
+                "pausing in tense alert as the night wind stirs the surroundings",
+                "slowly turning head with an intense expressive gaze",
+                "standing with poise amidst the quiet nocturnal atmosphere",
+                "holding breath in mystery and profound revelation"
+            ];
+
+            const fallbackScenes: SceneSegment[] = fallbackLines.map((line, idx) => {
+                const angle = shotAngles[idx % shotAngles.length];
+                const action = sceneActions[idx % sceneActions.length];
+                const cleanStyle = stylePrompt ? `${stylePrompt}, ` : 'Cinematic film still, ';
+                return {
+                    id: uuidv4(),
+                    scene_id: idx + 1,
+                    script: line,
+                    visual_prompt: `${ratio}, ${cleanStyle}${angle}, elegant subject ${action}, atmospheric nocturnal environment, soft volumetric lighting and delicate shadows, photorealistic 8k, masterwork`,
+                    video_prompt: 'Slow cinematic push-in tracking shot as the subject subtly shifts gaze with measured breathing, soft breeze gently swaying hair and outfit fabric, warm ambient light, smooth 24fps fluid motion',
+                    audioStatus: 'idle',
+                    visualStatus: 'idle',
+                    renderStatus: 'idle',
+                    viewMode: 'source'
+                };
+            });
             setScenes(fallbackScenes);
             setSrtEntries([]);
 
@@ -1396,7 +1440,7 @@ const CreativeStudio = () => {
 
             try {
                 await api.post('/creative/init-project', {
-                    project_name: projName2,
+                    project_name: newProjName,
                     scenes: fallbackScenes,
                     script: fullScript
                 });
@@ -1488,21 +1532,22 @@ const CreativeStudio = () => {
         // 스마트 문화 오염 방지 Negative Guardrails: 한국 사극/조선 야담 테마 시 일본/중국 복식 및 건축물 자동 배제
         const isKoreanTheme = /조선|한복|선비|사극|야담|hanbok|joseon|korea|hanok|k-drama/i.test(basePrompt + ' ' + (stylePrompt || ''));
         const culturalNegatives = isKoreanTheme 
-            ? "japanese clothing, kimono, yukata, samurai, katana, geta, tatami, fusuma, japanese temple, torii, chinese clothing, hanfu, qipao, modern western clothing, cars, sunglasses, distorted face, extra limbs"
-            : "distorted face, extra limbs, bad anatomy, deformed";
+            ? "japanese clothing, kimono, yukata, samurai, katana, geta, tatami, fusuma, japanese temple, torii, chinese clothing, hanfu, qipao, modern western clothing, cars, sunglasses, distorted face, extra limbs, diamond watermark, diamond icon, sparkle logo, emblem in bottom right corner, watermark, logo, stamp, signature"
+            : "distorted face, extra limbs, bad anatomy, deformed, diamond watermark, diamond icon, sparkle logo, emblem in bottom right corner, watermark, logo, stamp, signature, text, font, subtitles, UI overlay";
 
         const combinedNegative = [negativePrompt, culturalNegatives].filter(Boolean).join(', ');
 
-        // 화풍 프롬프트가 기본 프롬프트에 중복 포함되지 않도록 깔끔하게 결합
+        // 화풍 프롬프트가 기본 프롬프트에 중복 포함되지 않도록 깔끔하게 결합 (이미 대본분할로 합성된 경우 중복 부착 방지)
         let effectiveVisualPrompt = basePrompt;
-        if (stylePrompt && !basePrompt.toLowerCase().includes(stylePrompt.toLowerCase().trim())) {
+        const alreadyHasStyleOrRich = basePrompt.length > 50 || /^(9:16|16:9)/.test(basePrompt) || (stylePrompt && basePrompt.toLowerCase().includes(stylePrompt.toLowerCase().trim()));
+        if (stylePrompt && !alreadyHasStyleOrRich) {
             effectiveVisualPrompt = `${stylePrompt}, ${basePrompt}`.trim();
         }
         if (!effectiveVisualPrompt) {
-            effectiveVisualPrompt = stylePrompt || 'Cinematic picturesque scene';
+            effectiveVisualPrompt = stylePrompt || 'Cinematic picturesque scene, 8k masterwork';
         }
 
-        // Google Flow AI(Imagen)는 --no 네거티브 프롬프트 구문을 지원하지 않음
+        // Google Flow AI(Imagen / Nano Banana Pro)는 --no 네거티브 프롬프트 구문을 지원하지 않음
         // Flow AI 경로에는 깔끔한 프롬프트만, 백엔드 폴백에만 --no 포함
         const flowPrompt = effectiveVisualPrompt;
         const finalPrompt = `${effectiveVisualPrompt}${combinedNegative ? ` --no ${combinedNegative}` : ''}`.trim();
@@ -1572,6 +1617,10 @@ const CreativeStudio = () => {
             toast.error("대본을 입력해주세요.");
             return;
         }
+        const scriptLen = fullScript.trim().length;
+        if (scriptLen > 3000) {
+            toast.info(`대용량 롱폼 대본(${scriptLen.toLocaleString()}자)을 감지했습니다. 지능형 멀티 청크 분할 엔진으로 안전하게 분석을 시작합니다...`, { duration: 6000 });
+        }
         setIsSegmenting(true);
         segmentScriptMutation.mutate({
             text: fullScript,
@@ -1608,19 +1657,24 @@ const CreativeStudio = () => {
             return;
         }
 
-        const promptBase = scene.video_prompt || scene.visual_prompt || 'Slow cinematic push-in tracking shot, subtle emotional gaze shift and natural blinking, gentle breeze softly rippling the silk Hanbok fabric, 24fps fluid motion';
+        let cleanVideoPrompt = (scene.video_prompt || scene.visual_prompt || 'Slow cinematic push-in tracking shot as the subject subtly shifts gaze with measured breathing, soft ambient lighting, smooth 24fps fluid motion')
+            .replace(/Layer\s*\d+\s*:\s*/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const promptBase = cleanVideoPrompt;
         const isKoreanTheme = /조선|한복|선비|사극|야담|hanbok|joseon|korea|hanok|k-drama/i.test(promptBase + ' ' + (scene.visual_prompt || '') + ' ' + (stylePrompt || ''));
         const culturalNegatives = isKoreanTheme 
-            ? "kimono, yukata, samurai, katana, tatami, japanese architecture, chinese clothing, modern clothing, distorted anatomy, morphing"
-            : "distorted, morphing, jittery, low quality";
+            ? "kimono, yukata, samurai, katana, tatami, japanese architecture, chinese clothing, modern clothing, distorted anatomy, morphing, diamond watermark, diamond icon, sparkle logo, emblem in bottom right corner, watermark, logo, stamp"
+            : "distorted, morphing, jittery, low quality, diamond watermark, diamond icon, sparkle logo, emblem in bottom right corner, watermark, logo, stamp";
         const combinedNegative = [negativePrompt, culturalNegatives].filter(Boolean).join(', ');
-                // Google Flow AI(Veo)는 --no 네거티브 프롬프트 구문을 지원하지 않음
+        // Google Flow AI(Omni 1.1 Flash / Veo)는 --no 네거티브 프롬프트 구문을 지원하지 않음
         // Flow AI 경로에는 깔끔한 프롬프트만, 백엔드 폴백에만 --no 포함
         const flowPrompt = promptBase;
-const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegative : ""}`;
+        const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegative : ""}`;
         
         updateScene(scene.id, { visualStatus: 'generating', progress: 0 });
-        toast.info(`Scene #${scene.scene_id} Google Flow AI 영상(I2V) 생성을 시작합니다...`);
+        toast.info(`Scene #${scene.scene_id} Google Flow AI 영상(Omni 1.1 Flash I2V) 생성을 시작합니다...`);
 
         const apiObj = (window as any).electronAPI;
         if (apiObj && (apiObj.flowGenerateVideoI2V || apiObj.generateVideoI2V || apiObj.generateVideoT2V)) {
@@ -1641,9 +1695,9 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                     console.warn('[CreativeStudio] Flow token/projectId extraction failed:', e);
                 }
 
-                // Flow AI 기본 영상 설정 (IPC 핸들러에서 optional이지만 명시적으로 전달)
-                const VIDEO_MODEL_DEFAULT = 'veo-3.1-fast-generate-preview';
-                const VIDEO_DURATION_DEFAULT = 8; // Veo 3.1 기본 영상 길이 (초)
+                // Flow AI 기본 영상 설정: 최신 Google Omni 1.1 Flash 모델을 1순위 표준으로 지정
+                const VIDEO_MODEL_DEFAULT = 'Omni 1.1 Flash';
+                const VIDEO_DURATION_DEFAULT = 8; // Omni 1.1 Flash 기본 영상 길이 (초)
                 const currentAspectRatio = segmentMode === 'shorts' ? '9:16' : '16:9';
 
                 let startImageMediaId = (scene as any).mediaId || '';
@@ -2567,8 +2621,20 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
         generatePromptMutation.mutate({ id: scene.id, sceneId: scene.scene_id, script: scene.script });
     };
 
+    const handleScrollToSceneBoard = () => {
+        const el = document.getElementById('scene-board-container');
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        const container = document.getElementById('creative-studio-scroll-container');
+        if (container && el) {
+            const topOffset = el.getBoundingClientRect().top + container.scrollTop - 40;
+            container.scrollTo({ top: topOffset, behavior: 'smooth' });
+        }
+    };
+
     return (
-        <div className="h-full w-full overflow-y-auto custom-scrollbar flex flex-col gap-3.5 p-3 sm:p-5 pb-24 bg-background text-foreground">
+        <div id="creative-studio-scroll-container" className="h-full w-full overflow-y-auto custom-scrollbar flex flex-col gap-3.5 p-3 sm:p-5 pb-56 bg-background text-foreground scroll-smooth">
             {/* 1. 상단 타이틀 헤더 바 */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 w-full pb-3 border-b border-border">
                 <div>
@@ -2609,11 +2675,8 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                            const el = document.getElementById('scene-board-container');
-                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                        className="h-8 text-xs font-bold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 shadow-2xs gap-1.5"
+                        onClick={handleScrollToSceneBoard}
+                        className="h-8 text-xs font-bold bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 shadow-2xs gap-1.5 active:scale-95 transition-all"
                     >
                         <Film className="w-3.5 h-3.5" /> 씬보드로 바로가기 ({scenes.length}개)
                     </Button>
@@ -3642,10 +3705,25 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                                             <div className="space-y-1">
                                                 <div className="flex justify-between items-center">
                                                     <Label className="text-[11px] font-bold text-muted-foreground">대본 (SCRIPT / AUDIO)</Label>
-                                                    <Button variant="ghost" size="sm" className="h-5.5 text-[11px] px-2" onClick={() => handleGenerateTTS(scene)} disabled={scene.audioStatus === 'generating'}>
-                                                        {scene.audioStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Music className="w-3 h-3 mr-1" />}
-                                                        {scene.audio_url ? "TTS 재생성" : "TTS 생성"}
-                                                    </Button>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            className="h-5.5 text-[10.5px] px-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10" 
+                                                            onClick={() => {
+                                                                setSelectedSceneForPronunciation(scene);
+                                                                setIsPronunciationModalOpen(true);
+                                                            }}
+                                                            title="이 씬의 대본 발음 최적화 (숫자/단위/외래어)"
+                                                        >
+                                                            <Sparkles className="w-2.5 h-2.5 mr-0.5 text-purple-500" />
+                                                            <span>발음 교정</span>
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" className="h-5.5 text-[11px] px-2" onClick={() => handleGenerateTTS(scene)} disabled={scene.audioStatus === 'generating'}>
+                                                            {scene.audioStatus === 'generating' ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Music className="w-3 h-3 mr-1" />}
+                                                            {scene.audio_url ? "TTS 재생성" : "TTS 생성"}
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                                 <Textarea
                                                     value={scene.script}
@@ -4033,26 +4111,58 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
             
             <PronunciationOptimizerModal
                 open={isPronunciationModalOpen}
-                onOpenChange={setIsPronunciationModalOpen}
-                rawScript={fullScript || scenes.map(s => s.script).filter(Boolean).join('\n') || scriptInput || ''}
+                onOpenChange={(open) => {
+                    setIsPronunciationModalOpen(open);
+                    if (!open) setSelectedSceneForPronunciation(null);
+                }}
+                rawScript={selectedSceneForPronunciation ? (selectedSceneForPronunciation.script || '') : (fullScript || scenes.map(s => s.script).filter(Boolean).join('\n') || scriptInput || '')}
                 targetLang={ttsConfig?.language || 'ko'}
                 onApplyOptimized={(optimizedScript, appliedDiffs) => {
-                    setFullScript(optimizedScript);
-                    if (scenes && scenes.length > 0 && appliedDiffs && appliedDiffs.length > 0) {
+                    if (selectedSceneForPronunciation) {
+                        // 개별 씬 발음 교정 적용
                         const updatedScenes = scenes.map(s => {
-                            let script = s.script || '';
-                            for (const diff of appliedDiffs) {
-                                if (diff.original_word && diff.replaced_word) {
-                                    script = script.split(diff.original_word).join(diff.replaced_word);
-                                }
+                            if (s.id === selectedSceneForPronunciation.id) {
+                                return {
+                                    ...s,
+                                    script: optimizedScript,
+                                    audioStatus: 'idle',
+                                    audio_url: undefined,
+                                    audio_path: undefined
+                                };
                             }
-                            return { ...s, script };
+                            return s;
                         });
                         setScenes(updatedScenes);
                         syncSubtitlesToDisk(updatedScenes);
-                        toast.success(`전체 대본 및 ${scenes.length}개 씬의 발음이 자연스럽게 교정되었습니다!`);
+                        toast.success(`Scene #${selectedSceneForPronunciation.scene_id}의 발음이 교정되었습니다! (TTS를 다시 생성하세요)`);
+                        setSelectedSceneForPronunciation(null);
                     } else {
-                        toast.success('발음 교정이 대본에 적용되었습니다.');
+                        // 전체 대본 및 분할된 씬 일괄 교정 적용
+                        setFullScript(optimizedScript);
+                        if (scenes && scenes.length > 0 && appliedDiffs && appliedDiffs.length > 0) {
+                            let totalChangedCount = 0;
+                            const updatedScenes = scenes.map(s => {
+                                let script = s.script || '';
+                                let changed = false;
+                                for (const diff of appliedDiffs) {
+                                    if (diff.original_word && diff.replaced_word && script.includes(diff.original_word)) {
+                                        script = script.split(diff.original_word).join(diff.replaced_word);
+                                        changed = true;
+                                    }
+                                }
+                                if (changed) totalChangedCount++;
+                                return { 
+                                    ...s, 
+                                    script,
+                                    ...(changed ? { audioStatus: 'idle', audio_url: undefined, audio_path: undefined } : {})
+                                };
+                            });
+                            setScenes(updatedScenes);
+                            syncSubtitlesToDisk(updatedScenes);
+                            toast.success(`전체 대본 및 ${totalChangedCount > 0 ? `${totalChangedCount}개 씬` : '전체 씬'}에 발음 교정이 동기화되었습니다!`);
+                        } else {
+                            toast.success('발음 교정이 대본에 적용되었습니다.');
+                        }
                     }
                 }}
             />
@@ -4072,8 +4182,8 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                     setStylePrompt(p ? p + antiTextModifier : '');
                     setPresetName(style.name_ko || style.name || '');
                     
-                    // 부정 프롬프트가 비어있다면 글자 방지 기본값 세팅
-                    setNegativePrompt(prev => prev || "text, words, fonts, speech bubbles, dialog, comic panels, watermark, signature, UI");
+                    // 부정 프롬프트가 비어있다면 글자 및 다이아몬드 워터마크 방지 기본값 세팅
+                    setNegativePrompt(prev => prev || "text, words, fonts, speech bubbles, dialog, comic panels, diamond watermark, diamond icon, sparkle logo, emblem in bottom right corner, watermark, logo, signature, UI");
                 }}
             />
             {isExportModalOpen && (

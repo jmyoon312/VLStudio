@@ -861,9 +861,9 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     </button>
                 </div>
 
-                {/* Direct Page Router View Panel */}
+                {/* Direct Page Router View Panel (Single Scroll Sovereignty for Flow2CapCut & CreativeStudio) */}
                 {(location.pathname === '/flow2capcut' || location.pathname === '/creative-studio') ? (
-                    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto w-full h-full pb-16 md:pb-0 box-border custom-scrollbar">
+                    <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full pb-16 md:pb-0 box-border">
                         {children}
                     </div>
                 ) : (
