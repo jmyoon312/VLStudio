@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Star, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { cn } from "@/lib/utils";
 import {
     Dialog,
     DialogContent,
@@ -33,6 +34,7 @@ interface VoicePresetListProps {
         pitch: number;
     };
     onSelect: (preset: VoicePreset) => void;
+    compact?: boolean;
 }
 
 const STORAGE_KEY = 'tts_voice_presets';
@@ -85,7 +87,7 @@ export const DEFAULT_SYSTEM_PRESETS: VoicePreset[] = [
     }
 ];
 
-export const VoicePresetList: React.FC<VoicePresetListProps> = ({ currentConfig, onSelect }) => {
+export const VoicePresetList: React.FC<VoicePresetListProps> = ({ currentConfig, onSelect, compact = false }) => {
     const [presets, setPresets] = useState<VoicePreset[]>(DEFAULT_SYSTEM_PRESETS);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newLabel, setNewLabel] = useState("");
@@ -144,17 +146,17 @@ export const VoicePresetList: React.FC<VoicePresetListProps> = ({ currentConfig,
     };
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
             <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                <Label className={cn("font-bold flex items-center gap-1.5 text-foreground", compact ? "text-xs" : "text-sm font-semibold")}>
+                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
                     즐겨찾는 목소리 (Favorites)
                 </Label>
 
                 <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                     <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-7 text-xs">
-                            <Plus className="w-3 h-3 mr-1" /> 추가
+                        <Button variant="outline" size="sm" className="h-6 text-[10.5px] px-2 bg-background hover:bg-muted border-border text-foreground">
+                            <Plus className="w-3 h-3 mr-1 text-primary" /> 추가
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px]">
@@ -187,38 +189,49 @@ export const VoicePresetList: React.FC<VoicePresetListProps> = ({ currentConfig,
             </div>
 
             {presets.length === 0 ? (
-                <div className="text-center py-4 border border-dashed rounded-lg text-muted-foreground text-xs">
+                <div className="text-center py-3 border border-dashed border-border rounded-lg text-muted-foreground text-xs">
                     저장된 목소리가 없습니다. 현재 설정을 추가해보세요.
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                    {presets.map(preset => (
-                        <div
-                            key={preset.id}
-                            className="group relative flex items-center p-2.5 rounded-xl border border-border bg-card text-card-foreground hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all shadow-2xs"
-                            onClick={() => onSelect(preset)}
-                        >
-                            <div className="flex-1 min-w-0 pr-6">
-                                <div className="font-semibold text-xs truncate flex items-center gap-1.5">
-                                    <Badge variant="secondary" className="px-1 py-0 text-[10px] h-4 leading-none shrink-0 font-bold">
-                                        {preset.language === 'ko' ? '한글' : preset.language.toUpperCase()}
-                                    </Badge>
-                                    <span className="truncate text-foreground">{preset.label}</span>
-                                </div>
-                                <div className="text-[11px] text-muted-foreground truncate mt-0.5 font-mono">
-                                    {preset.engine} · {preset.voice_id}
-                                </div>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity absolute right-1.5 top-1/2 -translate-y-1/2 hover:bg-destructive/10 hover:text-destructive"
-                                onClick={(e) => handleDelete(e, preset.id)}
+                <div className={cn(
+                    "grid gap-1.5",
+                    compact ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
+                )}>
+                    {presets.map(preset => {
+                        const isCurrent = currentConfig.engine === preset.engine && currentConfig.voice_id === preset.voice_id;
+                        return (
+                            <div
+                                key={preset.id}
+                                className={cn(
+                                    "group relative flex items-center p-2 rounded-xl border cursor-pointer transition-all shadow-2xs",
+                                    isCurrent
+                                        ? "border-blue-500 bg-blue-500/10 text-foreground ring-1 ring-blue-500/30 font-medium"
+                                        : "border-border bg-card text-card-foreground hover:border-blue-400/50 hover:bg-muted/50"
+                                )}
+                                onClick={() => onSelect(preset)}
                             >
-                                <Trash2 className="w-3 h-3" />
-                            </Button>
-                        </div>
-                    ))}
+                                <div className="flex-1 min-w-0 pr-5">
+                                    <div className="font-semibold text-xs truncate flex items-center gap-1.5">
+                                        <Badge variant="secondary" className="px-1 py-0 text-[9px] h-3.5 leading-none shrink-0 font-bold bg-muted text-muted-foreground">
+                                            {preset.language === 'ko' ? '한글' : preset.language.toUpperCase()}
+                                        </Badge>
+                                        <span className="truncate text-foreground text-[11px] font-medium">{preset.label}</span>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground truncate mt-0.5 font-mono">
+                                        {preset.engine} · {preset.voice_id}
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity absolute right-1.5 top-1/2 -translate-y-1/2 hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={(e) => handleDelete(e, preset.id)}
+                                >
+                                    <Trash2 className="w-3 h-3" />
+                                </Button>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>

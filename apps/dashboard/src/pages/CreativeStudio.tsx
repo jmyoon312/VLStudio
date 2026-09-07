@@ -3117,6 +3117,8 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                 onStylePromptChange={setStylePrompt}
                 onNegativePromptChange={setNegativePrompt}
                 presets={presets}
+                tttsConfig={ttsConfig}
+                onTTSConfigChange={setTTSConfig}
                 isOpen={isTimelineOpen}
 
                 onToggle={() => setIsTimelineOpen(!isTimelineOpen)}

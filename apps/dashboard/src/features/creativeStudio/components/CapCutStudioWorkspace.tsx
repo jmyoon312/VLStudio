@@ -40,7 +40,8 @@ import {
   ArrowRight,
   Upload,
   Trash2,
-  Save
+  Save,
+  Mic
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,6 +49,8 @@ import { STYLE_PRESETS } from '@/features/flow2capcut/config/defaults';
 import AudioTimeline from '@/features/flow2capcut/components/AudioTimeline/AudioTimeline';
 import PreviewPanel from '@/features/flow2capcut/components/AudioTimeline/PreviewPanel';
 import SubtitleConfigPanel from '@/components/shared/SubtitleConfigPanel';
+import TTSConfigPanel from '@/components/shared/TTSConfigPanel';
+import { TTSConfig } from '@/types/tts';
 import { toast } from 'sonner';
 import { WatermarkConfig } from './WatermarkSettingsDialog';
 import { TransitionConfig, TRANSITION_PRESETS, TransitionType } from './TransitionSettingsDialog';
@@ -118,6 +121,8 @@ interface Props {
   onStylePromptChange?: (val: string) => void;
   onNegativePromptChange?: (val: string) => void;
   presets?: any[];
+  tttsConfig?: TTSConfig;
+  onTTSConfigChange?: (cfg: TTSConfig) => void;
 }
 
 export const CapCutStudioWorkspace: React.FC<Props> = ({
@@ -185,6 +190,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   onStylePromptChange,
   onNegativePromptChange,
   presets = [],
+  tttsConfig,
+  onTTSConfigChange,
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeInspectorTab, setActiveInspectorTab] = useState<'script' | 'style' | 'subtitles' | 'transitions' | 'watermark' | 'audio' | 'scene'>('subtitles');
@@ -196,6 +203,24 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(0);
   const [playheadMs, setPlayheadMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // [NEW] TTS 음성 설정 로컬 동기화 상태
+  const defaultTTSConfig: TTSConfig = useMemo(() => ({
+    engine: 'supertone-local',
+    language: 'ko',
+    voice_id: 'M1',
+    speed: 1.0,
+    pitch: 0,
+    emotion: 'normal'
+  }), []);
+
+  const [localTTSConfig, setLocalTTSConfig] = useState<TTSConfig>(tttsConfig || defaultTTSConfig);
+
+  useEffect(() => {
+    if (tttsConfig) {
+      setLocalTTSConfig(tttsConfig);
+    }
+  }, [tttsConfig]);
 
   // [NEW] 타임라인 선택 자막 큐 상태
   const [selectedSubtitleCue, setSelectedSubtitleCue] = useState<any>(null);
@@ -1546,82 +1571,146 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               )}
             </TabsContent>
 
-            {/* Tab 6: Audio & BGM Inspector */}
-            <TabsContent value="audio" className="flex-1 p-3.5 overflow-y-auto space-y-3.5 m-0">
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <Volume2 className="w-3.5 h-3.5 text-blue-400" /> 오디오 & BGM 마스터링
-                </span>
-                <p className="text-[11px] text-slate-400">나레이션 음성과 BGM, 비디오 원본 오디오 믹싱을 정밀 제어합니다.</p>
+            {/* Tab 6: Audio & TTS Inspector (음성 합성 및 BGM 마스터링 통합) */}
+            <TabsContent value="audio" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
+              {/* Header */}
+              <div className="space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Volume2 className="w-3.5 h-3.5 text-blue-500" /> 음성(TTS) & 오디오 설정
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-mono text-blue-500 border-blue-500/30">
+                    {scenes.length}개 씬
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground">음성 합성 엔진(TTS)과 목소리 오디션 및 오디오/BGM 믹싱을 설정합니다.</p>
               </div>
 
-              {/* Voice Volume & Speed */}
-              <div className="space-y-2.5 p-3 rounded-xl bg-black/20 border border-white/10">
-                <div className="flex justify-between text-[11px]">
-                  <span className="font-bold text-slate-300">🎙️ 나레이션 (TTS) 볼륨</span>
-                  <span className="text-blue-400 font-bold">{voiceVolume}%</span>
-                </div>
-                <Slider
-                  value={[voiceVolume]}
-                  min={0}
-                  max={200}
-                  step={5}
-                  onValueChange={([v]) => setVoiceVolume(v)}
-                />
-
-                <Label className="text-[11px] font-bold text-slate-300 pt-1 block">재생 배속</Label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {['0.9x', '1.0x', '1.15x', '1.3x'].map((spd) => (
-                    <Button
-                      key={spd}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onChangeSpeed?.(parseFloat(spd))}
-                      className="h-7 text-[10.5px] font-semibold bg-white/5 border-white/10 hover:bg-white/15"
-                    >
-                      {spd}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* BGM Volume & Ducking */}
-              <div className="space-y-2.5 p-3 rounded-xl bg-black/20 border border-white/10">
-                <div className="flex justify-between text-[11px]">
-                  <span className="font-bold text-slate-300">🎵 배경음악 (BGM) 볼륨</span>
-                  <span className="text-blue-400 font-bold">{bgmVolume}%</span>
-                </div>
-                <Slider
-                  value={[bgmVolume]}
-                  min={0}
-                  max={100}
-                  step={5}
-                  onValueChange={([v]) => setBgmVolume(v)}
-                />
-
-                <div className="flex items-center justify-between pt-1">
+              {/* 1. Quick Batch Action Card (전체 씬 AI 음성 일괄 생성) */}
+              <div className="p-3 rounded-xl bg-card border border-border shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <span className="text-[11px] font-semibold text-slate-300">스마트 덕킹 (Smart Ducking)</span>
-                    <p className="text-[9.5px] text-slate-500">나레이션이 재생될 때 BGM 볼륨을 자동으로 낮춥니다.</p>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                      <Mic className="w-3.5 h-3.5 text-blue-500" />
+                      <span>전체 씬 AI 음성 일괄 생성</span>
+                    </div>
+                    <p className="text-[10.5px] text-muted-foreground">
+                      현재 설정된 목소리({localTTSConfig.engine} · {localTTSConfig.voice_id || '기본'})로 모든 씬의 음성과 자막을 생성합니다.
+                    </p>
                   </div>
-                  <Switch
-                    checked={bgmDucking}
-                    onCheckedChange={(c) => setBgmDucking(c)}
-                  />
+                </div>
+                <Button
+                  onClick={() => {
+                    if (onBatchTTS) {
+                      onBatchTTS();
+                    }
+                  }}
+                  disabled={scenes.length === 0}
+                  className="w-full h-8 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white gap-1.5 shadow-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5" /> 전체 씬 음성(TTS) 일괄 생성 시작
+                </Button>
+              </div>
+
+              {/* 2. TTS Voice & Engine Detailed Configuration (TTSConfigPanel 통합) */}
+              <div className="p-3 rounded-xl bg-card border border-border shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <span>🎙️</span> TTS 음성 엔진 & 보이스 설정
+                  </span>
+                  <Badge variant="secondary" className="text-[10px] font-mono bg-muted text-muted-foreground">
+                    {localTTSConfig.engine} · {localTTSConfig.language}
+                  </Badge>
                 </div>
 
-                <div className="space-y-1 pt-1">
+                <TTSConfigPanel
+                  config={localTTSConfig}
+                  onChange={(newCfg) => {
+                    setLocalTTSConfig(newCfg);
+                    onTTSConfigChange?.(newCfg);
+                  }}
+                  compact={true}
+                  showFavorites={true}
+                />
+              </div>
+
+              {/* 3. Audio & BGM Mastering Card */}
+              <div className="p-3 rounded-xl bg-card border border-border shadow-2xs space-y-3">
+                <div className="border-b border-border pb-1.5 flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <span>🎛️</span> 오디오 & BGM 마스터링
+                  </span>
+                </div>
+
+                {/* Voice Volume & Speed */}
+                <div className="space-y-2">
                   <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-300">BGM 페이드 인/아웃</span>
-                    <span className="text-blue-400 font-bold">{bgmFadeSec}초</span>
+                    <span className="font-bold text-foreground">🎙️ 나레이션 (TTS) 볼륨</span>
+                    <span className="text-blue-500 font-bold">{voiceVolume}%</span>
                   </div>
                   <Slider
-                    value={[bgmFadeSec]}
+                    value={[voiceVolume]}
                     min={0}
-                    max={5}
-                    step={0.5}
-                    onValueChange={([v]) => setBgmFadeSec(v)}
+                    max={200}
+                    step={5}
+                    onValueChange={([v]) => setVoiceVolume(v)}
                   />
+
+                  <Label className="text-[11px] font-bold text-muted-foreground pt-1 block">타임라인 배속 프리셋</Label>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {['0.9x', '1.0x', '1.15x', '1.3x'].map((spd) => (
+                      <Button
+                        key={spd}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onChangeSpeed?.(parseFloat(spd))}
+                        className="h-7 text-[10.5px] font-semibold bg-background border-border text-foreground hover:bg-muted"
+                      >
+                        {spd}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* BGM Volume & Ducking */}
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="font-bold text-foreground">🎵 배경음악 (BGM) 볼륨</span>
+                    <span className="text-blue-500 font-bold">{bgmVolume}%</span>
+                  </div>
+                  <Slider
+                    value={[bgmVolume]}
+                    min={0}
+                    max={100}
+                    step={5}
+                    onValueChange={([v]) => setBgmVolume(v)}
+                  />
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] font-semibold text-foreground">스마트 덕킹 (Smart Ducking)</span>
+                      <p className="text-[9.5px] text-muted-foreground">나레이션이 재생될 때 BGM 볼륨을 자동으로 낮춥니다.</p>
+                    </div>
+                    <Switch
+                      checked={bgmDucking}
+                      onCheckedChange={(c) => setBgmDucking(c)}
+                      className="data-[state=checked]:bg-blue-600"
+                    />
+                  </div>
+
+                  <div className="space-y-1 pt-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-foreground">BGM 페이드 인/아웃</span>
+                      <span className="text-blue-500 font-bold">{bgmFadeSec}초</span>
+                    </div>
+                    <Slider
+                      value={[bgmFadeSec]}
+                      min={0}
+                      max={5}
+                      step={0.5}
+                      onValueChange={([v]) => setBgmFadeSec(v)}
+                    />
+                  </div>
                 </div>
               </div>
             </TabsContent>

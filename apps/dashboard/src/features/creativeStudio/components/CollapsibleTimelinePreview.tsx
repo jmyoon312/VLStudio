@@ -8,6 +8,7 @@ import PreviewPanel from '@/features/flow2capcut/components/AudioTimeline/Previe
 import { CapCutStudioWorkspace } from './CapCutStudioWorkspace';
 import { WatermarkConfig } from './WatermarkSettingsDialog';
 import { TransitionConfig } from './TransitionSettingsDialog';
+import { TTSConfig } from '@/types/tts';
 
 export interface SceneItem {
   id: string;
@@ -95,6 +96,8 @@ interface Props {
   onStylePromptChange?: (val: string) => void;
   onNegativePromptChange?: (val: string) => void;
   presets?: any[];
+  tttsConfig?: TTSConfig;
+  onTTSConfigChange?: (cfg: TTSConfig) => void;
 }
 
 
@@ -165,6 +168,8 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   onStylePromptChange,
   onNegativePromptChange,
   presets,
+  tttsConfig,
+  onTTSConfigChange,
 }) => {
 
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -538,6 +543,8 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             onStylePromptChange={onStylePromptChange}
             onNegativePromptChange={onNegativePromptChange}
             presets={presets}
+            tttsConfig={tttsConfig}
+            onTTSConfigChange={onTTSConfigChange}
           />
         </div>
 

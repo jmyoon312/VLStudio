@@ -16,9 +16,10 @@ interface TTSConfigPanelProps {
     config: TTSConfig;
     onChange: (newConfig: TTSConfig) => void;
     compact?: boolean;
+    showFavorites?: boolean;
 }
 
-const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compact = false }) => {
+const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compact = false, showFavorites }) => {
     // Local state for debouncing
     const [speed, setSpeed] = useState(config.speed);
     const [pitch, setPitch] = useState(config.pitch);
@@ -272,31 +273,32 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
     };
 
     return (
-        <div className={cn("space-y-3 font-sans", compact ? "px-1" : "py-4")}>
+        <div className={cn("space-y-3 font-sans", compact ? "px-0.5" : "py-4")}>
 
-            {!compact && (
+            {(showFavorites ?? !compact) && (
                 <VoicePresetList
                     currentConfig={config as any}
                     onSelect={handleUserPresetSelect}
+                    compact={compact}
                 />
             )}
 
             {/* Engine & Language Row */}
             <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                    <Label className="text-[10px] font-bold text-slate-500 uppercase">Engine</Label>
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Engine</Label>
                     <Select value={config.engine} onValueChange={(v) => handleChange('engine', v)}>
-                        <SelectTrigger className="h-7 text-xs bg-white border-slate-200 focus:ring-1 focus:ring-slate-300">
+                        <SelectTrigger className="h-7 text-xs bg-background border-border text-foreground focus:ring-1 focus:ring-primary">
                             <SelectValue placeholder="Engine" />
                         </SelectTrigger>
                         <SelectContent className="max-h-[200px]">
                             <SelectItem value="edge" className="text-xs">
-                                <span className="font-semibold text-blue-600 mr-1">Edge</span>
-                                <span className="text-slate-600 text-[10px]">(무료/자연스러움)</span>
+                                <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">Edge</span>
+                                <span className="text-muted-foreground text-[10px]">(무료/자연스러움)</span>
                             </SelectItem>
                             <SelectItem value="google" className="text-xs">
-                                <span className="font-semibold text-green-600 mr-1">Google</span>
-                                <span className="text-slate-600 text-[10px]">(무료/기본)</span>
+                                <span className="font-semibold text-green-600 dark:text-green-400 mr-1">Google</span>
+                                <span className="text-muted-foreground text-[10px]">(무료/기본)</span>
                             </SelectItem>
                             <SelectItem value="kokoro" className="text-xs">Kokoro (로컬)</SelectItem>
                             <SelectItem value="supertone-local" className="text-xs">Supertonic (로컬)</SelectItem>
@@ -306,9 +308,9 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                     </Select>
                 </div>
                 <div className="space-y-1">
-                    <Label className="text-[10px] font-bold text-slate-500 uppercase">Language</Label>
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Language</Label>
                     <Select value={config.language} onValueChange={(v) => handleChange('language', v)}>
-                        <SelectTrigger className="h-7 text-xs bg-white border-slate-200">
+                        <SelectTrigger className="h-7 text-xs bg-background border-border text-foreground">
                             <SelectValue placeholder="Language" />
                         </SelectTrigger>
                         <SelectContent className="max-h-[300px]">
@@ -363,9 +365,9 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
             {/* Recommended Presets (Grid Layout) */}
             {(config.engine === 'google' || config.engine === 'edge') && (
                 <div className="space-y-1.5 pt-1">
-                    <Label className="text-[9px] font-bold text-slate-600 uppercase tracking-wider flex items-center justify-between">
-                        <span className="flex items-center gap-1"><Zap className="w-2.5 h-2.5" /> Quick Style</span>
-                        <span className="text-[8px] font-normal normal-case text-slate-700">Gender + Style + Speed</span>
+                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                        <span className="flex items-center gap-1"><Zap className="w-2.5 h-2.5 text-amber-500" /> Quick Style</span>
+                        <span className="text-[8px] font-normal normal-case text-muted-foreground">Gender + Style + Speed</span>
                     </Label>
                     <div className="grid grid-cols-4 gap-1.5">
                         {[
@@ -378,20 +380,20 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-5 text-[9px] rounded-b-none border-b-0 bg-slate-50 hover:bg-white text-slate-600 hover:text-blue-600 justify-between px-1.5"
+                                    className="h-5 text-[9px] rounded-b-none border-b-0 bg-muted/40 hover:bg-muted text-foreground hover:text-blue-500 justify-between px-1.5 border-border"
                                     onClick={() => applyRecommendedPreset(p.id, 'male')}
                                 >
                                     <span>{p.label}</span>
-                                    <span className="text-[8px] bg-slate-200 px-1 rounded text-slate-600">남</span>
+                                    <span className="text-[8px] bg-background px-1 rounded text-foreground font-semibold">남</span>
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-5 text-[9px] rounded-t-none bg-slate-50 hover:bg-white text-slate-600 hover:text-pink-600 justify-between px-1.5 border-t-0"
+                                    className="h-5 text-[9px] rounded-t-none bg-muted/40 hover:bg-muted text-foreground hover:text-pink-500 justify-between px-1.5 border-t-0 border-border"
                                     onClick={() => applyRecommendedPreset(p.id, 'female')}
                                 >
                                     <span>{p.label}</span>
-                                    <span className="text-[8px] bg-slate-200 px-1 rounded text-slate-600">여</span>
+                                    <span className="text-[8px] bg-background px-1 rounded text-foreground font-semibold">여</span>
                                 </Button>
                             </div>
                         ))}
@@ -402,16 +404,16 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
             {/* Voice Selection & Filters */}
             <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold text-slate-500 uppercase">Voice</Label>
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Voice</Label>
                     <div className="flex gap-1">
                         <Select value={gender} onValueChange={(v: any) => setGender(v)}>
-                            <SelectTrigger className="h-5 w-[50px] text-[9px] px-1 border-slate-200 bg-slate-50">
+                            <SelectTrigger className="h-5 w-[50px] text-[9px] px-1 border-border bg-background text-foreground">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="male">Male</SelectItem><SelectItem value="female">Female</SelectItem></SelectContent>
                         </Select>
                         <Select value={ageGroup} onValueChange={(v: any) => setAgeGroup(v)}>
-                            <SelectTrigger className="h-5 w-[50px] text-[9px] px-1 border-slate-200 bg-slate-50">
+                            <SelectTrigger className="h-5 w-[50px] text-[9px] px-1 border-border bg-background text-foreground">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="youth">Youth</SelectItem><SelectItem value="adult">Adult</SelectItem></SelectContent>
@@ -420,7 +422,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                 </div>
 
                 <Select value={config.voice_id || ""} onValueChange={(v) => handleChange('voice_id', v)} disabled={isLoading}>
-                    <SelectTrigger className="h-8 text-xs font-medium">
+                    <SelectTrigger className="h-8 text-xs font-medium bg-background border-border text-foreground">
                         <SelectValue placeholder={isLoading ? "Loading..." : "Select Voice"} />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
@@ -437,21 +439,21 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                 </Select>
 
                 {/* 선택한 목소리 및 합성 믹스 실시간 미리듣기 / 커스텀 대사 오디션 바 */}
-                <div className="pt-1.5 space-y-2 bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-2.5 rounded-xl border border-blue-200/80 shadow-sm">
+                <div className="pt-1.5 space-y-2 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-950/40 dark:to-indigo-950/40 p-2.5 rounded-xl border border-blue-500/20 dark:border-blue-800/40 shadow-2xs">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                            <Volume2 className="w-4 h-4 text-blue-600" />
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-blue-700 dark:text-blue-300">
+                            <Volume2 className="w-4 h-4 text-blue-500" />
                             <span>실시간 목소리 오디션 (Voice Audition)</span>
                             {config.mix_voice_id && (config.mix_ratio ?? 0) > 0 && (
                                 <span className="text-[10px] bg-indigo-600 text-white font-bold px-1.5 py-0.5 rounded-full animate-pulse">
-                                    합성 믹스 모드 ({Math.round((1 - (config.mix_ratio ?? 0)) * 100)}% + {Math.round((config.mix_ratio ?? 0) * 100)}%)
+                                    합성 믹스 ({Math.round((1 - (config.mix_ratio ?? 0)) * 100)}% + {Math.round((config.mix_ratio ?? 0) * 100)}%)
                                 </span>
                             )}
                         </div>
                         <button
                             type="button"
                             onClick={() => setShowCustomAudition(prev => !prev)}
-                            className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                            className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline cursor-pointer"
                         >
                             {showCustomAudition ? "기본 예문으로" : "직접 대사 입력"}
                         </button>
@@ -465,7 +467,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                                 value={customAuditionText}
                                 onChange={(e) => setCustomAuditionText(e.target.value)}
                                 placeholder="들어보고 싶은 테스트 문장을 입력하세요..."
-                                className="w-full h-7 text-xs px-2 rounded-md bg-white border border-blue-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="w-full h-7 text-xs px-2 rounded-md bg-background border border-blue-400/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 onKeyDown={(e) => e.key === 'Enter' && handlePreviewVoice()}
                             />
                             <div className="flex gap-1 overflow-x-auto pb-0.5">
@@ -478,10 +480,10 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                                         key={idx}
                                         type="button"
                                         onClick={() => {
-                                            setCustomAuditionText(p.text);
-                                            handlePreviewVoice(p.text);
+                                             setCustomAuditionText(p.text);
+                                             handlePreviewVoice(p.text);
                                         }}
-                                        className="text-[9px] whitespace-nowrap bg-white/90 hover:bg-blue-100 text-slate-700 hover:text-blue-700 px-1.5 py-0.5 rounded border border-blue-200"
+                                        className="text-[9px] whitespace-nowrap bg-background hover:bg-muted text-foreground px-1.5 py-0.5 rounded border border-border"
                                     >
                                         ⚡ {p.label}
                                     </button>
@@ -489,7 +491,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                             </div>
                         </div>
                     ) : (
-                        <div className="text-[10px] text-slate-600 line-clamp-1 bg-white/60 px-2 py-1 rounded border border-blue-100">
+                        <div className="text-[10px] text-muted-foreground line-clamp-1 bg-background/60 px-2 py-1 rounded border border-border">
                             예문: "안녕하세요! 선택하신 목소리 샘플입니다. 자연스럽게 들리시나요?"
                         </div>
                     )}
@@ -503,10 +505,10 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                             disabled={isPreviewLoading || !config.voice_id}
                             onClick={() => handlePreviewVoice()}
                             className={cn(
-                                "w-full h-8 text-xs font-bold gap-2 transition-all shadow-md rounded-lg",
+                                "w-full h-8 text-xs font-bold gap-2 transition-all shadow-xs rounded-lg",
                                 isPlayingPreview
-                                    ? "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200"
-                                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200"
+                                    ? "bg-amber-600 hover:bg-amber-500 text-white"
+                                    : "bg-blue-600 hover:bg-blue-500 text-white"
                             )}
                         >
                             {isPreviewLoading ? (
@@ -533,9 +535,9 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
 
                         {/* 재생 중 실시간 프로그레스 바 */}
                         {isPlayingPreview && (
-                            <div className="w-full bg-blue-200/80 rounded-full h-1.5 overflow-hidden">
+                            <div className="w-full bg-blue-200/50 dark:bg-blue-900/50 rounded-full h-1.5 overflow-hidden">
                                 <div
-                                    className="bg-blue-600 h-1.5 rounded-full transition-all duration-100"
+                                    className="bg-blue-600 dark:bg-blue-400 h-1.5 rounded-full transition-all duration-100"
                                     style={{ width: `${previewProgress}%` }}
                                 />
                             </div>
@@ -545,32 +547,32 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
             </div>
 
             {/* Sliders (Engine Specific) */}
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-2.5 space-y-3 shadow-inner">
+            <div className="bg-card rounded-xl border border-border p-2.5 space-y-3 shadow-2xs">
                 {/* Standard Pitch/Speed for Google/Edge/Others */}
                 {(!['elevenlabs', 'typecast', 'supertone-local'].includes(config.engine)) && (
                     <>
                         <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
-                                <Label className="text-[10px] font-bold text-slate-600">Speed (속도)</Label>
+                                <Label className="text-[10px] font-bold text-foreground">Speed (속도)</Label>
                                 <div className="flex items-center gap-1">
                                     <button
                                         type="button"
                                         onClick={() => { const next = Math.max(0.5, +(speed - 0.05).toFixed(2)); setSpeed(next); handleSliderCommit('speed', next); }}
-                                        className="h-4 w-4 bg-white border border-slate-300 rounded text-[9px] font-bold flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                                        className="h-4 w-4 bg-background border border-border rounded text-[9px] font-bold flex items-center justify-center text-foreground hover:bg-muted"
                                     >−</button>
-                                    <span className={cn("text-[10px] font-mono font-bold px-1.5 py-0.5 rounded", speed !== 1.0 ? "bg-amber-100 text-amber-800" : "bg-slate-200 text-slate-700")}>
+                                    <span className={cn("text-[10px] font-mono font-bold px-1.5 py-0.5 rounded", speed !== 1.0 ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground")}>
                                         x{speed.toFixed(2)}
                                     </span>
                                     <button
                                         type="button"
                                         onClick={() => { const next = Math.min(2.0, +(speed + 0.05).toFixed(2)); setSpeed(next); handleSliderCommit('speed', next); }}
-                                        className="h-4 w-4 bg-white border border-slate-300 rounded text-[9px] font-bold flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                                        className="h-4 w-4 bg-background border border-border rounded text-[9px] font-bold flex items-center justify-center text-foreground hover:bg-muted"
                                     >+</button>
                                     {speed !== 1.0 && (
                                         <button
                                             type="button"
                                             onClick={() => { setSpeed(1.0); handleSliderCommit('speed', 1.0); }}
-                                            className="text-[9px] text-slate-500 hover:text-blue-600 underline ml-0.5"
+                                            className="text-[9px] text-muted-foreground hover:text-blue-500 underline ml-0.5"
                                         >기본</button>
                                     )}
                                 </div>
@@ -584,26 +586,26 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                         </div>
                         <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
-                                <Label className="text-[10px] font-bold text-slate-600">Pitch (음높이)</Label>
+                                <Label className="text-[10px] font-bold text-foreground">Pitch (음높이)</Label>
                                 <div className="flex items-center gap-1">
                                     <button
                                         type="button"
                                         onClick={() => { const next = Math.max(-20, pitch - 1); setPitch(next); handleSliderCommit('pitch', next); }}
-                                        className="h-4 w-4 bg-white border border-slate-300 rounded text-[9px] font-bold flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                                        className="h-4 w-4 bg-background border border-border rounded text-[9px] font-bold flex items-center justify-center text-foreground hover:bg-muted"
                                     >−</button>
-                                    <span className={cn("text-[10px] font-mono font-bold px-1.5 py-0.5 rounded", pitch !== 0 ? "bg-purple-100 text-purple-800" : "bg-slate-200 text-slate-700")}>
+                                    <span className={cn("text-[10px] font-mono font-bold px-1.5 py-0.5 rounded", pitch !== 0 ? "bg-purple-500/20 text-purple-600 dark:text-purple-400" : "bg-muted text-muted-foreground")}>
                                         {pitch > 0 ? `+${pitch}st` : `${pitch}st`}
                                     </span>
                                     <button
                                         type="button"
                                         onClick={() => { const next = Math.min(20, pitch + 1); setPitch(next); handleSliderCommit('pitch', next); }}
-                                        className="h-4 w-4 bg-white border border-slate-300 rounded text-[9px] font-bold flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                                        className="h-4 w-4 bg-background border border-border rounded text-[9px] font-bold flex items-center justify-center text-foreground hover:bg-muted"
                                     >+</button>
                                     {pitch !== 0 && (
                                         <button
                                             type="button"
                                             onClick={() => { setPitch(0); handleSliderCommit('pitch', 0); }}
-                                            className="text-[9px] text-slate-500 hover:text-blue-600 underline ml-0.5"
+                                            className="text-[9px] text-muted-foreground hover:text-blue-500 underline ml-0.5"
                                         >기본</button>
                                     )}
                                 </div>
@@ -623,26 +625,26 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                     <div className="space-y-3">
                         <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
-                                <Label className="text-[10px] font-bold text-slate-600">Speed (속도 미세조절)</Label>
+                                <Label className="text-[10px] font-bold text-foreground">Speed (속도 미세조절)</Label>
                                 <div className="flex items-center gap-1">
                                     <button
                                         type="button"
                                         onClick={() => { const next = Math.max(0.5, +(speed - 0.05).toFixed(2)); setSpeed(next); handleSliderCommit('speed', next); }}
-                                        className="h-4 w-4 bg-white border border-slate-300 rounded text-[9px] font-bold flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                                        className="h-4 w-4 bg-background border border-border rounded text-[9px] font-bold flex items-center justify-center text-foreground hover:bg-muted"
                                     >−</button>
-                                    <span className={cn("text-[10px] font-mono font-bold px-1.5 py-0.5 rounded", speed !== 1.0 ? "bg-amber-100 text-amber-800" : "bg-slate-200 text-slate-700")}>
+                                    <span className={cn("text-[10px] font-mono font-bold px-1.5 py-0.5 rounded", speed !== 1.0 ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground")}>
                                         x{speed.toFixed(2)}
                                     </span>
                                     <button
                                         type="button"
                                         onClick={() => { const next = Math.min(2.0, +(speed + 0.05).toFixed(2)); setSpeed(next); handleSliderCommit('speed', next); }}
-                                        className="h-4 w-4 bg-white border border-slate-300 rounded text-[9px] font-bold flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                                        className="h-4 w-4 bg-background border border-border rounded text-[9px] font-bold flex items-center justify-center text-foreground hover:bg-muted"
                                     >+</button>
                                     {speed !== 1.0 && (
                                         <button
                                             type="button"
                                             onClick={() => { setSpeed(1.0); handleSliderCommit('speed', 1.0); }}
-                                            className="text-[9px] text-slate-500 hover:text-blue-600 underline ml-0.5"
+                                            className="text-[9px] text-muted-foreground hover:text-blue-500 underline ml-0.5"
                                         >1.0x</button>
                                     )}
                                 </div>
@@ -656,19 +658,26 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-bold text-slate-700">🎭 감정 & 스타일 (Emotion Engine)</Label>
+                            <Label className="text-[10px] font-bold text-foreground flex items-center gap-1">
+                                <span>🎭</span> 감정 & 스타일 (Emotion Engine)
+                            </Label>
                             <div className="grid grid-cols-4 gap-1">
                                 {[
                                     { id: 'normal', label: '기본 😐' },
-                                    { id: 'happy', label: '기쁨 😄' },
-                                    { id: 'sad', label: '슬픔 😢' },
+                                    { id: 'happy', label: '기쁨 😆' },
+                                    { id: 'sad', label: '슬픔 😭' },
                                     { id: 'angry', label: '분노 😡' }
                                 ].map(e => (
                                     <Button
                                         key={e.id}
                                         variant={config.emotion === e.id ? "default" : "outline"}
                                         size="sm"
-                                        className={cn("h-6.5 text-[10px] px-0 font-bold", config.emotion === e.id ? "bg-sky-600 hover:bg-sky-700 text-white shadow-sm" : "bg-white text-slate-700")}
+                                        className={cn(
+                                            "h-6.5 text-[10px] px-0 font-bold border",
+                                            config.emotion === e.id
+                                                ? "bg-sky-600 hover:bg-sky-500 text-white border-sky-600 shadow-xs"
+                                                : "bg-background text-foreground border-border hover:bg-muted"
+                                        )}
                                         onClick={() => {
                                             handleChange('emotion', e.id);
                                             handleChange('noise_scale', 0.0);
@@ -682,20 +691,20 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
 
                         <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
-                                <Label className="text-[10px] font-bold text-slate-600">감정 강도 (Noise Scale 미세조절)</Label>
+                                <Label className="text-[10px] font-bold text-foreground">감정 강도 (Noise Scale 미세조절)</Label>
                                 <div className="flex items-center gap-1">
                                     <button
                                         type="button"
                                         onClick={() => { const next = Math.max(0.0, +((config.noise_scale ?? 0.0) - 0.05).toFixed(2)); handleChange('noise_scale', next); }}
-                                        className="h-4 w-4 bg-white border border-slate-300 rounded text-[9px] font-bold flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                                        className="h-4 w-4 bg-background border border-border rounded text-[9px] font-bold flex items-center justify-center text-foreground hover:bg-muted"
                                     >−</button>
-                                    <span className="text-[10px] font-mono font-bold bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">
+                                    <span className="text-[10px] font-mono font-bold bg-muted text-foreground px-1.5 py-0.5 rounded">
                                         {(config.noise_scale ?? 0.0).toFixed(2)}
                                     </span>
                                     <button
                                         type="button"
                                         onClick={() => { const next = Math.min(2.0, +((config.noise_scale ?? 0.0) + 0.05).toFixed(2)); handleChange('noise_scale', next); }}
-                                        className="h-4 w-4 bg-white border border-slate-300 rounded text-[9px] font-bold flex items-center justify-center text-slate-700 hover:bg-slate-100"
+                                        className="h-4 w-4 bg-background border border-border rounded text-[9px] font-bold flex items-center justify-center text-foreground hover:bg-muted"
                                     >+</button>
                                 </div>
                             </div>
@@ -706,16 +715,16 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                             />
                         </div>
 
-                        <div className="space-y-2 pt-2 border-t border-slate-200/80 bg-white/70 p-2 rounded-lg border">
+                        <div className="space-y-2 pt-2 border-t border-border bg-muted/20 p-2 rounded-lg border">
                             <div className="flex items-center justify-between">
-                                <Label className="text-[10px] font-extrabold text-indigo-900 flex items-center gap-1">
+                                <Label className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                                     🎙️ 목소리 믹스 합성 (Voice Blending)
                                 </Label>
                                 {config.mix_voice_id && (
                                     <button
                                         type="button"
                                         onClick={() => { handleChange('mix_voice_id', ''); handleChange('mix_ratio', 0.0); }}
-                                        className="text-[9px] text-red-500 hover:text-red-700 underline"
+                                        className="text-[9px] text-red-500 hover:text-red-600 underline"
                                     >
                                         믹스 해제
                                     </button>
@@ -724,7 +733,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
 
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="space-y-1">
-                                    <Label className="text-[9px] font-medium text-slate-600">대상 합성 목소리</Label>
+                                    <Label className="text-[9px] font-medium text-muted-foreground">대상 합성 목소리</Label>
                                     <Select 
                                         value={config.mix_voice_id || "none"} 
                                         onValueChange={(v) => {
@@ -734,7 +743,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                                             }
                                         }}
                                     >
-                                        <SelectTrigger className="h-7 text-[10px] bg-white border-slate-300">
+                                        <SelectTrigger className="h-7 text-[10px] bg-background border-border text-foreground">
                                             <SelectValue placeholder="믹스 안함" />
                                         </SelectTrigger>
                                         <SelectContent className="max-h-[160px]">
@@ -748,9 +757,9 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
-                                    <div className="flex justify-between items-center text-[9px] text-slate-600 font-bold">
+                                    <div className="flex justify-between items-center text-[9px] text-foreground font-bold">
                                         <span>믹스 비율</span>
-                                        <span className="text-indigo-600 font-mono">{Math.round((config.mix_ratio ?? 0.0) * 100)}%</span>
+                                        <span className="text-indigo-600 dark:text-indigo-400 font-mono">{Math.round((config.mix_ratio ?? 0.0) * 100)}%</span>
                                     </div>
                                     <Slider
                                         value={[config.mix_ratio ?? 0.0]} min={0.0} max={1.0} step={0.01}
@@ -764,7 +773,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                             {/* 믹스 비율 퀵 프리셋 버튼 */}
                             {config.mix_voice_id && (
                                 <div className="flex items-center justify-between pt-1 text-[9px]">
-                                    <span className="text-slate-500">퀵 믹스비:</span>
+                                    <span className="text-muted-foreground">퀵 믹스비:</span>
                                     <div className="flex gap-1">
                                         {[
                                             { label: "은은하게 20%", val: 0.20 },
@@ -780,7 +789,7 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                                                     "px-1.5 py-0.5 rounded border text-[8.5px] font-bold transition-all",
                                                     Math.abs((config.mix_ratio ?? 0) - b.val) < 0.02
                                                         ? "bg-indigo-600 text-white border-indigo-700"
-                                                        : "bg-white text-slate-700 border-slate-300 hover:bg-indigo-50"
+                                                        : "bg-background text-foreground border-border hover:bg-muted"
                                                 )}
                                             >
                                                 {b.label}
@@ -793,17 +802,17 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                     </div>
                 )}
 
-                {/* ... (Keep other engine sliders same but compact) ... */}
+                {/* ... Other engines ... */}
                 {config.engine === 'typecast' ? (
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-bold text-slate-600">Typecast Emotion</Label>
+                        <Label className="text-[10px] font-bold text-foreground">Typecast Emotion</Label>
                         <div className="grid grid-cols-4 gap-1">
                             {['normal', 'happy', 'sad', 'angry'].map(e => (
                                 <Button
                                     key={e}
                                     variant={config.emotion === e ? "default" : "outline"}
                                     size="sm"
-                                    className={cn("h-6 text-[10px] px-0 capitalize", config.emotion === e && "bg-yellow-600 hover:bg-yellow-700")}
+                                    className={cn("h-6 text-[10px] px-0 capitalize", config.emotion === e ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-background text-foreground border-border")}
                                     onClick={() => handleChange('emotion', e)}
                                 >
                                     {e.slice(0, 3)}
@@ -813,14 +822,14 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
                     </div>
                 ) : config.engine === 'elevenlabs' && (
                     <div className="space-y-2">
-                        <Label className="text-[10px] font-bold text-slate-600">ElevenLabs Settings</Label>
+                        <Label className="text-[10px] font-bold text-foreground">ElevenLabs Settings</Label>
                         <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
-                                <Label className="text-[9px]">Stability</Label>
+                                <Label className="text-[9px] text-muted-foreground">Stability</Label>
                                 <Slider value={[config.xi_stability ?? 0.5]} max={1} step={0.01} onValueChange={(v) => handleChange('xi_stability', v[0])} />
                             </div>
                             <div className="space-y-1">
-                                <Label className="text-[9px]">Similarity</Label>
+                                <Label className="text-[9px] text-muted-foreground">Similarity</Label>
                                 <Slider value={[config.xi_similarity_boost ?? 0.75]} max={1} step={0.01} onValueChange={(v) => handleChange('xi_similarity_boost', v[0])} />
                             </div>
                         </div>
@@ -829,31 +838,31 @@ const TTSConfigPanel: React.FC<TTSConfigPanelProps> = ({ config, onChange, compa
             </div>
 
             {/* Silence Removal */}
-            <div className="pt-1 border-t border-slate-100">
+            <div className="pt-1 border-t border-border">
                 <div className="flex items-center justify-between mb-2">
-                    <Label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                        <Scissors className="w-3 h-3" /> SILENCE REMOVER
+                    <Label className="text-[10px] font-bold text-foreground flex items-center gap-1">
+                        <Scissors className="w-3 h-3 text-blue-500" /> SILENCE REMOVER (무음 제거)
                     </Label>
-                    <Switch checked={config.use_silence_removal} onCheckedChange={(c) => handleChange('use_silence_removal', c)} className="scale-75" />
+                    <Switch checked={config.use_silence_removal} onCheckedChange={(c) => handleChange('use_silence_removal', c)} className="scale-75 data-[state=checked]:bg-blue-600" />
                 </div>
 
                 {config.use_silence_removal && (
-                    <div className="p-2 bg-slate-100 rounded space-y-2">
-                        <div className="grid grid-cols-4 gap-1">
+                    <div className="p-2 bg-muted/40 border border-border rounded-lg space-y-2">
+                        <div className="grid grid-cols-3 gap-1">
                             {[
-                                { t: -35, m: 200, k: 10, label: 'Fast' },
-                                { t: -40, m: 300, k: 50, label: 'Normal' },
-                                { t: -50, m: 800, k: 300, label: 'Slow' },
+                                { t: -35, m: 200, k: 10, label: 'Fast (빠르게)' },
+                                { t: -40, m: 300, k: 50, label: 'Normal (표준)' },
+                                { t: -50, m: 800, k: 300, label: 'Slow (자연스러움)' },
                             ].map(p => (
                                 <Button key={p.label} variant="outline" size="sm"
-                                    className={cn("h-5 text-[9px] px-1", silenceThreshold === p.t && "bg-blue-100 border-blue-300 text-blue-700")}
+                                    className={cn("h-6 text-[9.5px] px-1 bg-background text-foreground border-border hover:bg-muted", silenceThreshold === p.t && "bg-blue-600 text-white border-blue-600 hover:bg-blue-500 hover:text-white")}
                                     onClick={() => applySilencePreset(p.t, p.m, p.k)}>{p.label}</Button>
                             ))}
                         </div>
                         <div className="space-y-1">
-                            <div className="flex justify-between text-[9px] text-slate-500">
-                                <span>Thresh: {silenceThreshold}dB</span>
-                                <span>Min: {minSilenceLen}ms</span>
+                            <div className="flex justify-between text-[9px] text-muted-foreground">
+                                <span>역치: {silenceThreshold}dB</span>
+                                <span>최소 무음: {minSilenceLen}ms</span>
                             </div>
                             <Slider value={[silenceThreshold]} min={-60} max={-10} step={1} onValueChange={(v) => setSilenceThreshold(v[0])} onValueCommit={(v) => handleChange('silence_threshold', v[0])} />
                         </div>
