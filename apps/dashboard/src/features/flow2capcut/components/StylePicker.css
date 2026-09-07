@@ -362,3 +362,322 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* 카테고리 래퍼 & 삭제 버튼 */
+.sp-cat-tab-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.sp-cat-delete-btn {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  color: #ef4444;
+  font-size: 9px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.15s;
+}
+
+.sp-cat-tab-wrapper:hover .sp-cat-delete-btn {
+  display: flex;
+}
+
+.sp-cat-delete-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.sp-cat-add-btn {
+  border: 1px dashed rgba(168, 85, 247, 0.4) !important;
+  color: #a855f7 !important;
+  background: rgba(168, 85, 247, 0.05) !important;
+}
+
+.sp-cat-add-btn:hover {
+  background: rgba(168, 85, 247, 0.15) !important;
+  border-color: #a855f7 !important;
+}
+
+/* 카드 삭제 버튼 */
+.sp-card {
+  position: relative;
+}
+
+.sp-card-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.15s;
+}
+
+.sp-card:hover .sp-card-delete-btn {
+  display: flex;
+}
+
+.sp-card-delete-btn:hover {
+  background: #ef4444;
+  color: white;
+  transform: scale(1.1);
+}
+
+/* 새 스타일 추가 카드 */
+.sp-add-card {
+  border: 1.5px dashed rgba(168, 85, 247, 0.4);
+  background: rgba(168, 85, 247, 0.03);
+}
+
+.sp-add-card:hover {
+  border-color: #a855f7;
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.sp-add-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(168, 85, 247, 0.06);
+  border-radius: 6px;
+}
+
+/* 모달 오버레이 & 컨텐츠 */
+.sp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2100;
+  padding: 16px;
+}
+
+.sp-modal-content {
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  animation: spModalFadeIn 0.2s ease-out;
+}
+
+.sp-modal-content.sp-modal-sm {
+  max-width: 380px;
+}
+
+@keyframes spModalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.sp-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sp-modal-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fafafa;
+}
+
+.sp-modal-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.sp-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sp-form-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.sp-form-input,
+.sp-form-select,
+.sp-form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #27272a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f4f4f5;
+  font-size: 0.82rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.sp-form-input:focus,
+.sp-form-select:focus,
+.sp-form-textarea:focus {
+  border-color: #a855f7;
+}
+
+.sp-input-icon {
+  width: 60px;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.sp-form-textarea {
+  resize: vertical;
+  min-height: 70px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* 파일 업로드 영역 */
+.sp-file-upload-box {
+  position: relative;
+  border: 1.5px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sp-file-upload-box:hover {
+  border-color: #a855f7;
+  background: rgba(168, 85, 247, 0.05);
+}
+
+.sp-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.sp-file-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #a1a1aa;
+}
+
+.sp-upload-hint {
+  font-size: 0.7rem;
+  color: #71717a;
+}
+
+.sp-thumb-preview {
+  position: relative;
+  display: inline-block;
+  max-height: 120px;
+}
+
+.sp-thumb-preview img {
+  max-height: 100px;
+  border-radius: 6px;
+  display: block;
+}
+
+.sp-thumb-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.8);
+  border: none;
+  color: #f87171;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sp-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sp-modal-btn-cancel {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sp-modal-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f4f4f5;
+}
+
+.sp-modal-btn-confirm {
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  background: #a855f7;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sp-modal-btn-confirm:hover {
+  background: #9333ea;
+}
+

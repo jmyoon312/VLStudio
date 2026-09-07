@@ -34,12 +34,30 @@ export function StyleGalleryModal({ open, onOpenChange, onSelectStyle }: StyleGa
 
     // Handle selection from StylePicker
     const handleSelect = useCallback((selectedId: string | null) => {
-        if (!selectedId) return;
+        if (!selectedId) {
+            onSelectStyle(null);
+            onOpenChange(false);
+            return;
+        }
 
-        // format: "preset:ghibli"
+        // format: "preset:ghibli" or "preset:style_1234"
         if (selectedId.startsWith('preset:')) {
             const presetId = selectedId.replace('preset:', '');
-            const preset = STYLE_PRESETS?.styles?.find((s: any) => s.id === presetId);
+            // 1. 기본 프리셋에서 검색
+            let preset = STYLE_PRESETS?.styles?.find((s: any) => s.id === presetId);
+            // 2. 커스텀 스타일에서 검색
+            if (!preset) {
+                try {
+                    const savedCustom = localStorage.getItem('vlstudio_custom_styles');
+                    if (savedCustom) {
+                        const parsed = JSON.parse(savedCustom);
+                        preset = parsed.find((s: any) => s.id === presetId);
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
             if (preset) {
                 onSelectStyle(preset);
                 onOpenChange(false);

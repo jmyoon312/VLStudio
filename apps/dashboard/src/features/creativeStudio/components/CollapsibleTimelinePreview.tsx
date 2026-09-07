@@ -81,6 +81,15 @@ interface Props {
   onAutoGenerateAudioChange?: (val: boolean) => void;
   onApplyStylePromptToAll?: (prompt: string) => void;
   selectedPresetName?: string;
+  selectedPresetId?: string;
+  onSelectPresetId?: (id: string) => void;
+  presetName?: string;
+  onPresetNameChange?: (name: string) => void;
+  onSavePreset?: () => void;
+  onDeletePreset?: (id: number) => void;
+  onAnalyzeStyle?: (file: File) => void;
+  isAnalyzingStyle?: boolean;
+  onOpenStyleGallery?: () => void;
   stylePrompt?: string;
   negativePrompt?: string;
   onStylePromptChange?: (val: string) => void;
@@ -142,6 +151,15 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   onAutoGenerateAudioChange,
   onApplyStylePromptToAll,
   selectedPresetName,
+  selectedPresetId,
+  onSelectPresetId,
+  presetName,
+  onPresetNameChange,
+  onSavePreset,
+  onDeletePreset,
+  onAnalyzeStyle,
+  isAnalyzingStyle,
+  onOpenStyleGallery,
   stylePrompt,
   negativePrompt,
   onStylePromptChange,
@@ -506,6 +524,15 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             onAutoGenerateAudioChange={onAutoGenerateAudioChange}
             onApplyStylePromptToAll={onApplyStylePromptToAll}
             selectedPresetName={selectedPresetName}
+            selectedPresetId={selectedPresetId}
+            onSelectPresetId={onSelectPresetId}
+            presetName={presetName}
+            onPresetNameChange={onPresetNameChange}
+            onSavePreset={onSavePreset}
+            onDeletePreset={onDeletePreset}
+            onAnalyzeStyle={onAnalyzeStyle}
+            isAnalyzingStyle={isAnalyzingStyle}
+            onOpenStyleGallery={onOpenStyleGallery}
             stylePrompt={stylePrompt}
             negativePrompt={negativePrompt}
             onStylePromptChange={onStylePromptChange}

@@ -3103,6 +3103,15 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                 transitionConfig={transitionConfig}
                 onTransitionConfigChange={setTransitionConfig}
                 selectedPresetName={presetName}
+                selectedPresetId={selectedPresetId}
+                onSelectPresetId={handleSelectPreset}
+                presetName={presetName}
+                onPresetNameChange={setPresetName}
+                onSavePreset={handleSavePreset}
+                onDeletePreset={handleDeletePreset}
+                onAnalyzeStyle={handleAnalyzeStyle}
+                isAnalyzingStyle={isAnalyzing}
+                onOpenStyleGallery={() => setIsStyleGalleryOpen(true)}
                 stylePrompt={stylePrompt}
                 negativePrompt={negativePrompt}
                 onStylePromptChange={setStylePrompt}
@@ -4012,10 +4021,16 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                 open={isStyleGalleryOpen}
                 onOpenChange={setIsStyleGalleryOpen}
                 onSelectStyle={(style) => {
+                    if (!style) {
+                        setStylePrompt('');
+                        setPresetName('');
+                        return;
+                    }
                     // "웹툰/만화" 키워드가 들어가면 글자나 말풍선이 생성될 확률이 높으므로 방지 키워드 추가
                     const antiTextModifier = ", textless, no text, no speech bubbles, no comic panels";
-                    setStylePrompt(style.prompt_en + antiTextModifier);
-                    setPresetName(style.name_ko);
+                    const p = style.prompt_en || style.prompt || style.style_prompt || '';
+                    setStylePrompt(p ? p + antiTextModifier : '');
+                    setPresetName(style.name_ko || style.name || '');
                     
                     // 부정 프롬프트가 비어있다면 글자 방지 기본값 세팅
                     setNegativePrompt(prev => prev || "text, words, fonts, speech bubbles, dialog, comic panels, watermark, signature, UI");

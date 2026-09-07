@@ -37,8 +37,12 @@ import {
   Clapperboard,
   Copy,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  Upload,
+  Trash2,
+  Save
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { STYLE_PRESETS } from '@/features/flow2capcut/config/defaults';
 import AudioTimeline from '@/features/flow2capcut/components/AudioTimeline/AudioTimeline';
@@ -100,6 +104,15 @@ interface Props {
   onAutoGenerateAudioChange?: (val: boolean) => void;
   onApplyStylePromptToAll?: (prompt: string) => void;
   selectedPresetName?: string;
+  selectedPresetId?: string;
+  onSelectPresetId?: (id: string) => void;
+  presetName?: string;
+  onPresetNameChange?: (name: string) => void;
+  onSavePreset?: () => void;
+  onDeletePreset?: (id: number) => void;
+  onAnalyzeStyle?: (file: File) => void;
+  isAnalyzingStyle?: boolean;
+  onOpenStyleGallery?: () => void;
   stylePrompt?: string;
   negativePrompt?: string;
   onStylePromptChange?: (val: string) => void;
@@ -158,6 +171,15 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   onAutoGenerateAudioChange,
   onApplyStylePromptToAll,
   selectedPresetName = '',
+  selectedPresetId = '',
+  onSelectPresetId,
+  presetName = '',
+  onPresetNameChange,
+  onSavePreset,
+  onDeletePreset,
+  onAnalyzeStyle,
+  isAnalyzingStyle = false,
+  onOpenStyleGallery,
   stylePrompt = '',
   negativePrompt = '',
   onStylePromptChange,
@@ -967,113 +989,243 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               )}
             </TabsContent>
 
-            {/* Tab 2: Visual Style Inspector */}
+            {/* Tab 2: Visual Style Inspector (스타일 및 비주얼 프롬프트 100% 동기화) */}
             <TabsContent value="style" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <LayoutGrid className="w-3.5 h-3.5 text-purple-400" /> 화풍 & 아트 스타일 프리셋
-                </span>
-                <p className="text-[11px] text-slate-400">원하는 화풍을 선택하면 비주얼 프롬프트에 자동으로 적용됩니다.</p>
-              </div>
-
-              {/* Active Selected Style Card & Prompt Inspector */}
-              <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-purple-300 flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-purple-400" /> 현재 적용 화풍: {selectedPresetName || '기본'}
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Wand2 className="w-3.5 h-3.5 text-purple-400" /> 화풍 & 비주얼 프롬프트
                   </span>
-                  {onApplyStylePromptToAll && (
+                  <p className="text-[11px] text-slate-400">일관성 있는 화풍 프리셋 및 AI 스타일 분석을 적용합니다.</p>
+                </div>
+                {presetName && (
+                  <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-400/40">
+                    {presetName}
+                  </Badge>
+                )}
+              </div>
+
+              {/* 1. Preset Selector & Management & Save */}
+              <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-2.5">
+                {/* Style Preset Selector */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-slate-200">스타일 프리셋 (Style Preset)</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Select
+                      value={selectedPresetId || 'new'}
+                      onValueChange={(val) => {
+                        onSelectPresetId?.(val);
+                      }}
+                    >
+                      <SelectTrigger className="flex-1 h-8 text-xs bg-black/40 border-purple-500/30 text-slate-200">
+                        <SelectValue placeholder="프리셋 선택..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-purple-500/30 text-slate-200">
+                        <SelectItem value="new">+ 새 프리셋 만들기</SelectItem>
+                        {presets?.map((p: any) => (
+                          <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedPresetId && selectedPresetId !== 'new' && onDeletePreset && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-rose-400 hover:bg-rose-500/20 shrink-0"
+                        onClick={() => onDeletePreset(Number(selectedPresetId))}
+                        title="프리셋 삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    {onOpenStyleGallery && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border-purple-400/50 shrink-0 font-semibold gap-1 px-2.5 shadow-xs"
+                        onClick={onOpenStyleGallery}
+                      >
+                        <Sparkles className="w-3 h-3 text-purple-400" />
+                        <span>갤러리</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Preset Name & Save */}
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-slate-200">프리셋 이름 및 저장</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={presetName}
+                      onChange={(e) => onPresetNameChange?.(e.target.value)}
+                      placeholder="예: 지브리 애니메이션..."
+                      className="flex-1 h-8 text-xs bg-black/40 border-purple-500/30 text-slate-200 placeholder:text-slate-500"
+                    />
                     <Button
+                      onClick={onSavePreset}
+                      disabled={!presetName}
                       size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        onApplyStylePromptToAll(stylePrompt || selectedPresetName);
-                        toast.success('전체 씬에 화풍 프롬프트가 일괄 적용되었습니다.');
-                      }}
-                      className="h-6 text-[10px] px-2 bg-purple-600/30 text-purple-200 border-purple-400/40 hover:bg-purple-600/50"
+                      className="h-8 px-3 text-xs font-bold shrink-0 bg-purple-600 hover:bg-purple-500 text-white gap-1 shadow-xs disabled:opacity-50"
                     >
-                      전체 씬 일괄 적용
+                      <Save className="w-3 h-3" /> 저장
                     </Button>
-                  )}
-                </div>
-                {stylePrompt && (
-                  <div className="text-[10.5px] text-slate-300 bg-black/40 p-2 rounded-lg border border-purple-500/20 font-mono line-clamp-2">
-                    {stylePrompt}
                   </div>
-                )}
-                {negativePrompt && (
-                  <div className="text-[9.5px] text-red-300/80 bg-red-950/20 p-1.5 rounded border border-red-500/20 font-mono line-clamp-1">
-                    🚫 제외: {negativePrompt}
-                  </div>
-                )}
-              </div>
-
-              {/* Search & Categories */}
-              <div className="space-y-1.5 pt-1">
-                <input
-                  type="text"
-                  placeholder="스타일 검색 (예: 수묵화, 웹툰, 시네마틱...)"
-                  value={styleSearchQuery}
-                  onChange={(e) => setStyleSearchQuery(e.target.value)}
-                  className="w-full h-7.5 px-2.5 text-xs bg-black/30 border border-white/15 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-purple-400"
-                />
-
-                <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar text-[10px]">
-                  {['all', 'webtoon', 'anime', 'cinematic', 'realism', '3d', 'oriental'].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedStyleCategory(cat)}
-                      className={`px-2 py-0.5 rounded-md font-medium whitespace-nowrap transition-colors ${selectedStyleCategory === cat ? 'bg-purple-600 text-white font-bold' : 'bg-black/30 text-slate-400 hover:text-slate-200'}`}
-                    >
-                      {cat === 'all' ? '전체' : cat === 'webtoon' ? '웹툰' : cat === 'anime' ? '애니' : cat === 'cinematic' ? '시네마틱' : cat === 'realism' ? '실사' : cat === '3d' ? '3D' : '동양화/사극'}
-                    </button>
-                  ))}
                 </div>
               </div>
 
-              {/* Style Presets Grid with Thumbnails */}
-              <div className="grid grid-cols-2 gap-2 max-h-[420px] overflow-y-auto pr-1">
-                {((presets.length > 0 ? presets : STYLE_PRESETS?.styles) || [])
-                  .filter((s: any) => {
-                    const matchQ = !styleSearchQuery || (s.name || '').toLowerCase().includes(styleSearchQuery.toLowerCase()) || (s.category || '').toLowerCase().includes(styleSearchQuery.toLowerCase());
-                    const matchCat = selectedStyleCategory === 'all' || (s.category || '').toLowerCase().includes(selectedStyleCategory.toLowerCase());
-                    return matchQ && matchCat;
-                  })
-                  .slice(0, 40)
-                  .map((st: any) => (
-                    <div
-                      key={st.id || st.name}
-                      onClick={() => {
-                        if (onApplyStylePromptToAll) {
-                          onApplyStylePromptToAll(st.prompt || st.stylePrompt || st.name);
-                        } else if (onUpdateScene && selectedScene) {
-                          onUpdateScene(selectedScene.id, { visual_prompt: `${selectedScene.visual_prompt || ''}, ${st.prompt || st.stylePrompt || st.name}`.trim() });
-                          toast.success(`Scene #${selectedScene.scene_id}에 ${st.name} 화풍이 적용되었습니다.`);
-                        }
-                      }}
-                      className={`p-2 rounded-xl border transition-all flex flex-col gap-1.5 text-left cursor-pointer group ${selectedPresetName === st.name ? 'border-purple-400 bg-purple-600/20' : 'border-white/10 bg-black/25 hover:bg-purple-600/10 hover:border-purple-400/40'}`}
-                    >
-                      {/* Thumbnail Image or Gradient Box */}
-                      <div className="w-full h-16 rounded-lg overflow-hidden bg-slate-800 border border-white/10 relative">
-                        {st.thumbnail ? (
-                          <img src={st.thumbnail} alt={st.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/40 to-slate-900 text-purple-300">
-                            <Sparkle className="w-5 h-5 opacity-60" />
-                          </div>
-                        )}
-                        {selectedPresetName === st.name && (
-                          <div className="absolute top-1 right-1 bg-purple-600 rounded-full p-0.5 text-white shadow-xs">
-                            <Check className="w-3 h-3" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-200 group-hover:text-purple-300 truncate">{st.name}</span>
-                        <span className="text-[9px] text-slate-500 shrink-0">{st.category || '화풍'}</span>
-                      </div>
+              {/* 2. Analysis & Prompts Editor */}
+              <div className="space-y-2.5">
+                {/* Style Analysis Image Dropzone */}
+                {onAnalyzeStyle && (
+                  <div className="relative border-2 border-dashed border-purple-500/30 rounded-xl flex flex-col items-center justify-center text-center p-3 hover:bg-purple-950/30 transition-colors cursor-pointer bg-black/20 group min-h-[72px]">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                      onChange={(e) => e.target.files?.[0] && onAnalyzeStyle(e.target.files[0])}
+                    />
+                    <div className="absolute top-1.5 left-2.5 text-[10px] font-bold text-slate-400 pointer-events-none flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-purple-400" /> 스타일 분석
                     </div>
-                  ))}
+                    {isAnalyzingStyle ? (
+                      <div className="flex flex-col items-center gap-1 py-1">
+                        <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                        <span className="text-[10px] text-purple-300 font-medium">화풍 분석 중...</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-0.5 text-slate-400 group-hover:text-purple-300 transition-colors py-0.5">
+                        <Upload className="w-3.5 h-3.5 text-purple-400" />
+                        <span className="text-[11px] font-bold text-slate-200">이미지 업로드</span>
+                        <span className="text-[9px] text-slate-400">클릭하거나 이미지를 드래그하세요</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Positive Prompt */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      긍정 프롬프트
+                    </Label>
+                    <span className="text-[9px] font-mono text-slate-400">{(stylePrompt || '').length}자</span>
+                  </div>
+                  <Textarea
+                    value={stylePrompt}
+                    onChange={(e) => onStylePromptChange?.(e.target.value)}
+                    className="w-full resize-none text-xs font-mono leading-relaxed bg-black/40 border-purple-500/30 text-slate-200 min-h-[70px] max-h-[110px] p-2 rounded-lg"
+                    placeholder="공통 비주얼 화풍 (예: Japanese anime style, Studio Ghibli style, vibrant colors...)"
+                  />
+                </div>
+
+                {/* Negative Prompt */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                      부정 프롬프트
+                      <span className="text-[8.5px] font-normal text-slate-400/70 ml-1">(Flow AI 미지원)</span>
+                    </Label>
+                    <span className="text-[9px] font-mono text-slate-400">{(negativePrompt || '').length}자</span>
+                  </div>
+                  <Textarea
+                    value={negativePrompt}
+                    onChange={(e) => onNegativePromptChange?.(e.target.value)}
+                    className="w-full resize-none text-xs font-mono leading-relaxed bg-black/40 border-purple-500/30 text-slate-200 min-h-[50px] max-h-[90px] p-2 rounded-lg"
+                    placeholder="제외할 요소 (예: text, watermark, low quality, deformed...)"
+                  />
+                </div>
+
+                {/* Apply to All Scenes Action Button */}
+                {onApplyStylePromptToAll && (
+                  <Button
+                    onClick={() => {
+                      onApplyStylePromptToAll(stylePrompt || presetName);
+                      toast.success('전체 씬에 화풍 프롬프트가 일괄 적용되었습니다.');
+                    }}
+                    className="w-full h-8 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white gap-1.5 shadow-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> 전체 씬에 화풍 일괄 적용
+                  </Button>
+                )}
+              </div>
+
+              {/* 3. Quick Style Presets Grid & Categories */}
+              <div className="space-y-2 pt-2 border-t border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                    <LayoutGrid className="w-3 h-3 text-purple-400" /> 빠른 프리셋 둘러보기
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    placeholder="스타일 검색 (예: 수묵화, 웹툰, 시네마틱...)"
+                    value={styleSearchQuery}
+                    onChange={(e) => setStyleSearchQuery(e.target.value)}
+                    className="w-full h-7.5 px-2.5 text-xs bg-black/30 border border-white/15 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-purple-400"
+                  />
+
+                  <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar text-[10px]">
+                    {['all', 'webtoon', 'anime', 'cinematic', 'realism', '3d', 'oriental'].map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedStyleCategory(cat)}
+                        className={`px-2 py-0.5 rounded-md font-medium whitespace-nowrap transition-colors ${selectedStyleCategory === cat ? 'bg-purple-600 text-white font-bold' : 'bg-black/30 text-slate-400 hover:text-slate-200'}`}
+                      >
+                        {cat === 'all' ? '전체' : cat === 'webtoon' ? '웹툰' : cat === 'anime' ? '애니' : cat === 'cinematic' ? '시네마틱' : cat === 'realism' ? '실사' : cat === '3d' ? '3D' : '동양화/사극'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Grid */}
+                <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                  {((presets.length > 0 ? presets : STYLE_PRESETS?.styles) || [])
+                    .filter((s: any) => {
+                      const matchQ = !styleSearchQuery || (s.name || s.name_ko || '').toLowerCase().includes(styleSearchQuery.toLowerCase()) || (s.category || '').toLowerCase().includes(styleSearchQuery.toLowerCase());
+                      const matchCat = selectedStyleCategory === 'all' || (s.category || '').toLowerCase().includes(selectedStyleCategory.toLowerCase());
+                      return matchQ && matchCat;
+                    })
+                    .slice(0, 40)
+                    .map((st: any) => {
+                      const stName = st.name || st.name_ko || '스타일';
+                      const stPrompt = st.positive_prompt || st.prompt_en || st.prompt || '';
+                      return (
+                        <div
+                          key={st.id || stName}
+                          onClick={() => {
+                            onStylePromptChange?.(stPrompt);
+                            onPresetNameChange?.(stName);
+                            if (st.negative_prompt) onNegativePromptChange?.(st.negative_prompt);
+                            toast.success(`[${stName}] 화풍이 선택되었습니다.`);
+                          }}
+                          className={`p-2 rounded-xl border transition-all flex flex-col gap-1 text-left cursor-pointer group ${presetName === stName ? 'border-purple-400 bg-purple-600/20' : 'border-white/10 bg-black/25 hover:bg-purple-600/10 hover:border-purple-400/40'}`}
+                        >
+                          <div className="w-full h-14 rounded-lg overflow-hidden bg-slate-800 border border-white/10 relative">
+                            {st.thumbnail || st.thumb ? (
+                              <img src={st.thumbnail || st.thumb} alt={stName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900/40 to-slate-900 text-purple-300 text-lg">
+                                🎨
+                              </div>
+                            )}
+                            {presetName === stName && (
+                              <div className="absolute top-1 right-1 bg-purple-600 rounded-full p-0.5 text-white shadow-xs">
+                                <Check className="w-3 h-3" />
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-bold text-slate-200 group-hover:text-purple-300 truncate">{stName}</span>
+                          <span className="text-[9px] text-slate-400 line-clamp-1 font-mono">{stPrompt}</span>
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
             </TabsContent>
 
