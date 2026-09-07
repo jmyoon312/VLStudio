@@ -128,12 +128,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         }
     }, [location.pathname]);
 
-    const isElectron = typeof window !== 'undefined' && 
-        Boolean((window as any).electronAPI) && 
-        !(window as any).electronAPI?.isMock && 
-        !(window as any).__IS_WEB_BROWSER__ &&
-        typeof navigator !== 'undefined' &&
-        navigator.userAgent.toLowerCase().includes('electron');
+    const isElectron = typeof window !== 'undefined' && Boolean(
+        (window as any).__VIRALOOP_DESKTOP__ ||
+        (window as any).electronAPI?.isDesktopApp ||
+        (
+            Boolean((window as any).electronAPI) && 
+            !(window as any).electronAPI?.isMock && 
+            !(window as any).__IS_WEB_BROWSER__ &&
+            typeof navigator !== 'undefined' &&
+            navigator.userAgent.toLowerCase().includes('electron')
+        )
+    );
 
     const [isFlowHidden, setIsFlowHidden] = React.useState(() => {
         try {

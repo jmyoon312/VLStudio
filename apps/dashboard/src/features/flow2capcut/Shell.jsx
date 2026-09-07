@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { resetModalCount } from '../../lib/utils'
 
-const DEFAULT_LAYOUT = 'split-left'
+const DEFAULT_LAYOUT = 'hidden'
 const DEFAULT_RATIO = 0.45
 
 // 수평 분할인지 판별
@@ -291,9 +291,14 @@ function ShellContent({ children }) {
     }
   }, [isFlowPage, loadProfilesAndViews])
 
-  const modeStr = typeof layoutMode === 'string' ? layoutMode : (layoutMode?.mode || 'split-left')
+  const isDesktop = typeof window !== 'undefined' && Boolean(
+    window.__VIRALOOP_DESKTOP__ || 
+    (window.electronAPI && !window.electronAPI.isMock && !window.__IS_WEB_BROWSER__ && navigator?.userAgent?.toLowerCase()?.includes('electron'))
+  )
 
-  if (!isFlowPage || modeStr === 'none' || modeStr === 'hidden' || modeStr === 'tab' || !modeStr.startsWith('split-')) {
+  const modeStr = typeof layoutMode === 'string' ? layoutMode : (layoutMode?.mode || 'hidden')
+
+  if (!isDesktop || !isFlowPage || modeStr === 'none' || modeStr === 'hidden' || modeStr === 'tab' || !modeStr.startsWith('split-')) {
     return <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>{children}</div>
   }
 

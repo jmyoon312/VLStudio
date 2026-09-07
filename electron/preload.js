@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+contextBridge.exposeInMainWorld('__VIRALOOP_DESKTOP__', true)
+
 contextBridge.exposeInMainWorld('electronAPI', {
+  isDesktopApp: true,
   // App
   openExternal: (url) => ipcRenderer.invoke('app:open-external', { url }),
   openNewWindow: (params) => ipcRenderer.invoke('app:open-new-window', params),
