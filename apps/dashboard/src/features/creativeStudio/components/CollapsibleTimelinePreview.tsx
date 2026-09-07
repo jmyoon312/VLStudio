@@ -51,10 +51,34 @@ interface Props {
   isFlowBatchGenerating?: boolean;
   onGenerateSceneFlow?: (scene: SceneItem) => void;
   onUpdateScene?: (sceneId: string, patch: Partial<SceneItem>) => void;
+  fullScript?: string;
+  onFullScriptChange?: (val: string) => void;
+  scriptMode?: 'manual' | 'creative';
+  onScriptModeChange?: (mode: 'manual' | 'creative') => void;
   scriptInput?: string;
   onScriptInputChange?: (val: string) => void;
   onGenerateScript?: () => void;
   isGeneratingScript?: boolean;
+  onSegmentScript?: () => void;
+  isSegmenting?: boolean;
+  onValidatePolicy?: () => void;
+  isValidatingPolicy?: boolean;
+  policyReport?: any;
+  onExtractAnchors?: () => void;
+  isExtractingAnchors?: boolean;
+  anchorsData?: any;
+  pacingStrategy?: 'ai' | 'rule';
+  onPacingStrategyChange?: (strategy: 'ai' | 'rule') => void;
+  splitMethod?: string;
+  onSplitMethodChange?: (method: string) => void;
+  pacingUnit?: 'sentence' | 'time';
+  onPacingUnitChange?: (unit: 'sentence' | 'time') => void;
+  pacingValue?: number;
+  onPacingValueChange?: (val: number) => void;
+  autoGenerateImages?: boolean;
+  onAutoGenerateImagesChange?: (val: boolean) => void;
+  autoGenerateAudio?: boolean;
+  onAutoGenerateAudioChange?: (val: boolean) => void;
   onApplyStylePromptToAll?: (prompt: string) => void;
   selectedPresetName?: string;
   stylePrompt?: string;
@@ -88,10 +112,34 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
   isFlowBatchGenerating,
   onGenerateSceneFlow,
   onUpdateScene,
-  scriptInput,
+  fullScript = '',
+  onFullScriptChange,
+  scriptMode = 'manual',
+  onScriptModeChange,
+  scriptInput = '',
   onScriptInputChange,
   onGenerateScript,
-  isGeneratingScript,
+  isGeneratingScript = false,
+  onSegmentScript,
+  isSegmenting = false,
+  onValidatePolicy,
+  isValidatingPolicy = false,
+  policyReport,
+  onExtractAnchors,
+  isExtractingAnchors = false,
+  anchorsData,
+  pacingStrategy = 'ai',
+  onPacingStrategyChange,
+  splitMethod = 'ai_smart',
+  onSplitMethodChange,
+  pacingUnit = 'sentence',
+  onPacingUnitChange,
+  pacingValue = 1,
+  onPacingValueChange,
+  autoGenerateImages = false,
+  onAutoGenerateImagesChange,
+  autoGenerateAudio = true,
+  onAutoGenerateAudioChange,
   onApplyStylePromptToAll,
   selectedPresetName,
   stylePrompt,
@@ -428,10 +476,34 @@ export const CollapsibleTimelinePreview: React.FC<Props> = ({
             isFlowBatchGenerating={isFlowBatchGenerating}
             onGenerateSceneFlow={onGenerateSceneFlow}
             onUpdateScene={onUpdateScene}
+            fullScript={fullScript}
+            onFullScriptChange={onFullScriptChange}
+            scriptMode={scriptMode}
+            onScriptModeChange={onScriptModeChange}
             scriptInput={scriptInput}
             onScriptInputChange={onScriptInputChange}
             onGenerateScript={onGenerateScript}
             isGeneratingScript={isGeneratingScript}
+            onSegmentScript={onSegmentScript}
+            isSegmenting={isSegmenting}
+            onValidatePolicy={onValidatePolicy}
+            isValidatingPolicy={isValidatingPolicy}
+            policyReport={policyReport}
+            onExtractAnchors={onExtractAnchors}
+            isExtractingAnchors={isExtractingAnchors}
+            anchorsData={anchorsData}
+            pacingStrategy={pacingStrategy}
+            onPacingStrategyChange={onPacingStrategyChange}
+            splitMethod={splitMethod}
+            onSplitMethodChange={onSplitMethodChange}
+            pacingUnit={pacingUnit}
+            onPacingUnitChange={onPacingUnitChange}
+            pacingValue={pacingValue}
+            onPacingValueChange={onPacingValueChange}
+            autoGenerateImages={autoGenerateImages}
+            onAutoGenerateImagesChange={onAutoGenerateImagesChange}
+            autoGenerateAudio={autoGenerateAudio}
+            onAutoGenerateAudioChange={onAutoGenerateAudioChange}
             onApplyStylePromptToAll={onApplyStylePromptToAll}
             selectedPresetName={selectedPresetName}
             stylePrompt={stylePrompt}

@@ -33,7 +33,11 @@ import {
   Wand2,
   RefreshCw,
   Clock,
-  LayoutGrid
+  LayoutGrid,
+  Clapperboard,
+  Copy,
+  Loader2,
+  ArrowRight
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { STYLE_PRESETS } from '@/features/flow2capcut/config/defaults';
@@ -66,10 +70,34 @@ interface Props {
   isFlowBatchGenerating?: boolean;
   onGenerateSceneFlow?: (scene: SceneItem) => void;
   onUpdateScene?: (sceneId: string, patch: Partial<SceneItem>) => void;
+  fullScript?: string;
+  onFullScriptChange?: (val: string) => void;
+  scriptMode?: 'manual' | 'creative';
+  onScriptModeChange?: (mode: 'manual' | 'creative') => void;
   scriptInput?: string;
   onScriptInputChange?: (val: string) => void;
   onGenerateScript?: () => void;
   isGeneratingScript?: boolean;
+  onSegmentScript?: () => void;
+  isSegmenting?: boolean;
+  onValidatePolicy?: () => void;
+  isValidatingPolicy?: boolean;
+  policyReport?: any;
+  onExtractAnchors?: () => void;
+  isExtractingAnchors?: boolean;
+  anchorsData?: any;
+  pacingStrategy?: 'ai' | 'rule';
+  onPacingStrategyChange?: (strategy: 'ai' | 'rule') => void;
+  splitMethod?: string;
+  onSplitMethodChange?: (method: string) => void;
+  pacingUnit?: 'sentence' | 'time';
+  onPacingUnitChange?: (unit: 'sentence' | 'time') => void;
+  pacingValue?: number;
+  onPacingValueChange?: (val: number) => void;
+  autoGenerateImages?: boolean;
+  onAutoGenerateImagesChange?: (val: boolean) => void;
+  autoGenerateAudio?: boolean;
+  onAutoGenerateAudioChange?: (val: boolean) => void;
   onApplyStylePromptToAll?: (prompt: string) => void;
   selectedPresetName?: string;
   stylePrompt?: string;
@@ -100,10 +128,34 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   isFlowBatchGenerating,
   onGenerateSceneFlow,
   onUpdateScene,
+  fullScript = '',
+  onFullScriptChange,
+  scriptMode = 'manual',
+  onScriptModeChange,
   scriptInput = '',
   onScriptInputChange,
   onGenerateScript,
   isGeneratingScript = false,
+  onSegmentScript,
+  isSegmenting = false,
+  onValidatePolicy,
+  isValidatingPolicy = false,
+  policyReport,
+  onExtractAnchors,
+  isExtractingAnchors = false,
+  anchorsData,
+  pacingStrategy = 'ai',
+  onPacingStrategyChange,
+  splitMethod = 'ai_smart',
+  onSplitMethodChange,
+  pacingUnit = 'sentence',
+  onPacingUnitChange,
+  pacingValue = 1,
+  onPacingValueChange,
+  autoGenerateImages = false,
+  onAutoGenerateImagesChange,
+  autoGenerateAudio = true,
+  onAutoGenerateAudioChange,
   onApplyStylePromptToAll,
   selectedPresetName = '',
   stylePrompt = '',
@@ -625,56 +677,294 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </TabsTrigger>
             </TabsList>
 
-            {/* Tab 1: Script Inspector */}
-            <TabsContent value="script" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <Wand2 className="w-3.5 h-3.5 text-blue-400" /> AI 대본 생성 & 스토리라인
-                </span>
-                <p className="text-[11px] text-slate-400">아이디어를 입력하면 AI가 쇼츠/롱폼에 최적화된 씬별 대본을 작성합니다.</p>
-              </div>
-
-              <div className="space-y-2 pt-1">
-                <Textarea
-                  value={scriptInput}
-                  onChange={(e) => onScriptInputChange?.(e.target.value)}
-                  placeholder="주제, 핵심 키워드, 스토리 구상, 시청자 타겟 등을 자유롭게 입력하세요..."
-                  className="min-h-[90px] text-xs bg-black/30 border-white/15 text-slate-200 rounded-xl"
-                />
-
-                {onGenerateScript && (
-                  <Button
-                    onClick={onGenerateScript}
-                    disabled={isGeneratingScript || !scriptInput.trim()}
-                    className="w-full h-8.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl gap-1.5 shadow-md"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {isGeneratingScript ? 'AI 대본 작성 중...' : '✨ AI 대본 자동 생성 및 씬 분할'}
-                  </Button>
-                )}
-              </div>
-
-              <div className="border-t border-white/10 pt-2.5 space-y-2">
-                <Label className="text-[11px] font-bold text-slate-300">현재 씬 대본 목록 ({scenes.length}개 씬)</Label>
-                <div className="space-y-1.5 max-h-[390px] overflow-y-auto pr-1">
-                  {scenes.map((sc, idx) => (
-                    <div
-                      key={sc.id}
-                      onClick={() => {
-                        setSelectedSceneIndex(idx);
-                        onSelectScene?.(idx);
-                      }}
-                      className={`p-2 rounded-lg border text-left cursor-pointer transition-colors ${selectedSceneIndex === idx ? 'bg-blue-600/20 border-blue-400/60 text-white' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
+            {/* Tab 1: Script & Segmentation Inspector (대본 작업실 및 씬 분할 통합) */}
+            <TabsContent value="script" className="flex-1 p-3 overflow-y-auto space-y-3 m-0">
+              {/* 1. Header & Mode Switcher */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Clapperboard className="w-3.5 h-3.5 text-blue-400" /> 대본 작업실 & 씬 분할
+                  </span>
+                  {onValidatePolicy && (
+                    <Button
+                      onClick={onValidatePolicy}
+                      disabled={isValidatingPolicy || (!fullScript.trim() && !scriptInput.trim())}
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/40 gap-1 shadow-2xs"
+                      title="유튜브 정책 및 표현 퇴고 검사"
                     >
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
-                        <span className="font-bold text-blue-400">씬 #{sc.scene_id}</span>
-                        <span>{sc.duration || 3.5}s</span>
-                      </div>
-                      <p className="text-[11px] line-clamp-2 leading-relaxed">{sc.script || '— 대본 없음 —'}</p>
-                    </div>
-                  ))}
+                      {isValidatingPolicy ? <Loader2 className="w-3 h-3 animate-spin text-amber-400" /> : <Sparkles className="w-3 h-3 text-amber-400" />}
+                      <span>🛡️ 유튜브 정책 검사</span>
+                    </Button>
+                  )}
+                </div>
+
+                {/* Mode Segment: 직접 입력 vs AI 작가 */}
+                <div className="grid grid-cols-2 bg-black/40 p-0.5 rounded-lg border border-white/10">
+                  <button
+                    onClick={() => onScriptModeChange?.('manual')}
+                    className={`py-1 text-xs font-bold rounded-md transition-colors ${scriptMode === 'manual' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}`}
+                  >
+                    📝 직접 대본 입력
+                  </button>
+                  <button
+                    onClick={() => onScriptModeChange?.('creative')}
+                    className={`py-1 text-xs font-bold rounded-md transition-colors ${scriptMode === 'creative' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}`}
+                  >
+                    ✨ AI 작가 대본 생성
+                  </button>
                 </div>
               </div>
+
+              {/* 2. Script Input Area based on Mode */}
+              {scriptMode === 'creative' && (
+                <div className="p-2.5 rounded-xl bg-blue-950/20 border border-blue-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-bold text-blue-300">주제, 핵심 키워드 또는 스토리 구상</Label>
+                    <span className="text-[9.5px] text-slate-500">SSOT 모델 자동 연동</span>
+                  </div>
+                  <Textarea
+                    value={scriptInput}
+                    onChange={(e) => onScriptInputChange?.(e.target.value)}
+                    placeholder="원하는 스토리 주제, 핵심 타겟, 반전 포인트 등을 입력하세요..."
+                    className="min-h-[65px] text-xs bg-black/40 border-white/15 text-slate-100 rounded-lg focus:border-blue-400"
+                  />
+                  {onGenerateScript && (
+                    <Button
+                      onClick={onGenerateScript}
+                      disabled={isGeneratingScript || !scriptInput.trim()}
+                      className="w-full h-7.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg gap-1.5 shadow-sm"
+                    >
+                      {isGeneratingScript ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      <span>{isGeneratingScript ? 'AI 대본 작성 중...' : '대본 자동 생성 및 채우기'}</span>
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* Full Script Editor Area */}
+              <div className="space-y-1.5 p-2.5 rounded-xl bg-black/20 border border-white/10">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                    <span>전체 대본 (Full Script)</span>
+                    {policyReport && (
+                      <Badge variant="outline" className={`text-[9.5px] px-1.5 py-0 font-bold ${policyReport.is_safe ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-amber-500/20 text-amber-400 border-amber-500/40'}`}>
+                        점수: {policyReport.score}점
+                      </Badge>
+                    )}
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono text-slate-400">총 {fullScript.length} 글자</span>
+                    {fullScript && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(fullScript);
+                          toast.success('대본이 클립보드에 복사되었습니다.');
+                        }}
+                        className="h-5 px-1.5 text-[9.5px] text-slate-400 hover:text-white"
+                      >
+                        <Copy className="w-2.5 h-2.5 mr-0.5" /> 복사
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <Textarea
+                  value={fullScript}
+                  onChange={(e) => onFullScriptChange?.(e.target.value)}
+                  placeholder="여기에 전체 대본을 직접 입력하거나 붙여넣으세요. AI 작가 생성 시 여기에 자동으로 채워집니다..."
+                  className="min-h-[110px] max-h-[180px] font-sans text-xs leading-relaxed bg-black/30 border-white/15 text-slate-100 rounded-lg p-2 resize-y focus:border-blue-400"
+                />
+              </div>
+
+              {/* 3. Policy Report Card (검증 결과가 있을 때) */}
+              {policyReport && (
+                <div className="p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                      🛡️ 유튜브 정책 & 표현 검토 리포트
+                    </span>
+                    {policyReport.polished_script && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          onFullScriptChange?.(policyReport.polished_script);
+                          toast.success('퇴고된 대본이 적용되었습니다!');
+                        }}
+                        className="h-5 px-2 text-[9.5px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded"
+                      >
+                        ✨ 퇴고 대본 적용
+                      </Button>
+                    )}
+                  </div>
+                  {policyReport.issues && policyReport.issues.length > 0 ? (
+                    <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
+                      {policyReport.issues.slice(0, 3).map((iss: any, idx: number) => (
+                        <div key={idx} className="p-1.5 rounded bg-black/40 border border-amber-500/20 text-[10.5px] flex flex-col gap-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-amber-400">[{iss.category || '주의'}] {iss.original}</span>
+                            <button
+                              onClick={() => {
+                                if (iss.original && iss.suggestion) {
+                                  onFullScriptChange?.(fullScript.replace(iss.original, iss.suggestion));
+                                  toast.success(`'${iss.original}' -> '${iss.suggestion}' 교체 완료!`);
+                                }
+                              }}
+                              className="text-[9.5px] text-blue-400 hover:text-blue-300 font-bold flex items-center gap-0.5"
+                            >
+                              대체어 교체 <ArrowRight className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                          <span className="text-[10px] text-slate-400">추천: <b className="text-emerald-400">{iss.suggestion}</b> ({iss.reason})</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10.5px] text-emerald-400">🎉 정책 위반이나 발음 꼬임 표현이 발견되지 않았습니다.</p>
+                  )}
+                </div>
+              )}
+
+              {/* 4. Segmentation Strategy & Execution Box */}
+              <div className="p-2.5 rounded-xl bg-black/25 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-blue-400" /> 씬 분할 전략
+                  </span>
+                  <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/10">
+                    <button
+                      onClick={() => onPacingStrategyChange?.('ai')}
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${pacingStrategy === 'ai' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      ✨ AI 스마트
+                    </button>
+                    <button
+                      onClick={() => onPacingStrategyChange?.('rule')}
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${pacingStrategy === 'rule' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      ⚙️ 규칙
+                    </button>
+                  </div>
+                </div>
+
+                {pacingStrategy === 'ai' ? (
+                  <Select value={splitMethod} onValueChange={onSplitMethodChange}>
+                    <SelectTrigger className="w-full h-7 text-xs bg-black/30 border-white/15">
+                      <SelectValue placeholder="AI 분석 방식" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ai_smart">✨ AI 스마트 분석 (Visual Flow)</SelectItem>
+                      <SelectItem value="visual_change">🎥 시각 전환 기준</SelectItem>
+                      <SelectItem value="semantic">🧠 의미/길이 자동 최적화</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <Select value={pacingUnit} onValueChange={onPacingUnitChange}>
+                      <SelectTrigger className="w-[100px] h-7 text-xs bg-black/30 border-white/15">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sentence">📝 문장 단위</SelectItem>
+                        <SelectItem value="time">⏱️ 시간 단위</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex-1 flex items-center justify-between bg-black/30 border border-white/15 rounded-lg px-2 h-7 text-xs">
+                      <span className="text-[10px] text-slate-400">{pacingUnit === 'sentence' ? '문장 수:' : '시간:'}</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={pacingValue}
+                          onChange={(e) => onPacingValueChange?.(Number(e.target.value))}
+                          className="w-8 text-right bg-transparent border-none text-white font-bold text-xs"
+                          min={1}
+                        />
+                        <span className="text-[10px] font-bold text-blue-400">{pacingUnit === 'sentence' ? '개' : '초'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Option Checkboxes & Action Buttons */}
+                <div className="pt-1 border-t border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-[11px] text-slate-300">
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={autoGenerateImages}
+                          onChange={(e) => onAutoGenerateImagesChange?.(e.target.checked)}
+                          className="w-3 h-3 rounded bg-black/40 border-white/20 text-blue-600"
+                        />
+                        <span>🖼️ 이미지</span>
+                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={autoGenerateAudio}
+                          onChange={(e) => onAutoGenerateAudioChange?.(e.target.checked)}
+                          className="w-3 h-3 rounded bg-black/40 border-white/20 text-blue-600"
+                        />
+                        <span>🎙️ TTS</span>
+                      </label>
+                    </div>
+
+                    {onExtractAnchors && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onExtractAnchors}
+                        disabled={isExtractingAnchors || !fullScript}
+                        className="h-6 text-[10px] px-2 bg-indigo-600/20 text-indigo-300 border-indigo-400/30 hover:bg-indigo-600/30"
+                      >
+                        {isExtractingAnchors ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />}
+                        <span>일관성 앵커</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  {onSegmentScript && (
+                    <Button
+                      onClick={onSegmentScript}
+                      disabled={isSegmenting || !fullScript.trim()}
+                      className="w-full h-8 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg gap-1.5 shadow-md"
+                    >
+                      {isSegmenting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clapperboard className="w-3.5 h-3.5" />}
+                      <span>{isSegmenting ? '대본 씬 분할 분석 중...' : '🎬 씬 분할 시작'}</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* 5. 분할된 씬 목록 */}
+              {scenes.length > 0 && (
+                <div className="border-t border-white/10 pt-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-bold text-slate-300">현재 씬 대본 목록 ({scenes.length}개 씬)</Label>
+                    <span className="text-[10px] text-slate-400 font-mono">클릭 시 타임라인/프리뷰 연동</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
+                    {scenes.map((sc, idx) => (
+                      <div
+                        key={sc.id}
+                        onClick={() => {
+                          setSelectedSceneIndex(idx);
+                          onSelectScene?.(idx);
+                        }}
+                        className={`p-2 rounded-lg border text-left cursor-pointer transition-colors ${selectedSceneIndex === idx ? 'bg-blue-600/20 border-blue-400/60 text-white' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                      >
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+                          <span className="font-bold text-blue-400">씬 #{sc.scene_id}</span>
+                          <span>{sc.duration || 3.5}s</span>
+                        </div>
+                        <p className="text-[11px] line-clamp-2 leading-relaxed">{sc.script || '— 대본 없음 —'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             {/* Tab 2: Visual Style Inspector */}

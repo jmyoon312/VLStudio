@@ -3158,10 +3158,37 @@ const finalPrompt = `${promptBase}${combinedNegative ? " --no " + combinedNegati
                 isFlowBatchGenerating={isFlowBatchGenerating}
                 onGenerateSceneFlow={(s) => handleGenerateImage(s.scene_id, s.id, s.visual_prompt)}
                 onUpdateScene={updateScene}
+                fullScript={fullScript}
+                onFullScriptChange={setFullScript}
+                scriptMode={scriptMode}
+                onScriptModeChange={setScriptMode}
                 scriptInput={scriptInput}
                 onScriptInputChange={setScriptInput}
                 onGenerateScript={handleGenerateScript}
                 isGeneratingScript={isGeneratingScript}
+                onSegmentScript={handleSegmentScript}
+                isSegmenting={isSegmenting}
+                onValidatePolicy={handleValidatePolicy}
+                isValidatingPolicy={isValidatingPolicy}
+                policyReport={policyReport}
+                onExtractAnchors={handleExtractAnchors}
+                isExtractingAnchors={isExtractingAnchors}
+                anchorsData={anchorsData}
+                pacingStrategy={pacingStrategy}
+                onPacingStrategyChange={(st) => {
+                    setPacingStrategy(st);
+                    setSplitMethod(st === 'ai' ? 'ai_smart' : 'custom_rule');
+                }}
+                splitMethod={splitMethod}
+                onSplitMethodChange={setSplitMethod}
+                pacingUnit={pacingUnit}
+                onPacingUnitChange={setPacingUnit}
+                pacingValue={pacingValue}
+                onPacingValueChange={setPacingValue}
+                autoGenerateImages={autoGenerateImages}
+                onAutoGenerateImagesChange={setAutoGenerateImages}
+                autoGenerateAudio={autoGenerateAudio}
+                onAutoGenerateAudioChange={setAutoGenerateAudio}
                 onApplyStylePromptToAll={(promptText) => {
                     if (!scenes || scenes.length === 0) return;
                     const updated = scenes.map(s => ({
