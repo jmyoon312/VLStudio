@@ -204,39 +204,73 @@ export const ShortsEditorStudio: React.FC = () => {
   const [videoCropTopPct, setVideoCropTopPct] = useState<number>(0);
   const [videoCropBottomPct, setVideoCropBottomPct] = useState<number>(0);
 
-  const [titleLine1, setTitleLine1] = useState<string>('2026 손흥민 역대급 원더골');
-  const [titleLine2, setTitleLine2] = useState<string>('수비 3명 제친 환상 드리블');
+  // Layer 2: 상단 고정 타이틀 (1줄 vs 2줄 모드 & 듀얼 컬러 & 테두리/그림자/배경)
+  const [titleLinesMode, setTitleLinesMode] = useState<'single' | 'double'>('double');
+  const [titleLine1, setTitleLine1] = useState<string>('조코비치 몰래카메라 ㅋㅋ');
+  const [titleLine2, setTitleLine2] = useState<string>('상대 선수 멘붕 직전');
   const [titleLine1Color, setTitleLine1Color] = useState<string>('#FFFFFF');
   const [titleLine2Color, setTitleLine2Color] = useState<string>('#FFE500');
-  const [titleLine1SizePx, setTitleLine1SizePx] = useState<number>(19);
-  const [titleLine2SizePx, setTitleLine2SizePx] = useState<number>(23);
+  const [titleLine1SizePx, setTitleLine1SizePx] = useState<number>(20);
+  const [titleLine2SizePx, setTitleLine2SizePx] = useState<number>(24);
   const [titleFontFamily, setTitleFontFamily] = useState<string>('Pretendard');
-  const [titleBgMode, setTitleBgMode] = useState<'none' | 'pill' | 'box' | 'highlighter'>('none');
-  const [titleBadgeText, setTitleBadgeText] = useState<string>('VIRALOOP HIGHLIGHT');
+  const [titleBadgeText, setTitleBadgeText] = useState<string>('HOT ISSUE');
+  const [titleBadgeColor, setTitleBadgeColor] = useState<string>('#EF4444');
+  const [hasTitleBadge, setHasTitleBadge] = useState<boolean>(true);
 
-  // Layer 3: 긴박 쨉쨉이 훅 (Jab Hook)
+  // 👑 타이틀 테두리/그림자/배경(모서리 둥글기) 속성
+  const [titleStroke, setTitleStroke] = useState<boolean>(true);
+  const [titleStrokeWidth, setTitleStrokeWidth] = useState<number>(3);
+  const [titleStrokeColor, setTitleStrokeColor] = useState<string>('#000000');
+  const [titleShadow, setTitleShadow] = useState<boolean>(true);
+  const [titleShadowBlur, setTitleShadowBlur] = useState<number>(6);
+  const [titleShadowColor, setTitleShadowColor] = useState<string>('rgba(0,0,0,0.9)');
+  const [titleBgMode, setTitleBgMode] = useState<'none' | 'box' | 'pill'>('none');
+  const [titleBgColor, setTitleBgColor] = useState<string>('rgba(0,0,0,0.85)');
+  const [titleBorderRadius, setTitleBorderRadius] = useState<number>(6);
+  const [titlePaddingX, setTitlePaddingX] = useState<number>(12);
+  const [titlePaddingY, setTitlePaddingY] = useState<number>(6);
+
+  // ⚡ Layer 3: 긴박 쨉쨉이 훅 (Jab Hook)
   const [hasJab, setHasJab] = useState<boolean>(true);
-  const [jabText, setJabText] = useState<string>('*충격적인 반전 순간!*');
-  const [jabTiltDeg, setJabTiltDeg] = useState<number>(-4);
-  const [jabYPercent, setJabYPercent] = useState<number>(38.5);
-  const [jabFontSize, setJabFontSize] = useState<number>(16);
+  const [jabText, setJabText] = useState<string>('*출격작전 반전 순간!*');
+  const [jabFontSize, setJabFontSize] = useState<number>(13);
+  const [jabTiltDeg, setJabTiltDeg] = useState<number>(-3);
+  const [jabYPercent, setJabYPercent] = useState<number>(28.5);
+  const [jabTextColor, setJabTextColor] = useState<string>('#000000');
   const [jabColor, setJabColor] = useState<string>('#000000');
-  const [jabBgColor, setJabBgColor] = useState<string>('#F5F420');
+  const [jabBgEnabled, setJabBgEnabled] = useState<boolean>(true);
+  const [jabBgColor, setJabBgColor] = useState<string>('#FFE500');
+  const [jabBorderRadius, setJabBorderRadius] = useState<number>(4);
+  const [jabStroke, setJabStroke] = useState<boolean>(true);
+  const [jabStrokeWidth, setJabStrokeWidth] = useState<number>(2);
+  const [jabStrokeColor, setJabStrokeColor] = useState<string>('#000000');
   const [jabBorderColor, setJabBorderColor] = useState<string>('#000000');
+  const [jabShadow, setJabShadow] = useState<boolean>(true);
+  const [jabShadowBlur, setJabShadowBlur] = useState<number>(8);
 
-  // Layer 4: 본문 자막 (Subtitles - 내려쓰기/외곽선/그림자/배경필)
+  // 💬 Layer 4: 본문 자막 속성
   const [subtitleYPercent, setSubtitleYPercent] = useState<number>(75.0);
   const [subtitleMaxChars, setSubtitleMaxChars] = useState<number>(16); // 1줄 자동 내려쓰기 기준 글자 수
+  const [subtitleStrokeEnabled, setSubtitleStrokeEnabled] = useState<boolean>(true);
+  const [subtitleStrokeWidth, setSubtitleStrokeWidth] = useState<number>(4);
+  const [subtitleStrokeColor, setSubtitleStrokeColor] = useState<string>('#000000');
+  const [subtitleShadow, setSubtitleShadow] = useState<boolean>(true);
+  const [subtitleShadowEnabled, setSubtitleShadowEnabled] = useState<boolean>(true);
+  const [subtitleShadowColor, setSubtitleShadowColor] = useState<string>('rgba(0,0,0,0.95)');
   const [subtitleUseBox, setSubtitleUseBox] = useState<boolean>(false);
   const [subtitleBoxColor, setSubtitleBoxColor] = useState<string>('rgba(0,0,0,0.75)');
-  const [subtitleShadow, setSubtitleShadow] = useState<boolean>(true);
+  const [subtitleBorderRadius, setSubtitleBorderRadius] = useState<number>(4);
 
-  // Layer 5: 하단 출처 표기 (Source Credit - 하단바와 완전 독립 레이어)
+  // 🏷️ Layer 5: 하단 출처 표기 (Source Credit)
   const [hasBottomSource, setHasBottomSource] = useState<boolean>(true);
-  const [bottomSourceText, setBottomSourceText] = useState<string>('화면출처: 스포티비 공식 중계 및 프리미어리그');
-  const [bottomSourceColor, setBottomSourceColor] = useState<string>('#94A3B8');
+  const [bottomSourceText, setBottomSourceText] = useState<string>('출처: YouTube @ViraLoop 공식 채널');
+  const [bottomSourceColor, setBottomSourceColor] = useState<string>('#CBD5E1');
   const [bottomSourceSizePx, setBottomSourceSizePx] = useState<number>(10);
-  const [bottomSourceBottomPct, setBottomSourceBottomPct] = useState<number>(2.2);
+  const [bottomSourceBottomPct, setBottomSourceBottomPct] = useState<number>(3.5);
+  const [bottomSourceStroke, setBottomSourceStroke] = useState<boolean>(false);
+  const [bottomSourceShadow, setBottomSourceShadow] = useState<boolean>(true);
+  const [bottomSourceBg, setBottomSourceBg] = useState<boolean>(false);
+  const [bottomSourceBorderRadius, setBottomSourceBorderRadius] = useState<number>(2);
 
   // Layer 6: 하단 배경 바 (Bottom Bar Bg)
   const [hasBottomBarBg, setHasBottomBarBg] = useState<boolean>(true);
