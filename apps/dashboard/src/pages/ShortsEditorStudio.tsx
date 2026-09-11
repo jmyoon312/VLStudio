@@ -2096,12 +2096,12 @@ export const ShortsEditorStudio: React.FC = () => {
                 />
               )}
 
-              {/* 👑 LAYER 2: 상단 2단 타이틀 (TransformGizmo 완벽 장착 - 마우스 이동/크기/회전 100% 지원) */}
+              {/* 👑 LAYER 2: 상단 타이틀 (1줄/2줄 모드, 외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
               {hasTopTitle && (
                 <TransformGizmo
                   transform={titleTransform}
                   selected={selectedLayerId === 'layer_title'}
-                  name="상단 2단 타이틀"
+                  name="상단 타이틀"
                   canvasScale={canvasScale}
                   onSelect={() => {
                     setSelectedLayerId('layer_title');
@@ -2113,46 +2113,66 @@ export const ShortsEditorStudio: React.FC = () => {
                   }}
                 >
                   <div
-                    className="flex flex-col items-center select-none text-center px-3 py-1 cursor-move"
+                    className="flex flex-col items-center select-none text-center cursor-move transition-all"
                     style={{
                       fontFamily: titleFontFamily,
+                      backgroundColor: titleBgMode !== 'none' ? titleBgColor : 'transparent',
+                      paddingLeft: titleBgMode !== 'none' ? `${titlePaddingX}px` : 0,
+                      paddingRight: titleBgMode !== 'none' ? `${titlePaddingX}px` : 0,
+                      paddingTop: titleBgMode !== 'none' ? `${titlePaddingY}px` : 0,
+                      paddingBottom: titleBgMode !== 'none' ? `${titlePaddingY}px` : 0,
+                      borderRadius: titleBgMode === 'pill' ? '9999px' : `${titleBorderRadius}px`,
+                      boxShadow: titleShadow ? `0 4px ${titleShadowBlur * 2}px ${titleShadowColor}` : 'none',
                     }}
                   >
                     {/* 상단 뱃지 */}
-                    {titleBadgeText && (
-                      <span className="bg-red-600 text-white text-[8px] font-black px-1.5 py-0.2 uppercase tracking-wider mb-1 rounded-[1px] shadow-sm">
+                    {hasTitleBadge && titleBadgeText && (
+                      <span
+                        className="text-white text-[8px] font-black px-1.5 py-0.2 uppercase tracking-wider mb-1 rounded-[1px] shadow-sm"
+                        style={{ backgroundColor: titleBadgeColor }}
+                      >
                         {titleBadgeText}
                       </span>
                     )}
+
                     {/* 1단 타이틀 */}
-                    <div
-                      className="font-black leading-tight tracking-tight whitespace-nowrap drop-shadow-md"
-                      style={{
-                        color: titleLine1Color,
-                        fontSize: `${titleLine1SizePx}px`,
-                        WebkitTextStroke: '2px #000000',
-                        textShadow: '0 2px 6px rgba(0,0,0,0.9)',
-                      }}
-                    >
-                      {titleLine1}
-                    </div>
-                    {/* 2단 타이틀 */}
-                    <div
-                      className="font-black leading-tight tracking-tight whitespace-nowrap drop-shadow-lg mt-0.5"
-                      style={{
-                        color: titleLine2Color,
-                        fontSize: `${titleLine2SizePx}px`,
-                        WebkitTextStroke: '3px #000000',
-                        textShadow: '0 2px 8px rgba(0,0,0,0.95)',
-                      }}
-                    >
-                      {titleLine2}
-                    </div>
+                    {titleLine1 && (
+                      <div
+                        className="font-black leading-tight tracking-tight whitespace-nowrap"
+                        style={{
+                          color: titleLine1Color,
+                          fontSize: `${titleLine1SizePx}px`,
+                          WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
+                          paintOrder: 'stroke fill',
+                          WebkitFontSmoothing: 'antialiased',
+                          textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
+                        }}
+                      >
+                        {titleLine1}
+                      </div>
+                    )}
+
+                    {/* 2단 타이틀 (double 모드일 때만 표시) */}
+                    {titleLinesMode === 'double' && titleLine2 && (
+                      <div
+                        className="font-black leading-tight tracking-tight whitespace-nowrap mt-0.5"
+                        style={{
+                          color: titleLine2Color,
+                          fontSize: `${titleLine2SizePx}px`,
+                          WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
+                          paintOrder: 'stroke fill',
+                          WebkitFontSmoothing: 'antialiased',
+                          textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
+                        }}
+                      >
+                        {titleLine2}
+                      </div>
+                    )}
                   </div>
                 </TransformGizmo>
               )}
 
-              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (TransformGizmo 완벽 장착 - 마우스 이동/회전/크기 100% 지원) */}
+              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
               {hasJab && (
                 <TransformGizmo
                   transform={jabTransform}
@@ -2170,14 +2190,16 @@ export const ShortsEditorStudio: React.FC = () => {
                   }}
                 >
                   <div
-                    className="font-black px-3 py-1.5 shadow-2xl flex items-center justify-center rounded-[2px] whitespace-nowrap border-2 cursor-move"
+                    className="font-black px-3 py-1.5 shadow-2xl flex items-center justify-center whitespace-nowrap cursor-move"
                     style={{
                       fontSize: `${jabFontSize}px`,
-                      color: jabColor,
-                      backgroundColor: jabBgColor,
-                      borderColor: jabBorderColor,
+                      color: jabTextColor,
+                      backgroundColor: jabBgEnabled ? jabBgColor : 'transparent',
+                      borderRadius: `${jabBorderRadius}px`,
+                      border: jabStroke ? `${jabStrokeWidth}px solid ${jabStrokeColor}` : 'none',
                       fontFamily: titleFontFamily,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.8)',
+                      boxShadow: jabShadow ? `0 4px ${jabShadowBlur}px rgba(0,0,0,0.8)` : 'none',
+                      WebkitFontSmoothing: 'antialiased',
                     }}
                   >
                     {jabText}
@@ -2185,7 +2207,7 @@ export const ShortsEditorStudio: React.FC = () => {
                 </TransformGizmo>
               )}
 
-              {/* 💬 LAYER 4: 본문 자막 (TransformGizmo 완벽 장착 - 마우스 이동/크기 100% 지원) */}
+              {/* 💬 LAYER 4: 본문 자막 (외곽선/그림자/배경박스/모서리 둥글기/자동 내려쓰기) */}
               <TransformGizmo
                 transform={subTransform}
                 selected={selectedLayer?.type === 'subtitle' || selectedLayerId === 'layer_sub'}
@@ -2204,22 +2226,29 @@ export const ShortsEditorStudio: React.FC = () => {
                 <div
                   className={cn(
                     "font-black leading-snug tracking-tight inline-block whitespace-pre-line text-center transition-all cursor-move px-2",
-                    subtitleUseBox && "px-3 py-1.5 rounded-[4px]"
+                    subtitleUseBox && "px-3 py-1.5"
                   )}
                   style={{
                     fontSize: `${subtitleConfig.fontSize || 18}px`,
                     color: subtitleConfig.fillColor || '#FFFFFF',
                     fontFamily: subtitleConfig.fontFamily || 'Pretendard',
                     backgroundColor: subtitleUseBox ? subtitleBoxColor : 'transparent',
-                    WebkitTextStroke: `${subtitleConfig.strokeWidth || 4}px ${subtitleConfig.strokeColor || '#000000'}`,
-                    textShadow: subtitleShadow ? '0 2px 10px rgba(0,0,0,0.95)' : 'none',
+                    borderRadius: subtitleUseBox ? `${subtitleBorderRadius}px` : 0,
+                    WebkitTextStroke: subtitleStrokeEnabled
+                      ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
+                      : `${subtitleConfig.strokeWidth || 4}px ${subtitleConfig.strokeColor || '#000000'}`,
+                    paintOrder: 'stroke fill',
+                    WebkitFontSmoothing: 'antialiased',
+                    textShadow: subtitleShadowEnabled
+                      ? '0 2px 10px rgba(0,0,0,0.95)'
+                      : 'none',
                   }}
                 >
                   {formatWrappedText(activeSub?.data || '자막 텍스트', subtitleMaxChars)}
                 </div>
               </TransformGizmo>
 
-              {/* 🏷️ LAYER 5: 하단 출처 표기 (TransformGizmo 완벽 장착 - 마우스 이동 100% 지원) */}
+              {/* 🏷️ LAYER 5: 하단 출처 표기 */}
               {hasBottomSource && (
                 <TransformGizmo
                   transform={sourceTransform}
@@ -2235,14 +2264,22 @@ export const ShortsEditorStudio: React.FC = () => {
                     setBottomSourceBottomPct(100 - newT.yPct);
                   }}
                 >
-                  <div className="select-none text-center whitespace-nowrap px-2 cursor-move">
+                  <div
+                    className="select-none text-center whitespace-nowrap px-2 cursor-move"
+                    style={{
+                      backgroundColor: bottomSourceBg ? 'rgba(0,0,0,0.7)' : 'transparent',
+                      borderRadius: `${bottomSourceBorderRadius}px`,
+                    }}
+                  >
                     <span
                       className="font-medium tracking-wide drop-shadow-md"
                       style={{
                         fontSize: `${bottomSourceSizePx}px`,
                         color: bottomSourceColor,
                         fontFamily: titleFontFamily,
-                        textShadow: '0 1px 4px rgba(0,0,0,0.9)',
+                        WebkitTextStroke: bottomSourceStroke ? '1px #000000' : 'none',
+                        paintOrder: 'stroke fill',
+                        textShadow: bottomSourceShadow ? '0 1px 4px rgba(0,0,0,0.9)' : 'none',
                       }}
                     >
                       {bottomSourceText}
@@ -2590,34 +2627,80 @@ export const ShortsEditorStudio: React.FC = () => {
             {/* 1. 👑 타이틀 / 출처 / 상하단 바 탭 */}
             {activeInspectorTab === 'titleSource' && (
               <div className="space-y-3">
-                {/* 상단 2단 타이틀 카드 */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
+                {/* 상단 고정 타이틀 카드 */}
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5">
                       <Type className="w-3.5 h-3.5 text-primary" />
-                      상단 2단 타이틀
-                    </span>
+                      <span className="text-[11px] font-bold text-foreground">상단 고정 타이틀</span>
+                    </div>
                     <Switch checked={hasTopTitle} onCheckedChange={setHasTopTitle} />
                   </div>
 
                   {hasTopTitle && (
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-muted-foreground">상단 뱃지 문구</label>
-                        <input
-                          type="text"
-                          value={titleBadgeText}
-                          onChange={(e) => setTitleBadgeText(e.target.value)}
-                          className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
-                          placeholder="VIRALOOP HIGHLIGHT"
-                        />
+                    <div className="space-y-2.5">
+                      {/* 1줄 vs 2줄 모드 선택 */}
+                      <div className="flex items-center justify-between bg-muted/40 p-1.5 rounded-[2px]">
+                        <span className="text-[10px] font-semibold text-foreground">줄 수 설정</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setTitleLinesMode('single')}
+                            className={cn(
+                              "px-2 py-0.5 text-[10px] font-bold rounded-[2px] transition cursor-pointer",
+                              titleLinesMode === 'single'
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-card text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            1줄 고정
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTitleLinesMode('double')}
+                            className={cn(
+                              "px-2 py-0.5 text-[10px] font-bold rounded-[2px] transition cursor-pointer",
+                              titleLinesMode === 'double'
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-card text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            2줄 고정 (추천)
+                          </button>
+                        </div>
                       </div>
 
-                      {/* 1단 타이틀 */}
+                      {/* 뱃지 설정 */}
                       <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground font-semibold">상단 뱃지 태그</span>
+                          <Switch checked={hasTitleBadge} onCheckedChange={setHasTitleBadge} />
+                        </div>
+                        {hasTitleBadge && (
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              value={titleBadgeText}
+                              onChange={(e) => setTitleBadgeText(e.target.value)}
+                              className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                              placeholder="HOT ISSUE"
+                            />
+                            <input
+                              type="color"
+                              value={titleBadgeColor}
+                              onChange={(e) => setTitleBadgeColor(e.target.value)}
+                              className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
+                              title="뱃지 배경색"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 1단 타이틀 (위 텍스트) */}
+                      <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
                         <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground font-semibold">1단 타이틀</span>
-                          <span className="font-mono text-primary">{titleLine1SizePx}px</span>
+                          <span className="text-foreground font-semibold">1단 텍스트 (상단)</span>
+                          <span className="font-mono text-primary font-bold">{titleLine1SizePx}px</span>
                         </div>
                         <div className="flex gap-1.5">
                           <input
@@ -2625,6 +2708,7 @@ export const ShortsEditorStudio: React.FC = () => {
                             value={titleLine1}
                             onChange={(e) => setTitleLine1(e.target.value)}
                             className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                            placeholder="1단 타이틀 입력..."
                           />
                           <input
                             type="color"
@@ -2637,146 +2721,243 @@ export const ShortsEditorStudio: React.FC = () => {
                         <input
                           type="range"
                           min="14"
-                          max="36"
+                          max="40"
                           value={titleLine1SizePx}
                           onChange={(e) => setTitleLine1SizePx(parseInt(e.target.value))}
                           className="w-full accent-primary cursor-pointer h-1 bg-muted"
                         />
                       </div>
 
-                      {/* 2단 타이틀 */}
-                      <div className="space-y-1 pt-1 border-t border-border">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground font-semibold">2단 타이틀</span>
-                          <span className="font-mono text-amber-500 font-bold">{titleLine2SizePx}px</span>
-                        </div>
-                        <div className="flex gap-1.5">
+                      {/* 2단 타이틀 (아래 텍스트 - double 모드일 때) */}
+                      {titleLinesMode === 'double' && (
+                        <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-foreground font-semibold">2단 텍스트 (하단 핵심 후킹)</span>
+                            <span className="font-mono text-amber-500 font-bold">{titleLine2SizePx}px</span>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              value={titleLine2}
+                              onChange={(e) => setTitleLine2(e.target.value)}
+                              className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                              placeholder="2단 타이틀 입력..."
+                            />
+                            <input
+                              type="color"
+                              value={titleLine2Color}
+                              onChange={(e) => setTitleLine2Color(e.target.value)}
+                              className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
+                              title="2단 글자 색상"
+                            />
+                          </div>
                           <input
-                            type="text"
-                            value={titleLine2}
-                            onChange={(e) => setTitleLine2(e.target.value)}
-                            className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
-                          />
-                          <input
-                            type="color"
-                            value={titleLine2Color}
-                            onChange={(e) => setTitleLine2Color(e.target.value)}
-                            className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                            title="2단 글자 색상"
+                            type="range"
+                            min="16"
+                            max="44"
+                            value={titleLine2SizePx}
+                            onChange={(e) => setTitleLine2SizePx(parseInt(e.target.value))}
+                            className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
                           />
                         </div>
-                        <input
-                          type="range"
-                          min="16"
-                          max="42"
-                          value={titleLine2SizePx}
-                          onChange={(e) => setTitleLine2SizePx(parseInt(e.target.value))}
-                          className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                        />
+                      )}
+
+                      {/* 🎨 테두리(외곽선) 상세 제어 */}
+                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
+                          <Switch checked={titleStroke} onCheckedChange={setTitleStroke} />
+                        </div>
+                        {titleStroke && (
+                          <div className="space-y-1 pt-1">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">두께: {titleStrokeWidth}px</span>
+                              <input
+                                type="color"
+                                value={titleStrokeColor}
+                                onChange={(e) => setTitleStrokeColor(e.target.value)}
+                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                                title="테두리 색상"
+                              />
+                            </div>
+                            <input
+                              type="range"
+                              min="1"
+                              max="10"
+                              value={titleStrokeWidth}
+                              onChange={(e) => setTitleStrokeWidth(parseInt(e.target.value))}
+                              className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                            />
+                          </div>
+                        )}
                       </div>
 
-                      {/* Y 위치 */}
-                      <div className="space-y-1 pt-1">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">Y축 위치</span>
-                          <span className="font-mono text-primary">{topTitleYPct}%</span>
+                      {/* 🌌 그림자 상세 제어 */}
+                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
+                          <Switch checked={titleShadow} onCheckedChange={setTitleShadow} />
                         </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="25"
-                          step="0.5"
-                          value={topTitleYPct}
-                          onChange={(e) => setTopTitleYPct(parseFloat(e.target.value))}
-                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                        />
+                        {titleShadow && (
+                          <div className="space-y-1 pt-1">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">흐림: {titleShadowBlur}px</span>
+                              <input
+                                type="color"
+                                value="#000000"
+                                onChange={(e) => setTitleShadowColor(e.target.value)}
+                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                                title="그림자 색상"
+                              />
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="20"
+                              value={titleShadowBlur}
+                              onChange={(e) => setTitleShadowBlur(parseInt(e.target.value))}
+                              className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 🔲 배경 박스 & 모서리 둥글기 제어 */}
+                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-semibold text-foreground">배경 박스</span>
+                          <div className="flex gap-1">
+                            {(['none', 'box', 'pill'] as const).map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setTitleBgMode(m)}
+                                className={cn(
+                                  "px-1.5 py-0.5 text-[9px] rounded font-medium",
+                                  titleBgMode === m ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                                )}
+                              >
+                                {m === 'none' ? '없음' : m === 'box' ? '박스' : '알약'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {titleBgMode !== 'none' && (
+                          <div className="space-y-2 pt-1 border-t border-border/50">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">배경 색상</span>
+                              <input
+                                type="color"
+                                value="#000000"
+                                onChange={(e) => setTitleBgColor(e.target.value)}
+                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                              />
+                            </div>
+                            {titleBgMode === 'box' && (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px]">
+                                  <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
+                                  <span className="font-mono text-primary">{titleBorderRadius}px</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="30"
+                                  value={titleBorderRadius}
+                                  onChange={(e) => setTitleBorderRadius(parseInt(e.target.value))}
+                                  className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                                />
+                              </div>
+                            )}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px]">
+                                <span className="text-muted-foreground">내부 패딩</span>
+                                <span className="font-mono">{titlePaddingX}px</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="2"
+                                max="30"
+                                value={titlePaddingX}
+                                onChange={(e) => setTitlePaddingX(parseInt(e.target.value))}
+                                className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
                 </div>
 
                 {/* 하단 출처 표기 카드 */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2 shadow-2xs">
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground">하단 출처 텍스트</span>
+                    <span className="text-[11px] font-bold text-foreground">하단 출처 표기</span>
                     <Switch checked={hasBottomSource} onCheckedChange={setHasBottomSource} />
                   </div>
-
                   {hasBottomSource && (
                     <div className="space-y-2">
-                      <div className="flex gap-1.5">
-                        <input
-                          type="text"
-                          value={bottomSourceText}
-                          onChange={(e) => setBottomSourceText(e.target.value)}
-                          className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground"
-                          placeholder="출처: 원본 비하인드 공식 영상"
-                        />
+                      <input
+                        type="text"
+                        value={bottomSourceText}
+                        onChange={(e) => setBottomSourceText(e.target.value)}
+                        className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium"
+                      />
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-muted-foreground">글자 색상</span>
                         <input
                           type="color"
                           value={bottomSourceColor}
                           onChange={(e) => setBottomSourceColor(e.target.value)}
-                          className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                          title="출처 글자 색상"
+                          className="w-6 h-6 p-0 border border-border rounded cursor-pointer bg-transparent"
                         />
                       </div>
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground">바닥 여백</span>
-                        <span className="font-mono text-primary">{bottomSourceBottomPct}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="10"
-                        step="0.5"
-                        value={bottomSourceBottomPct}
-                        onChange={(e) => setBottomSourceBottomPct(parseFloat(e.target.value))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
                     </div>
                   )}
                 </div>
 
-                {/* 상단 및 하단 배경 바 설정 */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2 shadow-2xs">
-                  <div className="text-[11px] font-bold text-foreground border-b border-border pb-1">
-                    상·하단 배경 바 (레터박스)
+                {/* 상단 및 하단 배경 바 카드 */}
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5">
+                    <span className="text-[11px] font-bold text-foreground">상하단 배경 바</span>
                   </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground">상단 바 배경 ({topBarHeightPct}%)</span>
-                    <Switch checked={hasTopBarBg} onCheckedChange={setHasTopBarBg} />
+                  <div className="space-y-2 text-[10px]">
+                    <div className="flex items-center justify-between">
+                      <span>상단 배경 바</span>
+                      <Switch checked={hasTopBarBg} onCheckedChange={setHasTopBarBg} />
+                    </div>
+                    {hasTopBarBg && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">높이: {topBarHeightPct}%</span>
+                          <input
+                            type="color"
+                            value={topBarBg}
+                            onChange={(e) => setTopBarBg(e.target.value)}
+                            className="w-4 h-4 p-0 border border-border rounded cursor-pointer bg-transparent"
+                          />
+                        </div>
+                        <input
+                          type="range"
+                          min="5"
+                          max="30"
+                          value={topBarHeightPct}
+                          onChange={(e) => setTopBarHeightPct(parseInt(e.target.value))}
+                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-1 border-t border-border">
+                      <span>하단 배경 바</span>
+                      <Switch checked={hasBottomBarBg} onCheckedChange={setHasBottomBarBg} />
+                    </div>
                   </div>
-                  {hasTopBarBg && (
-                    <input
-                      type="range"
-                      min="5"
-                      max="30"
-                      step="0.5"
-                      value={topBarHeightPct}
-                      onChange={(e) => setTopBarHeightPct(parseFloat(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                    />
-                  )}
-                  <div className="flex items-center justify-between text-[10px] pt-1">
-                    <span className="text-muted-foreground">하단 바 배경 ({bottomBarHeightPct}%)</span>
-                    <Switch checked={hasBottomBarBg} onCheckedChange={setHasBottomBarBg} />
-                  </div>
-                  {hasBottomBarBg && (
-                    <input
-                      type="range"
-                      min="2"
-                      max="20"
-                      step="0.5"
-                      value={bottomBarHeightPct}
-                      onChange={(e) => setBottomBarHeightPct(parseFloat(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                    />
-                  )}
                 </div>
               </div>
             )}
 
-            {/* 2. 🎬 비디오 크롭 / 핏 탭 */}
             {activeInspectorTab === 'videoCrop' && (
               <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
@@ -2895,77 +3076,118 @@ export const ShortsEditorStudio: React.FC = () => {
             {/* 3. ⚡ 긴박 쨉쨉이 훅 탭 */}
             {activeInspectorTab === 'jabHook' && (
               <div className="space-y-3">
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground">긴박 쨉쨉이 (반전 훅)</span>
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      긴박 쨉쨉이 훅 (임팩트 텍스트)
+                    </span>
                     <Switch checked={hasJab} onCheckedChange={setHasJab} />
                   </div>
 
                   {hasJab && (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <div className="space-y-1">
-                        <label className="text-[10px] text-muted-foreground">쨉쨉이 문구</label>
+                        <label className="text-[10px] text-muted-foreground font-semibold">훅 문구</label>
                         <input
                           type="text"
                           value={jabText}
                           onChange={(e) => setJabText(e.target.value)}
                           className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
+                          placeholder="*3초 만에 몰입되는 반전!*"
                         />
                       </div>
 
-                      {/* 회전 각도 슬라이더 */}
-                      <div className="space-y-1">
+                      {/* 회전 각도 (-15° ~ +15°) */}
+                      <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
                         <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">회전 각도 (Tilt)</span>
+                          <span className="text-foreground font-semibold">회전 각도 (Tilt)</span>
                           <span className="font-mono text-amber-500 font-bold">{jabTiltDeg}°</span>
                         </div>
                         <input
                           type="range"
-                          min="-12"
-                          max="12"
-                          step="1"
+                          min="-15"
+                          max="15"
                           value={jabTiltDeg}
                           onChange={(e) => setJabTiltDeg(parseInt(e.target.value))}
                           className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
                         />
                       </div>
 
-                      {/* Y 위치 슬라이더 */}
-                      <div className="space-y-1">
+                      {/* 글자 크기 & 색상 */}
+                      <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
                         <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">Y 위치</span>
-                          <span className="font-mono text-primary font-bold">{jabYPercent}%</span>
+                          <span className="text-foreground font-semibold">글자 크기</span>
+                          <span className="font-mono text-primary font-bold">{jabFontSize}px</span>
                         </div>
-                        <input
-                          type="range"
-                          min="20"
-                          max="70"
-                          step="0.5"
-                          value={jabYPercent}
-                          onChange={(e) => setJabYPercent(parseFloat(e.target.value))}
-                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                        />
+                        <div className="flex gap-1.5 items-center">
+                          <input
+                            type="range"
+                            min="10"
+                            max="30"
+                            value={jabFontSize}
+                            onChange={(e) => setJabFontSize(parseInt(e.target.value))}
+                            className="flex-1 accent-primary cursor-pointer h-1 bg-muted"
+                          />
+                          <input
+                            type="color"
+                            value={jabTextColor}
+                            onChange={(e) => setJabTextColor(e.target.value)}
+                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer bg-transparent"
+                            title="글자 색상"
+                          />
+                        </div>
                       </div>
 
-                      {/* 글자 및 배경 색상 */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-muted-foreground">글자색</label>
-                          <input
-                            type="color"
-                            value={jabColor}
-                            onChange={(e) => setJabColor(e.target.value)}
-                            className="w-full h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                          />
+                      {/* 🔲 배경 박스 & 모서리 둥글기 */}
+                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-semibold text-foreground">배경 박스</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={jabBgColor}
+                              onChange={(e) => setJabBgColor(e.target.value)}
+                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                            />
+                            <Switch checked={jabBgEnabled} onCheckedChange={setJabBgEnabled} />
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-muted-foreground">배경색</label>
-                          <input
-                            type="color"
-                            value={jabBgColor}
-                            onChange={(e) => setJabBgColor(e.target.value)}
-                            className="w-full h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                          />
+                        {jabBgEnabled && (
+                          <div className="space-y-1 pt-1 border-t border-border/50">
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
+                              <span className="font-mono text-amber-500 font-bold">{jabBorderRadius}px</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="30"
+                              value={jabBorderRadius}
+                              onChange={(e) => setJabBorderRadius(parseInt(e.target.value))}
+                              className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 테두리(외곽선) & 그림자 */}
+                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-semibold text-foreground">테두리 (외곽선)</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value={jabStrokeColor}
+                              onChange={(e) => setJabStrokeColor(e.target.value)}
+                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                            />
+                            <Switch checked={jabStroke} onCheckedChange={setJabStroke} />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] pt-1 border-t border-border/50">
+                          <span className="font-semibold text-foreground">입체 그림자</span>
+                          <Switch checked={jabShadow} onCheckedChange={setJabShadow} />
                         </div>
                       </div>
                     </div>
@@ -2974,75 +3196,110 @@ export const ShortsEditorStudio: React.FC = () => {
               </div>
             )}
 
-            {/* 4. 💬 본문 자막 스타일 탭 */}
             {activeInspectorTab === 'style' && (
               <div className="space-y-3">
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
-                  <div className="text-[11px] font-bold text-foreground border-b border-border pb-1">
-                    자막 내려쓰기 & 배치
-                  </div>
-                  {/* 1줄 내려쓰기 기준 글자 수 */}
-                  <div className="space-y-1">
+                {/* 본문 자막 모서리/배경/외곽선/그림자 제어 패널 */}
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5 border-b border-border pb-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                    본문 자막 스타일 & 배경 효과
+                  </span>
+
+                  {/* 자동 내려쓰기 글자 수 */}
+                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
                     <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">1줄 최대 글자 수 (자동 개행)</span>
-                      <span className="font-mono text-primary font-bold">{subtitleMaxChars}자</span>
+                      <span className="text-foreground font-semibold">자동 줄바꿈 (내려쓰기 글자 수)</span>
+                      <span className="font-mono text-emerald-500 font-bold">{subtitleMaxChars}자</span>
                     </div>
                     <input
                       type="range"
-                      min="8"
-                      max="28"
-                      step="1"
+                      min="6"
+                      max="20"
                       value={subtitleMaxChars}
                       onChange={(e) => setSubtitleMaxChars(parseInt(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
                     />
                   </div>
 
-                  {/* 자막 수직 Y 위치 */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground">자막 Y 위치</span>
-                      <span className="font-mono text-primary font-bold">{subtitleYPercent}%</span>
+                  {/* 테두리(외곽선) 상세 제어 */}
+                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-semibold text-foreground">자막 테두리 (외곽선)</span>
+                      <Switch checked={subtitleStrokeEnabled} onCheckedChange={setSubtitleStrokeEnabled} />
                     </div>
-                    <input
-                      type="range"
-                      min="50"
-                      max="90"
-                      step="0.5"
-                      value={subtitleYPercent}
-                      onChange={(e) => setSubtitleYPercent(parseFloat(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                    />
+                    {subtitleStrokeEnabled && (
+                      <div className="space-y-1 pt-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-muted-foreground">두께: {subtitleStrokeWidth}px</span>
+                          <input
+                            type="color"
+                            value={subtitleStrokeColor}
+                            onChange={(e) => setSubtitleStrokeColor(e.target.value)}
+                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                          />
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          value={subtitleStrokeWidth}
+                          onChange={(e) => setSubtitleStrokeWidth(parseInt(e.target.value))}
+                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  {/* 배경 박스 토글 */}
-                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-border">
-                    <span className="text-muted-foreground">자막 배경 필 박스</span>
-                    <Switch checked={subtitleUseBox} onCheckedChange={setSubtitleUseBox} />
+                  {/* 입체 그림자 제어 */}
+                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-semibold text-foreground">자막 입체 그림자</span>
+                      <Switch checked={subtitleShadowEnabled} onCheckedChange={setSubtitleShadowEnabled} />
+                    </div>
+                  </div>
+
+                  {/* 🔲 자막 배경 필 박스 & 모서리 둥글기 */}
+                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-semibold text-foreground">배경 필 박스 (Pill Box)</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value="#000000"
+                          onChange={(e) => setSubtitleBoxColor(e.target.value)}
+                          className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                        />
+                        <Switch checked={subtitleUseBox} onCheckedChange={setSubtitleUseBox} />
+                      </div>
+                    </div>
+                    {subtitleUseBox && (
+                      <div className="space-y-1 pt-1 border-t border-border/50">
+                        <div className="flex justify-between text-[10px]">
+                          <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
+                          <span className="font-mono text-emerald-500 font-bold">{subtitleBorderRadius}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="30"
+                          value={subtitleBorderRadius}
+                          onChange={(e) => setSubtitleBorderRadius(parseInt(e.target.value))}
+                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* SubtitleConfigPanel 통합 */}
-                <div className="border-t border-border pt-2 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-foreground">자막 엔진 세부 설정</span>
-                    <Badge variant="outline" className="text-[9px] font-mono text-primary">LIVE</Badge>
-                  </div>
+                <div className="border-t border-border pt-2">
                   <SubtitleConfigPanel
                     config={subtitleConfig}
-                    onChange={(newCfg) => {
-                      setSubtitleConfig(newCfg);
-                      try {
-                        localStorage.setItem('viral_loop_subtitle_config', JSON.stringify(newCfg));
-                      } catch (e) {}
-                    }}
-                    compact={true}
+                    onChange={setSubtitleConfig}
                   />
                 </div>
               </div>
             )}
 
-            {/* 5. 🎙️ 음성 (TTS) 탭 & 나레이션 트랙 제어 */}
             {activeInspectorTab === 'tts' && (
               <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
