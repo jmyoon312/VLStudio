@@ -29,6 +29,7 @@ import { SUBTITLE_STYLES, DDALKKAK_TTS_PRESETS } from '@/types/ddalkkak';
 import { Highlighter, Send, Globe2, ThumbsUp, MessageCircle, Palette } from 'lucide-react';
 import { SFX_CATALOG, playSynthesizedSfx, SfxItem } from '@/config/sfxCatalog';
 import { proceduralBgmEngine, BGM_PRESETS } from '@/services/proceduralBgmEngine';
+import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/components/memeAssets';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -297,6 +298,12 @@ const SHORTS_SUBTITLE_DESIGN_PRESETS: SubtitleDesignPreset[] = [
     sampleText: '볼드 클래식 자막',
   },
 ];
+
+// 🏛️ 4대 폼팩터 통합 템플릿 모드 (기본형 / 인스타 구멍형 / 군림보 후킹형 / 썰형 누적·단일형)
+export type LayoutTemplateMode = 'classic' | 'instagram' | 'gunlimbo' | 'ssul';
+export type SsulTextMode = 'accumulate' | 'single-stepped' | 'single-fixed';
+export type ScriptSplitPreset = 'shorts' | 'balanced' | 'sentence';
+export type BgmMood = 'energetic' | 'emotional' | 'suspense' | 'funny' | 'cinematic';
 
 export const ShortsEditorStudio: React.FC = () => {
   const { toast } = useToast();
@@ -613,7 +620,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState<string>('');
   
   // 🎛️ 우측 6대 프로 인스펙터 탭 (자막/스타일, 변형, 음성TTS, 전환, 워터마크, 채널DNA)
-  const [activeInspectorTab, setActiveInspectorTab] = useState<'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('titleSource');
+  const [activeInspectorTab, setActiveInspectorTab] = useState<'template' | 'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('template');
 
   // 🗣️ 전체 대본 상태
   const [fullScript, setFullScript] = useState<string>(
@@ -694,6 +701,109 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   });
 
   // 💬 하단 바이럴 댓글 카드 상태
+
+
+  const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>('classic');
+
+  // 📷 인스타형 (Hole-Punch Media + 프로필 헤더 + 액션 바)
+  const [instaConfig, setInstaConfig] = useState<{
+    profileName: string;
+    profileHandle: string;
+    profileAvatarUrl: string;
+    isVerified: boolean;
+    holeRatio: '1:1' | '4:5' | 'custom';
+    holeRoundness: number;
+    holeBorderWidth: number;
+    holeBorderColor: string;
+    holeShadow: boolean;
+    showActions: boolean;
+    likesCount: string;
+    theme: 'white' | 'dark' | 'sunset' | 'cyber';
+  }>({
+    profileName: 'ViraLoop Official',
+    profileHandle: '@viraloop_official',
+    profileAvatarUrl: 'https://api.dicebear.com/9.x/lorelei/svg?seed=viraloop',
+    isVerified: true,
+    holeRatio: '4:5',
+    holeRoundness: 16,
+    holeBorderWidth: 1,
+    holeBorderColor: 'rgba(255,255,255,0.18)',
+    holeShadow: true,
+    showActions: true,
+    likesCount: '14.8만',
+    theme: 'dark',
+  });
+
+  // 🎯 군림보형 (0~2.5초 인트로 후킹 줌인 + 3줄 속보 헤드라인)
+  const [gunlimboConfig, setGunlimboConfig] = useState<{
+    introDurationSec: number;
+    hookMainTitle: string;
+    hookPhrase: string;
+    hookAnimationScale: number;
+    headlineLine1: string;
+    headlineLine2: string;
+    headlineLine3: string;
+    headlineBadge: string;
+  }>({
+    introDurationSec: 2.5,
+    hookMainTitle: '제목을\n입력해주세요',
+    hookPhrase: '후킹문구를 입력하세요',
+    hookAnimationScale: 1.25,
+    headlineLine1: '손흥민 80m 단독 폭풍 드리블',
+    headlineLine2: '푸스카스상 후보 원더골 작렬',
+    headlineLine3: '현지 축구 해설진 전원 기립 극찬',
+    headlineBadge: '속보',
+  });
+
+  // 📜 썰형 (커뮤니티 헤더 + 텍스트 모드 + 상징 밈/일러스트)
+  const [ssulConfig, setSsulConfig] = useState<{
+    communityType: 'blind' | 'nate' | 'fmkorea' | 'dcinside';
+    author: string;
+    timeText: string;
+    viewsText: string;
+    upvotesText: string;
+    textMode: SsulTextMode;
+    memeType: MemeType;
+    memeEmotion: MemeEmotion;
+    customMemeUrl?: string;
+    memeAliveMotion: boolean;
+    currentParagraphIndex: number;
+  }>({
+    communityType: 'blind',
+    author: '익명의 직장인',
+    timeText: '방금 전',
+    viewsText: '조회 14,290',
+    upvotesText: '추천 342',
+    textMode: 'accumulate',
+    memeType: 'pepe',
+    memeEmotion: 'panic',
+    memeAliveMotion: true,
+    currentParagraphIndex: 0,
+  });
+
+  // 💬 티키타카 3단 멀티 댓글 시퀀스 상태
+  const [tikiTakaComments, setTikiTakaComments] = useState<Array<{
+    id: string;
+    author: string;
+    handle: string;
+    text: string;
+    timeText: string;
+    likes: string;
+    delaySec: number;
+    isReply: boolean;
+  }>>([
+    { id: 'c1', author: '축구도사', handle: '@soccer_guru', text: '아니 이게 실화냐고 ㅋㅋㅋㅋ 미쳤네 진짜', timeText: '3시간 전', likes: '1.4만', delaySec: 1.8, isReply: false },
+    { id: 'c2', author: '흥민바라기', handle: '@sonny_love', text: 'ㄴ 현장에서 직접 봤는데 경기장 뒤집어짐 ㅠㅠ', timeText: '2시간 전', likes: '3,820', delaySec: 4.8, isReply: true },
+    { id: 'c3', author: '냉철한비평가', handle: '@cold_critic', text: 'ㄴ 근데 수비 실책도 한몫했음 솔직히 ㅋㅋ', timeText: '1시간 전', likes: '890', delaySec: 8.2, isReply: true },
+  ]);
+
+  // ✂️ 3대 AI 대본 분할 프리셋 (쇼츠형, 균형형, 문장형)
+  const [scriptSplitPreset, setScriptSplitPreset] = useState<ScriptSplitPreset>('shorts');
+
+  // 🎵 5대 무드 BGM 라이브러리 선택 상태
+  const [selectedBgmMood, setSelectedBgmMood] = useState<BgmMood>('suspense');
+  const [autoMoodMatching, setAutoMoodMatching] = useState<boolean>(true);
+
   const [hasCommentCard, setHasCommentCard] = useState<boolean>(false);
   const [commentTransform, setCommentTransform] = useState<NleLayerTransform>(
     createDefaultTransform({ xPct: 50, yPct: 82, zIndex: 12, scale: 1.0 })
@@ -1895,9 +2005,19 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           scale: videoZoomScale,
         },
         topTitle: {
-          enabled: hasTopTitle && trackVisibility.t1Title,
-          line1: titleLine1,
-          line2: titleLine2,
+          enabled: (hasTopTitle || layoutTemplateMode === 'gunlimbo' || layoutTemplateMode === 'instagram' || layoutTemplateMode === 'ssul') && trackVisibility.t1Title,
+          line1: layoutTemplateMode === 'gunlimbo' 
+            ? `[${gunlimboConfig.headlineBadge}] ${gunlimboConfig.headlineLine1}` 
+            : layoutTemplateMode === 'instagram'
+            ? instaConfig.profileName
+            : layoutTemplateMode === 'ssul'
+            ? `[${ssulConfig.communityType.toUpperCase()}] ${ssulConfig.author}`
+            : titleLine1,
+          line2: layoutTemplateMode === 'gunlimbo' 
+            ? gunlimboConfig.headlineLine2 
+            : layoutTemplateMode === 'instagram'
+            ? instaConfig.profileHandle
+            : titleLine2,
           mode: titleLinesMode,
           line1Color: titleLine1Color,
           line2Color: titleLine2Color,
@@ -4037,6 +4157,106 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
+              {/* 🎯 [군림보형] 0~2.5초 인트로 후킹 줌인 화면 오버레이 */}
+              {layoutTemplateMode === 'gunlimbo' && currentTimeMs <= gunlimboConfig.introDurationSec * 1000 && (
+                <div 
+                  className="absolute inset-0 bg-black z-50 flex flex-col items-center justify-center p-6 select-none"
+                  style={{
+                    animation: 'none',
+                  }}
+                >
+                  <div 
+                    className="flex flex-col items-center text-center space-y-6 transition-transform duration-75 ease-out"
+                    style={{
+                      transform: `scale(${1.0 + (gunlimboConfig.hookAnimationScale - 1.0) * Math.min(1.0, currentTimeMs / (gunlimboConfig.introDurationSec * 1000))})`,
+                    }}
+                  >
+                    {/* 대제목 (노란색/흰색 굵은 폰트) */}
+                    <h1 className="text-3xl font-black text-amber-400 tracking-tight leading-tight drop-shadow-lg whitespace-pre-line">
+                      {gunlimboConfig.hookMainTitle}
+                    </h1>
+                    {/* 중앙 흰색 띠 바탕의 후킹 문구 */}
+                    <div className="w-full bg-white text-black py-3 px-6 rounded-xs shadow-2xl border-2 border-amber-400/80">
+                      <span className="text-xl font-black tracking-tight text-neutral-950">
+                        {gunlimboConfig.hookPhrase}
+                      </span>
+                    </div>
+                  </div>
+                  {/* 하단 진행도 인디케이터 */}
+                  <div className="absolute bottom-6 w-32 h-1 bg-white/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-amber-400 transition-all duration-75"
+                      style={{ width: `${Math.min(100, (currentTimeMs / (gunlimboConfig.introDurationSec * 1000)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 🎯 [군림보형] 본문 구간 상단 3줄 속보 헤드라인 바 (2.5초 이후) */}
+              {layoutTemplateMode === 'gunlimbo' && currentTimeMs > gunlimboConfig.introDurationSec * 1000 && (
+                <div className="absolute top-3 left-3 right-3 z-40 bg-neutral-950/90 border border-amber-500/40 rounded-xs p-2.5 shadow-xl select-none">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="bg-red-600 text-white font-black text-[9px] px-1.5 py-0.2 rounded-2xs uppercase tracking-wider animate-pulse">
+                      {gunlimboConfig.headlineBadge}
+                    </span>
+                    <span className="text-white font-black text-xs truncate">
+                      {gunlimboConfig.headlineLine1}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-bold text-amber-300 leading-tight truncate">
+                    {gunlimboConfig.headlineLine2}
+                  </div>
+                  <div className="text-[10px] font-medium text-neutral-300 leading-tight truncate mt-0.5">
+                    {gunlimboConfig.headlineLine3}
+                  </div>
+                </div>
+              )}
+
+              {/* 📸 [인스타형] 상단 프로필 헤더 (원형 아바타 + 아이디 + 인증마크 + 더보기) */}
+              {layoutTemplateMode === 'instagram' && (
+                <div className="absolute top-3 left-3 right-3 z-40 flex items-center justify-between p-2 bg-neutral-950/75 backdrop-blur-md rounded-md border border-white/10 select-none">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-full overflow-hidden border border-pink-500/60 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 shrink-0">
+                      <img src={instaConfig.profileAvatarUrl} alt="Avatar" className="w-full h-full object-cover rounded-full bg-white" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-white font-black text-[11px] truncate leading-tight">{instaConfig.profileName}</span>
+                        {instaConfig.isVerified && (
+                          <svg className="w-3 h-3 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-white/60 text-[9px] truncate leading-tight">{instaConfig.profileHandle}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-white/70">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-500 text-white text-[9.5px]">팔로우</span>
+                    <span className="text-sm font-black cursor-pointer leading-none">•••</span>
+                  </div>
+                </div>
+              )}
+
+              {/* 📜 [썰형] 상단 커뮤니티 게시글 헤더 (블라인드 / 네이트판 / 추천수) */}
+              {layoutTemplateMode === 'ssul' && (
+                <div className="absolute top-3 left-3 right-3 z-40 bg-neutral-900/90 backdrop-blur-md border border-emerald-500/30 rounded-md p-2 shadow-lg select-none">
+                  <div className="flex items-center justify-between text-[10px] mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-2xs text-[9px] uppercase">
+                        {ssulConfig.communityType.toUpperCase()}
+                      </span>
+                      <span className="text-white font-bold">{ssulConfig.author}</span>
+                      <span className="text-neutral-400 text-[9px]">{ssulConfig.timeText}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-neutral-400">
+                      <span>{ssulConfig.viewsText}</span>
+                      <span className="text-emerald-400 font-bold">{ssulConfig.upvotesText}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ⬛ LAYER 1: 상단 배경 바 (Top Bar Bg - 독립 제어) */}
               {hasTopBarBg && (
                 <div
@@ -4309,6 +4529,37 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   title="클릭하여 하단 배경 바 설정"
                 />
               )}
+              {/* 📸 [인스타형] 하단 소셜 액션 바 (하트 / 말풍선 / 종이비행기 / 북마크 / 좋아요수) */}
+              {layoutTemplateMode === 'instagram' && instaConfig.showActions && (
+                <div className="absolute bottom-28 left-4 right-4 z-40 bg-neutral-950/80 backdrop-blur-md p-2 rounded-md border border-white/10 select-none">
+                  <div className="flex items-center justify-between text-white mb-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-red-500 text-sm cursor-pointer hover:scale-110 transition">❤️</span>
+                      <span className="text-sm cursor-pointer hover:scale-110 transition">💬</span>
+                      <span className="text-sm cursor-pointer hover:scale-110 transition">✈️</span>
+                    </div>
+                    <span className="text-sm cursor-pointer hover:scale-110 transition">🔖</span>
+                  </div>
+                  <div className="text-[10.5px] font-black text-white">
+                    좋아요 <span className="text-rose-400">{instaConfig.likesCount}</span>개
+                  </div>
+                </div>
+              )}
+
+              {/* 📜 [썰형] 텍스트 모드 & 페페 / 이라스토야 밈 캐릭터 인터리빙 */}
+              {layoutTemplateMode === 'ssul' && ssulConfig.memeType !== 'none' && (
+                <div className="absolute bottom-20 left-0 right-0 z-35 flex flex-col items-center pointer-events-none select-none">
+                  <MemeAvatar
+                    type={ssulConfig.memeType}
+                    emotion={ssulConfig.memeEmotion}
+                    customUrl={ssulConfig.customMemeUrl}
+                    aliveMotion={ssulConfig.memeAliveMotion && isPlaying}
+                    size={130}
+                    className="drop-shadow-2xl"
+                  />
+                </div>
+              )}
+
               {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (픽셀링 스타일 & 닉네임 블러 & 유튜브 테마) */}
               {hasCommentCard && (
                 <TransformGizmo
@@ -4641,7 +4892,18 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             </span>
           </div>
 
-          <div className="grid grid-cols-4 gap-0.5 border-b border-border bg-muted/40 p-0.5 text-[9.5px]">
+          <div className="grid grid-cols-3 gap-0.5 border-b border-border bg-muted/40 p-0.5 text-[9.5px]">
+            <button
+              type="button"
+              onClick={() => setActiveInspectorTab('template')}
+              className={cn(
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
+                activeInspectorTab === 'template' ? "bg-primary text-primary-foreground shadow-2xs font-bold" : "text-muted-foreground hover:text-foreground"
+              )}
+              title="4대 바이럴 폼팩터 (기본 / 인스타 / 군림보 / 썰형)"
+            >
+              🏛️ 템플릿/폼
+            </button>
             <button
               type="button"
               onClick={() => setActiveInspectorTab('titleSource')}
@@ -4738,7 +5000,356 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               <span className="text-[11px] font-bold text-primary truncate max-w-[140px]">{selectedLayer.name}</span>
             </div>
 
-            {/* 1. 👑 타이틀 / 출처 / 상하단 바 탭 */}
+            {/* 🏛️ 0. 4대 폼팩터 통합 바이럴 템플릿/폼 제어 패널 */}
+            {activeInspectorTab === 'template' && (
+              <div className="space-y-3.5">
+                {/* 4대 폼팩터 선택 카드 */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                    <Layout className="w-3.5 h-3.5 text-primary" />
+                    바이럴 숏폼 4대 폼팩터 선택
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'classic', name: '기본형', badge: 'Standard', desc: '상·하단 색상 배경바' },
+                      { id: 'instagram', name: '인스타형', badge: 'Viral Hole', desc: '구멍 뚫린 카드 + 댓글' },
+                      { id: 'gunlimbo', name: '군림보형', badge: 'Hook Zoom', desc: '0초 줌인 + 3줄 속보' },
+                      { id: 'ssul', name: '썰형', badge: 'Meme Story', desc: '커뮤니티 + 페페 밈 모션' },
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => {
+                          setLayoutTemplateMode(mode.id as LayoutTemplateMode);
+                          if (mode.id === 'instagram') {
+                            setHasCommentCard(true);
+                            setVideoFitMode('sandwich');
+                          } else if (mode.id === 'gunlimbo') {
+                            setHasTopBarBg(false);
+                            setHasBottomBarBg(false);
+                          } else if (mode.id === 'ssul') {
+                            setHasCommentCard(false);
+                          }
+                        }}
+                        className={cn(
+                          "p-2 text-left rounded-[4px] border transition cursor-pointer flex flex-col justify-between",
+                          layoutTemplateMode === mode.id
+                            ? "bg-primary/10 border-primary text-primary shadow-xs"
+                            : "bg-card hover:bg-muted/60 border-border text-foreground"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-xs">{mode.name}</span>
+                          <span className="text-[8px] font-bold px-1 py-0.2 rounded-[2px] bg-primary/20 text-primary uppercase">
+                            {mode.badge}
+                          </span>
+                        </div>
+                        <span className="text-[9.5px] text-muted-foreground mt-1 truncate">{mode.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 폼팩터별 세부 설정 */}
+                {layoutTemplateMode === 'instagram' && (
+                  <div className="p-2.5 rounded-[4px] border border-primary/20 bg-primary/5 space-y-2.5">
+                    <span className="text-[11px] font-bold text-primary flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      인스타형 (Hole-Punch) 세부 설정
+                    </span>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground">프로필 닉네임 & 핸들</label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          type="text"
+                          value={instaConfig.profileName}
+                          onChange={(e) => setInstaConfig(prev => ({ ...prev, profileName: e.target.value }))}
+                          placeholder="프로필명"
+                          className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                        />
+                        <input
+                          type="text"
+                          value={instaConfig.profileHandle}
+                          onChange={(e) => setInstaConfig(prev => ({ ...prev, profileHandle: e.target.value }))}
+                          placeholder="@아이디"
+                          className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">구멍 비율</label>
+                        <select
+                          value={instaConfig.holeRatio}
+                          onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRatio: e.target.value as any }))}
+                          className="w-full px-1.5 py-1 text-xs bg-background border border-border rounded-[2px] cursor-pointer"
+                        >
+                          <option value="4:5">4:5 (세로 릴스)</option>
+                          <option value="1:1">1:1 (정사각 피드)</option>
+                          <option value="custom">자유 크기</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">모서리 둥글기: {instaConfig.holeRoundness}px</label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={24}
+                          value={instaConfig.holeRoundness}
+                          onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRoundness: Number(e.target.value) }))}
+                          className="w-full cursor-pointer accent-primary"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+                      <span className="text-[10.5px]">하단 소셜 액션 바 (하트/댓글/공유)</span>
+                      <input
+                        type="checkbox"
+                        checked={instaConfig.showActions}
+                        onChange={(e) => setInstaConfig(prev => ({ ...prev, showActions: e.target.checked }))}
+                        className="rounded accent-primary cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {layoutTemplateMode === 'gunlimbo' && (
+                  <div className="p-2.5 rounded-[4px] border border-amber-500/30 bg-amber-500/5 space-y-2.5">
+                    <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      군림보형 (0초 인트로 후킹 줌인 & 속보 3줄)
+                    </span>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground">0초 인트로 후킹 문구 (확대 낭독 멘트)</label>
+                      <input
+                        type="text"
+                        value={gunlimboConfig.hookPhrase}
+                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookPhrase: e.target.value }))}
+                        placeholder="예: 지금 당장 계좌 확인하세요"
+                        className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">후킹 구간: {gunlimboConfig.introDurationSec}초</label>
+                        <input
+                          type="range"
+                          min={1.5}
+                          max={4.0}
+                          step={0.5}
+                          value={gunlimboConfig.introDurationSec}
+                          onChange={(e) => setGunlimboConfig(prev => ({ ...prev, introDurationSec: Number(e.target.value) }))}
+                          className="w-full cursor-pointer accent-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">줌인 배율: {Math.round((gunlimboConfig.hookAnimationScale - 1) * 100)}% 확대</label>
+                        <input
+                          type="range"
+                          min={1.05}
+                          max={1.45}
+                          step={0.05}
+                          value={gunlimboConfig.hookAnimationScale}
+                          onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookAnimationScale: Number(e.target.value) }))}
+                          className="w-full cursor-pointer accent-amber-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1 pt-1 border-t border-border/40">
+                      <label className="text-[10px] text-muted-foreground">본문 전환 후 상단 3줄 속보 헤드라인</label>
+                      <input
+                        type="text"
+                        value={gunlimboConfig.headlineLine1}
+                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, headlineLine1: e.target.value }))}
+                        placeholder="속보 1줄"
+                        className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px] mb-1"
+                      />
+                      <input
+                        type="text"
+                        value={gunlimboConfig.headlineLine2}
+                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, headlineLine2: e.target.value }))}
+                        placeholder="속보 2줄"
+                        className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px] mb-1"
+                      />
+                      <input
+                        type="text"
+                        value={gunlimboConfig.headlineLine3}
+                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, headlineLine3: e.target.value }))}
+                        placeholder="속보 3줄"
+                        className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px]"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {layoutTemplateMode === 'ssul' && (
+                  <div className="p-2.5 rounded-[4px] border border-emerald-500/30 bg-emerald-500/5 space-y-2.5">
+                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      썰형 (커뮤니티 + 텍스트 모드 + 페페 밈 에셋)
+                    </span>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-muted-foreground font-bold">텍스트 디스플레이 3대 모드</label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {[
+                          { id: 'accumulate', label: '문단 누적' },
+                          { id: 'single-stepped', label: '계단식 단일' },
+                          { id: 'single-fixed', label: '상단 고정' },
+                        ].map((tm) => (
+                          <button
+                            key={tm.id}
+                            type="button"
+                            onClick={() => setSsulConfig(prev => ({ ...prev, textMode: tm.id as SsulTextMode }))}
+                            className={cn(
+                              "py-1 text-[10px] font-bold rounded-[2px] border transition cursor-pointer text-center truncate",
+                              ssulConfig.textMode === tm.id
+                                ? "bg-emerald-500 text-white border-emerald-600 shadow-2xs"
+                                : "bg-card text-muted-foreground border-border hover:text-foreground"
+                            )}
+                          >
+                            {tm.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {/* 상징 밈 선택 (페페 vs 이라스토야) */}
+                    <div className="space-y-1.5 pt-1 border-t border-border/40">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-muted-foreground font-bold">상징 밈 / 일러스트 캐릭터</label>
+                        <label className="flex items-center gap-1 text-[9.5px] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={ssulConfig.memeAliveMotion}
+                            onChange={(e) => setSsulConfig(prev => ({ ...prev, memeAliveMotion: e.target.checked }))}
+                            className="rounded accent-emerald-500 cursor-pointer"
+                          />
+                          생동감 바운스/틸트
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSsulConfig(prev => ({ ...prev, memeType: 'pepe' }))}
+                          className={cn(
+                            "py-1 text-xs font-bold rounded-[2px] border transition cursor-pointer flex items-center justify-center gap-1",
+                            ssulConfig.memeType === 'pepe' ? "bg-emerald-500 text-white border-emerald-600" : "bg-card text-muted-foreground border-border"
+                          )}
+                        >
+                          🐸 페페 (Pepe)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSsulConfig(prev => ({ ...prev, memeType: 'irasutoya' }))}
+                          className={cn(
+                            "py-1 text-xs font-bold rounded-[2px] border transition cursor-pointer flex items-center justify-center gap-1",
+                            ssulConfig.memeType === 'irasutoya' ? "bg-emerald-500 text-white border-emerald-600" : "bg-card text-muted-foreground border-border"
+                          )}
+                        >
+                          🧑 이라스토야 사람
+                        </button>
+                      </div>
+                      {/* 10대 감정 프리셋 칩 */}
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] text-muted-foreground">감정 표정 선택</label>
+                        <div className="grid grid-cols-5 gap-1">
+                          {MEME_EMOTION_PRESETS.map((ep) => (
+                            <button
+                              key={ep.id}
+                              type="button"
+                              onClick={() => setSsulConfig(prev => ({ ...prev, memeEmotion: ep.id }))}
+                              className={cn(
+                                "p-1 rounded-[2px] border text-center transition cursor-pointer flex flex-col items-center",
+                                ssulConfig.memeEmotion === ep.id
+                                  ? "bg-emerald-500 text-white border-emerald-600 shadow-2xs font-bold"
+                                  : "bg-card text-foreground border-border hover:bg-muted/50"
+                              )}
+                              title={ep.description}
+                            >
+                              <span className="text-xs">{ep.emoji}</span>
+                              <span className="text-[8px] truncate max-w-full">{ep.label.split('/')[0]}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3대 전역 AI 대본 분할 프리셋 */}
+                <div className="p-2.5 rounded-[4px] border border-border bg-card space-y-1.5">
+                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                    <Split className="w-3.5 h-3.5 text-primary" />
+                    3대 AI 대본 분할 프리셋 (전역 공통 엔진)
+                  </span>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { id: 'shorts', title: '쇼츠형', sub: '10~15자 빠른 컷' },
+                      { id: 'balanced', title: '균형형', sub: '15~25자 의미 단위' },
+                      { id: 'sentence', title: '문장형', sub: '완전문장 설명형' },
+                    ].map((sp) => (
+                      <button
+                        key={sp.id}
+                        type="button"
+                        onClick={() => setScriptSplitPreset(sp.id as ScriptSplitPreset)}
+                        className={cn(
+                          "p-1.5 rounded-[3px] border text-center transition cursor-pointer flex flex-col items-center",
+                          scriptSplitPreset === sp.id
+                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                            : "bg-card hover:bg-muted/50 border-border text-foreground"
+                        )}
+                      >
+                        <span className="text-xs font-bold">{sp.title}</span>
+                        <span className="text-[8px] opacity-75 mt-0.5">{sp.sub}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 5대 스마트 무드 BGM 자동 선곡 */}
+                <div className="p-2.5 rounded-[4px] border border-border bg-card space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                      <Music className="w-3.5 h-3.5 text-primary" />
+                      5대 무드 BGM 라이브러리 & 자동 선곡
+                    </span>
+                    <label className="flex items-center gap-1 text-[9.5px] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoMoodMatching}
+                        onChange={(e) => setAutoMoodMatching(e.target.checked)}
+                        className="rounded accent-primary cursor-pointer"
+                      />
+                      대본 자동 선곡
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1">
+                    {[
+                      { id: 'energetic', label: '도파민', emoji: '⚡' },
+                      { id: 'emotional', label: '감성', emoji: '🎹' },
+                      { id: 'suspense', label: '긴장감', emoji: '🔥' },
+                      { id: 'funny', label: '코믹', emoji: '🤣' },
+                      { id: 'cinematic', label: '웅장', emoji: '🎬' },
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setSelectedBgmMood(m.id as BgmMood)}
+                        className={cn(
+                          "p-1 rounded-[2px] border text-center transition cursor-pointer flex flex-col items-center",
+                          selectedBgmMood === m.id
+                            ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
+                            : "bg-card text-foreground border-border hover:bg-muted/50"
+                        )}
+                      >
+                        <span className="text-xs">{m.emoji}</span>
+                        <span className="text-[8.5px]">{m.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+{/* 1. 👑 타이틀 / 출처 / 상하단 바 탭 */}
             {activeInspectorTab === 'titleSource' && (
               <div className="space-y-3">
                 {/* 상단 고정 타이틀 카드 */}
