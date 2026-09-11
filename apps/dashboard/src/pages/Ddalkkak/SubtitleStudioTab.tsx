@@ -182,9 +182,17 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
         filePath: active.filePath,
         subtitles: active.subtitles || [],
         jabs: active.jabs || [],
+        channelName: active.videoData?.channel_name || 'ViraLoop',
+        style: active.videoData?.style || selectedStyle || 'shorts',
+        sourceType: active.sourceType || 'completed',
+        jobId: active.videoData?.id || active.videoData?.job?.id
       }));
       setPreviewModalOpen(false);
-      navigate('/shorts-editor');
+      navigate('/shorts-editor-studio');
+      toast({
+        title: '🎬 NLE 정밀 스튜디오 전환',
+        description: '영상 및 AI 연출(자막, 쨉쨉이) 데이터를 에디터로 인계했습니다.',
+      });
     } catch (e) {
       console.error('Failed to handoff editor session:', e);
       toast({

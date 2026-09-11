@@ -101,9 +101,10 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         items: [
             { name: '인텔리전스 기획 & 리서치 랩', path: '/research-concept-lab', icon: BrainCircuit, highlight: true },
             { name: '쇼츠 템플릿 디자인 스튜디오', path: '/shorts-template-studio', icon: LayoutTemplate, highlight: true },
-            { name: '쇼츠 제작 스튜디오', path: '/shorts-production-studio', icon: Zap, highlight: true },
+            { name: '쇼츠 원테이크 일괄 생성 팩토리', path: '/shorts-production-studio', icon: Zap, highlight: true },
+            { name: '비디오 정밀 NLE 스튜디오', path: '/shorts-editor-studio', icon: Clapperboard, highlight: true },
             { name: '스마트 씬 분할 컷터', path: '/scene-cutter-pro', icon: Scissors, highlight: true },
-            { name: 'AI 미디어 일괄 생성', path: '/creative-studio', icon: Clapperboard, highlight: true },
+            { name: 'AI 미디어 일괄 생성', path: '/creative-studio', icon: Layers, highlight: true },
             { name: 'Flow AI 비디오 렌더러', path: '/flow2capcut', icon: Wand2 },
             { name: 'AI 대본 각색 및 생성', path: '/script-writer', icon: Edit },
             { name: 'AI 다국어 목소리 합성', path: '/multi-tts', icon: Mic },

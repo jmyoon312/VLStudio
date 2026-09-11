@@ -149,6 +149,7 @@ function MainAppContent() {
                     <Route path="/research-concept-lab" element={<RouteErrorBoundary><ResearchConceptLab /></RouteErrorBoundary>} />
                     <Route path="/shorts-production-studio" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />
                     <Route path="/shorts-editor" element={<RouteErrorBoundary><ShortsEditorStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-editor-studio" element={<RouteErrorBoundary><ShortsEditorStudio /></RouteErrorBoundary>} />
                     <Route path="/ddalkkak" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />
                     <Route path="/scene-cutter-pro" element={<RouteErrorBoundary><SceneCutter /></RouteErrorBoundary>} />
                     <Route path="/ai-copilot" element={<RouteErrorBoundary><AICoPilotStudio /></RouteErrorBoundary>} />

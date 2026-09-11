@@ -163,6 +163,18 @@ export function getMediaUrl(path: string | null, rootDownloadPath?: string): str
     // Clean path separators
     let target = path.replace(/\\/g, '/');
 
+    // 0. Subtitle & TTS Dubbing job media files
+    const subMatch = target.match(/subtitles\/job_(\d+)\/([^/?#]+)/i);
+    if (subMatch) {
+        const prefix = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
+        return `${prefix}/api/ddalkkak/api/subtitle/${subMatch[1]}/download/${encodeURIComponent(subMatch[2])}`;
+    }
+    const ttsMatch = target.match(/tts_dub\/job_(\d+)\/([^/?#]+)/i);
+    if (ttsMatch) {
+        const prefix = typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
+        return `${prefix}/api/ddalkkak/api/tts-dub/${ttsMatch[1]}/download/${encodeURIComponent(ttsMatch[2])}`;
+    }
+
     // 1. If rootDownloadPath is provided, strip it
     if (rootDownloadPath) {
         const normRoot = rootDownloadPath.replace(/\\/g, '/').replace(/\/+$/, '');

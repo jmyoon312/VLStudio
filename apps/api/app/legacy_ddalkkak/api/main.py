@@ -5472,20 +5472,35 @@ async def subtitle_result(job_id: int,
 @app.get("/subtitle/{job_id}/download/{filename}")
 async def subtitle_download(job_id: int, filename: str,
                               current=Depends(auth.require_feature("subtitle"))):
-    """srt/mp3/txt 파일 다운로드."""
-    job = db.get_subtitle_job(job_id)
-    if not job:
-        raise HTTPException(404, "job not found")
+    """srt/mp3/txt/mp4 파일 다운로드 (자가치유 파일 서빙)."""
     if "/" in filename or ".." in filename:
         raise HTTPException(400, "invalid filename")
+
     file_path = SUBTITLES_DIR / f"job_{job_id}" / filename
     if not file_path.exists():
-        raise HTTPException(404, "file not found")
+        job = db.get_subtitle_job(job_id) or {}
+        # [Self-Healing] 원본 비디오 경로 또는 media 폴더 재귀 검색
+        orig_vp = job.get("video_path")
+        if orig_vp and Path(orig_vp).exists() and Path(orig_vp).name.lower() == filename.lower():
+            file_path = Path(orig_vp)
+        else:
+            media_dir = _BB_DATA / "media"
+            found_p = None
+            if media_dir.exists():
+                for p in media_dir.rglob(filename):
+                    if p.is_file():
+                        found_p = p
+                        break
+            if found_p and found_p.exists():
+                file_path = found_p
+            else:
+                raise HTTPException(404, f"file not found: {filename}")
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     mime = {
         "srt": "application/x-subrip",
         "mp3": "audio/mpeg",
         "wav": "audio/wav",
+        "mp4": "video/mp4",
         "txt": "text/plain",
         "json": "application/json",
     }.get(ext, "application/octet-stream")

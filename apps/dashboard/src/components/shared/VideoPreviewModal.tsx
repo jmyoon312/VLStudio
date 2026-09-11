@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -110,6 +110,9 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   const [completedTab, setCompletedTab] = useState<'youtube' | 'subtitles' | 'files'>('youtube');
   const [subtitleSubTab, setSubtitleSubTab] = useState<'situation' | 'jjap' | 'dialogue' | 'script'>('situation');
   const [selectedYtTitle, setSelectedYtTitle] = useState<string>('');
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [aiOverlayEnabled, setAiOverlayEnabled] = useState<boolean>(true);
+
 
   // reviewStatus 동기화
   useEffect(() => {
@@ -171,6 +174,12 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   // ─────────────────────────────────────────────────────────────
   if (!open) return null;
 
+  // Video time tracking
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  };
   // Video duration listener
   const handleLoadedMetadata = () => {
     if (videoRef.current && videoRef.current.duration) {
@@ -181,11 +190,34 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   // Resolve media URL
   let resolvedUrl = videoUrl || videoData?.video_url || videoData?.url || '';
   const resolvedFilePath = filePath || videoData?.filePath || videoData?.file_path || '';
+  const effectiveJobId = videoData?.job?.id || (typeof videoData?.id === 'number' ? videoData.id : detailedJob?.id || null);
 
-  if (!resolvedUrl && resolvedFilePath) {
+  // 1. file:/// 또는 로컬 Windows 경로가 들어온 경우 백엔드 스트리밍 엔드포인트 자동 매칭
+  const cleanPath = (resolvedUrl || resolvedFilePath).replace(/\\/g, '/');
+  const subMatch = cleanPath.match(/subtitles\/job_(\d+)\/([^/?#]+)/i);
+  const ttsMatch = cleanPath.match(/tts_dub\/job_(\d+)\/([^/?#]+)/i);
+
+  if (subMatch) {
+    resolvedUrl = `/api/ddalkkak/api/subtitle/${subMatch[1]}/download/${encodeURIComponent(subMatch[2])}`;
+  } else if (ttsMatch) {
+    resolvedUrl = `/api/ddalkkak/api/tts-dub/${ttsMatch[1]}/download/${encodeURIComponent(ttsMatch[2])}`;
+  } else if (effectiveJobId && (resolvedFilePath || videoData?.name || title)) {
+    const fn = (resolvedFilePath || videoData?.name || title).split(/[/\\]/).pop();
+    if (fn && fn.endsWith('.mp4')) {
+      resolvedUrl = `/api/ddalkkak/api/subtitle/${effectiveJobId}/download/${encodeURIComponent(fn)}`;
+    } else if (!resolvedUrl && resolvedFilePath) {
+      resolvedUrl = getMediaUrl(resolvedFilePath);
+    }
+  } else if (!resolvedUrl && resolvedFilePath) {
     resolvedUrl = getMediaUrl(resolvedFilePath);
   } else if (resolvedUrl && !resolvedUrl.startsWith('http') && !resolvedUrl.startsWith('blob:') && !resolvedUrl.startsWith('/')) {
     resolvedUrl = getMediaUrl(resolvedUrl);
+  }
+
+  // 2. 브라우저 file:/// 스키마 차단 방어: 어떤 경우에도 file:/// 프로토콜이 <video src>에 들어가지 않도록 변환
+  if (resolvedUrl && (resolvedUrl.startsWith('file:///') || resolvedUrl.startsWith('file://'))) {
+    const rawLocal = decodeURIComponent(resolvedUrl.replace(/^file:\/\/\/?/i, ''));
+    resolvedUrl = getMediaUrl(rawLocal);
   }
 
   // Determine YouTube vs Local
@@ -231,6 +263,64 @@ export const VideoPreviewModal: React.FC<VideoPreviewModalProps> = ({
   ];
 
   const currentTitle = selectedYtTitle || displayTitle.replace(/\.[^/.]+$/, '');
+  // 🎯 실시간 AI 연출 오버레이 매칭 (자막, 쨉쨉이)
+  const activeSub = useMemo(() => {
+    if (!aiOverlayEnabled) return null;
+    return situationSubs.find((s: any) => {
+      const start = Number(s.start ?? s.start_time ?? 0);
+      const end = Number(s.end ?? s.end_time ?? (start + 2.0));
+      return currentTime >= start && currentTime <= end;
+    }) || null;
+  }, [situationSubs, currentTime, aiOverlayEnabled]);
+
+  const activeJab = useMemo(() => {
+    if (!aiOverlayEnabled) return null;
+    return jjapSubs.find((j: any) => {
+      const start = Number(j.start ?? j.start_time ?? 0);
+      const end = Number(j.end ?? j.end_time ?? (start + 1.8));
+      return currentTime >= start && currentTime <= end;
+    }) || null;
+  }, [jjapSubs, currentTime, aiOverlayEnabled]);
+
+  // 상단바 2단 컬러 분할
+  const mainHookTitle = primaryAnalysis?.main_hook_title || currentTitle || '';
+  const titleParts = useMemo(() => {
+    if (!mainHookTitle) return { p1: '', p2: '' };
+    const words = mainHookTitle.split(' ');
+    if (words.length <= 2) return { p1: words[0] || '', p2: words.slice(1).join(' ') };
+    const mid = Math.ceil(words.length / 2);
+    return {
+      p1: words.slice(0, mid).join(' '),
+      p2: words.slice(mid).join(' ')
+    };
+  }, [mainHookTitle]);
+
+  // NLE 정밀 편집기 핸드오프
+  const handleHandoffToNle = () => {
+    try {
+      const handoffPayload = {
+        videoUrl: resolvedUrl || resolvedFilePath,
+        filePath: resolvedFilePath,
+        title: currentTitle,
+        subtitles: situationSubs,
+        jabs: jjapSubs,
+        channelName: channelName,
+        style: videoData?.style || 'shorts',
+        sourceType: sourceType,
+        jobId: activeJob?.id || videoData?.id
+      };
+      sessionStorage.setItem('vlstudio_editor_handoff', JSON.stringify(handoffPayload));
+      onOpenChange(false);
+      navigate('/shorts-editor-studio');
+      toast({
+        title: '🎬 NLE 정밀 스튜디오로 이동',
+        description: '영상과 AI 연출(자막, 쨉쨉이, 상단바) 데이터를 인계했습니다.',
+      });
+    } catch (err) {
+      console.error('Failed to handoff to NLE:', err);
+    }
+  };
+
 
   // 📝 고품질 유튜브 설명문(Description) 자동 빌드 (스토리 요약 + 채널 콜투액션 + 피드 해시태그)
   const buildYoutubeDescription = () => {
@@ -370,16 +460,71 @@ ${hashtags}`;
                 allowFullScreen
               />
             ) : (
-              <video
-                ref={videoRef}
-                src={resolvedUrl}
-                controls
-                autoPlay
-                playsInline
-                loop
-                onLoadedMetadata={handleLoadedMetadata}
-                className="w-full h-full object-contain bg-black"
-              />
+              <div className="relative w-full h-full flex items-center justify-center bg-black">
+                <video
+                  ref={videoRef}
+                  src={resolvedUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  loop
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onTimeUpdate={handleTimeUpdate}
+                  className="w-full h-full object-contain bg-black"
+                />
+
+                {/* 🌟 실시간 AI 연출 오버레이 레이어 (자막, 쨉쨉이, 상단바) */}
+                {aiOverlayEnabled && (
+                  <div className="absolute inset-0 pointer-events-none flex flex-col justify-between overflow-hidden">
+                    {/* 1. 상단바 & 메인 타이틀 (상단 14~18% 지점 연출) */}
+                    <div className="w-full pt-12 pb-3 px-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex flex-col items-center text-center">
+                      <div className="inline-block bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded-sm tracking-wider uppercase shadow-md mb-1 animate-pulse">
+                        ViraLoop Highlight
+                      </div>
+                      <h4 className="text-base sm:text-lg font-black tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] leading-tight max-w-[90%]">
+                        <span className="text-white">{titleParts.p1} </span>
+                        <span className="text-[#00E510] drop-shadow-[0_0_8px_rgba(0,229,16,0.6)]">{titleParts.p2}</span>
+                      </h4>
+                    </div>
+
+                    {/* 2. 쨉쨉이 훅 (Jab Hook): 상단 25% 지점, -4도 틸트 바운스 */}
+                    <div className="flex-1 flex flex-col items-center justify-start pt-6 px-4">
+                      {activeJab && (
+                        <div 
+                          className="transform -rotate-4 scale-100 transition-all duration-150 animate-bounce"
+                          style={{
+                            textShadow: '0 2px 8px rgba(0,0,0,0.9), 0 0 12px rgba(255,230,0,0.5)',
+                          }}
+                        >
+                          <div className="bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-black font-black text-xs sm:text-sm px-3.5 py-1.5 rounded-lg shadow-2xl border-2 border-black flex items-center gap-1.5">
+                            <span className="text-red-600 text-base">🔥</span>
+                            <span>{activeJab.text || activeJab.hook}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. 자막 (Situation Subtitles): 하단 78% 지점, 굵은 볼드 & 외곽선 */}
+                    <div className="w-full pb-14 px-4 flex justify-center text-center">
+                      {activeSub ? (
+                        <div className="max-w-[92%] transition-all duration-100 transform scale-100">
+                          <p 
+                            className="font-black text-sm sm:text-base md:text-lg text-[#FFE500] leading-snug tracking-tight px-3 py-1 rounded-md"
+                            style={{
+                              textShadow: '2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 0px 4px 8px rgba(0,0,0,0.9)',
+                              WebkitTextStroke: '1px #000000',
+                            }}
+                          >
+                            {activeSub.text}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="h-6" />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             )
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 text-slate-400 p-6 text-center">
@@ -389,40 +534,58 @@ ${hashtags}`;
             </div>
           )}
 
-          {/* 상단 퀵 뱃지 */}
-          <div className="absolute top-3.5 left-3.5 flex items-center gap-1.5 z-20 pointer-events-none">
-            {sourceType === 'queue' ? (
-              <>
-                {renderViralBadge(viralScore)}
-                <span className="bg-black/60 backdrop-blur-xs text-white/90 text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20">
-                  {category}
-                </span>
-              </>
-            ) : (
-              <>
-                <Badge className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-[10px] px-2 py-0.5 shadow-sm border-0 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-yellow-300" /> 쇼츠 완제품
-                </Badge>
-                <span className="bg-black/60 backdrop-blur-xs text-white/90 text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/20">
-                  9:16 (1080x1920)
-                </span>
-              </>
-            )}
-          </div>
+          {/* 상단 컨트롤 및 뱃지 바 */}
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-30 pointer-events-auto">
+            <div className="flex items-center gap-1.5">
+              {sourceType === 'queue' ? (
+                <>
+                  {renderViralBadge(viralScore)}
+                  <span className="bg-black/70 backdrop-blur-xs text-white/90 text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20">
+                    {category}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Badge className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-[10px] px-2 py-0.5 shadow-sm border-0 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-yellow-300" /> 쇼츠 완제품
+                  </Badge>
+                  <span className="bg-black/70 backdrop-blur-xs text-white/90 text-[10px] font-mono px-2 py-0.5 rounded-full border border-white/20">
+                    9:16
+                  </span>
+                </>
+              )}
+            </div>
 
-          {/* 우측 상단 유튜브 링크 */}
-          {ytWatchUrl && (
-            <a
-              href={ytWatchUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="absolute top-3.5 right-3.5 z-20 flex items-center gap-1 bg-red-600/90 hover:bg-red-600 text-white text-[10.5px] font-bold px-2.5 py-1 rounded-full shadow-md backdrop-blur-xs transition-transform active:scale-95"
-            >
-              <span className="text-[10px] bg-black/30 px-1 py-0.2 rounded font-mono">CC</span>
-              <ExternalLink className="w-3 h-3" />
-              <span>유튜브 원본</span>
-            </a>
-          )}
+            {/* ✨ AI 연출 효과 실시간 ON/OFF 스위치 */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAiOverlayEnabled(!aiOverlayEnabled)}
+                className={cn(
+                  "px-2.5 py-1 rounded-full text-[10.5px] font-bold flex items-center gap-1.5 transition-all shadow-md backdrop-blur-md cursor-pointer border",
+                  aiOverlayEnabled 
+                    ? "bg-amber-500/90 hover:bg-amber-500 text-black border-amber-300" 
+                    : "bg-black/60 hover:bg-black/80 text-white/70 border-white/20"
+                )}
+                title="AI 자막/쨉쨉이/상단바 실시간 오버레이 ON/OFF"
+              >
+                <Sparkles className={cn("w-3 h-3", aiOverlayEnabled ? "text-red-700 animate-spin" : "text-slate-400")} />
+                <span>AI 연출 효과 {aiOverlayEnabled ? 'ON' : 'OFF'}</span>
+              </button>
+
+              {ytWatchUrl && (
+                <a
+                  href={ytWatchUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 bg-red-600/90 hover:bg-red-600 text-white text-[10.5px] font-bold px-2 py-1 rounded-full shadow-md backdrop-blur-xs transition-transform active:scale-95"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>유튜브</span>
+                </a>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* 📋 우측 패널: 2대 모드 분기 */}
@@ -1028,19 +1191,15 @@ ${hashtags}`;
             {/* 하단 핵심 프로덕션 액션 바 */}
             <div className="space-y-2 pt-2 border-t border-border">
               <div className="grid grid-cols-2 gap-2">
-                {onOpenEditor && (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      onOpenChange(false);
-                      onOpenEditor();
-                    }}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs py-2.5 flex items-center justify-center gap-1.5 rounded-xl shadow-md cursor-pointer"
-                  >
-                    <Scissors className="w-3.5 h-3.5" />
-                    <span>✂️ 전문 편집기로 열기</span>
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  onClick={handleHandoffToNle}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs py-2.5 flex items-center justify-center gap-1.5 rounded-xl shadow-md cursor-pointer"
+                  title="자막/쨉쨉이/효과음 정밀 타임라인 NLE 스튜디오에서 세부 편집"
+                >
+                  <Scissors className="w-3.5 h-3.5 text-amber-300" />
+                  <span>🎬 비디오 정밀 NLE 세부 편집</span>
+                </Button>
 
                 {onExportCapcut ? (
                   <Button

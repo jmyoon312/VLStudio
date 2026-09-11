@@ -13,11 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { ddalkkakApi, SubtitleJob, TtsDubJob, ClipEditJob } from '@/services/ddalkkakApi';
-import { SubtitleStudioTab } from './ddalkkak/SubtitleStudioTab';
-import { TtsDubStudioTab } from './ddalkkak/TtsDubStudioTab';
-import { ClipEditStudioTab } from './ddalkkak/ClipEditStudioTab';
-import { FloatingBatchActionBar } from './ddalkkak/FloatingBatchActionBar';
-import { DdalkkakResultModal } from './ddalkkak/DdalkkakResultModal';
+import { SubtitleStudioTab } from './Ddalkkak/SubtitleStudioTab';
+import { TtsDubStudioTab } from './Ddalkkak/TtsDubStudioTab';
+import { ClipEditStudioTab } from './Ddalkkak/ClipEditStudioTab';
+import { FloatingBatchActionBar } from './Ddalkkak/FloatingBatchActionBar';
+import { DdalkkakResultModal } from './Ddalkkak/DdalkkakResultModal';
 import { generatePixelingStandardMeta } from '@/lib/ddalkkakPixeling';
 
 export const ShortsProductionStudio: React.FC = () => {
@@ -311,9 +311,10 @@ export const ShortsProductionStudio: React.FC = () => {
 
     try {
       let targetDir = '';
-      if (window.electronAPI && typeof window.electronAPI.detectCapcutPath === 'function') {
+      const electronAPI = (window as any).electronAPI;
+      if (electronAPI && typeof electronAPI.detectCapcutPath === 'function') {
         try {
-          const detected = await window.electronAPI.detectCapcutPath();
+          const detected = await electronAPI.detectCapcutPath();
           targetDir = detected?.targetPath || detected?.draftRoot || '';
         } catch (_) {}
       }
@@ -321,8 +322,8 @@ export const ShortsProductionStudio: React.FC = () => {
       // Backend CapCut Project Exporter Engine (Creates full draft_content.json, draft_meta_info.json, materials)
       const res = await ddalkkakApi.exportCapcutFallback(type, job.id, targetDir);
 
-      if (window.electronAPI && typeof window.electronAPI.openCapcut === 'function') {
-        window.electronAPI.openCapcut();
+      if (electronAPI && typeof electronAPI.openCapcut === 'function') {
+        electronAPI.openCapcut();
       }
 
       toast({
