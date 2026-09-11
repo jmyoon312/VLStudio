@@ -732,7 +732,7 @@ export const ShortsEditorStudio: React.FC = () => {
       width: 1080,
       height: 1920,
       fps,
-      durationInFrames: Math.max(30, Math.round((totalDurationMs / 1000) * fps)),
+      durationInFrames: Math.max(30, Math.round((durationMs / 1000) * fps)),
       topBar: {
         enabled: hasTopBarBg,
         heightPct: topBarHeightPct,
@@ -770,7 +770,7 @@ export const ShortsEditorStudio: React.FC = () => {
       watermark: watermarkConfig,
     };
   }, [
-    layers, totalDurationMs, hasTopBarBg, topBarHeightPct, topBarBg,
+    layers, durationMs, hasTopBarBg, topBarHeightPct, topBarBg,
     titleLinesMode, titleLine1, titleLine2, titleLine1Color, titleLine2Color,
     titleLine1SizePx, titleLine2SizePx, titleFontFamily,
     hasBottomBarBg, bottomBarHeightPct, bottomBarBg,
