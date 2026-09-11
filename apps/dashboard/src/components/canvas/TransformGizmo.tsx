@@ -170,13 +170,14 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
     <div
       ref={containerRef}
       onPointerDown={handleBodyPointerDown}
-      className={`absolute select-none group w-max max-w-none shrink-0 ${selected ? 'z-50' : 'z-20'} ${locked ? 'cursor-not-allowed' : 'cursor-move'}`}
+      className={`absolute select-none group w-max max-w-none shrink-0 ${selected ? 'z-50' : ''} ${locked ? 'cursor-not-allowed' : 'cursor-move'}`}
       style={{
         left: `${transform.xPct}%`,
         top: `${transform.yPct}%`,
         transform: `translate(-50%, -50%) scale(${transform.scale}) scaleX(${transform.isFlippedH ? -1 : 1}) rotate(${transform.rotationDeg}deg)`,
         transformOrigin: 'center center',
         opacity: transform.opacity ?? 1,
+        zIndex: selected ? 50 : (transform.zIndex ?? 30),
       }}
     >
       {/* 1. 실제 객체 콘텐츠 (자식 요소) */}

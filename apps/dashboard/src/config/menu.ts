@@ -62,82 +62,82 @@ export interface MenuGroup {
 }
 
 export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
-    // 0. AI_ORCHESTRATION (3계층 주권 자율 팩토리 AI 사령탑)
+    // 0. AI_ORCHESTRATION (3계층 주권 자율 팩토리 사령탑)
     {
-        title: "🏛️ AI 사령탑 (3계층 자율 팩토리)",
+        title: "🏛️ 총사령탑",
         mode: "AI_ORCHESTRATION",
         defaultExpanded: true,
         items: [
-            { name: '[Tier 1] 루피 총사령탑 워룸', path: '/war-room', icon: Cpu, highlight: true },
-            { name: '[축 2] 5대 제작 파이프라인 랩', path: '/pipeline-builder', icon: GitBranch, highlight: true },
-            { name: '[Tier 3] 8대 에이전트 인력소', path: '/agent-roster', icon: Users, highlight: true },
-            { name: '[축 1] 채널 주권 DNA 금고', path: '/brain-vault', icon: BrainCircuit, highlight: true },
-            { name: '[원격 관제] 24시 자율 순찰 & 텔레그램', path: '/autonomous-patrol', icon: Radio, highlight: true },
+            { name: '루피 총사령탑', path: '/war-room', icon: Cpu, highlight: true },
+            { name: '제작 파이프라인', path: '/pipeline-builder', icon: GitBranch, highlight: true },
+            { name: '에이전트 인력소', path: '/agent-roster', icon: Users, highlight: true },
+            { name: '채널 DNA 금고', path: '/brain-vault', icon: BrainCircuit, highlight: true },
+            { name: '자율 순찰 & 알림', path: '/autonomous-patrol', icon: Radio, highlight: true },
         ]
     },
 
-    // 1. DISCOVERY (트렌드 분석 및 소싱 - 기존 7개 전원 100% 유지)
+    // 1. DISCOVERY (트렌드 분석 및 소싱)
     {
-        title: "📊 트렌드 분석 및 소싱",
+        title: "📊 트렌드 소싱",
         mode: "DISCOVERY",
         defaultExpanded: true,
         items: [
             { name: '바이럴 스카우터', path: '/trend-radar', icon: TrendingUp, highlight: true },
-            { name: '채널 DNA 분석 연구소', path: '/channel-dna-studio', icon: Dna, highlight: true },
-            { name: '타겟 채널 자동 수집', path: '/channels', icon: ListVideo },
+            { name: '채널 DNA 분석', path: '/channel-dna-studio', icon: Dna, highlight: true },
+            { name: '채널 영상 수집', path: '/channels', icon: ListVideo },
             { name: '더우인 쇼츠 수집', path: '/douyin-search', icon: Globe, highlight: true },
-            { name: 'URL 영상 직접 수집', path: '/download', icon: Download },
-            { name: '수집 영상 보관함', path: '/gallery', icon: Image },
-            { name: '수집 대본 분석실', path: '/script-lab', icon: Sparkles },
-            { name: '외부 웹사이트 연결', path: '/custom-menu', icon: Globe },
+            { name: 'URL 영상 다운', path: '/download', icon: Download },
+            { name: '영상 보관함', path: '/gallery', icon: Image },
+            { name: '대본 분석실', path: '/script-lab', icon: Sparkles },
+            { name: '외부 웹사이트', path: '/custom-menu', icon: Globe },
         ]
     },
 
-    // 2. CREATION (인공지능 창작 스튜디오 / 콘텐츠 제작 - 기존 10개 전원 100% 유지)
+    // 2. CREATION (콘텐츠 제작 스튜디오)
     {
-        title: "🎬 인공지능 창작 스튜디오",
+        title: "🎬 콘텐츠 제작",
         mode: "CREATION",
         defaultExpanded: true,
         items: [
-            { name: '인텔리전스 기획 & 리서치 랩', path: '/research-concept-lab', icon: BrainCircuit, highlight: true },
-            { name: '쇼츠 템플릿 디자인 스튜디오', path: '/shorts-template-studio', icon: LayoutTemplate, highlight: true },
-            { name: '쇼츠 원테이크 일괄 생성 팩토리', path: '/shorts-production-studio', icon: Zap, highlight: true },
-            { name: '비디오 정밀 NLE 스튜디오', path: '/shorts-editor-studio', icon: Clapperboard, highlight: true },
-            { name: '스마트 씬 분할 컷터', path: '/scene-cutter-pro', icon: Scissors, highlight: true },
-            { name: 'AI 미디어 일괄 생성', path: '/creative-studio', icon: Layers, highlight: true },
-            { name: 'Flow AI 비디오 렌더러', path: '/flow2capcut', icon: Wand2 },
-            { name: 'AI 대본 각색 및 생성', path: '/script-writer', icon: Edit },
-            { name: 'AI 다국어 목소리 합성', path: '/multi-tts', icon: Mic },
-            { name: 'AI 자막 생성 및 번역', path: '/subtitle-tool', icon: Languages },
-            { name: '무음 구간 자동 컷팅', path: '/silence-remover', icon: Scissors },
-            { name: 'AI 배경 및 개체 제거', path: '/remover', icon: Eraser },
+            { name: '기획 & 리서치', path: '/research-concept-lab', icon: BrainCircuit, highlight: true },
+            { name: '템플릿 디자인', path: '/shorts-template-studio', icon: LayoutTemplate, highlight: true },
+            { name: '원테이크 생성', path: '/shorts-production-studio', icon: Zap, highlight: true },
+            { name: '정밀 편집기', path: '/shorts-editor-studio', icon: Clapperboard, highlight: true },
+            { name: '스마트 컷터', path: '/scene-cutter-pro', icon: Scissors, highlight: true },
+            { name: '미디어 일괄 생성', path: '/creative-studio', icon: Layers, highlight: true },
+            { name: '비디오 렌더러', path: '/flow2capcut', icon: Wand2 },
+            { name: '대본 각색·생성', path: '/script-writer', icon: Edit },
+            { name: '다국어 음성(TTS)', path: '/multi-tts', icon: Mic },
+            { name: '자막 생성·번역', path: '/subtitle-tool', icon: Languages },
+            { name: '무음 컷팅', path: '/silence-remover', icon: Scissors },
+            { name: '배경·개체 제거', path: '/remover', icon: Eraser },
         ]
     },
 
-    // 3. OPERATION_SYSTEM (채널 운영 & 시스템 설정 통합 - 기존 4개 + 3개 = 7개 전원 100% 유지)
+    // 3. OPERATION_SYSTEM (채널 운영 및 성장)
     {
-        title: "📈 채널 성장 및 자동화",
+        title: "📈 채널 성장·자동화",
         mode: "OPERATION_SYSTEM",
         defaultExpanded: true,
         items: [
-            { name: '쇼츠 자동 배포 관리', path: '/work-queue', icon: Activity, highlight: true },
-            { name: '채널 계정 & 웜업 육성', path: '/incubator', icon: Users, highlight: true },
-            { name: '다채널 수익률 & BI 센터', path: '/analytics', icon: DollarSign, highlight: true },
-            { name: '바이럴 성과 & 후킹 분석실', path: '/viral-lab', icon: Flame, highlight: true },
-            { name: '댓글 소통 & 인게이지먼트', path: '/community', icon: MessageSquare, highlight: true },
+            { name: '자동 배포 관리', path: '/work-queue', icon: Activity, highlight: true },
+            { name: '채널 육성(웜업)', path: '/incubator', icon: Users, highlight: true },
+            { name: '수익률 분석', path: '/analytics', icon: DollarSign, highlight: true },
+            { name: '성과 & 후킹 분석', path: '/viral-lab', icon: Flame, highlight: true },
+            { name: '댓글·소통 관리', path: '/community', icon: MessageSquare, highlight: true },
         ]
     },
     {
-        title: "📡 가상 라이브 센터",
+        title: "📡 가상 라이브",
         mode: "OPERATION_SYSTEM",
         defaultExpanded: true,
         items: [
-            { name: '라이브 씬 디자인', path: '/live-studio', icon: Wand2 },
-            { name: '24시 무인 라이브 송출', path: '/station-manager', icon: Radio },
+            { name: '라이브 디자인', path: '/live-studio', icon: Wand2 },
+            { name: '무인 라이브 송출', path: '/station-manager', icon: Radio },
         ]
     },
     {
-        title: "🛠️ 시스템 환경 및 보안 설정",
+        title: "🛠️ 시스템 설정",
         mode: "OPERATION_SYSTEM",
         defaultExpanded: true,
         items: [
