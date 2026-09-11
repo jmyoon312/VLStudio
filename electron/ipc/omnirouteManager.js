@@ -77,17 +77,17 @@ export function getLatestOmniRouteVersion() {
 export async function startOmniRouteDaemon() {
   const isAlive = await isOmniRouteListening()
   if (isAlive) {
-    console.log('[OmniRoute] ✅ Server already active on port', OMNIROUTE_PORT)
+    console.log('[OmniRoute] [OK] Server already active on port', OMNIROUTE_PORT)
     return { success: true, message: 'OmniRoute already running' }
   }
 
   if (isStarting) {
-    console.log('[OmniRoute] ⏳ Start already in progress...')
+    console.log('[OmniRoute] [Wait] Start already in progress...')
     return { success: true, message: 'Start in progress' }
   }
 
   isStarting = true
-  console.log('[OmniRoute] 🚀 Spawning omniroute serve on port', OMNIROUTE_PORT)
+  console.log('[OmniRoute] Spawning omniroute serve on port', OMNIROUTE_PORT)
 
   try {
     const isWin = process.platform === 'win32'
@@ -125,7 +125,7 @@ export async function startOmniRouteDaemon() {
       waited += 800
       if (await isOmniRouteListening()) {
         isStarting = false
-        console.log('[OmniRoute] ✅ Server successfully listening on port', OMNIROUTE_PORT)
+        console.log('[OmniRoute] [OK] Server successfully listening on port', OMNIROUTE_PORT)
         return { success: true, message: 'OmniRoute started successfully' }
       }
     }

@@ -5,8 +5,8 @@ import { LLMConfig } from '@/components/shared/LLMConfigPanel';
 
 export const useStudioLLM = (initialConfig?: LLMConfig) => {
     const [config, setConfig] = useState<LLMConfig>(initialConfig || {
-        provider: 'google',
-        model: 'gemini-1.5-pro',
+        provider: 'omniroute',
+        model: 'viraloop1',
         temperature: 0.7
     });
 

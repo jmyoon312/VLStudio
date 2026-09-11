@@ -1,3 +1,4 @@
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
 import electronPkg from 'electron';
 const { app, BrowserWindow, WebContentsView, ipcMain, shell, protocol, net, powerSaveBlocker, safeStorage } = electronPkg;
 import http from 'node:http'
@@ -2571,7 +2572,6 @@ function autoSetupSkills() {
 
 // === ViraLoop Infrastructure Orchestration ===
 let infraProcess = null
-let ddalkkakProcess = null
 let appIsQuitting = false
 let healthMonitorInterval = null
 let _isRestartingBackend = false  // [FIX] Guard against concurrent restarts
@@ -2582,12 +2582,12 @@ function startBackendHealthMonitor() {
   let consecutiveFailures = 0
   healthMonitorInterval = setInterval(() => {
     if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
-    const req = http.get('http://127.0.0.1:8000/api/health', { timeout: 3000 }, (res) => {
+    const req = http.get('http://127.0.0.1:8000/api/health', { timeout: 5000 }, (res) => {
       res.resume()
       if (res.statusCode >= 500) {
         consecutiveFailures++
-        if (consecutiveFailures >= 2) {
-          console.warn('[Orchestration] ⚠️ Backend health check returned status', res.statusCode, '. Re-spawning...')
+        if (consecutiveFailures >= 5) {
+          console.warn('[Orchestration] ⚠️ Backend health check returned status', res.statusCode, '(5 consecutive failures). Re-spawning...')
           consecutiveFailures = 0
           _doStartBackend()
         }
@@ -2598,8 +2598,8 @@ function startBackendHealthMonitor() {
     req.on('error', () => {
       if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
       consecutiveFailures++
-      if (consecutiveFailures >= 2) {
-        console.warn('[Orchestration] ⚠️ Backend offline detected by monitor (2 consecutive failures). Re-spawning...')
+      if (consecutiveFailures >= 5) {
+        console.warn('[Orchestration] ⚠️ Backend offline detected by monitor (5 consecutive failures). Re-spawning...')
         consecutiveFailures = 0
         _doStartBackend()
       }
@@ -2608,8 +2608,8 @@ function startBackendHealthMonitor() {
       req.destroy()
       if (appIsQuitting || _isRestartingBackend) return  // [FIX] Skip if already restarting
       consecutiveFailures++
-      if (consecutiveFailures >= 2) {
-        console.warn('[Orchestration] ⚠️ Backend health check timeout (2 consecutive timeouts). Re-spawning...')
+      if (consecutiveFailures >= 5) {
+        console.warn('[Orchestration] ⚠️ Backend health check timeout (5 consecutive timeouts). Re-spawning...')
         consecutiveFailures = 0
         _doStartBackend()
       }
@@ -2657,74 +2657,49 @@ function startViraLoopInfrastructure() {
   } catch (err) {
     console.warn('[Orchestration] Failed to initialize OmniRoute daemon:', err.message)
   }
-  try {
-    startDashboardServer(5183, 8000, hotPatcher.getHotpatchDir())
-  } catch (err) {
-    console.warn('[Orchestration] Failed to start Dashboard Web Server on port 5183:', err.message)
-  }
-}
 
-function _doStartDdalkkak() {
-  console.log('[Orchestration] _doStartDdalkkak called...')
-  if (appIsQuitting) return
-
-  if (ddalkkakProcess) {
-    console.log(`[Orchestration] Terminating existing Ddalkkak process tree (PID: ${ddalkkakProcess.pid})...`)
+  if (app.isPackaged) {
     try {
-      if (process.platform === 'win32') {
-        // using global execSyncRaw
-        execSyncRaw(`taskkill /F /T /PID ${ddalkkakProcess.pid} 2>NUL`)
-      } else {
-        ddalkkakProcess.kill('SIGKILL')
-      }
+      startDashboardServer(5183, 8000, hotPatcher.getHotpatchDir())
     } catch (err) {
-      console.warn(`[Orchestration] Failed to kill existing Ddalkkak:`, err.message)
+      console.warn('[Orchestration] Failed to start Dashboard Web Server on port 5183:', err.message)
     }
-    ddalkkakProcess = null
-  }
-
-  killProcessOnPort(8100)
-
-  // Start Ddalkkak
-  const isPkg = app.isPackaged
-  let ddalkkakDir = isPkg
-    ? path.join(process.resourcesPath, 'Ddalkkak')
-    : (fsSync.existsSync(path.join(__dirname, '..', 'Ddalkkak')) ? path.join(__dirname, '..', 'Ddalkkak') : path.join(__dirname, '..', '..', 'Ddalkkak'))
-  const ddalkkakPython = path.join(ddalkkakDir, 'pyembed', 'python.exe')
-  
-  if (fsSync.existsSync(ddalkkakDir) && fsSync.existsSync(ddalkkakPython)) {
-    console.log('[Orchestration] Launching Ddalkkak automation backend on port 8100...')
-    const ddalkkakEnv = {
-      ...process.env,
-      PYTHONUTF8: '1',
-      PYTHONIOENCODING: 'utf-8',
-      SOLO_MODE: '1'
-    }
-    ddalkkakProcess = spawn(ddalkkakPython, ['-m', 'uvicorn', 'api.main:app', '--host', '0.0.0.0', '--port', '8100'], {
-      cwd: ddalkkakDir,
-      env: ddalkkakEnv,
-      detached: false,
-      stdio: 'pipe',
-      windowsHide: true
-    })
-    
-    ddalkkakProcess.stdout?.on('data', (data) => console.log(`[Ddalkkak] ${data}`))
-    ddalkkakProcess.stderr?.on('data', (data) => console.warn(`[Ddalkkak ERR] ${data}`))
-    
-    ddalkkakProcess.on('close', (code) => {
-      console.log(`[Orchestration] Ddalkkak backend exited with code ${code}`)
-      ddalkkakProcess = null
-    })
+  } else {
+    console.log('[DashboardServer] Development mode: Vite HMR dev server handles port 5183.')
   }
 }
 
-function _doStartBackend() {
+function _doStartBackend(force = false) {
   if (appIsQuitting) return
   if (_isRestartingBackend) {
     console.log('[Orchestration] ⏸️ Backend restart already in progress. Skipping duplicate call.')
     return
   }
   _isRestartingBackend = true
+
+  // If port 8000 is already active and healthy, retain it and do not kill
+  if (!force) {
+    const probe = http.get('http://127.0.0.1:8000/api/health', { timeout: 1200 }, (res) => {
+      res.resume()
+      if (res.statusCode < 500) {
+        console.log('[Orchestration] ✅ Backend is already running and healthy on port 8000. Retaining instance.')
+        _isRestartingBackend = false
+        return
+      }
+      _isRestartingBackend = false
+      _doStartBackend(true)
+    })
+    probe.on('error', () => {
+      _isRestartingBackend = false
+      _doStartBackend(true)
+    })
+    probe.on('timeout', () => {
+      probe.destroy()
+      _isRestartingBackend = false
+      _doStartBackend(true)
+    })
+    return
+  }
 
   // 1. Terminate existing direct process tree to avoid orphaned zombie processes
   if (infraProcess) {
@@ -2810,7 +2785,8 @@ function _doStartBackend() {
     VIRALOOP_STORAGE_DIR: localStorageDir, // 다중 창 환경에서의 샌드박스 방어를 위한 통합 스토리지
     VIRALOOP_MEDIA_ROOT: path.join(localStorageDir, 'media').replace(/\\/g, '/'), // 대용량 미디어 파일 통합 저장소 (Local)
     CLOAK_PROFILE_DIR: path.join(localStorageDir, 'profiles').replace(/\\/g, '/'), // 브라우저 독립 격리 프로필 저장소 (Local)
-    VIRALOOP_PROJECT_ROOT: path.join(__dirname, '..').replace(/\\/g, '/') // Project Root for DB/settings
+    VIRALOOP_PROJECT_ROOT: path.join(__dirname, '..').replace(/\\/g, '/'), // Project Root for DB/settings
+    JWT_SECRET: process.env.JWT_SECRET || 'viraloop-studio-permanent-sovereign-jwt-secret-key-2026'
   }
 
   infraProcess = spawn(executablePath, spawnArgs, {
@@ -2841,10 +2817,19 @@ function _doStartBackend() {
         healthMonitorInterval = null
       }
     } else {
-      console.warn('[Orchestration] Backend process exited unexpectedly (code:', code, '). Auto-recovering in 2s...');
+      console.warn('[Orchestration] Backend process exited (code:', code, '). Verifying port 8000 state...');
       setTimeout(() => {
         if (!appIsQuitting && !infraProcess) {
-          _doStartBackend();
+          const checkReq = http.get('http://127.0.0.1:8000/api/health', { timeout: 1200 }, (res) => {
+            res.resume();
+            if (res.statusCode < 500) {
+              console.log('[Orchestration] ✅ Backend is already running and healthy on port 8000. Skipping re-spawn.');
+              return;
+            }
+            _doStartBackend(true);
+          });
+          checkReq.on('error', () => { _doStartBackend(true); });
+          checkReq.on('timeout', () => { checkReq.destroy(); _doStartBackend(true); });
         }
       }, 2000);
     }
@@ -2889,8 +2874,7 @@ function waitForBackendReady(maxWaitMs = 30000, intervalMs = 500) {
 }
 
 // 앱 종료 직전 자식 프로세스 완벽 청소 프로토콜 가동
-app.on('before-quit', () => {
-  console.log('[Orchestration] App closing — executing 철벽 방어형 클린업 프로토콜...')
+function cleanupChildProcesses() {
   appIsQuitting = true
   try { stopDashboardServer() } catch {}
   try { stopOmniRouteDaemon() } catch {}
@@ -2899,20 +2883,38 @@ app.on('before-quit', () => {
     healthMonitorInterval = null
   }
   
-  // 1순위: 직접 Spawn한 자식 프로세스 우선 Kill
-  if (infraProcess) {
-    console.log('[Orchestration] Terminating direct FastAPI backend process...');
-    infraProcess.kill('SIGTERM');
+  // 1순위: 직접 Spawn한 자식 프로세스 PID 기반 강제 소멸 (윈도우 프로세스 트리 완전 박멸)
+  if (infraProcess && infraProcess.pid) {
+    console.log(`[Orchestration] Terminating direct FastAPI backend process tree (PID: ${infraProcess.pid})...`);
+    try {
+      if (process.platform === 'win32') {
+        execSyncRaw(`taskkill /F /T /PID ${infraProcess.pid} 2>NUL`)
+      } else {
+        infraProcess.kill('SIGKILL');
+      }
+    } catch {}
+    infraProcess = null;
   }
-  
-  // 2순위: 윈도우 작업 관리자 레벨 강제 종료 (좀비 프로세스 원천 소멸)
-  // UAC 권한 요구 및 cmd 창이 뜨는 ViraLoop_Stop.bat 대신 직접 조용히 taskkill을 수행합니다.
+
+  // 2순위: 윈도우 포트 8000 잔여 프로세스 완벽 소멸 (좀비 프로세스 원천 소멸)
   try {
-    execSyncRaw('taskkill /F /T /IM api_server.exe /IM uvicorn.exe 2>NUL')
+    killProcessOnPort(8000)
+    if (process.platform === 'win32') {
+      execSyncRaw('taskkill /F /T /IM api_server.exe /IM uvicorn.exe 2>NUL')
+    }
     console.log('[Orchestration] All local infrastructure processes cleaned successfully.')
   } catch (err) {
-    console.log('[Orchestration] Cleaned infrastructure processes (some may not have been running).')
+    console.log('[Orchestration] Cleaned infrastructure processes.')
   }
+}
+
+app.on('before-quit', () => {
+  console.log('[Orchestration] App closing — executing 철벽 방어형 클린업 프로토콜...')
+  cleanupChildProcesses()
+})
+
+app.on('will-quit', () => {
+  cleanupChildProcesses()
 })
 
 ipcMain.handle('get-infra-status', async () => {

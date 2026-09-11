@@ -1,84 +1,177 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-import logging
+"""
+채널 DNA 분석 및 원본 소스 피드백 라우터
+(Channel DNA Benchmark & Sourcing Flywheel Router)
+"""
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from typing import Optional, List, Dict, Any
 
-from .. import models, database
-from ..schemas.dna import ChannelDNA
+from app.services.channel_dna_service import ChannelDNAService
+from app.database import SessionLocal
+from app import models
 
-logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/channel-dna", tags=["channel-dna"])
 
-router = APIRouter(prefix="/api/channels", tags=["Channel DNA"])
+class AnalyzeChannelRequest(BaseModel):
+    channel_url: str
+    sample_count: int = 12
+    video_path: Optional[str] = None
 
-@router.get("/{channel_id}/dna", response_model=ChannelDNA)
-def get_channel_dna(channel_id: int, db: Session = Depends(database.get_db)):
-    """
-    특정 채널의 초정밀 DNA 정보를 반환합니다.
-    Channel Director가 기획/대본/편집 에이전트들에게 주입할 때 사용합니다.
-    """
-    channel = db.query(models.BrandChannel).filter(models.BrandChannel.id == channel_id).first()
-    if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
+class UpdateLayoutRequest(BaseModel):
+    custom_layout: Dict[str, Any]
 
-    # DB에 저장된 JSON을 Pydantic 모델로 변환
-    if not channel.style_signature:
-        # DNA가 아예 없는 경우 404를 반환하거나 기본 빈 모델을 반환할 수 있습니다.
-        # 여기서는 초기 상태를 나타내는 기본 DNA 템플릿을 생성하여 반환합니다.
-        raise HTTPException(status_code=404, detail="Channel DNA not initialized yet. Please have Portfolio Strategist generate the initial DNA.")
+class FeedbackSourcesRequest(BaseModel):
+    target_category_name: str = "아이돌 비하인드"
 
+class CreateBrandChannelRequest(BaseModel):
+    channel_name: str
+    selected_layout: Dict[str, Any]
+
+@router.post("/analyze")
+def analyze_channel(req: AnalyzeChannelRequest):
     try:
-        dna = ChannelDNA(**channel.style_signature)
-        return dna
+        res = ChannelDNAService.analyze_channel(req.channel_url, req.sample_count, video_path=req.video_path)
+        return {"success": True, "data": res}
     except Exception as e:
-        logger.error(f"Failed to parse DNA for channel {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail="DNA format is invalid or corrupted.")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/{channel_id}/dna", response_model=ChannelDNA)
-def update_channel_dna(channel_id: int, new_dna: ChannelDNA, db: Session = Depends(database.get_db)):
-    """
-    Phase 10 (분석/성찰) 종료 후 Channel Director가 발견한 성공/실패 패턴을 반영하여 DNA를 업데이트합니다.
-    버전(version)은 백엔드에서 자동으로 +1 증가시킵니다.
-    """
-    channel = db.query(models.BrandChannel).filter(models.BrandChannel.id == channel_id).first()
-    if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
+@router.get("/benchmarks")
+def list_benchmarks():
+    try:
+        items = ChannelDNAService.list_benchmarks()
+        return {"success": True, "items": items}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # 기존 DNA가 있으면 버전을 올리고, 없으면 버전을 1로 시작
-    current_version = 0
-    if channel.style_signature and "version" in channel.style_signature:
-        current_version = channel.style_signature.get("version", 0)
+@router.get("/benchmarks/{benchmark_id}")
+def get_benchmark(benchmark_id: int):
+    data = ChannelDNAService.get_benchmark(benchmark_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    return {"success": True, "data": data}
 
-    # 새 DNA 객체 덤프 및 버전 증가
-    dna_dict = new_dna.dict()
-    dna_dict["version"] = current_version + 1
+@router.post("/benchmarks/{benchmark_id}/update-layout")
+def update_layout(benchmark_id: int, req: UpdateLayoutRequest):
+    ok = ChannelDNAService.update_custom_layout(benchmark_id, req.custom_layout)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Benchmark not found")
+    return {"success": True, "message": "Custom layout preset saved successfully"}
 
-    channel.style_signature = dna_dict
-    db.commit()
-    db.refresh(channel)
-
-    return ChannelDNA(**channel.style_signature)
-
-@router.post("/{channel_id}/dna/verify")
-def verify_script_dna(channel_id: int, request: dict, db: Session = Depends(database.get_db)):
-    """
-    제작된 대본이 채널 DNA를 준수하는지 검증합니다.
-    """
-    channel = db.query(models.BrandChannel).filter(models.BrandChannel.id == channel_id).first()
-    if not channel or not channel.style_signature:
-        return {"status": "warning", "score": 0.5, "feedback": "DNA context missing"}
-    
-    script = request.get("script_content", "")
-    dna = channel.style_signature
-    
-    # Simple logic for unit testing:
-    # 1. Check if "말맛" keywords are present
-    keywords = dna.get("script_flavor", {}).get("preferred_lexicon", [])
-    matches = [k for k in keywords if k in script]
-    
-    score = 0.5 + (len(matches) / (len(keywords) + 1)) * 0.5
-    
+@router.post("/benchmarks/{benchmark_id}/feedback-sources")
+def feedback_sources(benchmark_id: int, req: FeedbackSourcesRequest):
+    registered = ChannelDNAService.feedback_sources_to_channels(benchmark_id, req.target_category_name)
     return {
-        "status": "success" if score > 0.7 else "refining_needed",
-        "score": round(score, 2),
-        "matches": matches,
-        "feedback": f"DNA keywords found: {len(matches)}/{len(keywords)}. Flavor profile match good." if score > 0.7 else "Needs more brand flavor (말맛)."
+        "success": True,
+        "message": f"{len(registered)}개의 원천 채널이 정기 자동 수집 타겟으로 등록되었습니다.",
+        "registered_channels": registered
     }
+
+@router.post("/benchmarks/{benchmark_id}/create-brand-channel")
+def create_brand_channel(benchmark_id: int, req: CreateBrandChannelRequest):
+    db = SessionLocal()
+    try:
+        import uuid
+        channel_key = f"UC_CUSTOM_{uuid.uuid4().hex[:8].upper()}"
+        brand = models.BrandChannel(
+            channel_id=channel_key,
+            title=req.channel_name,
+            thumbnail_url="",
+            is_autonomous_enabled=True,
+            style_signature=req.selected_layout,
+            expert_identity={"template_blueprint": req.selected_layout},
+            assigned_combo_model="omniroute/viraloop-story",
+            director_state="IDLE"
+        )
+        db.add(brand)
+        db.commit()
+        db.refresh(brand)
+        return {
+            "success": True,
+            "message": f"브랜드 채널 '{req.channel_name}'이(가) 성공적으로 생성되어 AI 사령탑에 배속되었습니다.",
+            "channel_id": brand.channel_id,
+            "brand_id": brand.id
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+# -------------------------------------------------------------
+# 템플릿 관리자 API (Template Manager & Brand Channel Binding)
+# -------------------------------------------------------------
+
+class SaveTemplateRequest(BaseModel):
+    name: str
+    layout: Dict[str, Any]
+    description: Optional[str] = ""
+
+class ApplyTemplateRequest(BaseModel):
+    channel_id: int
+    layout: Dict[str, Any]
+
+@router.get("/templates")
+def list_templates():
+    try:
+        items = ChannelDNAService.list_templates()
+        return {"success": True, "items": items}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/templates")
+def save_template(req: SaveTemplateRequest):
+    try:
+        saved = ChannelDNAService.save_template(req.name, req.layout, req.description)
+        return {"success": True, "message": f"템플릿 '{req.name}'이(가) 저장되었습니다.", "template": saved}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/templates/{template_id}")
+def delete_template(template_id: str):
+    try:
+        ok = ChannelDNAService.delete_template(template_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Template not found or cannot delete system template")
+        return {"success": True, "message": "템플릿이 성공적으로 삭제되었습니다."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/templates/apply-to-channel")
+def apply_template_to_channel(req: ApplyTemplateRequest):
+    try:
+        ok = ChannelDNAService.apply_template_to_brand_channel(req.channel_id, req.layout)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Brand channel not found")
+        return {"success": True, "message": "해당 브랜드 채널의 기본 제작 템플릿으로 성공적으로 적용되었습니다."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/brand-channels")
+def get_brand_channels():
+    """
+    템플릿 바인딩용 활성 브랜드 채널 목록 반환
+    """
+    db = SessionLocal()
+    try:
+        channels = db.query(models.BrandChannel).all()
+        return {
+            "success": True,
+            "items": [
+                {
+                    "id": ch.id,
+                    "channel_id": ch.channel_id,
+                    "title": ch.title,
+                    "thumbnail_url": ch.thumbnail_url,
+                    "assigned_combo_model": ch.assigned_combo_model,
+                    "director_state": ch.director_state
+                }
+                for ch in channels
+            ]
+        }
+    finally:
+        db.close()
+

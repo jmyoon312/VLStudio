@@ -19,26 +19,27 @@ interface AgentDNAInspectorProps {
 
 export const AgentDNAInspector: React.FC<AgentDNAInspectorProps> = ({ nodeId, nodeData, onClose, settings }) => {
     const getActiveModelInfo = () => {
-        if (!settings) return { provider: 'google', model: 'gemini-2.0-flash-exp' };
+        const defaultFallbackModel = settings?.script_analysis_model || settings?.default_llm_model || 'viraloop1';
+        if (!settings) return { provider: 'omniroute', model: 'viraloop1' };
         
         switch (nodeData.role) {
             case 'COORDINATOR':
             case 'WRITER':
             case 'ANALYST':
                 return {
-                    provider: settings.openclaude_provider || 'google',
-                    model: settings.openclaude_model || 'gemini-2.0-flash-exp'
+                    provider: settings.openclaude_provider || 'omniroute',
+                    model: settings.openclaude_model || defaultFallbackModel
                 };
             case 'RESEARCHER':
             case 'MEDIA':
                 return {
-                    provider: settings.openclaude_provider === 'google' ? 'anthropic' : (settings.openclaude_provider || 'anthropic'),
-                    model: settings.openclaude_provider === 'google' ? 'claude-3-5-sonnet' : (settings.openclaude_model || 'claude-3-5-sonnet-20240620')
+                    provider: settings.openclaude_provider || 'omniroute',
+                    model: settings.openclaude_model || defaultFallbackModel
                 };
             default:
                 return {
-                    provider: settings.hermes_agent_provider || 'groq',
-                    model: settings.hermes_agent_model || 'llama-3.3-70b-versatile'
+                    provider: settings.hermes_agent_provider || 'omniroute',
+                    model: settings.hermes_agent_model || defaultFallbackModel
                 };
         }
     };

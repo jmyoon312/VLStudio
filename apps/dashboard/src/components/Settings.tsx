@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 import api, { apiLong, Settings as SettingsType } from '../lib/api';
 
-import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, RotateCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2, Sparkles, Clock, Bot, Workflow, Layers } from 'lucide-react';
+import { Save, FolderOpen, Loader2, Download, Upload, AlertTriangle, FileText, Play, RefreshCcw, RotateCcw, XCircle, Settings as SettingsIcon, BrainCircuit, Mic2, MessageSquare, Wrench, Globe, Info, Trash2, Copy, Server, Plus, Minus, Search, Zap, Cpu, ExternalLink, Home, Terminal, TrendingUp, RadioReceiver, Shield, Volume2, Rocket, CheckCircle2, Film, Code2, Sparkles, Clock, Bot, Workflow, Layers, Send } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -295,6 +295,48 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
         },
         onError: (err: any) => {
             toast.error("Hermes 동기화 실패: " + (err.response?.data?.detail || err.message));
+        }
+    });
+
+    const testTelegramMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.post('/system/telegram/test-send', {
+                bot_token: formData?.telegram_bot_token,
+                chat_id: formData?.telegram_chat_id
+            });
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(data.message || "텔레그램 테스트 메시지가 전송되었습니다! 스마트폰을 확인하세요.");
+        },
+        onError: (err: any) => {
+            toast.error("텔레그램 발송 실패: " + (err.response?.data?.detail || err.message));
+        }
+    });
+
+    const saveTelegramMutation = useMutation({
+        mutationFn: async () => {
+            const res = await api.put('/settings/', {
+                telegram_bot_token: formData?.telegram_bot_token,
+                telegram_chat_id: formData?.telegram_chat_id,
+                telegram_notify_enabled: formData?.telegram_notify_enabled,
+                telegram_events: formData?.telegram_events || {
+                    daily_report: true,
+                    revenue_milestone: true,
+                    viral_alert: true,
+                    upload_dispatch: true,
+                    comment_activity: true,
+                    system_critical_error: true
+                }
+            });
+            return res.data;
+        },
+        onSuccess: () => {
+            toast.success("텔레그램 관제탑 설정이 성공적으로 저장되었습니다.");
+            queryClient.invalidateQueries({ queryKey: ['settings'] });
+        },
+        onError: (err: any) => {
+            toast.error("텔레그램 설정 저장 실패: " + (err.response?.data?.detail || err.message));
         }
     });
 
@@ -767,31 +809,144 @@ const UnifiedEnginesHub = ({ formData, setFormData }: { formData: any; setFormDa
                                 </div>
                             </div>
 
-                            {/* 4. 텔레그램 원격 통보 */}
-                            <div className="p-3 rounded-lg bg-background/60 border border-border space-y-2">
-                                <div className="flex items-center justify-between">
+                            {/* 4. 텔레그램 지능형 원격 관제 사령탑 */}
+                            <div className="p-4 rounded-xl bg-card border border-border space-y-3.5 shadow-xs">
+                                <div className="flex items-center justify-between border-b border-border/60 pb-3">
                                     <div className="space-y-0.5">
-                                        <div className="text-xs font-bold text-foreground">텔레그램 원격 관제 사령탑</div>
-                                        <div className="text-[10px] text-muted-foreground">파이프라인 완주 및 긴급 알림 실시간 푸시</div>
+                                        <div className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
+                                            <Send className="w-4 h-4 text-sky-500" />
+                                            텔레그램 지능형 원격 관제 사령탑 (Loopie Remote Tower)
+                                            <Badge
+                                                variant="outline"
+                                                className={`text-[10px] font-bold ${formData?.telegram_bot_token && formData?.telegram_chat_id ? 'bg-sky-500/10 text-sky-500 border-sky-500/30' : 'bg-muted text-muted-foreground'}`}
+                                            >
+                                                {formData?.telegram_bot_token && formData?.telegram_chat_id ? '연동 준비 완료' : '미설정'}
+                                            </Badge>
+                                        </div>
+                                        <div className="text-[11px] text-muted-foreground">
+                                            일일 결산 브리핑, 대박 숏폼 감지, 배포 완주 및 긴급 장애를 루피 AI가 스마트폰으로 실시간 브리핑합니다.
+                                        </div>
                                     </div>
-                                    <Switch
-                                        checked={formData?.telegram_notify_enabled || false}
-                                        onCheckedChange={(checked) => setFormData((prev: any) => ({ ...prev, telegram_notify_enabled: checked }))}
-                                    />
+                                    <div className="flex items-center gap-2">
+                                        <Switch
+                                            checked={formData?.telegram_notify_enabled || false}
+                                            onCheckedChange={(checked) => setFormData((prev: any) => ({ ...prev, telegram_notify_enabled: checked }))}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2 pt-1">
-                                    <Input
-                                        placeholder="Bot Token"
-                                        value={formData?.telegram_bot_token || ''}
-                                        onChange={(e) => setFormData((prev: any) => ({ ...prev, telegram_bot_token: e.target.value }))}
-                                        className="h-7 text-[10px] bg-card border-border font-mono"
-                                    />
-                                    <Input
-                                        placeholder="Chat ID"
-                                        value={formData?.telegram_chat_id || ''}
-                                        onChange={(e) => setFormData((prev: any) => ({ ...prev, telegram_chat_id: e.target.value }))}
-                                        className="h-7 text-[10px] bg-card border-border font-mono"
-                                    />
+
+                                {/* 토큰 및 Chat ID 입력 필드 */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-bold text-foreground flex items-center justify-between">
+                                            <span>Telegram Bot Token</span>
+                                            <span className="text-[10px] text-muted-foreground font-normal">@BotFather 발급 토큰</span>
+                                        </label>
+                                        <Input
+                                            type="password"
+                                            placeholder="예: 8611849759:AAEvlV1F33_..."
+                                            value={formData?.telegram_bot_token || ''}
+                                            onChange={(e) => setFormData((prev: any) => ({ ...prev, telegram_bot_token: e.target.value }))}
+                                            className="h-8 text-xs bg-background border-border font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-bold text-foreground flex items-center justify-between">
+                                            <span>Telegram Chat ID</span>
+                                            <span className="text-[10px] text-muted-foreground font-normal">@userinfobot 확인 ID</span>
+                                        </label>
+                                        <Input
+                                            placeholder="예: 1712201231"
+                                            value={formData?.telegram_chat_id || ''}
+                                            onChange={(e) => setFormData((prev: any) => ({ ...prev, telegram_chat_id: e.target.value }))}
+                                            className="h-8 text-xs bg-background border-border font-mono"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 액션 버튼: 연결 테스트 & 설정 즉시 저장 */}
+                                <div className="flex items-center justify-between pt-1 border-t border-border/40">
+                                    <span className="text-[11px] text-muted-foreground">
+                                        스마트폰 대화방에서 <code className="bg-muted px-1 py-0.5 rounded text-[10px]">/start</code>를 누른 후 테스트하세요.
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={testTelegramMutation.isPending || !formData?.telegram_bot_token || !formData?.telegram_chat_id}
+                                            onClick={() => testTelegramMutation.mutate()}
+                                            className="h-7 text-xs font-bold gap-1 border-border bg-background hover:bg-muted"
+                                        >
+                                            <Send className={`w-3 h-3 text-sky-500 ${testTelegramMutation.isPending ? 'animate-spin' : ''}`} />
+                                            {testTelegramMutation.isPending ? '발송 중...' : '즉시 연결 테스트'}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            disabled={saveTelegramMutation.isPending}
+                                            onClick={() => saveTelegramMutation.mutate()}
+                                            className="h-7 text-xs font-bold gap-1 bg-sky-600 hover:bg-sky-500 text-white"
+                                        >
+                                            {saveTelegramMutation.isPending ? '저장 중...' : '텔레그램 설정 즉시 저장'}
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* 6대 실시간 알림 이벤트 선택기 */}
+                                <div className="space-y-2 pt-2 border-t border-border/40">
+                                    <div className="text-[11px] font-bold text-foreground flex items-center justify-between">
+                                        <span>🔔 실시간 텔레그램 알림 수신 이벤트 선택</span>
+                                        <span className="text-[10px] text-muted-foreground font-normal">필요한 이벤트만 선별하여 푸시 알림 수신</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                        {[
+                                            { key: 'daily_report', label: '일일 리포트 AI 브리핑', desc: '매일 종합 결산 핵심 요약 3줄 푸시', icon: '📑' },
+                                            { key: 'revenue_milestone', label: '수익률 & 채널 성장 결산', desc: '일간/주간 추정 수익 및 트래픽 갱신', icon: '💰' },
+                                            { key: 'viral_alert', label: '대박 영상 감지 & 후킹 진단', desc: '급상승 감지 및 저조 영상 후킹 분석', icon: '🚀' },
+                                            { key: 'upload_dispatch', label: '쇼츠 배포 완주/실패', desc: '스마트 예약 업로드 결과 실시간 보고', icon: '📤' },
+                                            { key: 'comment_activity', label: '댓글 감성 & AI 답글 대기', desc: '시청자 중요 질문 감지 및 초안 대기', icon: '💬' },
+                                            { key: 'system_critical_error', label: '시스템 긴급 장애 알림', desc: '다운로드 오류, IP 차단, 5xx 에러 경고', icon: '🚨' },
+                                        ].map(evt => {
+                                            const isChecked = formData?.telegram_events ? (formData.telegram_events[evt.key] !== false) : true;
+                                            return (
+                                                <div
+                                                    key={evt.key}
+                                                    onClick={() => {
+                                                        const currentEvents = formData?.telegram_events || {
+                                                            daily_report: true,
+                                                            revenue_milestone: true,
+                                                            viral_alert: true,
+                                                            upload_dispatch: true,
+                                                            comment_activity: true,
+                                                            system_critical_error: true
+                                                        };
+                                                        setFormData((prev: any) => ({
+                                                            ...prev,
+                                                            telegram_events: {
+                                                                ...currentEvents,
+                                                                [evt.key]: !isChecked
+                                                            }
+                                                        }));
+                                                    }}
+                                                    className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all ${isChecked ? 'bg-sky-500/5 border-sky-500/30 text-foreground' : 'bg-muted/20 border-border text-muted-foreground opacity-60'}`}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold flex items-center gap-1.5">
+                                                            <span>{evt.icon}</span> {evt.label}
+                                                        </span>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            readOnly
+                                                            className="rounded accent-sky-500 w-3.5 h-3.5"
+                                                        />
+                                                    </div>
+                                                    <p className="text-[10px] mt-1 line-clamp-1">{evt.desc}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1239,6 +1394,8 @@ const Settings = () => {
 
     const [isLogOpen, setIsLogOpen] = useState(false);
 
+    const [logTab, setLogTab] = useState<'scheduler' | 'server'>('scheduler');
+
     const [logs, setLogs] = useState<string[]>([]);
 
     const [searchQuery, setSearchQuery] = useState("");
@@ -1277,7 +1434,7 @@ const Settings = () => {
 
                 provider: formData.script_analysis_provider || 'omniroute',
 
-                model: formData.script_analysis_model || 'omniroute/viraloop1'
+                model: formData.script_analysis_model || formData.default_llm_model || ''
 
             });
 
@@ -1423,7 +1580,9 @@ const Settings = () => {
 
             fetchLogs(); // Initial fetch
 
-            fetchSchedulerStatus(); // [NEW] Fetch schedule
+            if (logTab === 'scheduler') {
+                fetchSchedulerStatus(); // [NEW] Fetch schedule
+            }
 
             interval = setInterval(fetchLogs, 2000);
 
@@ -1431,7 +1590,7 @@ const Settings = () => {
 
         return () => clearInterval(interval);
 
-    }, [isLogOpen]);
+    }, [isLogOpen, logTab]);
 
     // [NEW] Countdown Timer
 
@@ -1511,7 +1670,9 @@ const Settings = () => {
 
         try {
 
-            const res = await api.get('/logs/scheduler?lines=500');
+            const endpoint = logTab === 'server' ? '/logs/server?lines=500' : '/logs/scheduler?lines=500';
+
+            const res = await api.get(endpoint);
 
             setLogs(res.data.logs || []);
 
@@ -1525,21 +1686,83 @@ const Settings = () => {
 
     const clearLogs = async () => {
 
-        if (!confirm("로그 기록을 삭제하시겠습니까?")) return;
+        const tabTitle = logTab === 'server' ? '서버 엔진 및 에러' : '수집 및 스케줄러';
+
+        if (!confirm(`${tabTitle} 로그 기록을 삭제하시겠습니까?`)) return;
 
         try {
 
-            await api.delete('/logs/scheduler');
+            const endpoint = logTab === 'server' ? '/logs/server' : '/logs/scheduler';
+
+            await api.delete(endpoint);
 
             setLogs([]);
 
-            toast.success("로그가 삭제되었습니다.");
+            toast.success(`${tabTitle} 로그가 삭제되었습니다.`);
 
         } catch (e) {
 
             toast.error("로그 삭제 실패");
 
         }
+
+    };
+
+    const copyLogs = async () => {
+
+        if (!filteredLogs || filteredLogs.length === 0) {
+
+            toast.info("복사할 로그 내용이 없습니다.");
+
+            return;
+
+        }
+
+        const textToCopy = filteredLogs.join('\n');
+
+        // 1. Electron Native Clipboard (Bypasses all DOM focus constraints)
+        try {
+            const apiObj = (window as any).electronAPI;
+            if (apiObj?.copyToClipboard) {
+                const ok = apiObj.copyToClipboard(textToCopy);
+                if (ok !== false) {
+                    toast.success(`로그 ${filteredLogs.length}줄이 클립보드에 복사되었습니다.`);
+                    return;
+                }
+            }
+        } catch {}
+
+        // 2. DOM execCommand Fallback (Explicit focus to circumvent 'Document is not focused')
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            textArea.style.opacity = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            const success = document.execCommand("copy");
+            document.body.removeChild(textArea);
+            if (success) {
+                toast.success(`로그 ${filteredLogs.length}줄이 클립보드에 복사되었습니다.`);
+                return;
+            }
+        } catch {}
+
+        // 3. Web Standard Clipboard API Fallback
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(textToCopy);
+                toast.success(`로그 ${filteredLogs.length}줄이 클립보드에 복사되었습니다.`);
+                return;
+            }
+        } catch (err: any) {
+            console.warn("navigator.clipboard error:", err);
+        }
+
+        toast.error("클립보드 복사에 실패했습니다. 텍스트를 드래그하여 복사해 주세요.");
 
     };
 
@@ -1811,7 +2034,7 @@ const Settings = () => {
 
             script_analysis_provider: formData.script_analysis_provider ?? 'omniroute',
 
-            script_analysis_model: formData.script_analysis_model ?? 'omniroute/viraloop1',
+            script_analysis_model: formData.script_analysis_model ?? formData.default_llm_model ?? '',
 
             // 3. 음성 및 자막
 
@@ -2798,7 +3021,7 @@ const Settings = () => {
 
                                                 onProviderChange={(val) => setFormData(prev => ({ ...prev, script_analysis_provider: val }))}
 
-                                                model={formData.script_analysis_model || 'omniroute/viraloop1'}
+                                                model={formData.script_analysis_model || formData.default_llm_model || ''}
 
                                                 onModelChange={(val) => setFormData(prev => ({ ...prev, script_analysis_model: val }))}
 
@@ -3634,6 +3857,12 @@ const Settings = () => {
 
                         <div className="flex items-center gap-2">
 
+                            <Button variant="outline" size="sm" onClick={copyLogs} className="h-8 text-xs text-foreground hover:bg-muted border-border rounded-xl">
+
+                                <Copy className="w-3.5 h-3.5 mr-1" /> 복사
+
+                            </Button>
+
                             <Button variant="outline" size="sm" onClick={clearLogs} className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-border rounded-xl">
 
                                 <Trash2 className="w-3.5 h-3.5 mr-1" /> 비우기
@@ -3643,6 +3872,39 @@ const Settings = () => {
                         </div>
 
                     </DialogHeader>
+
+                    {/* Tab Navigation for Log Category */}
+                    <div className="px-4 py-2 border-b border-border bg-muted/30 flex items-center justify-between">
+                        <div className="flex items-center gap-1 bg-background/80 p-1 rounded-xl border border-border/80">
+                            <button
+                                type="button"
+                                onClick={() => { setLogTab('scheduler'); setLogs([]); }}
+                                className={cn(
+                                    "px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer",
+                                    logTab === 'scheduler' 
+                                        ? "bg-primary text-primary-foreground shadow-xs" 
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                <Workflow className="w-3.5 h-3.5" /> 수집 &amp; 스케줄러 작업
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setLogTab('server'); setLogs([]); }}
+                                className={cn(
+                                    "px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer",
+                                    logTab === 'server' 
+                                        ? "bg-primary text-primary-foreground shadow-xs" 
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                <Server className="w-3.5 h-3.5" /> 서버 엔진 &amp; 에러
+                            </button>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground font-mono">
+                            {logTab === 'scheduler' ? 'scan_debug.log' : 'api_server.log'}
+                        </span>
+                    </div>
 
                     {/* Filter & Search Bar */}
 

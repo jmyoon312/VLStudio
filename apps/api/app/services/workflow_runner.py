@@ -945,8 +945,7 @@ class WorkflowRunner:
             try:
                 remixed_text = await asyncio.to_thread(
                     self.llm.generate_content,
-                    prompt=prompt,
-                    model_name="gemini-1.5-flash"
+                    prompt=prompt
                 )
                 return {
                     "text": remixed_text,
@@ -996,8 +995,8 @@ class WorkflowRunner:
         elif node_type == 'aiAgentNode':
             # 1. Configuration
             config = data.get('config', {})
-            model = config.get('model', 'gemini-1.5-flash')
-            provider = config.get('provider', 'google')
+            model = config.get('model') or getattr(self.llm.settings, "default_llm_model", None) or "viraloop1"
+            provider = config.get('provider', 'omniroute')
             system_prompt = data.get('systemPrompt', '')
             is_auto_run = data.get('isAutoRun', False)
             

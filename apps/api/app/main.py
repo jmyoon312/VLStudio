@@ -75,6 +75,52 @@ if sys.platform == 'win32':
             safe_handler.setFormatter(h.formatter or logging.Formatter('%(message)s'))
             _root.handlers[i] = safe_handler
 
+# [Sovereign Server File Logging & Quiet Polling Filter]
+from logging.handlers import RotatingFileHandler
+
+API_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SERVER_LOG_FILE = os.path.join(API_BASE_DIR, "api_server.log")
+
+server_logger = logging.getLogger("app.server")
+server_logger.setLevel(logging.INFO)
+server_logger.propagate = False  # Prevent propagating to root logger and double-logging
+
+if not any(isinstance(h, (logging.FileHandler, RotatingFileHandler)) for h in server_logger.handlers):
+    try:
+        rf_handler = RotatingFileHandler(
+            SERVER_LOG_FILE,
+            maxBytes=5 * 1024 * 1024, # 5MB
+            backupCount=3,
+            encoding='utf-8'
+        )
+        rf_handler.setLevel(logging.INFO)
+        rf_formatter = logging.Formatter('%(asctime)s - %(levelname)s - [%(name)s] %(message)s')
+        rf_handler.setFormatter(rf_formatter)
+        server_logger.addHandler(rf_handler)
+        
+        # Attach to root logger to capture warnings and errors from all modules (llm_manager, uvicorn, etc.)
+        root_logger = logging.getLogger()
+        root_rf_handler = RotatingFileHandler(
+            SERVER_LOG_FILE,
+            maxBytes=5 * 1024 * 1024,
+            backupCount=3,
+            encoding='utf-8'
+        )
+        root_rf_handler.setLevel(logging.WARNING)
+        root_rf_handler.setFormatter(rf_formatter)
+        root_logger.addHandler(root_rf_handler)
+    except Exception as e:
+        print(f"[Logging] Failed to initialize server file logger: {e}")
+
+class StatusBypassFilter(logging.Filter):
+    """Filter out routine GET 200 OK requests from uvicorn.access to prevent log flooding"""
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        # Silence all routine GET 200 OK requests
+        if '"GET ' in msg and (' 200 OK' in msg or ' 200 ' in msg):
+            return False
+        return True
+
 # [Dependency]
 from app.dependency_manager import DependencyManager
 DependencyManager.configure_pydub()
@@ -102,7 +148,8 @@ from app.routers import (
     queue_management, processing_verification, dashboard_reports, 
     health_deployment, ml_ab_search, operations, network,
     douyin_shorts_router, capcut_remote, presets, trend_radar, fsd_mission,
-    pipeline_router, universal_cutter
+    pipeline_router, universal_cutter, analytics, community, shorts_production,
+    media_intelligence
 )
 from app import job_queue, crud, models, scheduler
 from app.utils.path_utils import normalize_path
@@ -116,8 +163,8 @@ models.Base.metadata.create_all(bind=engine)
 async def lifespan(app: FastAPI):
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
     
-    # Silence health/bypass logging for performance
-    # logging.getLogger("uvicorn.access").addFilter(StatusBypassFilter())
+    # Silence routine health/polling access logging for performance and clean console
+    logging.getLogger("uvicorn.access").addFilter(StatusBypassFilter())
 
     # Startup Maintenance
     try:
@@ -150,6 +197,14 @@ async def lifespan(app: FastAPI):
     # [NEW] Start genuine autonomous scout background worker
     from app.services.scout_stream_engine import scout_worker
     scout_worker.start()
+    
+    # [NEW] Start telemetry and comment scout background worker
+    from app.services.background_workers import background_workers
+    background_workers.start()
+
+    # [NEW] Start Telegram Two-Way Listener (Loopie COO Mobile Bot)
+    from app.services.telegram_service import telegram_service
+    telegram_service.start_listener()
     
     # [DEPRECATED] Autonomous search / swarm feature disabled due to low quality
     # from app.global_swarm_master import global_master
@@ -195,7 +250,8 @@ async def lifespan(app: FastAPI):
             except ImportError:
                 print("[Recovery] psycopg2 not installed — skipping PostgreSQL migration (standalone mode)")
         else:
-            print(f"[Startup] Running in SQLite standalone mode: {app_settings.DATABASE_URL[:50]}")
+            db_disp = app_settings.DATABASE_URL
+            print(f"[Startup] Running in SQLite mode: {db_disp}")
 
         # --- Self-Healing (SQLite/PostgreSQL 공통) ---
         if settings:
@@ -257,13 +313,36 @@ async def redirect_shield_middleware(request: Request, call_next):
                 response.headers["Location"] = relative_path
     return response
 
-# [DIAGNOSTIC] Global Request Tracer
+# [DIAGNOSTIC] Smart Request Tracer (Silence routine GET 200, highlight actions & errors)
 @app.middleware("http")
 async def trace_requests(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     process_time = (time.time() - start_time) * 1000
-    print(f"[TRACE] {request.method} {request.url.path} -> {response.status_code} ({process_time:.2f}ms)")
+    
+    path = request.url.path
+    status = response.status_code
+    method = request.method
+    
+    # 1. Critical Errors (>= 400): Always highlight in console and record in server log
+    if status >= 400:
+        err_msg = f"❌ [ERROR] {method} {path} -> {status} ({process_time:.2f}ms)"
+        print(err_msg)
+        server_logger.error(f"{method} {path} -> {status} ({process_time:.2f}ms)")
+    # 2. Genuine Slow Requests (> 1500ms): Warn in console and record in server log
+    elif process_time > 1500:
+        slow_msg = f"⚠️ [SLOW] {method} {path} -> {status} ({process_time:.2f}ms)"
+        print(slow_msg)
+        server_logger.warning(f"[SLOW] {method} {path} -> {status} ({process_time:.2f}ms)")
+    # 3. State-changing Actions (POST, PUT, DELETE, PATCH): Record meaningful business events
+    elif method in ("POST", "PUT", "DELETE", "PATCH"):
+        act_msg = f"⚡ [ACTION] {method} {path} -> {status} ({process_time:.2f}ms)"
+        print(act_msg)
+        server_logger.info(f"{method} {path} -> {status} ({process_time:.2f}ms)")
+    # 4. Routine GET 200 OK: Complete silence (Zero Noise Policy)
+    else:
+        pass
+        
     return response
 
 @app.get("/api/debug/routes")
@@ -435,6 +514,7 @@ app.include_router(ai_agent.router, prefix="/api/agent", tags=["intelligence"])
 app.include_router(veo_prompt_agent.router, prefix="/api/veo", tags=["intelligence"])
 app.include_router(mcp.router, prefix="/api/mcp", tags=["intelligence"])
 app.include_router(mcp_registry.router, prefix="/api/mcp", tags=["intelligence"])
+app.include_router(media_intelligence.router, prefix="/api", tags=["intelligence"])
 
 
 app.include_router(assets.router, prefix="/api/assets", tags=["assets"])
@@ -442,6 +522,7 @@ app.include_router(notebooklm_accounts.router, prefix="/api/notebooklm-accounts"
 
 app.include_router(channels.router, prefix="/api/channels", tags=["channels"])
 app.include_router(channel_dna.router, tags=["channels"]) # channel_dna already has /api/channels prefix
+app.include_router(shorts_production.router, tags=["shorts-production"])
 app.include_router(videos.router, prefix="/api/videos", tags=["media"])
 app.include_router(script_writer.router, prefix="/api/script", tags=["creative"])
 
@@ -488,6 +569,8 @@ app.include_router(beats_editor.router, prefix="/api/beats", tags=["elite-studio
 app.include_router(operations.router, prefix="/api/operations", tags=["elite-studio"])
 app.include_router(pipeline_router.router)
 app.include_router(universal_cutter.router)
+app.include_router(analytics.router, prefix="/api", tags=["analytics"])
+app.include_router(community.router, prefix="/api", tags=["community"])
 
 app.include_router(browser.router)  # /api/browser/launch, /upload, /close, /engines
 
@@ -504,23 +587,23 @@ try:
         async def serve_ddalkkak_html():
             return FileResponse(str(ddalkkak_frontend_dir / "index.html"))
 
-    print("✅ Legacy Ddalkkak mounted at /api/ddalkkak and /api/ddalkkak/api")
+    logger.info("[OK] Ddalkkak Native Engine unified at /api/ddalkkak")
 except Exception as e:
-    print(f"⚠️ Failed to mount legacy Ddalkkak: {e}")
+    logger.warning(f"[WARN] Failed to mount Ddalkkak: {e}")
 
 # --- Web Frontend Serve ---
 root_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "..", "dist")
 app_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "dashboard", "dist")
 
-if os.path.exists(root_dist) and os.path.exists(os.path.join(root_dist, "index.html")):
-    frontend_dist = os.path.abspath(root_dist)
-elif os.path.exists(app_dist) and os.path.exists(os.path.join(app_dist, "index.html")):
+if os.path.exists(app_dist) and os.path.exists(os.path.join(app_dist, "index.html")):
     frontend_dist = os.path.abspath(app_dist)
-else:
+elif os.path.exists(root_dist) and os.path.exists(os.path.join(root_dist, "index.html")):
     frontend_dist = os.path.abspath(root_dist)
+else:
+    frontend_dist = os.path.abspath(app_dist)
 
 if os.path.exists(frontend_dist):
-    print(f"🚀 Mounting Web Frontend from: {frontend_dist}")
+    logger.info(f"[Static] Web Frontend mounted from: {frontend_dist}")
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 else:
     @app.get("/")
@@ -546,3 +629,4 @@ if __name__ == "__main__":
     import uvicorn
     # Pass app object directly for flawless PyInstaller packaging compatibility
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Refreshed for enriched reports & telegram bridge

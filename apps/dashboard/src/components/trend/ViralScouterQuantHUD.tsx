@@ -80,7 +80,7 @@ export const ViralScouterQuantHUD: React.FC<ViralScouterQuantHUDProps> = ({ filt
 
     useEffect(() => {
         fetchTelemetry();
-        const interval = setInterval(fetchTelemetry, 1500);
+        const interval = setInterval(fetchTelemetry, 10000);
         return () => clearInterval(interval);
     }, []);
 

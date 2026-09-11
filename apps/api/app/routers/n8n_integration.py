@@ -23,8 +23,8 @@ def generate_workflow_ai(payload: Dict[str, Any] = Body(...)):
     """
     prompt = payload.get("prompt")
     save = payload.get("save", False)
-    provider = payload.get("provider", "google") # Default to google
-    model = payload.get("model", "gemini-1.5-pro") # Default to gemini-1.5-pro
+    provider = payload.get("provider", "omniroute")
+    model = payload.get("model") or getattr(ai_generator.llm.settings, "script_analysis_model", None) or getattr(ai_generator.llm.settings, "default_llm_model", None) or "viraloop1"
     
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt is required")

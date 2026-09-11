@@ -213,6 +213,39 @@ export const AgentRosterPage: React.FC = () => {
     // Filter by layer
     const [selectedLayer, setSelectedLayer] = useState<string>('all');
 
+    const [channelComboModel, setChannelComboModel] = useState<string>("omniroute/viraloop1");
+    const [channelDnaPreview, setChannelDnaPreview] = useState<any>(null);
+
+    useEffect(() => {
+        if (!selectedChannelId) return;
+        const fetchChannelInfo = async () => {
+            try {
+                const res = await api.get('/brand-channels/');
+                if (res.data && Array.isArray(res.data)) {
+                    const cur = res.data.find((c: any) => c.id === selectedChannelId);
+                    if (cur) {
+                        setChannelComboModel(cur.assigned_combo_model || "omniroute/viraloop1");
+                        setChannelDnaPreview(cur.expert_identity || null);
+                    }
+                }
+            } catch (e) {}
+        };
+        fetchChannelInfo();
+    }, [selectedChannelId]);
+
+    const handleUpdateChannelCombo = async (newModel: string) => {
+        setChannelComboModel(newModel);
+        try {
+            await api.patch(`/brand-channels/${selectedChannelId}`, {
+                assigned_combo_model: newModel
+            });
+            toast.success(`[CH #${selectedChannelId}] OmniRoute 콤보 모델이 '${newModel}'(으)로 지정되었습니다!`);
+        } catch (e: any) {
+            toast.error(`모델 변경 실패: ${e.message}`);
+        }
+    };
+
+
     useEffect(() => {
         const loadInitialData = async () => {
             // Load Channels
@@ -324,17 +357,17 @@ export const AgentRosterPage: React.FC = () => {
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
-                                에이전트 인력소 & 4대 생산 레이어 (Agent Roster)
+                                [Tier 3] 8대 전문 에이전트 인력소 (Agent Roster)
                             </h1>
-                            <Badge variant="outline" className="text-[10px] font-bold bg-blue-500/10 text-blue-600 border-blue-500/20 font-mono">
-                                8인 전문 워커 완비
+                            <Badge variant="outline" className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 border-blue-500/20">
+                                Tier 3 전문 실행 하수인
                             </Badge>
                             <Badge variant="outline" className="text-[10px] font-mono text-emerald-500 bg-emerald-500/10 border-emerald-500/20">
-                                OmniRoute viraloop1 SSOT
+                                OmniRoute Combo 바인딩
                             </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            전략 ➔ 대본(상황분기) ➔ 멀티모달 ➔ 컴파일 4대 레이어별 워커에게 채널 전용 스킬팩과 원자적 실행 도구를 바인딩합니다.
+                            루피(Tier 1)의 지휘와 채널 디렉터(Tier 2)의 샌드박스 아래에서 8인의 전문 에이전트가 채널별 콤보 모델로 미디어를 제작합니다.
                         </p>
                     </div>
                 </div>
@@ -343,7 +376,7 @@ export const AgentRosterPage: React.FC = () => {
                     {/* Target Channel Selector */}
                     <div className="flex items-center gap-2 bg-muted/40 border border-border px-3 py-1.5 rounded-2xl">
                         <Tv className="w-4 h-4 text-blue-500 shrink-0" />
-                        <span className="text-[11px] font-bold text-muted-foreground shrink-0">스킬 바인딩 채널:</span>
+                        <span className="text-[11px] font-bold text-muted-foreground shrink-0">대상 채널:</span>
                         <select
                             value={selectedChannelId}
                             onChange={(e) => setSelectedChannelId(Number(e.target.value))}
@@ -357,15 +390,54 @@ export const AgentRosterPage: React.FC = () => {
                         </select>
                     </div>
 
-                    <Button 
-                        disabled={isSaving}
-                        onClick={handleSaveRoster} 
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-9 rounded-xl shadow-xs gap-1.5 shrink-0"
-                    >
-                        {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                        전체 인력소 설정 저장
-                    </Button>
+                    {/* OmniRoute Combo Model Slot */}
+                    <div className="flex items-center gap-2 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 px-3 py-1.5 rounded-2xl">
+                        <Cpu className="w-4 h-4 text-indigo-500 shrink-0" />
+                        <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 shrink-0">[축 3 콤보 모델]:</span>
+                        <select
+                            value={channelComboModel}
+                            onChange={(e) => handleUpdateChannelCombo(e.target.value)}
+                            className="bg-transparent text-xs font-black text-foreground focus:outline-none cursor-pointer font-mono"
+                        >
+                            <option value="omniroute/viraloop1" className="bg-card text-foreground">viraloop-bespoke (대표님 기본 viraloop1)</option>
+                            <option value="viraloop-story" className="bg-card text-foreground">viraloop-story (Claude 3.7 / R1 심층 서사)</option>
+                            <option value="viraloop-fast" className="bg-card text-foreground">viraloop-fast (Llama 3.3 / MiMo 쨉쨉이 숏폼)</option>
+                            <option value="viraloop-global" className="bg-card text-foreground">viraloop-global (Gemini 2.5 Pro 글로벌)</option>
+                            <option value="viraloop-economy" className="bg-card text-foreground">viraloop-economy (경제/투자 팩트 분석)</option>
+                            <option value="viraloop-yadam" className="bg-card text-foreground">viraloop-yadam (역사/야담 구어체 특화)</option>
+                            <option value="viraloop-anime" className="bg-card text-foreground">viraloop-anime (서브컬처/밈 특화)</option>
+                        </select>
+                    </div>
                 </div>
+            </div>
+
+            {/* [축 1] 채널 주권 DNA 샌드박스 주입 프리뷰 바 */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-950/20 via-indigo-950/20 to-purple-950/20 border border-blue-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] font-mono font-bold flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-blue-400" />
+                        [축 1] 채널 DNA 주권 격리
+                    </Badge>
+                    <span className="text-[11px] font-bold text-foreground">
+                        CH #{selectedChannelId} 주입 페르소나:
+                    </span>
+                </div>
+                <div className="flex-1 truncate font-mono text-[11px] text-muted-foreground">
+                    <span className="text-foreground font-semibold">
+                        "{channelDnaPreview?.strategy || '0.8초 쨉쨉이 도파민 쇼츠 공식'}"
+                    </span>
+                    <span className="mx-2">•</span>
+                    <span className="text-indigo-400">
+                        톤: {channelDnaPreview?.tone || '몰입도 높은 0.8초 쨉쨉이 어투'}
+                    </span>
+                    <span className="mx-2">•</span>
+                    <span className="text-rose-400">
+                        금기어: {Array.isArray(channelDnaPreview?.forbidden_words) ? channelDnaPreview.forbidden_words.join(', ') : '비방, 가짜뉴스 배제'}
+                    </span>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-mono text-emerald-400 border-emerald-500/30 shrink-0">
+                    정보 오염 0% 격리 보장
+                </Badge>
             </div>
 
             {/* Layer Filter Tabs */}

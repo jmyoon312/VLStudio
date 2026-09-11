@@ -12,31 +12,32 @@ class WhisperTranscriber:
         
         print(f"[Whisper] Initializing Transcriber with model={model_size}, device={device}")
 
-        try:
-            import torch
-            if device == "cuda":
-                if not torch.cuda.is_available():
-                    print("[Whisper] Device is 'cuda' but CUDA not available. Falling back to CPU...")
-                    device = "cpu"
-                    compute_type = "int8"
-                else:
-                    cap = torch.cuda.get_device_capability()
-                    if cap[0] < 7 and compute_type == "auto":
-                        print(f"[Whisper] Detected GPU Compute {cap[0]}.{cap[1]} (< 7.0). Forcing compute_type='int8'.")
-                        compute_type = "int8"
-        except ImportError:
-            # torch가 설치되지 않았으므로 CTranslate2 기반 CPU 모드로 강제 전환
-            print("[Whisper] torch not installed → forcing CPU / int8 mode for faster-whisper (CTranslate2 backend).")
-            device = "cpu"
-            compute_type = "int8"
-        except Exception as e:
-            print(f"[Whisper] Warning during CUDA pre-check: {e}")
-            print("[Whisper] Falling back to CPU to be safe.")
-            device = "cpu"
-            compute_type = "int8"
+        print(f"[Whisper] Initializing Transcriber with model={model_size}, device={device}")
 
-        self.device = device
-        self.compute_type = compute_type
+        # Native CTranslate2 CUDA Check (Zero torch dependency)
+        try:
+            import ctranslate2
+            cuda_count = ctranslate2.get_cuda_device_count()
+            if device == "cuda" and cuda_count > 0:
+                supported = ctranslate2.get_supported_compute_types("cuda")
+                if compute_type == "auto" or not compute_type:
+                    if "int8_float32" in supported:
+                        compute_type = "int8_float32"
+                    elif "float32" in supported:
+                        compute_type = "float32"
+                    else:
+                        compute_type = "auto"
+                self.device = "cuda"
+                self.compute_type = compute_type
+                print(f"[Whisper] CUDA GPU Acceleration ENABLED ({cuda_count} devices, compute: {compute_type}).")
+            else:
+                self.device = "cpu"
+                self.compute_type = "int8"
+                print(f"[Whisper] Running on CPU (int8).")
+        except Exception as e:
+            print(f"[Whisper] Warning during CUDA check: {e}. Falling back to CPU...")
+            self.device = "cpu"
+            self.compute_type = "int8"
 
         # 로컬 캐시된 snapshot 폴더가 있으면 직접 지정 → HuggingFace 네트워크 요청 0건
         resolved_path, is_local = self._resolve_local_model_path(model_size, model_path)
@@ -117,21 +118,25 @@ class WhisperTranscriber:
         return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
-    def transcribe(self, video_path, output_srt_path=None, language=None):
+    def transcribe(self, video_path, output_srt_path=None, language=None, progress_callback=None, beam_size=1, vad_filter=True):
         if not os.path.exists(video_path):
             print(f"[Whisper] ERROR: File not found for transcription: {video_path}")
             return {"status": "error", "message": f"File not found: {video_path}"}
 
         try:
-            print(f"[Whisper] Starting actual transcription call for: {video_path}")
+            print(f"[Whisper] Starting turbo transcription for: {video_path}")
             start_time = time.time()
             
-            current_beam = 5 if self.device == "cuda" else 2
-            transcribe_kwargs = {"beam_size": current_beam}
+            # Ultra-fast beam_size=1 (greedy) + Silero VAD filter (skips silences)
+            transcribe_kwargs = {
+                "beam_size": beam_size,
+                "vad_filter": vad_filter,
+                "vad_parameters": dict(min_silence_duration_ms=500)
+            }
             if language:
                 transcribe_kwargs["language"] = language
                 
-            print(f"[Whisper] Calling self.model.transcribe(language={language or 'auto'}, beam_size={current_beam})...")
+            print(f"[Whisper] Calling self.model.transcribe(language={language or 'auto'}, beam_size={beam_size}, vad={vad_filter}, device={self.device})...")
             try:
                 segments, info = self.model.transcribe(video_path, **transcribe_kwargs)
             except Exception as e:
@@ -155,7 +160,7 @@ class WhisperTranscriber:
                     self.compute_type = "int8"
                     self.model = WhisperModel(self.model_size, device="cpu", compute_type="int8", download_root=self.model_path)
                     print("[OK] [Whisper] CPU Model reloaded. Retrying transcription...")
-                    transcribe_kwargs["beam_size"] = 2
+                    transcribe_kwargs["beam_size"] = 1
                     segments, info = self.model.transcribe(video_path, **transcribe_kwargs)
                 else:
                     raise e
@@ -167,13 +172,16 @@ class WhisperTranscriber:
                 base_name = os.path.splitext(video_path)[0]
                 output_srt_path = f"{base_name}.{detected_lang}.srt"
 
-            # 3. Generate SRT content
+            # 3. Generate SRT content with real-time progress callbacks
             with open(output_srt_path, "w", encoding="utf-8") as f:
                 for i, segment in enumerate(segments, start=1):
                     start_val = segment.start
                     end_val = segment.end
                     
-                    if i % 5 == 0 or i == 1:
+                    if progress_callback and info.duration > 0:
+                        pct = min(100.0, (end_val / info.duration) * 100.0)
+                        progress_callback(pct, end_val, info.duration, i)
+                    elif i % 5 == 0 or i == 1:
                         print(f"[Whisper] Progress: {end_val:.1f}s / {info.duration:.1f}s (Segment #{i})")
                         
                     start = self.format_timestamp(start_val)
@@ -185,7 +193,7 @@ class WhisperTranscriber:
                     f.write(f"{text}\n\n")
 
             elapsed = time.time() - start_time
-            print(f"[Whisper] Transcription completed in {elapsed:.2f}s -> {output_srt_path}")
+            print(f"[Whisper] Turbo transcription completed in {elapsed:.2f}s -> {output_srt_path}")
             
             return {
                 "status": "success",

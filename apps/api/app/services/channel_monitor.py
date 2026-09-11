@@ -17,12 +17,13 @@ logger = logging.getLogger("app.system")
 # so we check specifically if *this* logger already has a FileHandler attached.
 # This ensures the file handler is always registered on first load.
 try:
-    _has_file_handler = any(isinstance(h, logging.FileHandler) for h in logger.handlers)
+    from logging.handlers import RotatingFileHandler
+    _has_file_handler = any(isinstance(h, (logging.FileHandler, RotatingFileHandler)) for h in logger.handlers)
     if not _has_file_handler:
         # Keep log path in apps/api/ root to match logs.py router
         api_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         log_path = os.path.join(api_dir, "scan_debug.log")
-        f_handler = logging.FileHandler(log_path, encoding='utf-8')
+        f_handler = RotatingFileHandler(log_path, maxBytes=5 * 1024 * 1024, backupCount=3, encoding='utf-8')
         f_handler.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         f_handler.setFormatter(formatter)

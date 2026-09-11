@@ -11,16 +11,19 @@ class Writer:
         self.llm_client = llm_client
 
     async def produce_premium_script(self, niche: str, dna_context: str = "", format: str = "shorts", 
-                                  draft_model: str = "ollama/gemma2", 
-                                  review_model: str = "openrouter/google/gemini-2.0-flash-001") -> Dict[str, Any]:
+                                  draft_model: str = None, 
+                                  review_model: str = None) -> Dict[str, Any]:
         """
         [SOP V2] High-Quality 3-Stage Script Production Pipeline.
         1. Draft (Pioneer) -> 2. Refine (Architect) -> 3. Review (Director)
         """
         logger.info(f"✍️ Starting Multi-Loop Script Production for niche: {niche}")
         
+        effective_draft_model = draft_model or getattr(self.llm_client.settings, "default_llm_model", None) or "viraloop1"
+        effective_review_model = review_model or getattr(self.llm_client.settings, "script_analysis_model", None) or "viraloop1"
+
         # Stage 1: Initial Drafting (Pioneer)
-        current_script = await self.generate_script_draft(niche, dna_context, format, model=draft_model)
+        current_script = await self.generate_script_draft(niche, dna_context, format, model=effective_draft_model)
         
         max_retries = 3
         feedback_history = []
@@ -32,7 +35,7 @@ class Writer:
             current_script = await self.refine_script(current_script, format, model=draft_model, extra_context=refined_payload)
             
             # Stage 3: Strict Audit (Critic)
-            audit_packet: QualityAuditPacket = await self.review_script_with_audit(current_script, niche, dna_context, model=review_model)
+            audit_packet: QualityAuditPacket = await self.review_script_with_audit(current_script, niche, dna_context, model=effective_review_model)
             
             if audit_packet.status == "APPROVED":
                 logger.info(f"[OK] Script passed QA on attempt {attempt+1}")
@@ -131,7 +134,7 @@ class Writer:
             logger.error(f"Audit generation failed, bypassing: {e}")
             return QualityAuditPacket(status="APPROVED", feedback=[], artifacts={"script": refined_script})
 
-    def segment_script(self, text: str, mode: str = "shorts", provider: str = "google", model: str = "gemini-1.5-flash", style_prompt: str = "", split_method: str = "ai_smart") -> list:
+    def segment_script(self, text: str, mode: str = "shorts", provider: str = None, model: str = None, style_prompt: str = "", split_method: str = "ai_smart") -> list:
         """
         Splits a script into logical scenes and generates visual generation prompts for each scene.
         """
@@ -143,9 +146,10 @@ class Writer:
             
             prompt = self._build_segmentation_prompt(cleaned_text, mode, style_prompt)
             
+            target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "viraloop1"
             response = self.llm_client.generate_content(
                 prompt=prompt,
-                model_name=f"{provider}/{model}" if provider != "openai" else model,
+                model_name=target_model,
                 full_response=False
             )
             

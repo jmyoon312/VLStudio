@@ -38,7 +38,12 @@ import {
     Layers,
     Cpu,
     GitBranch,
-    ShieldCheck
+    ShieldCheck,
+    DollarSign,
+    Flame,
+    MessageSquare,
+    Dna,
+    LayoutTemplate
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -57,17 +62,17 @@ export interface MenuGroup {
 }
 
 export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
-    // 0. AI_ORCHESTRATION (인공지능 지휘 사령탑)
+    // 0. AI_ORCHESTRATION (3계층 주권 자율 팩토리 AI 사령탑)
     {
-        title: "🧠 AI 지휘 & 오케스트레이션",
+        title: "🏛️ AI 사령탑 (3계층 자율 팩토리)",
         mode: "AI_ORCHESTRATION",
         defaultExpanded: true,
         items: [
-            { name: '스튜디오 워룸 & 일괄 대량 생산', path: '/war-room', icon: Cpu, highlight: true },
-            { name: '파이프라인 빌더 & 랩', path: '/pipeline-builder', icon: GitBranch, highlight: true },
-            { name: '에이전트 인력소 & 모델 설정', path: '/agent-roster', icon: Users },
-            { name: '채널 브레인 & 스킬 팩토리', path: '/brain-vault', icon: BrainCircuit, highlight: true },
-            { name: '자율 순찰 & 원격 관제실', path: '/autonomous-patrol', icon: Radio, highlight: true },
+            { name: '[Tier 1] 루피 총사령탑 워룸', path: '/war-room', icon: Cpu, highlight: true },
+            { name: '[축 2] 5대 제작 파이프라인 랩', path: '/pipeline-builder', icon: GitBranch, highlight: true },
+            { name: '[Tier 3] 8대 에이전트 인력소', path: '/agent-roster', icon: Users, highlight: true },
+            { name: '[축 1] 채널 주권 DNA 금고', path: '/brain-vault', icon: BrainCircuit, highlight: true },
+            { name: '[원격 관제] 24시 자율 순찰 & 텔레그램', path: '/autonomous-patrol', icon: Radio, highlight: true },
         ]
     },
 
@@ -78,6 +83,7 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         defaultExpanded: true,
         items: [
             { name: '바이럴 스카우터', path: '/trend-radar', icon: TrendingUp, highlight: true },
+            { name: '채널 DNA 분석 연구소', path: '/channel-dna-studio', icon: Dna, highlight: true },
             { name: '타겟 채널 자동 수집', path: '/channels', icon: ListVideo },
             { name: '더우인 쇼츠 수집', path: '/douyin-search', icon: Globe, highlight: true },
             { name: 'URL 영상 직접 수집', path: '/download', icon: Download },
@@ -94,7 +100,8 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         defaultExpanded: true,
         items: [
             { name: '인텔리전스 기획 & 리서치 랩', path: '/research-concept-lab', icon: BrainCircuit, highlight: true },
-            { name: 'AI 원클릭 쇼츠 제작', path: '/ddalkkak', icon: Zap, highlight: true },
+            { name: '쇼츠 템플릿 디자인 스튜디오', path: '/shorts-template-studio', icon: LayoutTemplate, highlight: true },
+            { name: '쇼츠 제작 스튜디오', path: '/shorts-production-studio', icon: Zap, highlight: true },
             { name: '스마트 씬 분할 컷터', path: '/scene-cutter-pro', icon: Scissors, highlight: true },
             { name: 'AI 미디어 일괄 생성', path: '/creative-studio', icon: Clapperboard, highlight: true },
             { name: 'Flow AI 비디오 렌더러', path: '/flow2capcut', icon: Wand2 },
@@ -114,6 +121,9 @@ export const getMenuGroups = (captainId: string | null): MenuGroup[] => [
         items: [
             { name: '쇼츠 자동 배포 관리', path: '/work-queue', icon: Activity, highlight: true },
             { name: '채널 계정 & 웜업 육성', path: '/incubator', icon: Users, highlight: true },
+            { name: '다채널 수익률 & BI 센터', path: '/analytics', icon: DollarSign, highlight: true },
+            { name: '바이럴 성과 & 후킹 분석실', path: '/viral-lab', icon: Flame, highlight: true },
+            { name: '댓글 소통 & 인게이지먼트', path: '/community', icon: MessageSquare, highlight: true },
         ]
     },
     {

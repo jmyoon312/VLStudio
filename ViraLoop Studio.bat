@@ -12,7 +12,7 @@ set "ROOT_DIR=%~dp0"
 set "PATH=%ROOT_DIR%runtime\adb;%ROOT_DIR%runtime\ffmpeg;%ROOT_DIR%runtime\ytdlp;%PATH%"
 
 echo [*] Starting Python Backend on 0.0.0.0:8000...
-start "ViraLoop FastAPI Backend" /min cmd /c "cd /d "%ROOT_DIR%apps\api" && "%ROOT_DIR%venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+start "ViraLoop FastAPI Backend" /min cmd /c "cd /d "%ROOT_DIR%apps\api" && "%ROOT_DIR%venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
 timeout /t 2 /nobreak >nul
 

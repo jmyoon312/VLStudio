@@ -1,11 +1,13 @@
+import { ChannelLaunchpadModal } from '@/components/channel/ChannelLaunchpadModal';
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     Cpu, Activity, Play, CheckCircle2, AlertCircle, RefreshCcw, 
     Sparkles, ArrowRight, ShieldCheck, Zap, Layers, Users, 
     GitBranch, Server, HardDrive, Radio, Clock, Send, Eye,
     Check, Film, Music, Scissors, Package, ExternalLink, Terminal,
-    Tv, BookOpen, Database, Flame, ListOrdered
+    Tv, BookOpen, Database, Flame, ListOrdered, Shield, Lock, AlertTriangle, PlayCircle, Loader2, DollarSign
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -158,12 +160,66 @@ const INITIAL_WORKERS: WorkerState[] = [
 ];
 
 export const StudioWarRoom: React.FC = () => {
+    const navigate = useNavigate();
     const [workers, setWorkers] = useState<WorkerState[]>(INITIAL_WORKERS);
     const [selectedWorker, setSelectedWorker] = useState<WorkerState | null>(null);
     const [isRunningPreset, setIsRunningPreset] = useState(false);
     const [launchModalPreset, setLaunchModalPreset] = useState<any | null>(null);
+    const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
     const [launchTopic, setLaunchTopic] = useState('');
     const [shadowJobs, setShadowJobs] = useState<ShadowJobItem[]>([]);
+
+    const queryClient = useQueryClient();
+
+    // [Tier 1 & Tier 2 Real-time Queries]
+    const { data: directors = [], refetch: refetchDirectors } = useQuery({
+        queryKey: ['channel_directors_status'],
+        queryFn: async () => {
+            const res = await api.get('/brand-channels/directors/status');
+            return res.data || [];
+        },
+        refetchInterval: 4000
+    });
+
+    const { data: arbiterStatus = {}, refetch: refetchArbiter } = useQuery({
+        queryKey: ['global_arbiter_status'],
+        queryFn: async () => {
+            const res = await api.get('/brand-channels/directors/arbiter-status');
+            return res.data || {};
+        },
+        refetchInterval: 4000
+    });
+
+    const toggleKillSwitchMutation = useMutation({
+        mutationFn: async (active: boolean) => {
+            const res = await api.post(`/brand-channels/directors/kill-switch?active=${active}`);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(data.kill_switch_active ? "🚨 글로벌 비상 정지(Kill-Switch)가 발동되었습니다." : "🟢 비상 정지가 해제되고 정상 가동 상태로 복귀했습니다.");
+            refetchArbiter();
+            refetchDirectors();
+        }
+    });
+
+    const [triggeringChannelId, setTriggeringChannelId] = useState<number | null>(null);
+    const triggerDirectorCycleMutation = useMutation({
+        mutationFn: async ({ channelId, modality }: { channelId: number; modality: string }) => {
+            setTriggeringChannelId(channelId);
+            const res = await api.post(`/brand-channels/${channelId}/director/cycle?modality=${modality}`);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast.success(`[${data.channel || '채널'}] 자율 생산 사이클이 가동되었습니다!`);
+            refetchDirectors();
+            setTriggeringChannelId(null);
+        },
+        onError: (err: any) => {
+            toast.error(`가동 실패: ${err.message || '오류 발생'}`);
+            setTriggeringChannelId(null);
+        }
+    });
+
 
     const loadShadowJobs = async () => {
         try {
@@ -396,8 +452,11 @@ export const StudioWarRoom: React.FC = () => {
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground">
-                                스튜디오 워룸 & 일괄 대량 생산 (Studio War Room)
+                                [Tier 1] 루피 총사령탑 & [Tier 2] 채널 디렉터 워룸 (Sovereign War Room)
                             </h1>
+                            <Badge variant="outline" className="text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-500 border-indigo-500/30">
+                                3-Tier Sovereign Topology
+                            </Badge>
                             {isFsdActive ? (
                                 <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold gap-1 px-2 py-0.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -411,7 +470,7 @@ export const StudioWarRoom: React.FC = () => {
                             )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            8인의 전문 AI 워커들이 채널별 스킬팩과 Hermes FTS5 떡상 공식을 연동하여 6대 파이프라인을 일괄 대량 생산합니다.
+                            루피 총사령탑(Tier 1)이 전역 GPU 세마포어와 API 예산을 중재하고, 채널 디렉터(Tier 2)들이 7단계 상태 머신으로 100% 무인 자율 양산합니다.
                         </p>
                     </div>
                 </div>
@@ -473,6 +532,193 @@ export const StudioWarRoom: React.FC = () => {
                     <Badge variant="outline" className="text-[9px] font-mono text-blue-400 border-blue-500/30">
                         스킬팩 {channelSkillsCount}종 바인딩
                     </Badge>
+                </div>
+            </div>
+
+            
+            {/* [Tier 1] 루피 AI 총사령탑 전역 자원 HUD & 인터락 거버넌스 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex items-center justify-between">
+                    <div className="space-y-1">
+                        <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5">
+                            <Cpu className="w-3.5 h-3.5 text-blue-500" />
+                            GPU 렌더링 세마포어
+                        </span>
+                        <div className="text-sm sm:text-base font-black text-foreground">
+                            {arbiterStatus.gpu_in_use || 0} / {arbiterStatus.gpu_limit || 2} <span className="text-xs text-muted-foreground font-normal">슬롯 사용 중</span>
+                        </div>
+                    </div>
+                    <Badge variant="outline" className={cn(
+                        "text-[10px] font-mono font-bold",
+                        (arbiterStatus.gpu_in_use || 0) >= (arbiterStatus.gpu_limit || 2) ? "bg-amber-500/10 text-amber-500 border-amber-500/30" : "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                    )}>
+                        {(arbiterStatus.gpu_in_use || 0) >= (arbiterStatus.gpu_limit || 2) ? "슬롯 포화" : "여유"}
+                    </Badge>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex items-center justify-between">
+                    <div className="space-y-1">
+                        <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-indigo-500" />
+                            보안 격리 & 지터링
+                        </span>
+                        <div className="text-sm sm:text-base font-black text-foreground">
+                            {arbiterStatus.active_network_nodes || 0} <span className="text-xs text-muted-foreground font-normal">개 노드 감시</span>
+                        </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-500 border-indigo-500/30">
+                        5~8초 지터링
+                    </Badge>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex items-center justify-between">
+                    <div className="space-y-1">
+                        <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5">
+                            <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+                            일일 API 예산 거버넌스
+                        </span>
+                        <div className="text-sm sm:text-base font-black text-foreground">
+                            ${arbiterStatus.daily_budget_used || 0.0} / <span className="text-xs text-muted-foreground font-normal">${arbiterStatus.daily_budget_limit || 50.0}</span>
+                        </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                        한도 보호 중
+                    </Badge>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-card border border-border shadow-xs flex items-center justify-between">
+                    <div className="space-y-1">
+                        <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1.5">
+                            <AlertTriangle className={cn("w-3.5 h-3.5", arbiterStatus.kill_switch_active ? "text-rose-500" : "text-slate-400")} />
+                            글로벌 비상 정지 (Kill-Switch)
+                        </span>
+                        <div className="text-sm font-black text-foreground">
+                            {arbiterStatus.kill_switch_active ? (
+                                <span className="text-rose-500 font-bold">비상 동결 발동 중</span>
+                            ) : (
+                                <span className="text-emerald-500 font-bold">정상 가동 중</span>
+                            )}
+                        </div>
+                    </div>
+                    <Button
+                        size="sm"
+                        variant={arbiterStatus.kill_switch_active ? "default" : "destructive"}
+                        onClick={() => toggleKillSwitchMutation.mutate(!arbiterStatus.kill_switch_active)}
+                        className="text-[10px] font-bold h-7 px-2.5 rounded-xl shadow-xs"
+                    >
+                        {arbiterStatus.kill_switch_active ? "동결 해제" : "비상 정지"}
+                    </Button>
+                </div>
+            </div>
+
+            {/* [Tier 2] 채널별 중간 관리자 (Channel Directors) 상태 머신 보드 */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <h2 className="text-sm font-black text-foreground">
+                            Tier 2 채널 디렉터 (Channel Directors) 실시간 상태 머신 보드
+                        </h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground hidden sm:inline-flex">
+                            총 {directors.length}개 주권 채널 자율 순환
+                        </Badge>
+                        <Button
+                            size="sm"
+                            onClick={() => setIsLaunchpadOpen(true)}
+                            className="h-8 text-xs font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl shadow-xs gap-1.5 px-3"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            + 새 채널 디렉터 임명 (레퍼런스 복제)
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {directors.map((d: any) => {
+                        const isWorking = d.director_state !== "IDLE" && d.director_state !== "ERROR";
+                        return (
+                            <div 
+                                key={d.id} 
+                                className={cn(
+                                    "p-3.5 rounded-2xl border bg-card transition-all shadow-2xs space-y-2.5",
+                                    isWorking ? "border-indigo-500/50 shadow-indigo-500/5 ring-1 ring-indigo-500/20" : "border-border"
+                                )}
+                            >
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground font-mono">
+                                                {d.security_badge}
+                                            </span>
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono">
+                                                {d.assigned_combo_model}
+                                            </span>
+                                        </div>
+                                        <h3 className="text-xs font-black text-foreground truncate mt-1">
+                                            {d.title}
+                                        </h3>
+                                    </div>
+                                    
+                                    <Badge className={cn(
+                                        "text-[9px] font-bold px-2 py-0.5 shrink-0",
+                                        d.director_state === "IDLE" && "bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/20",
+                                        d.director_state === "SCOUTING" && "bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse",
+                                        d.director_state === "SCRIPTING" && "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 animate-pulse",
+                                        d.director_state === "EVALUATING" && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse",
+                                        d.director_state === "PRODUCING" && "bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 animate-pulse",
+                                        d.director_state === "PACKAGING" && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 animate-pulse",
+                                        d.director_state === "DISPATCHING" && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse"
+                                    )}>
+                                        {d.director_state}
+                                    </Badge>
+                                </div>
+
+                                <div className="p-2 rounded-xl bg-muted/30 border border-border/50 text-[10px] space-y-1">
+                                    <div className="flex items-center justify-between text-muted-foreground">
+                                        <span>오늘 발행 / 목표:</span>
+                                        <span className="font-bold text-foreground font-mono">{d.published_today_count} / {d.daily_target_count} 편</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-muted-foreground">
+                                        <span>디렉터 생존 펄스:</span>
+                                        <span className="font-mono text-emerald-500 font-bold">{d.director_heartbeat}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 pt-0.5">
+                                    <Button
+                                        size="sm"
+                                        disabled={triggeringChannelId === d.id || isWorking}
+                                        onClick={() => triggerDirectorCycleMutation.mutate({ channelId: d.id, modality: 'keyword_only' })}
+                                        className="flex-1 text-[11px] font-bold h-7 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-2xs gap-1"
+                                    >
+                                        {triggeringChannelId === d.id ? (
+                                            <>
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                가동 중...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <PlayCircle className="w-3.5 h-3.5" />
+                                                자율 생산 1회
+                                            </>
+                                        )}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => navigate('/agent-roster')}
+                                        className="h-7 px-2 text-[10px] font-bold border-border/80 text-muted-foreground hover:text-foreground rounded-xl"
+                                        title="채널 콤보 모델 및 떡상 DNA 핫스왑 피보팅"
+                                    >
+                                        피보팅
+                                    </Button>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -889,6 +1135,14 @@ export const StudioWarRoom: React.FC = () => {
                     </div>
                 </div>
             )}
+            {/* Channel Launchpad Modal */}
+            <ChannelLaunchpadModal
+                isOpen={isLaunchpadOpen}
+                onClose={() => setIsLaunchpadOpen(false)}
+                onSuccess={() => {
+                    refetchDirectors();
+                }}
+            />
         </div>
     );
 };

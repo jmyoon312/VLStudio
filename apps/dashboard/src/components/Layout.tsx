@@ -248,11 +248,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 if (Array.isArray(parsed) && parsed.length > 0) {
                     return parsed.map((t: any, idx: number) => {
                         let correctedName = t.name;
+                        let correctedPath = t.path;
+                        if (t.path?.includes('/ddalkkak') || t.path?.includes('/shorts-production-studio') || t.name?.toLowerCase() === 'ddalkkak') {
+                            correctedName = '쇼츠 제작 스튜디오';
+                            correctedPath = (t.path || '/shorts-production-studio').replace('/ddalkkak', '/shorts-production-studio');
+                        }
                         if (t.path === '/scene-cutter-pro' || t.path === '/scenecutter' || t.path === '/scissors') {
                             correctedName = '스마트 씬 분할 컷터';
                         }
                         return {
                             ...t,
+                            path: correctedPath,
                             name: correctedName,
                             flowWorkerId: t.flowWorkerId || getWorkerIdForIndex(idx)
                         };
@@ -274,12 +280,16 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     });
 
     const getTabNameAndIcon = React.useCallback((path: string) => {
-        if (path === '/') return { name: '대시보드 홈', icon: LayoutDashboard };
+        const cleanPath = (path || '').split('?')[0];
+        if (cleanPath === '/') return { name: '대시보드 홈', icon: LayoutDashboard };
+        if (cleanPath === '/ddalkkak' || cleanPath === '/shorts-production-studio') {
+            return { name: '쇼츠 제작 스튜디오', icon: Zap };
+        }
         for (const group of menuGroups) {
-            const item = group.items.find(it => it.path === path);
+            const item = group.items.find(it => it.path === cleanPath || it.path === path);
             if (item) return { name: item.name, icon: item.icon };
         }
-        const cleanName = path.split('/').pop()?.replace(/-/g, ' ') || '페이지';
+        const cleanName = cleanPath.split('/').pop()?.replace(/-/g, ' ') || '페이지';
         return { name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1), icon: FileText };
     }, [menuGroups]);
 
@@ -750,6 +760,9 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                             <h1 className="text-[13px] font-bold text-foreground tracking-tight truncate">
                                 {(() => {
                                     if (location.pathname === '/') return '대시보드 홈';
+                                    if (location.pathname === '/ddalkkak' || location.pathname === '/shorts-production-studio') {
+                                        return '쇼츠 제작 스튜디오';
+                                    }
                                     for (const group of menuGroups) {
                                         const item = group.items.find(it => it.path === location.pathname);
                                         if (item) return item.name;

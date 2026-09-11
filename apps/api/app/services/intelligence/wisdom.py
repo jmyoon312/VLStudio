@@ -19,8 +19,8 @@ class WisdomDistiller:
     
     def __init__(self, db: Session):
         self.db = db
-        # We'll use the highest intelligence model available for distillation
-        self.llm = get_llm_client(preferred_provider="gemini", preferred_model="gemini-1.5-pro")
+        # Uses DB Settings single source of truth
+        self.llm = get_llm_client()
         self.obsidian = ObsidianManager()
 
     async def distill_mission_experience(self, session_id: str, niche: str, logs: List[Dict[str, Any]]) -> Optional[SwarmWisdom]:

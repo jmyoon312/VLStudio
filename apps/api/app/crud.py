@@ -48,8 +48,8 @@ def get_settings(db: Session):
             n8n_base_url="http://localhost:5678",
 
             # [Phase 5: Sovereign Hermes Intelligence]
-            hermes_agent_provider="google",
-            hermes_agent_model="gemini-2.5-pro",
+            hermes_agent_provider="omniroute",
+            hermes_agent_model="omniroute/viraloop1",
             hermes_wisdom_depth=3,
             hermes_reflection_verbosity="balanced",
             hermes_auto_reflection=True,

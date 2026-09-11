@@ -152,9 +152,7 @@ class LLMClient:
     def generate(self, prompt: str, model_name: str = None, system_instruction: str = None) -> str:
         """Compatibility wrapper for code calling llm.generate(...)"""
         if not model_name:
-            model_name = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "openclaw_model", None) or getattr(self.settings, "default_llm_model", "gemini-1.5-flash")
-        if not model_name:
-            model_name = "gemini-1.5-flash"
+            model_name = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "default_llm_model", None) or "viraloop1"
         res = self.generate_content(prompt, model_name=model_name, system_instruction=system_instruction)
         if isinstance(res, dict):
             import json
@@ -162,390 +160,107 @@ class LLMClient:
         return str(res)
 
     async def generate_text(self, prompt: str, model_name: str = None, system_instruction: str = None, temperature: float = 0.7) -> str:
-        """Async non-blocking generation using the configured AI model (9router/Gemini/Groq)"""
+        """Async non-blocking generation using DB Settings model"""
         import asyncio
         return await asyncio.to_thread(self.generate, prompt, model_name, system_instruction)
 
-    def generate_content(self, prompt: str, model_name: str, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
+    def generate_content(self, prompt: str, model_name: str = None, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
         """
-        Unified generation method with automatic fallback (OpenCode -> Groq -> Gemini) on Rate Limits.
+        Unified generation method.
+        [SOVEREIGN TRUTH] Exclusively routes all prompts through the OmniRoute sovereign gateway.
         """
         try:
             return self._generate_content_internal(prompt, model_name, system_instruction, full_response, images)
         except Exception as e:
-            error_msg = str(e).lower()
-            # If it's a rate limit or exhaustion error, trigger fallback
-            if "429" in error_msg or "rate limit" in error_msg or "freeusagelimiterror" in error_msg or "exhausted" in error_msg or "quota" in error_msg or "402" in error_msg:
-                if model_name and (model_name.startswith("opencode/") or model_name.startswith("openrouter/")):
-                    logger.warning(f"[WARN] [Fallback] {model_name.split('/')[0].title()} limit reached. Falling back to Groq...")
-                    try:
-                        return self._generate_content_internal(prompt, "groq/llama-3.3-70b-versatile", system_instruction, full_response, images)
-                    except Exception as e2:
-                        logger.warning("[WARN] [Fallback] Groq limit reached. Falling back to Gemini...")
-                        try:
-                            return self._generate_content_internal(prompt, "gemini/gemini-1.5-flash", system_instruction, full_response, images)
-                        except Exception as e3:
-                            logger.error(f"[FAIL] [Fallback] All fallback models exhausted. Final error: {e3}")
-                            if full_response: return {"content": f"ERROR: {str(e3)}", "error": str(e3)}
-                            return f"ERROR: {str(e3)}"
-                            
-                elif model_name and model_name.startswith("groq/"):
-                    logger.warning("[WARN] [Fallback] Groq limit reached. Falling back to Gemini...")
-                    try:
-                        return self._generate_content_internal(prompt, "gemini/gemini-1.5-flash", system_instruction, full_response, images)
-                    except Exception as e3:
-                        logger.error(f"[FAIL] [Fallback] Gemini exhausted as well. Final error: {e3}")
-                        if full_response: return {"content": f"ERROR: {str(e3)}", "error": str(e3)}
-                        return f"ERROR: {str(e3)}"
-            
-            # For other errors or if fallback isn't applicable
-            logger.error(f"Generate content failed: {e}")
+            error_msg = str(e)
+            logger.error(f"[OmniRoute] Generate content failed: {e}")
             if full_response:
                 return {"content": f"ERROR: {error_msg}", "error": error_msg}
             return f"ERROR: {error_msg}"
 
-    def _generate_content_internal(self, prompt: str, model_name: str, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
+    def _generate_content_internal(self, prompt: str, model_name: str = None, system_instruction: str = None, full_response: bool = False, images: list = None) -> str | dict:
         """
-        Original unified generation logic without fallback wrapper.
-        [SOVEREIGN] Strictly honors the requested model_name without unrequested provider switching.
+        [SOVEREIGN TRUTH] Exclusively routes all text generation through the local OmniRoute gateway (port 20128).
+        Single Source of Truth: DB Settings (script_analysis_model, youtube1_api_keys).
         """
         try:
-            # [SOVEREIGN TRUTH] Resolve Effective Model Name with absolute DB Settings priority
-            if not model_name or model_name.lower() in ["free", "auto", "default"]:
-                db_model = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "default_llm_model", None) or getattr(self.settings, "paperclip_model", None)
-                if db_model:
-                    model_name = db_model
-                else:
-                    provider = getattr(self.settings, "openclaw_preferred_provider", "auto")
-                    if provider != "auto" and model_name and "/" not in model_name:
-                        model_name = f"{provider}/{model_name}"
+            # 1. Resolve Effective Model Name from DB Settings
+            if not model_name or str(model_name).lower() in ["free", "auto", "default", "none", ""]:
+                model_name = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "default_llm_model", None) or "viraloop1"
 
-            # OpenCode Zen Routing Logic
-            if model_name.startswith("opencode/"):
-                last_error = None
-                for _ in range(len(self.opencode_keys) + 1):
-                    current_key = self.opencode_keys[self.opencode_key_index] if self.opencode_keys else None
-                    if not current_key: break
-
-                    try:
-                        return self._generate_openai_compatible(
-                            prompt=prompt,
-                            model=model_name.replace("opencode/", ""),
-                            system_instruction=system_instruction,
-                            full_response=full_response,
-                            base_url="https://opencode.ai/zen/v1",
-                            api_key=current_key,
-                            provider_name="OpenCode",
-                            images=images,
-                            request_timeout=120.0
-                        )
-                    except Exception as e:
-                        last_error = e
-                        if self.opencode_keys:
-                            logger.warning(f"[WAIT] [OpenCode] Error on Key #{self.opencode_key_index}: {e}. Rotating...")
-                            self.opencode_key_index = (self.opencode_key_index + 1) % len(self.opencode_keys)
-                            error_msg = str(e).lower()
-                            if "429" in str(e) or "rate limit" in error_msg or "freeusagelimiterror" in error_msg:
-                                time.sleep(5)
-                            elif "timeout" in error_msg or "timed out" in error_msg:
-                                time.sleep(3)
-                            elif "401" in str(e) or "auth" in error_msg or "invalid" in error_msg:
-                                time.sleep(0.5)
-                            else:
-                                time.sleep(2)
-                            continue
-                        else:
-                            break
-                if last_error and ("timeout" in str(last_error).lower()):
-                    logger.warning("All OpenCode keys exhausted (timeouts). Trying fallback provider...")
-                    raise last_error
-                raise last_error or Exception("No OpenCode Zen API Keys available.")
-
-            # OpenRouter Routing Logic
-            if model_name.startswith("openrouter/"):
-                # Strip 'openrouter/' prefix for all models
-                real_model = model_name
-                while real_model.startswith("openrouter/"):
-                    real_model = real_model.replace("openrouter/", "", 1)
-                
-                # If specific 'Free' was selected, use the official 'openrouter/free' router ID
-                if real_model.lower() == "free":
-                    real_model = "openrouter/free"
-                
-                last_error = None
-                
-                for _ in range(len(self.openrouter_keys) + 1):
-                    current_key = self.openrouter_keys[self.openrouter_key_index] if self.openrouter_keys else None
-                    if not current_key: break
-                    
-                    try:
-                        return self._generate_openai_compatible(
-                            prompt=prompt,
-                            model=real_model,
-                            system_instruction=system_instruction,
-                            full_response=full_response,
-                            base_url="https://openrouter.ai/api/v1",
-                            api_key=current_key,
-                            provider_name="OpenRouter",
-                            images=images,
-                            extra_headers={
-                                "HTTP-Referer": "https://github.com/ViraLoop",
-                                "X-Title": "ViraLoop"
-                            }
-                        )
-                    except Exception as e:
-                        last_error = e
-                        # Key Rotation for paid/specific models
-                        if self.openrouter_keys:
-                            logger.warning(f"[WAIT] [OpenRouter] Error on Key #{self.openrouter_key_index}: {e}. Rotating...")
-                            self.openrouter_key_index = (self.openrouter_key_index + 1) % len(self.openrouter_keys)
-                            time.sleep(1)
-                            continue
-                        else:
-                            break
-                raise last_error or Exception("No OpenRouter API Keys available.")
-
-            elif model_name.startswith("sambanova/"):
-                # SambaNova Logic
-                last_error = None
-                for _ in range(len(self.sambanova_keys) + 1):
-                    current_key = self.sambanova_keys[self.sambanova_key_index] if self.sambanova_keys else None
-                    if not current_key: break
-                    
-                    try:
-                        return self._generate_openai_compatible(
-                            prompt=prompt,
-                            model=model_name.replace("sambanova/", ""),
-                            system_instruction=system_instruction,
-                            full_response=full_response,
-                            base_url="https://api.sambanova.ai/v1",
-                            api_key=current_key,
-                            provider_name="SambaNova",
-                            images=images
-                        )
-                    except Exception as e:
-                        last_error = e
-                        logger.warning(f"[WAIT] [SambaNova] Error on Key #{self.sambanova_key_index}: {e}. Rotating...")
-                        self.sambanova_key_index = (self.sambanova_key_index + 1) % len(self.sambanova_keys)
-                        time.sleep(1)
-                        continue
-                raise last_error or Exception("All SambaNova keys exhausted.")
-
-            elif model_name.startswith("cerebras/"):
-                # Cerebras Logic
-                last_error = None
-                for _ in range(len(self.cerebras_keys) + 1):
-                    current_key = self.cerebras_keys[self.cerebras_key_index] if self.cerebras_keys else None
-                    if not current_key: break
-                    
-                    try:
-                        return self._generate_openai_compatible(
-                            prompt=prompt,
-                            model=model_name.replace("cerebras/", ""),
-                            system_instruction=system_instruction,
-                            full_response=full_response,
-                            base_url="https://api.cerebras.ai/v1",
-                            api_key=current_key,
-                            provider_name="Cerebras",
-                            images=images
-                        )
-                    except Exception as e:
-                        last_error = e
-                        logger.warning(f"[WAIT] [Cerebras] Error on Key #{self.cerebras_key_index}: {e}. Rotating...")
-                        self.cerebras_key_index = (self.cerebras_key_index + 1) % len(self.cerebras_keys)
-                        time.sleep(1)
-                        continue
-                raise last_error or Exception("All Cerebras keys exhausted.")
-
-            elif model_name.startswith("ollama/"):
-                # Ollama Logic (Targets Windows Host from WSL or Local)
-                v1_url = self._get_ollama_v1_url()
-                
-                return self._generate_openai_compatible(
-                    prompt=prompt,
-                    model=model_name.replace("ollama/", ""),
-                    system_instruction=system_instruction,
-                    full_response=full_response,
-                    base_url=v1_url,
-                    api_key="ollama", # Placeholder
-                    provider_name="Ollama",
-                    images=images
-                )
-
-            elif model_name.startswith("groq/"):
-                # Groq Logic
-                last_error = None
-                for _ in range(len(self.groq_keys) + 1):
-                    current_key = self.groq_keys[self.groq_key_index] if self.groq_keys else None
-                    if not current_key: break
-                    
-                    try:
-                        return self._generate_openai_compatible(
-                            prompt=prompt,
-                            model=model_name.replace("groq/", ""),
-                            system_instruction=system_instruction,
-                            full_response=full_response,
-                            base_url="https://api.groq.com/openai/v1",
-                            api_key=current_key,
-                            provider_name="Groq",
-                            images=images
-                        )
-                    except Exception as e:
-                        last_error = e
-                        logger.warning(f"[WAIT] [Groq] Error on Key #{self.groq_key_index}: {e}. Rotating...")
-                        self.groq_key_index = (self.groq_key_index + 1) % len(self.groq_keys)
-                        time.sleep(1)
-                        continue
-                raise last_error or Exception("All Groq keys exhausted.")
-
-            elif model_name.startswith("nvidia/"):
-                # NVIDIA Logic (Added)
-                last_error = None
-                for _ in range(len(self.nvidia_keys) + 1):
-                    current_key = self.nvidia_keys[self.nvidia_key_index] if self.nvidia_keys else None
-                    if not current_key: break
-                    
-                    try:
-                        return self._generate_openai_compatible(
-                            prompt=prompt,
-                            model=model_name.replace("nvidia/", ""),
-                            system_instruction=system_instruction,
-                            full_response=full_response,
-                            base_url="https://integrate.api.nvidia.com/v1",
-                            api_key=current_key,
-                            provider_name="NVIDIA",
-                            images=images
-                        )
-                    except Exception as e:
-                        last_error = e
-                        logger.warning(f"[WAIT] [NVIDIA] Error on Key #{self.nvidia_key_index}: {e}. Rotating...")
-                        self.nvidia_key_index = (self.nvidia_key_index + 1) % len(self.nvidia_keys)
-                        time.sleep(1)
-                        continue
-                raise last_error or Exception("All NVIDIA keys exhausted.")
-
-            elif model_name in ["youtube1", "omniroute", "9router", "viraloop1"] or model_name.startswith(("youtube1/", "omniroute/", "9router/", "viraloop")):
-                # OmniRoute / YouTube1 / 9router Custom Provider (Local Gateway)
-                last_error = None
-                raw_base_url = getattr(self.settings, "youtube1_base_url", None) or getattr(self.settings, "ninerouter_url", None) or "http://localhost:20128/v1"
-                clean_base_url = str(raw_base_url).strip().rstrip("/")
-                if not clean_base_url.endswith("/v1") and not clean_base_url.endswith("/chat/completions"):
-                    clean_base_url = f"{clean_base_url}/v1"
-
-                keys_to_try = self.youtube1_keys if self.youtube1_keys else []
-                if not keys_to_try:
-                    db_k = getattr(self.settings, "omniroute_api_key", None) or getattr(self.settings, "ninerouter_api_key", None)
-                    if db_k:
-                        keys_to_try.append(db_k)
-                    else:
-                        try:
-                            import sqlite3
-                            sqlite_path = os.path.expanduser(r"~/.omniroute/storage.sqlite")
-                            if os.path.exists(sqlite_path):
-                                with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
-                                    s_cur = s_conn.cursor()
-                                    s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
-                                    row = s_cur.fetchone()
-                                    if row and row[0]:
-                                        keys_to_try.append(row[0])
-                        except Exception:
-                            pass
-                if not keys_to_try:
-                    keys_to_try = ["sk-omniroute"]
-                clean_model = model_name
-                for prefix in ["youtube1/", "omniroute/", "9router/"]:
-                    if clean_model.startswith(prefix):
-                        clean_model = clean_model[len(prefix):]
-                        break
-                if not clean_model or clean_model in ["omniroute", "youtube1", "9router"]:
-                    clean_model = "viraloop1"
-                
-                for key_idx, current_key in enumerate(keys_to_try):
-                    if not current_key:
-                        continue
-
-                    try:
-                        return self._generate_openai_compatible(
-                            prompt=prompt,
-                            model=clean_model,
-                            system_instruction=system_instruction,
-                            full_response=full_response,
-                            base_url=clean_base_url,
-                            api_key=current_key,
-                            provider_name="OmniRoute",
-                            images=images,
-                            request_timeout=180.0
-                        )
-                    except Exception as e:
-                        last_error = e
-                        logger.warning(f"[WAIT] [OmniRoute] Error on Key #{key_idx}: {e}. Retrying...")
-                        time.sleep(0.5)
-                        continue
-                
-                # 통신 실패 시 로그 기록 후 예외 전달
-                logger.error(f"[FAIL] [OmniRoute] All keys exhausted: {last_error}")
-                raise last_error or Exception(f"OmniRoute failed: {last_error}")
-
-            elif model_name.startswith("google/") or model_name.startswith("gemini/"):
-                # Google/Gemini routing
-                real_model = model_name.split("/", 1)[1]
-                return self._generate_gemini(
-                    prompt=prompt,
-                    model=real_model,
-                    system_instruction=system_instruction,
-                    full_response=full_response,
-                    images=images
-                )
-
-            elif model_name.startswith("openai/"):
-                key = getattr(self.settings, "openai_api_key", None) or os.getenv("OPENAI_API_KEY")
-                if not key:
-                    raise ValueError("OpenAI API key is missing. Please set openai_api_key in Settings or OPENAI_API_KEY environment variable.")
-                real_model = model_name.replace("openai/", "")
-                return self._generate_openai_compatible(
-                    prompt=prompt,
-                    model=real_model,
-                    system_instruction=system_instruction,
-                    full_response=full_response,
-                    base_url="https://api.openai.com/v1",
-                    api_key=key,
-                    provider_name="OpenAI",
-                    images=images
-                )
-
-            elif model_name.startswith("anthropic/"):
-                import anthropic
-                key = os.getenv("ANTHROPIC_API_KEY")
-                if not key:
-                    raise ValueError("Anthropic API key is missing. Please set ANTHROPIC_API_KEY environment variable.")
-                client = anthropic.Anthropic(api_key=key)
-                real_model = model_name.replace("anthropic/", "")
-                
-                messages = [{"role": "user", "content": prompt}]
-                logger.info(f"[FALLBACK] [Anthropic] Sending to [{real_model}]...")
-                response = client.messages.create(
-                    model=real_model,
-                    max_tokens=4096,
-                    system=system_instruction or "",
-                    messages=messages,
-                    temperature=0.7
-                )
-                content = response.content[0].text
-                if full_response:
-                    return {
-                        "content": content,
-                        "model": model_name
-                    }
-                return content
-
-            # [SOVEREIGN] Resolve fallback to global settings default if no provider prefix found
-            fallback_model = getattr(self.settings, "default_model", "opencode/deepseek-v4-flash-free")
-            real_model = model_name
+            # 2. Clean Model Name (Strip any provider prefixes to send pure model ID to OmniRoute)
+            clean_model = str(model_name).strip()
+            for prefix in ["youtube1/", "omniroute/", "9router/", "opencode/", "openrouter/", "groq/", "nvidia/", "google/", "gemini/", "openai/", "anthropic/", "sambanova/", "cerebras/", "ollama/"]:
+                if clean_model.startswith(prefix):
+                    clean_model = clean_model[len(prefix):]
+                    break
             
-            logger.warning(f"[WARN] [LLM] No provider prefix for '{model_name}'. Falling back to settings default: {fallback_model}")
-            return self._generate_content_internal(prompt, fallback_model, system_instruction, full_response, images)
+            if not clean_model:
+                clean_model = "viraloop1"
+
+            # 3. Resolve OmniRoute Gateway Base URL & API Key from DB Settings
+            raw_base_url = getattr(self.settings, "youtube1_base_url", None) or getattr(self.settings, "ninerouter_url", None) or "http://localhost:20128/v1"
+            clean_base_url = str(raw_base_url).strip().rstrip("/")
+            if not clean_base_url.endswith("/v1") and not clean_base_url.endswith("/chat/completions"):
+                clean_base_url = f"{clean_base_url}/v1"
+
+            # DB Settings의 실제 API Key 가져오기
+            keys_to_try = []
+            if hasattr(self.settings, "youtube1_api_keys") and self.settings.youtube1_api_keys:
+                for k in self.settings.youtube1_api_keys:
+                    if k and k.strip():
+                        keys_to_try.append(k.strip())
+            
+            db_k = getattr(self.settings, "omniroute_api_key", None) or getattr(self.settings, "ninerouter_api_key", None)
+            if db_k and db_k.strip() and db_k.strip() not in keys_to_try:
+                keys_to_try.append(db_k.strip())
+
+            if not keys_to_try:
+                try:
+                    import sqlite3
+                    sqlite_path = os.path.expanduser(r"~/.omniroute/storage.sqlite")
+                    if os.path.exists(sqlite_path):
+                        with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
+                            s_cur = s_conn.cursor()
+                            try:
+                                s_cur.execute("SELECT key FROM api_keys WHERE key LIKE 'sk-%' AND (is_active IS NULL OR is_active = 1) ORDER BY created_at DESC LIMIT 1")
+                                row = s_cur.fetchone()
+                            except Exception:
+                                s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
+                                row = s_cur.fetchone()
+                            if row and row[0]:
+                                keys_to_try.append(row[0])
+                except Exception:
+                    pass
+
+            if not keys_to_try:
+                keys_to_try = ["sk-omniroute"]
+
+            last_error = None
+            for key_idx, current_key in enumerate(keys_to_try):
+                if not current_key:
+                    continue
+                try:
+                    return self._generate_openai_compatible(
+                        prompt=prompt,
+                        model=clean_model,
+                        system_instruction=system_instruction,
+                        full_response=full_response,
+                        base_url=clean_base_url,
+                        api_key=current_key,
+                        provider_name="OmniRoute",
+                        images=images,
+                        request_timeout=180.0
+                    )
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"[WAIT] [OmniRoute] Error with model [{clean_model}] on key #{key_idx}: {e}. Retrying...")
+                    time.sleep(0.5)
+                    continue
+
+            logger.error(f"[FAIL] [OmniRoute] All attempts failed for model [{clean_model}]: {last_error}")
+            raise last_error or Exception(f"OmniRoute generation failed for model [{clean_model}]")
         except Exception as e:
-            # Let the outer wrapper handle the exception and fallbacks
             raise e
 
     def _generate_gemini(self, prompt: str, model: str, system_instruction: str, full_response: bool, images: list = None):
@@ -868,30 +583,36 @@ class LLMClient:
         _MODEL_CACHE = None
         logger.info("🧹 Model Cache Cleared.")
 
-    async def fetch_available_models(self, db: Optional[Any] = None, force: bool = False) -> dict:
+    async def fetch_available_models(self, db: Optional[Any] = None, force: bool = False, provider: Optional[str] = None) -> dict:
         """
-        Fetches models with Persistent DB Caching Strategy.
+        Fetches models exclusively from OmniRoute sovereign local gateway (port 20128).
+        Eliminates all external provider scrapers, latency, and legacy logs.
         """
         global _MODEL_CACHE
         
+        # 1. In-Memory Cache Check (5 min TTL)
+        if not force and _MODEL_CACHE and "omniroute" in _MODEL_CACHE.get("data", {}):
+            age = time.time() - _MODEL_CACHE.get("timestamp", 0)
+            if age < 300:
+                return _MODEL_CACHE["data"]
+
+        # 2. Persistent DB Cache Check
         if db and not force:
             try:
                 from . import crud
                 settings = crud.get_settings(db)
-                if settings.model_cache and settings.model_cache_updated_at:
+                if settings.model_cache and settings.model_cache_updated_at and "omniroute" in settings.model_cache:
                     age = datetime.now() - settings.model_cache_updated_at
                     if age < timedelta(hours=24):
-                        logger.info(f"[TURBO] Returning DB Cached Models (Age: {age})")
+                        _MODEL_CACHE = {
+                            "timestamp": time.time(),
+                            "data": settings.model_cache
+                        }
                         return settings.model_cache
             except Exception as e:
                 logger.error(f"Failed to read model cache from DB: {e}")
 
-        if not force and _MODEL_CACHE:
-            age = time.time() - _MODEL_CACHE["timestamp"]
-            if age < 3600:
-                return _MODEL_CACHE["data"]
-                
-        logger.info("[REFRESH] Fetching Fresh Models from Providers (Parallel)...")
+        logger.info("[OmniRoute] Fetching models directly from local gateway (port 20128)...")
         data = await self._get_available_models_fresh_async()
         
         if db:
@@ -901,7 +622,7 @@ class LLMClient:
                     model_cache=data,
                     model_cache_updated_at=datetime.now()
                 ))
-                logger.info("[OK] Model cache updated in DB.")
+                logger.info("[OK] OmniRoute model cache updated in DB.")
             except Exception as e:
                 logger.error(f"Failed to save model cache to DB: {e}")
 
@@ -911,59 +632,29 @@ class LLMClient:
         }
         return data
 
-    async def _get_available_models_fresh_async(self) -> dict:
-        tasks = []
-        tasks.append(self._fetch_google_models_async())
-        tasks.append(self._fetch_groq_models_async())
-        tasks.append(self._fetch_openrouter_models_async())
-        tasks.append(self._fetch_sambanova_models_async())
-        tasks.append(self._fetch_cerebras_models_async())
-        tasks.append(self._fetch_ollama_models_async())
-        tasks.append(self._fetch_nvidia_models_async())
-        tasks.append(self._fetch_openai_models_async())
-        tasks.append(self._fetch_opencode_models_async())
-        tasks.append(self._fetch_anthropic_models_async())
-        tasks.append(self._fetch_youtube1_models_async())
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+    async def _get_available_models_fresh_async(self, target_provider: str = "") -> dict:
+        """
+        Exclusively fetches models from the OmniRoute sovereign local gateway (port 20128).
+        All external scrapers (Google, OpenRouter, Nvidia, Ollama, Groq, etc.) have been permanently deleted.
+        """
+        omni_models = await self._fetch_youtube1_models_async()
         models = {
-            "google": results[0] if not isinstance(results[0], Exception) else [],
-            "groq": results[1] if not isinstance(results[1], Exception) else [],
-            "openrouter": results[2] if not isinstance(results[2], Exception) else [],
-            "sambanova": results[3] if not isinstance(results[3], Exception) else [],
-            "cerebras": results[4] if not isinstance(results[4], Exception) else [],
-            "ollama": results[5] if not isinstance(results[5], Exception) else [],
-            "nvidia": results[6] if not isinstance(results[6], Exception) else [],
-            "openai": results[7] if not isinstance(results[7], Exception) else [],
-            "opencode": results[8] if not isinstance(results[8], Exception) else [],
-            "anthropic": results[9] if not isinstance(results[9], Exception) else [],
-            "youtube1": results[10] if not isinstance(results[10], Exception) else [],
-            "omniroute": results[10] if not isinstance(results[10], Exception) else []
+            "omniroute": omni_models,
+            "youtube1": omni_models
         }
-        
-        # 6. NVIDIA Models (Dynamic fetch is now in results)
-        pass
-
-        # Log empty providers for debugging
-        for p, m in models.items():
-            if not m:
-                logger.warning(f"[WARN] Provider [{p}] returned 0 models. Check API Keys.")
-            else:
-                logger.info(f"[OK] Provider [{p}] loaded {len(m)} models.")
-        
-        for p in models:
-            if models[p]:
-                models[p].sort(key=lambda x: x["label"])
-
+        logger.info(f"[OK] Provider [omniroute] loaded {len(omni_models)} models.")
         return models
 
-    async def _fetch_openai_compatible_async(self, api_key, base_url, provider_name, fallback_models=[]):
-        if not api_key: return fallback_models
+    async def _fetch_openai_compatible_async(self, api_key, base_url, provider_name="omniroute", fallback_models=[]):
+        if not api_key:
+            return fallback_models
         try:
+            db_active_model = getattr(self.settings, "script_analysis_model", None) or "viraloop1"
+            raw_active_id = db_active_model.replace("omniroute/", "").replace("youtube1/", "").strip()
+
             async with aiohttp.ClientSession() as session:
                 headers = {"Authorization": f"Bearer {api_key}"}
-                async with session.get(f"{base_url}/models", headers=headers, timeout=10.0) as resp:
+                async with session.get(f"{base_url}/models", headers=headers, timeout=5.0) as resp:
                     if resp.status != 200:
                         logger.error(f"Failed to fetch {provider_name} models: Status {resp.status}")
                         return fallback_models
@@ -972,307 +663,100 @@ class LLMClient:
                     fetched = []
                     
                     model_list = data.get("data", data) if isinstance(data, dict) else data
-                    if not isinstance(model_list, list): return fallback_models
-
-                    # Common mapping for popular models
-                    mapping = {
-                        "llama-3.3-70b-versatile": "Llama 3.3 70B",
-                        "llama-3.1-8b-instant": "Llama 3.1 8B (Fast)",
-                        "llama3-70b-8192": "Llama 3 70B",
-                        "llama3-8b-8192": "Llama 3 8B",
-                        "mixtral-8x7b-32768": "Mixtral 8x7B",
-                        "gemma2-9b-it": "Gemma 2 9B",
-                        "deepseek-v3": "DeepSeek V3",
-                        "deepseek-r1": "DeepSeek R1 (Reasoning)",
-                    }
+                    if not isinstance(model_list, list):
+                        return fallback_models
 
                     for m in model_list:
                         mid = m.get("id") if isinstance(m, dict) else m
-                        if not mid: continue
-                        
-                        lower_mid = mid.lower()
-                        
-                        # Provider-specific filtering
-                        if provider_name in ["youtube1", "omniroute"]:
-                            # WHITELIST: Only allow auto/* smart router models OR slash-free user Combos
-                            # mid here is the raw model id from OmniRoute (e.g. "auto/best-coding", "viraloop1", "dva/claude-opus-4")
-                            is_auto_router = (mid == "auto" or mid.startswith("auto/"))
-                            is_user_combo = ("/" not in mid)  # slash-free = user-created Combo name
-                            if not (is_auto_router or is_user_combo):
-                                continue
+                        if not mid:
+                            continue
 
-                        if provider_name == "groq" and not any(x in lower_mid for x in ["llama", "mixtral", "gemma", "whisper"]):
-                             continue
-                        if provider_name == "cerebras" and "llama" not in lower_mid:
-                             continue
-                        if provider_name == "sambanova" and not any(x in lower_mid for x in ["llama", "qwen"]):
-                             continue
-                        
-                        clean_label = str(mid).replace("[FALLBACK]", "").replace("[TURBO]", "").replace("💎", "").replace("💲", "").strip()
-                        
-                        # Remove provider prefixes (e.g., 'meta/')
-                        if "/" in clean_label:
-                            clean_label = clean_label.split("/")[-1]
-                        
-                        # Apply mapping or format nicely
-                        if clean_label.lower() in mapping:
-                            clean_label = mapping[clean_label.lower()]
-                        else:
-                            clean_label = clean_label.replace("-", " ").replace("_", " ").title()
-                        
-                        # Append source info only if it's not redundant
-                        if "free" in mid.lower() and "(Free)" not in clean_label: 
-                            clean_label += " (Free)"
-                        
-                        fetched.append({"value": f"{provider_name}/{mid}", "label": clean_label})
+                        mid_str = str(mid).strip()
+                        # 선별 규칙: 스마트 라우터(auto/*), 사용자 명명 모델(슬래시 없는 Combo), DB 지정 모델
+                        is_auto_router = (mid_str == "auto" or mid_str.startswith("auto/"))
+                        is_user_combo = ("/" not in mid_str)
+                        is_db_active = (mid_str == raw_active_id)
+
+                        if not (is_auto_router or is_user_combo or is_db_active):
+                            continue
+
+                        clean_val = f"omniroute/{mid_str}" if not mid_str.startswith("omniroute/") else mid_str
+                        fetched.append({"value": clean_val, "label": mid_str})
                     
                     return fetched
         except Exception as e:
             logger.error(f"Async fetch failed for {provider_name}: {e}")
             return fallback_models
 
-    async def _fetch_google_models_async(self) -> list:
-        fallback = [
-            {"value": "google/gemini-2.5-flash", "label": "Gemini 2.5 Flash"},
-            {"value": "google/gemini-2.0-flash", "label": "Gemini 2.0 Flash"},
-            {"value": "google/gemini-2.5-pro", "label": "Gemini 2.5 Pro"},
-            {"value": "google/gemini-1.5-flash", "label": "Gemini 1.5 Flash"},
-            {"value": "google/gemini-1.5-pro", "label": "Gemini 1.5 Pro"},
-        ]
-        if not self.gemini_keys: 
-            logger.warning("[FAIL] No Gemini keys found in LLMClient. Returning fallback models.")
-            return fallback
-        try:
-            logger.info(f"📡 Fetching Google models using {len(self.gemini_keys)} keys...")
-            client = self._get_gemini_client()
-            goog_models = client.models.list(config={"page_size": 100})
-            fetched = []
-            for m in goog_models:
-                mid = m.name.replace("models/", "")
-                if "gemini" not in mid: continue
-                if "vision" in mid: continue 
-                fetched.append({"value": mid, "label": mid})
-            logger.info(f"[OK] Successfully fetched {len(fetched)} Google models.")
-            if not fetched:
-                return fallback
-            return fetched
-        except Exception as e:
-            logger.error(f"Failed to fetch Google models: {str(e)}")
-            return fallback
-
-    async def _fetch_groq_models_async(self) -> list:
-        key = self.groq_keys[0] if self.groq_keys else None
-        fallback = [
-            {"value": "groq/llama-3.3-70b-versatile", "label": "Llama 3.3 70B (Groq)"},
-            {"value": "groq/llama-3.1-8b-instant", "label": "Llama 3.1 8B (Fast) (Groq)"},
-            {"value": "groq/mixtral-8x7b-32768", "label": "Mixtral 8x7B (Groq)"},
-            {"value": "groq/gemma2-9b-it", "label": "Gemma 2 9B (Groq)"},
-            {"value": "groq/deepseek-r1-distill-llama-70b", "label": "DeepSeek R1 Distill Llama 70B (Groq)"},
-        ]
-        return await self._fetch_openai_compatible_async(key, "https://api.groq.com/openai/v1", "groq", fallback_models=fallback)
-
-    async def _fetch_openrouter_models_async(self) -> list:
-        key = self.openrouter_keys[0] if self.openrouter_keys else None
-        fallback = [
-            {"value": "openrouter/google/gemini-2.0-flash-exp:free", "label": "Gemini 2.0 Flash Exp (Free)"},
-            {"value": "openrouter/google/gemini-2.0-flash-lite-preview-02-05:free", "label": "Gemini 2.0 Flash Lite Preview (Free)"},
-            {"value": "openrouter/deepseek/deepseek-r1:free", "label": "DeepSeek R1 (Free)"},
-            {"value": "openrouter/deepseek/deepseek-chat:free", "label": "DeepSeek V3 (Free)"},
-            {"value": "openrouter/meta-llama/llama-3.3-70b-instruct:free", "label": "Llama 3.3 70B (Free)"},
-            {"value": "openrouter/qwen/qwen-2.5-72b-instruct:free", "label": "Qwen 2.5 72B (Free)"},
-            {"value": "openrouter/openrouter/free", "label": "OpenRouter Free Auto-Router"},
-        ]
-        return await self._fetch_openai_compatible_async(key, "https://openrouter.ai/api/v1", "openrouter", fallback_models=fallback)
-
-    async def _fetch_sambanova_models_async(self) -> list:
-        key = self.sambanova_keys[0] if self.sambanova_keys else None
-        fallback = [
-            {"value": "sambanova/Meta-Llama-3.1-70B-Instruct", "label": "Llama 3.1 70B (SambaNova)"},
-            {"value": "sambanova/Meta-Llama-3.3-70B-Instruct", "label": "Llama 3.3 70B (SambaNova)"},
-            {"value": "sambanova/Qwen2.5-72B-Instruct", "label": "Qwen 2.5 72B (SambaNova)"},
-            {"value": "sambanova/Qwen2.5-Coder-32B-Instruct", "label": "Qwen 2.5 Coder 32B (SambaNova)"},
-        ]
-        return await self._fetch_openai_compatible_async(key, "https://api.sambanova.ai/v1", "sambanova", fallback_models=fallback)
-
-    async def _fetch_cerebras_models_async(self) -> list:
-        key = self.cerebras_keys[0] if self.cerebras_keys else None
-        fallback = [
-            {"value": "cerebras/llama3.1-8b", "label": "Llama 3.1 8B (Cerebras)"},
-            {"value": "cerebras/llama3.1-70b", "label": "Llama 3.1 70B (Cerebras)"},
-        ]
-        return await self._fetch_openai_compatible_async(key, "https://api.cerebras.ai/v1", "cerebras", fallback_models=fallback)
-
-    async def _fetch_ollama_models_async(self) -> list:
-        v1_url = self._get_ollama_v1_url()
-        fallback = [
-            {"value": "ollama/llama3", "label": "Llama 3 (Local)"},
-            {"value": "ollama/mistral", "label": "Mistral (Local)"},
-            {"value": "ollama/gemma", "label": "Gemma (Local)"},
-            {"value": "ollama/qwen", "label": "Qwen (Local)"},
-        ]
-        return await self._fetch_openai_compatible_async("ollama", v1_url, "ollama", fallback_models=fallback)
-
-    async def _fetch_nvidia_models_async(self) -> list:
-        key = self.nvidia_keys[0] if self.nvidia_keys else None
-        fallback = [
-            {"value": "nvidia/meta/llama-3.3-70b-instruct", "label": "Llama 3.3 70B (NVIDIA)"},
-            {"value": "nvidia/deepseek-ai/deepseek-r1", "label": "DeepSeek R1 (NVIDIA)"},
-            {"value": "nvidia/nvidia/llama-3.1-nemotron-70b-instruct", "label": "Nemotron 70B (NVIDIA)"},
-        ]
-        return await self._fetch_openai_compatible_async(key, "https://integrate.api.nvidia.com/v1", "nvidia", fallback_models=fallback)
-
-    async def _fetch_opencode_models_async(self) -> list:
-        key = self.opencode_keys[0] if self.opencode_keys else None
-        fallback = [
-            {"value": "opencode/deepseek-v4-flash-free", "label": "DeepSeek V4 Flash (OpenCode Free)"},
-            {"value": "opencode/nemotron-3-super-free", "label": "Nemotron 3 Super (OpenCode Free)"},
-            {"value": "opencode/nemotron-3-ultra-free", "label": "Nemotron 3 Ultra (OpenCode Free)"},
-            {"value": "opencode/qwen3.6-plus-free", "label": "Qwen 3.6 Plus (OpenCode Free)"},
-            {"value": "opencode/minimax-m3-free", "label": "MiniMax M3 (OpenCode Free)"},
-            {"value": "opencode/mimo-v2.5-free", "label": "Mimo 2.5 (OpenCode Free)"},
-        ]
-        if not key:
-            return []
-        return await self._fetch_openai_compatible_async(key, "https://opencode.ai/zen/v1", "opencode", fallback_models=fallback)
-
     async def _fetch_youtube1_models_async(self) -> list:
-        key = self.youtube1_keys[0] if self.youtube1_keys else None
+        # 1. Retrieve API key directly from DB Settings
+        keys_to_try = []
+        if hasattr(self.settings, "youtube1_api_keys") and self.settings.youtube1_api_keys:
+            for k in self.settings.youtube1_api_keys:
+                if k and k.strip():
+                    keys_to_try.append(k.strip())
+        
+        db_k = getattr(self.settings, "omniroute_api_key", None)
+        if db_k and db_k.strip() and db_k.strip() not in keys_to_try:
+            keys_to_try.append(db_k.strip())
+
+        key = keys_to_try[0] if keys_to_try else (self.youtube1_keys[0] if self.youtube1_keys else None)
         if not key:
-            try:
-                import sqlite3
-                sqlite_path = os.path.expanduser(r"~/.omniroute/storage.sqlite")
-                if os.path.exists(sqlite_path):
-                    with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
-                        s_cur = s_conn.cursor()
-                        s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
-                        row = s_cur.fetchone()
-                        if row and row[0]:
-                            key = row[0]
-            except Exception:
-                pass
-        key = key or getattr(self.settings, "ninerouter_api_key", None) or "sk-omniroute"
+            key = getattr(self.settings, "ninerouter_api_key", None) or "sk-omniroute"
+
+        # 2. Extract active model from DB Settings as primary anchor
+        db_active_model = getattr(self.settings, "script_analysis_model", None) or "viraloop1"
+        raw_active_id = db_active_model.replace("omniroute/", "").replace("youtube1/", "").strip()
 
         fallback = [
-            {"value": "omniroute/viraloop1", "label": "Viraloop1 (로컬 통합 기본)"},
-            {"value": "omniroute/auto", "label": "🎯 OmniRoute Auto (자동 최적화 & 무료 폴백)"},
-            {"value": "omniroute/auto/fast", "label": "⚡ OmniRoute Fast (초고속 응답)"},
-            {"value": "omniroute/auto/coding", "label": "🧑‍💻 OmniRoute Coding (대본 & 기획 특화)"},
-            {"value": "omniroute/auto/cheap", "label": "💰 OmniRoute Cheap (0원 무료 우선)"},
-            {"value": "youtube1/viraloop1", "label": "Viraloop1 (레거시 호환)"},
+            {"value": f"omniroute/{raw_active_id}", "label": raw_active_id},
+            {"value": "omniroute/auto", "label": "auto"},
+            {"value": "omniroute/auto/fast", "label": "auto/fast"},
+            {"value": "omniroute/auto/coding", "label": "auto/coding"},
         ]
         if not key:
             return fallback
 
-        fetched = await self._fetch_openai_compatible_async(key, "http://localhost:20128/v1", "omniroute", fallback_models=fallback)
+        gateway_url = getattr(self.settings, "youtube1_base_url", None) or "http://localhost:20128/v1"
+        fetched = await self._fetch_openai_compatible_async(key, gateway_url, "omniroute", fallback_models=fallback)
         
         seen = set()
         result = []
-        for c in fallback:
-            seen.add(c["value"])
-            result.append(c)
+        
+        # Always place DB configured model at the very top
+        active_val = f"omniroute/{raw_active_id}"
+        seen.add(active_val)
+        result.append({"value": active_val, "label": raw_active_id})
 
         for m in fetched:
             val = m["value"]
-            raw_id = val
-            for pfx in ["omniroute/", "youtube1/"]:
-                if raw_id.startswith(pfx):
-                    raw_id = raw_id[len(pfx):]
-                    break
-
-            # ✅ ALLOW ONLY:
-            # 1. auto/* smart router models  (e.g. "auto/best-coding", "auto")
-            # 2. User-created Combos: simple names with NO slash (e.g. "viraloop1", "my-combo")
-            is_auto_router = (raw_id == "auto" or raw_id.startswith("auto/"))
-            is_user_combo = ("/" not in raw_id)
-            if not (is_auto_router or is_user_combo):
-                continue
-
+            raw_id = val.replace("omniroute/", "").replace("youtube1/", "").strip()
             omni_val = f"omniroute/{raw_id}"
-            if omni_val not in seen:
-                seen.add(omni_val)
-                result.append({"value": omni_val, "label": m.get("label", raw_id)})
+            if omni_val in seen:
+                continue
+            seen.add(omni_val)
+            result.append({"value": omni_val, "label": raw_id})
 
         return result
 
-    async def _fetch_openai_models_async(self) -> list:
-        key = getattr(self.settings, "openai_api_key", None) or os.getenv("OPENAI_API_KEY")
-        fallback = [
-            {"value": "openai/gpt-4o", "label": "GPT-4o"},
-            {"value": "openai/gpt-4o-mini", "label": "GPT-4o Mini"},
-            {"value": "openai/o1-mini", "label": "o1-mini"},
-            {"value": "openai/o3-mini", "label": "o3-mini"},
-        ]
-        if not key:
-            return fallback
-        return await self._fetch_openai_compatible_async(key, "https://api.openai.com/v1", "openai", fallback_models=fallback)
-
-    async def _fetch_anthropic_models_async(self) -> list:
-        return [
-            {"value": "anthropic/claude-3-5-sonnet-20240620", "label": "Claude 3.5 Sonnet (v1)"},
-            {"value": "anthropic/claude-3-5-sonnet-latest", "label": "Claude 3.5 Sonnet (Latest)"},
-            {"value": "anthropic/claude-3-5-haiku-latest", "label": "Claude 3.5 Haiku"},
-            {"value": "anthropic/claude-3-opus-latest", "label": "Claude 3 Opus"},
-        ]
-
-    def test_provider_connectivity(self, provider: str, base_url: str = None, api_key: str = None) -> dict:
+    def test_provider_connectivity(self, provider: str = "omniroute", base_url: str = None, api_key: str = None) -> dict:
         """
-        Generic connectivity test for any provider.
+        Connectivity test for the OmniRoute sovereign gateway (port 20128).
         """
         try:
-            # 1. Google/Gemini Special Case
-            if provider == "google":
-                target_key = api_key or (self.gemini_keys[0] if self.gemini_keys else None)
-                if not target_key: return {"success": False, "message": "Google API 키가 설정되지 않았습니다."}
-                
-                temp_client = genai.Client(api_key=target_key)
-                temp_client.models.list(config={"page_size": 1})
-                return {"success": True, "message": "Google API 연결 성공!"}
+            target_url = base_url or getattr(self.settings, "youtube1_base_url", None) or "http://localhost:20128/v1"
+            if not target_url.endswith("/v1"):
+                target_url = f"{target_url.rstrip('/')}/v1"
 
-            # 2. OpenAI Compatible Case (OmniRoute, Groq, OpenRouter, SambaNova, Cerebras, NVIDIA, Ollama)
-            # Map providers to their default base URLs if not provided
-            default_urls = {
-                "omniroute": "http://localhost:20128/v1",
-                "youtube1": "http://localhost:20128/v1",
-                "9router": "http://localhost:20128/v1",
-                "ninerouter": "http://localhost:20128/v1",
-                "groq": "https://api.groq.com/openai/v1",
-                "openrouter": "https://openrouter.ai/api/v1",
-                "sambanova": "https://api.sambanova.ai/v1",
-                "cerebras": "https://api.cerebras.ai/v1",
-                "nvidia": "https://integrate.api.nvidia.com/v1",
-                "opencode": "https://opencode.ai/zen/v1",
-                "ollama": self._get_ollama_v1_url()
-            }
-            
-            target_url = base_url or default_urls.get(provider)
-            if not target_url: return {"success": False, "message": f"Provider {provider}의 URL을 알 수 없습니다."}
-            
-            # Map providers to their keys from settings if not provided
-            if not api_key:
-                key_map = {
-                    "omniroute": self.youtube1_keys if self.youtube1_keys else ["sk-omniroute"],
-                    "youtube1": self.youtube1_keys if self.youtube1_keys else ["sk-omniroute"],
-                    "9router": ["sk-omniroute"],
-                    "ninerouter": ["sk-omniroute"],
-                    "groq": self.groq_keys,
-                    "openrouter": self.openrouter_keys,
-                    "sambanova": self.sambanova_keys,
-                    "cerebras": self.cerebras_keys,
-                    "nvidia": self.nvidia_keys,
-                    "opencode": self.opencode_keys,
-                    "ollama": ["ollama"]
-                }
-                keys = key_map.get(provider, ["sk-omniroute"])
-                api_key = keys[0] if keys else "sk-omniroute"
+            target_key = api_key or (self.youtube1_keys[0] if self.youtube1_keys else None)
+            if not target_key:
+                target_key = getattr(self.settings, "ninerouter_api_key", None) or "sk-omniroute"
 
-            if not api_key:
-                api_key = "sk-omniroute"
-
-            temp_client = OpenAI(api_key=api_key, base_url=target_url)
+            temp_client = OpenAI(api_key=target_key, base_url=target_url)
             models_res = temp_client.models.list()
             model_count = len(models_res.data) if hasattr(models_res, 'data') else 1
-            provider_label = "OmniRoute" if provider in ["youtube1", "omniroute", "9router", "ninerouter"] else provider.capitalize()
-            return {"success": True, "message": f"{provider_label} 연결 성공! (사용 가능 모델: {model_count}개 감지)"}
+            return {"success": True, "message": f"OmniRoute 로컬 게이트웨이 연결 성공! (사용 가능 모델: {model_count}개 감지)"}
 
         except Exception as e:
-            return {"success": False, "message": parse_llm_error(e, provider)}
+            return {"success": False, "message": parse_llm_error(e, "OmniRoute")}
+

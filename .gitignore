@@ -139,4 +139,9 @@ apps/api/test_import.py
 apps/api/07_Downloads/
 apps/api/work_queue_uploads/
 apps/api/backend/
+05_Exports/
+apps/05_Exports/
+runtime/
+cleaned_transcript.txt
+scratch_sub.en.vtt
 

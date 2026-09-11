@@ -57,7 +57,6 @@ class LocalizationEngine:
             try:
                 response_text = self.llm_client.generate_content(
                     prompt=prompt,
-                    model_name="openai/gpt-4o", # Upgraded to 4o for better reasoning
                     system_instruction="You are an expert polyglot viral marketer."
                 )
 

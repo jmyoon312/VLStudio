@@ -139,5 +139,65 @@ export const viraloopTools = {
             method: 'POST',
             body: jobData
         });
+    },
+
+    /**
+     * 12. 📊 Analyze Channel Performance & ROI
+     */
+    async analyzeChannelPerformance({ channel_id = 'all', time_range = 'monthly' } = {}) {
+        return await requestApi(`/analytics/channels?channel_id=${encodeURIComponent(channel_id)}&time_range=${encodeURIComponent(time_range)}`);
+    },
+
+    /**
+     * 13. 🎯 Diagnose Video Hooking & Retention
+     */
+    async diagnoseVideoHook({ video_id, title, retention_rate_3s = 45.0, retention_rate_5s = 30.0, views = 1000 }) {
+        return await requestApi('/analytics/diagnose-hook', {
+            method: 'POST',
+            body: { video_id, title, retention_rate_3s, retention_rate_5s, views }
+        });
+    },
+
+    /**
+     * 14. 💬 List Community Comments
+     */
+    async listCommunityComments({ channel_id, sentiment, is_replied, limit = 50 } = {}) {
+        const query = new URLSearchParams();
+        if (channel_id) query.append('channel_id', channel_id);
+        if (sentiment) query.append('sentiment', sentiment);
+        if (is_replied !== undefined) query.append('is_replied', String(is_replied));
+        if (limit) query.append('limit', String(limit));
+        const qs = query.toString() ? `?${query.toString()}` : '';
+        return await requestApi(`/community/comments${qs}`);
+    },
+
+    /**
+     * 15. 🤖 Generate AI Reply for Comment
+     */
+    async generateCommentReply({ comment_id, persona = 'friendly' }) {
+        return await requestApi('/community/generate-reply', {
+            method: 'POST',
+            body: { comment_id, persona }
+        });
+    },
+
+    /**
+     * 16. 🚀 Post Reply to YouTube Comment
+     */
+    async postCommentReply({ comment_id, custom_reply }) {
+        return await requestApi('/community/post-reply', {
+            method: 'POST',
+            body: { comment_id, custom_reply }
+        });
+    },
+
+    /**
+     * 17. 📱 Send Telegram Notification
+     */
+    async sendTelegramNotification({ message, parse_mode = 'HTML' }) {
+        return await requestApi('/settings/telegram/test', {
+            method: 'POST',
+            body: { message, parse_mode }
+        });
     }
 };

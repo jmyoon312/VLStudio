@@ -106,6 +106,11 @@ else:
                 cursor.execute("CREATE INDEX IF NOT EXISTS ix_channels_category ON channels(category_id);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS ix_videos_channel_id ON videos(channel_id);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS ix_videos_upload_date ON videos(upload_date DESC);")
+                # Auto-migrate render_engine column for work_queue_items
+                try:
+                    cursor.execute("ALTER TABLE work_queue_items ADD COLUMN render_engine VARCHAR DEFAULT 'REMOTION';")
+                except Exception:
+                    pass
             except Exception:
                 pass
             cursor.close()

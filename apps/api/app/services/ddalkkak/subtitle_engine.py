@@ -36,8 +36,8 @@ from app.models import DdalkkakSubtitleJob
 # Gemini API
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta"
 GEMINI_UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta"  # resumable upload용 별도
-GEMINI_FLASH_MODEL = "gemini-2.0-flash"
-GEMINI_PRO_MODEL = "gemini-2.0-flash"
+GEMINI_FLASH_MODEL = "viraloop1"
+GEMINI_PRO_MODEL = "viraloop1"
 
 # 🔴 동시 Gemini 호출 제한 (대표님 0608: 6시 429 rate limit로 자막 17~25분 → 한꺼번에 최대 4개만).
 #   자막메뉴(call_gemini)·영상업로드·쇼츠 영상분석 공유. 또 429 잦으면 3으로, 느리면 6으로 조절.
@@ -576,7 +576,7 @@ def _gemini_media_part(file_uri: str) -> dict:
 
 async def call_gemini(model: str, file_uri: str, prompt: str,
                        temperature: float = 0.3, max_retries: int = 6,
-                       fallback_chain: tuple = ("gemini-2.0-flash", "gemini-2.0-flash-lite-001", "gemini-2.0-flash")) -> dict:
+                       fallback_chain: tuple = ("viraloop1",)) -> dict:
     """Gemini 호출 + JSON 응답 받기. LLM_BACKEND=youtube1 시 gemini_auth.call_gemini()로 라우팅."""
     if os.environ.get("LLM_BACKEND", "").strip().lower() == "youtube1":
         payload = {

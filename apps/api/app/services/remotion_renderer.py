@@ -1,101 +1,143 @@
+"""
+[ViraLoop Sovereign Media Engine] Remotion Headless Direct Renderer Service
+Bridges Python backend with Node.js Remotion CLI for 100% autonomous MP4 rendering.
+"""
+
 import os
-import asyncio
+import sys
 import json
 import logging
-import uuid
+import asyncio
+import subprocess
+from typing import Dict, Any, List, Optional
+from pathlib import Path
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("remotion_renderer")
 
 class RemotionRenderer:
-    def __init__(self, frontend_dir: str, media_root: str = None, base_url: str = "http://127.0.0.1:8000"):
-        self.frontend_dir = frontend_dir
-        self.media_root = media_root
-        self.base_url = base_url.rstrip('/')
+    def __init__(self, workspace_root: Optional[str] = None):
+        if workspace_root:
+            self.root_dir = Path(workspace_root)
+        else:
+            # Detect project root (c:/ViraLoopMedia/VLStudio)
+            current = Path(__file__).resolve()
+            # Climb up until we find apps/remotion-engine or reach drive root
+            root_candidate = current.parents[4] if len(current.parents) >= 5 else current.parent
+            for p in current.parents:
+                if (p / "apps" / "remotion-engine").exists():
+                    root_candidate = p
+                    break
+            self.root_dir = root_candidate
+            
+        self.remotion_dir = self.root_dir / "apps" / "remotion-engine"
+        self.cli_path = self.remotion_dir / "render_cli.js"
+        
+        # Default export directory (05_Exports standard)
+        self.export_dir = self.root_dir / "05_Exports"
+        self.export_dir.mkdir(parents=True, exist_ok=True)
 
-    async def render_video(self, composition_id: str, props: dict, output_path: str) -> str:
+    async def render_short(
+        self,
+        project_id: str,
+        video_source: Optional[str] = None,
+        image_source: Optional[str] = None,
+        audio_source: Optional[str] = None,
+        bgm_source: Optional[str] = None,
+        title_hook: str = "0.8초 쨉쨉이 충격 반전!",
+        subtitles: Optional[List[Dict[str, Any]]] = None,
+        accent_color: str = "#FFE600",
+        duration_seconds: float = 15.0,
+        fps: int = 30,
+    ) -> Dict[str, Any]:
         """
-        [DELEGATED] Triggers Remotion render command inside the sovereign-swarm container.
-        This avoids duplicating Node.js/Chrome dependencies in the API container.
+        Renders a 9:16 short video directly to MP4 using headless Remotion.
         """
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
-        # Resolve all paths in props to be absolute for context
-        sanitized_props = self._sanitize_props(props)
-        
-        # Unique props file per render to avoid collisions
-        render_id = uuid.uuid4().hex[:8]
-        temp_props_path = os.path.join(self.frontend_dir, f"props_{render_id}.json")
-        
-        # Write props to the shared volume so swarm can see it
-        with open(temp_props_path, "w", encoding="utf-8") as f:
-            json.dump(sanitized_props, f)
+        output_mp4 = self.export_dir / f"{project_id}.mp4"
+        props_file = self.export_dir / f"{project_id}_props.json"
 
-        # Construct Remote Command
-        # Note: We use 'docker exec' to call npx inside the swarm container
+        # Format input props
+        props_data = {
+            "titleHook": title_hook,
+            "accentColor": accent_color,
+            "subtitles": subtitles or [],
+        }
+
+        if video_source and os.path.exists(video_source):
+            # Normalize to forward slashes or file URL for Chromium
+            props_data["videoSource"] = Path(video_source).as_posix()
+        elif image_source and os.path.exists(image_source):
+            props_data["imageSource"] = Path(image_source).as_posix()
+
+        if audio_source and os.path.exists(audio_source):
+            props_data["audioSource"] = Path(audio_source).as_posix()
+
+        if bgm_source and os.path.exists(bgm_source):
+            props_data["bgmSource"] = Path(bgm_source).as_posix()
+
+        # Write props JSON
+        with open(props_file, "w", encoding="utf-8") as f:
+            json.dump(props_data, f, ensure_ascii=False, indent=2)
+
+        duration_in_frames = int(duration_seconds * fps)
+
         cmd = [
-            "docker", "exec", "sovereign-swarm", "sh", "-c",
-            f"cd {self.frontend_dir} && npx remotion render src/remotion/Root.tsx {composition_id} {output_path} --props={temp_props_path} --pixel-format=yuv420p --crf=18 --quality=100 --gl=angle --concurrency=4 --browser-executable=/usr/bin/google-chrome --no-sandbox"
+            "node",
+            str(self.cli_path),
+            "--props", str(props_file),
+            "--output", str(output_mp4),
+            "--durationInFrames", str(duration_in_frames),
         ]
 
-        logger.info(f"[FALLBACK] [Remote Render] Delegating to swarm: {' '.join(cmd)}")
-        
+        logger.info(f"🚀 [RemotionRenderer] Launching render CLI for project '{project_id}'...")
+        logger.info(f"   Command: {' '.join(cmd)}")
+
         try:
-            # Execute asynchronously
+            # Run async subprocess in worker directory
             process = await asyncio.create_subprocess_exec(
                 *cmd,
+                cwd=str(self.remotion_dir),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            
-            stdout, stderr = await process.communicate()
-            
-            if process.returncode != 0:
-                error_msg = stderr.decode()
-                logger.error(f"[FAIL] Remote Remotion Failed ({process.returncode}): {error_msg}")
-                raise RuntimeError(f"Remote Remotion Render Failed: {error_msg}")
-                
-            logger.info(f"[OK] Remote Remotion Render Success: {output_path}")
-            return output_path
-            
-        except Exception as e:
-            logger.error(f"[FAIL] Remote Remotion Execution Error: {e}")
-            raise
-        finally:
-            # Cleanup temp props
-            if os.path.exists(temp_props_path):
-                try: os.remove(temp_props_path)
-                except: pass
 
-    def _sanitize_props(self, props: dict) -> dict:
-        import copy
-        p = copy.deepcopy(props)
-        
-        def fix_path(path: str) -> str:
-            if not path or not isinstance(path, str): return path
-            # Convert absolute host paths to file:// for Remotion
-            if path.startswith('/') and not path.startswith('file://'):
-                return f"file://{path}"
-            return path
-            
-        # Standard SovereignShorts structure - Deep sanitation
-        if 'backgroundVideo' in p: p['backgroundVideo'] = fix_path(p['backgroundVideo'])
-        if 'syncVideo' in p: p['syncVideo'] = fix_path(p['syncVideo'])
-        if 'audio_src' in p: p['audio_src'] = fix_path(p['audio_src'])
-        if 'bgm_src' in p: p['bgm_src'] = fix_path(p['bgm_src'])
-        
-        # EliteSequence: sanitize beat media_url fields
-        if 'beats' in p and isinstance(p['beats'], list):
-            for beat in p['beats']:
-                if isinstance(beat, dict):
-                    if beat.get('media_url'):
-                        beat['media_url'] = fix_path(beat['media_url'])
-                    if beat.get('asset_url'):
-                        beat['asset_url'] = fix_path(beat['asset_url'])
-                    if beat.get('thumbnail_url'):
-                        beat['thumbnail_url'] = fix_path(beat['thumbnail_url'])
-        
-        # Also sanitize any image paths in the images array if exists
-        if 'images' in p and isinstance(p['images'], list):
-            p['images'] = [fix_path(img) for img in p['images']]
-            
-        return p
+            stdout, stderr = await process.communicate()
+            stdout_text = stdout.decode("utf-8", errors="replace")
+            stderr_text = stderr.decode("utf-8", errors="replace")
+
+            if process.returncode != 0:
+                logger.error(f"❌ [RemotionRenderer] Process failed (code {process.returncode}):\n{stderr_text}\n{stdout_text}")
+                return {
+                    "success": False,
+                    "error": f"Render process failed with exit code {process.returncode}",
+                    "details": stderr_text or stdout_text
+                }
+
+            # Verify file exists on disk and is non-empty
+            if not output_mp4.exists() or output_mp4.stat().st_size == 0:
+                logger.error(f"❌ [RemotionRenderer] Rendered file does not exist or is empty: {output_mp4}")
+                return {
+                    "success": False,
+                    "error": "Rendered MP4 file missing or 0 bytes",
+                    "details": stdout_text
+                }
+
+            file_size_mb = output_mp4.stat().st_size / (1024 * 1024)
+            logger.info(f"✅ [RemotionRenderer] Successfully rendered MP4: {output_mp4} ({file_size_mb:.2f} MB)")
+
+            return {
+                "success": True,
+                "video_path": str(output_mp4),
+                "file_size_bytes": output_mp4.stat().st_size,
+                "duration_seconds": duration_seconds,
+                "props_path": str(props_file),
+            }
+
+        except Exception as e:
+            logger.exception(f"❌ [RemotionRenderer] Exception during rendering: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+
+remotion_renderer = RemotionRenderer()

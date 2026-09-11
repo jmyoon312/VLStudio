@@ -93,34 +93,28 @@ class SovereignOrchestrator:
             # Determine API Key and Provider based on settings
             provider = self.settings.openclaude_provider or "google"
             api_key = ""
-            model = self.settings.openclaude_model or ""
+            default_fallback_model = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "default_llm_model", None) or "viraloop1"
+            model = self.settings.openclaude_model or default_fallback_model
             
             if provider == "google" and self.settings.gemini_api_keys:
                 api_key = self.settings.gemini_api_keys[0]
-                if not model: model = "gemini-2.5-flash"
             elif provider == "openrouter" and self.settings.openrouter_api_keys:
                 api_key = self.settings.openrouter_api_keys[0]
-                if not model: model = "google/gemini-2.0-flash-lite-preview-02-05:free"
             elif provider == "groq" and self.settings.groq_api_keys:
                 api_key = self.settings.groq_api_keys[0]
-                if not model: model = "llama-3.3-70b-versatile"
             elif provider == "openai" and self.settings.openai_api_key:
                 api_key = self.settings.openai_api_key
-                if not model: model = "gpt-4o-mini"
             else:
                 # Fallback to whatever key is available
                 if self.settings.gemini_api_keys:
                     provider = "google"
                     api_key = self.settings.gemini_api_keys[0]
-                    if not model: model = "gemini-2.5-flash"
                 elif self.settings.openrouter_api_keys:
                     provider = "openrouter"
                     api_key = self.settings.openrouter_api_keys[0]
-                    if not model: model = "google/gemini-2.0-flash-lite-preview-02-05:free"
                 elif self.settings.groq_api_keys:
                     provider = "groq"
                     api_key = self.settings.groq_api_keys[0]
-                    if not model: model = "llama-3.3-70b-versatile"
             
             # 1. Update/Create .openclaude.json
             config_data = {}

@@ -918,6 +918,82 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
       },
     },
+    // ── 📊 다채널 성과 분석 & AI 후킹 진단 & 댓글 소통 도구 ──
+    {
+      name: 'analyze_channel_performance',
+      description: '채널별 또는 전체 채널의 기간별(일/주/월/분기/연) 조회수, 예상수익, RPM, 제작비, 순이익(ROI), 구독자 증감 통계를 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          channel_id: { type: 'string', description: '채널 ID (생략 또는 "all" 시 전체 합산)', default: 'all' },
+          time_range: { type: 'string', enum: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'], description: '분석 기간', default: 'monthly' },
+        },
+      },
+    },
+    {
+      name: 'diagnose_video_hook',
+      description: '영상의 초반 3초/5초 이탈률 데이터를 바탕으로 후킹 성공/실패 원인을 AI로 정밀 진단하고 다음 대본 수정 가이드를 도출합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          video_id: { type: 'string', description: '영상 고유 ID' },
+          title: { type: 'string', description: '영상 제목' },
+          retention_rate_3s: { type: 'number', description: '초반 3초 시청 유지율 (%)', default: 45.0 },
+          retention_rate_5s: { type: 'number', description: '초반 5초 시청 유지율 (%)', default: 30.0 },
+          views: { type: 'number', description: '현재 조회수', default: 1000 },
+        },
+        required: ['video_id', 'title'],
+      },
+    },
+    {
+      name: 'list_community_comments',
+      description: '유튜브 채널의 시청자 댓글 목록과 감성 분류(질문, 칭찬, 비판, 스팸)를 조회합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          channel_id: { type: 'string', description: '채널 ID 필터' },
+          sentiment: { type: 'string', enum: ['all', 'question', 'praise', 'criticism', 'spam'], description: '감성 필터' },
+          is_replied: { type: 'boolean', description: '답글 완료 여부 필터' },
+          limit: { type: 'number', description: '조회할 최대 댓글 수', default: 50 },
+        },
+      },
+    },
+    {
+      name: 'generate_comment_reply',
+      description: '채널 페르소나(friendly: 친근형, witty: 위트형, expert: 전문가형)에 맞춘 시청자 댓글 AI 답글을 생성합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          comment_id: { type: 'string', description: '댓글 ID' },
+          persona: { type: 'string', enum: ['friendly', 'witty', 'expert'], description: '답변 페르소나', default: 'friendly' },
+        },
+        required: ['comment_id'],
+      },
+    },
+    {
+      name: 'post_comment_reply',
+      description: '생성되거나 승인된 AI 맞춤 답글을 유튜브 채널에 게시 완료 처리합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          comment_id: { type: 'string', description: '댓글 ID' },
+          custom_reply: { type: 'string', description: '수정된 커스텀 답글 (생략 시 기존 AI 답글 사용)' },
+        },
+        required: ['comment_id'],
+      },
+    },
+    {
+      name: 'send_telegram_notification',
+      description: '대표님의 텔레그램으로 긴급 알림, 성과 리포트, 승인 요청 메시지를 발송합니다.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', description: '발송할 메시지 내용 (HTML 태그 지원)' },
+          parse_mode: { type: 'string', enum: ['HTML', 'Markdown'], default: 'HTML' },
+        },
+        required: ['message'],
+      },
+    },
   ],
 }));
 
@@ -973,6 +1049,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     switch (name) {
+      // ── 📊 다채널 성과 분석 & AI 후킹 진단 & 댓글 소통 도구 ──
+      case 'analyze_channel_performance': {
+        const result = await viraloopTools.analyzeChannelPerformance(args || {});
+        return {
+          content: [{ type: 'text', text: `📊 [채널 성과 및 수익률 분석]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'diagnose_video_hook': {
+        const result = await viraloopTools.diagnoseVideoHook(args || {});
+        return {
+          content: [{ type: 'text', text: `🎯 [영상 후킹 AI 진단 결과]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'list_community_comments': {
+        const result = await viraloopTools.listCommunityComments(args || {});
+        return {
+          content: [{ type: 'text', text: `💬 [시청자 댓글 목록 (${result.length}건)]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'generate_comment_reply': {
+        const result = await viraloopTools.generateCommentReply(args || {});
+        return {
+          content: [{ type: 'text', text: `🤖 [AI 추천 답글 생성 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'post_comment_reply': {
+        const result = await viraloopTools.postCommentReply(args || {});
+        return {
+          content: [{ type: 'text', text: `🚀 [유튜브 댓글 답글 게시 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
+      case 'send_telegram_notification': {
+        const result = await viraloopTools.sendTelegramNotification(args || {});
+        return {
+          content: [{ type: 'text', text: `📱 [텔레그램 알림 발송 완료]\n${JSON.stringify(result, null, 2)}` }],
+        };
+      }
+
       // ── 📡 ViraLoop Unified Sovereign Tools ───────────────────────────
       case 'scout_trending_videos': {
         const result = await viraloopTools.scoutTrendingVideos(args || {});

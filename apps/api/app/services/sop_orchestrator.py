@@ -37,9 +37,10 @@ class SOPOrchestrator:
 
         # --- Stage 1: Intelligence Analysis ---
         logger.info("🕵️‍♂️ Stage 1: Reference Analysis...")
+        effective_analysis_model = getattr(self.settings, "script_analysis_model", None) or getattr(self.settings, "default_llm_model", None)
         analysis = await self.intelligence.analyst.extract_viral_patterns(
             source_text=ref_data if ref_data else niche,
-            model=getattr(self.settings, "REVIEW_MODEL", "gemini-1.5-pro")
+            model=effective_analysis_model
         )
         
         # Merge Master Identity if exists
@@ -73,8 +74,8 @@ class SOPOrchestrator:
             script_data = await self.writer.produce_premium_script(
                 niche=niche,
                 dna_context=dna_context,
-                draft_model=getattr(self.settings, "DRAFT_MODEL", "gemini-1.5-flash"),
-                review_model=getattr(self.settings, "REVIEW_MODEL", "gemini-1.5-pro")
+                draft_model=getattr(self.settings, "default_llm_model", None),
+                review_model=getattr(self.settings, "script_analysis_model", None)
             )
         
         # --- Stage 2.5: DNA Audit ---
@@ -90,7 +91,7 @@ class SOPOrchestrator:
         scenes = self.writer.segment_script(
             text=script_data['content'],
             style_prompt=analysis.get('visual_style', ""),
-            model=getattr(self.settings, "REVIEW_MODEL", "gemini-1.5-flash")
+            model=getattr(self.settings, "script_analysis_model", None)
         )
 
         # --- Stage 4: Subtitle/Caption Preparation ---
@@ -116,7 +117,7 @@ class SOPOrchestrator:
         결과를 {{"score": 0-100, "feedback": "여기를 이렇게 고치세요"}} 형식의 JSON으로만 답변하세요.
         """
         try:
-            resp = self.llm_client.generate_content(prompt, model_name="gemini-1.5-flash")
+            resp = self.llm_client.generate_content(prompt)
             import re
             match = re.search(r'\{.*\}', resp, re.DOTALL)
             if match:

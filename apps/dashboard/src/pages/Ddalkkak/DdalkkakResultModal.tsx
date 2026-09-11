@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,8 @@ import {
   Pause,
   Clock,
   Eye,
-  CheckCircle2
+  CheckCircle2,
+  Scissors
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ddalkkakApi } from '@/services/ddalkkakApi';
@@ -47,6 +49,7 @@ export const DdalkkakResultModal: React.FC<DdalkkakResultModalProps> = ({
   onSendToPixeling,
 }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [detailedResult, setDetailedResult] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState<boolean>(false);
@@ -542,23 +545,52 @@ export const DdalkkakResultModal: React.FC<DdalkkakResultModalProps> = ({
         </div>
 
         {/* 모달 푸터 액션 */}
-        <div className="p-4 border-t border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/60 flex items-center justify-between">
+        <div className="p-4 border-t border-border bg-muted/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           <Button
             type="button"
             size="sm"
             onClick={() => onSendToPixeling(currentData)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-md"
+            className="bg-secondary text-secondary-foreground hover:bg-secondary/80 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs"
           >
             <Send className="w-3.5 h-3.5" />
             <span>📤 픽셀링 메타 화면으로 전송</span>
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2 flex-wrap">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                try {
+                  sessionStorage.setItem('vlstudio_editor_handoff', JSON.stringify({
+                    title: youtubeTitle || job.video_filename || `쇼츠 #${job.id}`,
+                    videoUrl: currentData.video_path || currentData.video_url || job.video_path || job.video_url,
+                    filePath: currentData.video_path || job.video_path,
+                    subtitles: situationSubs,
+                    jabs: jjapSubs,
+                  }));
+                  onOpenChange(false);
+                  navigate('/shorts-editor');
+                } catch (e) {
+                  console.error('Failed to handoff editor session:', e);
+                  toast({
+                    title: '편집기 전환 실패',
+                    description: '세션 데이터를 저장하는 중 문제가 발생했습니다.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+              className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs"
+            >
+              <Scissors className="w-3.5 h-3.5" />
+              <span>✂️ 전문 편집기로 열기</span>
+            </Button>
             <Button
               type="button"
               size="sm"
               onClick={() => onExportCapcut(currentData)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-md"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs"
             >
               <Film className="w-3.5 h-3.5" />
               <span>🎬 CapCut 내보내기</span>
@@ -568,7 +600,7 @@ export const DdalkkakResultModal: React.FC<DdalkkakResultModalProps> = ({
               size="sm"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="text-xs rounded-xl"
+              className="text-xs rounded-xl border-border hover:bg-muted"
             >
               닫기
             </Button>

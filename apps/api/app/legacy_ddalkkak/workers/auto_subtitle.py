@@ -1,4 +1,18 @@
-from workers.gemini_auth import get_gemini_key, call_gemini as _gemini_auth_call_gemini
+try:
+    from workers.gemini_auth import get_gemini_key, call_gemini as _gemini_auth_call_gemini, get_db_settings_model
+except ImportError:
+    try:
+        from .gemini_auth import get_gemini_key, call_gemini as _gemini_auth_call_gemini, get_db_settings_model
+    except ImportError:
+        from app.legacy_ddalkkak.workers.gemini_auth import get_gemini_key, call_gemini as _gemini_auth_call_gemini, get_db_settings_model
+
+try:
+    from app.services.media_intelligence.core import media_intelligence
+except ImportError:
+    try:
+        from services.media_intelligence.core import media_intelligence
+    except ImportError:
+        media_intelligence = None
 """자막 자동 생성 — Gemini 5중 교차검증 + MZ 밈 톤.
 
 흐름:
@@ -28,16 +42,25 @@ from pathlib import Path
 from typing import Any
 import httpx
 
-from api import database as db
+try:
+    from api import database as db
+except ImportError:
+    try:
+        from app.legacy_ddalkkak.api import database as db
+    except ImportError:
+        from ..api import database as db
 
 # Gemini API
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta"
 GEMINI_UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta"  # resumable upload용 별도
-_env_model = os.getenv("DEFAULT_LLM_MODEL", "gemini-2.0-flash-exp")
-if "/" in _env_model or "youtube" in _env_model or _env_model == "gemini-2.0-flash":
-    _env_model = "gemini-2.0-flash-exp"
-GEMINI_FLASH_MODEL = _env_model
-GEMINI_PRO_MODEL = _env_model
+
+
+def get_active_model() -> str:
+    """DB Settings 단일 진실 공급원 연동 모델"""
+    return get_db_settings_model("subtitle")
+
+GEMINI_FLASH_MODEL = "viraloop1"
+GEMINI_PRO_MODEL = "viraloop1"
 
 # 🔴 동시 Gemini 호출 제한 (대표님 0608: 6시 429 rate limit로 자막 17~25분 → 한꺼번에 최대 4개만).
 #   자막메뉴(call_gemini)·영상업로드·쇼츠 영상분석 공유. 또 429 잦으면 3으로, 느리면 6으로 조절.
@@ -89,16 +112,25 @@ SUBTITLE_GENERATION_PROMPT = """이 영상으로 한국 1분 쇼츠 자막 + 쨉
 [2단계] 자막 4종 만들기
 ═══════════════════════════════════════
 
-1. **상단 고정 타이틀** (title): 12~16자. 외부 맥락 후크.
+1. **상단 고정 타이틀** (title): 12~16자. 영상 속 실제 인물/사건의 정곡을 찌르는 강력한 외부 맥락 후크.
 2. **상황 설명** (situation_subtitles): 한 줄 12자 미만. 1~3초 단위.
-   ⚠️ **모든 청크에 외부 맥락 / 위트 / 별명 / 정보 1개 이상 박기**.
-   ⚠️ "갑자기 의자가 발사" 같은 평범 받아쓰기 절대 X.
+   ⚠️ **반드시 [Visual Narrative]에 포착된 실제 인물명, 장소, 구체적 신체 동작, 표정, 해프닝을 직접 명시하여 작성할 것!**
+   ⛔ **절대 금지 (영혼 없는 일반론적 껍데기 문장 Generic Filler 영구 퇴출):**
+      - ❌ "이거 실제로 가능하다는데"
+      - ❌ "처음엔 평범해 보이지만"
+      - ❌ "여기서부터 분위기 달라짐"
+      - ❌ "집중해서 봐야 보임"
+      - ❌ "이 타이밍에 터짐"
+      - ❌ "연속으로 들어감 ㄷㄷ"
+      위와 같이 아무 영상에나 복붙할 수 있는 뜬구름 잡는 수식어는 전면 금지한다.
+      대신 실제 장면 속 "누가(인물)", "어디서(장소)", "무슨 황당한 짓/사건을 겪는지", "어떤 표정을 짓는지" 정곡을 콕 찔러서 쓸 것!
 3. **쨉쨉이** (jjap_jjap_i_subtitles): 중앙 강조 + **3초에 1개 의무**:
    - **영상 길이 ÷ 3 = 최소 개수** (9초 영상 = 최소 3개 / 25초 = 8개 / 40초 = 13개)
    - 각 쨉쨉이 길이 1~1.5초 (짧고 임팩트)
    - ⚠️ 1개만 박고 6초 길게 끄는 거 절대 X
    - 패턴:
-     - `* 단어 *` (리액션/감정/관찰만: "* 긴장 *", "* 시무룩 *", "* 소름 *", "* 대박 *", "* 초집중 *", "* 해맑 *")
+     - `* 단어 *` (영상 상황 맞춤 생생한 리액션: "* 찐당황 *", "* 표정 멘붕 *", "* 실화냐 ㅋㅋㅋ *", "* 헛웃음 *", "* 관중들 빵터짐 *")
+     - ⛔ 추상적이고 밋밋한 "* 집중 *", "* 관찰 *" 단어 절대 금지! 영상 속 인물의 감정/리액션과 직결될 것.
      - ⚠️ 효과음(쾅·펑·슈우웅·탁·짠·휘청 같은 의성어)은 절대 만들지 마. 감정·리액션·관찰만. 괄호( )는 쓰지 말고 전부 `* 단어 *` 별표로 표기.
      - `?? ???` (의문/충격: "??", "???")
      - `ㄷㄷ ㅋㅋ ㄹㅇ` (약자)
@@ -256,7 +288,10 @@ def apply_user_gemini_key(user_id) -> bool:
     if not user_id:
         return False
     try:
-        from api import auth
+        try:
+            from api import auth
+        except ImportError:
+            from app.legacy_ddalkkak.api import auth
         u = auth.get_user_by_id(int(user_id))
         key = (u or {}).get("gemini_api_key")
         if key and str(key).strip():
@@ -431,6 +466,8 @@ async def upload_video_to_gemini(file_path: Path, max_retries: int = 6) -> str:
         size = file_path.stat().st_size
     except Exception:
         size = 0
+    if size == 0:
+        raise RuntimeError(f"영상 파일이 비어 있습니다 (0 bytes): {file_path.name}")
     if 0 < size < 18_000_000:
         return f"inline:{file_path}"
 
@@ -565,12 +602,15 @@ async def _upload_video_once(file_path: Path) -> str:
                 if state == "ACTIVE":
                     break
                 if state == "FAILED":
-                    raise RuntimeError("Gemini file processing FAILED")
+                    err_info = check.json().get("error", {})
+                    raise RuntimeError(f"Gemini file processing FAILED: {err_info}")
         return uri
 
 
-def _gemini_media_part(file_uri: str) -> dict:
-    """file_uri가 'inline:<path>'면 base64 inline_data, 아니면 file_data."""
+def _gemini_media_part(file_uri: str) -> dict | None:
+    """file_uri가 'inline:<path>'면 base64 inline_data, 아니면 file_data. 비어있으면 None."""
+    if not file_uri:
+        return None
     if file_uri.startswith("inline:"):
         import base64
         vpath = file_uri[len("inline:"):]
@@ -582,127 +622,65 @@ def _gemini_media_part(file_uri: str) -> dict:
 async def call_gemini(model: str, file_uri: str, prompt: str,
                        temperature: float = 0.3, max_retries: int = 6,
                        fallback_chain: tuple = None) -> dict:
-    """Gemini 호출 + JSON 응답 받기. LLM_BACKEND=youtube1 시 gemini_auth.call_gemini()로 라우팅."""
-    from workers.llm import get_llm_backend
-    if fallback_chain is None:
-        fallback_chain = (os.getenv("DEFAULT_LLM_MODEL", "gemini-1.5-flash"), "gemini-1.5-flash", "gemini-2.5-flash")
-        
-    if get_llm_backend() == "youtube1":
-        payload = {
-            "contents": [{
-                "parts": [
-                    _gemini_media_part(file_uri),
-                    {"text": prompt},
-                ]
-            }],
-            "generationConfig": {
-                "temperature": temperature,
-                "maxOutputTokens": 16384,
-                "responseMimeType": "application/json",
-            },
-        }
-        url = f"{GEMINI_API_URL}/models/{model}:generateContent"
+    """DB Settings 단일 진실 공급원(SSOT) 및 OmniRoute를 통한 LLM 호출. 임의 Direct Fallback 배제."""
+    parts = []
+    media_part = _gemini_media_part(file_uri)
+    if media_part:
+        parts.append(media_part)
+    parts.append({"text": prompt})
+
+    payload = {
+        "systemInstruction": {
+            "parts": [{"text": "You are a professional YouTube Shorts subtitle writer. You must ALWAYS output valid pure JSON strictly matching the requested schema. Never output conversational or markdown commentary text outside the JSON."}]
+        },
+        "contents": [{
+            "parts": parts
+        }],
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": 16384,
+            "responseMimeType": "application/json",
+        },
+    }
+    url = f"{GEMINI_API_URL}/models/{model}:generateContent"
+    
+    last_err = None
+    for attempt in range(max_retries):
         try:
             result = await _gemini_auth_call_gemini(url, payload, timeout=300.0)
             text = result["candidates"][0]["content"]["parts"][0]["text"]
-            cleaned = text
+            import re
+            cleaned = text.strip()
+
             if "```" in cleaned:
-                cleaned = cleaned.split("```")[1].lstrip("json\n").rstrip("`").strip()
+                # markdown json block stripping
+                parts = cleaned.split("```")
+                for part in parts:
+                    candidate = part.lstrip("json\n").rstrip("`").strip()
+                    if candidate.startswith("{") and candidate.endswith("}"):
+                        cleaned = candidate
+                        break
+            if not (cleaned.startswith("{") and cleaned.endswith("}")):
+                # 정규식으로 가장 바깥쪽 {...} 매칭 시도
+                m = re.search(r'(\{[\s\S]*\})', cleaned)
+                if m:
+                    cleaned = m.group(1)
             return json.loads(cleaned)
         except Exception as err:
-            print(f"⚠️ [auto_subtitle] 9Router/youtube1 failed ({err}). Proceeding with direct Gemini fallback...", flush=True)
+            last_err = err
+            wait = min(2.0 * (2 ** attempt), 30.0)
+            try:
+                print(f"[auto_subtitle] OmniRoute retry ({attempt+1}/{max_retries}, {wait:.1f}s): {str(err)[:100]}", flush=True)
+            except Exception:
+                pass
+            if attempt < max_retries - 1:
+                await asyncio.sleep(wait)
+            else:
+                break
+                
+    raise RuntimeError(f"OmniRoute LLM 호출 실패 (재시도 {max_retries}회 초과): {last_err}") from last_err
 
-    api_key = _get_gemini_key()
-    last_err: Exception | None = None
-    _original_model = model
-    gemini_model = model
-    if "/" in gemini_model or "youtube" in gemini_model or "gemini-2.0" in gemini_model:
-        gemini_model = "gemini-1.5-flash"
-    # 시도별 max tokens 증가 (응답 잘림 대응)
-    max_tokens_per_try = [16384, 24576, 32768]
-    for attempt in range(max_retries):
-        max_tokens = max_tokens_per_try[min(attempt, len(max_tokens_per_try) - 1)]
-        # 재시도 시 temperature 약간 변동 (다른 응답 유도)
-        actual_temp = temperature + (0.05 * attempt)
-        try:
-            async with _GEMINI_SEM, httpx.AsyncClient(timeout=300.0) as c:
-                r = await c.post(
-                    f"{GEMINI_API_URL}/models/{gemini_model}:generateContent",
-                    headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-                    json={
-                        "contents": [{
-                            "parts": [
-                                _gemini_media_part(file_uri),
-                                {"text": prompt},
-                            ]
-                        }],
-                        "generationConfig": {
-                            "temperature": actual_temp,
-                            "maxOutputTokens": max_tokens,
-                            "responseMimeType": "application/json",
-                        },
-                    },
-                )
-                if r.status_code != 200:
-                    # 503/429/500 일시 에러는 대기 후 재시도 (over capacity / rate limit)
-                    if r.status_code == 429 and any(w in (r.text or "").lower() for w in ("depleted", "prepay", "billing")):
-                        raise RuntimeError("Gemini 결제 크레딧 소진 — 충전 필요(AI Studio billing). 재시도 무의미: " + (r.text or "")[:120])
-                    if r.status_code in (429, 500, 502, 503, 504):
-                        if attempt < max_retries - 1:
-                            wait = min(5.0 * (2 ** attempt), 60.0)  # 지수백오프 5,10,20,40,60
-                            print(f"  [gemini] {r.status_code} 일시 에러 — {wait:.0f}초 대기 후 재시도 ({attempt+1}/{max_retries})", flush=True)
-                            last_err = RuntimeError(f"Gemini {r.status_code} retrying")
-                            await asyncio.sleep(wait)
-                            continue
-                        # 마지막 attempt도 retryable status — fallback으로 흐름
-                        last_err = RuntimeError(f"Gemini call fail: {r.status_code} {r.text[:300]}")
-                        break
-                    # non-retryable (400, 404 등) — 즉시 raise
-                    raise RuntimeError(f"Gemini call fail: {r.status_code} {r.text[:300]}")
-                result = r.json()
-                text = result["candidates"][0]["content"]["parts"][0]["text"]
-                try:
-                    return json.loads(text)
-                except json.JSONDecodeError as e:
-                    # ```json ``` 둘러싸인 경우 처리
-                    cleaned = text
-                    if "```" in cleaned:
-                        cleaned = cleaned.split("```")[1].lstrip("json\n").rstrip("`").strip()
-                    try:
-                        return json.loads(cleaned)
-                    except json.JSONDecodeError:
-                        # 마지막 시도면 실패. 아니면 retry
-                        if attempt == max_retries - 1:
-                            raise RuntimeError(
-                                f"Gemini JSON 파싱 실패 (retry {max_retries}회 모두 fail): {e} "
-                                f"— text[:200]={text[:200]}"
-                            ) from e
-                        last_err = e
-                        continue
-        except RuntimeError:
-            raise
-        except Exception as e:
-            last_err = e
-            if attempt == max_retries - 1:
-                break  # fallback으로
-            continue
-    # max_retries 다 소진 — fallback_chain 순서대로 다른 모델 시도
-    for fb_model in (fallback_chain or ()):
-        if fb_model == _original_model:
-            continue
-        print(f"  [gemini] {_original_model} fail → fallback {fb_model} 시도", flush=True)
-        try:
-            return await call_gemini(fb_model, file_uri, prompt,
-                                       temperature=temperature,
-                                       max_retries=max_retries,
-                                       fallback_chain=())  # 무한 fallback 방지
-        except Exception as e:
-            print(f"  [gemini] fallback {fb_model} 도 fail: {str(e)[:120]}", flush=True)
-            last_err = e
-            continue
-    if last_err:
-        raise RuntimeError(f"Gemini 모든 모델 fail: {last_err}") from last_err
-    raise RuntimeError("Gemini 호출 알 수 없는 실패")
+
 
 
 async def extract_key_frames(video_path: Path, work_dir: Path) -> dict:
@@ -1426,93 +1404,110 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
         )
         main_prompt = review_inject + lang_inject + base_prompt + learning + BANNED_WORDS_RULE
 
-    # 감성 — 사용자가 노래 제목 직접 입력 시 오디오 식별 대신 100% 신뢰 (오인식 방지)
-    if style == "emotion" and song_title and song_title.strip():
-        st = song_title.strip()
+    # 1. 미디어 인텔리전스 종합 분석 (시각 프레임 + Whisper 음성 STT + 음향 피크)
+    manifest = None
+    media_context = ""
+    video_manifest_data = {}
+    if media_intelligence:
+        try:
+            db.update_subtitle_job(
+                job_id, status="analyzing", progress=20,
+                progress_message="실제 영상 종합 분석 중 (시각 프레임 + Whisper STT + 음향 피크)..",
+            )
+            manifest = await media_intelligence.generate_video_manifest(video_path, out_dir)
+            media_context = manifest.get("narrative_context", "")
+            video_manifest_data = manifest
+        except Exception as mi_err:
+            print(f"⚠️ [media_intelligence] 분석 경고(Fallback 전환): {mi_err}", flush=True)
+
+    # 2. 제목/주제 정보 inject
+    # 감성 스타일은 사용자가 직접 입력한 노래 제목 신뢰, 일반 쇼츠는 실제 영상 분석(manifest) 기반으로 LLM이 도출!
+    effective_title = (song_title or "").strip()
+
+    if style == "emotion" and effective_title:
         song_inject = (
             f"\n\n═══ [🎵 노래 제목 확정 — 사용자 입력, 절대 신뢰] ═══\n"
-            f"이 영상의 노래는 **'{st}'** 이다 (사용자가 직접 알려준 확정 정보).\n"
-            f"- 오디오로 노래를 다시 식별하지 마라. 무조건 '{st}'로 간주.\n"
+            f"이 영상의 노래는 **'{effective_title}'** 이다 (사용자가 직접 알려준 확정 정보).\n"
+            f"- 오디오로 노래를 다시 식별하지 마라. 무조건 '{effective_title}'로 간주.\n"
             f"- 이 노래/가수 기준으로 사연(가수가 누군지/추억/들은 사람/지금 공감)을 써라.\n"
-            f"- song_title 필드에는 정확히 '{st}' 를 넣어라.\n"
+            f"- song_title 필드에는 정확히 '{effective_title}' 를 넣어라.\n"
         )
         main_prompt = main_prompt + song_inject
+    elif media_context:
+        # 파일명에 의존하지 않고 실제 영상 시각/청각 분석 결과(SSOT)를 최우선으로 주입
+        main_prompt = main_prompt + "\n\n" + media_context + (
+            "\n🚨 [최우선 절대 지침: 영상 순수 시각 분석 결과(Visual Narrative) 100% 반영]\n"
+            "1. 위 [실제 화면 순수 시각 액션 & 사건 전개]에 포착된 실제 인물(이름/역할/복장), 장소, 신체 동작, 해프닝, 표정 변화를 반드시 자막과 쨉쨉이에 구체적으로 명시하라!\n"
+            "2. ⛔ '이거 실제로 가능하다는데', '분위기가 달라짐', '집중해서 봐야 보임' 같은 뜬구름 잡는 일반론적 껍데기 수식어(Generic Filler)는 전면 금지한다.\n"
+            "3. 상황설명 자막은 실제 사건의 전개(발단 -> 돌발상황/해프닝 -> 멘붕/반응 -> 결말)를 정곡 콕 찔러서 생생하게 묘사하고,\n"
+            "4. 쨉쨉이 또한 '* 집중 *' 같은 밋밋한 단어 대신 '* 찐당황 *', '* 표정 실화냐 *', '* 멘붕 ㅋㅋㅋ *' 처럼 영상 속 인물의 감정에 직결된 살아있는 리액션으로 작성하라!\n"
+        )
+    elif effective_title:
+        # Fallback (구형 방식)
+        title_inject = (
+            f"\n\n═══ [🎬 영상 제목 / 주제 확정 정보] ═══\n"
+            f"영상 제목: **'{effective_title}'**\n"
+            f"- 이 영상의 핵심 주제와 스토리는 위 제목을 반드시 중심으로 전개하라.\n"
+            f"- 첫 자막과 이어지는 자막 전체에서 위 주제와 외부 맥락을 풍부하게 다루어라.\n"
+        )
+        main_prompt = main_prompt + title_inject
 
     try:
-        db.update_subtitle_job(
-            job_id, status="uploading", progress=10,
-            progress_message="영상 준비 중 (큰 영상은 압축)..",
-        )
-        # 큰 영상(18MB+)은 저화질 압축본으로 inline 업로드 (Files API 불안정 회피)
-        analysis_video = await ensure_inline_video(video_path)
-        file_uri = await upload_video_to_gemini(analysis_video)
-
-        db.update_subtitle_job(
-            job_id, status="analyzing", progress=30,
-            progress_message="Pro+Flash 2중 분석 중 (3.1-pro + 3.5-flash)..",
-        )
-
-        # 1단계: 댓글/제목 + Frame 먼저 (병렬, 빠름)
-        db.update_subtitle_job(
-            job_id, progress=35, progress_message="댓글/제목/frame 수집 중..",
-        )
-        frame_task = extract_key_frames(video_path, out_dir / "frames")
-        scene_task = extract_scene_changes(video_path)
-        comments_task = fetch_youtube_comments_for_urls(original_urls or [], per_video=20)
-        pre_results = await asyncio.gather(
-            frame_task, scene_task, comments_task, return_exceptions=True,
-        )
-        frame_check = pre_results[0] if not isinstance(pre_results[0], Exception) else {}
-        scene_info = pre_results[1] if not isinstance(pre_results[1], Exception) else {}
-        comments_dict = pre_results[2] if not isinstance(pre_results[2], Exception) else {}
-
-        # 객관 시점 inject — Gemini에 ffmpeg가 찾은 진짜 anchor 시점 알려줌
-        timing_inject = ""
-        if scene_info.get("all_anchors"):
-            anchors = scene_info["all_anchors"]
-            kfs = scene_info.get("keyframes", [])
-            sc = scene_info.get("scene_changes", [])
-            ap = scene_info.get("audio_peaks", [])
-            dur = scene_info.get("duration", 0)
-            if style == "emotion":
-                # 감성(음악) — 화면은 노래와 무관. 액션 타이밍 X, 영상 길이 균등 분배만.
-                timing_inject = (
-                    "\n\n[⏱ 영상 길이 정보]\n"
-                    f"영상 길이: {dur:.2f}초\n"
-                    "🚨 이 영상은 노래의 짧은 클립이고 화면은 노래와 무관함:\n"
-                    f"- 자막(상황설명/가사)은 영상 길이({dur:.2f}초)에 맞춰 균등 분배\n"
-                    f"- 마지막 자막 end = 영상 길이({dur:.2f}초) 또는 그 직전. 절대 초과 X\n"
-                    "- scene change/액션 시점은 무시 (영상 무관). 노래 흐름만 따름\n"
-                )
-            else:
-                timing_inject = (
-                    "\n\n[⏱ 영상 객관 정보 — 참고용 (강제 매칭 X)]\n"
-                    f"영상 길이: {dur:.2f}초\n"
-                    f"📍 Scene change (씬 변화 시점): {sc}\n"
-                    f"📍 Audio peak (소리/음성 시작): {ap}\n\n"
-                    "🚨 자막 타이밍 룰:\n"
-                    "1. 영상 보고 진짜 액션 시점에 자막 박음 (anchor에 강제 snap X)\n"
-                    "2. 위 시점은 참고 — 진짜 액션과 다를 수 있음. 영상 직접 보고 결정\n"
-                    "3. 자막 start = 그 액션 시작 시점 (±0.1초)\n"
-                    "4. 자막 end는 다음 자막 start 0.05초 전\n"
-                    f"5. 마지막 자막 end = 영상 길이 ({dur:.2f}초) 또는 그 직전 (절대 초과 X)\n"
-                    "6. 자막 사이 빈 구간 0.5초 이상 X (자연 흐름)\n"
-                )
-
-        # 2단계: 모든 Gemini 호출에 영상 제목/댓글 inject (검증 일관성 ↑)
+        # 3. 추가 컨텍스트 (댓글 수집 등)
+        comments_dict = {}
+        if original_urls:
+            try:
+                comments_dict = await fetch_youtube_comments_for_urls(original_urls, per_video=20)
+            except Exception as ce:
+                print(f"[auto_subtitle] 댓글 수집 skip: {ce}", flush=True)
         comments_text = format_comments_for_prompt(comments_dict) if comments_dict else ""
+
+        # 객관 시점 inject
+        timing_inject = ""
+        dur = manifest.get("duration", 0) if manifest else 0
+        if not dur or dur <= 0:
+            try:
+                import subprocess as _sp
+                _r = _sp.run(["ffprobe", "-v", "error", "-show_entries",
+                              "format=duration", "-of",
+                              "default=noprint_wrappers=1:nokey=1", str(video_path)],
+                             capture_output=True, text=True, timeout=20)
+                dur = float(_r.stdout.strip() or 0)
+            except Exception:
+                dur = 15.0
+
+        if style == "emotion":
+            timing_inject = (
+                "\n\n[⏱ 영상 길이 정보]\n"
+                f"영상 길이: {dur:.2f}초\n"
+                "🚨 이 영상은 노래의 짧은 클립이고 화면은 노래와 무관함:\n"
+                f"- 자막(상황설명/가사)은 영상 길이({dur:.2f}초)에 맞춰 균등 분배\n"
+                f"- 마지막 자막 end = 영상 길이({dur:.2f}초) 또는 그 직전. 절대 초과 X\n"
+            )
+        else:
+            timing_inject = (
+                "\n\n[⏱ 영상 객관 정보]\n"
+                f"영상 길이: {dur:.2f}초\n"
+                "🚨 자막 타이밍 룰:\n"
+                "1. 영상의 실제 프레임과 발화 대사 시점에 정확히 자막을 배치하라.\n"
+                "2. 자막 start = 해당 액션/대사 시작 시점 (±0.1초)\n"
+                "3. 자막 end는 다음 자막 start 0.05초 전\n"
+                f"4. 마지막 자막 end = 영상 길이 ({dur:.2f}초) 또는 그 직전 (절대 초과 X)\n"
+                "5. 자막 사이 빈 구간 0.5초 이상 방치 금지\n"
+            )
+
         main_prompt_full = main_prompt + timing_inject + comments_text
-        simple_prompt_full = SIMPLE_VERIFY_PROMPT + timing_inject + comments_text
+        simple_prompt_full = SIMPLE_VERIFY_PROMPT + (("\n\n" + media_context) if media_context else "") + timing_inject
 
         db.update_subtitle_job(
-            job_id, progress=55,
-            progress_message="Pro 분석 (메인) + Flash 검증 (병렬) 중..",
+            job_id, progress=50,
+            progress_message="OmniRoute AI 모델로 자막 및 제목 생성 중..",
         )
 
-        # 3단계: Pro 메인 + Flash 단순 병렬 (메인 = Pro 진짜 sharp / simple = Flash 검증용)
-        primary_task = call_gemini(GEMINI_PRO_MODEL, file_uri,
-                                     main_prompt_full, temperature=0.3, max_retries=3)  # Pro 과부하면 ~15초만 시도 후 Flash 폴백(대표님 0610)
-        simple_task = call_gemini(GEMINI_FLASH_MODEL, file_uri,
+        # 4. OmniRoute 호출 (영상 종합 분석 결과가 prompt에 완전 주입되므로 바이너리 400 에러 없이 안정적 동작)
+        primary_task = call_gemini(GEMINI_PRO_MODEL, "",
+                                     main_prompt_full, temperature=0.3, max_retries=3)
+        simple_task = call_gemini(GEMINI_FLASH_MODEL, "",
                                     simple_prompt_full, temperature=0.1)
         analysis_results = await asyncio.gather(
             primary_task, simple_task, return_exceptions=True,
@@ -1527,7 +1522,10 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
             job_id, progress=70, progress_message="교차 검증 중..",
         )
 
-        # 4중 교차 검증
+        # 4중 교차 검증 객관 데이터 준비
+        frame_check = {"duration": dur}
+        anchors = [f["timestamp"] for f in (manifest.get("frames") if manifest else [])]
+        scene_info = {"duration": dur, "all_anchors": anchors}
         validation = cross_validate(primary, simple_verify, frame_check, None, comments_dict)
 
         # ⚠️ Pro 조건부 호출 — Flash 분석이 의심스러우면 Pro로 재검증
@@ -1542,14 +1540,14 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
             )
             try:
                 # Pro로 단순 검증 + 메인 분석 다시 (Pro 자체가 메인이 되도록)
-                pro_simple = await call_gemini(GEMINI_PRO_MODEL, file_uri,
+                pro_simple = await call_gemini(GEMINI_PRO_MODEL, "",
                                                  SIMPLE_VERIFY_PROMPT + timing_inject, temperature=0.1)
                 pro_verify = pro_simple if isinstance(pro_simple, dict) else {}
 
                 # Pro 시점·액션이 Flash와 다르면 Pro로 메인 자막도 재생성
                 if pro_verify:
                     pro_main = await call_gemini(
-                        GEMINI_PRO_MODEL, file_uri,
+                        GEMINI_PRO_MODEL, "",
                         (main_prompt + timing_inject
                          + (format_comments_for_prompt(comments_dict) if comments_dict else "")),
                         temperature=0.3,
@@ -1606,7 +1604,7 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
 """
             try:
                 yt_meta = await call_gemini(
-                    GEMINI_FLASH_MODEL, file_uri, yt_prompt,
+                    GEMINI_FLASH_MODEL, "", yt_prompt,
                     temperature=0.3, max_retries=3,
                 )
                 if isinstance(yt_meta, dict):
@@ -1755,8 +1753,11 @@ async def run_auto_subtitle(job_id: int, video_path: Path,
         )
         # BGM/SFX mp3 첨부 (실패해도 자막 잡은 OK)
         try:
-            from workers.bgm_for_subtitle import attach_bgm_mix
-            r = await attach_bgm_mix(video_path, out_dir)
+            try:
+                from workers.bgm_for_subtitle import attach_bgm_mix
+            except ImportError:
+                from app.legacy_ddalkkak.workers.bgm_for_subtitle import attach_bgm_mix
+            r = await attach_bgm_mix(video_path, out_dir, context_info=primary)
             if r:
                 _rec = ", ".join(r.get("bgm_recommend") or []) or "-"
                 print(f"  ✅ 효과음 믹스 생성: {r['path']} "

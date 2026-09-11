@@ -78,13 +78,8 @@ class AIWorkflowGenerator:
              target_model = f"sambanova/{model}"
         elif provider == "cerebras" and not model.startswith("cerebras/"):
              target_model = f"cerebras/{model}"
-        elif provider == "google":
-             # Gemini doesn't use prefix in this implementation usually, but check llm_manager
-             # It expects just "gemini-1.5-pro" etc.
-             if not model: target_model = "gemini-1.5-pro"
-        
         if not target_model:
-            target_model = "gemini-1.5-pro" # Ultimate Fallback
+            target_model = getattr(self.llm.settings, "script_analysis_model", None) or getattr(self.llm.settings, "default_llm_model", None) or "viraloop1"
 
         try:
             logger.info(f"🤖 Generating Workflow with {target_model}...")

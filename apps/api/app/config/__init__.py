@@ -128,7 +128,7 @@ class Settings(BaseSettings):
     whisper_model_path: Optional[str] = None
     agent_model: Optional[str] = None
     agent_research_limit: Optional[int] = None
-    default_llm_model: Optional[str] = "gemini-1.5-flash"
+    default_llm_model: Optional[str] = "omniroute/viraloop1"
     
     # Hermes Intelligence
     hermes_agent_provider: str = "opencode"

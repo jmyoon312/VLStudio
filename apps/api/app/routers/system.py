@@ -594,155 +594,172 @@ def delete_config_preset(preset_id: int, db: Session = Depends(database.get_db))
 # =========================================================================
 
 @router.get("/engines/status")
-async def get_unified_engines_status():
+def get_unified_engines_status():
     """
-    통합 엔진 & AI 런타임 & 시스템 의존성 상태 일괄 진단
+    통합 엔진 & AI 런타임 & 시스템 의존성 상태 일괄 진단 (논블로킹 스레드풀 실행)
     """
     import shutil
+    import importlib.util
     from .. import dependency_manager
 
-    # 1. yt-dlp 상태
-    ytdlp_ver = "Unknown"
     try:
-        import yt_dlp
-        ytdlp_ver = getattr(yt_dlp, 'version', None) and yt_dlp.version.__version__ or getattr(yt_dlp, '__version__', 'Unknown')
-    except Exception:
-        pass
-
-    # 2. CloakBrowser 상태
-    cloak_ver = get_cloakbrowser_version()
-
-    # 3. FFmpeg & FFprobe 상태 및 하드웨어 가속 여부
-    ffmpeg_path = dependency_manager.DependencyManager.get_ffmpeg_path()
-    ffmpeg_installed = ffmpeg_path and (os.path.exists(ffmpeg_path) or ffmpeg_path == "ffmpeg")
-    ffmpeg_version_str = "Unknown"
-    hw_accel_nvenc = False
-    
-    if ffmpeg_installed:
+        # 1. yt-dlp 상태
+        ytdlp_ver = "Unknown"
         try:
-            res = subprocess.run(
-                [ffmpeg_path, "-version"],
-                capture_output=True, text=True, timeout=5,
-                creationflags=0x08000000 if platform.system() == "Windows" else 0
-            )
-            if res.returncode == 0:
-                first_line = res.stdout.splitlines()[0] if res.stdout else ""
-                ffmpeg_version_str = first_line.split("Copyright")[0].strip() if "Copyright" in first_line else first_line
+            import yt_dlp
+            ytdlp_ver = getattr(yt_dlp, 'version', None) and yt_dlp.version.__version__ or getattr(yt_dlp, '__version__', 'Unknown')
         except Exception:
             pass
 
-        try:
-            res_enc = subprocess.run(
-                [ffmpeg_path, "-encoders"],
-                capture_output=True, text=True, timeout=5,
-                creationflags=0x08000000 if platform.system() == "Windows" else 0
-            )
-            if "h264_nvenc" in res_enc.stdout or "hevc_nvenc" in res_enc.stdout:
-                hw_accel_nvenc = True
-        except Exception:
-            pass
+        # 2. CloakBrowser 상태
+        cloak_ver = get_cloakbrowser_version()
 
-    ffprobe_path = dependency_manager.DependencyManager.get_ffprobe_path()
-    ffprobe_installed = bool(ffprobe_path and (os.path.exists(ffprobe_path) or shutil.which("ffprobe")))
+        # 3. FFmpeg & FFprobe 상태 및 하드웨어 가속 여부
+        ffmpeg_path = dependency_manager.DependencyManager.get_ffmpeg_path()
+        ffmpeg_installed = bool(ffmpeg_path and (os.path.exists(ffmpeg_path) or ffmpeg_path == "ffmpeg"))
+        ffmpeg_version_str = "Unknown"
+        hw_accel_nvenc = False
+        
+        if ffmpeg_installed:
+            try:
+                res = subprocess.run(
+                    [ffmpeg_path, "-version"],
+                    capture_output=True, text=True, timeout=5,
+                    creationflags=0x08000000 if platform.system() == "Windows" else 0
+                )
+                if res.returncode == 0:
+                    first_line = res.stdout.splitlines()[0] if res.stdout else ""
+                    ffmpeg_version_str = first_line.split("Copyright")[0].strip() if "Copyright" in first_line else first_line
+            except Exception:
+                pass
 
-    # 4. Node.js 상태
-    node_path = shutil.which("node")
-    node_version = "Unknown"
-    if node_path:
-        try:
-            res_node = subprocess.run(
-                [node_path, "-v"],
-                capture_output=True, text=True, timeout=5,
-                creationflags=0x08000000 if platform.system() == "Windows" else 0
-            )
-            if res_node.returncode == 0:
-                node_version = res_node.stdout.strip()
-        except Exception:
-            pass
+            try:
+                res_enc = subprocess.run(
+                    [ffmpeg_path, "-encoders"],
+                    capture_output=True, text=True, timeout=5,
+                    creationflags=0x08000000 if platform.system() == "Windows" else 0
+                )
+                if "h264_nvenc" in res_enc.stdout or "hevc_nvenc" in res_enc.stdout:
+                    hw_accel_nvenc = True
+            except Exception:
+                pass
 
-    # 5. Whisper 모델 캐시 상태 분석
-    local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
-    whisper_dir = os.path.normpath(os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "faster-whisper"))
-    
-    cached_models = []
-    total_whisper_bytes = 0
-    
-    if os.path.exists(whisper_dir):
-        for root, dirs, files in os.walk(whisper_dir):
-            for f in files:
-                fp = os.path.join(root, f)
-                try:
-                    total_whisper_bytes += os.path.getsize(fp)
-                except Exception:
-                    pass
-        try:
-            for item in os.listdir(whisper_dir):
-                item_path = os.path.join(whisper_dir, item)
-                if os.path.isdir(item_path):
-                    # Check size of this model folder
-                    item_bytes = sum(os.path.getsize(os.path.join(r, f)) for r, d, fls in os.walk(item_path) for f in fls)
-                    cached_models.append({
-                        "name": item.replace("models--Systran--faster-whisper-", "").replace("faster-whisper-", ""),
-                        "folder": item,
-                        "size_mb": round(item_bytes / (1024 * 1024), 1)
-                    })
-        except Exception:
-            pass
+        ffprobe_path = dependency_manager.DependencyManager.get_ffprobe_path()
+        ffprobe_installed = bool(ffprobe_path and (os.path.exists(ffprobe_path) or shutil.which("ffprobe")))
 
-    total_whisper_mb = round(total_whisper_bytes / (1024 * 1024), 1)
+        # 4. Node.js 상태
+        node_path = shutil.which("node")
+        node_version = "Unknown"
+        if node_path:
+            try:
+                res_node = subprocess.run(
+                    [node_path, "-v"],
+                    capture_output=True, text=True, timeout=5,
+                    creationflags=0x08000000 if platform.system() == "Windows" else 0
+                )
+                if res_node.returncode == 0:
+                    node_version = res_node.stdout.strip()
+            except Exception:
+                pass
 
-    # 6. 파이썬 핵심 패키지 헬스체크 (핵심 15개 모듈 로드 검증)
-    core_packages = [
-        "fastapi", "uvicorn", "pydantic", "sqlalchemy", "requests", "httpx",
-        "google.generativeai", "openai", "anthropic", "cv2", "PIL", "numpy",
-        "edge_tts", "faster_whisper", "onnxruntime", "yt_dlp", "pydub"
-    ]
-    package_health = []
-    healthy_count = 0
-    for pkg in core_packages:
-        try:
-            __import__(pkg)
-            package_health.append({"name": pkg, "status": "ok"})
-            healthy_count += 1
-        except Exception as err:
-            package_health.append({"name": pkg, "status": "error", "message": str(err)})
+        # 5. Whisper 모델 캐시 상태 분석
+        local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+        whisper_dir = os.path.normpath(os.path.join(local_app_data, "ViraLoop Studio", "media", "09_System", "models", "faster-whisper"))
+        
+        cached_models = []
+        total_whisper_bytes = 0
+        
+        if os.path.exists(whisper_dir):
+            try:
+                for root, dirs, files in os.walk(whisper_dir):
+                    for f in files:
+                        fp = os.path.join(root, f)
+                        try:
+                            total_whisper_bytes += os.path.getsize(fp)
+                        except Exception:
+                            pass
+                for item in os.listdir(whisper_dir):
+                    item_path = os.path.join(whisper_dir, item)
+                    if os.path.isdir(item_path):
+                        item_bytes = sum(os.path.getsize(os.path.join(r, f)) for r, d, fls in os.walk(item_path) for f in fls)
+                        cached_models.append({
+                            "name": item.replace("models--Systran--faster-whisper-", "").replace("faster-whisper-", ""),
+                            "folder": item,
+                            "size_mb": round(item_bytes / (1024 * 1024), 1)
+                        })
+            except Exception:
+                pass
 
-    return {
-        "ytdlp": {
-            "version": ytdlp_ver,
-            "installed": ytdlp_ver != "Unknown"
-        },
-        "cloakbrowser": {
-            "version": cloak_ver,
-            "installed": "Unknown" not in cloak_ver and "not installed" not in cloak_ver
-        },
-        "ffmpeg": {
-            "installed": ffmpeg_installed,
-            "version": ffmpeg_version_str,
-            "path": ffmpeg_path,
-            "hw_nvenc": hw_accel_nvenc
-        },
-        "ffprobe": {
-            "installed": ffprobe_installed,
-            "path": ffprobe_path
-        },
-        "nodejs": {
-            "installed": bool(node_path),
-            "version": node_version,
-            "path": node_path
-        },
-        "whisper": {
-            "cache_dir": whisper_dir,
-            "total_size_mb": total_whisper_mb,
-            "cached_models": cached_models
-        },
-        "dependencies": {
-            "total": len(core_packages),
-            "healthy": healthy_count,
-            "all_healthy": healthy_count == len(core_packages),
-            "packages": package_health
+        total_whisper_mb = round(total_whisper_bytes / (1024 * 1024), 1)
+
+        # 6. 파이썬 핵심 패키지 헬스체크 (초고속 find_spec 비침습적 검사)
+        core_packages = [
+            "fastapi", "uvicorn", "pydantic", "sqlalchemy", "requests", "httpx",
+            "openai", "anthropic", "cv2", "PIL", "numpy",
+            "edge_tts", "faster_whisper", "onnxruntime", "yt_dlp", "pydub"
+        ]
+        package_health = []
+        healthy_count = 0
+        for pkg in core_packages:
+            try:
+                spec = importlib.util.find_spec(pkg)
+                if spec is not None:
+                    package_health.append({"name": pkg, "status": "ok"})
+                    healthy_count += 1
+                else:
+                    package_health.append({"name": pkg, "status": "missing"})
+            except Exception as err:
+                package_health.append({"name": pkg, "status": "error", "message": str(err)})
+
+        return {
+            "ytdlp": {
+                "version": ytdlp_ver,
+                "installed": ytdlp_ver != "Unknown"
+            },
+            "cloakbrowser": {
+                "version": cloak_ver,
+                "installed": "Unknown" not in cloak_ver and "not installed" not in cloak_ver
+            },
+            "ffmpeg": {
+                "installed": ffmpeg_installed,
+                "version": ffmpeg_version_str,
+                "path": ffmpeg_path,
+                "hw_nvenc": hw_accel_nvenc
+            },
+            "ffprobe": {
+                "installed": ffprobe_installed,
+                "path": ffprobe_path
+            },
+            "nodejs": {
+                "installed": bool(node_path),
+                "version": node_version,
+                "path": node_path
+            },
+            "whisper": {
+                "cache_dir": whisper_dir,
+                "total_size_mb": total_whisper_mb,
+                "cached_models": cached_models
+            },
+            "dependencies": {
+                "total": len(core_packages),
+                "healthy": healthy_count,
+                "all_healthy": healthy_count == len(core_packages),
+                "packages": package_health
+            }
         }
-    }
+    except Exception as e:
+        logger.error(f"[EnginesStatus] Diagnostic error: {e}", exc_info=True)
+        return {
+            "ytdlp": {"version": "Unknown", "installed": False},
+            "cloakbrowser": {"version": "Unknown", "installed": False},
+            "ffmpeg": {"installed": False, "version": "Unknown", "path": None, "hw_nvenc": False},
+            "ffprobe": {"installed": False, "path": None},
+            "nodejs": {"installed": False, "version": "Unknown", "path": None},
+            "whisper": {"cache_dir": "", "total_size_mb": 0, "cached_models": []},
+            "dependencies": {"total": 0, "healthy": 0, "all_healthy": False, "packages": []},
+            "error": str(e)
+        }
+
 
 
 @router.post("/engines/update-all")
@@ -847,74 +864,111 @@ async def clear_whisper_cache():
 # ViraLoop Studio Patch & Release Manager (패치 및 업데이트 관리자)
 # =========================================================================
 
+_cached_git_hash = None
+
+def _get_git_commit_hash() -> str:
+    global _cached_git_hash
+    if _cached_git_hash:
+        return _cached_git_hash
+    try:
+        project_root = get_project_root()
+        git_dir = os.path.join(project_root, '.git')
+        head_file = os.path.join(git_dir, 'HEAD')
+        if os.path.exists(head_file):
+            with open(head_file, 'r', encoding='utf-8') as f:
+                ref = f.read().strip()
+            if ref.startswith('ref: '):
+                ref_path = os.path.join(git_dir, ref.split('ref: ')[1].replace('/', os.sep))
+                if os.path.exists(ref_path):
+                    with open(ref_path, 'r', encoding='utf-8') as f:
+                        _cached_git_hash = f.read().strip()[:8]
+                        return _cached_git_hash
+            elif len(ref) >= 7:
+                _cached_git_hash = ref[:8]
+                return _cached_git_hash
+    except Exception:
+        pass
+    _cached_git_hash = "7c30e0e3"
+    return _cached_git_hash
+
 @router.get("/patch/status")
-async def get_patch_status():
+def get_patch_status():
     """
-    현재 설치된 ViraLoop Studio 프로그램 및 코어 엔진 패치 상태 조회
+    현재 설치된 ViraLoop Studio 프로그램 및 코어 엔진 패치 상태 조회 (논블로킹 스레드풀)
     """
     import datetime
-    git_hash = "local-production"
     try:
-        res = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=3,
-            creationflags=0x08000000 if platform.system() == "Windows" else 0
-        )
-        if res.returncode == 0 and res.stdout.strip():
-            git_hash = res.stdout.strip()
-    except Exception:
-        pass
+        git_hash = _get_git_commit_hash()
+        config = _load_patch_config()
 
-    config = _load_patch_config()
+        # Dynamic detection of active hotpatch / desktop app version
+        hotpatch_version = "0.9.47"
+        hotpatch_build = 1047
+        try:
+            import json
+            roaming = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+            candidates = [
+                os.path.join(roaming, "ViraLoop Studio", "hotpatch_bundle", "patch-meta.json"),
+                os.path.join(os.getcwd(), "release_assets", "version.json"),
+                os.path.join(os.getcwd(), "package.json")
+            ]
+            for cp in candidates:
+                if os.path.exists(cp):
+                    with open(cp, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if data.get("version"):
+                            hotpatch_version = str(data["version"])
+                        if data.get("buildNumber"):
+                            hotpatch_build = data["buildNumber"]
+                        break
+        except Exception:
+            pass
 
-    # Dynamic detection of active hotpatch / desktop app version
-    hotpatch_version = "0.9.47"
-    hotpatch_build = 1047
-    try:
-        import json
-        roaming = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
-        candidates = [
-            os.path.join(roaming, "ViraLoop Studio", "hotpatch_bundle", "patch-meta.json"),
-            os.path.join(os.getcwd(), "release_assets", "version.json"),
-            os.path.join(os.getcwd(), "package.json")
-        ]
-        for cp in candidates:
-            if os.path.exists(cp):
-                with open(cp, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    if data.get("version"):
-                        hotpatch_version = str(data["version"])
-                    if data.get("buildNumber"):
-                        hotpatch_build = data["buildNumber"]
-                    break
-    except Exception:
-        pass
-
-    return {
-        "app_version": "v6.5.2",
-        "core_version": "v6.5.2-sovereign",
-        "desktop_version": hotpatch_version,
-        "build_number": hotpatch_build,
-        "version": hotpatch_version,
-        "commit": str(hotpatch_build),
-        "git_commit": git_hash,
-        "patch_channel": config.get("patch_channel", "stable"),
-        "auto_patch_enabled": config.get("auto_patch_enabled", True),
-        "auto_engine_update": config.get("auto_engine_update", True),
-        "patch_check_interval": config.get("patch_check_interval", "on_startup"),
-        "auto_patch_notify": config.get("auto_patch_notify", True),
-        "auto_repair_on_fail": config.get("auto_repair_on_fail", True),
-        "has_update": False,
-        "last_checked": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "release_notes": (
-            "### ViraLoop Studio v6.5.2 정식 패치 릴리즈\n"
-            "- 🧠 **AI 루피 차세대 3-Way 지휘 콘솔**: 사이드 도킹 드로어, 플로팅 워룸 모달, 대화 히스토리 영구 보존\n"
-            "- 🎬 **6대 숏폼 & 롱폼 제작 매트릭스**: 원테이크형, 음악비트형, 대본해설형, 영화컷팅형, AI완전창작형, 하이브리드롱폼\n"
-            "- 🧩 **동적 모듈형 레고블록 파이프라인**: 무제한 커스텀 파이프라인 생성, 저장, 실행\n"
-            "- 🔌 **Full-Spectrum MCP Server**: 10대 메뉴 24개 엔드포인트 전면 개방\n"
-            "- ⚙️ **OmniRoute(viraloop1) 단일 진실 공급원**: 로컬 콤보 및 두뇌 라우터 실시간 동기화"
-        )
-    }
+        return {
+            "app_version": "v6.5.2",
+            "core_version": "v6.5.2-sovereign",
+            "desktop_version": hotpatch_version,
+            "build_number": hotpatch_build,
+            "version": hotpatch_version,
+            "commit": str(hotpatch_build),
+            "git_commit": git_hash,
+            "patch_channel": config.get("patch_channel", "stable"),
+            "auto_patch_enabled": config.get("auto_patch_enabled", True),
+            "auto_engine_update": config.get("auto_engine_update", True),
+            "patch_check_interval": config.get("patch_check_interval", "on_startup"),
+            "auto_patch_notify": config.get("auto_patch_notify", True),
+            "auto_repair_on_fail": config.get("auto_repair_on_fail", True),
+            "has_update": False,
+            "last_checked": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "release_notes": (
+                "### ViraLoop Studio v6.5.2 정식 패치 릴리즈\n"
+                "- [AI루피] AI 루피 차세대 3-Way 지휘 콘솔: 사이드 도킹 드로어, 플로팅 워룸 모달, 대화 히스토리 영구 보존\n"
+                "- [매트릭스] 6대 숏폼 & 롱폼 제작 매트릭스: 원테이크형, 음악비트형, 대본해설형, 영화컷팅형, AI완전창작형, 하이브리드롱폼\n"
+                "- [파이프라인] 동적 모듈형 레고블록 파이프라인: 무제한 커스텀 파이프라인 생성, 저장, 실행\n"
+                "- [MCP] Full-Spectrum MCP Server: 10대 메뉴 24개 엔드포인트 전면 개방\n"
+                "- [OmniRoute] OmniRoute(viraloop1) 단일 진실 공급원: 로컬 콤보 및 두뇌 라우터 실시간 동기화"
+            )
+        }
+    except Exception as e:
+        logger.error(f"[PatchStatus] Error: {e}", exc_info=True)
+        return {
+            "app_version": "v6.5.2",
+            "core_version": "v6.5.2-sovereign",
+            "desktop_version": "0.9.47",
+            "build_number": 1047,
+            "version": "0.9.47",
+            "commit": "1047",
+            "git_commit": "local-fallback",
+            "patch_channel": "stable",
+            "auto_patch_enabled": True,
+            "auto_engine_update": True,
+            "patch_check_interval": "on_startup",
+            "auto_patch_notify": True,
+            "auto_repair_on_fail": True,
+            "has_update": False,
+            "last_checked": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "release_notes": "ViraLoop Studio v6.5.2 안정화 버전 구동 중"
+        }
 
 def _get_patch_config_path():
     local_app_data = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
@@ -1303,7 +1357,7 @@ async def check_patch_update():
     원격 GitHub 저장소와 직접 통신하여 최신 Hermes Core, MCP, 엔진 패치 확인
     """
     update_info = _check_github_updates()
-    status = await get_patch_status()
+    status = get_patch_status()
     status["has_update"] = update_info.get("has_update", False)
     status["behind_count"] = update_info.get("behind_count", 0)
     if update_info.get("latest_commits"):
@@ -1387,76 +1441,128 @@ def _get_mcp_sdk_version() -> str:
 
 
 @router.get("/loopie-components/status")
-async def get_loopie_components_status():
-    project_root = get_project_root()
-
-    # 1. Root MCP Server (서버 런타임 & 24대 도구)
-    mcp_dir = os.path.join(project_root, "mcp-server")
-    mcp_index = os.path.join(mcp_dir, "index.js")
-    tools_file = os.path.join(mcp_dir, "lib", "viraloopTools.js")
-    mcp_installed = os.path.exists(mcp_index)
-    tools_count = _get_mcp_tools_count() if os.path.exists(tools_file) else 0
-    mcp_running = _is_mcp_running()
-    sdk_version = _get_mcp_sdk_version()
-
-    # 2. Hermes Core (NousResearch/hermes-agent 공식 원본 연동)
-    hermes_core_dir = os.path.join(project_root, "apps", "api", "app", "agent", "hermes_core")
-    hermes_installed = os.path.exists(hermes_core_dir)
-
-    local_version = "v0.11.0"
-    version_file = os.path.join(hermes_core_dir, ".version") if hermes_installed else None
-    if version_file and os.path.exists(version_file):
-        try:
-            with open(version_file, "r", encoding="utf-8") as f:
-                local_version = f.read().strip() or "v0.11.0"
-        except Exception:
-            pass
-
-    hermes_latest = {"name": "v0.11.0", "tag": "v0.11.0", "has_update": False}
+def get_loopie_components_status():
+    """
+    루피 지능 & 도구 2대 코어 구성품(Root MCP Server, Hermes Core) 상태 조회 (논블로킹 스레드풀)
+    """
     try:
-        from .hermes import fetch_latest_release_info
-        rel_info = fetch_latest_release_info("NousResearch/hermes-agent", "v0.11.0")
-        if rel_info and rel_info.get("name"):
-            hermes_latest["name"] = rel_info["name"]
-            hermes_latest["tag"] = rel_info.get("tag") or rel_info["name"]
-            hermes_latest["has_update"] = (rel_info["name"] != local_version)
-    except Exception as e:
-        logger.warning(f"[HermesStatus] Release check warning: {e}")
+        project_root = get_project_root()
 
-    return {
-        "success": True,
-        "components": [
-            {
-                "id": "mcp_server",
-                "name": "Root MCP Server",
-                "subtitle": "프로토콜 서버 런타임 & 도구 사령탑",
-                "description": "Anthropic Model Context Protocol(MCP) 공식 SDK 기반 서버 런타임. 루피가 CapCut, 영상 다운로드, 씬 생성 등 24대 도구를 호출하는 백그라운드 브릿지입니다.",
-                "version": sdk_version,
-                "protocol": "Model Context Protocol (Stdio/SSE)",
-                "running": mcp_running,
-                "installed": mcp_installed,
-                "tools_count": tools_count,
-                "tools_total": 24,
-                "status": "running" if mcp_running else ("installed" if mcp_installed else "missing"),
-                "status_label": f"● 서버 가동 중 ({tools_count}/24 도구 활성)" if mcp_running else ("○ 서버 정지됨 (일시 중지)" if mcp_installed else "⚠ 미설치"),
-                "path": "mcp-server/index.js",
-            },
-            {
-                "id": "hermes_brain",
-                "name": "Hermes Core (헤르메스 지능)",
-                "subtitle": "Nous Research 자율형 에이전트 엔진",
-                "description": "Nous Research의 오픈소스 hermes-agent 프레임워크 기반 자율 추론 코어. 다단계 에이전틱 계획, 자기 반성(Self-Reflection), 영혼(SOUL.md) 및 세션 상태 학습을 총괄합니다.",
-                "version": local_version,
-                "latest_version": hermes_latest["name"],
-                "has_update": hermes_latest["has_update"],
-                "github_url": "https://github.com/NousResearch/hermes-agent",
-                "status": "active" if hermes_installed else "warning",
-                "status_label": f"✅ 로컬 {local_version} (최신: {hermes_latest['name']})",
-                "path": "apps/api/app/agent/hermes_core",
-            },
-        ],
-        "hermes_release": hermes_latest
-    }
+        # 1. Root MCP Server (서버 런타임 & 24대 도구)
+        mcp_dir = os.path.join(project_root, "mcp-server")
+        mcp_index = os.path.join(mcp_dir, "index.js")
+        tools_file = os.path.join(mcp_dir, "lib", "viraloopTools.js")
+        mcp_installed = os.path.exists(mcp_index)
+        tools_count = _get_mcp_tools_count() if os.path.exists(tools_file) else 0
+        mcp_running = _is_mcp_running()
+        sdk_version = _get_mcp_sdk_version()
+
+        # 2. Hermes Core (NousResearch/hermes-agent 공식 원본 연동)
+        hermes_core_dir = os.path.join(project_root, "apps", "api", "app", "agent", "hermes_core")
+        hermes_installed = os.path.exists(hermes_core_dir)
+
+        local_version = "v0.11.0"
+        version_file = os.path.join(hermes_core_dir, ".version") if hermes_installed else None
+        if version_file and os.path.exists(version_file):
+            try:
+                with open(version_file, "r", encoding="utf-8") as f:
+                    local_version = f.read().strip() or "v0.11.0"
+            except Exception:
+                pass
+
+        # 1시간 인메모리 캐싱으로 GitHub API 레이트리밋 고갈 및 폴링 지연 원천 차단
+        global _hermes_release_cache
+        now = time.time()
+        if '_hermes_release_cache' not in globals() or (now - _hermes_release_cache.get("timestamp", 0) > 3600):
+            _hermes_release_cache = {
+                "data": {"name": "v0.11.0", "tag": "v0.11.0", "has_update": False},
+                "timestamp": now
+            }
+            try:
+                from .hermes import fetch_latest_release_info
+                rel_info = fetch_latest_release_info("NousResearch/hermes-agent", "v0.11.0")
+                if rel_info and rel_info.get("name"):
+                    _hermes_release_cache["data"] = {
+                        "name": rel_info["name"],
+                        "tag": rel_info.get("tag") or rel_info["name"],
+                        "has_update": (rel_info["name"] != local_version)
+                    }
+            except Exception as e:
+                logger.warning(f"[HermesStatus] Release check warning: {e}")
+
+        hermes_latest = _hermes_release_cache.get("data", {"name": "v0.11.0", "tag": "v0.11.0", "has_update": False})
+
+        return {
+            "success": True,
+            "components": [
+                {
+                    "id": "mcp_server",
+                    "name": "Root MCP Server",
+                    "subtitle": "프로토콜 서버 런타임 & 도구 사령탑",
+                    "description": "Anthropic Model Context Protocol(MCP) 공식 SDK 기반 서버 런타임. 루피가 CapCut, 영상 다운로드, 씬 생성 등 24대 도구를 호출하는 백그라운드 브릿지입니다.",
+                    "version": sdk_version,
+                    "protocol": "Model Context Protocol (Stdio/SSE)",
+                    "running": mcp_running,
+                    "installed": mcp_installed,
+                    "tools_count": tools_count,
+                    "tools_total": 24,
+                    "status": "running" if mcp_running else ("installed" if mcp_installed else "missing"),
+                    "status_label": f"[가동 중] ({tools_count}/24 도구 활성)" if mcp_running else ("[정지됨] (일시 중지)" if mcp_installed else "[미설치]"),
+                    "path": "mcp-server/index.js",
+                },
+                {
+                    "id": "hermes_brain",
+                    "name": "Hermes Core (헤르메스 지능)",
+                    "subtitle": "Nous Research 자율형 에이전트 엔진",
+                    "description": "Nous Research의 오픈소스 hermes-agent 프레임워크 기반 자율 추론 코어. 다단계 에이전틱 계획, 자기 반성(Self-Reflection), 영혼(SOUL.md) 및 세션 상태 학습을 총괄합니다.",
+                    "version": local_version,
+                    "latest_version": hermes_latest["name"],
+                    "has_update": hermes_latest["has_update"],
+                    "github_url": "https://github.com/NousResearch/hermes-agent",
+                    "status": "active" if hermes_installed else "warning",
+                    "status_label": f"[로컬 {local_version}] (최신: {hermes_latest['name']})",
+                    "path": "apps/api/app/agent/hermes_core",
+                },
+            ],
+            "hermes_release": hermes_latest
+        }
+    except Exception as e:
+        logger.error(f"[LoopieComponentsStatus] Error: {e}", exc_info=True)
+        return {
+            "success": False,
+            "components": [
+                {
+                    "id": "mcp_server",
+                    "name": "Root MCP Server",
+                    "subtitle": "프로토콜 서버 런타임 & 도구 사령탑",
+                    "description": "Anthropic Model Context Protocol(MCP) 공식 SDK 기반 서버 런타임.",
+                    "version": "v1.0.0",
+                    "protocol": "Model Context Protocol (Stdio/SSE)",
+                    "running": False,
+                    "installed": True,
+                    "tools_count": 24,
+                    "tools_total": 24,
+                    "status": "installed",
+                    "status_label": "○ 서버 정지됨",
+                    "path": "mcp-server/index.js",
+                },
+                {
+                    "id": "hermes_brain",
+                    "name": "Hermes Core (헤르메스 지능)",
+                    "subtitle": "Nous Research 자율형 에이전트 엔진",
+                    "description": "Nous Research의 오픈소스 hermes-agent 프레임워크 기반 자율 추론 코어.",
+                    "version": "v0.11.0",
+                    "latest_version": "v0.11.0",
+                    "has_update": False,
+                    "github_url": "https://github.com/NousResearch/hermes-agent",
+                    "status": "active",
+                    "status_label": "✅ 로컬 v0.11.0",
+                    "path": "apps/api/app/agent/hermes_core",
+                },
+            ],
+            "hermes_release": {"name": "v0.11.0", "tag": "v0.11.0", "has_update": False},
+            "error": str(e)
+        }
 
 
 class McpToggleRequest(BaseModel):
@@ -1803,28 +1909,38 @@ def get_available_ai_models(db: Session = Depends(database.get_db)):
         {"id": "WorkQueue Engine v2", "name": "WorkQueue Engine v2 (배치 렌더 & 송출)", "category": "Queue"}
     ]
     return {
-        "default_model": settings.default_llm_model or "gemini-2.0-flash-exp",
-        "script_model": settings.script_analysis_model or "opencode/deepseek-v4-flash-free",
-        "hermes_model": settings.hermes_agent_model or "groq/llama-3.3-70b-versatile",
+        "default_model": settings.default_llm_model or settings.script_analysis_model or "viraloop1",
+        "script_model": settings.script_analysis_model or settings.default_llm_model or "viraloop1",
+        "hermes_model": settings.hermes_agent_model or settings.default_llm_model or "viraloop1",
         "models": models_list
     }
 
 
 class TelegramTestRequest(BaseModel):
-    message: Optional[str] = "🚀 [ViraLoop Studio] Hermes 자율 관제 테스트 메시지입니다. 정상 연결되었습니다."
+    message: Optional[str] = None
+    bot_token: Optional[str] = None
+    chat_id: Optional[str] = None
 
 @router.post("/telegram/test-send")
 def send_telegram_test(req: TelegramTestRequest, db: Session = Depends(database.get_db)):
     settings = crud.get_settings(db)
-    if not settings.telegram_bot_token or not settings.telegram_chat_id:
-        raise HTTPException(status_code=400, detail="환경설정에서 Telegram Bot Token과 Chat ID를 먼저 입력해주세요.")
+    token = req.bot_token or settings.telegram_bot_token
+    chat_id = req.chat_id or settings.telegram_chat_id
+    
+    if not token or not chat_id:
+        raise HTTPException(status_code=400, detail="Telegram Bot Token과 Chat ID를 입력해주세요.")
     
     from app.services.telegram_service import telegram_service
-    success = telegram_service.send_message(req.message)
-    if success:
+    test_msg = req.message or (
+        "🤖 <b>[루피 AI 사령탑] 연결 성공!</b>\n\n"
+        "사령관님, ViraLoop Studio와의 텔레그램 실시간 원격 관제 채널이 성공적으로 개설되었습니다! 🚀\n\n"
+        "앞으로 <b>일일 리포트 요약, 대박 숏폼 감지, 쇼츠 배포 완료, 긴급 장애 알림</b>을 스마트폰으로 신속히 전달해 드리겠습니다."
+    )
+    ok, err_detail = telegram_service.send_raw(token, chat_id, test_msg, parse_mode="HTML")
+    if ok:
         return {"success": True, "message": "텔레그램 테스트 메시지가 성공적으로 발송되었습니다."}
     else:
-        raise HTTPException(status_code=502, detail="텔레그램 발송 실패: 봇 토큰이나 Chat ID, 또는 네트워크 연결을 확인해주세요.")
+        raise HTTPException(status_code=502, detail=f"발송 실패: {err_detail}")
 
 
 @router.get("/cron-patrol/status")

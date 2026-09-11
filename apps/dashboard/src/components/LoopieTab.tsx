@@ -43,8 +43,8 @@ const LoopieTab = () => {
     React.useEffect(() => {
         if (settings && !formData) {
             setFormData({
-                agent_provider: settings.hermes_agent_provider || 'google',
-                agent_model: settings.hermes_agent_model || 'gemini-2.0-flash',
+                agent_provider: settings.hermes_agent_provider || 'omniroute',
+                agent_model: settings.hermes_agent_model || settings.default_llm_model || 'viraloop1',
                 hermes_wisdom_depth: settings.hermes_wisdom_depth || 3,
                 reflection_verbosity: settings.hermes_reflection_verbosity || 'balanced',
                 auto_reflection: settings.hermes_auto_reflection ?? true,

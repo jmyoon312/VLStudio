@@ -78,9 +78,9 @@ async def get_bridge_ai_config(db: Session = Depends(get_db)):
         return {
             "_version": "v_fix_json_parse (Fallback)",
             "providers": {
-                "openai": {"apiKey": os.getenv("OPENAI_API_KEY"), "model": "gpt-4o"},
-                "groq": {"apiKey": os.getenv("GROQ_API_KEY"), "model": "llama3-70b-8192"},
-                "gemini": {"apiKey": os.getenv("GOOGLE_API_KEY"), "model": "gemini-1.5-pro"}
+                "openai": {"apiKey": os.getenv("OPENAI_API_KEY"), "model": "viraloop1"},
+                "groq": {"apiKey": os.getenv("GROQ_API_KEY"), "model": "viraloop1"},
+                "gemini": {"apiKey": os.getenv("GOOGLE_API_KEY"), "model": "viraloop1"}
             },
             "search": {
                 "engine": "tavily",  # Default fallback
@@ -102,38 +102,40 @@ async def get_bridge_ai_config(db: Session = Depends(get_db)):
 
     print(f"[BRIDGE] Serving Full AI Config. Providers: {[p for p, k in [('groq', groq_keys), ('gemini', gemini_keys), ('cerebras', cerebras_keys)] if k]}")
 
+    default_model_resolved = getattr(settings, "default_llm_model", None) or getattr(settings, "script_analysis_model", None) or "viraloop1"
+
     return {
         "_version": f"v5_MULTI_MODEL_{int(time.time())}",
         "providers": {
             "openai": {
                 "apiKeys": openai_keys,
-                "model": settings.default_model or "gpt-4o",
-                "fallbackModels": ["gpt-4o-mini"]
+                "model": settings.default_model or default_model_resolved,
+                "fallbackModels": []
             },
             "groq": {
                 "apiKeys": groq_keys,
-                "model": "llama-3.3-70b-versatile",
-                "fallbackModels": ["llama-3.1-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
+                "model": default_model_resolved,
+                "fallbackModels": []
             },
             "gemini": {
                 "apiKeys": gemini_keys,
-                "model": "gemini-1.5-flash",
-                "fallbackModels": ["gemini-1.5-pro", "gemini-2.0-flash-exp"]
+                "model": settings.script_analysis_model or default_model_resolved,
+                "fallbackModels": []
             },
             "sambanova": {
                 "apiKeys": sambanova_keys,
-                "model": "Meta-Llama-3.1-405B-Instruct",
-                "fallbackModels": ["Meta-Llama-3.1-70B-Instruct", "Meta-Llama-3.1-8B-Instruct"]
+                "model": default_model_resolved,
+                "fallbackModels": []
             },
             "cerebras": {
                 "apiKeys": cerebras_keys,
-                "model": "llama-3.1-70b",
-                "fallbackModels": ["llama-3.1-8b"]
+                "model": default_model_resolved,
+                "fallbackModels": []
             },
             "openrouter": {
                 "apiKeys": openrouter_keys,
-                "model": "google/gemini-2.0-flash-001",
-                "fallbackModels": ["anthropic/claude-3.5-sonnet", "meta-llama/llama-3.1-405b"]
+                "model": default_model_resolved,
+                "fallbackModels": []
             }
         },
         "search": {

@@ -1009,8 +1009,8 @@ async def align_subtitle(
 
 class ScriptMarkerRequest(pydantic.BaseModel):
     text: str
-    provider: str = "google"
-    model: str = "gemini-2.0-flash-exp"
+    provider: Optional[str] = "omniroute"
+    model: Optional[str] = None
 
 @router.post("/script/add-markers")
 async def add_script_markers(
@@ -1038,8 +1038,7 @@ async def add_script_markers(
         # Use full prompt if model doesn't support system instructions well (though most do)
         # LLMClient handles system_instruction for all major providers.
         
-        # Ensure model string is correct (frontend sends full string like 'groq/llama-3.3')
-        target_model = req.model
+        target_model = req.model or getattr(settings, "script_analysis_model", None) or getattr(settings, "default_llm_model", None) or "viraloop1"
         
         response = client.generate_content(
             prompt=user_prompt, 
@@ -1131,52 +1130,73 @@ def get_system_stats():
 @router.get("/tts/supertonic/status")
 def get_supertonic_status(db: Session = Depends(database.get_db)):
     import datetime
-    settings = crud.get_settings(db)
-    model_dir = settings.supertone_model_path if settings.supertone_model_path else "backend/models/supertonic"
-    
-    # Check for critical files required by Supertonic 3
-    required_files = [
-        "onnx/duration_predictor.onnx", 
-        "onnx/text_encoder.onnx", 
-        "onnx/vector_estimator.onnx", 
-        "onnx/vocoder.onnx",
-        "voice_styles/M1.json"
-    ]
-    
-    missing = []
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # backend
-    
-    # Handle relative or absolute paths
-    if os.path.isabs(model_dir):
-        target_dir = model_dir
-    else:
-        target_dir = os.path.join(base_dir, model_dir)
+    try:
+        settings = crud.get_settings(db)
+        model_dir = settings.supertone_model_path if settings and settings.supertone_model_path else "backend/models/supertonic"
+        
+        # Check for critical files required by Supertonic 3
+        required_files = [
+            "onnx/duration_predictor.onnx", 
+            "onnx/text_encoder.onnx", 
+            "onnx/vector_estimator.onnx", 
+            "onnx/vocoder.onnx",
+            "voice_styles/M1.json"
+        ]
+        
+        missing = []
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # backend
+        
+        # Handle relative or absolute paths
+        if os.path.isabs(model_dir):
+            target_dir = model_dir
+        else:
+            target_dir = os.path.join(base_dir, model_dir)
 
-    for f in required_files:
-        if not os.path.exists(os.path.join(target_dir, f)):
-            missing.append(f)
+        if not os.path.exists(target_dir):
+            return {
+                "installed": False,
+                "version": None,
+                "full_version": None,
+                "last_updated": None,
+                "missing_files": required_files,
+                "model_dir": target_dir
+            }
 
-    # Read version and last patch date if available
-    version_file = os.path.join(target_dir, ".version")
-    version_sha = ""
-    last_updated = ""
-    if os.path.exists(version_file):
-        try:
-            with open(version_file, "r") as vf:
-                version_sha = vf.read().strip()
-            mtime = os.path.getmtime(version_file)
-            last_updated = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
-        except Exception:
-            pass
-            
-    return {
-        "installed": len(missing) == 0,
-        "version": version_sha[:7] if version_sha else None,
-        "full_version": version_sha or None,
-        "last_updated": last_updated or None,
-        "missing_files": missing,
-        "model_dir": target_dir
-    }
+        for f in required_files:
+            if not os.path.exists(os.path.join(target_dir, f)):
+                missing.append(f)
+
+        # Read version and last patch date if available
+        version_file = os.path.join(target_dir, ".version")
+        version_sha = ""
+        last_updated = ""
+        if os.path.exists(version_file):
+            try:
+                with open(version_file, "r") as vf:
+                    version_sha = vf.read().strip()
+                mtime = os.path.getmtime(version_file)
+                last_updated = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                pass
+                
+        return {
+            "installed": len(missing) == 0,
+            "version": version_sha[:7] if version_sha else None,
+            "full_version": version_sha or None,
+            "last_updated": last_updated or None,
+            "missing_files": missing,
+            "model_dir": target_dir
+        }
+    except Exception as e:
+        logger.warning(f"Failed to check supertonic status: {e}")
+        return {
+            "installed": False,
+            "version": None,
+            "full_version": None,
+            "last_updated": None,
+            "missing_files": [],
+            "error": str(e)
+        }
 
 @router.post("/tts/supertonic/download")
 async def download_supertonic_models(background_tasks: BackgroundTasks):

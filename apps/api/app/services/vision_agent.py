@@ -65,9 +65,9 @@ class AIVisionAgent:
         )
     """
     
-    def __init__(self, llm_client, model: str = "gemini-2.0-flash-exp"):
+    def __init__(self, llm_client, model: str = None):
         self.llm_client = llm_client
-        self.model = model
+        self.model = model or getattr(llm_client.settings, "script_analysis_model", None) or getattr(llm_client.settings, "default_llm_model", None) or "viraloop1"
         
         # Predefined prompts for different tasks
         self._prompts = {

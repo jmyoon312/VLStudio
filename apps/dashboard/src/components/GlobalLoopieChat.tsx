@@ -296,7 +296,7 @@ const GlobalLoopieChat: React.FC = () => {
     const initialDragPos = useRef({ x: 0, y: 0 });
 
     // Model info from Settings
-    const [agentModel, setAgentModel] = useState('viraloop1');
+    const [agentModel, setAgentModel] = useState('');
     const [agentProvider, setAgentProvider] = useState('omniroute');
 
     const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -331,13 +331,13 @@ const GlobalLoopieChat: React.FC = () => {
             const res = await fetchWithRetry('/api/settings');
             if (res.ok) {
                 const s = await res.json();
-                const m = s?.script_analysis_model || s?.default_llm_model || 'viraloop1';
+                const m = s?.script_analysis_model || s?.default_llm_model || '';
                 setAgentModel(m);
-                const p = (m.includes('viraloop') || m.includes('youtube')) ? 'omniroute' : (m.includes('/') ? m.split('/')[0] : 'omniroute');
+                const p = s?.script_analysis_provider || ((m.startsWith('omniroute/') || m.startsWith('youtube/')) ? 'omniroute' : (m.includes('/') ? m.split('/')[0] : 'omniroute'));
                 setAgentProvider(p);
             }
         } catch {
-            setAgentModel('viraloop1');
+            setAgentModel('');
             setAgentProvider('omniroute');
         }
     }, []);
@@ -374,9 +374,12 @@ const GlobalLoopieChat: React.FC = () => {
 
     useEffect(() => {
         fetchMissionStatus();
-        const timer = setInterval(fetchMissionStatus, 3000);
+        const pollInterval = (missionStatus?.is_running || missionStatus?.status === 'running')
+            ? 5000
+            : isOpen ? 15000 : 60000;
+        const timer = setInterval(fetchMissionStatus, pollInterval);
         return () => clearInterval(timer);
-    }, [fetchMissionStatus]);
+    }, [fetchMissionStatus, missionStatus?.is_running, missionStatus?.status, isOpen]);
 
     // Event listener for external OPEN_LOOPIE
     useEffect(() => {

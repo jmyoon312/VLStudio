@@ -141,7 +141,48 @@ class BrandChannel(Base):
     expert_identity = Column(JSON, nullable=True) # Persistent guidelines { tone, strategy, success_criteria }
     identity_version = Column(Integer, default=1)
     
+    # [NEW] 3-Tier Sovereign Factory: Director & Combo Model Slots
+    assigned_combo_model = Column(String, default="omniroute/viraloop1")
+    director_state = Column(String, default="IDLE") # IDLE, SCOUTING, SCRIPTING, EVALUATING, PRODUCING, PACKAGING, DISPATCHING, ENGAGING
+    daily_target_count = Column(Integer, default=2)
+    published_today_count = Column(Integer, default=0)
+    director_heartbeat = Column(DateTime, nullable=True)
+    last_director_cycle = Column(DateTime, nullable=True)
+    # [NEW] Gradual Autonomy & Launchpad Workflow
+    autonomy_level = Column(String, default="LEVEL_2") # LEVEL_1 (수동 결재), LEVEL_2 (조건부 90점 패스), LEVEL_3 (100% 무인)
+    auto_publish_threshold = Column(Integer, default=90)
+    primary_workflow_mode = Column(String, default="keyword_only") # 5대 제작 모드
+    
     created_at = Column(DateTime, default=datetime.now)
+
+class ChannelDNABenchmark(Base):
+    """
+    [CHANNEL-DNA-BENCHMARK]
+    벤치마크 레퍼런스 채널의 12편 정밀 발골 분석 결과 및 AI 성장 제안 영구 저장소
+    """
+    __tablename__ = "channel_dna_benchmarks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    channel_url = Column(String, index=True)
+    channel_title = Column(String, index=True)
+    subscriber_count = Column(Integer, default=0)
+    category_name = Column(String, default="General")
+    total_videos_analyzed = Column(Integer, default=12)
+    
+    # 4대 핵심 DNA 아카이브
+    visual_dna = Column(JSON, nullable=False) # 캔버스 위상학, 상하단 바, 폰트/컬러 HEX, 세이프존%, 컷 템포
+    script_dna = Column(JSON, nullable=False) # 오프닝 훅 유형, 종결어미, 발화속도, 운율, 감정 곡선
+    audio_dna = Column(JSON, nullable=False)  # 보이스 성별/피치, 무음 간격, LUFS 음압, BGM 레벨
+    source_origin_dna = Column(JSON, nullable=False) # 원천 출처 채널/키워드/플랫폼 목록
+    
+    # AI 성장 차별화 혁신 제안 (3대 변형안 A/B/C)
+    ai_growth_suggestions = Column(JSON, nullable=True)
+    
+    # 최종 확정된 내 채널용 레이아웃 커스텀 프리셋
+    custom_layout_preset = Column(JSON, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 class MissionExperience(Base):
     """
@@ -260,6 +301,7 @@ class WorkQueueItem(Base):
     __tablename__ = "work_queue_items"
     
     id = Column(Integer, primary_key=True, index=True)
+    channel_id = Column(String, index=True, nullable=True) # [NEW] 3-Tier Channel Queue Isolation
     
     # === 영상 정보 ===
     video_id = Column(Integer, ForeignKey("videos.id"), nullable=True)
@@ -270,6 +312,7 @@ class WorkQueueItem(Base):
     thumbnail_path = Column(String, nullable=True)
     video_file_path = Column(String, nullable=True)  # [DRAFT support] nullable for temp/draft items
     duration = Column(Integer, nullable=True)
+    render_engine = Column(String, default="REMOTION")  # REMOTION | CAPCUT (Multi-Branch Rendering)
     
     # === 쇼핑 태그 (Shopping Tag) ===
     enable_shopping_tag = Column(Boolean, default=False)
@@ -395,7 +438,7 @@ class Settings(Base):
     # [NEW] OpenClaw Integration
     openclaw_preferred_provider = Column(String, default="auto")
     openclaw_model = Column(String, nullable=True)
-    default_llm_model = Column(String, default="gemini-2.0-flash-exp")
+    default_llm_model = Column(String, default="omniroute/viraloop1")
     
     # [NEW] Multi-Hub Granular Control
     paperclip_provider = Column(String, default="google")
@@ -467,6 +510,14 @@ class Settings(Base):
     telegram_bot_token = Column(String, nullable=True)
     telegram_chat_id = Column(String, nullable=True)
     telegram_notify_enabled = Column(Boolean, default=False)
+    telegram_events = Column(JSON, default=lambda: {
+        "daily_report": True,
+        "revenue_milestone": True,
+        "viral_alert": True,
+        "upload_dispatch": True,
+        "comment_activity": True,
+        "system_critical_error": True
+    })
     cron_patrol_enabled = Column(Boolean, default=False)
     cron_patrol_schedule = Column(String, default="08:30,18:30")
     
@@ -1159,7 +1210,7 @@ class AgentSwarmSession(Base):
     status = Column(String, default="INITIALIZING") # INITIALIZING, RESEARCHING, PLANNING, PRODUCING, COMPLETED, FAILED
     
     # 설정 정보 (JSON)
-    config_json = Column(JSON, nullable=True)        # { model: "gpt-4o", aspect_ratio: "9:16", ... }
+    config_json = Column(JSON, nullable=True)        # { model: "viraloop1", aspect_ratio: "9:16", ... }
     
     # 결과물 정보
     output_video_id = Column(Integer, ForeignKey("videos.id"), nullable=True)
@@ -1199,6 +1250,12 @@ class GlobalSwarmConfig(Base):
     priority_mode = Column(String, default="PERFORMANCE") # PERFORMANCE, EQUALITY, BALANCED
     swarm_mode = Column(String, default="ADAPTIVE") # [NEW] AUTONOMOUS, CONFIRMATION, EXPERT, ADAPTIVE
     global_kill_switch = Column(Boolean, default=False)
+    
+    # [NEW] 3-Tier Global Arbiter Interlock Governance
+    gpu_concurrency_limit = Column(Integer, default=2)
+    proxy_jitter_delay_seconds = Column(Integer, default=5)
+    api_budget_daily_limit = Column(Float, default=50.0)
+    api_budget_used_today = Column(Float, default=0.0)
     
     last_automated_run = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
@@ -1468,3 +1525,65 @@ class DdalkkakClipEditJob(Base):
     error = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     completed_at = Column(DateTime, nullable=True)
+
+# ── 📊 다채널 수익률 및 성과 분석 모델 ─────────────────────────────────
+class ChannelMetricHistory(Base):
+    __tablename__ = "channel_metric_histories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    channel_id = Column(String, index=True)
+    channel_name = Column(String, nullable=True)
+    period = Column(String, default="daily", index=True)  # daily, weekly, monthly, quarterly, yearly
+    record_date = Column(DateTime, default=datetime.now)
+    views = Column(Integer, default=0)
+    watch_time_hours = Column(Float, default=0.0)
+    subscribers = Column(Integer, default=0)
+    sub_increase = Column(Integer, default=0)
+    estimated_revenue = Column(Float, default=0.0)
+    rpm = Column(Float, default=0.0)
+    production_cost = Column(Float, default=0.0)
+    net_profit = Column(Float, default=0.0)
+    roi_percentage = Column(Float, default=0.0)
+    ctr = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.now)
+
+# ── 🎬 영상 성과 및 후킹(Hooking) AI 진단 로그 모델 ──────────────────────
+class VideoPerformanceLog(Base):
+    __tablename__ = "video_performance_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    channel_id = Column(String, index=True)
+    video_id = Column(String, index=True)
+    title = Column(String)
+    thumbnail_url = Column(String, nullable=True)
+    views = Column(Integer, default=0)
+    retention_rate_3s = Column(Float, default=0.0)
+    retention_rate_5s = Column(Float, default=0.0)
+    average_view_duration_sec = Column(Float, default=0.0)
+    hook_score = Column(Float, default=0.0)
+    status_tier = Column(String, default="normal", index=True)  # underperforming, normal, viral
+    diagnosis_summary = Column(Text, nullable=True)
+    weakness_feedback = Column(Text, nullable=True)
+    strength_feedback = Column(Text, nullable=True)
+    analyzed_at = Column(DateTime, default=datetime.now)
+
+# ── 💬 유튜브 댓글 및 소통/자동응답 모델 ─────────────────────────────────
+class YouTubeComment(Base):
+    __tablename__ = "youtube_comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    comment_id = Column(String, unique=True, index=True)
+    channel_id = Column(String, index=True)
+    video_id = Column(String, index=True)
+    video_title = Column(String, nullable=True)
+    author_name = Column(String)
+    author_profile_image = Column(String, nullable=True)
+    text = Column(Text)
+    sentiment = Column(String, default="neutral", index=True)  # praise, question, feedback, criticism, spam
+    ai_reply = Column(Text, nullable=True)
+    is_replied = Column(Boolean, default=False, index=True)
+    reply_mode = Column(String, default="manual")  # manual, auto
+    is_alerted = Column(Boolean, default=False)
+    published_at = Column(DateTime, default=datetime.now)
+    replied_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)

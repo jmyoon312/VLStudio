@@ -246,6 +246,93 @@ def generate_daily_report(db: Session) -> bool:
             models.Video.status == "downloading",
             models.Video.downloaded_at < zombie_cutoff
         ).count()
+
+        # ── 5-1. 신규 3대 시스템 데이터 연동 (수익률 BI, 후킹 진단, 댓글 소통) ──
+        # A. 다채널 수익률 및 ROI (ChannelMetricHistory)
+        revenue_summary = {
+            "total_revenue": 0, "total_cost": 0, "net_profit": 0,
+            "roi_percentage": 0, "avg_rpm": 42.0
+        }
+        try:
+            today_metrics = db.query(models.ChannelMetricHistory).filter(
+                models.ChannelMetricHistory.period == "daily"
+            ).all()
+            if today_metrics:
+                rev = sum(m.estimated_revenue for m in today_metrics)
+                cost = sum(m.production_cost for m in today_metrics)
+                net = rev - cost
+                roi = round((net / max(cost, 1)) * 100)
+                rpm = sum(m.rpm for m in today_metrics) / len(today_metrics)
+                revenue_summary = {
+                    "total_revenue": rev,
+                    "total_cost": cost,
+                    "net_profit": net,
+                    "roi_percentage": roi,
+                    "avg_rpm": round(rpm, 1)
+                }
+            else:
+                # 30일 월간 평균 기반 데일리 추정
+                monthly_metrics = db.query(models.ChannelMetricHistory).filter(
+                    models.ChannelMetricHistory.period == "monthly"
+                ).all()
+                if monthly_metrics:
+                    rev = sum(m.estimated_revenue for m in monthly_metrics) // 30
+                    cost = sum(m.production_cost for m in monthly_metrics) // 30
+                    revenue_summary = {
+                        "total_revenue": rev,
+                        "total_cost": cost,
+                        "net_profit": rev - cost,
+                        "roi_percentage": round(((rev - cost) / max(cost, 1)) * 100),
+                        "avg_rpm": round(sum(m.rpm for m in monthly_metrics) / len(monthly_metrics), 1)
+                    }
+        except Exception as e_rev:
+            logger.warning(f"Failed to query revenue metrics: {e_rev}")
+
+        # B. 저조/대박 영상 후킹 진단 (VideoPerformanceLog)
+        hook_summary = {"viral_count": 0, "underperforming_count": 0, "samples": []}
+        try:
+            v_logs = db.query(models.VideoPerformanceLog).order_by(models.VideoPerformanceLog.analyzed_at.desc()).limit(6).all()
+            viral_c = sum(1 for v in v_logs if v.status_tier == "viral")
+            under_c = sum(1 for v in v_logs if v.status_tier == "underperforming")
+            samples = [
+                {
+                    "title": v.title,
+                    "tier": v.status_tier,
+                    "views": v.views,
+                    "retention_3s": v.retention_rate_3s,
+                    "hook_score": v.hook_score,
+                    "diagnosis": v.diagnosis_summary or v.weakness_feedback or v.strength_feedback
+                }
+                for v in v_logs[:4]
+            ]
+            hook_summary = {
+                "viral_count": viral_c,
+                "underperforming_count": under_c,
+                "samples": samples
+            }
+        except Exception as e_hook:
+            logger.warning(f"Failed to query hook logs: {e_hook}")
+
+        # C. 댓글 소통 & 인게이지먼트 (YouTubeComment)
+        community_summary = {"total_comments": 0, "questions": 0, "praises": 0, "criticisms": 0, "replied_rate": 100.0}
+        try:
+            comments = db.query(models.YouTubeComment).all()
+            if comments:
+                total_c = len(comments)
+                replied_c = sum(1 for c in comments if c.is_replied)
+                q_c = sum(1 for c in comments if c.sentiment == "question")
+                p_c = sum(1 for c in comments if c.sentiment == "praise")
+                cr_c = sum(1 for c in comments if c.sentiment == "criticism")
+                community_summary = {
+                    "total_comments": total_c,
+                    "questions": q_c,
+                    "praises": p_c,
+                    "criticisms": cr_c,
+                    "replied_rate": round((replied_c / max(total_c, 1)) * 100, 1)
+                }
+        except Exception as e_comm:
+            logger.warning(f"Failed to query community comments: {e_comm}")
+
         
         # 6. Assemble Full-Lifecycle Telemetry Payload
         raw_stats = {
@@ -278,6 +365,9 @@ def generate_daily_report(db: Session) -> bool:
                 "channels_detail": channel_details,
                 "top_videos": video_details
             },
+            "revenue_bi": revenue_summary,
+            "hook_analytics": hook_summary,
+            "community_engagement": community_summary,
             "system_health": {
                 "storage": storage_info,
                 "db_size_mb": db_size_mb,
@@ -298,47 +388,69 @@ def generate_daily_report(db: Session) -> bool:
         # 7. Generate markdown summary via Gemini / Fallback Analyst Template
         summary_markdown = ""
         try:
-            llm = get_llm_client()
+            from app.llm_manager import LLMClient
+            db_settings = crud.get_settings(db)
+            llm = LLMClient(db_settings)
+            target_model = getattr(db_settings, "script_analysis_model", None) or getattr(db_settings, "default_llm_model", None)
             prompt = f"""
-            너는 ViraLoop Studio의 최고 비즈니스 분석 및 자율 운영 에이전트(Sovereign Growth Analyst)야.
-            오늘 하루 동안 시스템에서 수행된 [1. 레퍼런스 수집], [2. AI 영상 제작], [3. 다채널 업로드 배포], [4. 채널 성장 성과] 전 주기의 데이터를 종합 분석하여
-            운영자가 즉시 의사결정을 내릴 수 있는 최고 수준의 비즈니스 인텔리전스 일일 리포트(Executive BI Daily Report)를 한국어로 작성해줘.
+            너는 ViraLoop Studio의 최고 비즈니스 분석 및 자율 총괄 사령탑 '루피 AI(Loopie)'야.
+            오늘 하루 동안 시스템에서 수행된 [수집], [제작], [배포], [채널 성장], [수익률 & ROI], [영상 후킹 분석], [댓글 시청자 소통] 전 주기의 데이터를 종합 분석하여
+            대표님이 한눈에 보고 즉각 의사결정을 내릴 수 있는 최고 수준의 비즈니스 인텔리전스 일일 리포트(Executive BI Daily Report)를 마크다운 형식으로 작성해줘.
             
             [오늘의 풀-라이프사이클 데이터]
             ■ 1. 수집 파이프라인 (Sourcing):
             - 금일 수집 비디오: {videos_collected}개 / 대본: {scripts_collected}개 / 다운로드 실패: {failed_downloads}건
             - 보관함 총 레퍼런스 비디오: {total_vault_videos}개 / 캐시된 트렌드 시그널: {trends_cached}개
             
-            ■ 2. 제작 파이프라인 (Creation):
-            - 금일 신규 생성 대기열 아이템: {today_created_items}개
-            - 생성 유입 경로 분포: {json.dumps(source_type_distribution, ensure_ascii=False)}
-            
-            ■ 3. 배포 & 업로드 (Distribution):
+            ■ 2. 제작 & 배포 (Creation & Distribution):
+            - 금일 신규 생성 대기열: {today_created_items}개
             - 금일 업로드 완료: {uploaded_today_count}개 / 업로드 실패: {failed_upload_today_count}개 (성공률: {upload_success_rate}%)
-            - 대기열 전체 상태: {json.dumps(queue_status_distribution, ensure_ascii=False)}
             
-            ■ 4. 채널 성장 & 반응 (Growth & Performance):
-            - 총 모니터링 채널: {len(channels)}개 (정상 활성: {active_channels_count}개, 웜업 육성 중: {warmup_channels_count}개, 이상: {failing_channels_count}개)
-            - 일일 전체 채널 순증 조회수: +{total_daily_views_increase:,}회 / 순증 구독자: +{total_daily_subs_increase:,}명
-            - 상위 성과 영상: {json.dumps(video_details[:3], ensure_ascii=False)}
+            ■ 3. 다채널 수익률 & 제작 ROI (Revenue & BI):
+            - 추정 일일 수익: ₩{revenue_summary['total_revenue']:,}원 (평균 RPM: ₩{revenue_summary['avg_rpm']})
+            - 콘텐츠 제작 원가: ₩{revenue_summary['total_cost']:,}원 / 순이익: ₩{revenue_summary['net_profit']:,}원
+            - 제작비 대비 순이익률 (ROI): {revenue_summary['roi_percentage']}%
             
-            ■ 5. 인프라 건전성:
-            - 스토리지: {storage_info['percent']}% 사용 ({storage_info['free_gb']}GB 잔여), DB: {db_size_mb}MB, 좀비: {zombies}개
+            ■ 4. 영상 후킹 & 바이럴 분석 (Hook & Retention):
+            - 바이럴 성공 영상: {hook_summary['viral_count']}개 / 저조 개선 필요: {hook_summary['underperforming_count']}개
+            - 최근 영상 분석 샘플: {json.dumps(hook_summary['samples'], ensure_ascii=False)}
             
-            [보고서 작성 가이드라인]
-            1. **# 🚀 ViraLoop 데일리 종합 관제 리포트**
-            2. **## 💡 종합 총평 및 핵심 브리핑 (Executive Briefing)**: 오늘 시스템의 생산성과 배포 흐름, 채널 반응에 대한 날카로운 2~3줄 요약.
-            3. **## 1. 📥 영상 수집 & 소재 인덱싱**: 수집 원활성 및 자막 인덱싱 성과 평가.
-            4. **## 2. ⚡ AI 대량 생산 & 제작 효율성**: 딸깍/Flow2CapCut 생성 처리량 및 파이프라인 속도 분석.
-            5. **## 3. 🚀 다채널 자동 업로드 & 대기열 배포 현황**: 업로드 성공률과 대기열 병목(Pending/Queued) 분석 및 실패 원인 조치.
-            6. **## 4. 📈 채널 성장 성과 & 바이럴 반응 분석**: 조회수/구독자 성장률이 높은 채널과 상위 바이럴 영상 훅(Hook) 분석.
-            7. **## 🎯 내일 집중 실행해야 할 3대 전략 액션**: 생산량 증대, 블루오션 키워드 타겟팅, 채널 웜업 등 구체적 지침 제시.
+            ■ 5. 댓글 소통 & 인게이지먼트 (Community):
+            - 신규 댓글 수: {community_summary['total_comments']}건 (질문: {community_summary['questions']}, 칭찬: {community_summary['praises']}, 비판: {community_summary['criticisms']})
+            - 루피 AI 맞춤 답글 게시율: {community_summary['replied_rate']}%
+            
+            ■ 6. 채널 성장 & 인프라 건전성:
+            - 총 모니터링 채널: {len(channels)}개 (활성: {active_channels_count}개, 웜업: {warmup_channels_count}개)
+            - 일일 전체 순증 조회수: +{total_daily_views_increase:,}회 / 순증 구독자: +{total_daily_subs_increase:,}명
+            - 스토리지: {storage_info['percent']}% 사용 ({storage_info['free_gb']}GB 잔여), DB: {db_size_mb}MB
+            
+            [보고서 마크다운 구성 필수 섹션]
+            # 🚀 ViraLoop 데일리 종합 비즈니스 인텔리전스 리포트
+            
+            ## 💡 루피 AI 종합 총평 (Executive Briefing)
+            - 오늘 채널 수익성, 제작 파이프라인 처리량, 시청자 반응에 대한 날카로운 3줄 요약
+            
+            ## 💰 1. 다채널 수익률 & ROI 분석
+            - 추정 수익과 제작 원가, 순이익 및 투자 수익률(ROI) 브리핑
+            
+            ## 🎯 2. 영상 후킹 & 초반 이탈 원인 진단
+            - 대박 영상의 성공 DNA 및 저조 영상의 3초/5초 이탈 방어 대본 개선점
+            
+            ## 💬 3. 댓글 소통 & 팬덤 인게이지먼트
+            - 시청자 감성 반응(질문/칭찬/비판) 요약 및 루피 맞춤 답글 성과
+            
+            ## ⚙️ 4. 파이프라인 생산 및 배포 건전성
+            - 수집 ➔ 제작 ➔ 업로드 성공률과 대기열 상태 진단
+            
+            ## 🏆 5. 내일 즉시 실행할 3대 핵심 액션 플랜
+            - 1. 후킹 대본 보완, 2. 제작량 조절, 3. 댓글 소통 및 채널 육성 액션
             """
-            res = llm.generate(prompt)
+            res = llm.generate_content(prompt, model_name=target_model) if hasattr(llm, 'generate_content') else llm.generate(prompt)
             if res and not str(res).strip().startswith("ERROR:"):
                 summary_markdown = str(res).strip()
         except Exception as e_llm:
             logger.warning(f"LLM synthesis fallback used: {e_llm}")
+
 
         if not summary_markdown or summary_markdown.startswith("ERROR:"):
             # Rich Fallback Analytical Template
@@ -383,7 +495,7 @@ def generate_daily_report(db: Session) -> bool:
 3. **업로드 스케줄 최적화**: 시청자 유입 피크 타임(오후 6시~10시)에 맞춰 대기열 예약 발행 일정을 분산 배치하십시오.
 """
 
-        # 8. Save to DB
+        # 8. Save to DB (Upsert: 중복 생성 방지 - 하루 1개 리포트 단일화 및 최신 갱신)
         report_data = {
             "report_date": today,
             "summary_markdown": summary_markdown,
@@ -392,18 +504,44 @@ def generate_daily_report(db: Session) -> bool:
             "is_read": False
         }
         
-        db_report = models.DailyReport(**report_data)
-        db.add(db_report)
-        db.commit()
-        db.refresh(db_report)
-        logger.info(f"[OK] Saved daily report to database with ID: {db_report.id}")
+        existing_report = db.query(models.DailyReport).filter(
+            models.DailyReport.report_date >= start,
+            models.DailyReport.report_date < end
+        ).order_by(models.DailyReport.report_date.desc()).first()
+        
+        if existing_report:
+            existing_report.summary_markdown = summary_markdown
+            existing_report.raw_stats_json = raw_stats
+            existing_report.report_date = today
+            db.commit()
+            db.refresh(existing_report)
+            db_report = existing_report
+            logger.info(f"[OK] Successfully updated today's existing daily report #{db_report.id}")
+        else:
+            db_report = models.DailyReport(**report_data)
+            db.add(db_report)
+            db.commit()
+            db.refresh(db_report)
+            logger.info(f"[OK] Saved new daily report to database with ID: {db_report.id}")
         
         # 9. Trigger Auto-Fix immediately for instant repair and sync!
         try:
-            logger.info(f"[WRENCH] Launching Auto-Fixer for new Report #{db_report.id}")
+            logger.info(f"[WRENCH] Launching Auto-Fixer for Report #{db_report.id}")
             run_auto_fix(db, db_report.id, raw_stats)
         except Exception as e_fix:
             logger.error(f"Failed to auto-fix immediately: {e_fix}")
+
+        # 10. 루피 AI 텔레그램 일일 브리핑 자동 전송
+        try:
+            from app.services.telegram_service import telegram_service
+            telegram_service.send_daily_report_brief(
+                today.strftime("%Y.%m.%d"),
+                raw_stats,
+                summary_markdown
+            )
+            logger.info("[Telegram] Sent daily report brief to Telegram")
+        except Exception as e_tel:
+            logger.warning(f"[Telegram] Failed to dispatch daily report: {e_tel}")
             
         return True
     except Exception as e:

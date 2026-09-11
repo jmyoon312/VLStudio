@@ -1,13 +1,4 @@
-import os
-import random
-import json
-from pathlib import Path
-
-# LLM backend selection (mirrors llm.py for direct callers)
-_LLM_BACKEND = os.environ.get("LLM_BACKEND", "gemini").strip().lower()
-_YOUTUBE1_API_KEY = os.environ.get("YOUTUBE1_API_KEY", "")
-_YOUTUBE1_BASE_URL = os.environ.get("YOUTUBE1_BASE_URL", "http://localhost:20128/v1")
-_YOUTUBE1_MODEL = os.environ.get("YOUTUBE1_MODEL", "youtube1")
+from workers.gemini_auth import get_db_settings_model, get_youtube1_model, get_youtube1_base_url, get_youtube1_api_key
 
 
 def get_gemini_key() -> str:
@@ -62,20 +53,23 @@ async def call_gemini(url: str, payload: dict, headers: dict = None,
                     if "inline_data" in p:
                         mime = p["inline_data"].get("mime_type", "image/jpeg")
                         data = p["inline_data"].get("data", "")
-                        image_parts.append({
-                            "type": "image_url",
-                            "image_url": {"url": f"data:{mime};base64,{data}"}
-                        })
+                        if mime.startswith("image/"):
+                            image_parts.append({
+                                "type": "image_url",
+                                "image_url": {"url": f"data:{mime};base64,{data}"}
+                            })
+                        elif mime.startswith("video/"):
+                            text_parts.append("[동영상 시각 타임코드 및 대본 분석 모드]")
                     if "file_data" in p:
                         file_uri = p["file_data"].get("file_uri", "")
-                        mime = p["file_data"].get("mime_type", "video/mp4")
-                        if file_uri.startswith("data:"):
+                        if file_uri.startswith("data:image/"):
                             image_parts.append({
                                 "type": "image_url",
                                 "image_url": {"url": file_uri}
                             })
-                        elif file_uri:
+                        elif file_uri and not file_uri.startswith("inline:"):
                             text_parts.append(f"[첨부파일: {file_uri}]")
+
 
             if image_parts:
                 content = []

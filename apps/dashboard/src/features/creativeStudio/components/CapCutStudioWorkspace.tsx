@@ -580,27 +580,27 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
   }, [canvasZoom]);
 
   const containerContent = (
-    <div className={`dark flex flex-col bg-[#0b0e14] text-slate-200 border border-white/10 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${isMaximized ? 'fixed inset-0 z-[99999] rounded-none border-none' : 'w-full h-[680px] xl:h-[720px]'}`}>
+    <div className={`flex flex-col bg-card text-card-foreground border border-border rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${isMaximized ? 'fixed inset-0 z-[99999] rounded-none border-none' : 'w-full h-[680px] xl:h-[720px]'}`}>
       {/* ── 1. Pro Studio Top Header ── */}
-      <div className="h-11 bg-[#121722] border-b border-white/10 px-4 flex items-center justify-between shrink-0 select-none">
+      <div className="h-11 bg-card/95 backdrop-blur-md border-b border-border px-4 flex items-center justify-between shrink-0 select-none">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-blue-400">
+          <div className="flex items-center gap-1.5 text-blue-500">
             <Film className="w-4 h-4" />
           </div>
 
-          <div className="h-3.5 w-px bg-white/15" />
+          <div className="h-3.5 w-px bg-border" />
 
           {/* Aspect Ratio Switcher */}
-          <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/10">
+          <div className="flex items-center bg-muted/60 rounded-lg p-0.5 border border-border">
             <button
               onClick={() => onAspectRatioChange?.('16:9')}
-              className={`flex items-center gap-1 px-2 py-1 rounded text-[10.5px] font-semibold transition-all ${aspectRatio === '16:9' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-[10.5px] font-semibold transition-all ${aspectRatio === '16:9' ? 'bg-blue-600 text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Tv className="w-3 h-3" /> 16:9 와이드
             </button>
             <button
               onClick={() => onAspectRatioChange?.('9:16')}
-              className={`flex items-center gap-1 px-2 py-1 rounded text-[10.5px] font-semibold transition-all ${aspectRatio === '9:16' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}`}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-[10.5px] font-semibold transition-all ${aspectRatio === '9:16' ? 'bg-purple-600 text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Smartphone className="w-3 h-3" /> 9:16 쇼츠
             </button>
@@ -614,20 +614,20 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               setCanvasZoom('fit');
               setFitTrigger((c) => c + 1);
             }}
-            className={`h-6 text-[10.5px] px-2 gap-1 font-semibold ${canvasZoom === 'fit' ? 'bg-blue-600/30 text-blue-300 border border-blue-500/50' : 'text-slate-400 hover:text-white'}`}
+            className={`h-6 text-[10.5px] px-2 gap-1 font-semibold ${canvasZoom === 'fit' ? 'bg-blue-600/15 text-blue-600 dark:text-blue-300 border border-blue-500/40' : 'text-muted-foreground hover:text-foreground'}`}
             title="캔버스를 모니터/패널 화면에 100% 꽉 차게 맞춤"
           >
             <Maximize2 className="w-3 h-3" /> 화면 맞춤
           </Button>
 
           {/* Canvas Zoom Dropdown */}
-          <div className="flex items-center gap-1 bg-black/30 px-2 py-0.5 rounded-lg border border-white/10">
-            <ZoomIn className="w-3 h-3 text-slate-400" />
+          <div className="flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-lg border border-border">
+            <ZoomIn className="w-3 h-3 text-muted-foreground" />
             <Select value={canvasZoom} onValueChange={(v: any) => setCanvasZoom(v)}>
-              <SelectTrigger className="h-6 text-[10.5px] bg-transparent border-none focus:ring-0 text-slate-300 w-[78px] p-0 font-medium">
+              <SelectTrigger className="h-6 text-[10.5px] bg-transparent border-none focus:ring-0 text-foreground w-[78px] p-0 font-medium">
                 <SelectValue placeholder="화면 줌" />
               </SelectTrigger>
-              <SelectContent className="z-[100002] bg-[#161c28] border-white/15 text-white shadow-2xl">
+              <SelectContent className="z-[100002] bg-popover border-border text-popover-foreground shadow-2xl">
                 <SelectItem value="fit" className="text-xs">화면 맞춤 (Fit)</SelectItem>
                 <SelectItem value="50" className="text-xs">50%</SelectItem>
                 <SelectItem value="75" className="text-xs">75%</SelectItem>
@@ -643,7 +643,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               variant={showSafeZone ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => setShowSafeZone(!showSafeZone)}
-              className={`h-6 text-[10.5px] px-2 gap-1 font-semibold ${showSafeZone ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-400'}`}
+              className={`h-6 text-[10.5px] px-2 gap-1 font-semibold ${showSafeZone ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/40' : 'text-muted-foreground hover:text-foreground'}`}
               title="유튜브 쇼츠 / 틱톡 UI 가림 안전영역 표시"
             >
               📱 안전 영역
@@ -655,7 +655,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
             variant={kenBurnsEnabled ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setKenBurnsEnabled(!kenBurnsEnabled)}
-            className={`h-6 text-[10.5px] px-2 gap-1 font-semibold ${kenBurnsEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-slate-400'}`}
+            className={`h-6 text-[10.5px] px-2 gap-1 font-semibold ${kenBurnsEnabled ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/40' : 'text-muted-foreground hover:text-foreground'}`}
           >
             🎥 켄번스 모션 {kenBurnsEnabled ? 'ON' : 'OFF'}
           </Button>
@@ -691,24 +691,24 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 }
                 onOpenPronunciationOptimizer();
               }}
-              className="h-7 text-[11px] font-semibold bg-purple-500/15 text-purple-300 hover:text-purple-200 border-purple-500/40 hover:bg-purple-500/25 gap-1 shadow-xs"
+              className="h-7 text-[11px] font-semibold bg-purple-500/15 text-purple-600 dark:text-purple-300 hover:text-purple-700 dark:hover:text-purple-200 border-purple-500/40 hover:bg-purple-500/25 gap-1 shadow-xs"
               title="대본의 숫자, 단위, 약어를 자연스러운 구어체 발음으로 교정 (좌우 비교)"
             >
-              <Sparkles className="w-3 h-3 text-purple-400" /> 🗣️ 발음 교정
+              <Sparkles className="w-3 h-3 text-purple-500" /> 🗣️ 발음 교정
             </Button>
           )}
           {onBatchTTS && (
-            <Button variant="ghost" size="sm" onClick={onBatchTTS} className="h-7 text-[11px] font-semibold text-slate-300 hover:text-white gap-1 bg-white/5 hover:bg-white/10">
+            <Button variant="ghost" size="sm" onClick={onBatchTTS} className="h-7 text-[11px] font-semibold text-muted-foreground hover:text-foreground gap-1 bg-muted/40 hover:bg-muted">
               🎙️ 전체 TTS
             </Button>
           )}
           {onBatchFlowImages && (
-            <Button variant="ghost" size="sm" onClick={onBatchFlowImages} disabled={isFlowBatchGenerating} className="h-7 text-[11px] font-semibold text-purple-300 hover:text-purple-200 gap-1 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30">
+            <Button variant="ghost" size="sm" onClick={onBatchFlowImages} disabled={isFlowBatchGenerating} className="h-7 text-[11px] font-semibold text-purple-600 dark:text-purple-300 hover:text-purple-700 dark:hover:text-purple-200 gap-1 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30">
               ✨ Flow 이미지
             </Button>
           )}
           {onBatchFlowVideos && (
-            <Button variant="ghost" size="sm" onClick={onBatchFlowVideos} disabled={isFlowBatchGenerating} className="h-7 text-[11px] font-semibold text-indigo-300 hover:text-indigo-200 gap-1 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30">
+            <Button variant="ghost" size="sm" onClick={onBatchFlowVideos} disabled={isFlowBatchGenerating} className="h-7 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 gap-1 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30">
               🎬 Flow 영상
             </Button>
           )}
@@ -718,14 +718,14 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
             </Button>
           )}
 
-          <div className="h-3.5 w-px bg-white/15 mx-1" />
+          <div className="h-3.5 w-px bg-border mx-1" />
 
           {/* Fullscreen Expansion Toggle */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsMaximized(!isMaximized)}
-            className="h-7 w-7 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/15"
+            className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted"
             title={isMaximized ? '기본 화면으로 축소 (ESC)' : '전체화면 전문 NLE 모드로 확장'}
           >
             {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -734,9 +734,9 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
       </div>
 
       {/* ── 2. Top Split: Canvas Stage (Left) & NLE Inspector Tabs (Right) ── */}
-      <div className="flex-1 min-h-0 flex bg-[#0a0d14] overflow-hidden">
+      <div className="flex-1 min-h-0 flex bg-background overflow-hidden">
         {/* Left: Canvas Preview Stage */}
-        <div className="flex-1 flex flex-col items-center justify-center p-3 relative bg-[#07090e] border-r border-white/10 overflow-hidden select-none">
+        <div className="flex-1 flex flex-col items-center justify-center p-3 relative bg-slate-950/95 border-r border-border overflow-hidden select-none">
           {/* Virtual Zoomable Stage Container */}
           <div className="relative flex items-center justify-center w-full h-full max-h-full overflow-hidden">
             <PreviewPanel
@@ -787,9 +787,9 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
         </div>
 
         {/* Right: NLE Professional Inspector Tabs */}
-        <div className="dark w-[380px] lg:w-[420px] bg-[#121722] flex flex-col shrink-0 border-l border-white/10 select-none">
+        <div className="w-[380px] lg:w-[420px] bg-card flex flex-col shrink-0 border-l border-border select-none">
           <Tabs value={activeInspectorTab} onValueChange={(v: any) => setActiveInspectorTab(v)} className="flex-1 flex flex-col h-full">
-            <TabsList className="h-9 bg-black/40 border-b border-white/10 rounded-none grid grid-cols-7 p-0.5">
+            <TabsList className="h-9 bg-muted/50 border-b border-border rounded-none grid grid-cols-7 p-0.5">
               <TabsTrigger value="script" className="text-[10px] h-8 px-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white font-semibold">
                 대본
               </TabsTrigger>
@@ -818,8 +818,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               {/* 1. Header & Mode Switcher */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                    <Clapperboard className="w-3.5 h-3.5 text-blue-400" /> 대본 작업실 & 씬 분할
+                  <span className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
+                    <Clapperboard className="w-3.5 h-3.5 text-blue-500" /> 대본 작업실 & 씬 분할
                   </span>
                   <div className="flex items-center gap-1.5">
                     {onOpenPronunciationOptimizer && (
@@ -828,10 +828,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                         disabled={!fullScript?.trim() && !scriptInput?.trim() && scenes.length === 0}
                         variant="outline"
                         size="sm"
-                        className="h-6 text-[10px] font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border-purple-500/40 gap-1 shadow-2xs"
+                        className="h-6 text-[10px] font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-300 border-purple-500/40 gap-1 shadow-2xs"
                         title="대본의 숫자 및 어색한 발음을 TTS 맞춤형 구어체로 자동 교정 (좌우 비교)"
                       >
-                        <Sparkles className="w-3 h-3 text-purple-400" />
+                        <Sparkles className="w-3 h-3 text-purple-500" />
                         <span>🗣️ 발음/숫자 교정</span>
                       </Button>
                     )}
@@ -841,10 +841,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                         disabled={isValidatingPolicy || (!fullScript.trim() && !scriptInput.trim())}
                         variant="outline"
                         size="sm"
-                        className="h-6 text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/40 gap-1 shadow-2xs"
+                        className="h-6 text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/40 gap-1 shadow-2xs"
                         title="유튜브 정책 및 표현 퇴고 검사"
                       >
-                        {isValidatingPolicy ? <Loader2 className="w-3 h-3 animate-spin text-amber-400" /> : <Sparkles className="w-3 h-3 text-amber-400" />}
+                        {isValidatingPolicy ? <Loader2 className="w-3 h-3 animate-spin text-amber-500" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
                         <span>🛡️ 유튜브 정책 검사</span>
                       </Button>
                     )}
@@ -852,16 +852,16 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 </div>
 
                 {/* Mode Segment: 직접 입력 vs AI 작가 */}
-                <div className="grid grid-cols-2 bg-black/40 p-0.5 rounded-lg border border-white/10">
+                <div className="grid grid-cols-2 bg-muted/60 p-0.5 rounded-lg border border-border">
                   <button
                     onClick={() => onScriptModeChange?.('manual')}
-                    className={`py-1 text-xs font-bold rounded-md transition-colors ${scriptMode === 'manual' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}`}
+                    className={`py-1 text-xs font-bold rounded-md transition-colors ${scriptMode === 'manual' ? 'bg-blue-600 text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     📝 직접 대본 입력
                   </button>
                   <button
                     onClick={() => onScriptModeChange?.('creative')}
-                    className={`py-1 text-xs font-bold rounded-md transition-colors ${scriptMode === 'creative' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200'}`}
+                    className={`py-1 text-xs font-bold rounded-md transition-colors ${scriptMode === 'creative' ? 'bg-blue-600 text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     ✨ AI 작가 대본 생성
                   </button>
@@ -870,16 +870,16 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
               {/* 2. Script Input Area based on Mode */}
               {scriptMode === 'creative' && (
-                <div className="p-2.5 rounded-xl bg-blue-950/20 border border-blue-500/30 space-y-2">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[11px] font-bold text-blue-300">주제, 핵심 키워드 또는 스토리 구상</Label>
-                    <span className="text-[9.5px] text-slate-500">SSOT 모델 자동 연동</span>
+                    <Label className="text-[11px] font-bold text-blue-600 dark:text-blue-300">주제, 핵심 키워드 또는 스토리 구상</Label>
+                    <span className="text-[9.5px] text-muted-foreground">SSOT 모델 자동 연동</span>
                   </div>
                   <Textarea
                     value={scriptInput}
                     onChange={(e) => onScriptInputChange?.(e.target.value)}
                     placeholder="원하는 스토리 주제, 핵심 타겟, 반전 포인트 등을 입력하세요..."
-                    className="min-h-[65px] text-xs bg-black/40 border-white/15 text-slate-100 rounded-lg focus:border-blue-400"
+                    className="min-h-[65px] text-xs bg-background border-input text-foreground rounded-lg focus:border-blue-400"
                   />
                   {onGenerateScript && (
                     <Button
@@ -895,18 +895,18 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               )}
 
               {/* Full Script Editor Area */}
-              <div className="space-y-2 p-2.5 rounded-xl bg-black/30 border border-white/10 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 pb-2">
+              <div className="space-y-2 p-2.5 rounded-xl bg-card border border-border shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-border pb-2">
                   <div className="flex items-center gap-1.5">
-                    <Label className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
-                      <Clapperboard className="w-3.5 h-3.5 text-blue-400" />
+                    <Label className="text-[11px] font-bold text-card-foreground flex items-center gap-1">
+                      <Clapperboard className="w-3.5 h-3.5 text-blue-500" />
                       <span>전체 대본 (Full Script)</span>
                     </Label>
-                    <Badge variant="outline" className="text-[9.5px] font-mono bg-blue-500/10 text-blue-300 border-blue-400/30 px-1 py-0">
+                    <Badge variant="outline" className="text-[9.5px] font-mono bg-blue-500/10 text-blue-600 dark:text-blue-300 border-blue-400/30 px-1 py-0">
                       {fullScript.length.toLocaleString()}자
                     </Badge>
                     {estimatedReadingTime && (
-                      <span className="text-[9.5px] text-slate-400 font-medium" title="한국어 TTS 평균 발화 속도(분당 330자) 기준">
+                      <span className="text-[9.5px] text-muted-foreground font-medium" title="한국어 TTS 평균 발화 속도(분당 330자) 기준">
                         ⏱️ {estimatedReadingTime}
                       </span>
                     )}
@@ -916,12 +916,12 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                   <div className="flex items-center gap-1">
                     {/* 상/하 스크롤 이동 버튼 */}
                     {fullScript && (
-                      <div className="flex items-center bg-black/40 rounded p-0.5 border border-white/10">
+                      <div className="flex items-center bg-muted/60 rounded p-0.5 border border-border">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleScrollScriptTo('top')}
-                          className="h-5 px-1 text-[9px] text-slate-400 hover:text-white"
+                          className="h-5 px-1 text-[9px] text-muted-foreground hover:text-foreground"
                           title="대본 맨 위로 스크롤"
                         >
                           <ArrowUp className="w-2.5 h-2.5" />
@@ -930,7 +930,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                           variant="ghost"
                           size="sm"
                           onClick={() => handleScrollScriptTo('bottom')}
-                          className="h-5 px-1 text-[9px] text-slate-400 hover:text-white"
+                          className="h-5 px-1 text-[9px] text-muted-foreground hover:text-foreground"
                           title="대본 맨 아래로 스크롤"
                         >
                           <ArrowDown className="w-2.5 h-2.5" />
@@ -950,10 +950,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       variant="ghost"
                       size="sm"
                       onClick={() => scriptFileInputRef.current?.click()}
-                      className="h-5 px-1.5 text-[9.5px] text-slate-400 hover:text-white gap-0.5"
+                      className="h-5 px-1.5 text-[9.5px] text-muted-foreground hover:text-foreground gap-0.5"
                       title="텍스트 파일(.txt, .srt)에서 대본 불러오기"
                     >
-                      <FolderOpen className="w-2.5 h-2.5 text-slate-400" />
+                      <FolderOpen className="w-2.5 h-2.5 text-muted-foreground" />
                       <span>파일</span>
                     </Button>
 
@@ -964,10 +964,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                           variant="ghost"
                           size="sm"
                           onClick={handleDownloadScript}
-                          className="h-5 px-1.5 text-[9.5px] text-slate-400 hover:text-white gap-0.5"
+                          className="h-5 px-1.5 text-[9.5px] text-muted-foreground hover:text-foreground gap-0.5"
                           title="대본을 .txt 파일로 저장"
                         >
-                          <Download className="w-2.5 h-2.5 text-slate-400" />
+                          <Download className="w-2.5 h-2.5 text-muted-foreground" />
                           <span>저장</span>
                         </Button>
 
@@ -979,10 +979,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                             navigator.clipboard.writeText(fullScript);
                             toast.success('대본이 클립보드에 복사되었습니다.');
                           }}
-                          className="h-5 px-1.5 text-[9.5px] text-slate-400 hover:text-white gap-0.5"
+                          className="h-5 px-1.5 text-[9.5px] text-muted-foreground hover:text-foreground gap-0.5"
                           title="대본 전체 복사"
                         >
-                          <Copy className="w-2.5 h-2.5 text-slate-400" />
+                          <Copy className="w-2.5 h-2.5 text-muted-foreground" />
                           <span>복사</span>
                         </Button>
 
@@ -991,10 +991,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                           variant="ghost"
                           size="sm"
                           onClick={handleClearScript}
-                          className="h-5 px-1.5 text-[9.5px] text-red-400 hover:text-red-300 hover:bg-red-500/20 gap-0.5"
+                          className="h-5 px-1.5 text-[9.5px] text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 gap-0.5"
                           title="작성된 대본 전체 비우기 (삭제)"
                         >
-                          <Trash2 className="w-2.5 h-2.5 text-red-400" />
+                          <Trash2 className="w-2.5 h-2.5 text-rose-500" />
                           <span>삭제</span>
                         </Button>
                       </>
@@ -1005,7 +1005,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       variant="ghost"
                       size="sm"
                       onClick={() => setIsScriptExpanded(!isScriptExpanded)}
-                      className={`h-5 px-1.5 text-[9.5px] gap-0.5 font-semibold ${isScriptExpanded ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40' : 'text-slate-400 hover:text-white'}`}
+                      className={`h-5 px-1.5 text-[9.5px] gap-0.5 font-semibold ${isScriptExpanded ? 'bg-blue-600/15 text-blue-600 dark:text-blue-300 border border-blue-500/40' : 'text-muted-foreground hover:text-foreground'}`}
                       title={isScriptExpanded ? '대본창 기본 크기로 축소' : '대본창 크게 확장하여 롱폼 대본 편하게 보기'}
                     >
                       <Maximize2 className="w-2.5 h-2.5" />
@@ -1020,15 +1020,15 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                   value={fullScript}
                   onChange={(e) => onFullScriptChange?.(e.target.value)}
                   placeholder="여기에 전체 대본을 직접 입력하거나 붙여넣으세요. (수만 자 이상의 롱폼 대본도 안정적으로 저장되며, 마우스로 우측 하단을 당겨 크기를 자유롭게 조절할 수 있습니다)..."
-                  className={`font-sans text-xs leading-relaxed bg-black/40 border-white/15 text-slate-100 rounded-lg p-2.5 resize-y focus:border-blue-400 transition-all duration-200 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-500 ${isScriptExpanded ? 'min-h-[380px] h-[480px]' : 'min-h-[160px] h-[220px]'}`}
+                  className={`font-sans text-xs leading-relaxed bg-background border-input text-foreground rounded-lg p-2.5 resize-y focus:border-blue-400 transition-all duration-200 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-400 dark:hover:scrollbar-thumb-slate-500 ${isScriptExpanded ? 'min-h-[380px] h-[480px]' : 'min-h-[160px] h-[220px]'}`}
                 />
               </div>
 
               {/* 3. Policy Report Card (검증 결과가 있을 때) */}
               {policyReport && (
-                <div className="p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/40 space-y-2">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+                    <span className="text-[11px] font-bold text-amber-600 dark:text-amber-300 flex items-center gap-1">
                       🛡️ 유튜브 정책 & 표현 검토 리포트
                     </span>
                     {policyReport.polished_script && (
@@ -1047,9 +1047,9 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                   {policyReport.issues && policyReport.issues.length > 0 ? (
                     <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1">
                       {policyReport.issues.slice(0, 3).map((iss: any, idx: number) => (
-                        <div key={idx} className="p-1.5 rounded bg-black/40 border border-amber-500/20 text-[10.5px] flex flex-col gap-0.5">
+                        <div key={idx} className="p-1.5 rounded bg-card border border-amber-500/20 text-[10.5px] flex flex-col gap-0.5">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-amber-400">[{iss.category || '주의'}] {iss.original}</span>
+                            <span className="font-bold text-amber-600 dark:text-amber-400">[{iss.category || '주의'}] {iss.original}</span>
                             <button
                               onClick={() => {
                                 if (iss.original && iss.suggestion) {
@@ -1057,37 +1057,37 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                                   toast.success(`'${iss.original}' -> '${iss.suggestion}' 교체 완료!`);
                                 }
                               }}
-                              className="text-[9.5px] text-blue-400 hover:text-blue-300 font-bold flex items-center gap-0.5"
+                              className="text-[9.5px] text-blue-500 hover:text-blue-600 dark:hover:text-blue-300 font-bold flex items-center gap-0.5"
                             >
                               대체어 교체 <ArrowRight className="w-2.5 h-2.5" />
                             </button>
                           </div>
-                          <span className="text-[10px] text-slate-400">추천: <b className="text-emerald-400">{iss.suggestion}</b> ({iss.reason})</span>
+                          <span className="text-[10px] text-muted-foreground">추천: <b className="text-emerald-600 dark:text-emerald-400">{iss.suggestion}</b> ({iss.reason})</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[10.5px] text-emerald-400">🎉 정책 위반이나 발음 꼬임 표현이 발견되지 않았습니다.</p>
+                    <p className="text-[10.5px] text-emerald-600 dark:text-emerald-400">🎉 정책 위반이나 발음 꼬임 표현이 발견되지 않았습니다.</p>
                   )}
                 </div>
               )}
 
               {/* 4. Segmentation Strategy & Execution Box */}
-              <div className="p-2.5 rounded-xl bg-black/25 border border-white/10 space-y-2">
+              <div className="p-2.5 rounded-xl bg-muted/30 border border-border space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-blue-400" /> 씬 분할 전략
+                  <span className="text-[11px] font-bold text-card-foreground flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-blue-500" /> 씬 분할 전략
                   </span>
-                  <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/10">
+                  <div className="flex bg-muted/60 rounded-lg p-0.5 border border-border">
                     <button
                       onClick={() => onPacingStrategyChange?.('ai')}
-                      className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${pacingStrategy === 'ai' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${pacingStrategy === 'ai' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       ✨ AI 스마트
                     </button>
                     <button
                       onClick={() => onPacingStrategyChange?.('rule')}
-                      className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${pacingStrategy === 'rule' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${pacingStrategy === 'rule' ? 'bg-blue-600 text-white' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       ⚙️ 규칙
                     </button>
@@ -1096,7 +1096,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
                 {pacingStrategy === 'ai' ? (
                   <Select value={splitMethod} onValueChange={onSplitMethodChange}>
-                    <SelectTrigger className="w-full h-7 text-xs bg-black/30 border-white/15">
+                    <SelectTrigger className="w-full h-7 text-xs bg-background border-input text-foreground">
                       <SelectValue placeholder="AI 분석 방식" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1108,7 +1108,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 ) : (
                   <div className="flex items-center gap-1.5">
                     <Select value={pacingUnit} onValueChange={onPacingUnitChange}>
-                      <SelectTrigger className="w-[100px] h-7 text-xs bg-black/30 border-white/15">
+                      <SelectTrigger className="w-[100px] h-7 text-xs bg-background border-input text-foreground">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1116,32 +1116,32 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                         <SelectItem value="time">⏱️ 시간 단위</SelectItem>
                       </SelectContent>
                     </Select>
-                    <div className="flex-1 flex items-center justify-between bg-black/30 border border-white/15 rounded-lg px-2 h-7 text-xs">
-                      <span className="text-[10px] text-slate-400">{pacingUnit === 'sentence' ? '문장 수:' : '시간:'}</span>
+                    <div className="flex-1 flex items-center justify-between bg-background border border-input rounded-lg px-2 h-7 text-xs">
+                      <span className="text-[10px] text-muted-foreground">{pacingUnit === 'sentence' ? '문장 수:' : '시간:'}</span>
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
                           value={pacingValue}
                           onChange={(e) => onPacingValueChange?.(Number(e.target.value))}
-                          className="w-8 text-right bg-transparent border-none text-white font-bold text-xs"
+                          className="w-8 text-right bg-transparent border-none text-foreground font-bold text-xs"
                           min={1}
                         />
-                        <span className="text-[10px] font-bold text-blue-400">{pacingUnit === 'sentence' ? '개' : '초'}</span>
+                        <span className="text-[10px] font-bold text-blue-500">{pacingUnit === 'sentence' ? '개' : '초'}</span>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {/* Option Checkboxes & Action Buttons */}
-                <div className="pt-1 border-t border-white/10 space-y-2">
+                <div className="pt-1 border-t border-border space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-[11px] text-slate-300">
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={autoGenerateImages}
                           onChange={(e) => onAutoGenerateImagesChange?.(e.target.checked)}
-                          className="w-3 h-3 rounded bg-black/40 border-white/20 text-blue-600"
+                          className="w-3 h-3 rounded bg-background border-input text-blue-600"
                         />
                         <span>🖼️ 이미지</span>
                       </label>
@@ -1150,7 +1150,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                           type="checkbox"
                           checked={autoGenerateAudio}
                           onChange={(e) => onAutoGenerateAudioChange?.(e.target.checked)}
-                          className="w-3 h-3 rounded bg-black/40 border-white/20 text-blue-600"
+                          className="w-3 h-3 rounded bg-background border-input text-blue-600"
                         />
                         <span>🎙️ TTS</span>
                       </label>
@@ -1162,7 +1162,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                         size="sm"
                         onClick={onExtractAnchors}
                         disabled={isExtractingAnchors || !fullScript}
-                        className="h-6 text-[10px] px-2 bg-indigo-600/20 text-indigo-300 border-indigo-400/30 hover:bg-indigo-600/30"
+                        className="h-6 text-[10px] px-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-400/30 hover:bg-indigo-500/20"
                       >
                         {isExtractingAnchors ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />}
                         <span>일관성 앵커</span>
@@ -1185,10 +1185,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
               {/* 5. 분할된 씬 목록 */}
               {scenes.length > 0 && (
-                <div className="border-t border-white/10 pt-2 space-y-1.5">
+                <div className="border-t border-border pt-2 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[11px] font-bold text-slate-300">현재 씬 대본 목록 ({scenes.length}개 씬)</Label>
-                    <span className="text-[10px] text-slate-400 font-mono">클릭 시 타임라인/프리뷰 연동</span>
+                    <Label className="text-[11px] font-bold text-card-foreground">현재 씬 대본 목록 ({scenes.length}개 씬)</Label>
+                    <span className="text-[10px] text-muted-foreground font-mono">클릭 시 타임라인/프리뷰 연동</span>
                   </div>
                   <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
                     {scenes.map((sc, idx) => (
@@ -1198,13 +1198,13 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                           setSelectedSceneIndex(idx);
                           onSelectScene?.(idx);
                         }}
-                        className={`p-2 rounded-lg border text-left cursor-pointer transition-colors ${selectedSceneIndex === idx ? 'bg-blue-600/20 border-blue-400/60 text-white' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                        className={`p-2 rounded-lg border text-left cursor-pointer transition-colors ${selectedSceneIndex === idx ? 'bg-blue-600/15 border-blue-500 text-foreground font-medium' : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
                       >
-                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-0.5">
-                          <span className="font-bold text-blue-400">씬 #{sc.scene_id}</span>
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono mb-0.5">
+                          <span className="font-bold text-blue-500">씬 #{sc.scene_id}</span>
                           <span>{sc.duration || 3.5}s</span>
                         </div>
-                        <p className="text-[11px] line-clamp-2 leading-relaxed">{sc.script || '— 대본 없음 —'}</p>
+                        <p className="text-[11px] line-clamp-2 leading-relaxed text-foreground">{sc.script || '— 대본 없음 —'}</p>
                       </div>
                     ))}
                   </div>
@@ -1217,23 +1217,23 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                    <Wand2 className="w-3.5 h-3.5 text-purple-400" /> 화풍 & 비주얼 프롬프트
+                  <span className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
+                    <Wand2 className="w-3.5 h-3.5 text-purple-500" /> 화풍 & 비주얼 프롬프트
                   </span>
-                  <p className="text-[11px] text-slate-400">일관성 있는 화풍 프리셋 및 AI 스타일 분석을 적용합니다.</p>
+                  <p className="text-[11px] text-muted-foreground">일관성 있는 화풍 프리셋 및 AI 스타일 분석을 적용합니다.</p>
                 </div>
                 {presetName && (
-                  <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-400/40">
+                  <Badge variant="secondary" className="text-[10px] font-bold px-2 py-0.5 bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-400/40">
                     {presetName}
                   </Badge>
                 )}
               </div>
 
               {/* 1. Preset Selector & Management & Save */}
-              <div className="p-3 rounded-xl bg-purple-950/20 border border-purple-500/30 space-y-2.5">
+              <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-2.5">
                 {/* Style Preset Selector */}
                 <div className="space-y-1">
-                  <Label className="text-[11px] font-bold text-slate-200">스타일 프리셋 (Style Preset)</Label>
+                  <Label className="text-[11px] font-bold text-card-foreground">스타일 프리셋 (Style Preset)</Label>
                   <div className="flex items-center gap-1.5">
                     <Select
                       value={selectedPresetId || 'new'}
@@ -1241,10 +1241,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                         onSelectPresetId?.(val);
                       }}
                     >
-                      <SelectTrigger className="flex-1 h-8 text-xs bg-black/40 border-purple-500/30 text-slate-200">
+                      <SelectTrigger className="flex-1 h-8 text-xs bg-background border-purple-500/30 text-foreground">
                         <SelectValue placeholder="프리셋 선택..." />
                       </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-purple-500/30 text-slate-200">
+                      <SelectContent className="bg-popover border-purple-500/30 text-popover-foreground">
                         <SelectItem value="new">+ 새 프리셋 만들기</SelectItem>
                         {presets?.map((p: any) => (
                           <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
@@ -1255,7 +1255,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-rose-400 hover:bg-rose-500/20 shrink-0"
+                        className="h-8 w-8 text-rose-500 hover:bg-rose-500/10 shrink-0"
                         onClick={() => onDeletePreset(Number(selectedPresetId))}
                         title="프리셋 삭제"
                       >
@@ -1266,10 +1266,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border-purple-400/50 shrink-0 font-semibold gap-1 px-2.5 shadow-xs"
+                        className="h-8 text-xs bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-300 border-purple-400/50 shrink-0 font-semibold gap-1 px-2.5 shadow-xs"
                         onClick={onOpenStyleGallery}
                       >
-                        <Sparkles className="w-3 h-3 text-purple-400" />
+                        <Sparkles className="w-3 h-3 text-purple-500" />
                         <span>갤러리</span>
                       </Button>
                     )}
@@ -1278,13 +1278,13 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
                 {/* Preset Name & Save */}
                 <div className="space-y-1">
-                  <Label className="text-[11px] font-bold text-slate-200">프리셋 이름 및 저장</Label>
+                  <Label className="text-[11px] font-bold text-card-foreground">프리셋 이름 및 저장</Label>
                   <div className="flex items-center gap-1.5">
                     <Input
                       value={presetName}
                       onChange={(e) => onPresetNameChange?.(e.target.value)}
                       placeholder="예: 지브리 애니메이션..."
-                      className="flex-1 h-8 text-xs bg-black/40 border-purple-500/30 text-slate-200 placeholder:text-slate-500"
+                      className="flex-1 h-8 text-xs bg-background border-purple-500/30 text-foreground placeholder:text-muted-foreground"
                     />
                     <Button
                       onClick={onSavePreset}
@@ -1302,26 +1302,26 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               <div className="space-y-2.5">
                 {/* Style Analysis Image Dropzone */}
                 {onAnalyzeStyle && (
-                  <div className="relative border-2 border-dashed border-purple-500/30 rounded-xl flex flex-col items-center justify-center text-center p-3 hover:bg-purple-950/30 transition-colors cursor-pointer bg-black/20 group min-h-[72px]">
+                  <div className="relative border-2 border-dashed border-purple-500/30 rounded-xl flex flex-col items-center justify-center text-center p-3 hover:bg-purple-500/10 transition-colors cursor-pointer bg-muted/20 group min-h-[72px]">
                     <input
                       type="file"
                       accept="image/*"
                       className="absolute inset-0 opacity-0 cursor-pointer z-10"
                       onChange={(e) => e.target.files?.[0] && onAnalyzeStyle(e.target.files[0])}
                     />
-                    <div className="absolute top-1.5 left-2.5 text-[10px] font-bold text-slate-400 pointer-events-none flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-purple-400" /> 스타일 분석
+                    <div className="absolute top-1.5 left-2.5 text-[10px] font-bold text-muted-foreground pointer-events-none flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-purple-500" /> 스타일 분석
                     </div>
                     {isAnalyzingStyle ? (
                       <div className="flex flex-col items-center gap-1 py-1">
-                        <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-                        <span className="text-[10px] text-purple-300 font-medium">화풍 분석 중...</span>
+                        <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+                        <span className="text-[10px] text-purple-600 dark:text-purple-300 font-medium">화풍 분석 중...</span>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center gap-0.5 text-slate-400 group-hover:text-purple-300 transition-colors py-0.5">
-                        <Upload className="w-3.5 h-3.5 text-purple-400" />
-                        <span className="text-[11px] font-bold text-slate-200">이미지 업로드</span>
-                        <span className="text-[9px] text-slate-400">클릭하거나 이미지를 드래그하세요</span>
+                      <div className="flex flex-col items-center gap-0.5 text-muted-foreground group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors py-0.5">
+                        <Upload className="w-3.5 h-3.5 text-purple-500" />
+                        <span className="text-[11px] font-bold text-card-foreground">이미지 업로드</span>
+                        <span className="text-[9px] text-muted-foreground">클릭하거나 이미지를 드래그하세요</span>
                       </div>
                     )}
                   </div>
@@ -1330,16 +1330,16 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 {/* Positive Prompt */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                    <Label className="text-[11px] font-bold text-card-foreground flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                       긍정 프롬프트
                     </Label>
-                    <span className="text-[9px] font-mono text-slate-400">{(stylePrompt || '').length}자</span>
+                    <span className="text-[9px] font-mono text-muted-foreground">{(stylePrompt || '').length}자</span>
                   </div>
                   <Textarea
                     value={stylePrompt}
                     onChange={(e) => onStylePromptChange?.(e.target.value)}
-                    className="w-full resize-none text-xs font-mono leading-relaxed bg-black/40 border-purple-500/30 text-slate-200 min-h-[70px] max-h-[110px] p-2 rounded-lg"
+                    className="w-full resize-none text-xs font-mono leading-relaxed bg-background border-purple-500/30 text-foreground min-h-[70px] max-h-[110px] p-2 rounded-lg"
                     placeholder="공통 비주얼 화풍 (예: Japanese anime style, Studio Ghibli style, vibrant colors...)"
                   />
                 </div>
@@ -1347,17 +1347,17 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 {/* Negative Prompt */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                    <Label className="text-[11px] font-bold text-card-foreground flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                       부정 프롬프트
-                      <span className="text-[8.5px] font-normal text-slate-400/70 ml-1">(Flow AI 미지원)</span>
+                      <span className="text-[8.5px] font-normal text-muted-foreground/70 ml-1">(Flow AI 미지원)</span>
                     </Label>
-                    <span className="text-[9px] font-mono text-slate-400">{(negativePrompt || '').length}자</span>
+                    <span className="text-[9px] font-mono text-muted-foreground">{(negativePrompt || '').length}자</span>
                   </div>
                   <Textarea
                     value={negativePrompt}
                     onChange={(e) => onNegativePromptChange?.(e.target.value)}
-                    className="w-full resize-none text-xs font-mono leading-relaxed bg-black/40 border-purple-500/30 text-slate-200 min-h-[50px] max-h-[90px] p-2 rounded-lg"
+                    className="w-full resize-none text-xs font-mono leading-relaxed bg-background border-purple-500/30 text-foreground min-h-[50px] max-h-[90px] p-2 rounded-lg"
                     placeholder="제외할 요소 (예: text, watermark, low quality, deformed...)"
                   />
                 </div>
@@ -1377,10 +1377,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </div>
 
               {/* 3. Quick Style Presets Grid & Categories */}
-              <div className="space-y-2 pt-2 border-t border-white/10">
+              <div className="space-y-2 pt-2 border-t border-border">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
-                    <LayoutGrid className="w-3 h-3 text-purple-400" /> 빠른 프리셋 둘러보기
+                  <span className="text-[11px] font-bold text-card-foreground flex items-center gap-1">
+                    <LayoutGrid className="w-3 h-3 text-purple-500" /> 빠른 프리셋 둘러보기
                   </span>
                 </div>
 
@@ -1390,7 +1390,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                     placeholder="스타일 검색 (예: 수묵화, 웹툰, 시네마틱...)"
                     value={styleSearchQuery}
                     onChange={(e) => setStyleSearchQuery(e.target.value)}
-                    className="w-full h-7.5 px-2.5 text-xs bg-black/30 border border-white/15 rounded-lg text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-purple-400"
+                    className="w-full h-7.5 px-2.5 text-xs bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-hidden focus:border-purple-400"
                   />
 
                   <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar text-[10px]">
@@ -1398,7 +1398,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       <button
                         key={cat}
                         onClick={() => setSelectedStyleCategory(cat)}
-                        className={`px-2 py-0.5 rounded-md font-medium whitespace-nowrap transition-colors ${selectedStyleCategory === cat ? 'bg-purple-600 text-white font-bold' : 'bg-black/30 text-slate-400 hover:text-slate-200'}`}
+                        className={`px-2 py-0.5 rounded-md font-medium whitespace-nowrap transition-colors ${selectedStyleCategory === cat ? 'bg-purple-600 text-white font-bold' : 'bg-muted/50 text-muted-foreground hover:text-foreground'}`}
                       >
                         {cat === 'all' ? '전체' : cat === 'webtoon' ? '웹툰' : cat === 'anime' ? '애니' : cat === 'cinematic' ? '시네마틱' : cat === 'realism' ? '실사' : cat === '3d' ? '3D' : '동양화/사극'}
                       </button>
@@ -1427,9 +1427,9 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                             if (st.negative_prompt) onNegativePromptChange?.(st.negative_prompt);
                             toast.success(`[${stName}] 화풍이 선택되었습니다.`);
                           }}
-                          className={`p-2 rounded-xl border transition-all flex flex-col gap-1 text-left cursor-pointer group ${presetName === stName ? 'border-purple-400 bg-purple-600/20' : 'border-white/10 bg-black/25 hover:bg-purple-600/10 hover:border-purple-400/40'}`}
+                          className={`p-2 rounded-xl border transition-all flex flex-col gap-1 text-left cursor-pointer group ${presetName === stName ? 'border-purple-500 bg-purple-500/15' : 'border-border bg-card hover:bg-purple-500/10 hover:border-purple-400/40'}`}
                         >
-                          <div className="w-full h-14 rounded-lg overflow-hidden bg-slate-800 border border-white/10 relative">
+                          <div className="w-full h-14 rounded-lg overflow-hidden bg-slate-800 border border-border relative">
                             {st.thumbnail || st.thumb ? (
                               <img src={st.thumbnail || st.thumb} alt={stName} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                             ) : (
@@ -1443,8 +1443,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                               </div>
                             )}
                           </div>
-                          <span className="text-[11px] font-bold text-slate-200 group-hover:text-purple-300 truncate">{stName}</span>
-                          <span className="text-[9px] text-slate-400 line-clamp-1 font-mono">{stPrompt}</span>
+                          <span className="text-[11px] font-bold text-card-foreground group-hover:text-purple-600 dark:group-hover:text-purple-300 truncate">{stName}</span>
+                          <span className="text-[9px] text-muted-foreground line-clamp-1 font-mono">{stPrompt}</span>
                         </div>
                       );
                     })}
@@ -1456,19 +1456,19 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
             <TabsContent value="subtitles" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
               {/* Header (이미지 레퍼런스 스타일) */}
               <div className="space-y-0.5">
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <Type className="w-3.5 h-3.5 text-blue-400" /> 자막 설정 (Subtitle Settings)
+                <span className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-blue-500" /> 자막 설정 (Subtitle Settings)
                 </span>
-                <p className="text-[11px] text-slate-400">영상에 삽입될 자막의 스타일과 위치를 설정합니다.</p>
+                <p className="text-[11px] text-muted-foreground">영상에 삽입될 자막의 스타일과 위치를 설정합니다.</p>
               </div>
 
               {/* Enable Subtitles Toggle Card */}
-              <div className="p-3 rounded-xl bg-black/25 border border-white/10 flex items-center justify-between shadow-2xs">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border flex items-center justify-between shadow-2xs">
                 <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-card-foreground">
                     <span>📝</span> 자막 표시 (Enable Subtitles)
                   </div>
-                  <p className="text-[10.5px] text-slate-400">켜면 대본 내용을 영상에 자막으로 입힙니다.</p>
+                  <p className="text-[10.5px] text-muted-foreground">켜면 대본 내용을 영상에 자막으로 입힙니다.</p>
                 </div>
                 <Switch
                   checked={subtitleConfig?.enabled !== false}
@@ -1484,13 +1484,13 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
               {/* Selected Subtitle Cue Individual Editor */}
               {selectedSubtitleCue && (
-                <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-500/30 space-y-2">
+                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-blue-400 flex items-center gap-1.5">
-                      <Type className="w-3 h-3 text-blue-400" />
+                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                      <Type className="w-3 h-3 text-blue-500" />
                       선택된 자막 클립 (#{selectedSubtitleCue.id || '선택'})
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
+                    <span className="text-[10px] text-muted-foreground font-mono">
                       {(selectedSubtitleCue.start / 1000).toFixed(1)}s ~ {(selectedSubtitleCue.end / 1000).toFixed(1)}s
                     </span>
                   </div>
@@ -1500,7 +1500,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       value={editingSubText}
                       onChange={(e) => setEditingSubText(e.target.value)}
                       placeholder="자막 텍스트를 직접 수정하세요..."
-                      className="min-h-[55px] text-xs bg-black/40 border-white/15 text-slate-100 placeholder:text-slate-500 rounded-lg focus:border-blue-400"
+                      className="min-h-[55px] text-xs bg-background border-input text-foreground placeholder:text-muted-foreground rounded-lg focus:border-blue-400"
                     />
                     <Button
                       size="sm"
@@ -1524,24 +1524,24 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
               {/* Subtitle Template Presets */}
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+                <Label className="text-[11px] font-bold text-card-foreground flex items-center gap-1">
                   <span>⚡</span> 원클릭 캡컷 스타일 템플릿
                 </Label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('mrbeast')} className="h-8 text-[10.5px] font-bold bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25">
+                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('mrbeast')} className="h-8 text-[10.5px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/25">
                     🟡 미스터비스트
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('cinematic')} className="h-8 text-[10.5px] font-bold bg-slate-500/15 text-slate-200 border-slate-500/30 hover:bg-slate-500/25">
+                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('cinematic')} className="h-8 text-[10.5px] font-bold bg-muted/50 text-foreground border-border hover:bg-muted">
                     ⚪ 시네마틱
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('neon')} className="h-8 text-[10.5px] font-bold bg-cyan-500/15 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/25">
+                  <Button variant="outline" size="sm" onClick={() => applyPresetCaption('neon')} className="h-8 text-[10.5px] font-bold bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/25">
                     ⚡ 네온 글로우
                   </Button>
                 </div>
               </div>
 
               {/* Subtitle Detailed Config Panel (스타일 / 위치 / 효과 / 분절) */}
-              <div className="border-t border-white/10 pt-2">
+              <div className="border-t border-border pt-2">
                 {subtitleConfig && onSubtitleConfigChange && (
                   <SubtitleConfigPanel
                     config={subtitleConfig}
@@ -1555,10 +1555,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
             {/* Tab 4: Transitions Inspector */}
             <TabsContent value="transitions" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
               <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-blue-400" /> 씬 전환 트랜지션 (CapCut Transitions)
+                <span className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-500" /> 씬 전환 트랜지션 (CapCut Transitions)
                 </span>
-                <p className="text-[11px] text-slate-400">클릭 시 전환이 적용되며, 이미 선택된 효과를 다시 클릭하면 해제됩니다.</p>
+                <p className="text-[11px] text-muted-foreground">클릭 시 전환이 적용되며, 이미 선택된 효과를 다시 클릭하면 해제됩니다.</p>
               </div>
 
               {/* None Button */}
@@ -1569,16 +1569,16 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                     toast.info('전환 효과가 해제되었습니다 (미적용).');
                   }
                 }}
-                className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${transitionConfig?.mode === 'none' || !transitionConfig?.fixedType || transitionConfig?.fixedType === 'none' ? 'bg-red-500/20 border-red-400 text-white' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${transitionConfig?.mode === 'none' || !transitionConfig?.fixedType || transitionConfig?.fixedType === 'none' ? 'bg-rose-500/15 border-rose-500 text-rose-600 dark:text-rose-300' : 'bg-muted/30 border-border text-foreground hover:bg-muted/50'}`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm">🚫</span>
                   <div className="flex flex-col">
                     <span className="text-[11px] font-bold">전환 효과 없음 (None)</span>
-                    <span className="text-[9.5px] text-slate-400">컷 전환 시 별도 효과 없이 바로 이어집니다.</span>
+                    <span className="text-[9.5px] text-muted-foreground">컷 전환 시 별도 효과 없이 바로 이어집니다.</span>
                   </div>
                 </div>
-                {(transitionConfig?.mode === 'none' || !transitionConfig?.fixedType || transitionConfig?.fixedType === 'none') && <Check className="w-3.5 h-3.5 text-red-400" />}
+                {(transitionConfig?.mode === 'none' || !transitionConfig?.fixedType || transitionConfig?.fixedType === 'none') && <Check className="w-3.5 h-3.5 text-rose-500" />}
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1598,14 +1598,14 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                           }
                         }
                       }}
-                      className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col gap-1 ${isSelected ? 'bg-blue-600/20 border-blue-400 text-white shadow-xs' : 'bg-black/20 border-white/10 text-slate-300 hover:bg-white/5'}`}
+                      className={`p-2.5 rounded-xl border cursor-pointer transition-all flex flex-col gap-1 ${isSelected ? 'bg-blue-600/15 border-blue-500 text-foreground shadow-xs' : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground'}`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm">{tr.icon}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-500" />}
                       </div>
-                      <span className="text-[11px] font-bold">{tr.name}</span>
-                      <span className="text-[9.5px] text-slate-400 leading-tight">{tr.desc}</span>
+                      <span className="text-[11px] font-bold text-card-foreground">{tr.name}</span>
+                      <span className="text-[9.5px] text-muted-foreground leading-tight">{tr.desc}</span>
                     </div>
                   );
                 })}
@@ -1615,7 +1615,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
             {/* Tab 5: Watermark Inspector */}
             <TabsContent value="watermark" className="flex-1 p-3.5 overflow-y-auto space-y-3.5 m-0">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-200">워터마크 / 채널 로고</span>
+                <span className="text-xs font-bold text-card-foreground">워터마크 / 채널 로고</span>
                 <Switch
                   checked={watermarkConfig?.enabled ?? false}
                   onCheckedChange={(c) => onWatermarkConfigChange?.({ ...(watermarkConfig as any), enabled: c })}
@@ -1625,8 +1625,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               {watermarkConfig?.enabled && (
                 <div className="space-y-3.5 pt-1">
                   {/* Image Logo Upload & Keying */}
-                  <div className="p-3 rounded-xl bg-black/20 border border-white/10 space-y-2.5">
-                    <Label className="text-[11px] font-bold text-slate-300">🖼️ 이미지 로고 파일</Label>
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border space-y-2.5">
+                    <Label className="text-[11px] font-bold text-card-foreground">🖼️ 이미지 로고 파일</Label>
                     <div className="flex gap-2 items-center">
                       <input
                         type="file"
@@ -1649,7 +1649,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                         size="sm"
                         variant="outline"
                         onClick={() => document.getElementById('watermark-file-input')?.click()}
-                        className="h-8 text-xs bg-white/5 border-white/15 text-slate-200 hover:bg-white/10"
+                        className="h-8 text-xs bg-background border-input text-foreground hover:bg-muted/50"
                       >
                         로고 파일 선택
                       </Button>
@@ -1658,7 +1658,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                           size="sm"
                           variant="ghost"
                           onClick={() => onWatermarkConfigChange?.({ ...watermarkConfig, imageUrl: '' })}
-                          className="h-8 text-xs text-red-400 hover:bg-red-500/10"
+                          className="h-8 text-xs text-rose-500 hover:bg-rose-500/10"
                         >
                           제거
                         </Button>
@@ -1666,17 +1666,17 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                     </div>
 
                     {watermarkConfig.imageUrl && (
-                      <div className="space-y-2 pt-1 border-t border-white/10">
+                      <div className="space-y-2 pt-1 border-t border-border">
                         <div className="flex items-center gap-2">
-                          <img src={watermarkConfig.imageUrl} alt="watermark preview" className="w-12 h-12 object-contain bg-slate-900 border border-white/10 rounded-lg" />
+                          <img src={watermarkConfig.imageUrl} alt="watermark preview" className="w-12 h-12 object-contain bg-slate-900 border border-border rounded-lg" />
                           <div className="flex-1 space-y-1">
-                            <span className="text-[10px] text-slate-400 font-medium">단색 배경 원클릭 투명화 (Fast Keying)</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">단색 배경 원클릭 투명화 (Fast Keying)</span>
                             <div className="flex gap-1">
                               <Button
                                 size="sm"
                                 disabled={isProcessingLogo}
                                 onClick={() => applyWatermarkColorKeying('white')}
-                                className="h-6 text-[9.5px] bg-white/10 text-white border border-white/20 hover:bg-white/20"
+                                className="h-6 text-[9.5px] bg-muted/60 text-foreground border border-border hover:bg-muted"
                               >
                                 ⚪ 흰색 투명화
                               </Button>
@@ -1684,7 +1684,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                                 size="sm"
                                 disabled={isProcessingLogo}
                                 onClick={() => applyWatermarkColorKeying('black')}
-                                className="h-6 text-[9.5px] bg-black/40 text-slate-200 border border-white/20 hover:bg-black/60"
+                                className="h-6 text-[9.5px] bg-slate-900 text-white border border-slate-700 hover:bg-slate-800"
                               >
                                 ⚫ 검은색 투명화
                               </Button>
@@ -1697,19 +1697,19 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
                   {/* Text Watermark */}
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-300">텍스트 워터마크</Label>
+                    <Label className="text-[11px] text-card-foreground">텍스트 워터마크</Label>
                     <input
                       type="text"
                       value={watermarkConfig.text || ''}
                       onChange={(e) => onWatermarkConfigChange?.({ ...watermarkConfig, text: e.target.value })}
                       placeholder="@ViraLoopMedia"
-                      className="w-full h-8 px-2.5 rounded-lg bg-black/30 border border-white/15 text-xs text-white"
+                      className="w-full h-8 px-2.5 rounded-lg bg-background border border-input text-xs text-foreground"
                     />
                   </div>
 
                   {/* 9 Anchors Grid */}
                   <div className="space-y-1.5">
-                    <Label className="text-[11px] text-slate-300 font-semibold">9개 앵커 위치 지정</Label>
+                    <Label className="text-[11px] text-card-foreground font-semibold">9개 앵커 위치 지정</Label>
                     <div className="grid grid-cols-3 gap-1 max-w-[150px]">
                       {[
                         { id: 'topLeft', label: '↖' },
@@ -1727,7 +1727,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                           variant="outline"
                           size="sm"
                           onClick={() => onWatermarkConfigChange?.({ ...watermarkConfig, position: pos.id as any })}
-                          className={`h-7 p-0 text-xs font-bold ${watermarkConfig.position === pos.id ? 'bg-blue-600 text-white border-blue-400' : 'bg-black/30 text-slate-400 border-white/10 hover:text-white'}`}
+                          className={`h-7 p-0 text-xs font-bold ${watermarkConfig.position === pos.id ? 'bg-blue-600 text-white border-blue-400' : 'bg-muted/40 text-muted-foreground border-border hover:text-foreground'}`}
                         >
                           {pos.label}
                         </Button>
@@ -1739,8 +1739,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                   <div className="space-y-2">
                     <div className="space-y-1">
                       <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-300">투명도</span>
-                        <span className="text-blue-400 font-bold">{watermarkConfig.opacity}%</span>
+                        <span className="text-card-foreground">투명도</span>
+                        <span className="text-blue-500 font-bold">{watermarkConfig.opacity}%</span>
                       </div>
                       <Slider
                         value={[watermarkConfig.opacity || 70]}
@@ -1753,8 +1753,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
                     <div className="space-y-1">
                       <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-300">크기 (Scale)</span>
-                        <span className="text-blue-400 font-bold">{watermarkConfig.scale || 100}%</span>
+                        <span className="text-card-foreground">크기 (Scale)</span>
+                        <span className="text-blue-500 font-bold">{watermarkConfig.scale || 100}%</span>
                       </div>
                       <Slider
                         value={[watermarkConfig.scale || 100]}
@@ -1774,25 +1774,25 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               {/* Header */}
               <div className="space-y-0.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                    <Volume2 className="w-3.5 h-3.5 text-blue-400" /> 음성(TTS) & 오디오 설정
+                  <span className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
+                    <Volume2 className="w-3.5 h-3.5 text-blue-500" /> 음성(TTS) & 오디오 설정
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-mono text-blue-400 border-blue-400/30">
+                  <Badge variant="outline" className="text-[10px] font-mono text-blue-500 border-blue-400/30">
                     {scenes.length}개 씬
                   </Badge>
                 </div>
-                <p className="text-[11px] text-slate-400">음성 합성 엔진(TTS)과 목소리 오디션 및 오디오/BGM 믹싱을 설정합니다.</p>
+                <p className="text-[11px] text-muted-foreground">음성 합성 엔진(TTS)과 목소리 오디션 및 오디오/BGM 믹싱을 설정합니다.</p>
               </div>
 
               {/* 1. Quick Batch Action Card (전체 씬 AI 음성 일괄 생성) */}
-              <div className="p-3 rounded-xl bg-black/25 border border-white/10 shadow-2xs space-y-2">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border shadow-2xs space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                      <Mic className="w-3.5 h-3.5 text-blue-400" />
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-card-foreground">
+                      <Mic className="w-3.5 h-3.5 text-blue-500" />
                       <span>전체 씬 AI 음성 일괄 생성</span>
                     </div>
-                    <p className="text-[10.5px] text-slate-400">
+                    <p className="text-[10.5px] text-muted-foreground">
                       현재 설정된 목소리({localTTSConfig.engine} · {localTTSConfig.voice_id || '기본'})로 모든 씬의 음성과 자막을 생성합니다.
                     </p>
                   </div>
@@ -1803,10 +1803,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                       onClick={onOpenPronunciationOptimizer}
                       disabled={scenes.length === 0 && !fullScript?.trim() && !scriptInput?.trim()}
                       variant="outline"
-                      className="h-8 text-xs font-bold border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 gap-1.5 shadow-2xs"
+                      className="h-8 text-xs font-bold border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-300 gap-1.5 shadow-2xs"
                       title="TTS 생성 전 대본의 숫자/영어/어색한 발음을 표음 구어체로 자동 교정하고 좌우로 비교합니다"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      <Sparkles className="w-3.5 h-3.5 text-purple-500" />
                       <span>🗣️ 발음/숫자 교정 (좌우 비교)</span>
                     </Button>
                   )}
@@ -1825,12 +1825,12 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </div>
 
               {/* 2. TTS Voice & Engine Detailed Configuration (TTSConfigPanel 통합) */}
-              <div className="p-3 rounded-xl bg-black/25 border border-white/10 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <span className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
                     <span>🎙️</span> TTS 음성 엔진 & 보이스 설정
                   </span>
-                  <Badge variant="secondary" className="text-[10px] font-mono bg-white/10 text-slate-300">
+                  <Badge variant="secondary" className="text-[10px] font-mono bg-muted text-foreground">
                     {localTTSConfig.engine} · {localTTSConfig.language}
                   </Badge>
                 </div>
@@ -1847,9 +1847,9 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               </div>
 
               {/* 3. Audio & BGM Mastering Card */}
-              <div className="p-3 rounded-xl bg-black/25 border border-white/10 shadow-2xs space-y-3">
-                <div className="border-b border-white/10 pb-1.5 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border shadow-2xs space-y-3">
+                <div className="border-b border-border pb-1.5 flex items-center justify-between">
+                  <span className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
                     <span>🎛️</span> 오디오 & BGM 마스터링
                   </span>
                 </div>
@@ -1857,8 +1857,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 {/* Voice Volume & Speed */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-[11px]">
-                    <span className="font-bold text-slate-200">🎙️ 나레이션 (TTS) 볼륨</span>
-                    <span className="text-blue-400 font-bold">{voiceVolume}%</span>
+                    <span className="font-bold text-card-foreground">🎙️ 나레이션 (TTS) 볼륨</span>
+                    <span className="text-blue-500 font-bold">{voiceVolume}%</span>
                   </div>
                   <Slider
                     value={[voiceVolume]}
@@ -1868,7 +1868,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                     onValueChange={([v]) => setVoiceVolume(v)}
                   />
 
-                  <Label className="text-[11px] font-bold text-slate-400 pt-1 block">타임라인 배속 프리셋</Label>
+                  <Label className="text-[11px] font-bold text-muted-foreground pt-1 block">타임라인 배속 프리셋</Label>
                   <div className="grid grid-cols-4 gap-1.5">
                     {['0.9x', '1.0x', '1.15x', '1.3x'].map((spd) => (
                       <Button
@@ -1876,7 +1876,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                         variant="outline"
                         size="sm"
                         onClick={() => onChangeSpeed?.(parseFloat(spd))}
-                        className="h-7 text-[10.5px] font-semibold bg-black/30 border-white/15 text-slate-200 hover:bg-white/10 hover:text-white"
+                        className="h-7 text-[10.5px] font-semibold bg-background border-input text-foreground hover:bg-muted/50"
                       >
                         {spd}
                       </Button>
@@ -1885,10 +1885,10 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
                 </div>
 
                 {/* BGM Volume & Ducking */}
-                <div className="space-y-2 pt-2 border-t border-white/10">
+                <div className="space-y-2 pt-2 border-t border-border">
                   <div className="flex justify-between text-[11px]">
-                    <span className="font-bold text-slate-200">🎵 배경음악 (BGM) 볼륨</span>
-                    <span className="text-blue-400 font-bold">{bgmVolume}%</span>
+                    <span className="font-bold text-card-foreground">🎵 배경음악 (BGM) 볼륨</span>
+                    <span className="text-blue-500 font-bold">{bgmVolume}%</span>
                   </div>
                   <Slider
                     value={[bgmVolume]}
@@ -1900,8 +1900,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
                   <div className="flex items-center justify-between pt-1">
                     <div className="space-y-0.5">
-                      <span className="text-[11px] font-semibold text-slate-200">스마트 덕킹 (Smart Ducking)</span>
-                      <p className="text-[9.5px] text-slate-400">나레이션이 재생될 때 BGM 볼륨을 자동으로 낮춥니다.</p>
+                      <span className="text-[11px] font-semibold text-card-foreground">스마트 덕킹 (Smart Ducking)</span>
+                      <p className="text-[9.5px] text-muted-foreground">나레이션이 재생될 때 BGM 볼륨을 자동으로 낮춥니다.</p>
                     </div>
                     <Switch
                       checked={bgmDucking}
@@ -1912,8 +1912,8 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
                   <div className="space-y-1 pt-1">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-300">BGM 페이드 인/아웃</span>
-                      <span className="text-blue-400 font-bold">{bgmFadeSec}초</span>
+                      <span className="text-card-foreground">BGM 페이드 인/아웃</span>
+                      <span className="text-blue-500 font-bold">{bgmFadeSec}초</span>
                     </div>
                     <Slider
                       value={[bgmFadeSec]}
@@ -1929,23 +1929,23 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
 
             {/* Tab 7: Selected Scene & Camera Motion Inspector */}
             <TabsContent value="scene" className="flex-1 p-3.5 overflow-y-auto space-y-3 m-0">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <span className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
                   🎬 씬 #{selectedScene?.scene_id || 1} 속성 인스펙터
                 </span>
-                <Badge variant="outline" className="text-[10px] bg-blue-500/20 text-blue-300 border-blue-400/30">
+                <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-300 border-blue-400/30">
                   {selectedScene?.duration || 3.5}초
                 </Badge>
               </div>
 
               {/* Ken Burns Camera Motion Controls */}
-              <div className="p-3 rounded-xl bg-black/25 border border-white/10 space-y-2.5">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
+                    <span className="text-[11px] font-bold text-card-foreground flex items-center gap-1">
                       🎥 카메라 모션 (Ken Burns)
                     </span>
-                    <p className="text-[9.5px] text-slate-400">정적 이미지에 부드러운 줌인/줌아웃 효과를 부여합니다.</p>
+                    <p className="text-[9.5px] text-muted-foreground">정적 이미지에 부드러운 줌인/줌아웃 효과를 부여합니다.</p>
                   </div>
                   <Switch
                     checked={kenBurnsEnabled}
@@ -1957,15 +1957,15 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
               {selectedScene && (
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-400 font-semibold">대본 (Script)</Label>
-                    <p className="text-xs text-slate-200 bg-black/30 p-2.5 rounded-lg border border-white/10 leading-relaxed">
+                    <Label className="text-[11px] text-muted-foreground font-semibold">대본 (Script)</Label>
+                    <p className="text-xs text-foreground bg-muted/30 p-2.5 rounded-lg border border-border leading-relaxed">
                       {selectedScene.script || '대본이 없습니다.'}
                     </p>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-slate-400 font-semibold">비주얼 프롬프트</Label>
-                    <p className="text-[11px] font-mono text-slate-300 bg-black/30 p-2.5 rounded-lg border border-white/10 leading-relaxed">
+                    <Label className="text-[11px] text-muted-foreground font-semibold">비주얼 프롬프트</Label>
+                    <p className="text-[11px] font-mono text-foreground bg-muted/30 p-2.5 rounded-lg border border-border leading-relaxed">
                       {selectedScene.visual_prompt || selectedScene.video_prompt || '프롬프트 없음'}
                     </p>
                   </div>
@@ -1989,7 +1989,7 @@ export const CapCutStudioWorkspace: React.FC<Props> = ({
       </div>
 
       {/* ── 3. Bottom Split: Fixed Slim 5-Track NLE Timeline ── */}
-      <div className="h-[290px] bg-[#0c1017] border-t border-white/10 flex flex-col relative overflow-hidden shrink-0">
+      <div className="h-[290px] bg-card border-t border-border flex flex-col relative overflow-hidden shrink-0">
         <AudioTimeline
           scenes={normalizedTimelineScenes}
           audioPackage={audioPackage}

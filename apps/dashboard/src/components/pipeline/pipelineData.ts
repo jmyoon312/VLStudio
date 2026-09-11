@@ -72,7 +72,7 @@ export const LEGO_NODE_TEMPLATES: LegoNodeTemplate[] = [
         title: '9-Wave 바이럴 대본 기획',
         desc: '기승전결 9단계 감정 파도 공식 기반 쇼츠/릴스 전문 대본 생성',
         iconName: 'PenTool',
-        defaultParams: { model: 'viraloop1', structure: '9_wave', duration: '60s', tone: 'dramatic' },
+        defaultParams: { model: 'auto', structure: '9_wave', duration: '60s', tone: 'dramatic' },
         inputs: ['topic_seed', 'dna_tags'],
         outputs: ['script_text', 'scenes_json']
     },
@@ -163,6 +163,18 @@ export const LEGO_NODE_TEMPLATES: LegoNodeTemplate[] = [
         outputs: ['retention_score', 'retention_graph']
     },
 
+    {
+        type: 'telegram_hitl_gate',
+        category: 'critic',
+        categoryLabel: '품질 검수',
+        categoryColor: 'border-amber-500 bg-amber-500/10 text-amber-500',
+        title: '텔레그램 HITL 승인 게이트',
+        desc: '85점 통과 대본을 대표님 스마트폰 텔레그램으로 전송하여 원격 실시간 결재/반려 대기',
+        iconName: 'Smartphone',
+        defaultParams: { autoTimeoutHours: 2, fallbackAction: 'hold', notifyChannel: 'telegram' },
+        inputs: ['approved_script'],
+        outputs: ['hitl_approved_script']
+    },
     // 4. Audio & Voice
     {
         type: 'multitts_voice',
@@ -352,6 +364,121 @@ export interface PipelinePreset {
 }
 
 export const STANDARD_PIPELINES: PipelinePreset[] = [
+    {
+        id: 'script_present',
+        name: '축2. 대본 보유형 (Script Present)',
+        category: 'axis2_matrix',
+        description: '[축2 제작모드] 이미 완성된 대본을 85점 퀄리티 게이트 통과 후 MultiTTS ➔ Google Flow AI ➔ 캡컷 조립 ➔ WorkQueue로 자동 제작',
+        nodes: [
+            { id: 'sp1', type: 'custom', position: { x: 50, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'local_file_picker')!, customLabel: '대본 파일 인제스트' } },
+            { id: 'sp2', type: 'custom', position: { x: 380, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'viral_critic_gate')!, customLabel: 'Critic-85 퀄리티 게이트' } },
+            { id: 'sp3', type: 'custom', position: { x: 710, y: 80 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS 선희 뉴럴 보이스' } },
+            { id: 'sp4', type: 'custom', position: { x: 710, y: 260 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'flow_ai_batch')!, customLabel: 'Google Flow AI 비디오 생성' } },
+            { id: 'sp5', type: 'custom', position: { x: 1040, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'capcut_assemble')!, customLabel: 'CapCut 프로젝트 No-ZIP 조립' } },
+            { id: 'sp6', type: 'custom', position: { x: 1370, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'work_queue_enqueue')!, customLabel: 'WorkQueue 배포 대기열 탑재' } }
+        ],
+        edges: [
+            { id: 'esp1-2', source: 'sp1', target: 'sp2', animated: true },
+            { id: 'esp2-3', source: 'sp2', target: 'sp3', animated: true },
+            { id: 'esp2-4', source: 'sp2', target: 'sp4', animated: true },
+            { id: 'esp3-5', source: 'sp3', target: 'sp5', animated: true },
+            { id: 'esp4-5', source: 'sp4', target: 'sp5', animated: true },
+            { id: 'esp5-6', source: 'sp5', target: 'sp6', animated: true }
+        ]
+    },
+    {
+        id: 'video_present',
+        name: '축2. 영상 원본 보유형 (Video Present)',
+        category: 'axis2_matrix',
+        description: '[축2 제작모드] 유튜브/쇼츠/로컬 영상 소스를 무음 절삭 및 9:16 블러 캔버스 가공 후 3초 킬러 후킹을 얹어 캡컷 직결 조립',
+        nodes: [
+            { id: 'vp1', type: 'custom', position: { x: 50, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'url_download')!, customLabel: 'URL 영상 원본 수집' } },
+            { id: 'vp2', type: 'custom', position: { x: 380, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'silence_remover')!, customLabel: '무음 구간 초정밀 절삭' } },
+            { id: 'vp3', type: 'custom', position: { x: 710, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'blur_canvas_916')!, customLabel: '9:16 상하단 블러 캔버스' } },
+            { id: 'vp4', type: 'custom', position: { x: 1040, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'hook_overlay')!, customLabel: '3초 킬러 후킹 생성기' } },
+            { id: 'vp5', type: 'custom', position: { x: 1370, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'capcut_assemble')!, customLabel: 'CapCut 프로젝트 No-ZIP 조립' } },
+            { id: 'vp6', type: 'custom', position: { x: 1700, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'work_queue_enqueue')!, customLabel: 'WorkQueue 배포 관리자' } }
+        ],
+        edges: [
+            { id: 'evp1-2', source: 'vp1', target: 'vp2', animated: true },
+            { id: 'evp2-3', source: 'vp2', target: 'vp3', animated: true },
+            { id: 'evp3-4', source: 'vp3', target: 'vp4', animated: true },
+            { id: 'evp4-5', source: 'vp4', target: 'vp5', animated: true },
+            { id: 'evp5-6', source: 'vp5', target: 'vp6', animated: true }
+        ]
+    },
+    {
+        id: 'keyword_only',
+        name: '축2. 키워드 발굴 완전창작형 (Keyword Only)',
+        category: 'axis2_matrix',
+        description: '[축2 제작모드] 급상승 트렌드 키워드로부터 9-Wave 바이럴 대본 기획 ➔ Critic-85 검수 ➔ 보이스/Flow AI ➔ 캡컷 조립 완결',
+        nodes: [
+            { id: 'ko1', type: 'custom', position: { x: 50, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'trend_rss_feed')!, customLabel: '트렌드 레이더 피드' } },
+            { id: 'ko2', type: 'custom', position: { x: 380, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'topic_to_story')!, customLabel: '9-Wave 바이럴 대본 기획' } },
+            { id: 'ko3', type: 'custom', position: { x: 710, y: 80 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'viral_critic_gate')!, customLabel: '85점 바이럴 퀄리티 게이트' } },
+            { id: 'ko4', type: 'custom', position: { x: 710, y: 260 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS 선희 뉴럴 보이스' } },
+            { id: 'ko5', type: 'custom', position: { x: 1040, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'flow_ai_batch')!, customLabel: 'Google Flow AI 비디오 생성' } },
+            { id: 'ko6', type: 'custom', position: { x: 1370, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'capcut_assemble')!, customLabel: 'CapCut 프로젝트 No-ZIP 조립' } },
+            { id: 'ko7', type: 'custom', position: { x: 1700, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'work_queue_enqueue')!, customLabel: 'WorkQueue 자동 배포 탑재' } }
+        ],
+        edges: [
+            { id: 'eko1-2', source: 'ko1', target: 'ko2', animated: true },
+            { id: 'eko2-3', source: 'ko2', target: 'ko3', animated: true },
+            { id: 'eko2-4', source: 'ko2', target: 'ko4', animated: true },
+            { id: 'eko3-5', source: 'ko3', target: 'ko5', animated: true },
+            { id: 'eko4-6', source: 'ko4', target: 'ko6', animated: true },
+            { id: 'eko5-6', source: 'ko5', target: 'ko6', animated: true },
+            { id: 'eko6-7', source: 'ko6', target: 'ko7', animated: true }
+        ]
+    },
+    {
+        id: 'minimal_hook',
+        name: '축2. 초고속 후킹 쾌속양산형 (Minimal Hook)',
+        category: 'axis2_matrix',
+        description: '[축2 제작모드] 해외 바이럴 쇼츠를 최소 가공으로 3초 킬러 후킹 카피와 사운드 이펙트만 결합하여 초고속 대량 릴리즈',
+        nodes: [
+            { id: 'mh1', type: 'custom', position: { x: 50, y: 150 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'url_download')!, customLabel: '바이럴 쇼츠 소스 수집' } },
+            { id: 'mh2', type: 'custom', position: { x: 380, y: 150 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'blur_canvas_916')!, customLabel: '9:16 상하단 블러 캔버스' } },
+            { id: 'mh3', type: 'custom', position: { x: 710, y: 150 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'hook_overlay')!, customLabel: '3초 킬러 후킹 생성기' } },
+            { id: 'mh4', type: 'custom', position: { x: 1040, y: 150 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'bgm_beat_sync')!, customLabel: 'BGM 비트 매핑 & 덕킹' } },
+            { id: 'mh5', type: 'custom', position: { x: 1370, y: 150 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'capcut_assemble')!, customLabel: 'CapCut 프로젝트 No-ZIP 조립' } },
+            { id: 'mh6', type: 'custom', position: { x: 1700, y: 150 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'work_queue_enqueue')!, customLabel: 'WorkQueue 배포 대기열' } }
+        ],
+        edges: [
+            { id: 'emh1-2', source: 'mh1', target: 'mh2', animated: true },
+            { id: 'emh2-3', source: 'mh2', target: 'mh3', animated: true },
+            { id: 'emh3-4', source: 'mh3', target: 'mh4', animated: true },
+            { id: 'emh4-5', source: 'mh4', target: 'mh5', animated: true },
+            { id: 'emh5-6', source: 'mh5', target: 'mh6', animated: true }
+        ]
+    },
+    {
+        id: 'deep_narrative',
+        name: '축2. 심층 다큐 & HITL 결재형 (Deep Narrative)',
+        category: 'axis2_matrix',
+        description: '[축2 제작모드] 심층 스토리텔링 ➔ Critic-85 통과 후 대표님 스마트폰 텔레그램 HITL 승인 ➔ 승인 즉시 MultiTTS 및 Flow AI 렌더링',
+        nodes: [
+            { id: 'dn1', type: 'custom', position: { x: 50, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'trend_rss_feed')!, customLabel: '심층 기획 주제 수집' } },
+            { id: 'dn2', type: 'custom', position: { x: 380, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'topic_to_story')!, customLabel: '심층 바이럴 대본 기획' } },
+            { id: 'dn3', type: 'custom', position: { x: 710, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'viral_critic_gate')!, customLabel: '85점 바이럴 퀄리티 게이트' } },
+            { id: 'dn4', type: 'custom', position: { x: 1040, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'telegram_hitl_gate')!, customLabel: '텔레그램 HITL 원격 승인 게이트' } },
+            { id: 'dn5', type: 'custom', position: { x: 1370, y: 80 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'multitts_voice')!, customLabel: 'MultiTTS 선희 뉴럴 보이스' } },
+            { id: 'dn6', type: 'custom', position: { x: 1370, y: 260 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'flow_ai_batch')!, customLabel: 'Google Flow AI 비디오 생성' } },
+            { id: 'dn7', type: 'custom', position: { x: 1700, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'capcut_assemble')!, customLabel: 'CapCut 프로젝트 No-ZIP 조립' } },
+            { id: 'dn8', type: 'custom', position: { x: 2030, y: 160 }, data: { ...LEGO_NODE_TEMPLATES.find(t => t.type === 'work_queue_enqueue')!, customLabel: 'WorkQueue 배포 관리자' } }
+        ],
+        edges: [
+            { id: 'edn1-2', source: 'dn1', target: 'dn2', animated: true },
+            { id: 'edn2-3', source: 'dn2', target: 'dn3', animated: true },
+            { id: 'edn3-4', source: 'dn3', target: 'dn4', animated: true },
+            { id: 'edn4-5', source: 'dn4', target: 'dn5', animated: true },
+            { id: 'edn4-6', source: 'dn4', target: 'dn6', animated: true },
+            { id: 'edn5-7', source: 'dn5', target: 'dn7', animated: true },
+            { id: 'edn6-7', source: 'dn6', target: 'dn7', animated: true },
+            { id: 'edn7-8', source: 'dn7', target: 'dn8', animated: true }
+        ]
+    },
+
     {
         id: 'full_generative_ai',
         name: '5. AI 완전 창작 생성형 (추천)',

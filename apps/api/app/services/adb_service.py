@@ -327,6 +327,7 @@ class ADBService:
                 self._cached_public_ips.pop(target, None)
                 
             self._last_rotation_time = time.time()
+            self._cached_network_status = None
             logger.info(f"[OK] [{target}] IP 갱신 완료: {new_ip}")
             return True
         except Exception as e:
@@ -400,7 +401,13 @@ class ADBService:
             return "Error"
 
     def get_network_status_detail(self, force: bool = False) -> dict:
-        """프론트엔드용 네트워크 상세 상태 반환"""
+        """프론트엔드용 네트워크 상세 상태 반환 (60초 인메모리 캐싱으로 폴링 부하 원천 차단)"""
+        now = time.time()
+        if not force and hasattr(self, "_cached_network_status") and self._cached_network_status:
+            cached_time, cached_res = self._cached_network_status
+            if now - cached_time < 60.0:
+                return cached_res
+
         try:
             from .network_monitor import network_monitor
             
@@ -436,7 +443,7 @@ class ADBService:
             else:
                 status_detail = "WIFI_MODE"
 
-            return {
+            res = {
                 "status_detail": status_detail,
                 "adb_connected": adb_connected,
                 "device_count": len(devices),
@@ -449,6 +456,8 @@ class ADBService:
                 "interface_ip": tethering_ip,
                 "current_ip": mobile_ip if is_lte_active else system_ip
             }
+            self._cached_network_status = (now, res)
+            return res
         except Exception as e:
             logger.error(f"Failed to get network status detail: {e}")
             return {"status": "ERROR", "detail": str(e), "adb_connected": False}

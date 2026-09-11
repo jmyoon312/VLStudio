@@ -11,10 +11,9 @@ logger = logging.getLogger(__name__)
 # Model pricing baseline (Example: USD per 1M tokens)
 # These can be moved to settings/config later
 PRICING = {
-    "gemini-1.5-pro": {"prompt": 3.50, "completion": 10.50},
-    "gemini-1.5-flash": {"prompt": 0.075, "completion": 0.30},
-    "gpt-4o": {"prompt": 5.00, "completion": 15.00},
-    "gpt-4o-mini": {"prompt": 0.15, "completion": 0.60},
+    "pro": {"prompt": 3.50, "completion": 10.50},
+    "flash": {"prompt": 0.075, "completion": 0.30},
+    "mini": {"prompt": 0.15, "completion": 0.60},
     "default": {"prompt": 1.0, "completion": 2.0}
 }
 

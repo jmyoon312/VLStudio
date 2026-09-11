@@ -56,34 +56,26 @@ const AIModelSelector = ({
 }: AIModelSelectorProps) => {
 
 
-    // 2. Dynamic Model Fetching
+    // 2. Dynamic Model Fetching (Targeted provider fast-path)
     const { data: fetchedModels, isLoading, isError, refetch } = useQuery({
-        queryKey: ['availableModels'],
+        queryKey: ['availableModels', provider],
         queryFn: async ({ queryKey }) => {
-            const force = (queryKey as any)[1]?.force;
-            const res = await api.get(`/creative/models${force ? '?force=true' : ''}`);
+            const targetProv = (queryKey[1] as string) || 'omniroute';
+            const force = (queryKey as any)[2]?.force;
+            const res = await api.get(`/creative/models?provider=${encodeURIComponent(targetProv)}${force ? '&force=true' : ''}`);
             return res.data || {};
         },
-        staleTime: 1000 * 60 * 1, // 1 minute
+        staleTime: 1000 * 60 * 5, // 5 minutes
         retry: 2,
     });
 
     const forceRefresh = () => {
-        refetch({ queryKey: ['availableModels', { force: true }] } as any);
+        refetch({ queryKey: ['availableModels', provider, { force: true }] } as any);
     };
 
     const currentProviderModels = useMemo(() => {
         if (!fetchedModels) return [];
-        let models = fetchedModels[provider] || [];
-        if (provider === 'omniroute' && models.length === 0) {
-            models = fetchedModels['youtube1'] || [];
-        }
-        if (provider === 'ollama') {
-            models = fetchedModels['ollama'] || [];
-        }
-        if (provider === 'openrouter') {
-            models = fetchedModels['openrouter'] || [];
-        }
+        let models = fetchedModels[provider] || fetchedModels['omniroute'] || fetchedModels['youtube1'] || [];
         
         // [FIX] Deduplicate models by value to prevent React key warnings
         const uniqueModels = [];
@@ -117,49 +109,55 @@ const AIModelSelector = ({
         );
     }, [currentProviderModels, searchTerm]);
 
+    // Helper to match model value with or without provider prefix
+    const isModelMatch = (a?: string, b?: string) => {
+        if (!a || !b) return false;
+        if (a === b) return true;
+        const normA = a.replace(/^(omniroute|youtube1)\//, '').trim().toLowerCase();
+        const normB = b.replace(/^(omniroute|youtube1)\//, '').trim().toLowerCase();
+        return normA === normB;
+    };
+
     const [isCustom, setIsCustom] = React.useState(false);
     const prevProviderRef = React.useRef(provider);
 
     // 3. Smart Auto-Selection logic
     const handleProviderChange = (newProvider: string) => {
         onProviderChange(newProvider);
-        // We don't call onModelChange here directly to avoid race conditions in parent state
     };
 
-    // Auto-select model when provider changes OR when model is empty
+    // Auto-select model only when model is explicitly empty
     useEffect(() => {
-        if (isLoading || !fetchedModels || !provider) return;
+        if (isLoading || !fetchedModels) return;
 
-        const providerModels = fetchedModels[provider] || [];
+        const providerModels = currentProviderModels;
         const hasModels = providerModels.length > 0;
-        const providerChanged = prevProviderRef.current !== provider;
         
-        // Scenario A: Model is explicitly empty -> Select first available
         if (!model && hasModels) {
-            onModelChange(providerModels[0].value);
-        } 
-        // Scenario B: Provider just changed -> Select first available for new provider
-        // (Only if not in custom mode or if we want to force valid models on provider switch)
-        else if (providerChanged && hasModels) {
             onModelChange(providerModels[0].value);
         }
 
         prevProviderRef.current = provider;
-    }, [provider, fetchedModels, model, onModelChange, isLoading]);
+    }, [provider, fetchedModels, model, onModelChange, isLoading, currentProviderModels]);
 
     // Keep custom mode state in sync
     React.useEffect(() => {
         if (!fetchedModels || isLoading) return;
         
-        const models = fetchedModels[provider] || [];
-        if (model && models.length > 0 && !models.some((m: any) => m.value === model)) {
+        const models = currentProviderModels;
+        if (model && models.length > 0 && !models.some((m: any) => isModelMatch(m.value, model) || isModelMatch(m.label, model))) {
             setIsCustom(true);
-        } else if (!model) {
-            setIsCustom(false);
         } else {
             setIsCustom(false);
         }
-    }, [model, provider, fetchedModels, isLoading]);
+    }, [model, currentProviderModels, isLoading, fetchedModels]);
+
+    const activeSelectValue = useMemo(() => {
+        if (isCustom) return "custom";
+        if (!model) return "";
+        const matched = currentProviderModels.find((m: any) => isModelMatch(m.value, model) || isModelMatch(m.label, model));
+        return matched ? matched.value : model;
+    }, [isCustom, model, currentProviderModels]);
 
     // --- Styling Classes ---
     const labelClass = compact ? "text-[10px] text-muted-foreground font-semibold" : "text-xs sm:text-sm font-semibold text-foreground";
@@ -214,7 +212,7 @@ const AIModelSelector = ({
                         </button>
                     </div>
                     <Select
-                        value={isCustom ? "custom" : model}
+                        value={activeSelectValue}
                         onValueChange={(val) => {
                             if (val === "custom") {
                                 setIsCustom(true);
@@ -275,46 +273,81 @@ const AIModelSelector = ({
 
                             <div className="overflow-y-auto max-h-[300px]">
                                 {filteredModels.length > 0 ? (
-                                    <>
-                                        {/* 1. Smart Router (auto/*) */}
-                                        {filteredModels.some((m: any) => m.value.includes('/auto') || m.value.includes('/viraloop1')) && (
-                                            <div className="px-2 py-1 text-[10px] font-bold text-primary bg-primary/5 uppercase tracking-wider">
-                                                ⭐ 스마트 라우터 (자동 최적화 & 콤보)
-                                            </div>
-                                        )}
-                                        {filteredModels
-                                            .filter((opt: any) => {
-                                                const raw = opt.value.replace(/^(omniroute|youtube1)\//, '');
-                                                return raw === 'auto' || raw.startsWith('auto/') || raw === 'viraloop1' || opt.value.endsWith('/viraloop1');
-                                            })
-                                            .map((opt: any) => (
-                                                <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "font-semibold")}>
-                                                    {opt.label}
-                                                </SelectItem>
-                                            ))}
+                                    (provider === 'omniroute' || provider === 'youtube1') ? (
+                                        <>
+                                            {/* 1. Smart Router (auto/*) */}
+                                            {filteredModels.some((m: any) => {
+                                                const raw = m.value.replace(/^(omniroute|youtube1)\//, '');
+                                                return raw === 'auto' || raw.startsWith('auto/');
+                                            }) && (
+                                                <>
+                                                    <div className="px-2 py-1 text-[10px] font-bold text-primary bg-primary/5 uppercase tracking-wider">
+                                                        스마트 라우터 (자동 최적화)
+                                                    </div>
+                                                    {filteredModels
+                                                        .filter((opt: any) => {
+                                                            const raw = opt.value.replace(/^(omniroute|youtube1)\//, '');
+                                                            return raw === 'auto' || raw.startsWith('auto/');
+                                                        })
+                                                        .map((opt: any) => (
+                                                            <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "font-semibold")}>
+                                                                {opt.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                </>
+                                            )}
 
-                                        {/* 2. User-created Combos: slash-free names (e.g. custom combos) */}
-                                        {filteredModels.some((m: any) => {
-                                            const raw = m.value.replace(/^(omniroute|youtube1)\//, '');
-                                            return !raw.startsWith('auto') && raw !== 'viraloop1' && !raw.includes('/');
-                                        }) && (
-                                            <>
-                                                <div className="px-2 py-1 text-[10px] font-bold text-amber-500 bg-amber-500/5 uppercase tracking-wider mt-1 border-t border-border">
-                                                    🔧 내 Combo
-                                                </div>
-                                                {filteredModels
-                                                    .filter((opt: any) => {
-                                                        const raw = opt.value.replace(/^(omniroute|youtube1)\//, '');
-                                                        return !raw.startsWith('auto') && raw !== 'viraloop1' && !raw.includes('/');
-                                                    })
-                                                    .map((opt: any) => (
-                                                        <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "text-amber-700 dark:text-amber-400 font-medium")}>
-                                                            {opt.label}
-                                                        </SelectItem>
-                                                    ))}
-                                            </>
-                                        )}
-                                    </>
+                                            {/* 2. User-created Combos: slash-free names */}
+                                            {filteredModels.some((m: any) => {
+                                                const raw = m.value.replace(/^(omniroute|youtube1)\//, '');
+                                                return !raw.startsWith('auto') && !raw.includes('/');
+                                            }) && (
+                                                <>
+                                                    <div className="px-2 py-1 text-[10px] font-bold text-amber-500 bg-amber-500/5 uppercase tracking-wider mt-1 border-t border-border">
+                                                        내 모델 / Combo
+                                                    </div>
+                                                    {filteredModels
+                                                        .filter((opt: any) => {
+                                                            const raw = opt.value.replace(/^(omniroute|youtube1)\//, '');
+                                                            return !raw.startsWith('auto') && !raw.includes('/');
+                                                        })
+                                                        .map((opt: any) => (
+                                                            <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "text-amber-700 dark:text-amber-400 font-medium")}>
+                                                                {opt.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                </>
+                                            )}
+
+                                            {/* 3. Upstream Provider Models */}
+                                            {filteredModels.some((m: any) => {
+                                                const raw = m.value.replace(/^(omniroute|youtube1)\//, '');
+                                                return !raw.startsWith('auto') && raw.includes('/');
+                                            }) && (
+                                                <>
+                                                    <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground bg-muted/20 uppercase tracking-wider mt-1 border-t border-border">
+                                                        🌐 연동 모델 (OmniRoute 연결 모델)
+                                                    </div>
+                                                    {filteredModels
+                                                        .filter((opt: any) => {
+                                                            const raw = opt.value.replace(/^(omniroute|youtube1)\//, '');
+                                                            return !raw.startsWith('auto') && raw.includes('/');
+                                                        })
+                                                        .map((opt: any) => (
+                                                            <SelectItem key={opt.value} value={opt.value} className={cn(itemClass, "font-normal")}>
+                                                                {opt.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                </>
+                                            )}
+                                        </>
+                                    ) : (
+                                        filteredModels.map((opt: any) => (
+                                            <SelectItem key={opt.value} value={opt.value} className={itemClass}>
+                                                {opt.label}
+                                            </SelectItem>
+                                        ))
+                                    )
                                 ) : (
                                     <div className="py-6 text-center text-xs text-muted-foreground italic">
                                         검색 결과가 없습니다

@@ -29,7 +29,7 @@ class AutonomousRepairBroker:
         self.db = db
         self.report_id = report_id
         self.logs = []
-        self.llm = get_llm_client(preferred_model="gemini-1.5-pro")
+        self.llm = get_llm_client()
 
     def log(self, message: str, level: str = "info"):
         """Logs action and appends to instance log."""

@@ -190,8 +190,7 @@ Output ONLY a number (0-100) representing the DNA alignment score.
 """
         try:
             response = self.llm_client.generate_content(
-                prompt=prompt,
-                model_name="gemini-2.0-flash"
+                prompt=prompt
             )
             
             # Extract number from response

@@ -219,8 +219,7 @@ class VisualAssetPipeline:
         
         try:
             response = self.llm_client.generate_content(
-                prompt=prompt,
-                model_name="google/gemini-2.0-flash-exp"
+                prompt=prompt
             )
             
             # Extract style prompt

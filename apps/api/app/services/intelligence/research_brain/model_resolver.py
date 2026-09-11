@@ -8,20 +8,21 @@ behavior is consistent across the app.
 from __future__ import annotations
 
 # Used only when the user has configured nothing at all.
-_LAST_RESORT_MODEL = "google/gemini-2.0-flash"
+_LAST_RESORT_MODEL = "omniroute/viraloop1"
 
 
 def resolve_agent_model(settings) -> str:
     """Return the model id (optionally provider-prefixed) the user configured.
 
     Priority: openclaw_model -> hermes_agent_model -> script_analysis_model ->
-    default_model -> last-resort default. If a non-"auto" provider is selected and
+    default_llm_model -> default_model -> last-resort default. If a non-"auto" provider is selected and
     the model id has no provider prefix, prefix it (e.g. "groq/llama-3.3-70b").
     """
     model_name = (
         getattr(settings, "openclaw_model", None)
         or getattr(settings, "hermes_agent_model", None)
         or getattr(settings, "script_analysis_model", None)
+        or getattr(settings, "default_llm_model", None)
         or getattr(settings, "default_model", None)
         or _LAST_RESORT_MODEL
     )

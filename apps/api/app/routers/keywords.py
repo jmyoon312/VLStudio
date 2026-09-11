@@ -1561,8 +1561,8 @@ def expand_keyword_web(request: KeywordRequest, db: Session = Depends(database.g
     
     settings = crud.get_settings(db)
     client = LLMClient(settings)
-    provider = settings.script_analysis_provider or "google"
-    model = "gemini-2.0-flash-exp" if provider == "google" else settings.script_analysis_model
+    provider = settings.script_analysis_provider or "omniroute"
+    model = settings.script_analysis_model or settings.default_llm_model or "viraloop1"
     
     # Pass 1: Semantic Expansion
     expansion_prompt = f"""

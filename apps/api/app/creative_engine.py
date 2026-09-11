@@ -1,6 +1,5 @@
 from .llm_manager import LLMClient
 import logging
-from google.genai import types
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -16,8 +15,8 @@ class CreativeEngine:
         Analyzes an image to extract style prompts using Gemini Vision or compatible providers.
         """
         # Resolve dynamic defaults from settings
-        target_provider = provider or getattr(self.llm_client.settings, "paperclip_provider", "google")
-        target_model = model or getattr(self.llm_client.settings, "paperclip_model", self.llm_client.settings.default_model)
+        target_provider = provider or getattr(self.llm_client.settings, "paperclip_provider", "omniroute")
+        target_model = model or getattr(self.llm_client.settings, "paperclip_model", None) or getattr(self.llm_client.settings, "script_analysis_model", None) or "viraloop1"
         try:
             prompt = """
             Analyze the artistic style of this image. 
@@ -396,8 +395,8 @@ Output JSON Array ONLY:
         standard_provider = getattr(self.llm_client.settings, "script_analysis_provider", None)
 
         # DB Settings 표준 분석 모델 최우선 반영
-        target_model = standard_model or model or getattr(self.llm_client.settings, "default_llm_model", None) or getattr(self.llm_client.settings, "paperclip_model", None) or "opencode/deepseek-v4-flash-free"
-        target_provider = standard_provider or provider or "opencode"
+        target_model = standard_model or model or getattr(self.llm_client.settings, "default_llm_model", None) or getattr(self.llm_client.settings, "paperclip_model", None) or "auto"
+        target_provider = standard_provider or provider or "omniroute"
         aspect_ratio = "9:16" if mode == 'shorts' else "16:9"
 
         # Helper to clean text
@@ -418,8 +417,9 @@ Output JSON Array ONLY:
         # 3. Large Script Detection (e.g. 10,000 to 50,000+ characters)
         # Commercial LLM output token limits (8,192 tokens) can only safely produce ~40-60 scenes per response.
         # Scripts > 3,000 chars are split into coherent narrative chunks and processed in parallel.
-        if text_length > 3000:
-            chunks = self._chunk_text(cleaned_text, max_chars=2200)
+        if text_length > 3500:
+            target_chunk_size = 5500 if text_length > 12000 else 3500
+            chunks = self._chunk_text(cleaned_text, max_chars=target_chunk_size)
             if len(chunks) > 1:
                 logger.info(f"[CreativeEngine] Standard model [{full_model_name}] executing for large script ({text_length:,} chars, {len(chunks)} chunks).")
                 ordered_results = [None] * len(chunks)
@@ -473,7 +473,7 @@ Output JSON Array ONLY:
         Generates a visual prompt for a single scene using the dynamic model.
         """
         standard_model = getattr(self.llm_client.settings, "script_analysis_model", None)
-        target_model = standard_model or model or getattr(self.llm_client.settings, "default_llm_model", None) or "opencode/deepseek-v4-flash-free"
+        target_model = standard_model or model or getattr(self.llm_client.settings, "default_llm_model", None) or "auto"
         
         clean_style = style_context if style_context else "Contemporary cinematic film still, photographic fidelity"
         system_prompt = f"""You are an Elite Visual Director and Google Flow Prompt Specialist (Nano Banana Pro & Omni 1.1 Flash).
@@ -615,9 +615,8 @@ Output MUST be a valid JSON object:
         Dual-track AI script adaptation:
         - track == 'shorts': 50-second viral 3-act compressed adaptation (280-360 chars, hook + tension + climax/CTA)
         - track == 'longform': 100% original deep re-creation (1,200-2,500 chars, complete narrative rewrite preventing any copyright dispute)
-        Uses DB Settings (LLMClient) dynamically without hardcoding.
         """
-        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "youtube1"
+        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "auto"
 
         if track == "shorts":
             system_instruction = (
@@ -673,7 +672,7 @@ Output MUST be a valid JSON object:
         Extracts key recurring visual entities (characters, environments, props) from a script
         to ensure visual identity consistency across scenes in CreativeStudio (Flow AI).
         """
-        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "youtube1"
+        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "auto"
 
         system_instruction = (
             "You are a Lead Concept Artist and Character/Environment Reference Supervisor for cinematic AI production. "
@@ -714,7 +713,7 @@ Output MUST be a valid JSON object:
         hate speech, violence, medical/financial misinformation, and awkward pronunciation/flow.
         Returns a structured assessment with suggestions and an optional polished script.
         """
-        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "youtube1"
+        target_model = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "auto"
 
         system_instruction = (
             "You are a Senior YouTube Content Policy & Script Quality Compliance Auditor. "

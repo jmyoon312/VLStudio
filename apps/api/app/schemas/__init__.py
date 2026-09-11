@@ -358,10 +358,10 @@ class SettingsBase(BaseModel):
     # [NEW] OpenClaw Integration
     openclaw_preferred_provider: Optional[str] = None
     openclaw_model: Optional[str] = None
-    default_llm_model: Optional[str] = "gemini-2.0-flash-exp"
+    default_llm_model: Optional[str] = "omniroute/viraloop1"
 
     # [Phase 5: Sovereign Hermes Intelligence]
-    hermes_agent_provider: Optional[str] = "google"
+    hermes_agent_provider: Optional[str] = "omniroute"
     hermes_agent_model: Optional[str] = None
     hermes_wisdom_depth: Optional[int] = None
     hermes_reflection_verbosity: Optional[str] = None
@@ -376,6 +376,7 @@ class SettingsBase(BaseModel):
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     telegram_notify_enabled: Optional[bool] = False
+    telegram_events: Optional[Dict[str, bool]] = None
     cron_patrol_enabled: Optional[bool] = False
     cron_patrol_schedule: Optional[str] = "08:30,18:30"
     
@@ -698,6 +699,17 @@ class BrandChannelBase(BaseModel):
     reference_channel_id: Optional[int] = None
     style_signature: Optional[Dict[str, Any]] = None
     last_dna_sync: Optional[datetime] = None
+    
+    # [NEW] 3-Tier Sovereign Factory: Director & Combo Model Slots
+    assigned_combo_model: Optional[str] = "omniroute/viraloop1"
+    director_state: Optional[str] = "IDLE"
+    daily_target_count: Optional[int] = 2
+    published_today_count: Optional[int] = 0
+    director_heartbeat: Optional[datetime] = None
+    last_director_cycle: Optional[datetime] = None
+    autonomy_level: Optional[str] = "LEVEL_2"
+    auto_publish_threshold: Optional[int] = 90
+    primary_workflow_mode: Optional[str] = "keyword_only" 
 
 class BrandChannelCreate(BrandChannelBase):
     access_token: str
@@ -718,6 +730,15 @@ class BrandChannelUpdate(BaseModel):
     reference_channel_id: Optional[int] = None
     style_signature: Optional[Dict[str, Any]] = None
     last_dna_sync: Optional[datetime] = None
+    
+    # [NEW] 3-Tier Sovereign Factory: Director & Combo Model Slots
+    assigned_combo_model: Optional[str] = None
+    director_state: Optional[str] = None
+    daily_target_count: Optional[int] = None
+    published_today_count: Optional[int] = None
+    autonomy_level: Optional[str] = None
+    auto_publish_threshold: Optional[int] = None
+    primary_workflow_mode: Optional[str] = None
 
 class BrandChannel(BrandChannelBase):
     id: int

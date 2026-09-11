@@ -64,9 +64,9 @@ async def get_bridge_ai_config(db: Session = Depends(get_db)):
         return {
             "_version": "v_fix_json_parse (Fallback)",
             "providers": {
-                "openai": {"apiKey": os.getenv("OPENAI_API_KEY"), "model": "gpt-4o"},
-                "groq": {"apiKey": os.getenv("GROQ_API_KEY"), "model": "llama3-70b-8192"},
-                "gemini": {"apiKey": os.getenv("GOOGLE_API_KEY"), "model": "gemini-1.5-pro"}
+                "openai": {"apiKey": os.getenv("OPENAI_API_KEY"), "model": "viraloop1"},
+                "groq": {"apiKey": os.getenv("GROQ_API_KEY"), "model": "viraloop1"},
+                "gemini": {"apiKey": os.getenv("GOOGLE_API_KEY"), "model": "viraloop1"}
             },
             "search": {
                 "engine": "tavily",  # Default fallback
@@ -90,9 +90,6 @@ async def get_bridge_ai_config(db: Session = Depends(get_db)):
     sambanova_key = resolve_key_priority(settings.sambanova_api_keys, None, "SAMBANOVA_API_KEY")
     cerebras_key = resolve_key_priority(settings.cerebras_api_keys, None, "CEREBRAS_API_KEY")
     openrouter_key = resolve_key_priority(settings.elevenlabs_api_keys, settings.openrouter_api_key, "OPENROUTER_API_KEY") # Wait, openrouter list?
-    # Correcting OpenRouter: Model doesn't have openrouter_api_keys list? 
-    # Checking models.py... it uses 'openrouter_api_key' legacy string.
-    # But I want to support rotation if future proofing. For now, assume single.
     openrouter_key_final = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY")
     
     # OpenAI is legacy in DB, sometimes just a string column or env
@@ -100,36 +97,38 @@ async def get_bridge_ai_config(db: Session = Depends(get_db)):
 
     print("\n\n[BRIDGE] LOADED V2 - FORCE RELOAD SUCCESSFUL\n\n")
 
+    default_model_resolved = getattr(settings, "default_llm_model", None) or getattr(settings, "script_analysis_model", None) or "viraloop1"
+
     return {
         "_version": "v2_RELOADED_JSON_FIX_APPLIED",
         "hermes_preferred": {
-            "provider": settings.hermes_agent_provider or "google",
-            "model": settings.hermes_agent_model or "gemini-2.0-flash"
+            "provider": settings.hermes_agent_provider or "omniroute",
+            "model": settings.hermes_agent_model or default_model_resolved
         },
         "providers": {
             "openai": {
                 "apiKey": openai_key,
-                "model": settings.default_model or "gpt-4o"
+                "model": settings.default_model or default_model_resolved
             },
             "groq": {
                 "apiKey": groq_key,
-                "model": "llama3-70b-8192" 
+                "model": default_model_resolved 
             },
             "gemini": {
                 "apiKey": gemini_key,
-                "model": "gemini-1.5-pro"
+                "model": settings.script_analysis_model or default_model_resolved
             },
             "sambanova": {
                 "apiKey": sambanova_key,
-                "model": "Meta-Llama-3.1-405B-Instruct" 
+                "model": default_model_resolved 
             },
             "cerebras": {
                 "apiKey": cerebras_key,
-                "model": "llama3.1-70b" 
+                "model": default_model_resolved 
             },
             "openrouter": {
                 "apiKey": openrouter_key_final,
-                "model": "auto" 
+                "model": default_model_resolved 
             }
         },
         "search": {
@@ -138,16 +137,16 @@ async def get_bridge_ai_config(db: Session = Depends(get_db)):
             "apiKey": tavily_key # Only needed if engine is tavily
         },
         "paperclip": {
-            "provider": settings.paperclip_provider or "google",
-            "model": settings.paperclip_model or "gemini-2.0-flash"
+            "provider": settings.paperclip_provider or "omniroute",
+            "model": settings.paperclip_model or default_model_resolved
         },
         "openclaude": {
-            "provider": settings.openclaude_provider or "google",
-            "model": settings.openclaude_model or "gemini-2.0-flash"
+            "provider": settings.openclaude_provider or "omniroute",
+            "model": settings.openclaude_model or default_model_resolved
         },
         "openclaw": {
-            "provider": settings.openclaw_preferred_provider or "google",
-            "model": settings.openclaw_model or "gemini-2.0-flash"
+            "provider": settings.openclaw_preferred_provider or "omniroute",
+            "model": settings.openclaw_model or default_model_resolved
         }
     }
 

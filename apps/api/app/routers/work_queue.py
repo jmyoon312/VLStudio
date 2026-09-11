@@ -150,6 +150,7 @@ class WorkQueueItemCreate(BaseModel):
     scheduled_upload_time: Optional[datetime] = None
     enable_shopping_tag: bool = False
     shopping_tag_keyword: Optional[str] = None
+    render_engine: Optional[str] = "REMOTION"  # REMOTION | CAPCUT
 
 
 class WorkQueueItemUpdate(BaseModel):
@@ -165,6 +166,7 @@ class WorkQueueItemUpdate(BaseModel):
     platform_configs: Optional[dict] = None
     enable_shopping_tag: Optional[bool] = None
     shopping_tag_keyword: Optional[str] = None
+    render_engine: Optional[str] = None
     status: Optional[str] = None
     scheduled_upload_time: Optional[datetime] = None
 
@@ -176,6 +178,7 @@ class WorkQueueItemResponse(BaseModel):
     hashtags: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     video_file_path: Optional[str] = None
+    render_engine: Optional[str] = "REMOTION"
     # Source & Quality
     source_type: Optional[str] = None
     source_batch_id: Optional[str] = None

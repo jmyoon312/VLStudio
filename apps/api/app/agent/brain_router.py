@@ -65,28 +65,20 @@ class PluggableBrainRouter:
         if not settings:
             # Fallback to env-based initialization
             logger.info("Initializing env-based fallback for brain router")
-            if brain_id == "openclaude":
-                return self._create_langchain_model("anthropic", "claude-3-5-sonnet-20240620", None)
-            elif brain_id == "gpt4o":
-                return self._create_langchain_model("openai", "gpt-4o", None)
-            elif brain_id == "hermes":
-                return self._create_langchain_model("ollama", "hermes-v3", None)
-            elif brain_id == "openhands":
-                return self._create_langchain_model("anthropic", "claude-3-5-sonnet-20240620", None)
-            return None
+            return self._create_langchain_model("omniroute", "viraloop1", None)
 
         # Resolve provider and model based on active brain ID
         default_sys_model = getattr(settings, "script_analysis_model", None) or getattr(settings, "default_llm_model", None) or "viraloop1"
         default_sys_provider = "omniroute"
-        if "/" in default_sys_model and not (default_sys_model.startswith("viraloop") or default_sys_model.startswith("youtube")):
+        if "/" in default_sys_model:
             default_sys_provider = default_sys_model.split("/")[0]
 
         if brain_id == "openclaude":
             provider = settings.openclaude_provider or default_sys_provider
             model_name = settings.openclaude_model or default_sys_model
         elif brain_id == "gpt4o":
-            provider = "openai"
-            model_name = "gpt-4o"
+            provider = default_sys_provider
+            model_name = default_sys_model
         elif brain_id == "hermes":
             provider = settings.hermes_agent_provider or default_sys_provider
             model_name = settings.hermes_agent_model or default_sys_model
@@ -154,8 +146,9 @@ class PluggableBrainRouter:
                 if clean_model.startswith("openrouter/"):
                     clean_model = clean_model.replace("openrouter/", "", 1)
                 
+                effective_model = clean_model if clean_model.lower() != "free" else (getattr(settings, "default_llm_model", None) or "auto")
                 return ChatOpenAI(
-                    model=clean_model if clean_model.lower() != "free" else "google/gemini-2.0-flash-lite-preview-02-05:free",
+                    model=effective_model,
                     openai_api_key=api_key,
                     openai_api_base="https://openrouter.ai/api/v1",
                     default_headers={
@@ -244,7 +237,7 @@ class PluggableBrainRouter:
                     temperature=0.7
                 )
 
-            elif provider in ["omniroute", "local", "youtube1", "viraloop1"] or model_name.startswith("viraloop") or model_name.startswith("youtube"):
+            elif provider in ["omniroute", "local", "youtube1", "9router"] or model_name.startswith(("omniroute/", "youtube1/", "9router/")):
                 omniroute_url = getattr(settings, "omniroute_api_base_url", "http://127.0.0.1:20128/v1") if settings else "http://127.0.0.1:20128/v1"
                 clean_url = str(omniroute_url).strip().rstrip("/")
                 v1_url = clean_url if clean_url.endswith("/v1") else f"{clean_url}/v1"
@@ -259,8 +252,12 @@ class PluggableBrainRouter:
                         if os.path.exists(sqlite_path):
                             with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
                                 s_cur = s_conn.cursor()
-                                s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
-                                row = s_cur.fetchone()
+                                try:
+                                    s_cur.execute("SELECT key FROM api_keys WHERE key LIKE 'sk-%' AND (is_active IS NULL OR is_active = 1) ORDER BY created_at DESC LIMIT 1")
+                                    row = s_cur.fetchone()
+                                except Exception:
+                                    s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
+                                    row = s_cur.fetchone()
                                 if row and row[0]:
                                     omni_key = row[0]
                     except Exception as e:
@@ -290,8 +287,12 @@ class PluggableBrainRouter:
                         if os.path.exists(sqlite_path):
                             with sqlite3.connect(sqlite_path, timeout=1.0) as s_conn:
                                 s_cur = s_conn.cursor()
-                                s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
-                                row = s_cur.fetchone()
+                                try:
+                                    s_cur.execute("SELECT key FROM api_keys WHERE key LIKE 'sk-%' AND (is_active IS NULL OR is_active = 1) ORDER BY created_at DESC LIMIT 1")
+                                    row = s_cur.fetchone()
+                                except Exception:
+                                    s_cur.execute("SELECT api_key FROM api_keys WHERE api_key LIKE 'sk-%' LIMIT 1")
+                                    row = s_cur.fetchone()
                                 if row and row[0]:
                                     omni_key = row[0]
                     except Exception as e:

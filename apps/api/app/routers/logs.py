@@ -15,6 +15,7 @@ import logging
 # Correct: dirname x3 from this file => apps/api/
 API_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LOG_FILE = os.path.join(API_DIR, "scan_debug.log")
+SERVER_LOG_FILE = os.path.join(API_DIR, "api_server.log")
 
 @router.get("/scheduler")
 async def get_scheduler_logs(lines: int = 100):
@@ -53,6 +54,41 @@ async def clear_scheduler_logs():
         return {"status": "success", "message": "Logs cleared"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to clear logs: {str(e)}")
+
+@router.get("/server")
+async def get_server_logs(lines: int = 100):
+    """
+    Reads the last N lines of the backend server log file.
+    Returns them in reverse order (newest first).
+    """
+    if not os.path.exists(SERVER_LOG_FILE):
+        try:
+            from datetime import datetime
+            with open(SERVER_LOG_FILE, "w", encoding="utf-8") as f:
+                f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]} - INFO - [app.server] Server log initialized.\n")
+        except:
+            return {"logs": ["No server logs generated yet."]}
+        
+    try:
+        with open(SERVER_LOG_FILE, "r", encoding="utf-8") as f:
+            all_lines = f.readlines()
+            last_lines = all_lines[-lines:]
+            last_lines.reverse()
+            return {"logs": [line.strip() for line in last_lines if line.strip()]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read server logs: {str(e)}")
+
+@router.delete("/server")
+async def clear_server_logs():
+    """
+    Clears the content of the server log file.
+    """
+    try:
+        with open(SERVER_LOG_FILE, "w", encoding="utf-8") as f:
+            f.write("")
+        return {"status": "success", "message": "Server logs cleared"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear server logs: {str(e)}")
 
 async def full_scan_sequence():
     """

@@ -44,7 +44,7 @@ def analyze_virality(req: ViralityRequest, db: Session = Depends(database.get_db
     """
     
     try:
-        response = client.generate_content(prompt, model_name="gemini-2.0-flash-exp")
+        response = client.generate_content(prompt)
         # Clean JSON
         clean_json = response.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
@@ -88,7 +88,7 @@ def generate_seo(req: SeoRequest, db: Session = Depends(database.get_db)):
     """
     
     try:
-        response = client.generate_content(prompt, model_name="gemini-2.0-flash-exp")
+        response = client.generate_content(prompt)
         clean_json = response.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
     except Exception as e:

@@ -24,24 +24,42 @@ TOKEN_TTL_HOURS = 24 * 30  # 30일 — PWA 운영 편의
 
 _JWT_SECRET = os.getenv("JWT_SECRET")
 if not _JWT_SECRET:
-    # .env 파일에서 직접 읽기 — uvicorn이 .env를 환경변수로 안 불러와도 동작
-    # (이게 없어서 restart마다 랜덤 시크릿 → 전원 로그아웃 버그였음)
+    # Check multiple candidate .env paths
     try:
         import os.path as _op
-        _env = _op.join(_op.dirname(_op.dirname(os.path.abspath(__file__))), ".env")
-        if _op.exists(_env):
-            with open(_env, encoding="utf-8") as _f:
-                for _line in _f:
-                    if _line.startswith("JWT_SECRET="):
-                        _JWT_SECRET = _line.split("=", 1)[1].strip()
-                        break
+        candidate_envs = [
+            _op.join(_op.dirname(_op.dirname(os.path.abspath(__file__))), ".env"),
+            _op.join(_op.dirname(_op.dirname(_op.dirname(os.path.abspath(__file__)))), ".env"),
+            _op.join(os.path.expanduser("~"), ".viraloop_jwt_secret"),
+        ]
+        for _env in candidate_envs:
+            if _op.exists(_env):
+                with open(_env, encoding="utf-8") as _f:
+                    for _line in _f:
+                        if _line.startswith("JWT_SECRET="):
+                            _JWT_SECRET = _line.split("=", 1)[1].strip()
+                            break
+                        elif not _line.startswith("#") and len(_line.strip()) >= 32:
+                            _JWT_SECRET = _line.strip()
+                            break
+            if _JWT_SECRET:
+                break
     except Exception:
         pass
+
 if not _JWT_SECRET:
-    _JWT_SECRET = secrets.token_urlsafe(64)
-    print("⚠️  JWT_SECRET 못 찾음 — 랜덤 시크릿 (restart마다 로그아웃됨). .env에 JWT_SECRET 넣으세요.")
-else:
-    print("🔐 JWT_SECRET 로드됨 (로그인 유지)", flush=True)
+    # Persist permanent key so restarts never invalidate user login
+    try:
+        secret_file = os.path.join(os.path.expanduser("~"), ".viraloop_jwt_secret")
+        if os.path.exists(secret_file):
+            with open(secret_file, "r", encoding="utf-8") as f:
+                _JWT_SECRET = f.read().strip()
+        if not _JWT_SECRET:
+            _JWT_SECRET = secrets.token_urlsafe(64)
+            with open(secret_file, "w", encoding="utf-8") as f:
+                f.write(f"JWT_SECRET={_JWT_SECRET}\n")
+    except Exception:
+        _JWT_SECRET = "viraloop-studio-permanent-sovereign-jwt-secret-key-2026"
 
 
 # ===== Password hashing =====

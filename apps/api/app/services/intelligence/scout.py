@@ -27,7 +27,7 @@ class OracleScout:
         model_name = getattr(self.settings, "openclaw_model", None) or \
                      getattr(self.settings, "hermes_agent_model", None) or \
                      getattr(self.settings, "script_analysis_model", None) or \
-                     getattr(self.settings, "default_model", "google/gemini-2.0-flash")
+                     getattr(self.settings, "default_llm_model", "viraloop1")
         
         provider = getattr(self.settings, "openclaw_preferred_provider", "auto")
         

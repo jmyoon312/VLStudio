@@ -36,6 +36,134 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 from . import database as db
 from . import auth
 
+def sanitize_filename(filename: str, fallback: str = "upload.mp4") -> str:
+    """Windows/Linux 안전 파일명 변환.
+    특수문자(?, *, :, <, >, |, ", /, \ 및 제어문자) 치환 및 안전화."""
+    if not filename:
+        return fallback
+    name = Path(filename).name
+    clean = re.sub(r'[\\/*?:"<>|\x00-\x1f]', '_', name)
+    clean = clean.strip(". ")
+    if not clean:
+        clean = fallback
+    return clean
+
+def resolve_actual_video_path(filename_or_title: str, url_str: str = "", display_title: str = "") -> str:
+    """스트리밍 URL, 웹 URL 파라미터, DB 검색 및 미디어 저장소 실시간 탐색을 통해 실제 로컬 동영상 파일 경로를 찾아 반환."""
+    import urllib.parse
+    import sqlite3
+    
+    # 1. URL이 로컬 스트리밍 URL인 경우 (path 파라미터 디코딩)
+    if url_str:
+        if "path=" in url_str:
+            try:
+                parsed = urllib.parse.urlparse(url_str)
+                qs = urllib.parse.parse_qs(parsed.query)
+                if "path" in qs:
+                    p = qs["path"][0]
+                    if os.path.exists(p) and os.path.getsize(p) > 1000:
+                        return p
+            except Exception:
+                pass
+        # URL 자체가 로컬 파일 경로인 경우
+        if os.path.exists(url_str) and os.path.getsize(url_str) > 1000:
+            return url_str
+
+    clean_file_name = Path(filename_or_title).name
+    clean_stem = Path(filename_or_title).stem
+
+    # 2. viral_loop.db의 videos 테이블에서 file_path, video_id, title로 다각도 검색
+    local_app_data = os.environ.get("LOCALAPPDATA", os.path.join(os.path.expanduser("~"), "AppData", "Local"))
+    db_path = os.path.join(local_app_data, "ViraLoop Studio", "viral_loop.db")
+    if os.path.exists(db_path):
+        try:
+            with sqlite3.connect(db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                c = conn.cursor()
+                
+                # 1) file_path 컬럼에 파일명 일치 검색 (가장 정확한 1순위)
+                rows = c.execute("SELECT file_path FROM videos WHERE file_path LIKE ? ORDER BY id DESC LIMIT 5",
+                                 (f"%{clean_file_name}%",)).fetchall()
+                for r in rows:
+                    fp = r["file_path"]
+                    if fp and os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                        return fp
+
+                # 2) video_id 매칭 (예: 20260904_tfMMz_MKaMw -> tfMMz_MKaMw)
+                vid_cand = clean_stem.split('_')[-1] if '_' in clean_stem else clean_stem
+                if vid_cand and len(vid_cand) >= 5:
+                    rows = c.execute("SELECT file_path FROM videos WHERE video_id = ? OR file_path LIKE ? ORDER BY id DESC LIMIT 5",
+                                     (vid_cand, f"%{vid_cand}%")).fetchall()
+                    for r in rows:
+                        fp = r["file_path"]
+                        if fp and os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                            return fp
+
+                # 3) display_title 또는 title 매칭
+                titles_to_check = [t for t in [display_title, clean_stem] if t]
+                for t_val in titles_to_check:
+                    rows = c.execute("SELECT file_path FROM videos WHERE title = ? OR title LIKE ? ORDER BY id DESC LIMIT 5",
+                                     (t_val, f"%{t_val[:10]}%")).fetchall()
+                    for r in rows:
+                        fp = r["file_path"]
+                        if fp and os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                            return fp
+
+                # 4) url_str 매칭
+                if url_str:
+                    rows = c.execute("SELECT file_path FROM videos WHERE url = ? ORDER BY id DESC LIMIT 1", (url_str,)).fetchall()
+                    for r in rows:
+                        fp = r["file_path"]
+                        if fp and os.path.exists(fp) and os.path.getsize(fp) > 1000:
+                            return fp
+        except Exception:
+            pass
+
+    # 3. 로컬 ViraLoop Studio media 디렉토리 직접 탐색 (보관함 실시간 복원)
+    media_dir = Path(local_app_data) / "ViraLoop Studio" / "media"
+    if media_dir.exists():
+        try:
+            for p in media_dir.rglob(f"*{clean_file_name}*"):
+                if p.is_file() and p.stat().st_size > 1000:
+                    return str(p)
+        except Exception:
+            pass
+
+    # 4. 05_Exports 디렉토리 직접 탐색
+    exports_dir = Path("05_Exports")
+    if exports_dir.exists():
+        try:
+            for p in exports_dir.rglob(f"*{clean_file_name}*"):
+                if p.is_file() and p.stat().st_size > 1000:
+                    return str(p.resolve())
+        except Exception:
+            pass
+
+    return ""
+
+
+
+def download_web_video_sync(url: str, output_path: Path) -> bool:
+    """yt-dlp를 사용하여 웹 영상을 지정 경로로 다운로드."""
+    import subprocess
+    import shutil
+    ytdlp = shutil.which("yt-dlp") or "yt-dlp"
+    try:
+        cmd = [
+            ytdlp,
+            "-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "--merge-output-format", "mp4",
+            "-o", str(output_path),
+            "--no-playlist",
+            url
+        ]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        return output_path.exists() and output_path.stat().st_size > 1000
+    except Exception as e:
+        print(f"yt-dlp download failed: {e}", flush=True)
+        return False
+
+
 # ── [Global Settings Sync] ──
 def _sync_global_settings():
     """Syncs AI settings from the main VLStudio SQLite database to os.environ so legacy workers can use them."""
@@ -5152,6 +5280,8 @@ SUBTITLES_DIR.mkdir(parents=True, exist_ok=True)
 async def subtitle_upload(
     background_tasks: BackgroundTasks,
     video: UploadFile = File(...),
+    video_path: str = Form(default=""),
+    display_title: str = Form(default=""),
     original_urls: str = Form(default=""),  # \n 또는 , 구분
     style: str = Form(default="shorts"),  # shorts / emotion / humor / mystery / knowledge / drama / custom
     target_lang: str = Form(default="ko"),
@@ -5169,24 +5299,56 @@ async def subtitle_upload(
             if u and (u.startswith("http://") or u.startswith("https://")):
                 urls.append(u)
 
-    # 영상 파일 저장
-    safe_name = Path(video.filename or "upload.mp4").name
+    # 1. 파일명 및 표시 제목 결정 (물리 파일명과 사용자 표시용 제목 1:1 분리 매칭)
+    if video_path and os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+        safe_name = sanitize_filename(Path(video_path).name)
+    else:
+        safe_name = sanitize_filename(video.filename or "upload.mp4")
+
+    # DB에는 사용자가 알아보기 편한 display_title 또는 물리 파일명 등록
+    job_display_name = display_title.strip() or safe_name
     job_id = db.insert_subtitle_job(
-        video_filename=safe_name, video_path="",
+        video_filename=job_display_name, video_path="",
         original_urls=urls, user_id=current.get("id"),
         tts_config=tts_config
     )
     save_path = SUBTITLES_DIR / f"job_{job_id}" / safe_name
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    data = await video.read()
-    save_path.write_bytes(data)
+
+    # 2. 실제 비디오 파일 연결 (1순위: 프론트가 직접 넘겨준 실제 로컬 경로 1:1 직결, 0ms)
+    if video_path and os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+        import shutil
+        shutil.copy2(video_path, str(save_path))
+        print(f"📦 [자막생성] 실제 파일 경로 1:1 직결 매칭 성공: {video_path} -> {save_path}", flush=True)
+    else:
+        data = await video.read()
+        if len(data) > 0:
+            save_path.write_bytes(data)
+        else:
+            # 보조 fallback 복원
+            restored = False
+            target_url = urls[0] if urls else ""
+            real_path = resolve_actual_video_path(safe_name, target_url or original_urls)
+            if real_path and os.path.exists(real_path):
+                import shutil
+                shutil.copy2(real_path, str(save_path))
+                print(f"📦 [자막생성] 로컬 동영상 파일 자동 복원 연결 성공: {real_path} -> {save_path}", flush=True)
+                restored = True
+            elif target_url and (target_url.startswith("http://") or target_url.startswith("https://")):
+                print(f"🌐 [자막생성] 웹 URL 영상 yt-dlp 다운로드 시도: {target_url}", flush=True)
+                restored = download_web_video_sync(target_url, save_path)
+            
+            if not restored or not save_path.exists() or save_path.stat().st_size == 0:
+                raise HTTPException(400, "동영상 파일 내용이 비어 있으며(0 bytes), 로컬 또는 웹 영상을 찾을 수 없습니다.")
+
     db.update_subtitle_job(job_id, video_path=str(save_path),
                             style=style, target_lang=target_lang, progress_message="업로드 받음")
 
-    # 백그라운드에서 5중 분석 + srt 생성 (style + 노래제목 + target_lang 적용)
+    # 백그라운드에서 5중 분석 + srt 생성 (style + 노래제목/표시제목 + target_lang 적용)
     from workers.auto_subtitle import run_auto_subtitle
+    effective_song_title = song_title or display_title or ""
     background_tasks.add_task(
-        run_auto_subtitle, job_id, save_path, urls, None, style, song_title, custom_prompt or None, target_lang
+        run_auto_subtitle, job_id, save_path, urls, None, style, effective_song_title, custom_prompt or None, target_lang
     )
     return {"job_id": job_id, "status": "pending",
             "message": "분석 시작. /api/subtitle/{job_id}/status로 진행률 확인"}
@@ -5229,7 +5391,7 @@ async def subtitle_upload_chunk(
             u = u.strip()
             if u and (u.startswith("http://") or u.startswith("https://")):
                 urls.append(u)
-    safe_name = Path(filename or "upload.mp4").name
+    safe_name = sanitize_filename(filename or "upload.mp4")
     job_id = db.insert_subtitle_job(
         video_filename=safe_name, video_path="",
         original_urls=urls, user_id=current.get("id"),
@@ -6143,7 +6305,7 @@ async def japanese_upload(
     JAPANESE_DIR.mkdir(parents=True, exist_ok=True)
 
     # 영상 저장
-    safe_name = file.filename.replace("/", "_").replace("\\", "_")
+    safe_name = sanitize_filename(file.filename or "upload.mp4")
     job_id = db.insert_japanese_multiuse_job(
         video_filename=safe_name,
         video_path="",  # 박은 후 갱신
@@ -6514,7 +6676,8 @@ class AudioSubSaveRequest(BaseModel):
 @app.post("/audio-subtitle/upload")
 async def audio_sub_upload(file: UploadFile = File(...),
                            current=Depends(auth.require_feature("subtitle"))):
-    job_id = db.insert_audio_subtitle_job(file.filename or "audio.mp3", "", 0, current["id"])
+    safe_audio_name = sanitize_filename(file.filename or "audio.mp3", "audio.mp3")
+    job_id = db.insert_audio_subtitle_job(safe_audio_name, "", 0, current["id"])
     jdir = AUDIO_SUB_DIR / f"job_{job_id}"
     jdir.mkdir(parents=True, exist_ok=True)
     ext = ((file.filename or "audio.mp3").rsplit(".", 1)[-1] or "mp3").lower()[:5]
@@ -6602,23 +6765,41 @@ TTS_DUB_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @app.post("/tts-dub/upload")
-async def tts_dub_upload(file: UploadFile = File(...),
-                         voice_id: str = Form(default=""),
-                         make_tts: str = Form(default="1"),
-                         tts_config: str = Form(default=""),
-                         current=Depends(auth.require_feature("subtitle"))):
-    job_id = db.insert_tts_dub_job(file.filename or "video.mp4", "",
+async def tts_dub_upload(
+    file: UploadFile = File(...),
+    video_path: str = Form(default=""),
+    display_title: str = Form(default=""),
+    voice_id: str = Form(default=""),
+    make_tts: str = Form(default="1"),
+    tts_config: str = Form(default=""),
+    current=Depends(auth.require_feature("subtitle")),
+):
+    job_display_name = display_title.strip() or file.filename or "video.mp4"
+    job_id = db.insert_tts_dub_job(job_display_name, "",
                                    current["id"], voice_id.strip() or None, tts_config)
     jdir = TTS_DUB_DIR / f"job_{job_id}"
     jdir.mkdir(parents=True, exist_ok=True)
     ext = ((file.filename or "video.mp4").rsplit(".", 1)[-1] or "mp4").lower()[:5]
     vpath = jdir / f"input.{ext}"
-    with open(vpath, "wb") as f:
-        _bb_shutil.copyfileobj(file.file, f)
+
+    if video_path and os.path.exists(video_path) and os.path.getsize(video_path) > 0:
+        import shutil
+        shutil.copy2(video_path, str(vpath))
+        print(f"📦 [더빙] 실제 파일 경로 1:1 직결 매칭 성공: {video_path} -> {vpath}", flush=True)
+    else:
+        with open(vpath, "wb") as f:
+            _bb_shutil.copyfileobj(file.file, f)
+        if not vpath.exists() or vpath.stat().st_size == 0:
+            real_path = resolve_actual_video_path(file.filename or "", "")
+            if real_path and os.path.exists(real_path):
+                import shutil
+                shutil.copy2(real_path, str(vpath))
+                print(f"📦 [더빙] 로컬 동영상 파일 자동 복원 연결 성공: {real_path} -> {vpath}", flush=True)
+
     db.update_tts_dub_job(job_id, video_path=str(vpath))
     from workers.tts_dub import run_tts_dub
     asyncio.create_task(run_tts_dub(job_id, make_tts != "0"))
-    return {"id": job_id, "filename": file.filename}
+    return {"id": job_id, "filename": job_display_name}
 
 
 @app.get("/tts-dub/list")
@@ -6990,7 +7171,7 @@ async def shorts_upload(
     ptype = (type or "highlight").strip().lower()
     if ptype not in ("highlight", "drama", "movie", "anime", "folktale"):
         ptype = "highlight"
-    safe_name = Path(video.filename or "upload.mp4").name
+    safe_name = sanitize_filename(video.filename or "upload.mp4")
     nm = (name or "").strip() or Path(safe_name).stem[:60] \
         or f"job_{datetime.now().strftime('%m%d_%H%M%S')}"
     # 업로드 영상 저장 — 외장 SSD uploads(대용량 대비), 없으면 data/uploads 폴백.
@@ -7055,7 +7236,7 @@ async def shorts_upload_chunk(
     ptype = (type or "highlight").strip().lower()
     if ptype not in ("highlight", "drama", "movie", "anime", "folktale"):
         ptype = "highlight"
-    safe_name = Path(filename or "upload.mp4").name
+    safe_name = sanitize_filename(filename or "upload.mp4")
     nm = (name or "").strip() or Path(safe_name).stem[:60] \
         or f"job_{datetime.now().strftime('%m%d_%H%M%S')}"
     save_path = up_dir / f"shorts_{datetime.now().strftime('%m%d_%H%M%S')}_{safe_name}"

@@ -8,7 +8,7 @@ class Stylist:
     def __init__(self, llm_client):
         self.llm_client = llm_client
 
-    def analyze_style(self, image_data: bytes, provider: str = "google", model: str = "gemini-2.0-flash-exp") -> dict:
+    def analyze_style(self, image_data: bytes, provider: str = None, model: str = None) -> dict:
         """
         Analyzes an image to extract artistic style prompts for consistent image generation.
         """
@@ -19,7 +19,7 @@ class Stylist:
             Output ONLY JSON: { "style_prompt": "...", "negative_prompt": "..." }
             """
             
-            full_model_name = self._resolve_model(provider, model)
+            full_model_name = model or getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "viraloop1"
             response = self.llm_client.generate_content(
                 prompt=prompt,
                 model_name=full_model_name,

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request, UploadFile, File, Form
 import shutil
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime
 from .. import crud, schemas, database, models
@@ -24,13 +24,23 @@ class DownloadRequest(BaseModel):
     headless: bool = True # New Field, default True
     script_only: bool = False # [NEW]
     profile_id: Optional[str] = None
+    download_mp4: bool = True
+    download_mp3: bool = True
+    download_srt: bool = True
 
 class BatchDownloadRequest(BaseModel):
     urls: List[str]
     category_id: Optional[int] = None
+    download_mp4: bool = True
+    download_mp3: bool = True
+    download_srt: bool = True
 
-    urls: List[str]
-    category_id: Optional[int] = None
+class ExtractLocalMediaRequest(BaseModel):
+    file_path: str
+    extract_mp3: bool = True
+    extract_srt: bool = True
+    language: Optional[str] = None
+    whisper_model: Optional[str] = "base"
 
 @router.post("/upload_studio")
 def upload_studio_file(
@@ -440,12 +450,201 @@ def download_video(download_req: DownloadRequest, background_tasks: BackgroundTa
     except Exception as e:
         print(f"[FAIL] Failed to save video to DB: {e}")
 
+    # [NEW] Post-Download Extraction Pipeline (MP3 & SRT)
+    mp3_file = None
+    srt_file = None
+    download_mp4 = getattr(download_req, 'download_mp4', True)
+    download_mp3 = getattr(download_req, 'download_mp3', True)
+    download_srt = getattr(download_req, 'download_srt', True)
+
+    from app.services.video_cutter import extract_mp3_streaming, extract_or_transcribe_srt
+
+    # 1. MP3 Extraction via streaming demuxing (low memory, 2GB+ support)
+    if download_mp3 and video_file and os.path.exists(video_file):
+        try:
+            mp3_file = extract_mp3_streaming(video_file)
+            print(f"[EXTRACT] MP3 extracted: {mp3_file}")
+        except Exception as e:
+            print(f"[WARN] Failed to extract MP3: {e}")
+
+    # 2. SRT Subtitle Extraction (Platform subtitles or Faster-Whisper AI)
+    if download_srt and video_file and os.path.exists(video_file):
+        try:
+            settings_obj = crud.get_settings(db)
+            model_path = settings_obj.whisper_model_path if settings_obj else None
+            srt_file = extract_or_transcribe_srt(
+                video_path=video_file,
+                mp3_path=mp3_file,
+                whisper_model="base",
+                whisper_model_path=model_path
+            )
+            print(f"[EXTRACT] SRT subtitle ready: {srt_file}")
+        except Exception as e:
+            print(f"[WARN] Failed to extract/transcribe SRT: {e}")
+
+    # 3. If user explicitly did NOT want MP4 (only MP3 or SRT), remove MP4 to save disk
+    if not download_mp4 and video_file and os.path.exists(video_file) and (mp3_file or srt_file):
+        try:
+            os.remove(video_file)
+            print(f"[CLEANUP] Deleted MP4 video file as requested (kept MP3/SRT): {video_file}")
+            video_file = mp3_file or srt_file
+        except Exception as e:
+            print(f"[WARN] Failed to delete MP4: {e}")
+
     return {
         "status": "success",
         "message": "Download completed",
         "file_path": video_file,
+        "mp3_path": mp3_file,
+        "srt_path": srt_file,
         "video": video
     }
+
+import uuid
+import time
+import threading
+
+extraction_tasks: Dict[str, Dict[str, Any]] = {}
+
+def format_sec(sec: float) -> str:
+    s = max(0, int(sec))
+    return f"{s // 3600:02d}:{(s % 3600) // 60:02d}:{s % 60:02d}"
+
+def _run_extract_task_worker(task_id: str, file_path: str, extract_mp3: bool, extract_srt: bool, language: Optional[str], model_path: Optional[str], whisper_model: str = "base"):
+    from app.services.video_cutter import extract_mp3_streaming, extract_or_transcribe_srt, get_media_duration
+    task = extraction_tasks.get(task_id)
+    if not task:
+        return
+
+    try:
+        total_duration = get_media_duration(file_path)
+        dur_str = format_sec(total_duration)
+        task["total_duration"] = total_duration
+
+        mp3_path = None
+        srt_path = None
+        total_steps = (1 if extract_mp3 else 0) + (1 if extract_srt else 0)
+        current_step = 1
+
+        # 1. MP3 Extraction
+        if extract_mp3:
+            task["stage"] = "mp3"
+            task["stage_step"] = current_step
+            task["stage_total_steps"] = total_steps
+            task["stage_name"] = f"[{current_step}/{total_steps}] MP3 오디오 초고속 추출 중"
+            task["detail"] = f"00:00:00 / {dur_str} (0.0%) • 초고속 멀티스레드 가동"
+            task["progress"] = 0.0
+
+            def mp3_progress(pct, cur_sec, tot_sec, speed_str):
+                c_str = format_sec(cur_sec)
+                t_str = format_sec(tot_sec)
+                task["progress"] = min(100.0, round(pct, 1))
+                task["detail"] = f"{c_str} / {t_str} ({pct:.1f}%) • 변환 속도 {speed_str}"
+
+            mp3_path = extract_mp3_streaming(file_path, progress_callback=mp3_progress)
+            task["mp3_path"] = mp3_path
+            task["progress"] = 100.0
+            current_step += 1
+
+        # 2. SRT Extraction
+        if extract_srt:
+            task["stage"] = "srt"
+            task["stage_step"] = current_step
+            task["stage_total_steps"] = total_steps
+            task["stage_name"] = f"[{current_step}/{total_steps}] Faster-Whisper AI 자막 음성 인식 중 ({whisper_model.upper()})"
+            task["detail"] = f"00:00:00 / {dur_str} (0.0%) • CUDA GPU Turbo AI 가속 초기화"
+            task["progress"] = 0.0
+
+            def srt_progress(pct, cur_sec, tot_sec, seg_idx):
+                c_str = format_sec(cur_sec)
+                t_str = format_sec(tot_sec)
+                task["progress"] = min(100.0, round(pct, 1))
+                task["detail"] = f"{c_str} / {t_str} ({pct:.1f}%) • 세그먼트 #{seg_idx}"
+
+            srt_path = extract_or_transcribe_srt(
+                video_path=file_path,
+                mp3_path=mp3_path,
+                language=language,
+                whisper_model=whisper_model or "base",
+                whisper_model_path=model_path,
+                progress_callback=srt_progress
+            )
+            task["srt_path"] = srt_path
+            task["progress"] = 100.0
+
+        task["status"] = "completed"
+        task["stage"] = "done"
+        task["stage_name"] = "추출 완료!"
+        task["detail"] = f"MP3: {'추출됨' if mp3_path else '선택 안 됨'}, SRT: {'추출됨' if srt_path else '선택 안 됨'}"
+        task["progress"] = 100.0
+
+    except Exception as e:
+        logger.error(f"[ExtractTask] Error in task {task_id}: {e}", exc_info=True)
+        task["status"] = "failed"
+        task["stage"] = "error"
+        task["stage_name"] = "추출 실패"
+        task["error"] = str(e)
+
+@router.post("/extract-local")
+def extract_local_media(req: ExtractLocalMediaRequest, db: Session = Depends(database.get_db)):
+    """
+    Extracts MP3 audio and/or SRT subtitles from a local video file (2GB+ high performance).
+    Returns a task_id for real-time progress polling.
+    """
+    if not req.file_path or not os.path.exists(req.file_path):
+        raise HTTPException(status_code=404, detail=f"로컬 영상 파일을 찾을 수 없습니다: {req.file_path}")
+
+    # Clean old tasks older than 1 hour
+    now = time.time()
+    for tid in list(extraction_tasks.keys()):
+        if now - extraction_tasks[tid].get("created_at", 0) > 3600:
+            extraction_tasks.pop(tid, None)
+
+    task_id = f"ext_{uuid.uuid4().hex[:10]}"
+    settings_obj = crud.get_settings(db)
+    model_path = settings_obj.whisper_model_path if settings_obj else None
+    model_to_use = req.whisper_model or "base"
+
+    extraction_tasks[task_id] = {
+        "task_id": task_id,
+        "status": "processing",
+        "progress": 0.0,
+        "stage": "init",
+        "stage_name": "추출 작업 초기화 중...",
+        "detail": "영상 스트림 분석 및 엔진 로드 중",
+        "file_path": req.file_path,
+        "extract_mp3": req.extract_mp3,
+        "extract_srt": req.extract_srt,
+        "whisper_model": model_to_use,
+        "mp3_path": None,
+        "srt_path": None,
+        "error": None,
+        "created_at": now
+    }
+
+    # Run in background daemon thread
+    thread = threading.Thread(
+        target=_run_extract_task_worker,
+        args=(task_id, req.file_path, req.extract_mp3, req.extract_srt, req.language, model_path, model_to_use),
+        daemon=True
+    )
+    thread.start()
+
+    return {
+        "status": "processing",
+        "task_id": task_id,
+        "message": "미디어 추출 작업이 백그라운드에서 시작되었습니다."
+    }
+
+@router.get("/extract-task/{task_id}")
+def get_extract_task_status(task_id: str):
+    """
+    Polls the real-time progress and status of a local media extraction task.
+    """
+    task = extraction_tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="해당 추출 작업을 찾을 수 없습니다.")
+    return task
 
 
 def save_video_to_db(db: Session, result: dict, metadata: dict, channel_id: Optional[int], category_id: Optional[int], is_script_only: bool = False, background_tasks: Optional[BackgroundTasks] = None, auto_create_channel: bool = True):

@@ -373,9 +373,9 @@ class ScriptEngine:
         Outputs a strictly formatted JSON.
         """
         if not provider:
-            provider = "google"
+            provider = "omniroute"
         if not model:
-            model = "gemini-2.0-flash-exp"
+            model = getattr(self.llm_client.settings, "script_analysis_model", None) or getattr(self.llm_client.settings, "default_llm_model", None) or "viraloop1"
 
         logger.info(f"🌍 Multilingual Script Gen Request: Niche={niche}, Input Length={len(input_text)}")
         

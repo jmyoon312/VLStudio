@@ -512,6 +512,12 @@ class DownloaderFacade:
     def download_single_video(self, *args, **kwargs):
         return download_single_video(*args, **kwargs)
     
+    def download_video(self, url: str = None, output_path: str = None, **kwargs):
+        """Adapter method for channel_monitor and legacy callers."""
+        target_url = url or kwargs.pop('video_url', None)
+        target_path = output_path or kwargs.pop('root_download_path', None)
+        return download_single_video(video_url=target_url, root_download_path=target_path, **kwargs)
+    
     def get_channel_info(self, *args, **kwargs):
         return get_channel_info(*args, **kwargs)
 

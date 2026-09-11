@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, clipboard } from 'electron'
 
 contextBridge.exposeInMainWorld('__VIRALOOP_DESKTOP__', true)
 
@@ -8,6 +8,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.invoke('app:open-external', { url }),
   openNewWindow: (params) => ipcRenderer.invoke('app:open-new-window', params),
   showInFolder: (filePath) => ipcRenderer.invoke('app:show-in-folder', { filePath }),
+  copyToClipboard: (text) => {
+    try {
+      clipboard.writeText(String(text ?? ''))
+      return true
+    } catch {
+      return false
+    }
+  },
   notifyOS: () => ({ success: true }),
 
   // Layout

@@ -128,3 +128,32 @@ def run_auto_fix_manual(report_id: int, db: Session = Depends(get_db)):
     # Refresh to return updated logs
     db.refresh(report)
     return report
+
+@router.post("/{report_id}/send-telegram")
+def send_report_to_telegram(report_id: int, db: Session = Depends(get_db)):
+    """리포트 내용을 모바일 텔레그램으로 즉시 브리핑 전송"""
+    report = crud.get_daily_report(db, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    from app.services.telegram_service import telegram_service
+    
+    date_str = report.report_date.strftime('%Y-%m-%d') if report.report_date else "오늘"
+    raw_stats = report.raw_stats_json or {}
+    ai_summary = report.summary_markdown or ""
+
+    success = telegram_service.send_daily_report_brief(
+        report_date_str=date_str,
+        stats=raw_stats,
+        ai_summary_text=ai_summary
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail="텔레그램 전송에 실패했습니다. (환경 설정의 봇 토큰 및 Chat ID 확인 필요)")
+
+    return {
+        "status": "success",
+        "message": "텔레그램으로 일일 리포트 브리핑이 성공적으로 전송되었습니다."
+    }
+
+

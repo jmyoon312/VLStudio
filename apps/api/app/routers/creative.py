@@ -12,6 +12,7 @@ import time
 import json
 import re
 import shutil
+import asyncio
 
 router = APIRouter(tags=["creative"])
 
@@ -72,10 +73,11 @@ class SegmentationRequest(BaseModel):
 async def get_available_models(
     db: Session = Depends(database.get_db),
     engine: CreativeEngine = Depends(get_creative_engine),
-    force: bool = False
+    force: bool = False,
+    provider: Optional[str] = None
 ):
     try:
-        return await engine.llm_client.fetch_available_models(db=db, force=force)
+        return await engine.llm_client.fetch_available_models(db=db, force=force, provider=provider)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -129,8 +131,8 @@ def test_chat(
 @router.post("/analyze-style", response_model=StyleAnalysisResponse)
 async def analyze_style(
     file: UploadFile = File(...),
-    provider: str = Form("google"),
-    model: str = Form("gemini-2.0-flash-exp"),
+    provider: Optional[str] = Form(None),
+    model: Optional[str] = Form(None),
     engine: CreativeEngine = Depends(get_creative_engine)
 ):
     try:
@@ -148,8 +150,9 @@ async def segment_script(
     db: Session = Depends(database.get_db) # Need DB for ImageGenService
 ):
     try:
-        # 1. Segment Script
-        result_segments = engine.segment_script(
+        # 1. Segment Script (Non-blocking worker thread execution to prevent freezing main event loop)
+        result_segments = await asyncio.to_thread(
+            engine.segment_script,
             request.text, 
             request.mode, 
             request.provider, 
@@ -159,7 +162,6 @@ async def segment_script(
             request.pacing_config
         )
 
-        
         updated_segments = result_segments
         settings = crud.get_settings(db)
 
@@ -533,8 +535,8 @@ class OrchestratePromptRequest(BaseModel):
     visual_anchor: Optional[str] = "Main subject"
     style_bible: Optional[dict] = {}
     master_visual_dna: Optional[str] = ""
-    provider: str = "google"
-    model: str = "gemini-2.0-flash-exp"
+    provider: Optional[str] = None
+    model: Optional[str] = None
 
 @router.post("/generate-prompt")
 def generate_prompt(

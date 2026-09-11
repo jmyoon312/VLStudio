@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     X, Sparkles, TrendingUp, Users, DollarSign, Award, Eye, 
     Calendar, ArrowUpRight, CheckCircle2, Loader2, RefreshCw,
-    Film, Zap, Play, ChevronRight, BarChart3, HelpCircle
+    Film, Zap, Play, ChevronRight, BarChart3, HelpCircle, Dna
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -561,19 +561,35 @@ export const ChannelAnatomyModal: React.FC<ChannelAnatomyModalProps> = ({
                         닫기
                     </Button>
 
-                    <Button
-                        size="sm"
-                        onClick={() => convertMutation.mutate()}
-                        disabled={convertMutation.isPending}
-                        className="h-8 px-4 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs cursor-pointer"
-                    >
-                        {convertMutation.isPending ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                        ) : (
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
-                        )}
-                        ✓ 타겟 채널 승인 & 정기수집 전환
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const targetUrl = analysis?.channel_url || (analysis?.handle ? `https://www.youtube.com/${analysis.handle.startsWith('@') ? analysis.handle : '@' + analysis.handle}` : '');
+                                onClose();
+                                window.location.hash = `#/channel-dna-studio?channel_url=${encodeURIComponent(targetUrl)}&channel_name=${encodeURIComponent(analysis?.name || channelName || '')}`;
+                            }}
+                            className="h-8 px-3.5 text-xs font-bold border-indigo-500/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/10 rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs"
+                        >
+                            <Dna className="w-3.5 h-3.5 text-indigo-500" />
+                            🌟 채널 DNA 분석 연구소로 보내기
+                        </Button>
+
+                        <Button
+                            size="sm"
+                            onClick={() => convertMutation.mutate()}
+                            disabled={convertMutation.isPending}
+                            className="h-8 px-4 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs cursor-pointer"
+                        >
+                            {convertMutation.isPending ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                            ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                            )}
+                            ✓ 타겟 채널 승인 & 정기수집 전환
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

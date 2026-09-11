@@ -386,14 +386,17 @@ export const BrainVaultPage: React.FC = () => {
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
-                                채널 브레인 & 스킬 팩토리 (Channel Brain & Skills)
+                                [축 1] 채널 주권 DNA 금고 (Channel Sovereign DNA)
                             </h1>
                             <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-400 border-indigo-500/30 font-mono font-bold">
                                 Hermes FTS5 BM25 Core
                             </Badge>
+                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30 font-bold">
+                                샌드박스 격리: 정보 오염 0% 보장
+                            </Badge>
                             <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                채널 격리 스킬팩 가동 중
+                                6-Layer 가상 클론 & Auto-Skill 가동
                             </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">

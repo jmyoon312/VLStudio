@@ -37,7 +37,7 @@ MOOD_SFX_PROMPT = """이 영상의 자막 옆에 깔 효과음(SFX) 자동 매�
 """
 
 
-async def attach_bgm_mix(video_path: Path, out_dir: Path) -> dict | None:
+async def attach_bgm_mix(video_path: Path, out_dir: Path, context_info: dict | None = None) -> dict | None:
     """자막 잡에 효과음 믹스 mp3 첨부. 메타 없으면 None.
 
     Returns: {"path", "sfx_count", "duration", "sfx_points"} or None
@@ -51,8 +51,19 @@ async def attach_bgm_mix(video_path: Path, out_dir: Path) -> dict | None:
     print("  효과음 매칭용 영상 분석...", flush=True)
     inline = await ensure_inline_video(Path(video_path))
     file_uri = await upload_video_to_gemini(inline)
+    
+    prompt = MOOD_SFX_PROMPT
+    if context_info and isinstance(context_info, dict):
+        title = context_info.get("title", "")
+        summary = context_info.get("summary", "")
+        subs = context_info.get("situation_subtitles", [])
+        dur = context_info.get("duration_sec", 0)
+        sub_snippets = "\n".join(f"- {s.get('start', 0)}초~{s.get('end', 0)}초: {s.get('text', '')}" for s in subs[:8])
+        context_text = f"\n\n[🎬 영상 맥락 및 타임라인 정보]\n영상 제목: {title}\n요약: {summary}\n영상 길이: {dur}초\n주요 자막/액션 타임라인:\n{sub_snippets}\n"
+        prompt = prompt + context_text
+
     data = await call_gemini(GEMINI_PRO_MODEL, file_uri,
-                              MOOD_SFX_PROMPT, temperature=0.2)
+                              prompt, temperature=0.2)
     if not isinstance(data, dict):
         return None
     mood = data.get("mood_keywords", []) or []

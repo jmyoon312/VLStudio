@@ -114,14 +114,14 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
     return (
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild>
-                <Button variant={activePreset ? "default" : "outline"} size="sm" className="h-7 text-xs gap-1.5 px-2 bg-black/30 border-white/15 text-slate-200 hover:bg-white/10 hover:text-white">
-                    <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
+                <Button variant={activePreset ? "default" : "outline"} size="sm" className="h-7 text-xs gap-1.5 px-2 bg-background border-border text-foreground hover:bg-muted">
+                    <FolderOpen className="w-3.5 h-3.5 text-blue-500" />
                     {activePreset ? activePreset.name : "프리셋"}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-72 p-0 bg-[#161c28] border-white/15 text-slate-200 shadow-xl" align="end">
-                <div className="p-3 border-b border-white/10 flex items-center justify-between bg-black/30">
-                    <h4 className="font-bold text-xs text-slate-200">자막 스타일 프리셋</h4>
+            <DropdownMenuContent className="w-72 p-0 bg-popover border-border text-popover-foreground shadow-xl" align="end">
+                <div className="p-3 border-b border-border flex items-center justify-between bg-muted/40">
+                    <h4 className="font-bold text-xs text-foreground">자막 스타일 프리셋</h4>
                     <Button
                         variant="ghost"
                         size="sm"
@@ -223,7 +223,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 w-6 p-0 text-slate-600 hover:text-indigo-600"
+                                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                                         title="이름 변경"
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -235,7 +235,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 w-6 p-0 text-slate-600 hover:text-indigo-600"
+                                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                                         title="현재 설정으로 덮어쓰기"
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -249,7 +249,7 @@ export function SubtitlePresetManager({ currentConfig, onLoad }: SubtitlePresetM
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-6 w-6 p-0 text-slate-600 hover:text-red-600"
+                                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             handleDelete(preset.id);

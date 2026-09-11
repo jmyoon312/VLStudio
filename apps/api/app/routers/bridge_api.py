@@ -213,7 +213,6 @@ async def render_remotion(request: Request, body: Dict[str, Any]):
             _llm = LLMClient(_s)
         return _llm.generate_content(
             prompt=user_msg,
-            model_name="gemini-1.5-flash",  # Fast model for debugging
             system_instruction=system_prompt,
         )
 
@@ -667,7 +666,7 @@ async def verify_script_dna(request: Dict[str, Any], db: Session = Depends(get_d
         이 제안에 따라 대본이 다시 작성될 것입니다.
         """
         
-        response = llm_client.generate_content(prompt, model_name=getattr(app_settings, "REVIEW_MODEL", "gemini-1.5-flash"))
+        response = llm_client.generate_content(prompt, model_name=getattr(app_settings, "script_analysis_model", None))
         # Parse JSON
         import re
         match = re.search(r'\{.*\}', response, re.DOTALL)
@@ -944,8 +943,8 @@ async def bridge_generate_script(request: ScriptGenerateRequest, db: Session = D
         llm = LLMClient(s)
         
         prompt = f"당신은 시니어 대상 바이럴 영상 전문가입니다. '{request.niche}' 분야의 '{request.topic}' 주제로 강력한 후크와 도파민을 유발하는 숏폼 대본을 작성하세요."
-        # Use a reliable model for scriptwriting
-        script = llm.generate_content(prompt, model_name=getattr(s, "WRITER_MODEL", "gemini-1.5-flash"))
+        # Use DB Settings model for scriptwriting
+        script = llm.generate_content(prompt, model_name=getattr(s, "script_analysis_model", None))
         
         return {"status": "success", "script": script}
     except Exception as e:

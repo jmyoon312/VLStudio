@@ -82,7 +82,6 @@ class RenderHarness:
         try:
             response = self.llm_client.generate_content(
                 prompt=prompt,
-                model_name="gemini-2.0-flash-exp",
                 system_instruction="You are a senior video engineer. Return ONLY valid JSON."
             )
             

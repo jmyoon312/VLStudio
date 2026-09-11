@@ -14,8 +14,8 @@ export function AIWorkflowGeneratorModal() {
     const [error, setError] = useState<string | null>(null);
 
     // [NEW] Model Selection State
-    const [provider, setProvider] = useState("google");
-    const [model, setModel] = useState("gemini-1.5-pro");
+    const [provider, setProvider] = useState("omniroute");
+    const [model, setModel] = useState("viraloop1");
 
 
     const handleGenerate = async () => {

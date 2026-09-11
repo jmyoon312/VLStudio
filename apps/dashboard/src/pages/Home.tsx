@@ -684,7 +684,7 @@ const Home = () => {
         const interval = setInterval(() => {
             fetchData();
             fetchNetworkStatus();
-        }, 10000);
+        }, 60000);
 
         return () => clearInterval(interval);
     }, []);
@@ -765,32 +765,23 @@ const Home = () => {
 
         
 
-        toast.success(`선택한 ${actualCount}개 영상으로 딸깍 ${tab === 'subtitle' ? '자막 생성' : '대본+더빙'} 일괄 작업을 시작합니다!`);
-
+        const filePaths = selectedItems.map(item => item.file_path || '').join(',');
+        toast.success(`선택한 ${actualCount}개 영상으로 쇼츠 ${tab === 'subtitle' ? '자막 생성' : '대본+더빙'} 일괄 작업을 시작합니다!`);
         setSelectedVideoIds(new Set());
-
-        navigate(`/ddalkkak?tab=${tab}&batch=true&titles=${encodeURIComponent(titles)}&videoUrls=${encodeURIComponent(videoUrls)}`);
-
+        navigate(`/shorts-production-studio?tab=${tab}&batch=true&titles=${encodeURIComponent(titles)}&filePaths=${encodeURIComponent(filePaths)}&videoUrls=${encodeURIComponent(videoUrls)}`);
     };
 
     // 단일 영상 딸깍 자동 생성 이동
-
     const handleSingleDdalkkak = (item: any, tab: 'subtitle' | 'ttsdub' = 'subtitle') => {
-
         const title = item.title || '';
-
+        const filePath = item.file_path || '';
         const videoUrl = item.videoUrl || getMediaUrl(item.file_path, settings?.root_download_path) || item.url || item.file_path || '';
 
-        toast.info(`딸깍 ${tab === 'subtitle' ? '자막 자동 생성' : '대본 + 더빙'} 스튜디오로 이동합니다`, {
-
+        toast.info(`쇼츠 제작 스튜디오 (${tab === 'subtitle' ? '자막 자동 생성' : '대본 + 더빙'})로 이동합니다`, {
             description: `영상: "${title}"`
-
         });
-
         setSelectedVideo(null);
-
-        navigate(`/ddalkkak?tab=${tab}&batch=true&titles=${encodeURIComponent(title)}&videoUrls=${encodeURIComponent(videoUrl)}`);
-
+        navigate(`/shorts-production-studio?tab=${tab}&batch=true&titles=${encodeURIComponent(title)}&filePaths=${encodeURIComponent(filePath)}&videoUrls=${encodeURIComponent(videoUrl)}`);
     };
 
     // 1단계: 수집 영상에서 대본 추출 및 AI 재창작으로 이동

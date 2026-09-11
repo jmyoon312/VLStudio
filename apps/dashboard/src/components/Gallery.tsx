@@ -493,6 +493,13 @@ const Gallery = () => {
         return { name: '미분류', fullName: '미분류' };
     };
 
+    // 카테고리 표시용 헬퍼 함수
+    const getVideoCategory = (v?: Video | null): string => {
+        if (!v) return '미분류';
+        if ((v as any).fullCategoryName) return (v as any).fullCategoryName;
+        return getVideoCategoryInfo(v).fullName;
+    };
+
     // 가공된 영상 목록
     const processedVideos = useMemo<ProcessedVideo[]>(() => {
         if (!videos) return [];
@@ -917,35 +924,23 @@ const Gallery = () => {
     // 일괄 액션 핸들러 (딸깍 자동 생성 연동)
 
     const handleLaunchBatchDdalkkak = (tab: 'subtitle' | 'ttsdub' = 'subtitle') => {
-
         const selectedList = filteredVideos.filter(v => selectedIds.has(v.id));
-
         const titles = selectedList.map(v => v.title).join(',');
-
+        const filePaths = selectedList.map(v => v.file_path || '').join(',');
         const videoUrls = selectedList.map(v => getMediaUrl(v.file_path, settings?.root_download_path) || v.url || v.file_path).join(',');
 
-
-
-        toast.success(`선택한 ${selectedIds.size}개 영상으로 딸깍 ${tab === 'subtitle' ? '자막 생성' : '대본+더빙'} 일괄 작업을 시작합니다!`);
-
-        navigate(`/ddalkkak?tab=${tab}&batch=true&titles=${encodeURIComponent(titles)}&videoUrls=${encodeURIComponent(videoUrls)}`);
-
+        toast.success(`선택한 ${selectedIds.size}개 영상으로 쇼츠 ${tab === 'subtitle' ? '자막 생성' : '대본+더빙'} 일괄 작업을 시작합니다!`);
+        navigate(`/shorts-production-studio?tab=${tab}&batch=true&titles=${encodeURIComponent(titles)}&filePaths=${encodeURIComponent(filePaths)}&videoUrls=${encodeURIComponent(videoUrls)}`);
     };
 
-
-
     const handleSingleDdalkkak = (video: Video, tab: 'subtitle' | 'ttsdub' = 'subtitle') => {
-
         const title = video.title || '';
-
+        const filePath = video.file_path || '';
         const videoUrl = getMediaUrl(video.file_path, settings?.root_download_path) || video.url || video.file_path || '';
 
         setSelectedVideo(null);
-
-        toast.info(`딸깍 ${tab === 'subtitle' ? '자막 자동 생성' : '대본 + 더빙'} 스튜디오로 이동합니다`);
-
-        navigate(`/ddalkkak?tab=${tab}&batch=true&titles=${encodeURIComponent(title)}&videoUrls=${encodeURIComponent(videoUrl)}`);
-
+        toast.info(`쇼츠 제작 스튜디오 (${tab === 'subtitle' ? '자막 자동 생성' : '대본 + 더빙'})로 이동합니다`);
+        navigate(`/shorts-production-studio?tab=${tab}&batch=true&titles=${encodeURIComponent(title)}&filePaths=${encodeURIComponent(filePath)}&videoUrls=${encodeURIComponent(videoUrl)}`);
     };
 
 
@@ -2392,6 +2387,16 @@ const Gallery = () => {
                                     </Button>
 
                                 </div>
+
+                                <Button 
+                                    onClick={() => {
+                                        if (!selectedVideo) return;
+                                        window.location.hash = `#/channel-dna-studio?video_id=${selectedVideo.id}&video_title=${encodeURIComponent(selectedVideo.title || '')}`;
+                                    }}
+                                    className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold text-xs py-2.5 flex items-center justify-center gap-1.5 rounded-xl shadow-md cursor-pointer"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 text-yellow-300" /> 🌟 채널 DNA 템플릿으로 맞춤 쇼츠 제작
+                                </Button>
 
                                 <div className="grid grid-cols-2 gap-2">
 

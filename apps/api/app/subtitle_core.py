@@ -850,10 +850,7 @@ class SubtitleEngine:
         """
         Generate high-precision SRT using AI for segmentation.
         """
-        from .gemini_manager import GeminiManager
-        
-        # Determine model
-        target_model = model_name or "gemini-2.0-flash-exp" # Fallback if absolutely nothing provided
+        from .llm_manager import get_llm_client
         
         # 1. Raw Transcription (Whisper)
         segments = self.transcribe_raw(audio_path, language=language)
@@ -877,8 +874,8 @@ class SubtitleEngine:
         aligned_srt = align_sentences(script, temp_srt)
         aligned_blocks = parse_srt(aligned_srt)
         
-        # 3. AI Segmentation (Gemini)
-        gemini = GeminiManager(api_keys)
+        # 3. AI Segmentation (Dynamic LLM from DB Settings)
+        llm = get_llm_client()
         final_blocks = []
         
         for block in aligned_blocks:
@@ -890,7 +887,7 @@ class SubtitleEngine:
             if not text.strip() or (end_ms - start_ms) < 100:
                 continue
 
-            # Prompt for Gemini
+            # Prompt for AI Segmentation
             prompt = (
                 f"Split the following text into natural subtitles for a 9:16 vertical video.\n"
                 f"Insert '//' where a line break should occur.\n"
@@ -903,13 +900,15 @@ class SubtitleEngine:
             )
             
             try:
-                # Use GeminiManager.generate_content with a fast model
-                segmented_text = gemini.generate_content(prompt, model_name=target_model)
-                # Fallback if Gemini fails or returns garbage
+                # Use dynamic LLMClient resolving from DB Settings
+                segmented_text = llm.generate_content(prompt, model_name=model_name)
+                if isinstance(segmented_text, dict):
+                    segmented_text = segmented_text.get("content", text)
+                # Fallback if AI fails or returns garbage
                 if not segmented_text or len(segmented_text) < len(text) * 0.5:
                     segmented_text = text
             except Exception as e:
-                print(f"Gemini Error: {e}")
+                print(f"AI Segmentation Error: {e}")
                 segmented_text = text
             
             # 4. Time Interpolation

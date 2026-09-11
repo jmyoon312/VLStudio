@@ -182,7 +182,7 @@ async def scout_market_gap(niche: str, platform: str = "youtube") -> Dict[str, A
             이를 깨뜨릴 수 있는 '역발상 페르소나(Inverse Persona)'와 '바이럴 훅'을 JSON으로 제안하세요.
             """
             
-            strategy = llm.generate_content(analysis_prompt, model_name="gemini-1.5-flash")
+            strategy = llm.generate_content(analysis_prompt)
             
             # 3. 방대한 리서치 데이터를 Vault에 아카이빙 (블랙보드 포인터 생성)
             heavy_payload = {
@@ -2646,5 +2646,144 @@ async def scouter_approve_candidate(
         return {"success": False, "error": str(e)}
     finally:
         db.close()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# § 8. COMMUNITY & ENGAGEMENT SKILLS (루피 AI 커뮤니티 자율 통제)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@mcp.tool()
+async def community_list_comments(
+    channel_id: Optional[str] = None,
+    sentiment: Optional[str] = None,
+    limit: int = 20
+) -> Dict[str, Any]:
+    """
+    [COMMUNITY 스킬] 채널별 시청자 댓글 목록 및 감성(praise, question, criticism, spam) 분석 결과를 조회합니다.
+    """
+    from app.services.community_service import CommunityService
+    db = SessionLocal()
+    try:
+        comments = CommunityService.list_comments(db, channel_id=channel_id, sentiment=sentiment, limit=limit)
+        return {"success": True, "count": len(comments), "comments": comments}
+    except Exception as e:
+        logger.error(f"[MCP:COMMUNITY] community_list_comments failed: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@mcp.tool()
+async def community_generate_reply(
+    comment_id: str,
+    persona: str = "friendly"
+) -> Dict[str, Any]:
+    """
+    [COMMUNITY 스킬] 루피 AI 브레인이 채널 페르소나(friendly, witty, expert)에 맞춰 최적의 쇼츠 소통 답글을 생성합니다.
+    """
+    from app.services.community_service import CommunityService
+    db = SessionLocal()
+    try:
+        res = CommunityService.generate_ai_reply(db, comment_id=comment_id, persona=persona)
+        return {"success": True, "result": res}
+    except Exception as e:
+        logger.error(f"[MCP:COMMUNITY] community_generate_reply failed: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@mcp.tool()
+async def community_post_reply(
+    comment_id: str,
+    custom_reply: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    [COMMUNITY 스킬] 작성된 AI 답글을 채널 격리 보안 네트워크(고정 ISP 프록시 또는 LTE 회선)를 통해 유튜브에 안전하게 공식 게시합니다.
+    """
+    from app.services.community_service import CommunityService
+    db = SessionLocal()
+    try:
+        res = CommunityService.post_reply(db, comment_id=comment_id, custom_reply=custom_reply)
+        return {"success": True, "result": res}
+    except Exception as e:
+        logger.error(f"[MCP:COMMUNITY] community_post_reply failed: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@mcp.tool()
+async def community_run_autopilot(
+    channel_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    [COMMUNITY 스킬] 루피 AI 사령탑이 채널별로 미답변 댓글을 스카우트하고, AI 답글을 자동 생성하며, 안전 정책(SAFE_AUTO, FULL_AUTO)에 따라 일괄 자동 게시하는 워커 사이클을 즉시 가동합니다.
+    """
+    from app.services.community_service import CommunityService
+    db = SessionLocal()
+    try:
+        res = CommunityService.run_autopilot_cycle(db, target_channel_id=channel_id)
+        return {"success": True, "result": res}
+    except Exception as e:
+        logger.error(f"[MCP:COMMUNITY] community_run_autopilot failed: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@mcp.tool()
+async def community_get_autopilot_status() -> Dict[str, Any]:
+    """
+    [COMMUNITY 스킬] 루피 AI 커뮤니티 오토파일럿의 전역 가동 상태, 백그라운드 워커 동작 여부, 채널별 자율 설정 및 통계를 조회합니다.
+    """
+    from app.services.community_service import CommunityService
+    db = SessionLocal()
+    try:
+        res = CommunityService.get_autopilot_status(db)
+        return {"success": True, "status": res}
+    except Exception as e:
+        logger.error(f"[MCP:COMMUNITY] community_get_autopilot_status failed: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        db.close()
+
+
+@mcp.tool()
+async def analyze_video_manifest(
+    video_path: str,
+    work_dir: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    [MEDIA_INTELLIGENCE 스킬] 비디오를 정밀 분석하여 시각 프레임(Scene Change + 인터벌), Whisper 발화 대사(STT), 오디오 피크/비트 및 LLM 프롬프트 주입용 종합 선언서(VideoManifest)를 생성합니다.
+    자막 제작, 템플릿 추출, 채널 DNA 영상 역분석 시 표준 단일 진실 공급원(SSOT)으로 사용됩니다.
+    
+    Args:
+        video_path: 분석할 동영상 파일의 로컬 절대 경로
+        work_dir: 작업 임시 디렉토리 (선택)
+    
+    Returns:
+        VideoManifest (duration, frames, speech, acoustics, narrative_context)
+    """
+    from pathlib import Path
+    from app.services.media_intelligence.core import media_intelligence
+    
+    logger.info(f"🎬 [MCP:MEDIA_INTELLIGENCE] analyze_video_manifest | video={video_path}")
+    vpath = Path(video_path)
+    if not vpath.exists():
+        return {"success": False, "error": f"비디오 파일이 존재하지 않습니다: {video_path}"}
+    
+    try:
+        wdir = Path(work_dir) if work_dir else None
+        manifest = await media_intelligence.generate_video_manifest(vpath, work_dir=wdir)
+        return {
+            "success": True,
+            "manifest": manifest
+        }
+    except Exception as e:
+        logger.error(f"[MCP:MEDIA_INTELLIGENCE] analyze_video_manifest failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
 
 

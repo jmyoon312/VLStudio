@@ -431,14 +431,14 @@ export const PipelineBuilderPage: React.FC = () => {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <h1 className="text-sm font-black text-foreground tracking-tight truncate">
-                                        파이프라인 빌더 & 랩
+                                        [축 2] 5대 제작 파이프라인 랩 (Axis-2 Workflow Lab)
                                     </h1>
                                     <Badge variant="secondary" className="text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                                        GUI 캔버스 v2.0
+                                        5대 표준 매트릭스
                                     </Badge>
                                 </div>
                                 <p className="text-[10px] text-muted-foreground truncate hidden sm:block">
-                                    Dify / ComfyUI 스타일 비주얼 노드 그래프 엔진
+                                    대본보유 · 영상보유 · 키워드창작 · 3초후킹 · 심층HITL 5대 워크플로우 비주얼 노드 엔진
                                 </p>
                             </div>
                         </div>
@@ -563,6 +563,53 @@ export const PipelineBuilderPage: React.FC = () => {
                         </Button>
                     </div>
                 </div>
+                {/* 🏛️ 3-Axis Sovereign Factory: Axis 2 Workflow Matrix Selector */}
+                <div className="bg-muted/40 border-b border-border/80 px-4 py-2 flex flex-col md:flex-row md:items-center justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+                        <span className="text-[11px] font-black tracking-wider text-muted-foreground whitespace-nowrap uppercase flex items-center gap-1 shrink-0">
+                            <Layers className="w-3.5 h-3.5 text-blue-500" />
+                            [축 2] 제작 모드:
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            {[
+                                { id: 'script_present', label: '대본 보유형', tag: 'Script ➔ Critic-85', color: 'from-blue-500/20 to-indigo-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30' },
+                                { id: 'video_present', label: '영상 원본 보유형', tag: 'Cutter & Blur 9:16', color: 'from-emerald-500/20 to-teal-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' },
+                                { id: 'keyword_only', label: '키워드 창작형', tag: 'Scout ➔ 9-Wave', color: 'from-purple-500/20 to-pink-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30' },
+                                { id: 'minimal_hook', label: '초고속 쾌속양산', tag: '3s Hook Blitz', color: 'from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30' },
+                                { id: 'deep_narrative', label: '심층 HITL 결재형', tag: 'Telegram HITL Gate', color: 'from-rose-500/20 to-red-500/20 text-rose-600 dark:text-rose-400 border-rose-500/30' },
+                            ].map(mode => {
+                                const isSelected = selectedPresetId === mode.id;
+                                return (
+                                    <button
+                                        key={mode.id}
+                                        type="button"
+                                        onClick={() => handleSelectPreset(mode.id)}
+                                        className={`px-3 py-1 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 border shadow-2xs whitespace-nowrap ${
+                                            isSelected
+                                                ? `bg-gradient-to-r ${mode.color} shadow-sm ring-1 ring-blue-500/50`
+                                                : 'bg-card text-muted-foreground hover:text-foreground border-border hover:bg-muted/60'
+                                        }`}
+                                    >
+                                        <span>{mode.label}</span>
+                                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${isSelected ? 'bg-background/80' : 'bg-muted text-muted-foreground'}`}>
+                                            {mode.tag}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 text-[11px] text-muted-foreground">
+                        <span className="hidden sm:inline-block font-semibold">
+                            현재: <strong className="text-foreground">{pipelineName}</strong>
+                        </span>
+                        <Badge variant="outline" className="text-[10px] py-0 px-2 bg-blue-500/5 border-blue-500/20 text-blue-600 dark:text-blue-400 font-bold">
+                            정보 오염 0% 보장 샌드박스
+                        </Badge>
+                    </div>
+                </div>
+
 
                 {/* Workspace: Left Palette + Center Canvas + Right Inspector */}
                 <div className="flex-1 flex w-full overflow-hidden relative">

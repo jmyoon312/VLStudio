@@ -13,7 +13,7 @@ import {
     LayoutGrid, Table, Search, CheckSquare, Square, ArrowUpDown, FilterX,
     Tv, ChevronDown, ChevronUp, Globe, DollarSign, Bookmark, Film,
     Share2, PlusCircle, ArrowRight, UserCheck, Bot, LineChart, Settings2,
-    Ban, Trash2
+    Ban, Trash2, Dna
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { cn, formatRelativeOrDate, formatShortDate } from '../lib/utils';
@@ -86,6 +86,11 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
             : "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800";
 
     const statusText = type === 'pending' ? "등록 예정 📋" : type === 'target' ? "정기 수집 🟢" : "신규 옥석 ✨";
+
+    const handleGoToDna = (channel: any) => {
+        const targetUrl = channel.channel_url || (channel.handle ? `https://www.youtube.com/${channel.handle.startsWith('@') ? channel.handle : '@' + channel.handle}` : '');
+        window.location.hash = `#/channel-dna-studio?channel_url=${encodeURIComponent(targetUrl)}&channel_name=${encodeURIComponent(channel.name || '')}`;
+    };
 
     return (
         <div className={cn(
@@ -202,15 +207,27 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                                     {ch.recommendation?.is_new_cluster ? "신규 승인" : "즉시 승인"}
                                 </Button>
 
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => onOpenAnatomy(ch)}
-                                    className="h-6 text-[10px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
-                                >
-                                    <LineChart className="w-3 h-3 text-indigo-500 shrink-0" />
-                                    성장 분석
-                                </Button>
+                                <div className="grid grid-cols-2 gap-1 w-full">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onOpenAnatomy(ch)}
+                                        className="h-6 text-[9.5px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1"
+                                    >
+                                        <LineChart className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                        성장
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleGoToDna(ch)}
+                                        title="채널 DNA 연구소로 전송하여 12편 정밀 분석"
+                                        className="h-6 text-[9.5px] font-bold border-indigo-500/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-500/10 rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1"
+                                    >
+                                        <Dna className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                        DNA
+                                    </Button>
+                                </div>
 
                                 <div className="flex items-center gap-1 w-full pt-0.5">
                                     <Button
@@ -249,15 +266,27 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                             </div>
 
                             <div className="shrink-0 flex flex-col gap-1.5 w-24 sm:w-28">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => onOpenAnatomy(ch)}
-                                    className="h-7 text-[10.5px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
-                                >
-                                    <LineChart className="w-3 h-3 text-emerald-500 shrink-0" />
-                                    성장 분석
-                                </Button>
+                                <div className="grid grid-cols-2 gap-1 w-full">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onOpenAnatomy(ch)}
+                                        className="h-7 text-[9.5px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1"
+                                    >
+                                        <LineChart className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                                        성장
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleGoToDna(ch)}
+                                        title="채널 DNA 연구소로 전송하여 12편 정밀 분석"
+                                        className="h-7 text-[9.5px] font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/10 rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1"
+                                    >
+                                        <Dna className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                                        DNA
+                                    </Button>
+                                </div>
 
                                 <Button
                                     variant="outline"
@@ -298,15 +327,27 @@ const ChannelReelRow: React.FC<ChannelReelRowProps> = ({
                                     타겟 승인
                                 </Button>
 
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => onOpenAnatomy(ch)}
-                                    className="h-6 text-[10px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1.5 w-full"
-                                >
-                                    <LineChart className="w-3 h-3 text-blue-500 shrink-0" />
-                                    성장 분석
-                                </Button>
+                                <div className="grid grid-cols-2 gap-1 w-full">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onOpenAnatomy(ch)}
+                                        className="h-6 text-[9.5px] font-bold border-border/80 hover:bg-muted text-foreground rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1"
+                                    >
+                                        <LineChart className="w-2.5 h-2.5 text-blue-500 shrink-0" />
+                                        성장
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleGoToDna(ch)}
+                                        title="채널 DNA 연구소로 전송하여 12편 정밀 분석"
+                                        className="h-6 text-[9.5px] font-bold border-amber-500/40 text-amber-600 dark:text-amber-300 hover:bg-amber-500/10 rounded-xl cursor-pointer flex items-center justify-center gap-0.5 px-1"
+                                    >
+                                        <Dna className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                                        DNA
+                                    </Button>
+                                </div>
 
                                 <div className="flex items-center gap-1 w-full pt-0.5">
                                     <Button

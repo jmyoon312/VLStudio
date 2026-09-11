@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   FileVideo,
   Upload,
@@ -14,6 +14,7 @@ import {
   ListTodo,
   Layers,
   Play,
+  Scissors,
   X,
   Clock,
   Filter,
@@ -30,10 +31,13 @@ import {
   SubtitleStyleOption
 } from '@/types/ddalkkak';
 import { ddalkkakApi, SubtitleJob } from '@/services/ddalkkakApi';
+import { VideoPreviewModal } from '@/components/shared/VideoPreviewModal';
 
 export interface BatchVideoItem {
   id: string;
-  name: string;
+  name: string; // 실제 물리 파일명 (예: 20260904_tfMMz_MKaMw.mp4)
+  displayTitle?: string; // 사용자용 표시 제목
+  filePath?: string; // 실제 디스크 절대 경로
   url?: string;
   file?: File;
   size?: number;
@@ -107,12 +111,98 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingProgress, setProcessingProgress] = useState<{ current: number; total: number } | null>(null);
 
+  const navigate = useNavigate();
+
+  // 🎬 Video Preview & Editor Handoff Modal State
+  const [previewModalOpen, setPreviewModalOpen] = useState<boolean>(false);
+  const [previewData, setPreviewData] = useState<{
+    title: string;
+    videoUrl?: string;
+    filePath?: string;
+    sourceType: 'queue' | 'completed';
+    subtitles?: any[];
+    jabs?: any[];
+    videoData?: any;
+  } | null>(null);
+
+  const handleOpenQueuePreview = (video: BatchVideoItem) => {
+    let url = video.url || '';
+    if (!url && video.file) {
+      url = URL.createObjectURL(video.file);
+    }
+    setPreviewData({
+      title: video.name,
+      videoUrl: url,
+      sourceType: 'queue',
+      subtitles: [],
+      jabs: [],
+      videoData: {
+        title: video.name,
+        name: video.name,
+        url: url,
+        sourceType: 'queue',
+      }
+    });
+    setPreviewModalOpen(true);
+  };
+
+  const handleOpenCompletedPreview = (job: SubtitleJob) => {
+    const primary = job.result?.primary || job.result;
+    setPreviewData({
+      title: job.video_filename || `자막 작업 #${job.id}`,
+      videoUrl: job.video_path || job.video_url,
+      filePath: job.video_path,
+      sourceType: 'completed',
+      subtitles: primary?.situation_subtitles || [],
+      jabs: primary?.jjap_jjap_i_subtitles || [],
+      videoData: {
+        id: job.id,
+        title: job.video_filename || `자막 작업 #${job.id}`,
+        name: job.video_filename,
+        video_url: job.video_path || job.video_url,
+        file_path: job.video_path,
+        sourceType: 'completed',
+        target_lang: job.target_lang,
+        style: job.style || selectedStyle,
+        subtitles: primary?.situation_subtitles || [],
+        jabs: primary?.jjap_jjap_i_subtitles || [],
+        job: job,
+      }
+    });
+    setPreviewModalOpen(true);
+  };
+
+  const handleOpenEditor = (targetData?: typeof previewData) => {
+    const active = targetData || previewData;
+    if (!active) return;
+    try {
+      sessionStorage.setItem('vlstudio_editor_handoff', JSON.stringify({
+        title: active.title,
+        videoUrl: active.videoUrl,
+        filePath: active.filePath,
+        subtitles: active.subtitles || [],
+        jabs: active.jabs || [],
+      }));
+      setPreviewModalOpen(false);
+      navigate('/shorts-editor');
+    } catch (e) {
+      console.error('Failed to handoff editor session:', e);
+      toast({
+        title: '편집기 전환 실패',
+        description: '세션 데이터를 저장하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // 💾 Save state changes to localStorage
   useEffect(() => {
     try {
       const serializable = videoItems.map(item => ({
         id: item.id,
         name: item.name,
+        displayTitle: item.displayTitle,
+        filePath: item.filePath,
         url: item.url,
         size: item.size || 0
       }));
@@ -139,19 +229,28 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
   useEffect(() => {
     const titlesParam = searchParams.get('titles');
     const videoUrlsParam = searchParams.get('videoUrls');
-    const paramKey = `${titlesParam || ''}_${videoUrlsParam || ''}`;
+    const filePathsParam = searchParams.get('filePaths');
+    const paramKey = `${titlesParam || ''}_${videoUrlsParam || ''}_${filePathsParam || ''}`;
 
     if (titlesParam && lastProcessedParams.current !== paramKey) {
       lastProcessedParams.current = paramKey;
       const titles = decodeURIComponent(titlesParam).split(',').filter(Boolean);
       const urls = videoUrlsParam ? decodeURIComponent(videoUrlsParam).split(',') : [];
+      const filePaths = filePathsParam ? decodeURIComponent(filePathsParam).split(',') : [];
 
-      const incomingItems: BatchVideoItem[] = titles.map((t, idx) => ({
-        id: `incoming_${Date.now()}_${idx}`,
-        name: t.endsWith('.mp4') || t.includes('.') ? t : `${t}.mp4`,
-        url: urls[idx] || '',
-        size: 0,
-      }));
+      const incomingItems: BatchVideoItem[] = titles.map((t, idx) => {
+        const fp = filePaths[idx] || '';
+        // 실제 물리 파일명이 있으면 우선 사용, 없으면 t
+        const realFileName = fp ? fp.replace(/\\/g, '/').split('/').pop() || t : t;
+        return {
+          id: `incoming_${Date.now()}_${idx}`,
+          name: realFileName.endsWith('.mp4') || realFileName.includes('.') ? realFileName : `${realFileName}.mp4`,
+          displayTitle: t,
+          filePath: fp,
+          url: urls[idx] || '',
+          size: 0,
+        };
+      });
 
       if (incomingItems.length > 0) {
         setVideoItems(prev => {
@@ -279,18 +378,33 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
       step++;
       setProcessingProgress({ current: step, total: totalJobs });
       try {
+        const physicalName = (item.video.name || 'video.mp4').replace(/[\\/*?:"<>|\x00-\x1f]/g, '_');
+        const displayTitle = item.video.displayTitle || physicalName.replace(/\.[^/.]+$/, '');
         const formData = new FormData();
-        if (item.video.file) {
-          formData.append('video', item.video.file);
-        } else if (item.video.url) {
+
+        // 1. 실제 로컬 파일 경로 전달 (1:1 직결 매칭)
+        let resolvedFilePath = item.video.filePath || '';
+        if (!resolvedFilePath && item.video.url) {
+          if (item.video.url.startsWith('file://') || item.video.url.includes(':\\') || item.video.url.includes(':/')) {
+            resolvedFilePath = item.video.url.replace('file://', '');
+          }
+        }
+        if (resolvedFilePath) {
+          formData.append('video_path', resolvedFilePath);
+        }
+        if (item.video.url) {
           formData.append('original_urls', item.video.url);
-          formData.append('video', new Blob([''], { type: 'video/mp4' }), item.video.name);
+        }
+        formData.append('display_title', displayTitle);
+        formData.append('song_title', displayTitle);
+
+        if (item.video.file) {
+          formData.append('video', item.video.file, physicalName);
         } else {
-          formData.append('video', new Blob([''], { type: 'video/mp4' }), item.video.name);
+          formData.append('video', new Blob([''], { type: 'video/mp4' }), physicalName);
         }
         formData.append('target_lang', item.langCode);
         formData.append('style', item.styleId);
-        formData.append('song_title', item.video.name.replace(/\.[^/.]+$/, ''));
         if (item.customPrompt) {
           formData.append('custom_prompt', item.customPrompt);
         }
@@ -638,8 +752,8 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
                                 #{idx + 1}
                               </span>
                               <FileVideo className="w-3.5 h-3.5 text-primary shrink-0" />
-                              <span className="font-semibold text-xs text-foreground truncate" title={item.video.name}>
-                                {item.video.name}
+                              <span className="font-semibold text-xs text-foreground truncate" title={item.video.displayTitle || item.video.name}>
+                                {item.video.displayTitle || item.video.name}
                               </span>
                             </div>
                             <button
@@ -653,6 +767,15 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
                           </div>
 
                           <div className="flex items-center gap-1.5 flex-wrap text-[11px] pl-6">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenQueuePreview(item.video)}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-0.5 rounded transition-colors"
+                              title="영상 재생 및 미리보기"
+                            >
+                              <Play className="w-2.5 h-2.5 fill-current" />
+                              <span>재생</span>
+                            </button>
                             <span className="text-[10px] text-muted-foreground">
                               {formatSize(item.video.size)}
                             </span>
@@ -704,12 +827,21 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
                               <td className="py-2.5 px-3">
                                 <div className="flex items-center gap-2 min-w-0 max-w-xs sm:max-w-md">
                                   <FileVideo className="w-4 h-4 text-primary shrink-0" />
-                                  <div className="truncate font-semibold text-foreground" title={item.video.name}>
-                                    {item.video.name}
+                                  <div className="truncate font-semibold text-foreground" title={item.video.displayTitle || item.video.name}>
+                                    {item.video.displayTitle || item.video.name}
                                   </div>
                                   <span className="text-[10px] text-muted-foreground shrink-0">
                                     ({formatSize(item.video.size)})
                                   </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenQueuePreview(item.video)}
+                                    className="inline-flex items-center gap-1 h-5 px-1.5 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded shrink-0 transition-colors"
+                                    title="영상 재생 및 미리보기"
+                                  >
+                                    <Play className="w-2.5 h-2.5 fill-current" />
+                                    <span>재생</span>
+                                  </button>
                                 </div>
                               </td>
                               <td className="py-2.5 px-3">
@@ -821,7 +953,43 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
                     </div>
 
                     {/* 개별 액션 버튼들 */}
-                    <div className="flex items-center justify-end gap-1.5 shrink-0 pl-6 sm:pl-0">
+                    <div className="flex items-center justify-end gap-1.5 shrink-0 pl-6 sm:pl-0 flex-wrap sm:flex-nowrap">
+                      {isDone && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenCompletedPreview(job)}
+                          className="border-border hover:bg-muted font-bold text-xs h-7 px-2 sm:px-2.5 rounded-lg shadow-2xs"
+                          title="완료된 영상 미리보기"
+                        >
+                          <Play className="w-3 h-3 fill-current mr-1 text-primary" />
+                          <span>재생</span>
+                        </Button>
+                      )}
+                      {isDone && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const primary = job.result?.primary;
+                            handleOpenEditor({
+                              title: job.video_filename || `자막 작업 #${job.id}`,
+                              videoUrl: job.video_path || job.video_url,
+                              filePath: job.video_path,
+                              sourceType: 'completed',
+                              subtitles: primary?.situation_subtitles || [],
+                              jabs: primary?.jjap_jjap_i_subtitles || [],
+                            });
+                          }}
+                          className="border-border hover:bg-muted font-bold text-xs h-7 px-2 sm:px-2.5 rounded-lg shadow-2xs"
+                          title="픽셀링 스타일 전문 편집기로 열기"
+                        >
+                          <Scissors className="w-3 h-3 mr-1 text-primary" />
+                          <span>세부 편집</span>
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         size="sm"
@@ -864,6 +1032,19 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
           )}
         </div>
       </div>
+
+      {/* 🎬 공통 영상 미리보기 모달 */}
+      <VideoPreviewModal
+        open={previewModalOpen}
+        onOpenChange={setPreviewModalOpen}
+        title={previewData?.title || '영상 미리보기'}
+        videoUrl={previewData?.videoUrl}
+        filePath={previewData?.filePath}
+        sourceType={previewData?.sourceType}
+        videoData={previewData?.videoData}
+        onOpenEditor={() => handleOpenEditor()}
+        onExportCapcut={previewData?.videoData?.job ? () => onExportCapcut(previewData.videoData.job) : undefined}
+      />
     </div>
   );
 };

@@ -47,6 +47,13 @@ const PipelineBuilderPage = lazy(() => import('./pages/PipelineBuilderPage'));
 const BrainVaultPage = lazy(() => import('./pages/BrainVaultPage'));
 const AgentRosterPage = lazy(() => import('./pages/AgentRosterPage'));
 const AutonomousPatrolPage = lazy(() => import('./pages/AutonomousPatrolPage'));
+const ChannelAnalyticsPage = lazy(() => import('./pages/ChannelAnalyticsPage'));
+const ViralLabPage = lazy(() => import('./pages/ViralLabPage'));
+const CommunityManagerPage = lazy(() => import('./pages/CommunityManagerPage'));
+const ChannelDnaStudio = lazy(() => import('./pages/ChannelDnaStudio'));
+const ShortsTemplateStudio = lazy(() => import('./pages/ShortsTemplateStudio'));
+const ShortsProductionStudio = lazy(() => import('./pages/ShortsProductionStudio'));
+const ShortsEditorStudio = lazy(() => import('./pages/ShortsEditorStudio'));
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div className="flex items-center justify-center h-full w-full p-10 mt-20">
@@ -136,9 +143,13 @@ function MainAppContent() {
             }>
                 <Routes>
                     <Route path="/" element={<RouteErrorBoundary><Home /></RouteErrorBoundary>} />
+                    <Route path="/channel-dna-studio" element={<RouteErrorBoundary><ChannelDnaStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-template-studio" element={<RouteErrorBoundary><ShortsTemplateStudio /></RouteErrorBoundary>} />
                     <Route path="/douyin-search" element={<RouteErrorBoundary><SmartDouyinSearch /></RouteErrorBoundary>} />
                     <Route path="/research-concept-lab" element={<RouteErrorBoundary><ResearchConceptLab /></RouteErrorBoundary>} />
-                    <Route path="/ddalkkak" element={<RouteErrorBoundary><DdalkkakUI /></RouteErrorBoundary>} />
+                    <Route path="/shorts-production-studio" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />
+                    <Route path="/shorts-editor" element={<RouteErrorBoundary><ShortsEditorStudio /></RouteErrorBoundary>} />
+                    <Route path="/ddalkkak" element={<RouteErrorBoundary><ShortsProductionStudio /></RouteErrorBoundary>} />
                     <Route path="/scene-cutter-pro" element={<RouteErrorBoundary><SceneCutter /></RouteErrorBoundary>} />
                     <Route path="/ai-copilot" element={<RouteErrorBoundary><AICoPilotStudio /></RouteErrorBoundary>} />
                     <Route path="/flow2capcut" element={
@@ -183,6 +194,9 @@ function MainAppContent() {
                     <Route path="/resource-guide" element={<RouteErrorBoundary><ResourceGuidePage /></RouteErrorBoundary>} />
                     <Route path="/work-queue" element={<RouteErrorBoundary><WorkQueue /></RouteErrorBoundary>} />
                     <Route path="/reports" element={<RouteErrorBoundary><ReportsPage /></RouteErrorBoundary>} />
+                    <Route path="/analytics" element={<RouteErrorBoundary><ChannelAnalyticsPage /></RouteErrorBoundary>} />
+                    <Route path="/viral-lab" element={<RouteErrorBoundary><ViralLabPage /></RouteErrorBoundary>} />
+                    <Route path="/community" element={<RouteErrorBoundary><CommunityManagerPage /></RouteErrorBoundary>} />
 
                     {/* Station Manager */}
                     <Route path="/station-manager" element={<RouteErrorBoundary><StationManager /></RouteErrorBoundary>} />

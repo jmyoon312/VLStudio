@@ -115,10 +115,9 @@ class VideoAnalyzer:
                 with open(kp, "rb") as f:
                     images.append({"data": f.read(), "mime_type": "image/jpeg"})
 
-            # Handle sync generation (it's not awaitable in LLMClient)
+            # Handle sync generation (resolves dynamically from DB Settings)
             ai_report = self.llm_client.generate_content(
                 prompt=prompt,
-                model_name="gemini-1.5-flash",
                 images=images,
                 system_instruction="You are a Master Creative Director specializing in viral video analysis."
             )
@@ -180,7 +179,6 @@ class VideoAnalyzer:
             
             dna_json = self.llm_client.generate_content(
                 prompt=summary_prompt,
-                model_name="gemini-1.5-flash",
                 system_instruction="You are a Brand Strategist distilling a channel's creative DNA."
             )
             

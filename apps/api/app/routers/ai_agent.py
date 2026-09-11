@@ -95,13 +95,13 @@ def process_command(req: CommandRequest, db: Session = Depends(database.get_db))
     # Use brain_router to get the LangChain model
     try:
         # Determine Provider and Model Name dynamically from DB Settings if not specified or legacy default
-        db_model = getattr(settings, "script_analysis_model", None) or getattr(settings, "default_llm_model", None) or "viraloop1"
-        target_provider = req.provider or "omniroute"
+        db_model = getattr(settings, "script_analysis_model", None) or getattr(settings, "default_llm_model", None) or "auto"
+        target_provider = req.provider or getattr(settings, "script_analysis_provider", None) or "omniroute"
         target_model = req.model
 
         if not target_model or target_model in ["auto", "cerebras/llama3.1-8b", "llama-3.3-70b-versatile"]:
             target_model = db_model
-            if "/" in db_model and not (db_model.startswith("viraloop") or db_model.startswith("youtube")):
+            if "/" in db_model and not db_model.startswith(("omniroute/", "youtube1/")):
                 target_provider = db_model.split("/")[0]
             else:
                 target_provider = "omniroute"
