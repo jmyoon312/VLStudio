@@ -4133,6 +4133,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 // 재생 중일 때는 현재 타임코드에 위치한 activeJab만 표시! 비시간대 고스트 쨉쨉이 영구 차단
                 const isExplicitJabClipSelected = !isPlaying && selectedLayer?.type === 'jab' && selectedLayer.id !== 'layer_audio_bgm';
                 const displayJab = activeJab || (isExplicitJabClipSelected ? selectedLayer : null);
+                const isJabSelected = selectedLayerId === 'layer_jab' || selectedLayer?.type === 'jab' || (displayJab ? selectedLayerId === displayJab.id : false);
                 const shouldShowJab = hasJab && trackVisibility.t2Jab !== false && !!displayJab;
 
                 if (!shouldShowJab) return null;
