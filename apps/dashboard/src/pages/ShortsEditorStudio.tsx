@@ -759,7 +759,7 @@ export const ShortsEditorStudio: React.FC = () => {
         yPercent: sourceTransform.yPct,
       },
       mainVideo: {
-        src: videoSourceUrl || (activeVideoClip?.data) || '',
+        src: videoLayer?.data || '',
         fitMode: videoFitMode,
         scale: videoScale,
         cropTopPct: videoCropTopPct,
@@ -775,7 +775,7 @@ export const ShortsEditorStudio: React.FC = () => {
     titleLine1SizePx, titleLine2SizePx, titleFontFamily,
     hasBottomBarBg, bottomBarHeightPct, bottomBarBg,
     hasBottomSource, bottomSourceText, bottomSourceColor, bottomSourceSizePx, sourceTransform,
-    videoSourceUrl, activeVideoClip, videoFitMode, videoScale, videoCropTopPct, videoCropBottomPct,
+    videoLayer, videoFitMode, videoScale, videoCropTopPct, videoCropBottomPct,
     subtitleConfig, subtitleStrokeWidth, subtitleStrokeColor, subtitleUseBox, subtitleBoxColor, subtitleBorderRadius, subTransform,
     jabText, jabTiltDeg, jabTextColor, jabBgColor, jabStroke, jabStrokeWidth, jabStrokeColor, jabTransform, watermarkConfig
   ]);
