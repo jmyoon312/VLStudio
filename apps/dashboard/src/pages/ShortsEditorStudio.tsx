@@ -921,7 +921,7 @@ export const ShortsEditorStudio: React.FC = () => {
   // 🎵 SFX 효과음 타임라인 즉시 삽입
   const handleInsertSfxToTimeline = (sfx: SfxItem) => {
     pushHistorySnapshot();
-    playSynthesizedSfx(sfx.soundType);
+    playSynthesizedSfx(sfx.id);
     const startMs = currentTimeMs;
     const endMs = Math.min(durationMs, startMs + sfx.durationMs);
 
@@ -944,6 +944,100 @@ export const ShortsEditorStudio: React.FC = () => {
     toast({
       title: `⚡ 효과음 삽입: ${sfx.name}`,
       description: `${(startMs / 1000).toFixed(2)}초 위치에 효과음 클립이 추가되었습니다.`,
+    });
+  };
+
+  // 🧠 영상 & 대본 분석 기반 [지능형 SFX 자동 스마트 배치 (Smart Auto-Inject)] 엔진
+  // 대표님 원칙: 과유불급! 너무 과하지 않으면서 재미와 몰입감을 극대화하는 쿨다운(4초) 기반 황금 타이밍 자동 배치
+  const handleAutoSmartInjectSfx = () => {
+    pushHistorySnapshot();
+    const existingSfxLayers = layers.filter((l) => l.name.startsWith('SFX:'));
+    let newLayers = layers.filter((l) => !l.name.startsWith('SFX:')); // 기존 자동 생성 SFX 정리 후 재배치
+
+    const injectedSfx: { timeMs: number; sfxId: string; sfxName: string }[] = [];
+    let lastInjectedTimeMs = -5000;
+    const MIN_SFX_COOLDOWN_MS = 4000; // 효과음 남발 방지 최소 4초 쿨다운
+
+    // 1) 0.3초 첫 3초 후크 인트로: 시네마틱 붐 (시선 강탈)
+    injectedSfx.push({
+      timeMs: 300,
+      sfxId: 'sfx_cinematic_boom',
+      sfxName: '시네마틱 붐',
+    });
+    lastInjectedTimeMs = 300;
+
+    // 2) 쨉쨉이(T2) 등장 시점: 찰진 펀치 히트
+    if (hasJab && (jabTransform.yPct || 32)) {
+      const jabTimeMs = 2800; // 통상 2~3초 쨉쨉이 터지는 구간
+      if (jabTimeMs - lastInjectedTimeMs >= MIN_SFX_COOLDOWN_MS) {
+        injectedSfx.push({
+          timeMs: jabTimeMs,
+          sfxId: 'sfx_punch_hit',
+          sfxName: '찰진 펀치 히트',
+        });
+        lastInjectedTimeMs = jabTimeMs;
+      }
+    }
+
+    // 3) 대본 자막 키워드 및 반전 포인트 분석
+    const subLayers = layers.filter((l) => l.type === 'subtitle' && l.visible);
+    subLayers.forEach((sub) => {
+      const text = sub.data || '';
+      const startMs = sub.startMs;
+
+      // 쿨다운 체크
+      if (startMs - lastInjectedTimeMs < MIN_SFX_COOLDOWN_MS) return;
+      if (startMs >= durationMs - 1500) return; // 영상 끝나기 직전은 스킵
+
+      // 키워드 매칭
+      if (/(하지만|그런데|갑자기|반전|어라|잠깐)/.test(text)) {
+        injectedSfx.push({ timeMs: startMs, sfxId: 'sfx_record_scratch', sfxName: '레코드 스크래치' });
+        lastInjectedTimeMs = startMs;
+      } else if (/(진실|정답|비결|꿀팁|원인|알고보니)/.test(text)) {
+        injectedSfx.push({ timeMs: startMs, sfxId: 'sfx_bulb_ding', sfxName: '전구 띵' });
+        lastInjectedTimeMs = startMs;
+      } else if (/(돈|수익|매출|억|원|대박|보너스|1위|달성)/.test(text)) {
+        injectedSfx.push({ timeMs: startMs, sfxId: 'sfx_coin_ching', sfxName: '동전 짤랑' });
+        lastInjectedTimeMs = startMs;
+      } else if (/(충격|경악|대참사|폭발|비극|끝장)/.test(text)) {
+        injectedSfx.push({ timeMs: startMs, sfxId: 'sfx_bass_drop', sfxName: '헤비 베이스 드롭' });
+        lastInjectedTimeMs = startMs;
+      } else if (/(썰|이야기|사연|후기)/.test(text)) {
+        injectedSfx.push({ timeMs: startMs, sfxId: 'sfx_pixeling_type', sfxName: '썰형 타자기' });
+        lastInjectedTimeMs = startMs;
+      }
+    });
+
+    // 4) 결말 직전 사이다 클라이맥스 (영상 85% 시점)
+    const climaxMs = Math.round(durationMs * 0.82);
+    if (climaxMs - lastInjectedTimeMs >= MIN_SFX_COOLDOWN_MS) {
+      injectedSfx.push({
+        timeMs: climaxMs,
+        sfxId: 'sfx_pixeling_dingdong',
+        sfxName: '딩동댕 정답벨',
+      });
+    }
+
+    // NleLayerObject 생성 및 주입
+    const sfxLayersToAdd: NleLayerObject[] = injectedSfx.map((item, idx) => ({
+      id: `smart_sfx_${Date.now()}_${idx}`,
+      name: `SFX: ${item.sfxName}`,
+      type: 'audio',
+      startMs: item.timeMs,
+      endMs: Math.min(durationMs, item.timeMs + 800),
+      visible: true,
+      locked: false,
+      data: item.sfxId,
+      styleProps: {
+        color: '#F59E0B',
+        sfxName: item.sfxName,
+      },
+    }));
+
+    setLayers([...newLayers, ...sfxLayersToAdd]);
+    toast({
+      title: '🎯 AI 스마트 SFX 자동 배치 완료',
+      description: `대본 분석 기반으로 ${sfxLayersToAdd.length}개의 황금 타이밍 효과음이 과하지 않게(4초 쿨다운) 타임라인에 안착되었습니다.`,
     });
   };
 
@@ -2513,8 +2607,28 @@ export const ShortsEditorStudio: React.FC = () => {
                       36종 바이럴 SFX & 픽셀링 썰형 효과음
                     </span>
                     <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
-                      36종 내장
+                      36종 고유음향
                     </Badge>
+                  </div>
+
+                  {/* 🧠 AI 지능형 SFX 스마트 자동 배치 배너 */}
+                  <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-[2px] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Wand2 className="w-3.5 h-3.5" />
+                        AI 지능형 SFX 자동 스마트 배치
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleAutoSmartInjectSfx}
+                        className="h-5 px-2 text-[9px] font-bold bg-amber-500 hover:bg-amber-600 text-white rounded transition cursor-pointer shadow-2xs"
+                      >
+                        원클릭 자동 배치 ⚡
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground leading-tight">
+                      영상·대본 분석을 바탕으로 첫 3초 후크, 쨉쨉이 등장, 반전 지점에 과하지 않게(4초 간격) 황금 포인트 효과음을 자동 주입합니다.
+                    </p>
                   </div>
 
                   {/* 카테고리 필터 */}
@@ -2566,7 +2680,7 @@ export const ShortsEditorStudio: React.FC = () => {
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
-                              onClick={() => playSynthesizedSfx(sfx.soundType)}
+                              onClick={() => playSynthesizedSfx(sfx.id)}
                               className="h-5 px-1.5 text-[9px] font-medium rounded border border-border bg-card hover:bg-muted text-foreground flex items-center gap-0.5 cursor-pointer"
                               title="효과음 미리듣기"
                             >
