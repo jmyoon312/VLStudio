@@ -58,7 +58,8 @@ import {
   FolderOpen,
   Check,
   Radio,
-  Minimize2
+  Minimize2,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -257,6 +258,7 @@ export const ShortsEditorStudio: React.FC = () => {
   const [subtitleShadow, setSubtitleShadow] = useState<boolean>(true);
   const [subtitleShadowEnabled, setSubtitleShadowEnabled] = useState<boolean>(true);
   const [subtitleShadowColor, setSubtitleShadowColor] = useState<string>('rgba(0,0,0,0.95)');
+  const [subtitleShadowBlur, setSubtitleShadowBlur] = useState<number>(8);
   const [subtitleUseBox, setSubtitleUseBox] = useState<boolean>(false);
   const [subtitleBoxColor, setSubtitleBoxColor] = useState<string>('rgba(0,0,0,0.75)');
   const [subtitleBorderRadius, setSubtitleBorderRadius] = useState<number>(4);
@@ -2206,7 +2208,7 @@ export const ShortsEditorStudio: React.FC = () => {
                 </TransformGizmo>
               )}
 
-              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
+              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (글자 외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
               {hasJab && (
                 <TransformGizmo
                   transform={jabTransform}
@@ -2224,24 +2226,32 @@ export const ShortsEditorStudio: React.FC = () => {
                   }}
                 >
                   <div
-                    className="font-black px-3 py-1.5 shadow-2xl flex items-center justify-center whitespace-nowrap cursor-move"
+                    className="font-black px-3 py-1.5 flex items-center justify-center whitespace-nowrap cursor-move transition-all"
                     style={{
-                      fontSize: `${jabFontSize}px`,
-                      color: jabTextColor,
                       backgroundColor: jabBgEnabled ? jabBgColor : 'transparent',
                       borderRadius: `${jabBorderRadius}px`,
-                      border: jabStroke ? `${jabStrokeWidth}px solid ${jabStrokeColor}` : 'none',
-                      fontFamily: titleFontFamily,
-                      boxShadow: jabShadow ? `0 4px ${jabShadowBlur}px rgba(0,0,0,0.8)` : 'none',
-                      WebkitFontSmoothing: 'antialiased',
+                      boxShadow: jabShadow ? `0 4px ${jabShadowBlur * 2}px rgba(0,0,0,0.8)` : 'none',
+                      border: (jabBgEnabled && jabStroke) ? '1px solid rgba(0,0,0,0.2)' : 'none',
                     }}
                   >
-                    {jabText}
+                    <span
+                      style={{
+                        fontSize: `${jabFontSize}px`,
+                        color: jabTextColor,
+                        fontFamily: titleFontFamily,
+                        WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
+                        paintOrder: 'stroke fill',
+                        WebkitFontSmoothing: 'antialiased',
+                        textShadow: jabShadow ? `0 2px ${jabShadowBlur}px rgba(0,0,0,0.9)` : 'none',
+                      }}
+                    >
+                      {jabText}
+                    </span>
                   </div>
                 </TransformGizmo>
               )}
 
-              {/* 💬 LAYER 4: 본문 자막 (외곽선/그림자/배경박스/모서리 둥글기/자동 내려쓰기) */}
+              {/* 💬 LAYER 4: 본문 자막 (글자 외곽선/그림자/배경박스/모서리 둥글기/자동 내려쓰기) */}
               <TransformGizmo
                 transform={subTransform}
                 selected={selectedLayer?.type === 'subtitle' || selectedLayerId === 'layer_sub'}
@@ -2263,22 +2273,28 @@ export const ShortsEditorStudio: React.FC = () => {
                     subtitleUseBox && "px-3 py-1.5"
                   )}
                   style={{
-                    fontSize: `${subtitleConfig.fontSize || 18}px`,
-                    color: subtitleConfig.fillColor || '#FFFFFF',
-                    fontFamily: subtitleConfig.fontFamily || 'Pretendard',
                     backgroundColor: subtitleUseBox ? subtitleBoxColor : 'transparent',
                     borderRadius: subtitleUseBox ? `${subtitleBorderRadius}px` : 0,
-                    WebkitTextStroke: subtitleStrokeEnabled
-                      ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
-                      : `${subtitleConfig.strokeWidth || 4}px ${subtitleConfig.strokeColor || '#000000'}`,
-                    paintOrder: 'stroke fill',
-                    WebkitFontSmoothing: 'antialiased',
-                    textShadow: subtitleShadowEnabled
-                      ? '0 2px 10px rgba(0,0,0,0.95)'
-                      : 'none',
+                    boxShadow: subtitleShadowEnabled && subtitleUseBox ? '0 4px 14px rgba(0,0,0,0.7)' : 'none',
                   }}
                 >
-                  {formatWrappedText(activeSub?.data || '자막 텍스트', subtitleMaxChars)}
+                  <span
+                    style={{
+                      fontSize: `${subtitleConfig.fontSize || 18}px`,
+                      color: subtitleConfig.fillColor || '#FFFFFF',
+                      fontFamily: subtitleConfig.fontFamily || 'Pretendard',
+                      WebkitTextStroke: subtitleStrokeEnabled
+                        ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
+                        : 'none',
+                      paintOrder: 'stroke fill',
+                      WebkitFontSmoothing: 'antialiased',
+                      textShadow: subtitleShadowEnabled
+                        ? `0 2px ${subtitleShadowBlur || 8}px ${subtitleShadowColor}`
+                        : 'none',
+                    }}
+                  >
+                    {formatWrappedText(activeSub?.data || '자막 텍스트', subtitleMaxChars)}
+                  </span>
                 </div>
               </TransformGizmo>
 
@@ -3148,17 +3164,17 @@ export const ShortsEditorStudio: React.FC = () => {
                         />
                       </div>
 
-                      {/* 글자 크기 & 색상 */}
+                      {/* 글자 크기 & 글자 색상 */}
                       <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
                         <div className="flex justify-between text-[10px]">
-                          <span className="text-foreground font-semibold">글자 크기</span>
+                          <span className="text-foreground font-semibold">글자 크기 & 색상</span>
                           <span className="font-mono text-primary font-bold">{jabFontSize}px</span>
                         </div>
                         <div className="flex gap-1.5 items-center">
                           <input
                             type="range"
                             min="10"
-                            max="30"
+                            max="36"
                             value={jabFontSize}
                             onChange={(e) => setJabFontSize(parseInt(e.target.value))}
                             className="flex-1 accent-primary cursor-pointer h-1 bg-muted"
@@ -3167,10 +3183,63 @@ export const ShortsEditorStudio: React.FC = () => {
                             type="color"
                             value={jabTextColor}
                             onChange={(e) => setJabTextColor(e.target.value)}
-                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer bg-transparent"
+                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer bg-transparent"
                             title="글자 색상"
                           />
                         </div>
+                      </div>
+
+                      {/* 🎨 글자 테두리(외곽선) */}
+                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
+                          <Switch checked={jabStroke} onCheckedChange={setJabStroke} />
+                        </div>
+                        {jabStroke && (
+                          <div className="space-y-1 pt-1">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted-foreground">두께: {jabStrokeWidth}px</span>
+                              <input
+                                type="color"
+                                value={jabStrokeColor}
+                                onChange={(e) => setJabStrokeColor(e.target.value)}
+                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                                title="테두리 색상"
+                              />
+                            </div>
+                            <input
+                              type="range"
+                              min="1"
+                              max="8"
+                              value={jabStrokeWidth}
+                              onChange={(e) => setJabStrokeWidth(parseInt(e.target.value))}
+                              className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 🌌 입체 그림자 */}
+                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-semibold text-foreground">글자 입체 그림자</span>
+                          <Switch checked={jabShadow} onCheckedChange={setJabShadow} />
+                        </div>
+                        {jabShadow && (
+                          <div className="space-y-1 pt-1">
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-muted-foreground">흐림: {jabShadowBlur}px</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="1"
+                              max="16"
+                              value={jabShadowBlur}
+                              onChange={(e) => setJabShadowBlur(parseInt(e.target.value))}
+                              className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* 🔲 배경 박스 & 모서리 둥글기 */}
@@ -3183,6 +3252,7 @@ export const ShortsEditorStudio: React.FC = () => {
                               value={jabBgColor}
                               onChange={(e) => setJabBgColor(e.target.value)}
                               className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                              title="배경색"
                             />
                             <Switch checked={jabBgEnabled} onCheckedChange={setJabBgEnabled} />
                           </div>
@@ -3204,26 +3274,6 @@ export const ShortsEditorStudio: React.FC = () => {
                           </div>
                         )}
                       </div>
-
-                      {/* 테두리(외곽선) & 그림자 */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-foreground">테두리 (외곽선)</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="color"
-                              value={jabStrokeColor}
-                              onChange={(e) => setJabStrokeColor(e.target.value)}
-                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                            />
-                            <Switch checked={jabStroke} onCheckedChange={setJabStroke} />
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-[10px] pt-1 border-t border-border/50">
-                          <span className="font-semibold text-foreground">입체 그림자</span>
-                          <Switch checked={jabShadow} onCheckedChange={setJabShadow} />
-                        </div>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -3239,6 +3289,31 @@ export const ShortsEditorStudio: React.FC = () => {
                     본문 자막 스타일 & 배경 효과
                   </span>
 
+                  {/* 자막 글자 크기 & 색상 */}
+                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-foreground font-semibold">글자 크기 & 색상</span>
+                      <span className="font-mono text-emerald-500 font-bold">{subtitleConfig.fontSize || 18}px</span>
+                    </div>
+                    <div className="flex gap-1.5 items-center">
+                      <input
+                        type="range"
+                        min="12"
+                        max="36"
+                        value={subtitleConfig.fontSize || 18}
+                        onChange={(e) => setSubtitleConfig(prev => ({ ...prev, fontSize: parseInt(e.target.value) }))}
+                        className="flex-1 accent-emerald-500 cursor-pointer h-1 bg-muted"
+                      />
+                      <input
+                        type="color"
+                        value={subtitleConfig.fillColor || '#FFFFFF'}
+                        onChange={(e) => setSubtitleConfig(prev => ({ ...prev, fillColor: e.target.value }))}
+                        className="w-7 h-7 p-0 border border-border rounded cursor-pointer bg-transparent"
+                        title="자막 글자 색상"
+                      />
+                    </div>
+                  </div>
+
                   {/* 자동 내려쓰기 글자 수 */}
                   <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
                     <div className="flex justify-between text-[10px]">
@@ -3248,7 +3323,7 @@ export const ShortsEditorStudio: React.FC = () => {
                     <input
                       type="range"
                       min="6"
-                      max="20"
+                      max="24"
                       value={subtitleMaxChars}
                       onChange={(e) => setSubtitleMaxChars(parseInt(e.target.value))}
                       className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
@@ -3268,8 +3343,12 @@ export const ShortsEditorStudio: React.FC = () => {
                           <input
                             type="color"
                             value={subtitleStrokeColor}
-                            onChange={(e) => setSubtitleStrokeColor(e.target.value)}
+                            onChange={(e) => {
+                              setSubtitleStrokeColor(e.target.value);
+                              setSubtitleConfig(prev => ({ ...prev, strokeColor: e.target.value }));
+                            }}
                             className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                            title="테두리 색상"
                           />
                         </div>
                         <input
@@ -3277,7 +3356,11 @@ export const ShortsEditorStudio: React.FC = () => {
                           min="1"
                           max="10"
                           value={subtitleStrokeWidth}
-                          onChange={(e) => setSubtitleStrokeWidth(parseInt(e.target.value))}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value);
+                            setSubtitleStrokeWidth(val);
+                            setSubtitleConfig(prev => ({ ...prev, strokeWidth: val }));
+                          }}
                           className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
                         />
                       </div>
@@ -3290,6 +3373,28 @@ export const ShortsEditorStudio: React.FC = () => {
                       <span className="font-semibold text-foreground">자막 입체 그림자</span>
                       <Switch checked={subtitleShadowEnabled} onCheckedChange={setSubtitleShadowEnabled} />
                     </div>
+                    {subtitleShadowEnabled && (
+                      <div className="space-y-1 pt-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-muted-foreground">흐림: {subtitleShadowBlur}px</span>
+                          <input
+                            type="color"
+                            value="#000000"
+                            onChange={(e) => setSubtitleShadowColor(e.target.value)}
+                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                            title="그림자 색상"
+                          />
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="20"
+                          value={subtitleShadowBlur}
+                          onChange={(e) => setSubtitleShadowBlur(parseInt(e.target.value))}
+                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* 🔲 자막 배경 필 박스 & 모서리 둥글기 */}
@@ -3299,9 +3404,10 @@ export const ShortsEditorStudio: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         <input
                           type="color"
-                          value="#000000"
+                          value={subtitleBoxColor.startsWith('#') ? subtitleBoxColor : '#000000'}
                           onChange={(e) => setSubtitleBoxColor(e.target.value)}
                           className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
+                          title="배경 박스 색상"
                         />
                         <Switch checked={subtitleUseBox} onCheckedChange={setSubtitleUseBox} />
                       </div>
