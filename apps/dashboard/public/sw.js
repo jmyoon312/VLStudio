@@ -11,6 +11,4 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-self.addEventListener('fetch', () => {
-  // Direct pass-through without intercepting
-});
+// No-op fetch handler removed to prevent browser navigation overhead

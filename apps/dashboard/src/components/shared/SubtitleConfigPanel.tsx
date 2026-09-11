@@ -37,6 +37,16 @@ function useDebounce<T>(value: T, delay: number): T {
     return debouncedValue;
 }
 
+function safeHexColor(c?: string, fallback: string = '#FFFFFF'): string {
+    if (!c || typeof c !== 'string') return fallback;
+    const clean = c.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(clean)) return clean;
+    if (/^#[0-9A-Fa-f]{3}$/.test(clean)) {
+        return `#${clean[1]}${clean[1]}${clean[2]}${clean[2]}${clean[3]}${clean[3]}`;
+    }
+    return fallback;
+}
+
 const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onChange, compact = false }) => {
     // Local state for immediate UI feedback
     const [localConfig, setLocalConfig] = useState<SubtitleConfig>(config);
@@ -138,12 +148,12 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                     <div className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/40 border border-border">
                         <input
                             type="color"
-                            value={localConfig.textColor}
+                            value={safeHexColor(localConfig.textColor, '#FFFFFF')}
                             onChange={(e) => updateDebounced('textColor', e.target.value)}
                             className="w-5 h-5 rounded cursor-pointer border border-border bg-transparent shrink-0"
                             title="텍스트 색상"
                         />
-                        <span className="text-[10px] text-muted-foreground font-mono flex-1">{localConfig.textColor.toUpperCase()}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono flex-1">{(localConfig.textColor || '#FFFFFF').toUpperCase()}</span>
 
                         <div className="h-4 w-px bg-border mx-1" />
 
@@ -204,7 +214,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                             </Label>
                             <input
                                 type="color"
-                                value={localConfig.outlineColor}
+                                value={safeHexColor(localConfig.outlineColor, '#000000')}
                                 onChange={(e) => updateDebounced('outlineColor', e.target.value)}
                                 className="w-0 h-0 opacity-0 absolute"
                                 id="outline-color-picker"
@@ -234,7 +244,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                             </Label>
                             <input
                                 type="color"
-                                value={localConfig.shadowColor}
+                                value={safeHexColor(localConfig.shadowColor, '#000000')}
                                 onChange={(e) => updateDebounced('shadowColor', e.target.value)}
                                 className="w-0 h-0 opacity-0 absolute"
                                 id="shadow-color-picker"
@@ -333,7 +343,7 @@ const SubtitleConfigPanel: React.FC<SubtitleConfigPanelProps> = ({ config, onCha
                             <div className="flex items-center gap-2">
                                 <input
                                     type="color"
-                                    value={localConfig.backgroundColor}
+                                    value={safeHexColor(localConfig.backgroundColor, '#000000')}
                                     onChange={(e) => updateDebounced('backgroundColor', e.target.value)}
                                     className="w-4 h-4 rounded cursor-pointer border border-border"
                                 />

@@ -1,4 +1,34 @@
+// 🎨 캡컷 10대 인기 시네마틱 필터 & 영화 노이즈 FX 정의
+export interface VideoFilterSettings {
+  preset: string;
+  intensity: number;
+  filmGrain: number; // 0 ~ 100 (영화 필름 노이즈)
+  vignette: number;  // 0 ~ 100 (비네팅)
+  brightness: number; // 50 ~ 150
+  contrast: number;   // 50 ~ 150
+  saturation: number; // 0 ~ 200
+  temperature: number; // -50 ~ +50
+}
+
+export const CAPCUT_FILTER_PRESETS = [
+  { id: 'none', name: '원본 (Original)', desc: '보정 없음', color: 'from-zinc-500 to-zinc-600', grain: 0, vignette: 0, b: 100, c: 100, s: 100, t: 0 },
+  { id: 'cinematic-film', name: '🎬 시네마틱 35mm', desc: '영화 필름 질감 & 아날로그 그레인', color: 'from-amber-600 to-stone-800', grain: 45, vignette: 40, b: 98, c: 120, s: 95, t: 10 },
+  { id: 'teal-orange', name: '🌆 헐리우드 틸 & 오렌지', desc: '블록버스터 시네마 룩', color: 'from-cyan-600 to-amber-600', grain: 20, vignette: 30, b: 102, c: 125, s: 125, t: 15 },
+  { id: 'retro-vhs', name: '📼 90s 레트로 VHS', desc: '아날로그 테이프 & 주사선 노이즈', color: 'from-purple-600 to-emerald-600', grain: 65, vignette: 45, b: 105, c: 115, s: 85, t: 12 },
+  { id: 'film-noir', name: '🎞️ 클래식 필름 느와르', desc: '고대비 모노크롬 흑백', color: 'from-zinc-900 to-zinc-600', grain: 55, vignette: 55, b: 95, c: 145, s: 0, t: 0 },
+  { id: 'cyberpunk', name: '⚡ 사이버펑크 네온', desc: '시안 & 마젠타 퓨처리스틱', color: 'from-fuchsia-600 to-cyan-500', grain: 15, vignette: 35, b: 105, c: 135, s: 160, t: -15 },
+  { id: 'kodak-warm', name: '🌅 웜 코닥 골드', desc: '따뜻한 골든아워 감성 필름', color: 'from-amber-500 to-rose-600', grain: 30, vignette: 25, b: 103, c: 110, s: 115, t: 25 },
+  { id: 'fuji-cool', name: '❄️ 쿨 후지필름', desc: '청량하고 차분한 모던 톤', color: 'from-sky-500 to-teal-700', grain: 20, vignette: 20, b: 100, c: 112, s: 92, t: -20 },
+  { id: 'dreamy-glow', name: '✨ 드림 글로우', desc: '몽환적인 소프트 확산광 (뽀샤시)', color: 'from-pink-400 to-indigo-400', grain: 10, vignette: 20, b: 112, c: 90, s: 108, t: 8 },
+  { id: 'vintage-grain', name: '📽️ 1970 빈티지 그레인', desc: '헤비 입자 & 세피아 톤', color: 'from-yellow-700 to-amber-900', grain: 80, vignette: 50, b: 95, c: 120, s: 70, t: 30 },
+];
+
+import { exportCapCutFullProject } from '@/services/capcutFullProjectExporter';
+import { generateSmartSeoTags, generateSmartHashtags, generatePixelingStandardMeta } from '@/lib/ddalkkakPixeling';
+import { SUBTITLE_STYLES, DDALKKAK_TTS_PRESETS } from '@/types/ddalkkak';
+import { Highlighter, Send, Globe2, ThumbsUp, MessageCircle, Palette } from 'lucide-react';
 import { SFX_CATALOG, playSynthesizedSfx, SfxItem } from '@/config/sfxCatalog';
+import { proceduralBgmEngine, BGM_PRESETS } from '@/services/proceduralBgmEngine';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -7,6 +37,7 @@ import {
   Repeat,
   Grid,
   Crosshair,
+  Upload,
   Volume1,
   Trash2,
   Copy,
@@ -109,44 +140,248 @@ const PRO_PRESETS: ProStylePreset[] = [
   { id: 'vivid_lime', name: '비비드 라임', color: '#00E510', strokeColor: '#000000', strokeWidth: 4, fontFamily: 'GmarketSans' },
 ];
 
+// 🎨 8대 쇼츠 자막 디자인 프리셋 정의 (시각적 미니 프리뷰 및 1클릭 완벽 연동)
+interface SubtitleDesignPreset {
+  id: string;
+  name: string;
+  badge: string;
+  badgeColor: string;
+  desc: string;
+  fontFamily: string;
+  textColor: string;
+  outlineSize: number;
+  outlineColor: string;
+  useBox: boolean;
+  boxColor: string;
+  shadowSize: number;
+  shadowColor: string;
+  fontSize: number;
+  sampleText: string;
+}
+
+const SHORTS_SUBTITLE_DESIGN_PRESETS: SubtitleDesignPreset[] = [
+  {
+    id: 'neon-yellow',
+    name: '네온 옐로우',
+    badge: 'MZ 바이럴',
+    badgeColor: 'bg-amber-500 text-black',
+    desc: '선명한 옐로우 + 블랙 볼드 외곽선',
+    fontFamily: 'Black Han Sans',
+    textColor: '#FFE600',
+    outlineSize: 5,
+    outlineColor: '#000000',
+    useBox: false,
+    boxColor: '#000000',
+    shadowSize: 3,
+    shadowColor: '#000000',
+    fontSize: 19,
+    sampleText: '바이럴 쇼츠 자막',
+  },
+  {
+    id: 'white-glow',
+    name: '화이트 글로우',
+    badge: '추천 1위',
+    badgeColor: 'bg-sky-500 text-white',
+    desc: '순백 글자 + 시안 네온 그림자',
+    fontFamily: 'Pretendard',
+    textColor: '#FFFFFF',
+    outlineSize: 4,
+    outlineColor: '#0F172A',
+    useBox: false,
+    boxColor: '#000000',
+    shadowSize: 4,
+    shadowColor: '#00F0FF',
+    fontSize: 18,
+    sampleText: '화이트 네온 글로우',
+  },
+  {
+    id: 'black-gold',
+    name: '블랙 앤 골드',
+    badge: '지식/다큐',
+    badgeColor: 'bg-amber-600 text-amber-100',
+    desc: '골드 텍스트 + 딥블랙 외곽선',
+    fontFamily: 'Do Hyeon',
+    textColor: '#FFD700',
+    outlineSize: 5,
+    outlineColor: '#000000',
+    useBox: false,
+    boxColor: '#000000',
+    shadowSize: 3,
+    shadowColor: '#000000',
+    fontSize: 19,
+    sampleText: '프리미엄 골드 자막',
+  },
+  {
+    id: 'cyan-pop',
+    name: '네온 시안 팝',
+    badge: '트렌드 팝',
+    badgeColor: 'bg-cyan-500 text-black',
+    desc: '눈부신 네온 시안 + 블랙 외곽선',
+    fontFamily: 'Pretendard',
+    textColor: '#00F0FF',
+    outlineSize: 5,
+    outlineColor: '#000000',
+    useBox: false,
+    boxColor: '#000000',
+    shadowSize: 3,
+    shadowColor: '#002B36',
+    fontSize: 18,
+    sampleText: '네온 시안 임팩트',
+  },
+  {
+    id: 'hot-pink',
+    name: '핫 핑크 바이브',
+    badge: '감성/엔터',
+    badgeColor: 'bg-pink-500 text-white',
+    desc: '비비드 핫핑크 + 핑크 글로우',
+    fontFamily: 'Jua',
+    textColor: '#FF2E93',
+    outlineSize: 4,
+    outlineColor: '#000000',
+    useBox: false,
+    boxColor: '#000000',
+    shadowSize: 4,
+    shadowColor: '#FF2E93',
+    fontSize: 19,
+    sampleText: '핫핑크 바이브 자막',
+  },
+  {
+    id: 'box-pill',
+    name: '박스 하이라이트',
+    badge: '가독성 최고',
+    badgeColor: 'bg-zinc-800 text-white',
+    desc: '블랙 필 박스 + 화이트 볼드',
+    fontFamily: 'Nanum Gothic',
+    textColor: '#FFFFFF',
+    outlineSize: 0,
+    outlineColor: '#000000',
+    useBox: true,
+    boxColor: 'rgba(0,0,0,0.85)',
+    shadowSize: 2,
+    shadowColor: '#000000',
+    fontSize: 17,
+    sampleText: '박스형 자막 스타일',
+  },
+  {
+    id: 'minimal-lime',
+    name: '미니멀 라임',
+    badge: '상큼한 일상',
+    badgeColor: 'bg-lime-500 text-black',
+    desc: '라임 텍스트 + 미니멀 블랙 테두리',
+    fontFamily: 'Pretendard',
+    textColor: '#A3E635',
+    outlineSize: 4,
+    outlineColor: '#000000',
+    useBox: false,
+    boxColor: '#000000',
+    shadowSize: 2,
+    shadowColor: '#000000',
+    fontSize: 18,
+    sampleText: '미니멀 라임 자막',
+  },
+  {
+    id: 'bold-classic',
+    name: '볼드 클래식',
+    badge: '정통 볼드',
+    badgeColor: 'bg-slate-700 text-white',
+    desc: '화이트 + 6px 두꺼운 블랙 스트로크',
+    fontFamily: 'Gowun Dodum',
+    textColor: '#FFFFFF',
+    outlineSize: 6,
+    outlineColor: '#000000',
+    useBox: false,
+    boxColor: '#000000',
+    shadowSize: 3,
+    shadowColor: '#000000',
+    fontSize: 20,
+    sampleText: '볼드 클래식 자막',
+  },
+];
+
 export const ShortsEditorStudio: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
-  // 자막 자동 내려쓰기(줄바꿈) 헬퍼
-  const formatWrappedText = (text: string, maxChars: number) => {
-    if (!text) return '';
-    if (text.includes('\n')) return text;
-    if (text.length <= maxChars) return text;
-    const words = text.split(' ');
-    let lines: string[] = [];
-    let curLine = '';
-    for (const w of words) {
-      if ((curLine + ' ' + w).trim().length > maxChars) {
-        if (curLine) lines.push(curLine.trim());
-        curLine = w;
-      } else {
-        curLine = curLine ? curLine + ' ' + w : w;
-      }
+  // 자막 자동 내려쓰기(줄바꿈) & 최대 줄 수 제어 헬퍼 (SSOT: splitLimit, maxLines 지원)
+    // 🎨 안전한 HEX 컬러 변환 헬퍼 (rgba/rgb 경고 원천 차단)
+  const rgbaToHex = (colorStr?: string, fallback: string = '#000000'): string => {
+    if (!colorStr) return fallback;
+    if (colorStr.startsWith('#')) return colorStr.slice(0, 7);
+    const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (rgbaMatch) {
+      const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0');
+      const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, '0');
+      const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, '0');
+      return `#${r}${g}${b}`;
     }
-    if (curLine) lines.push(curLine.trim());
+    return fallback;
+  };
+
+const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: number = 2) => {
+    if (!text) return '';
+    let lines: string[] = [];
+    if (text.includes('\n')) {
+      lines = text.split('\n');
+    } else if (text.length <= splitLimit) {
+      lines = [text];
+    } else {
+      const words = text.split(' ');
+      let curLine = '';
+      for (const w of words) {
+        if ((curLine + ' ' + w).trim().length > splitLimit) {
+          if (curLine) lines.push(curLine.trim());
+          curLine = w;
+        } else {
+          curLine = curLine ? curLine + ' ' + w : w;
+        }
+      }
+      if (curLine) lines.push(curLine.trim());
+    }
+
+    if (maxLines > 0 && lines.length > maxLines) {
+      const preserved = lines.slice(0, maxLines - 1);
+      const remaining = lines.slice(maxLines - 1).join(' ');
+      lines = [...preserved, remaining];
+    }
     return lines.join('\n');
   };
 
-  // 1. 프로젝트 마스터 메타 & 프로 뷰어 스테이지 상태
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
   const [safeZoneVisible, setSafeZoneVisible] = useState<boolean>(false);
   const [showGrid, setShowGrid] = useState<boolean>(false); // 📐 십자선 & 3분할 구도선
   const [canvasZoom, setCanvasZoom] = useState<'fit' | '50' | '75' | '100' | '150' | '200'>('fit');
   const [canvasScale, setCanvasScale] = useState<number>(1.0);
   const [canvasPan, setCanvasPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  // 🎯 캔버스 줌 휠 이벤트: passive: false 등록으로 preventDefault 경고 없이 부드러운 확대/축소 지원
+  useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const zoomDelta = -e.deltaY * 0.0015;
+      setCanvasScale((prev) => {
+        const next = Math.max(0.2, Math.min(4.0, prev + zoomDelta));
+        return parseFloat(next.toFixed(3));
+      });
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
   const [isPanning, setIsPanning] = useState<boolean>(false);
   const panStartRef = useRef<{ startX: number; startY: number; panX: number; panY: number }>({ startX: 0, startY: 0, panX: 0, panY: 0 });
   
   const [isLooping, setIsLooping] = useState<boolean>(true); // 🔁 반복 재생
-  const [playbackRate, setPlaybackRate] = useState<number>(1.0); // ⚡ 재생 배속
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+  const [bgmVolume, setBgmVolume] = useState<number>(35); // ⚡ 재생 배속
   const [masterVolume, setMasterVolume] = useState<number>(100); // 🔊 모니터 볼륨
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
@@ -157,10 +392,14 @@ export const ShortsEditorStudio: React.FC = () => {
   const [magnetSnap, setMagnetSnap] = useState<boolean>(true);
 
   // 🌟 바이럴루프 쇼츠 6대 표준 레이어 & 비디오 크롭 상태 (ShortsLayoutState 규격 100% 통합)
-  const [videoFitMode, setVideoFitMode] = useState<'sandwich' | 'fullscreen'>('sandwich'); // 샌드위치 핏 vs 풀스크린
-  const [videoZoomScale, setVideoZoomScale] = useState<number>(100); // 100% ~ 200% 비디오 줌/크롭
-  const [videoFocusYPct, setVideoFocusYPct] = useState<number>(50); // 0% ~ 100% 인물 얼굴 중심 Y 오프셋
+  const [videoFitMode, setVideoFitMode] = useState<'sandwich' | 'fullscreen' | 'fit-center' | 'fit-top' | 'custom'>('sandwich');
+  const [videoBlurBg, setVideoBlurBg] = useState<boolean>(true); // 샌드위치 핏 vs 풀스크린
+  const [videoZoomScale, setVideoZoomScale] = useState<number>(100); // 50% ~ 300% 비디오 줌/크롭
+  const [videoFocusXPct, setVideoFocusXPct] = useState<number>(50); // 0% ~ 100% 가로 X 오프셋 (좌우 자유 이동)
+  const [videoFocusYPct, setVideoFocusYPct] = useState<number>(50); // 0% ~ 100% 세로 Y 오프셋 (상하 자유 이동)
+  const [videoRotationDeg, setVideoRotationDeg] = useState<number>(0); // -180° ~ +180° 자유 회전 각도
   const [videoHorizontalFlip, setVideoHorizontalFlip] = useState<boolean>(false);
+  const [videoVerticalFlip, setVideoVerticalFlip] = useState<boolean>(false);
 
   // Layer 1: 상단 배경 바 (Top Bar Bg)
   const [hasTopBarBg, setHasTopBarBg] = useState<boolean>(true);
@@ -172,34 +411,10 @@ export const ShortsEditorStudio: React.FC = () => {
   const [hasTopTitle, setHasTopTitle] = useState<boolean>(true);
   const [topTitleYPct, setTopTitleYPct] = useState<number>(9.0);
   // 🌟 TransformGizmo 완벽 연동 독립 레이어 Transform 상태 (위치, 크기, 회전, Z-Index)
-  const [titleTransform, setTitleTransform] = useState<NleLayerTransform>({
-    xPct: 50,
-    yPct: 9.0,
-    scale: 1.0,
-    rotationDeg: 0,
-    zIndex: 35,
-  });
-  const [jabTransform, setJabTransform] = useState<NleLayerTransform>({
-    xPct: 50,
-    yPct: 28.0,
-    scale: 1.0,
-    rotationDeg: -3,
-    zIndex: 40,
-  });
-  const [subTransform, setSubTransform] = useState<NleLayerTransform>({
-    xPct: 50,
-    yPct: 78.0,
-    scale: 1.0,
-    rotationDeg: 0,
-    zIndex: 45,
-  });
-  const [sourceTransform, setSourceTransform] = useState<NleLayerTransform>({
-    xPct: 50,
-    yPct: 94.0,
-    scale: 1.0,
-    rotationDeg: 0,
-    zIndex: 35,
-  });
+  const [titleTransform, setTitleTransform] = useState<NleLayerTransform>(createDefaultTransform({ xPct: 50, yPct: 9.0, scale: 1.0, rotationDeg: 0, zIndex: 35 }));
+  const [jabTransform, setJabTransform] = useState<NleLayerTransform>(createDefaultTransform({ xPct: 50, yPct: 28.0, scale: 1.0, rotationDeg: -3, zIndex: 40 }));
+  const [subTransform, setSubTransform] = useState<NleLayerTransform>(createDefaultTransform({ xPct: 50, yPct: 78.0, scale: 1.0, rotationDeg: 0, zIndex: 45 }));
+  const [sourceTransform, setSourceTransform] = useState<NleLayerTransform>(createDefaultTransform({ xPct: 50, yPct: 94.0, scale: 1.0, rotationDeg: 0, zIndex: 35 }));
   const [topBarZIndex, setTopBarZIndex] = useState<number>(15);
   const [bottomBarZIndex, setBottomBarZIndex] = useState<number>(15);
   const [videoZIndex, setVideoZIndex] = useState<number>(10);
@@ -296,11 +511,75 @@ export const ShortsEditorStudio: React.FC = () => {
     v1Video: true,
     a1Bgm: true,
     a2Narration: false, // 기본: 현재 나레이션 없는 영상이므로 false
-    a3Sfx: false,
+    a3Sfx: true,
   });
 
   const [trackMuted, setTrackMuted] = useState<{ [key: string]: boolean }>({});
   const [trackSolo, setTrackSolo] = useState<string | null>(null);
+
+  // 👁️ 트랙별 보이기/숨기기 (Visibility) 상태 (실시간 캔버스 & 프리뷰 연동)
+  const [trackVisibility, setTrackVisibility] = useState<{
+    t1Title: boolean;
+    t2Jab: boolean;
+    sub: boolean;
+    v1Video: boolean;
+    source: boolean;
+    a1Bgm?: boolean;
+    a2Narration?: boolean;
+    a3Sfx?: boolean;
+  }>({
+    t1Title: true,
+    t2Jab: true,
+    sub: true,
+    v1Video: true,
+    source: true,
+    a1Bgm: true,
+    a2Narration: true,
+    a3Sfx: true,
+  });
+
+  // 🔒 트랙별 잠금 (Lock) 상태
+  const [trackLock, setTrackLock] = useState<{
+    t1Title: boolean;
+    t2Jab: boolean;
+    sub: boolean;
+    v1Video: boolean;
+    source: boolean;
+    a1Bgm?: boolean;
+    a2Narration?: boolean;
+    a3Sfx?: boolean;
+  }>({
+    t1Title: false,
+    t2Jab: false,
+    sub: false,
+    v1Video: false,
+    source: false,
+    a1Bgm: false,
+    a2Narration: false,
+    a3Sfx: false,
+  });
+
+  // 🔇 오디오 트랙 음소거 (Mute) 상태
+  const [trackAudioMute, setTrackAudioMute] = useState<{
+    v1Video: boolean;
+    a1Bgm: boolean;
+    a2Narration: boolean;
+    a3Sfx: boolean;
+  }>({
+    v1Video: false,
+    a1Bgm: false,
+    a2Narration: false,
+    a3Sfx: false,
+  });
+
+  // 🔤 자막 단어별 강조색 (Word Highlight) 상태
+    const [selectedSubtitlePresetId, setSelectedSubtitlePresetId] = useState<string>('neon-yellow');
+const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#FFE500');
+
+  // 📺 유튜브 쇼츠 메타데이터 & 픽셀링 모달 오픈 상태
+  const [isMetadataModalOpen, setIsMetadataModalOpen] = useState<boolean>(false);
+  const [copiedMetaKey, setCopiedMetaKey] = useState<string | null>(null);
+
 
   // 캔버스 줌 모드 변경 시 자동 스케일 동기화
   useEffect(() => {
@@ -334,7 +613,7 @@ export const ShortsEditorStudio: React.FC = () => {
   const [subtitleSearchQuery, setSubtitleSearchQuery] = useState<string>('');
   
   // 🎛️ 우측 6대 프로 인스펙터 탭 (자막/스타일, 변형, 음성TTS, 전환, 워터마크, 채널DNA)
-  const [activeInspectorTab, setActiveInspectorTab] = useState<'style' | 'titleSource' | 'videoCrop' | 'jabHook' | 'tts' | 'channel'>('titleSource');
+  const [activeInspectorTab, setActiveInspectorTab] = useState<'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('titleSource');
 
   // 🗣️ 전체 대본 상태
   const [fullScript, setFullScript] = useState<string>(
@@ -402,9 +681,110 @@ export const ShortsEditorStudio: React.FC = () => {
     videoZoomScale: number;
   }
 
+  // 🎨 캡컷 10대 인기 시네마틱 필터 및 영화 노이즈 FX 상태
+  const [videoFilter, setVideoFilter] = useState<VideoFilterSettings>({
+    preset: 'none',
+    intensity: 100,
+    filmGrain: 0,
+    vignette: 0,
+    brightness: 100,
+    contrast: 100,
+    saturation: 100,
+    temperature: 0,
+  });
+
+  // 💬 하단 바이럴 댓글 카드 상태
+  const [hasCommentCard, setHasCommentCard] = useState<boolean>(false);
+  const [commentTransform, setCommentTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 50, yPct: 82, zIndex: 12, scale: 1.0 })
+  );
+  const [commentCard, setCommentCard] = useState<{
+    author: string;
+    handle: string;
+    text: string;
+    timeText: string;
+    likes: string;
+    theme: 'yt-dark' | 'yt-light' | 'insta';
+    blurId: boolean;
+    anonymous: boolean;
+    yPct: number;
+  }>({
+    author: '조코비치찐팬',
+    handle: '@joker_fan_kr',
+    text: '와 15초에 저 표정 뭐냐 ㅋㅋㅋ 평생 소장각이다',
+    timeText: '3시간 전',
+    likes: '1.4만',
+    theme: 'yt-dark',
+    blurId: true,
+    anonymous: false,
+    yPct: 82,
+  });
+
+  // 🎵 BGM 및 SFX 실시간 오디오 재생 엔진 참조
+  const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+  // 🎵 BGM 오디오 URL 안전 추출기 (404 방어: 프리셋/미지정 시 undefined 반환하여 네트워크 오류 방지)
+  const getBgmAudioSrc = (data?: string): string | undefined => {
+    if (!data) return undefined;
+    if (data.startsWith('bgm_preset_') || data === 'bgm_mix.mp3' || data === 'none') return undefined;
+    if (data.startsWith('http://') || data.startsWith('https://') || data.startsWith('blob:') || data.startsWith('data:')) {
+      return data;
+    }
+    return getMediaUrl(data);
+  };
+
+  const playedSfxIdsRef = useRef<Set<string>>(new Set());
+
+  // 필터 CSS 계산 함수
+  const computeVideoCssFilter = useCallback((f: VideoFilterSettings): string => {
+    if (f.preset === 'none' && f.brightness === 100 && f.contrast === 100 && f.saturation === 100 && f.temperature === 0) {
+      return 'none';
+    }
+    const b = f.brightness / 100;
+    const c = f.contrast / 100;
+    const s = f.saturation / 100;
+    let str = `brightness(${b}) contrast(${c}) saturate(${s})`;
+    if (f.temperature > 0) {
+      str += ` sepia(${(f.temperature / 100) * 0.35})`;
+    } else if (f.temperature < 0) {
+      str += ` hue-rotate(${(f.temperature / 100) * 20}deg)`;
+    }
+    if (f.preset === 'film-noir') str += ' grayscale(100%)';
+    else if (f.preset === 'retro-vhs') str += ' sepia(0.15) hue-rotate(-6deg)';
+    else if (f.preset === 'teal-orange') str += ' hue-rotate(-8deg)';
+    else if (f.preset === 'cyberpunk') str += ' hue-rotate(15deg)';
+    else if (f.preset === 'vintage-grain') str += ' sepia(0.35)';
+    return str;
+  }, []);
+
+  // 💬 AI 가상 바이럴 베댓 원클릭 생성기
+  const handleGenerateViralComment = () => {
+    const mockComments = [
+      { author: '쇼츠중독자', handle: '@shorts_holic', text: '와 15초에 저 표정 뭐냐 ㅋㅋㅋ 평생 소장각이다', likes: '1.4만' },
+      { author: '테니스요정', handle: '@tennis_fairy_99', text: '상대방 멘붕 온 게 화면 뚫고 느껴지넼ㅋㅋㅋ', likes: '8,240' },
+      { author: '알고리즘유목민', handle: '@algo_surfer', text: '이게 왜 진짜임? 프로들 장난치는 거 개웃기넼ㅋㅋ', likes: '1.1만' },
+      { author: '새벽감성러', handle: '@dawn_vibe', text: '진짜 프로들의 센스 있는 사이다 명장면 인정합니다 👍', likes: '6,490' },
+      { author: '국내도입시급', handle: '@urgent_kr', text: '이거 풀영상 어디서 보나요? 제발 2탄 올려주세요 ㅠㅠ', likes: '9,810' },
+    ];
+    const picked = mockComments[Math.floor(Math.random() * mockComments.length)];
+    setCommentCard(prev => ({
+      ...prev,
+      author: picked.author,
+      handle: picked.handle,
+      text: picked.text,
+      likes: picked.likes,
+      timeText: '방금 전',
+    }));
+    toast({
+      title: '💬 AI 가상 바이럴 댓글 생성 완료',
+      description: `"${picked.text.slice(0, 20)}..." 베댓이 자동 생성되었습니다.`,
+    });
+  };
+
   const [historyStack, setHistoryStack] = useState<EditorSnapshot[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const isRestoringHistoryRef = useRef<boolean>(false);
+  const aspectScale = aspectRatio === '16:9' ? 1.35 : (aspectRatio === '1:1' ? 1.12 : 1.0);
+  const activeSplitLimit = aspectRatio === '16:9' ? 24 : (subtitleConfig.splitLimit || 14);
   const [selectedSfxCategory, setSelectedSfxCategory] = useState<string>('all');
   const [isCapCutExportModalOpen, setIsCapCutExportModalOpen] = useState<boolean>(false);
 
@@ -591,7 +971,7 @@ export const ShortsEditorStudio: React.FC = () => {
       visible: true,
       transform: createDefaultTransform({ zIndex: 5 }),
       styleProps: { volume: 0.8, isMuted: false, duckingDb: -18 },
-      data: 'bgm_mix.mp3',
+      data: 'bgm_preset_ambient',
     }
   ]);
 
@@ -688,13 +1068,145 @@ export const ShortsEditorStudio: React.FC = () => {
     );
   }, []);
 
-  const togglePlay = () => {
-    if (!videoRef.current) return;
+    // 📺 화면비 전환 시 스마트 비례 스케일링 & 레이아웃 자동 적응 엔진
+    // 🎵 BGM 프리셋 선택 & 실시간 반영
+  const handleSelectBgmPreset = (presetId: string) => {
+    pushHistorySnapshot();
+    setLayers(prev => prev.map(l => {
+      if (l.type === 'audio' && (l.id === 'layer_audio_bgm' || l.name.includes('BGM'))) {
+        const p = BGM_PRESETS.find(x => x.id === presetId);
+        return {
+          ...l,
+          data: presetId,
+          name: p ? `A1 BGM (${p.name})` : 'A1 BGM',
+          styleProps: { ...l.styleProps, volume: bgmVolume },
+        };
+      }
+      return l;
+    }));
+
     if (isPlaying) {
-      videoRef.current.pause();
+      if (bgmAudioRef.current) {
+        bgmAudioRef.current.pause();
+      }
+      proceduralBgmEngine.start(presetId, (trackAudioMute.a1Bgm ? 0 : bgmVolume) / 100);
+    }
+
+    const preset = BGM_PRESETS.find(x => x.id === presetId);
+    toast({
+      title: `🎵 BGM 변경: ${preset?.name || presetId}`,
+      description: '로컬 Web Audio 실시간 신스 엔진으로 끊김 없이 재생됩니다.',
+    });
+  };
+
+  // 📂 사용자 커스텀 BGM 파일 업로드
+  const handleUploadBgmFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    pushHistorySnapshot();
+    const url = URL.createObjectURL(file);
+    setLayers(prev => prev.map(l => {
+      if (l.type === 'audio' && (l.id === 'layer_audio_bgm' || l.name.includes('BGM'))) {
+        return {
+          ...l,
+          data: url,
+          name: `A1 BGM (${file.name})`,
+          styleProps: { ...l.styleProps, volume: bgmVolume },
+        };
+      }
+      return l;
+    }));
+
+    if (isPlaying) {
+      proceduralBgmEngine.stop();
+      if (bgmAudioRef.current) {
+        bgmAudioRef.current.src = url;
+        bgmAudioRef.current.currentTime = currentTimeMs / 1000;
+        bgmAudioRef.current.play().catch(() => {});
+      }
+    }
+
+    toast({
+      title: '🎵 BGM 파일 로드 완료',
+      description: `${file.name} 음원이 A1 트랙에 설정되었습니다.`,
+    });
+  };
+
+  const handleSwitchAspectRatio = (newRatio: '9:16' | '16:9' | '1:1') => {
+    if (newRatio === aspectRatio) return;
+    pushHistorySnapshot();
+    setAspectRatio(newRatio);
+
+    if (newRatio === '16:9') {
+      // 🎬 16:9 롱폼 최적화 자동 적응
+      setVideoFitMode('fullscreen');
+      setHasTopBarBg(false);
+      setHasBottomBarBg(false);
+      setSubTransform(prev => ({ ...prev, xPct: 50, yPct: 84 }));
+      setJabTransform(prev => ({ ...prev, xPct: 18, yPct: 15, scale: 0.9 }));
+      setTitleTransform(prev => ({ ...prev, xPct: 50, yPct: 8, scale: 0.9 }));
+      setSubtitleConfig(prev => ({
+        ...prev,
+        fontSize: Math.max(20, (prev.fontSize || 18) + 2),
+        splitLimit: 24, // 가로가 넓으므로 24글자까지 자연스럽게 표시
+      }));
+      toast({
+        title: '📺 16:9 롱폼 해상도 전환 완료',
+        description: '1920×1080 규격에 맞춰 영상 핏, 자막(하단 84%), 쨉쨉이 위치가 비례 재배치되었습니다.',
+      });
+    } else if (newRatio === '9:16') {
+      // 📱 9:16 쇼츠 최적화 복원
+      setVideoFitMode('sandwich');
+      setHasTopBarBg(true);
+      setHasBottomBarBg(true);
+      setSubTransform(prev => ({ ...prev, xPct: 50, yPct: 78 }));
+      setJabTransform(prev => ({ ...prev, xPct: 50, yPct: 28, scale: 1.0 }));
+      setTitleTransform(prev => ({ ...prev, xPct: 50, yPct: 9, scale: 1.0 }));
+      setSubtitleConfig(prev => ({
+        ...prev,
+        fontSize: Math.min(20, Math.max(16, (prev.fontSize || 20) - 2)),
+        splitLimit: 14, // 9:16 세로 쇼츠용 14글자
+      }));
+      toast({
+        title: '📱 9:16 쇼츠 해상도 전환 완료',
+        description: '1080×1920 규격에 맞춰 샌드위치 핏, 상단 2단 헤더, 쇼츠 자막이 복원되었습니다.',
+      });
+    } else {
+      // 1:1 피드 최적화
+      setVideoFitMode('sandwich');
+      setSubTransform(prev => ({ ...prev, xPct: 50, yPct: 80 }));
+      setJabTransform(prev => ({ ...prev, xPct: 50, yPct: 22 }));
+      setTitleTransform(prev => ({ ...prev, xPct: 50, yPct: 9 }));
+      toast({
+        title: '⏹️ 1:1 피드 해상도 전환 완료',
+        description: '1080×1080 정사각형 규격에 맞춰 레이아웃이 조정되었습니다.',
+      });
+    }
+  };
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      videoRef.current?.pause();
+      bgmAudioRef.current?.pause();
+      proceduralBgmEngine.stop();
       setIsPlaying(false);
     } else {
-      videoRef.current.play().catch(() => {});
+      playedSfxIdsRef.current.clear();
+      videoRef.current?.play().catch(() => {});
+      
+      // 🎵 BGM 재생: 프리셋인 경우 Web Audio 신스 가동, 파일인 경우 <audio> 가동
+      const bgmLayer = layers.find(l => l.type === 'audio' && (l.id === 'layer_audio_bgm' || l.name.includes('BGM')));
+      if (enabledTracks.a1Bgm && !trackAudioMute.a1Bgm && bgmLayer && trackVisibility.a1Bgm !== false) {
+        const bgmData = bgmLayer.data || 'bgm_preset_ambient';
+        if (bgmData.startsWith('bgm_preset_') || bgmData === 'bgm_mix.mp3') {
+          const presetId = bgmData === 'bgm_mix.mp3' ? 'bgm_preset_ambient' : bgmData;
+          const vol = ((bgmLayer.styleProps?.volume as number) ?? 35) / 100;
+          proceduralBgmEngine.start(presetId, vol);
+        } else if (bgmAudioRef.current && getBgmAudioSrc(bgmData)) {
+          bgmAudioRef.current.currentTime = currentTimeMs / 1000;
+          bgmAudioRef.current.play().catch(() => {});
+        }
+      }
       setIsPlaying(true);
     }
   };
@@ -702,14 +1214,32 @@ export const ShortsEditorStudio: React.FC = () => {
   const seekToMs = (targetMs: number) => {
     const clamped = Math.max(0, Math.min(durationMs, targetMs));
     setCurrentTimeMs(clamped);
+    playedSfxIdsRef.current.clear();
     if (videoRef.current) {
       videoRef.current.currentTime = clamped / 1000;
+    }
+    if (bgmAudioRef.current) {
+      bgmAudioRef.current.currentTime = clamped / 1000;
     }
   };
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTimeMs(Math.round(videoRef.current.currentTime * 1000));
+      const curMs = Math.round(videoRef.current.currentTime * 1000);
+      setCurrentTimeMs(curMs);
+
+      // 🎵 실시간 SFX 효과음 자동 재생 (플레이헤드가 SFX 시작 지점을 지날 때 발동)
+      if (isPlaying && enabledTracks.a3Sfx && !trackAudioMute.a3Sfx && trackVisibility.a3Sfx !== false) {
+        const sfxClips = layers.filter(
+          (l) => l.type === 'audio' && (l.name.startsWith('SFX:') || l.id.startsWith('smart_sfx') || l.id.startsWith('sfx_'))
+        );
+        sfxClips.forEach((sfx) => {
+          if (curMs >= sfx.startMs && curMs < sfx.startMs + 350 && !playedSfxIdsRef.current.has(sfx.id)) {
+            playedSfxIdsRef.current.add(sfx.id);
+            playSynthesizedSfx(sfx.data || 'sfx_punch_hit');
+          }
+        });
+      }
     }
   };
 
@@ -1028,17 +1558,202 @@ export const ShortsEditorStudio: React.FC = () => {
       visible: true,
       locked: false,
       data: item.sfxId,
+      transform: createDefaultTransform({ zIndex: 10 }),
       styleProps: {
         color: '#F59E0B',
         sfxName: item.sfxName,
       },
     }));
 
+    setEnabledTracks(prev => ({ ...prev, a3Sfx: true }));
     setLayers([...newLayers, ...sfxLayersToAdd]);
+    playSynthesizedSfx('sfx_coin_ching');
     toast({
       title: '🎯 AI 스마트 SFX 자동 배치 완료',
       description: `대본 분석 기반으로 ${sfxLayersToAdd.length}개의 황금 타이밍 효과음이 과하지 않게(4초 쿨다운) 타임라인에 안착되었습니다.`,
     });
+  };
+
+  // 🔤 단어별 강조색 토글 헬퍼
+  const handleToggleWordHighlight = (targetWord: string) => {
+    pushHistorySnapshot();
+    const cleanWord = targetWord.replace(/[.,!?~'"\n]/g, '').trim();
+    if (!cleanWord) return;
+
+    setLayers((prev) =>
+      prev.map((l) => {
+        if (l.id === selectedLayerId && l.type === 'subtitle') {
+          const currentHighlights: { word: string; color: string }[] = l.styleProps?.highlights || [];
+          const exists = currentHighlights.some((h) => h.word === cleanWord);
+          const newHighlights = exists
+            ? currentHighlights.filter((h) => h.word !== cleanWord)
+            : [...currentHighlights, { word: cleanWord, color: selectedHighlightColor }];
+
+          return {
+            ...l,
+            styleProps: {
+              ...l.styleProps,
+              highlights: newHighlights,
+            },
+          };
+        }
+        return l;
+      })
+    );
+  };
+
+  // 🎨 단어별 강조색 캔버스 렌더링 헬퍼 (줄바꿈 <br /> 및 문장부호 완벽 보존)
+  const renderHighlightedSubtitleText = (
+    text: string,
+    highlights?: { word: string; color: string }[],
+    defaultColor: string = '#FFFFFF',
+    activeHighlightColor: string = '#FFDF00'
+  ) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    return lines.map((line, lineIdx) => {
+      const tokens = line.split(/(\s+)/);
+      return (
+        <span key={lineIdx} className="inline">
+          {tokens.map((token, tokenIdx) => {
+            if (/^\s+$/.test(token)) {
+              return <span key={tokenIdx}>{token}</span>;
+            }
+            const clean = token.replace(/[.,!?~'"“”‘’]/g, '').trim();
+            const hl = highlights?.find((h) => h.word === clean || (clean && h.word && clean.includes(h.word)));
+            if (hl) {
+              return (
+                <span
+                  key={tokenIdx}
+                  style={{
+                    color: hl.color || activeHighlightColor,
+                    fontWeight: 900,
+                  }}
+                  className="font-extrabold"
+                >
+                  {token}
+                </span>
+              );
+            }
+            return (
+              <span key={tokenIdx} style={{ color: defaultColor }}>
+                {token}
+              </span>
+            );
+          })}
+          {lineIdx < lines.length - 1 && <br />}
+        </span>
+      );
+    });
+  };
+
+  // 8대 쇼츠 자막 스타일 1클릭 일괄 적용 프리셋 헬퍼
+  const handleApplySubtitleStylePreset = (presetId: string) => {
+    pushHistorySnapshot();
+    let newCfg: Partial<SubtitleConfig> = {};
+    let newProps: any = {};
+
+    if (presetId === 'shorts') {
+      newCfg = { fontSize: 20, textColor: '#FFE500', outlineSize: 4, outlineColor: '#000000', font: 'Pretendard', shadowSize: 4, shadowColor: 'rgba(0,0,0,0.95)', useBox: false };
+      newProps = { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 20, fontFamily: 'Pretendard' };
+    } else if (presetId === 'humor') {
+      newCfg = { fontSize: 22, textColor: '#00FF66', outlineSize: 5, outlineColor: '#000000', font: 'GmarketSans', shadowSize: 6, shadowColor: 'rgba(0,0,0,0.95)', useBox: false };
+      newProps = { color: '#00FF66', strokeWidth: 5, strokeColor: '#000000', fontSize: 22, fontFamily: 'GmarketSans' };
+    } else if (presetId === 'mystery') {
+      newCfg = { fontSize: 18, textColor: '#FFFFFF', outlineSize: 4, outlineColor: '#7F1D1D', font: 'BlackHanSans', shadowSize: 8, shadowColor: 'rgba(127,29,29,0.9)', useBox: false };
+      newProps = { color: '#FFFFFF', strokeWidth: 4, strokeColor: '#7F1D1D', fontSize: 18, fontFamily: 'BlackHanSans' };
+    } else if (presetId === 'knowledge') {
+      newCfg = { fontSize: 18, textColor: '#FFFFFF', outlineSize: 0, font: 'Pretendard', useBox: true, boxColor: '#1E3A8A', boxOpacity: 85 };
+      newProps = { color: '#FFFFFF', fontSize: 18, fontFamily: 'Pretendard' };
+      setSubtitleUseBox(true);
+      setSubtitleBoxColor('#1E3A8A');
+    } else if (presetId === 'drama') {
+      newCfg = { fontSize: 17, textColor: '#F8FAFC', outlineSize: 2, outlineColor: '#1E293B', font: 'NotoSansKR', shadowSize: 3, shadowColor: 'rgba(0,0,0,0.8)', useBox: false };
+      newProps = { color: '#F8FAFC', strokeWidth: 2, strokeColor: '#1E293B', fontSize: 17, fontFamily: 'NotoSansKR' };
+    } else if (presetId === 'bold') {
+      newCfg = { fontSize: 22, textColor: '#FF007F', outlineSize: 5, outlineColor: '#FFFFFF', font: 'BlackHanSans', shadowSize: 5, shadowColor: 'rgba(0,0,0,0.95)', useBox: false };
+      newProps = { color: '#FF007F', strokeWidth: 5, strokeColor: '#FFFFFF', fontSize: 22, fontFamily: 'BlackHanSans' };
+    } else if (presetId === 'retro') {
+      newCfg = { fontSize: 19, textColor: '#FEF08A', outlineSize: 3, outlineColor: '#000000', font: 'CookieRun', shadowSize: 4, shadowColor: 'rgba(0,0,0,0.9)', useBox: false };
+      newProps = { color: '#FEF08A', strokeWidth: 3, strokeColor: '#000000', fontSize: 19, fontFamily: 'CookieRun' };
+    } else if (presetId === 'minimal') {
+      newCfg = { fontSize: 16, textColor: '#FFFFFF', outlineSize: 0, font: 'GmarketSans', shadowSize: 4, shadowColor: 'rgba(0,0,0,0.7)', useBox: false };
+      newProps = { color: '#FFFFFF', strokeWidth: 0, fontSize: 16, fontFamily: 'GmarketSans' };
+    }
+
+    setSubtitleConfig((prev) => ({ ...prev, ...newCfg }));
+    setLayers((prev) =>
+      prev.map((l) => {
+        if (l.type === 'subtitle') {
+          return {
+            ...l,
+            styleProps: {
+              ...l.styleProps,
+              ...newProps,
+            },
+          };
+        }
+        return l;
+      })
+    );
+
+    toast({
+      title: '자막 스타일 프리셋 적용 완료',
+      description: `모든 자막 레이어에 [${presetId}] 스타일이 일괄 적용되었습니다.`,
+    });
+  };
+
+  // 8대 상단 타이틀 후보군 퀵 주입 헬퍼
+  const handleInjectTitleCandidate = (fullTitle: string) => {
+    pushHistorySnapshot();
+    const clean = fullTitle.replace(/^\d+\.\s*/, '').trim();
+    const bracketMatch = clean.match(/^(\[[^\]]+\])\s*(.*)$/);
+    if (bracketMatch) {
+      setTitleLine1(bracketMatch[1]);
+      setTitleLine2(bracketMatch[2] || '실시간 하이라이트');
+      setTitleLinesMode('double');
+    } else if (clean.length > 12) {
+      const half = Math.floor(clean.length / 2);
+      const spaceIdx = clean.indexOf(' ', half - 3);
+      if (spaceIdx !== -1 && spaceIdx < half + 5) {
+        setTitleLine1(clean.slice(0, spaceIdx).trim());
+        setTitleLine2(clean.slice(spaceIdx).trim());
+      } else {
+        setTitleLine1(clean.slice(0, half).trim());
+        setTitleLine2(clean.slice(half).trim());
+      }
+      setTitleLinesMode('double');
+    } else {
+      setTitleLine1(clean);
+      setTitleLinesMode('single');
+    }
+    toast({
+      title: '상단 헤드라인 타이틀 주입 완료',
+      description: `"${clean}" 문구가 상단 타이틀에 분할 적용되었습니다.`,
+    });
+  };
+
+  // 📋 클립보드 1초 복사 헬퍼
+  const copyToClipboard = (text: string, label: string, key: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedMetaKey(key);
+      toast({ title: `${label} 복사 완료`, description: '클립보드에 복사되었습니다.' });
+      setTimeout(() => setCopiedMetaKey(null), 2000);
+    } catch (_) {
+      toast({ title: '복사 실패', description: '클립보드 접근이 제한되었습니다.', variant: 'destructive' });
+    }
   };
 
   // 🎬 CapCut 정밀 draft_content.json 1:1 직관적 내보내기 컴파일러
@@ -1159,35 +1874,111 @@ export const ShortsEditorStudio: React.FC = () => {
     };
   };
 
-  // CapCut draft_content.json 파일 다운로드 또는 Electron 내보내기
+  // 🎬 CapCut 전체 프로젝트(12종 파일 + 미디어 무누락) 3단 내보내기 엔진
   const handleExportCapCutProject = async () => {
-    const draftJson = compileCapCutDraft();
-    const jsonStr = JSON.stringify(draftJson, null, 2);
+    toast({
+      title: '🎬 CapCut 전체 프로젝트 생성 중...',
+      description: '12종 프로젝트 파일과 자막(단어 강조 포함), 2단 헤드라인, 쨉쨉이, SFX 오디오를 패키징하고 있습니다.',
+    });
 
     try {
-      if ((window as any).electronAPI?.exportCapCutDraft) {
-        await (window as any).electronAPI.exportCapCutDraft(draftJson);
-        toast({
-          title: '🎉 CapCut 프로젝트 로컬 내보내기 완료!',
-          description: 'PC의 CapCut Projects 폴더로 draft_content.json이 즉시 생성되었습니다. 캡컷을 켜면 프로젝트가 바로 보입니다.',
-        });
-      } else {
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'draft_content.json';
-        a.click();
-        URL.revokeObjectURL(url);
-        toast({
-          title: '💾 draft_content.json 다운로드 완료',
-          description: '캡컷 프로젝트 폴더에 넣으면 모든 자막·타이틀·쨉쨉이·크기가 1:1로 완벽히 열립니다.',
-        });
-      }
-    } catch (e: any) {
+      const videoLayer = layers.find((l) => l.type === 'video');
+      const sfxLayers = layers.filter((l) => l.name.startsWith('SFX:') && l.visible);
+
+      const res = await exportCapCutFullProject({
+        projectName: titleLine1 ? titleLine1.replace(/[^a-zA-Z0-9가-힣_-]/g, '_') : 'ViraLoop_Shorts',
+        aspectRatio: aspectRatio,
+        durationMs,
+        video: {
+          path: videoLayer?.data || 'video.mp4',
+          durationMs,
+          scale: videoZoomScale,
+        },
+        topTitle: {
+          enabled: hasTopTitle && trackVisibility.t1Title,
+          line1: titleLine1,
+          line2: titleLine2,
+          mode: titleLinesMode,
+          line1Color: titleLine1Color,
+          line2Color: titleLine2Color,
+          fontSize: titleLine2SizePx || 24,
+          fontFamily: titleFontFamily,
+          yPct: hasTopBarBg ? topBarHeightPct / 2 : 12,
+          hasBg: hasTopBarBg,
+          bgColor: topBarBg,
+          borderRadius: titleBorderRadius,
+        },
+        jab: {
+          enabled: hasJab && trackVisibility.t2Jab,
+          text: jabText,
+          fontSize: jabFontSize,
+          textColor: jabColor,
+          badgeColor: jabBgColor,
+          rotationDeg: jabTiltDeg,
+          xPct: jabTransform.xPct,
+          yPct: jabTransform.yPct,
+          startMs: currentTimeMs,
+          endMs: Math.min(durationMs, currentTimeMs + 3500),
+        },
+        subtitles: layers
+          .filter((l) => l.type === 'subtitle' && l.visible)
+          .map((l) => ({
+            id: l.id,
+            text: l.data || '',
+            startMs: l.startMs,
+            endMs: l.endMs,
+            fontSize: subtitleConfig.fontSize || 18,
+            textColor: subtitleConfig.textColor || '#FFE500',
+            fontFamily: subtitleConfig.font || 'Pretendard',
+            outlineSize: subtitleConfig.outlineSize ?? subtitleStrokeWidth,
+            outlineColor: subtitleConfig.outlineColor ?? subtitleStrokeColor,
+            shadowSize: subtitleConfig.shadowSize ?? subtitleShadowBlur,
+            shadowColor: subtitleConfig.shadowColor ?? subtitleShadowColor,
+            boxColor: subtitleConfig.boxColor,
+            boxOpacity: subtitleConfig.boxOpacity,
+            useBox: subtitleConfig.useBox,
+            xPct: subTransform.xPct,
+            yPct: subTransform.yPct,
+            highlights: l.styleProps?.highlights || [], // 🌟 단어별 강조색 styles range 완벽 매핑!
+          })),
+        source: {
+          enabled: hasBottomSource && trackVisibility.source,
+          text: bottomSourceText,
+          fontSize: bottomSourceSizePx,
+          color: bottomSourceColor,
+          xPct: sourceTransform.xPct,
+          yPct: sourceTransform.yPct,
+        },
+        audios: [
+          ...(enabledTracks.a1Bgm
+            ? [{
+                id: 'bgm_main',
+                name: 'BGM Track',
+                type: 'bgm' as const,
+                startMs: 0,
+                durationMs,
+              }]
+            : []),
+          ...sfxLayers.map((l, sfxIdx) => ({
+            id: `sfx_${sfxIdx}`,
+            name: l.styleProps?.sfxName || l.name,
+            type: 'sfx' as const,
+            startMs: l.startMs,
+            durationMs: Math.max(400, l.endMs - l.startMs),
+          })),
+        ],
+      });
+
       toast({
-        title: '내보내기 안내',
-        description: 'CapCut draft_content.json 파일이 생성되었습니다.',
+        title: res.mode === 'electron' ? '🎉 CapCut 프로젝트 로컬 생성 완료!' : res.mode === 'backend' ? '⚡ PC CapCut 경로 생성 완료!' : '📦 전체 CapCut 프로젝트 ZIP 다운로드 완료!',
+        description: res.message || 'CapCut에서 프로젝트를 즉시 열어 편집할 수 있습니다.',
+      });
+    } catch (err: any) {
+      console.error('CapCut export failed:', err);
+      toast({
+        title: '내보내기 실패',
+        description: err?.message || 'CapCut 프로젝트 생성 중 문제가 발생했습니다.',
+        variant: 'destructive',
       });
     }
   };
@@ -1827,7 +2618,7 @@ export const ShortsEditorStudio: React.FC = () => {
               <button
                 key={r}
                 type="button"
-                onClick={() => setAspectRatio(r)}
+                onClick={() => handleSwitchAspectRatio(r)}
                 className={cn(
                   "px-2.5 py-1 text-[11px] font-semibold rounded-[2px] transition cursor-pointer",
                   aspectRatio === r ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
@@ -1867,9 +2658,19 @@ export const ShortsEditorStudio: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => setIsMetadataModalOpen(true)}
+            className="h-7 px-2.5 text-xs font-semibold rounded-[2px] bg-secondary hover:bg-secondary/80 text-secondary-foreground transition flex items-center gap-1.5 shadow-xs cursor-pointer border border-border"
+            title="YouTube 쇼츠 SEO 메타데이터 & 픽셀링 복사"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>SEO 메타데이터</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsCapCutExportModalOpen(true)}
             className="h-7 px-3 text-xs font-semibold rounded-[2px] bg-primary hover:bg-primary/90 text-primary-foreground transition flex items-center gap-1.5 shadow-xs cursor-pointer"
-            title="CapCut 1:1 정밀 규격 내보내기"
+            title="CapCut 1:1 정밀 전체 프로젝트 내보내기 (12종 필수 스키마 + 미디어 100% 번들)"
           >
             <Film className="w-3.5 h-3.5" />
             <span>CapCut 내보내기</span>
@@ -2150,12 +2951,13 @@ export const ShortsEditorStudio: React.FC = () => {
                   <div
                     onClick={() => {
                       setHasTopTitle(true);
-                      setBadgeTag('속보');
-                      setBadgeColor('#EF4444');
+                      setHasTitleBadge(true);
+                      setTitleBadgeText('속보');
+                      setTitleBadgeColor('#EF4444');
                       setTitleLine1('충격 단독 입수');
                       setTitleLine2('숨겨진 진실 폭로');
-                      setTitleColor1('#FFFFFF');
-                      setTitleColor2('#00E510');
+                      setTitleLine1Color('#FFFFFF');
+                      setTitleLine2Color('#00E510');
                       toast({ title: '👑 뉴스 속보 타이틀 적용', description: '상단 2단 타이틀이 캔버스에 주입되었습니다.' });
                     }}
                     className="p-2 border border-border hover:border-primary rounded-[2px] bg-card cursor-pointer hover:bg-muted/40 transition"
@@ -2172,12 +2974,13 @@ export const ShortsEditorStudio: React.FC = () => {
                   <div
                     onClick={() => {
                       setHasTopTitle(true);
-                      setBadgeTag('레전드');
-                      setBadgeColor('#F59E0B');
+                      setHasTitleBadge(true);
+                      setTitleBadgeText('레전드');
+                      setTitleBadgeColor('#F59E0B');
                       setTitleLine1('역대급 반전');
                       setTitleLine2('끝까지 봐야하는 이유');
-                      setTitleColor1('#FFE500');
-                      setTitleColor2('#FFFFFF');
+                      setTitleLine1Color('#FFE500');
+                      setTitleLine2Color('#FFFFFF');
                       toast({ title: '👑 레전드 하이라이트 타이틀 적용', description: '상단 2단 타이틀이 캔버스에 주입되었습니다.' });
                     }}
                     className="p-2 border border-border hover:border-primary rounded-[2px] bg-card cursor-pointer hover:bg-muted/40 transition"
@@ -2578,24 +3381,120 @@ export const ShortsEditorStudio: React.FC = () => {
                   )}
                 </div>
 
-                {/* A1 BGM 배경음악 */}
-                <div className="p-2.5 border border-border rounded-[2px] bg-card space-y-2">
+                {/* A1 BGM 배경음악 & 고품질 프리셋 선택기 */}
+                <div className="p-2.5 border border-border rounded-[2px] bg-card space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
                       <Volume2 className="w-3.5 h-3.5 text-teal-500" />
                       A1 BGM 배경음악
                     </span>
-                    <Switch
-                      checked={enabledTracks.a1Bgm}
-                      onCheckedChange={(c) => setEnabledTracks(prev => ({ ...prev, a1Bgm: c }))}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTrackAudioMute(prev => {
+                            const nextMute = !prev.a1Bgm;
+                            if (nextMute) {
+                              proceduralBgmEngine.setVolume(0);
+                            } else {
+                              proceduralBgmEngine.setVolume(bgmVolume / 100);
+                            }
+                            return { ...prev, a1Bgm: nextMute };
+                          });
+                        }}
+                        title={trackAudioMute.a1Bgm ? "BGM 음소거 해제" : "BGM 음소거"}
+                        className="p-1 hover:bg-muted rounded"
+                      >
+                        {trackAudioMute.a1Bgm ? (
+                          <VolumeX className="w-3.5 h-3.5 text-rose-500" />
+                        ) : (
+                          <Volume2 className="w-3.5 h-3.5 text-teal-500" />
+                        )}
+                      </button>
+                      <Switch
+                        checked={enabledTracks.a1Bgm}
+                        onCheckedChange={(c) => {
+                          setEnabledTracks(prev => ({ ...prev, a1Bgm: c }));
+                          if (!c) proceduralBgmEngine.stop();
+                        }}
+                      />
+                    </div>
                   </div>
+
+                  {/* BGM 볼륨 슬라이더 */}
                   <div className="space-y-1 text-[10px]">
                     <div className="flex justify-between text-muted-foreground">
                       <span>BGM 볼륨</span>
-                      <span className="font-mono">35%</span>
+                      <span className="font-mono font-bold text-teal-500">{bgmVolume}%</span>
                     </div>
-                    <Slider defaultValue={[35]} max={100} step={1} className="w-full" />
+                    <Slider
+                      value={[bgmVolume]}
+                      onValueChange={(val) => {
+                        const v = val[0] || 0;
+                        setBgmVolume(v);
+                        proceduralBgmEngine.setVolume((trackAudioMute.a1Bgm ? 0 : v) / 100);
+                        if (bgmAudioRef.current) {
+                          bgmAudioRef.current.volume = (trackAudioMute.a1Bgm ? 0 : v) / 100;
+                        }
+                        setLayers(prev => prev.map(l => {
+                          if (l.type === 'audio' && (l.id === 'layer_audio_bgm' || l.name.includes('BGM'))) {
+                            return { ...l, styleProps: { ...l.styleProps, volume: v } };
+                          }
+                          return l;
+                        }));
+                      }}
+                      max={100}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* 4대 무손실 실시간 앰비언트 신스 프리셋 */}
+                  <div className="space-y-1.5 pt-1 border-t border-border">
+                    <span className="text-[10px] font-semibold text-muted-foreground">
+                      무료 앰비언트 BGM 프리셋 (Web Audio 100% 로컬)
+                    </span>
+                    <div className="grid grid-cols-2 gap-1">
+                      {BGM_PRESETS.map((bp) => {
+                        const currentBgmData = layers.find(l => l.type === 'audio' && (l.id === 'layer_audio_bgm' || l.name.includes('BGM')))?.data || 'bgm_preset_ambient';
+                        const isSelected = currentBgmData === bp.id || (bp.id === 'bgm_preset_ambient' && currentBgmData === 'bgm_mix.mp3');
+                        return (
+                          <button
+                            key={bp.id}
+                            type="button"
+                            onClick={() => handleSelectBgmPreset(bp.id)}
+                            className={cn(
+                              "p-1.5 text-left rounded-[2px] border transition flex flex-col gap-0.5 cursor-pointer",
+                              isSelected
+                                ? "bg-teal-500/15 border-teal-500 text-teal-600 dark:text-teal-300 font-bold shadow-2xs"
+                                : "border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <div className="flex items-center gap-1 text-[10px]">
+                              <span>{bp.icon}</span>
+                              <span className="truncate">{bp.name.replace(/^[^a-zA-Z가-힣0-9]+/, '')}</span>
+                            </div>
+                            <span className="text-[8px] text-muted-foreground/80 line-clamp-1">
+                              {bp.description}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 내 BGM 파일 업로드 */}
+                  <div className="pt-1 border-t border-border flex items-center justify-between">
+                    <label className="flex-1 flex items-center justify-center gap-1.5 h-6 text-[9.5px] font-medium bg-muted hover:bg-muted/80 text-foreground border border-border rounded-[2px] cursor-pointer transition">
+                      <Upload className="w-3 h-3 text-muted-foreground" />
+                      <span>내 BGM 음원 파일 추가 (MP3/WAV)</span>
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        onChange={handleUploadBgmFile}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
                 </div>
 
@@ -2727,7 +3626,7 @@ export const ShortsEditorStudio: React.FC = () => {
               <div className="flex items-center p-0.5 bg-muted/60 rounded-[2px] border border-border text-[10px]">
                 <button
                   type="button"
-                  onClick={() => setAspectRatio('9:16')}
+                  onClick={() => handleSwitchAspectRatio('9:16')}
                   className={cn(
                     "px-2 py-0.5 font-bold rounded-[1px] transition cursor-pointer flex items-center gap-1",
                     aspectRatio === '9:16' ? "bg-primary text-primary-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
@@ -2738,7 +3637,7 @@ export const ShortsEditorStudio: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAspectRatio('16:9')}
+                  onClick={() => handleSwitchAspectRatio('16:9')}
                   className={cn(
                     "px-2 py-0.5 font-bold rounded-[1px] transition cursor-pointer flex items-center gap-1",
                     aspectRatio === '16:9' ? "bg-primary text-primary-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
@@ -2749,7 +3648,7 @@ export const ShortsEditorStudio: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAspectRatio('1:1')}
+                  onClick={() => handleSwitchAspectRatio('1:1')}
                   className={cn(
                     "px-2 py-0.5 font-bold rounded-[1px] transition cursor-pointer flex items-center gap-1",
                     aspectRatio === '1:1' ? "bg-primary text-primary-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
@@ -2859,16 +3758,9 @@ export const ShortsEditorStudio: React.FC = () => {
 
           {/* 2. 캔버스 스테이지 (6대 독립 레이어 + 비디오 샌드위치/크롭 + 실시간 줌/패닝) */}
           <div
+            ref={canvasContainerRef}
             className="flex-1 relative overflow-hidden flex items-center justify-center p-3 bg-zinc-950/95 cursor-default"
-            onWheel={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const zoomDelta = -e.deltaY * 0.0015;
-              setCanvasScale((prev) => {
-                const next = Math.max(0.2, Math.min(4.0, prev + zoomDelta));
-                return parseFloat(next.toFixed(3));
-              });
-            }}
+            
             onMouseDown={(e) => {
               if (e.button === 1 || e.button === 2) {
                 e.preventDefault();
@@ -2911,7 +3803,7 @@ export const ShortsEditorStudio: React.FC = () => {
           >
             <div
               className={cn(
-                "canvas-stage-wrapper relative bg-black shadow-2xl overflow-hidden border border-zinc-800 transition-transform duration-75 flex items-center justify-center select-none",
+                "canvas-stage-wrapper relative bg-black shadow-2xl overflow-visible border border-zinc-700 dark:border-zinc-800 transition-transform duration-75 flex items-center justify-center select-none",
                 aspectRatio === '9:16' && "h-full max-h-[96%] aspect-[9/16]",
                 aspectRatio === '16:9' && "w-full max-w-[96%] aspect-[16/9]",
                 aspectRatio === '1:1' && "h-full max-h-[96%] aspect-square"
@@ -2920,7 +3812,7 @@ export const ShortsEditorStudio: React.FC = () => {
                 transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
               }}
             >
-              {/* 🎬 LAYER 0: 비디오 레이어 (샌드위치 레터박스 핏 vs 풀스크린 크롭 핏 & 상하단 커스텀 절단) */}
+                            {/* 🎬 LAYER 0: 비디오 레이어 (샌드위치 레터박스 핏 vs 풀스크린 크롭 핏 & 상하단 커스텀 절단 100% 정상 작동) */}
               <div
                 onClick={() => { setSelectedLayerId('layer_video'); setActiveInspectorTab('videoCrop'); }}
                 className={cn(
@@ -2928,19 +3820,32 @@ export const ShortsEditorStudio: React.FC = () => {
                   selectedLayerId === 'layer_video' && "ring-1 ring-sky-400"
                 )}
                 style={{
-                  top: `${Math.max(videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
-                  bottom: `${Math.max(videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
+                  top: `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
+                  bottom: `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
                   left: 0,
                   right: 0,
                   zIndex: videoZIndex,
+                  opacity: trackVisibility.v1Video ? 1 : 0,
                 }}
               >
+                {/* 🌟 여백 가우시안 블러 미러 배경 (CapCut 1순위 인기 연출) */}
+                {videoBlurBg && videoFitMode !== 'fullscreen' && videoLayer?.data && (
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                    <video
+                      src={getMediaUrl(videoLayer.data)}
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover filter blur-[28px] brightness-[0.55] scale-[1.3] pointer-events-none select-none"
+                    />
+                  </div>
+                )}
+
                 <div
-                  className="w-full h-full relative overflow-hidden flex items-center justify-center"
+                  className="w-full h-full relative overflow-hidden flex items-center justify-center z-1"
                   style={{
-                    transform: `scale(${videoZoomScale / 100}) scaleX(${videoHorizontalFlip ? -1 : 1}) translateY(${(videoFocusYPct - 50) * 0.6}%)`,
+                    transform: `translate(${(videoFocusXPct - 50) * 0.8}%, ${(videoFocusYPct - 50) * 0.8}%) scale(${videoZoomScale / 100}) scaleX(${videoHorizontalFlip ? -1 : 1}) scaleY(${videoVerticalFlip ? -1 : 1}) rotate(${videoRotationDeg}deg)`,
                     transformOrigin: 'center center',
-                    transition: 'transform 0.1s ease-out',
+                    transition: 'transform 0.05s ease-out',
                   }}
                 >
                   {videoLayer?.data ? (
@@ -2949,19 +3854,188 @@ export const ShortsEditorStudio: React.FC = () => {
                       src={getMediaUrl(videoLayer.data)}
                       playsInline
                       loop={isLooping}
+                      muted={trackAudioMute.v1Video}
                       onTimeUpdate={handleTimeUpdate}
                       onLoadedMetadata={handleLoadedMetadata}
-                      className="w-full h-full object-cover pointer-events-none"
+                      style={{ filter: computeVideoCssFilter(videoFilter) }}
+                      className="w-full h-full object-cover pointer-events-none select-none transition-[filter] duration-150"
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-2 p-4 text-center bg-zinc-900">
+                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-2 p-4 text-center bg-zinc-900 select-none">
                       <FileVideo className="w-12 h-12 stroke-[1.2] text-zinc-600 animate-pulse" />
                       <span className="text-[11px] font-mono text-zinc-400">20260904_tfMMz_MKaMw.mp4</span>
                       <span className="text-[9px] text-zinc-600">({videoFitMode.toUpperCase()} FIT · ZOOM {videoZoomScale}%)</span>
                     </div>
                   )}
+
+                  {/* 🎞️ 시네마틱 35mm 영화 필름 노이즈 / 그레인 오버레이 (SVG 프랙탈 프로시저럴 노이즈) */}
+                  {videoFilter.filmGrain > 0 && (
+                    <div
+                      className="absolute inset-0 pointer-events-none z-10 mix-blend-overlay"
+                      style={{
+                        opacity: (videoFilter.filmGrain / 100) * 0.85,
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                        backgroundRepeat: 'repeat',
+                        backgroundSize: '160px 160px',
+                      }}
+                    />
+                  )}
+
+                  {/* 🎬 시네마틱 비네팅 오버레이 */}
+                  {videoFilter.vignette > 0 && (
+                    <div
+                      className="absolute inset-0 pointer-events-none z-10"
+                      style={{
+                        background: `radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,${(videoFilter.vignette / 100) * 0.88}) 100%)`,
+                      }}
+                    />
+                  )}
+
+                  {/* 📼 레트로 90s VHS 스캔라인 오버레이 */}
+                  {videoFilter.preset === 'retro-vhs' && (
+                    <div
+                      className="absolute inset-0 pointer-events-none z-10 opacity-20"
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.5) 0px, rgba(0,0,0,0.5) 1px, transparent 1px, transparent 3px)',
+                        backgroundSize: '100% 3px',
+                      }}
+                    />
+                  )}
                 </div>
+
+                {/* 🎵 BGM HTML5 오디오 재생 엘리먼트 */}
+                <audio
+                  ref={bgmAudioRef}
+                  src={getBgmAudioSrc(layers.find(l => l.type === 'audio' && (l.id === 'layer_audio_bgm' || l.name.includes('BGM')))?.data)}
+                  loop={isLooping}
+                  muted={trackAudioMute.a1Bgm}
+                  className="hidden"
+                />
               </div>
+
+
+              {/* 🎯 비디오 전용 2D 자유 변형 기즈모 (2D 자유 이동, 줌, 회전, 스냅) */}
+              {selectedLayerId === 'layer_video' && !trackLock.v1Video && (
+                <div
+                  className="absolute pointer-events-none z-40 transition-transform duration-75"
+                  style={{
+                    top: `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
+                    bottom: `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
+                    left: 0,
+                    right: 0,
+                    transform: `translate(${(videoFocusXPct - 50) * 0.8}%, ${(videoFocusYPct - 50) * 0.8}%) scale(${videoZoomScale / 100}) rotate(${videoRotationDeg}deg)`,
+                    transformOrigin: 'center center',
+                  }}
+                >
+                  {/* 슬림 1.5px 외곽선 & 2D 중앙 드래그 존 */}
+                  <div
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.stopPropagation();
+                      const targetEl = e.currentTarget as HTMLElement;
+                      targetEl.setPointerCapture(e.pointerId);
+                      const startX = e.clientX;
+                      const startY = e.clientY;
+                      const initialX = videoFocusXPct;
+                      const initialY = videoFocusYPct;
+
+                      const onPointerMove = (mv: PointerEvent) => {
+                        const dx = (mv.clientX - startX) / Math.max(0.1, canvasScale);
+                        const dy = (mv.clientY - startY) / Math.max(0.1, canvasScale);
+                        const newX = Math.max(0, Math.min(100, Math.round(initialX + (dx * 0.4))));
+                        const newY = Math.max(0, Math.min(100, Math.round(initialY + (dy * 0.4))));
+                        setVideoFocusXPct(newX);
+                        setVideoFocusYPct(newY);
+                      };
+
+                      const onPointerUp = (upEv: PointerEvent) => {
+                        try { targetEl.releasePointerCapture(upEv.pointerId); } catch (_) {}
+                        window.removeEventListener('pointermove', onPointerMove);
+                        window.removeEventListener('pointerup', onPointerUp);
+                      };
+
+                      window.addEventListener('pointermove', onPointerMove);
+                      window.addEventListener('pointerup', onPointerUp);
+                    }}
+                    className="absolute inset-0 border-[1.5px] border-sky-400 pointer-events-auto cursor-move shadow-[0_0_8px_rgba(56,189,248,0.7)] bg-sky-400/5 hover:bg-sky-400/10 transition-colors"
+                    title="영상을 마우스로 드래그하여 원하는 위치로 자유 이동"
+                  />
+
+                  {/* 상단 플로팅 비디오 컨트롤 뱃지 */}
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-sky-600/95 text-white text-[9px] font-bold px-2.5 py-1 rounded shadow-lg pointer-events-auto flex items-center gap-2 whitespace-nowrap z-50 backdrop-blur-xs">
+                    <span>🎬 V1 비디오</span>
+                    <span className="text-[8.5px] text-sky-200 font-mono">
+                      ({videoZoomScale}% · X:{videoFocusXPct}% · Y:{videoFocusYPct}% · {videoRotationDeg}°)
+                    </span>
+                    <div className="flex items-center gap-1 border-l border-sky-400/40 pl-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setVideoRotationDeg(r => (r + 90) % 360); }}
+                        className="p-0.5 hover:bg-sky-500 rounded text-[9px] cursor-pointer"
+                        title="90도 회전"
+                      >
+                        ↻ 90°
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setVideoHorizontalFlip(f => !f); }}
+                        className="p-0.5 hover:bg-sky-500 rounded text-[9px] cursor-pointer"
+                        title="좌우 반전"
+                      >
+                        ⇄ 반전
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setVideoFocusXPct(50); setVideoFocusYPct(50); setVideoZoomScale(100); setVideoRotationDeg(0); }}
+                        className="p-0.5 hover:bg-sky-500 rounded text-[9px] text-sky-200 cursor-pointer"
+                        title="중앙 정렬 리셋"
+                      >
+                        ⟲ 리셋
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4대 모서리 리사이즈 핸들 (확대/축소) */}
+                  {[
+                    { pos: '-top-1.5 -left-1.5', cursor: 'cursor-nwse-resize', sign: -1 },
+                    { pos: '-top-1.5 -right-1.5', cursor: 'cursor-nesw-resize', sign: 1 },
+                    { pos: '-bottom-1.5 -left-1.5', cursor: 'cursor-nesw-resize', sign: -1 },
+                    { pos: '-bottom-1.5 -right-1.5', cursor: 'cursor-nwse-resize', sign: 1 },
+                  ].map((handle, hIdx) => (
+                    <div
+                      key={hIdx}
+                      onPointerDown={(e) => {
+                        if (e.button !== 0) return;
+                        e.stopPropagation();
+                        const targetEl = e.currentTarget as HTMLElement;
+                        targetEl.setPointerCapture(e.pointerId);
+                        const startX = e.clientX;
+                        const startY = e.clientY;
+                        const initialZoom = videoZoomScale;
+
+                        const onPointerMove = (mv: PointerEvent) => {
+                          const dx = (mv.clientX - startX) / Math.max(0.1, canvasScale);
+                          const dy = (mv.clientY - startY) / Math.max(0.1, canvasScale);
+                          const delta = (dx * handle.sign + dy * handle.sign) / 2;
+                          const newZoom = Math.max(50, Math.min(300, Math.round(initialZoom + delta)));
+                          setVideoZoomScale(newZoom);
+                        };
+
+                        const onPointerUp = (upEv: PointerEvent) => {
+                          try { targetEl.releasePointerCapture(upEv.pointerId); } catch (_) {}
+                          window.removeEventListener('pointermove', onPointerMove);
+                          window.removeEventListener('pointerup', onPointerUp);
+                        };
+
+                        window.addEventListener('pointermove', onPointerMove);
+                        window.addEventListener('pointerup', onPointerUp);
+                      }}
+                      className={`absolute ${handle.pos} w-3 h-3 bg-white border-2 border-sky-600 rounded-2xs ${handle.cursor} pointer-events-auto shadow-md hover:scale-125 transition-transform z-50`}
+                      title="모서리를 드래그하여 비디오 확대/축소"
+                    />
+                  ))}
+                </div>
+              )}
 
               {/* ⬛ LAYER 1: 상단 배경 바 (Top Bar Bg - 독립 제어) */}
               {hasTopBarBg && (
@@ -2979,7 +4053,7 @@ export const ShortsEditorStudio: React.FC = () => {
               )}
 
               {/* 👑 LAYER 2: 상단 타이틀 (1줄/2줄 모드, 외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
-              {hasTopTitle && (
+              {hasTopTitle && trackVisibility.t1Title && (
                 <TransformGizmo
                   transform={titleTransform}
                   selected={selectedLayerId === 'layer_title'}
@@ -3023,7 +4097,7 @@ export const ShortsEditorStudio: React.FC = () => {
                         className="font-black leading-tight tracking-tight whitespace-nowrap"
                         style={{
                           color: titleLine1Color,
-                          fontSize: `${titleLine1SizePx}px`,
+                          fontSize: `${Math.round(titleLine1SizePx * aspectScale)}px`,
                           WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                           paintOrder: 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
@@ -3040,7 +4114,7 @@ export const ShortsEditorStudio: React.FC = () => {
                         className="font-black leading-tight tracking-tight whitespace-nowrap mt-0.5"
                         style={{
                           color: titleLine2Color,
-                          fontSize: `${titleLine2SizePx}px`,
+                          fontSize: `${Math.round(titleLine2SizePx * aspectScale)}px`,
                           WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
                           paintOrder: 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
@@ -3054,107 +4128,132 @@ export const ShortsEditorStudio: React.FC = () => {
                 </TransformGizmo>
               )}
 
-              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (글자 외곽선/그림자/배경박스/모서리 둥글기 완벽 지원) */}
-              {hasJab && (
-                <TransformGizmo
-                  transform={jabTransform}
-                  selected={selectedLayerId === 'layer_jab'}
-                  name="긴박 쨉쨉이 훅"
-                  canvasScale={canvasScale}
-                  onSelect={() => {
-                    setSelectedLayerId('layer_jab');
-                    setActiveInspectorTab('jabHook');
-                  }}
-                  onChange={(newT) => {
-                    setJabTransform(newT);
-                    setJabYPercent(newT.yPct);
-                    setJabTiltDeg(newT.rotationDeg);
-                  }}
-                >
-                  <div
-                    className="font-black px-3 py-1.5 flex items-center justify-center whitespace-nowrap cursor-move transition-all"
-                    style={{
-                      backgroundColor: jabBgEnabled ? jabBgColor : 'transparent',
-                      borderRadius: `${jabBorderRadius}px`,
-                      boxShadow: jabShadow ? `0 4px ${jabShadowBlur * 2}px rgba(0,0,0,0.8)` : 'none',
-                      border: (jabBgEnabled && jabStroke) ? '1px solid rgba(0,0,0,0.2)' : 'none',
+              {/* ⚡ LAYER 3: 긴박 쨉쨉이 훅 (타임라인 시간대 동기화 & 고스트 노출 완벽 차단) */}
+              {(() => {
+                // 재생 중일 때는 현재 타임코드에 위치한 activeJab만 표시! 비시간대 고스트 쨉쨉이 영구 차단
+                const isExplicitJabClipSelected = !isPlaying && selectedLayer?.type === 'jab' && selectedLayer.id !== 'layer_audio_bgm';
+                const displayJab = activeJab || (isExplicitJabClipSelected ? selectedLayer : null);
+                const shouldShowJab = hasJab && trackVisibility.t2Jab !== false && !!displayJab;
+
+                if (!shouldShowJab) return null;
+
+                return (
+                  <TransformGizmo
+                    transform={jabTransform}
+                    selected={isJabSelected}
+                    name="긴박 쨉쨉이 훅"
+                    canvasScale={canvasScale}
+                    onSelect={() => {
+                      if (displayJab) setSelectedLayerId(displayJab.id);
+                      else setSelectedLayerId('layer_jab');
+                      setActiveInspectorTab('jabHook');
+                    }}
+                    onChange={(newT) => {
+                      setJabTransform(newT);
+                      setJabYPercent(newT.yPct);
+                      setJabTiltDeg(newT.rotationDeg);
                     }}
                   >
-                    <span
+                    <div
+                      className="font-black px-3 py-1.5 flex items-center justify-center whitespace-nowrap cursor-move transition-all"
                       style={{
-                        fontSize: `${jabFontSize}px`,
-                        color: jabTextColor,
-                        fontFamily: titleFontFamily,
-                        WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
-                        paintOrder: 'stroke fill',
-                        WebkitFontSmoothing: 'antialiased',
-                        textShadow: jabShadow ? `0 2px ${jabShadowBlur}px rgba(0,0,0,0.9)` : 'none',
+                        backgroundColor: jabBgEnabled ? jabBgColor : 'transparent',
+                        borderRadius: `${jabBorderRadius}px`,
+                        boxShadow: jabShadow ? `0 4px ${jabShadowBlur * 2}px rgba(0,0,0,0.8)` : 'none',
+                        border: (jabBgEnabled && jabStroke) ? '1px solid rgba(0,0,0,0.2)' : 'none',
                       }}
                     >
-                      {activeJab?.data || jabText}
-                    </span>
-                  </div>
-                </TransformGizmo>
-              )}
+                      <span
+                        style={{
+                          fontSize: `${Math.round(jabFontSize * aspectScale)}px`,
+                          color: jabTextColor,
+                          fontFamily: titleFontFamily,
+                          WebkitTextStroke: jabStroke ? `${jabStrokeWidth}px ${jabStrokeColor}` : 'none',
+                          paintOrder: 'stroke fill',
+                          WebkitFontSmoothing: 'antialiased',
+                          textShadow: jabShadow ? `0 2px ${jabShadowBlur}px rgba(0,0,0,0.9)` : 'none',
+                        }}
+                      >
+                        {displayJab?.data || jabText}
+                      </span>
+                    </div>
+                  </TransformGizmo>
+                );
+              })()}
 
-              {/* 💬 LAYER 4: 본문 자막 (글자 외곽선/그림자/배경박스/모서리 둥글기/자동 내려쓰기) */}
-              <TransformGizmo
-                transform={subTransform}
-                selected={selectedLayer?.type === 'subtitle' || selectedLayerId === 'layer_sub'}
-                name="본문 자막"
-                canvasScale={canvasScale}
-                onSelect={() => {
-                  if (activeSub) setSelectedLayerId(activeSub.id);
-                  else setSelectedLayerId('layer_sub');
-                  setActiveInspectorTab('style');
-                }}
-                onChange={(newT) => {
-                  setSubTransform(newT);
-                  setSubtitleYPercent(newT.yPct);
-                }}
-              >
-                <div
-                  className={cn(
-                    "font-black leading-snug tracking-tight inline-block whitespace-pre-line text-center transition-all cursor-move px-2",
-                    (subtitleConfig.useBox ?? subtitleUseBox) && "px-3 py-1.5"
-                  )}
-                  style={{
-                    backgroundColor: (subtitleConfig.useBox ?? subtitleUseBox)
-                      ? (subtitleConfig.boxColor || subtitleBoxColor)
-                      : 'transparent',
-                    borderRadius: (subtitleConfig.useBox ?? subtitleUseBox)
-                      ? `${subtitleBorderRadius}px`
-                      : 0,
-                    boxShadow: (((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (subtitleConfig.useBox ?? subtitleUseBox)
-                      ? '0 4px 14px rgba(0,0,0,0.7)'
-                      : 'none',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: `${subtitleConfig.fontSize || 18}px`,
-                      color: subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF',
-                      fontFamily: subtitleConfig.font || (subtitleConfig as any).fontFamily || 'Pretendard',
-                      fontWeight: subtitleConfig.isBold !== false ? 'bold' : 'normal',
-                      fontStyle: subtitleConfig.isItalic ? 'italic' : 'normal',
-                      WebkitTextStroke: (subtitleConfig.outlineSize && subtitleConfig.outlineSize > 0)
-                        ? `${subtitleConfig.outlineSize}px ${subtitleConfig.outlineColor || '#000000'}`
-                        : subtitleStrokeEnabled
-                          ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
-                          : 'none',
-                      paintOrder: 'stroke fill',
-                      WebkitFontSmoothing: 'antialiased',
-                      textShadow: (subtitleConfig.shadowSize && subtitleConfig.shadowSize > 0)
-                        ? `0 2px ${(subtitleConfig.shadowSize * 3)}px ${subtitleConfig.shadowColor || 'rgba(0,0,0,0.95)'}`
-                        : subtitleShadowEnabled
-                          ? `0 2px ${subtitleShadowBlur || 8}px ${subtitleShadowColor}`
-                          : 'none',
+              {/* 💬 LAYER 4: 본문 자막 (타임라인 시간대 동기화 & 고스트 자막 방지) */}
+              {(() => {
+                const isSubSelected = selectedLayer?.type === 'subtitle' || selectedLayerId === 'layer_sub';
+                const displaySub = activeSub || (isSubSelected ? (selectedLayer?.type === 'subtitle' ? selectedLayer : subtitleLayers[0]) : null);
+                const shouldShowSub = (subtitleConfig?.visible !== false) && trackVisibility.sub !== false && !!displaySub;
+
+                if (!shouldShowSub) return null;
+
+                return (
+                  <TransformGizmo
+                    transform={subTransform}
+                    selected={isSubSelected}
+                    name="본문 자막"
+                    canvasScale={canvasScale}
+                    onSelect={() => {
+                      if (displaySub) setSelectedLayerId(displaySub.id);
+                      else setSelectedLayerId('layer_sub');
+                      setActiveInspectorTab('style');
+                    }}
+                    onChange={(newT) => {
+                      setSubTransform(newT);
+                      setSubtitleYPercent(newT.yPct);
                     }}
                   >
-                    {formatWrappedText(activeSub?.data || '자막 텍스트', subtitleMaxChars)}
-                  </span>
-                </div>
-              </TransformGizmo>
+                    <div
+                      className={cn(
+                        "font-black leading-snug tracking-tight inline-block whitespace-pre-line text-center transition-all cursor-move px-2",
+                        (subtitleConfig.useBox ?? subtitleUseBox) && "px-3 py-1.5"
+                      )}
+                      style={{
+                        backgroundColor: (subtitleConfig.useBox ?? subtitleUseBox)
+                          ? (subtitleConfig.boxColor || subtitleBoxColor)
+                          : 'transparent',
+                        borderRadius: (subtitleConfig.useBox ?? subtitleUseBox)
+                          ? `${subtitleBorderRadius}px`
+                          : 0,
+                        boxShadow: (((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (subtitleConfig.useBox ?? subtitleUseBox)
+                          ? '0 4px 14px rgba(0,0,0,0.7)'
+                          : 'none',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: `${Math.round((subtitleConfig.fontSize || 18) * aspectScale)}px`,
+                          color: subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF',
+                          fontFamily: subtitleConfig.font || (subtitleConfig as any).fontFamily || 'Pretendard',
+                          fontWeight: subtitleConfig.isBold !== false ? 'bold' : 'normal',
+                          fontStyle: subtitleConfig.isItalic ? 'italic' : 'normal',
+                          WebkitTextStroke: (subtitleConfig.outlineSize && subtitleConfig.outlineSize > 0)
+                            ? `${subtitleConfig.outlineSize}px ${subtitleConfig.outlineColor || '#000000'}`
+                            : subtitleStrokeEnabled
+                              ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
+                              : 'none',
+                          paintOrder: 'stroke fill',
+                          WebkitFontSmoothing: 'antialiased',
+                          textShadow: (subtitleConfig.shadowSize && subtitleConfig.shadowSize > 0)
+                            ? `0 2px ${(subtitleConfig.shadowSize * 3)}px ${subtitleConfig.shadowColor || 'rgba(0,0,0,0.95)'}`
+                            : subtitleShadowEnabled
+                              ? `0 2px ${subtitleShadowBlur || 8}px ${subtitleShadowColor}`
+                              : 'none',
+                        }}
+                      >
+                        {renderHighlightedSubtitleText(
+                          formatWrappedText(displaySub?.data || '자막 텍스트', activeSplitLimit, subtitleConfig.maxLines || 2),
+                          displaySub?.styleProps?.highlights,
+                          subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF',
+                          selectedHighlightColor
+                        )}
+                      </span>
+                    </div>
+                  </TransformGizmo>
+                );
+              })()}
 
               {/* 🏷️ LAYER 5: 하단 출처 표기 */}
               {hasBottomSource && (
@@ -3209,6 +4308,90 @@ export const ShortsEditorStudio: React.FC = () => {
                   title="클릭하여 하단 배경 바 설정"
                 />
               )}
+              {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (픽셀링 스타일 & 닉네임 블러 & 유튜브 테마) */}
+              {hasCommentCard && (
+                <TransformGizmo
+                  transform={commentTransform}
+                  selected={selectedLayerId === 'layer_comment_card'}
+                  name="하단 바이럴 댓글 카드"
+                  canvasScale={canvasScale}
+                  onSelect={() => {
+                    setSelectedLayerId('layer_comment_card');
+                    setActiveInspectorTab('commentCard');
+                  }}
+                  onChange={(newT) => setCommentTransform(newT)}
+                >
+                  <div
+                    className={cn(
+                      "rounded-lg p-2.5 shadow-xl backdrop-blur-md border transition-all cursor-move select-none min-w-[260px] max-w-[340px]",
+                      commentCard.theme === 'yt-dark'
+                        ? "bg-[#0f0f0f]/90 text-white border-white/10"
+                        : commentCard.theme === 'yt-light'
+                        ? "bg-white/95 text-neutral-900 border-black/10 shadow-lg"
+                        : "bg-gradient-to-r from-purple-900/90 to-pink-900/90 text-white border-pink-500/20"
+                    )}
+                  >
+                    {/* 상단: 프로필 아바타 + 닉네임 + 작성시간 + 고정 뱃지 */}
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className={cn(
+                            "w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-amber-500 flex items-center justify-center text-[11px] font-black text-white shrink-0 overflow-hidden",
+                            commentCard.blurId && "blur-[2.5px]"
+                          )}
+                        >
+                          {commentCard.author.charAt(0)}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={cn(
+                                "text-[11px] font-bold leading-tight truncate",
+                                commentCard.blurId && "blur-[3.5px]"
+                              )}
+                            >
+                              {commentCard.anonymous ? '익명_유저' : commentCard.author}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[9px] opacity-60 font-mono truncate",
+                                commentCard.blurId && "blur-[3.5px]"
+                              )}
+                            >
+                              {commentCard.anonymous ? '@user_***' : commentCard.handle}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[9px] opacity-50 shrink-0">{commentCard.timeText}</span>
+                    </div>
+
+                    {/* 댓글 본문 */}
+                    <p className="text-[11.5px] font-medium leading-relaxed break-words px-0.5 mb-2">
+                      {commentCard.text}
+                    </p>
+
+                    {/* 하단 인터랙션 (좋아요 👍, 답글 💬) */}
+                    <div className="flex items-center justify-between text-[10px] opacity-75 pt-1 border-t border-current/10">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1 font-semibold">
+                          👍 {commentCard.likes}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          👎
+                        </span>
+                        <span className="font-semibold cursor-pointer hover:underline">
+                          답글
+                        </span>
+                      </div>
+                      <span className="text-[9px] bg-primary/20 text-primary font-bold px-1.5 py-0.2 rounded-xs">
+                        📌 베댓
+                      </span>
+                    </div>
+                  </div>
+                </TransformGizmo>
+              )}
+
 
               {/* 🏷️ 실시간 워터마크 & 채널 로고 오버레이 */}
               {watermarkConfig.enabled && (
@@ -3457,12 +4640,12 @@ export const ShortsEditorStudio: React.FC = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-0.5 border-b border-border bg-muted/40 p-0.5 text-[10px]">
+          <div className="grid grid-cols-4 gap-0.5 border-b border-border bg-muted/40 p-0.5 text-[9.5px]">
             <button
               type="button"
               onClick={() => setActiveInspectorTab('titleSource')}
               className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-1",
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
                 activeInspectorTab === 'titleSource' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
               )}
               title="상단 2단 타이틀 & 하단 출처 & 상하단 바"
@@ -3473,18 +4656,40 @@ export const ShortsEditorStudio: React.FC = () => {
               type="button"
               onClick={() => setActiveInspectorTab('videoCrop')}
               className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-1",
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
                 activeInspectorTab === 'videoCrop' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
               )}
               title="비디오 샌드위치 핏 & 크롭 & 포커스"
             >
-              비디오 크롭
+              비디오 핏
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveInspectorTab('filterFx')}
+              className={cn(
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
+                activeInspectorTab === 'filterFx' ? "bg-card text-primary shadow-2xs font-bold" : "text-muted-foreground hover:text-foreground"
+              )}
+              title="CapCut 10대 필터 & 35mm 영화 노이즈 FX"
+            >
+              🎨 필터/FX
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveInspectorTab('commentCard')}
+              className={cn(
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
+                activeInspectorTab === 'commentCard' ? "bg-card text-primary shadow-2xs font-bold" : "text-muted-foreground hover:text-foreground"
+              )}
+              title="픽셀링 스타일 하단 바이럴 댓글 카드"
+            >
+              💬 댓글카드
             </button>
             <button
               type="button"
               onClick={() => setActiveInspectorTab('jabHook')}
               className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-1",
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
                 activeInspectorTab === 'jabHook' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
               )}
               title="긴박 쨉쨉이 훅 & 회전각"
@@ -3495,7 +4700,7 @@ export const ShortsEditorStudio: React.FC = () => {
               type="button"
               onClick={() => setActiveInspectorTab('style')}
               className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-1",
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
                 activeInspectorTab === 'style' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
               )}
               title="본문 자막 & 내려쓰기 & 외곽선/그림자"
@@ -3506,7 +4711,7 @@ export const ShortsEditorStudio: React.FC = () => {
               type="button"
               onClick={() => setActiveInspectorTab('tts')}
               className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-1",
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
                 activeInspectorTab === 'tts' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
               )}
               title="AI 나레이션(TTS) 음성 엔진 & 트랙 제어"
@@ -3517,7 +4722,7 @@ export const ShortsEditorStudio: React.FC = () => {
               type="button"
               onClick={() => setActiveInspectorTab('channel')}
               className={cn(
-                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-1",
+                "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
                 activeInspectorTab === 'channel' ? "bg-card text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
               )}
               title="채널 DNA 시그니처 일괄 동기화"
@@ -3547,6 +4752,37 @@ export const ShortsEditorStudio: React.FC = () => {
 
                   {hasTopTitle && (
                     <div className="space-y-2.5">
+                      {/* ⚡ 8대 쇼츠 고효율 타이틀 후보군 퀵 주입기 */}
+                      <div className="p-2 bg-primary/5 border border-primary/20 rounded-[2px] space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-bold text-primary flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-amber-500" />
+                            추천 타이틀 퀵 주입 (8대 후보군)
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto custom-scrollbar pr-0.5">
+                          {[
+                            '[충격 실화] 상상도 못했던 반전 결말',
+                            '[긴급 속보] 지금 당장 확인해야 할 사실',
+                            '[TOP 1%] 성공한 사람들의 숨겨진 비밀',
+                            '[소름 주의] 이것을 알고 나면 달라집니다',
+                            '[핵심 요약] 단 1분 만에 끝내는 완벽 정리',
+                            '[진짜 이유] 아무도 알려주지 않았던 진실',
+                            '[실제 상황] 눈앞에서 벌어진 믿기 힘든 일',
+                            '[궁극의 팁] 알고 나면 삶이 편해지는 비법',
+                          ].map((cand, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleInjectTitleCandidate(cand)}
+                              className="text-left px-2 py-1 text-[10px] rounded-[2px] bg-card hover:bg-primary/10 border border-border/70 hover:border-primary/40 text-foreground transition truncate cursor-pointer font-medium"
+                              title={`${cand} (클릭 시 상단 타이틀로 즉시 주입)`}
+                            >
+                              {cand}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       {/* 1줄 vs 2줄 모드 선택 */}
                       <div className="flex items-center justify-between bg-muted/40 p-1.5 rounded-[2px]">
                         <span className="text-[10px] font-semibold text-foreground">줄 수 설정</span>
@@ -3925,40 +5161,152 @@ export const ShortsEditorStudio: React.FC = () => {
               </div>
             )}
 
-            {activeInspectorTab === 'videoCrop' && (
+                        {activeInspectorTab === 'videoCrop' && (
               <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border pb-1.5">
                     <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                       <Crop className="w-3.5 h-3.5 text-primary" />
-                      비디오 핏 모드 (Video Fit Mode)
+                      비디오 핏 모드 & 2D 자유 변형
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVideoFocusXPct(50);
+                        setVideoFocusYPct(50);
+                        setVideoZoomScale(100);
+                        setVideoRotationDeg(0);
+                        setVideoHorizontalFlip(false);
+                        setVideoVerticalFlip(false);
+                        toast({ title: '🔄 비디오 변형 초기화', description: '화면 정중앙 100% 비율로 리셋되었습니다.' });
+                      }}
+                      className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span>전체 리셋</span>
+                    </button>
                   </div>
 
-                  {/* 샌드위치 핏 vs 풀스크린 버튼 */}
+                  {/* 5대 비디오 핏 모드 */}
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
                       type="button"
                       onClick={() => setVideoFitMode('sandwich')}
                       className={cn(
                         "p-2 border rounded-[2px] text-left transition cursor-pointer flex flex-col gap-0.5",
-                        videoFitMode === 'sandwich' ? "bg-primary/15 border-primary text-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground"
+                        videoFitMode === 'sandwich' ? "bg-primary/15 border-primary text-foreground font-bold shadow-2xs" : "border-border bg-background text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      <span className="text-[10px] font-bold">🥪 샌드위치 핏</span>
-                      <span className="text-[9px] text-muted-foreground">상·하단 바 사이 안착</span>
+                      <span className="text-[10px]">🥪 샌드위치 핏</span>
+                      <span className="text-[8.5px] text-muted-foreground">상·하단 바 사이 안착</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setVideoFitMode('fullscreen')}
                       className={cn(
                         "p-2 border rounded-[2px] text-left transition cursor-pointer flex flex-col gap-0.5",
-                        videoFitMode === 'fullscreen' ? "bg-primary/15 border-primary text-foreground" : "border-border bg-background text-muted-foreground hover:text-foreground"
+                        videoFitMode === 'fullscreen' ? "bg-primary/15 border-primary text-foreground font-bold shadow-2xs" : "border-border bg-background text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      <span className="text-[10px] font-bold">📱 풀스크린 핏</span>
-                      <span className="text-[9px] text-muted-foreground">화면 전체 채움 크롭</span>
+                      <span className="text-[10px]">📱 풀스크린 핏</span>
+                      <span className="text-[8.5px] text-muted-foreground">화면 전체 채움 크롭</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setVideoFitMode('fit-center')}
+                      className={cn(
+                        "p-2 border rounded-[2px] text-left transition cursor-pointer flex flex-col gap-0.5",
+                        videoFitMode === 'fit-center' ? "bg-primary/15 border-primary text-foreground font-bold shadow-2xs" : "border-border bg-background text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className="text-[10px]">🎯 중앙 맞춤 핏</span>
+                      <span className="text-[8.5px] text-muted-foreground">16:9 원본 100% 보존</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVideoFitMode('fit-top')}
+                      className={cn(
+                        "p-2 border rounded-[2px] text-left transition cursor-pointer flex flex-col gap-0.5",
+                        videoFitMode === 'fit-top' ? "bg-primary/15 border-primary text-foreground font-bold shadow-2xs" : "border-border bg-background text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className="text-[10px]">🔝 상단 집중 핏</span>
+                      <span className="text-[8.5px] text-muted-foreground">하단 넓은 자막 공간</span>
+                    </button>
+                  </div>
+
+                  {/* 🌟 가우시안 블러 미러 배경 스위치 */}
+                  <div className="flex items-center justify-between p-2 bg-muted/30 border border-border rounded-[2px]">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-bold text-foreground block">여백 가우시안 블러 미러 배경</span>
+                      <span className="text-[8.5px] text-muted-foreground">16:9 영상 주변에 흐린 미러 배경을 채웁니다</span>
+                    </div>
+                    <Switch checked={videoBlurBg} onCheckedChange={setVideoBlurBg} />
+                  </div>
+
+                  {/* 🎮 9-방향 원클릭 스냅 정렬 매트릭스 */}
+                  <div className="space-y-1 pt-1 border-t border-border">
+                    <span className="text-[10px] font-semibold text-muted-foreground">원클릭 스냅 정렬 (9-Way)</span>
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-muted/20 border border-border rounded-[2px]">
+                      {[
+                        { label: '↖ 좌상단', x: 20, y: 20 },
+                        { label: '↑ 상단', x: 50, y: 20 },
+                        { label: '↗ 우상단', x: 80, y: 20 },
+                        { label: '← 좌중앙', x: 20, y: 50 },
+                        { label: '🎯 중앙', x: 50, y: 50 },
+                        { label: '→ 우중앙', x: 80, y: 50 },
+                        { label: '↙ 좌하단', x: 20, y: 80 },
+                        { label: '↓ 하단', x: 50, y: 80 },
+                        { label: '↘ 우하단', x: 80, y: 80 },
+                      ].map((snap, sIdx) => (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          onClick={() => { setVideoFocusXPct(snap.x); setVideoFocusYPct(snap.y); }}
+                          className={cn(
+                            "py-1 text-[9px] font-semibold rounded-[2px] border transition cursor-pointer",
+                            videoFocusXPct === snap.x && videoFocusYPct === snap.y
+                              ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
+                              : "border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {snap.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 가로 X & 세로 Y 정밀 오프셋 슬라이더 */}
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-muted-foreground font-semibold">가로 위치 (X)</span>
+                        <span className="font-mono text-primary font-bold">{videoFocusXPct}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={videoFocusXPct}
+                        onChange={(e) => setVideoFocusXPct(parseInt(e.target.value))}
+                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-muted-foreground font-semibold">세로 위치 (Y)</span>
+                        <span className="font-mono text-primary font-bold">{videoFocusYPct}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={videoFocusYPct}
+                        onChange={(e) => setVideoFocusYPct(parseInt(e.target.value))}
+                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      />
+                    </div>
                   </div>
 
                   {/* 비디오 줌 / 크롭 스케일 */}
@@ -3969,8 +5317,8 @@ export const ShortsEditorStudio: React.FC = () => {
                     </div>
                     <input
                       type="range"
-                      min="100"
-                      max="200"
+                      min="50"
+                      max="300"
                       step="1"
                       value={videoZoomScale}
                       onChange={(e) => setVideoZoomScale(parseInt(e.target.value))}
@@ -3978,69 +5326,333 @@ export const ShortsEditorStudio: React.FC = () => {
                     />
                   </div>
 
-                  {/* 인물 얼굴 중심 Y 포커스 오프셋 */}
-                  <div className="space-y-1">
+                  {/* 회전 & 반전 제어 */}
+                  <div className="space-y-1.5 pt-1 border-t border-border">
                     <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground font-semibold">인물 얼굴 중심 Y 포커스</span>
-                      <span className="font-mono text-primary font-bold">{videoFocusYPct}%</span>
+                      <span className="text-muted-foreground font-semibold">회전 각도 (Rotation)</span>
+                      <span className="font-mono text-primary font-bold">{videoRotationDeg}°</span>
                     </div>
                     <input
                       type="range"
-                      min="10"
-                      max="90"
+                      min="-180"
+                      max="180"
                       step="1"
-                      value={videoFocusYPct}
-                      onChange={(e) => setVideoFocusYPct(parseInt(e.target.value))}
+                      value={videoRotationDeg}
+                      onChange={(e) => setVideoRotationDeg(parseInt(e.target.value))}
                       className="w-full accent-primary cursor-pointer h-1 bg-muted"
                     />
+                    <div className="grid grid-cols-4 gap-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setVideoRotationDeg(r => (r - 90) % 360)}
+                        className="py-1 text-[9px] font-semibold border border-border bg-background hover:bg-muted rounded-[2px] cursor-pointer"
+                      >
+                        ↺ -90°
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVideoRotationDeg(r => (r + 90) % 360)}
+                        className="py-1 text-[9px] font-semibold border border-border bg-background hover:bg-muted rounded-[2px] cursor-pointer"
+                      >
+                        ↻ +90°
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVideoHorizontalFlip(f => !f)}
+                        className={cn(
+                          "py-1 text-[9px] font-semibold border rounded-[2px] cursor-pointer transition",
+                          videoHorizontalFlip ? "bg-primary text-primary-foreground border-primary font-bold" : "border-border bg-background hover:bg-muted"
+                        )}
+                      >
+                        ⇄ 좌우
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVideoVerticalFlip(f => !f)}
+                        className={cn(
+                          "py-1 text-[9px] font-semibold border rounded-[2px] cursor-pointer transition",
+                          videoVerticalFlip ? "bg-primary text-primary-foreground border-primary font-bold" : "border-border bg-background hover:bg-muted"
+                        )}
+                      >
+                        ⇅ 상하
+                      </button>
+                    </div>
                   </div>
-
-                  {/* 좌우 반전 */}
-                  <button
-                    type="button"
-                    onClick={() => setVideoHorizontalFlip(!videoHorizontalFlip)}
-                    className={cn(
-                      "w-full h-7 border rounded-[2px] text-[10px] font-semibold flex items-center justify-center gap-1 transition cursor-pointer",
-                      videoHorizontalFlip ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <FlipHorizontal className="w-3 h-3" />
-                    <span>좌우 반전 {videoHorizontalFlip ? 'ON' : 'OFF'}</span>
-                  </button>
                 </div>
-                {/* ✂️ 상하단 절단 마스킹 (Custom Crop) */}
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="font-semibold text-foreground">상단 절단 (Top Crop)</span>
-                    <span className="font-mono text-muted-foreground">{videoCropTopPct}%</span>
-                  </div>
-                  <Slider
-                    value={[videoCropTopPct]}
-                    onValueChange={([v]) => setVideoCropTopPct(v)}
-                    min={0}
-                    max={40}
-                    step={0.5}
-                    className="w-full"
-                  />
-
-                  <div className="flex justify-between text-[11px] mt-2">
-                    <span className="font-semibold text-foreground">하단 절단 (Bottom Crop)</span>
-                    <span className="font-mono text-muted-foreground">{videoCropBottomPct}%</span>
-                  </div>
-                  <Slider
-                    value={[videoCropBottomPct]}
-                    onValueChange={([v]) => setVideoCropBottomPct(v)}
-                    min={0}
-                    max={40}
-                    step={0.5}
-                    className="w-full"
-                  />
-                </div>
-
               </div>
             )}
 
             {/* 3. ⚡ 긴박 쨉쨉이 훅 탭 */}
+                        {/* 🎨 캡컷 10대 인기 시네마틱 필터 & 영화 노이즈 FX 패널 */}
+            {activeInspectorTab === 'filterFx' && (
+              <div className="space-y-3">
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5">
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      캡컷 인기 시네마틱 필터 & 영화 노이즈
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setVideoFilter({
+                        preset: 'none',
+                        intensity: 100,
+                        filmGrain: 0,
+                        vignette: 0,
+                        brightness: 100,
+                        contrast: 100,
+                        saturation: 100,
+                        temperature: 0,
+                      })}
+                      className="text-[9px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-border"
+                    >
+                      초기화
+                    </button>
+                  </div>
+
+                  {/* 10대 필터 프리셋 2열 그리드 */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {CAPCUT_FILTER_PRESETS.map((fp) => (
+                      <div
+                        key={fp.id}
+                        onClick={() => {
+                          setVideoFilter(prev => ({
+                            ...prev,
+                            preset: fp.id,
+                            filmGrain: fp.grain,
+                            vignette: fp.vignette,
+                            brightness: fp.b,
+                            contrast: fp.c,
+                            saturation: fp.s,
+                            temperature: fp.t,
+                          }));
+                          toast({ title: `🎨 ${fp.name} 적용`, description: fp.desc });
+                        }}
+                        className={cn(
+                          "p-2 border rounded-[2px] cursor-pointer transition flex flex-col gap-1 text-left relative overflow-hidden",
+                          videoFilter.preset === fp.id
+                            ? "bg-primary/10 border-primary shadow-xs ring-1 ring-primary"
+                            : "border-border bg-background hover:bg-muted/40"
+                        )}
+                      >
+                        <div className={cn("w-full h-4 rounded-xs bg-gradient-to-r opacity-90 mb-0.5", fp.color)} />
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-foreground truncate">{fp.name}</span>
+                          {videoFilter.preset === fp.id && (
+                            <span className="text-[8px] bg-primary text-primary-foreground px-1 rounded-xs font-bold shrink-0">✓</span>
+                          )}
+                        </div>
+                        <span className="text-[8.5px] text-muted-foreground leading-tight line-clamp-1">{fp.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 🎞️ 영화 필름 노이즈 / 그레인 슬라이더 */}
+                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-foreground font-semibold flex items-center gap-1">
+                        <Film className="w-3 h-3 text-amber-500" />
+                        35mm 영화 필름 노이즈 (Grain)
+                      </span>
+                      <span className="font-mono text-amber-500 font-bold">{videoFilter.filmGrain}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={videoFilter.filmGrain}
+                      onChange={(e) => setVideoFilter(prev => ({ ...prev, filmGrain: parseInt(e.target.value) }))}
+                      className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
+                    />
+                  </div>
+
+                  {/* 🎬 시네마틱 비네팅 */}
+                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-foreground font-semibold">시네마틱 비네트 (Vignette)</span>
+                      <span className="font-mono text-primary font-bold">{videoFilter.vignette}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={videoFilter.vignette}
+                      onChange={(e) => setVideoFilter(prev => ({ ...prev, vignette: parseInt(e.target.value) }))}
+                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                    />
+                  </div>
+
+                  {/* 밝기, 대비, 채도, 색온도 정밀 슬라이더 */}
+                  <div className="space-y-2 pt-1 border-t border-border">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[9.5px]">
+                        <span className="text-muted-foreground">대비 (Contrast)</span>
+                        <span className="font-mono font-bold text-foreground">{videoFilter.contrast}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="60"
+                        max="150"
+                        value={videoFilter.contrast}
+                        onChange={(e) => setVideoFilter(prev => ({ ...prev, contrast: parseInt(e.target.value) }))}
+                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[9.5px]">
+                        <span className="text-muted-foreground">채도 (Saturation)</span>
+                        <span className="font-mono font-bold text-foreground">{videoFilter.saturation}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="180"
+                        value={videoFilter.saturation}
+                        onChange={(e) => setVideoFilter(prev => ({ ...prev, saturation: parseInt(e.target.value) }))}
+                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[9.5px]">
+                        <span className="text-muted-foreground">색온도 (Warmth)</span>
+                        <span className="font-mono font-bold text-foreground">{videoFilter.temperature > 0 ? `+${videoFilter.temperature}` : videoFilter.temperature}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-40"
+                        max="40"
+                        value={videoFilter.temperature}
+                        onChange={(e) => setVideoFilter(prev => ({ ...prev, temperature: parseInt(e.target.value) }))}
+                        className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-[2px] text-[9.5px] text-emerald-600 dark:text-emerald-400">
+                    ✓ CapCut 프로젝트 내보내기 시 색보정 메타데이터로 100% 자동 직결 연동됩니다.
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+            {/* 💬 4. 바이럴 댓글 카드 (픽셀링 스타일) 탭 */}
+            {activeInspectorTab === 'commentCard' && (
+              <div className="space-y-3">
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5">
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      하단 바이럴 댓글 카드 (픽셀링 스타일)
+                    </span>
+                    <Switch
+                      checked={hasCommentCard}
+                      onCheckedChange={(c) => {
+                        setHasCommentCard(c);
+                        toast({
+                          title: c ? '💬 댓글 카드 활성화' : '💬 댓글 카드 비활성화',
+                          description: c ? '캔버스 하단에 바이럴 베댓 카드가 표시됩니다.' : '댓글 카드가 숨겨졌습니다.',
+                        });
+                      }}
+                    />
+                  </div>
+
+                  {hasCommentCard && (
+                    <>
+                      {/* AI 가상 바이럴 댓글 생성 버튼 */}
+                      <button
+                        type="button"
+                        onClick={handleGenerateViralComment}
+                        className="w-full h-8 text-[11px] font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-[2px] flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        AI 바이럴 베댓 원클릭 생성 🪄
+                      </button>
+
+                      {/* 닉네임 블러 마스킹 & 익명 토글 (픽셀링 특화 개인정보 보호) */}
+                      <div className="p-2 bg-muted/20 border border-border rounded-[2px] space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <span className="text-[10.5px] font-bold text-foreground block">작성자 정보 블러 마스킹 🥷</span>
+                            <span className="text-[8.5px] text-muted-foreground">프로필 및 아이디에 가우시안 블러를 적용합니다</span>
+                          </div>
+                          <Switch
+                            checked={commentCard.blurId}
+                            onCheckedChange={(c) => setCommentCard(prev => ({ ...prev, blurId: c }))}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between pt-1 border-t border-border">
+                          <span className="text-[10px] text-muted-foreground font-medium">익명_유저 모드</span>
+                          <Switch
+                            checked={commentCard.anonymous}
+                            onCheckedChange={(c) => setCommentCard(prev => ({ ...prev, anonymous: c }))}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 카드 테마 스타일 */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-semibold text-muted-foreground">카드 테마</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {[
+                            { id: 'yt-dark', label: '유튜브 다크' },
+                            { id: 'yt-light', label: '유튜브 라이트' },
+                            { id: 'insta', label: '인스타그램' },
+                          ].map((t) => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setCommentCard(prev => ({ ...prev, theme: t.id as any }))}
+                              className={cn(
+                                "py-1 text-[10px] font-semibold rounded-[2px] border transition cursor-pointer",
+                                commentCard.theme === t.id
+                                  ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
+                                  : "border-border bg-background text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 댓글 내용 편집 */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-semibold text-muted-foreground">댓글 내용</span>
+                        <Textarea
+                          value={commentCard.text}
+                          onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value }))}
+                          className="w-full h-16 text-xs p-2 bg-background border-border text-foreground rounded-[2px] resize-none focus:border-primary"
+                        />
+                      </div>
+
+                      {/* 작성자 & 좋아요 수 */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <span className="text-[9.5px] text-muted-foreground">작성자 닉네임</span>
+                          <input
+                            type="text"
+                            value={commentCard.author}
+                            onChange={(e) => setCommentCard(prev => ({ ...prev, author: e.target.value }))}
+                            className="w-full h-7 px-2 text-xs bg-background border border-border rounded text-foreground"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[9.5px] text-muted-foreground">좋아요 수</span>
+                          <input
+                            type="text"
+                            value={commentCard.likes}
+                            onChange={(e) => setCommentCard(prev => ({ ...prev, likes: e.target.value }))}
+                            className="w-full h-7 px-2 text-xs bg-background border border-border rounded text-foreground"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {activeInspectorTab === 'jabHook' && (
               <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
@@ -4219,14 +5831,205 @@ export const ShortsEditorStudio: React.FC = () => {
 
             {activeInspectorTab === 'style' && (
               <div className="space-y-3">
-                {/* 본문 자막 모서리/배경/외곽선/그림자 제어 패널 */}
+                {/* 🌟 1. 8대 쇼츠 자막 스타일 퀵 프리셋 (뚜렷한 디자인 차별화 & 시각적 미니 프리뷰) */}
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5">
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      8대 쇼츠 자막 스타일 프리셋
+                    </span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/30 font-bold">
+                      1클릭 즉시 적용
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {SHORTS_SUBTITLE_DESIGN_PRESETS.map((preset) => {
+                      const isSelected = selectedSubtitlePresetId === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            pushHistorySnapshot();
+                            setSelectedSubtitlePresetId(preset.id);
+                            // 1. subtitleConfig 업데이트
+                            setSubtitleConfig(prev => ({
+                              ...prev,
+                              fontFamily: preset.fontFamily,
+                              font: preset.fontFamily,
+                              textColor: preset.textColor,
+                              fillColor: preset.textColor,
+                              outlineSize: preset.outlineSize,
+                              outlineColor: preset.outlineColor,
+                              strokeWidth: preset.outlineSize,
+                              strokeColor: preset.outlineColor,
+                              useBox: preset.useBox,
+                              boxColor: preset.boxColor,
+                              shadowSize: preset.shadowSize,
+                              shadowColor: preset.shadowColor,
+                              fontSize: preset.fontSize,
+                            }));
+                            // 2. 상단 슬라이더 state 동기화
+                            setSubtitleStrokeEnabled(preset.outlineSize > 0);
+                            setSubtitleStrokeWidth(preset.outlineSize || 4);
+                            setSubtitleStrokeColor(preset.outlineColor);
+                            setSubtitleUseBox(preset.useBox);
+                            setSubtitleBoxColor(preset.boxColor);
+                            setSubtitleShadowEnabled(preset.shadowSize > 0);
+                            setSubtitleShadowColor(preset.shadowColor);
+                            toast({ title: '자막 스타일 적용 완료', description: `'${preset.name}' 스타일이 적용되었습니다.` });
+                          }}
+                          className={cn(
+                            "relative p-2 text-left rounded-[3px] border transition-all cursor-pointer flex flex-col justify-between h-20 overflow-hidden select-none",
+                            isSelected
+                              ? "bg-primary/15 border-primary ring-2 ring-primary/80 shadow-md scale-[1.02]"
+                              : "bg-muted/25 border-border/80 hover:border-primary/50 hover:bg-muted/60"
+                          )}
+                        >
+                          {/* 상단: 이름 & 뱃지 */}
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-[11px] font-bold text-foreground truncate">{preset.name}</span>
+                            <span className={cn("text-[8px] px-1 py-0.2 rounded font-black", preset.badgeColor)}>
+                              {isSelected ? '✓ 적용' : preset.badge}
+                            </span>
+                          </div>
+
+                          {/* 중앙: 실제 자막 미니 프리뷰 (영상 배경 모의 시뮬레이션) */}
+                          <div className="w-full bg-zinc-950 rounded px-1.5 py-1 text-center flex items-center justify-center overflow-hidden border border-zinc-800">
+                            <span
+                              style={{
+                                fontFamily: preset.fontFamily,
+                                color: preset.textColor,
+                                WebkitTextStroke: preset.outlineSize > 0 ? `1.2px ${preset.outlineColor}` : 'none',
+                                textShadow: preset.shadowSize > 0 ? `0 1px 3px ${preset.shadowColor}` : 'none',
+                                backgroundColor: preset.useBox ? preset.boxColor : 'transparent',
+                                padding: preset.useBox ? '0.5px 3px' : '0',
+                                borderRadius: '2px',
+                              }}
+                              className="text-[9.5px] font-black tracking-tight truncate leading-tight inline-block max-w-full"
+                            >
+                              {preset.sampleText}
+                            </span>
+                          </div>
+
+                          {/* 하단 설명 */}
+                          <span className="text-[8.5px] text-muted-foreground truncate font-medium">{preset.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 🎨 2. 단어별 강조색 (Word Highlights) 지정 도구 */}
+                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5">
+                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-emerald-500" />
+                      단어별 강조색 (Word Highlights)
+                    </span>
+                    {activeSub?.styleProps?.highlights && activeSub.styleProps.highlights.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          pushHistorySnapshot();
+                          setLayers(prev => prev.map(l => l.id === activeSub.id ? { ...l, styleProps: { ...l.styleProps, highlights: [] } } : l));
+                          toast({ title: '강조 초기화', description: '선택 자막의 모든 단어 강조가 해제되었습니다.' });
+                        }}
+                        className="text-[9.5px] text-rose-500 hover:text-rose-400 cursor-pointer underline font-bold"
+                      >
+                        강조 전체 해제
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 강조 색상 선택 팔레트 */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-muted-foreground font-semibold">적용할 강조 색상</span>
+                      <span className="font-mono font-bold text-foreground">{selectedHighlightColor}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {[
+                        { color: '#FFDF00', name: '골드 옐로우' },
+                        { color: '#FF2E93', name: '핫 핑크' },
+                        { color: '#00F0FF', name: '네온 시안' },
+                        { color: '#10B981', name: '에메랄드' },
+                        { color: '#FF8A00', name: '오렌지' },
+                      ].map((pal) => (
+                        <button
+                          key={pal.color}
+                          type="button"
+                          onClick={() => setSelectedHighlightColor(pal.color)}
+                          style={{ backgroundColor: pal.color }}
+                          className={cn(
+                            "w-6 h-6 rounded-full border-2 transition cursor-pointer shadow-xs",
+                            selectedHighlightColor === pal.color
+                              ? "border-white scale-115 ring-2 ring-primary ring-offset-1"
+                              : "border-black/30 opacity-80 hover:opacity-100"
+                          )}
+                          title={pal.name}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 단어 칩 목록 (클릭 시 하이라이트 토글) */}
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      강조할 단어를 클릭하세요 (토글):
+                    </span>
+                    {activeSub ? (
+                      <div className="p-2 bg-muted/30 border border-border rounded-[2px] flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scrollbar">
+                        {activeSub.data.split(/\s+/).filter(Boolean).map((word: string, wIdx: number) => {
+                          const cleanW = word.replace(/[.,!?~'"“”‘’]/g, '').trim();
+                          const currentHl = activeSub.styleProps?.highlights?.find((h: any) => h.word === cleanW);
+                          return (
+                            <button
+                              key={wIdx}
+                              type="button"
+                              onClick={() => {
+                                pushHistorySnapshot();
+                                const currentHls: { word: string; color: string }[] = activeSub.styleProps?.highlights || [];
+                                const exists = currentHls.some((h: any) => h.word === cleanW);
+                                const newHls = exists
+                                  ? currentHls.filter((h: any) => h.word !== cleanW)
+                                  : [...currentHls, { word: cleanW, color: selectedHighlightColor }];
+
+                                setLayers(prev => prev.map(l => l.id === activeSub.id ? {
+                                  ...l,
+                                  styleProps: { ...l.styleProps, highlights: newHls }
+                                } : l));
+                              }}
+                              style={currentHl ? { backgroundColor: currentHl.color || selectedHighlightColor, color: '#000000' } : {}}
+                              className={cn(
+                                "px-2 py-0.5 text-[11px] rounded-[2px] border font-bold transition cursor-pointer select-none",
+                                currentHl
+                                  ? "border-transparent shadow-xs font-black ring-1 ring-black/20"
+                                  : "bg-card border-border hover:border-primary/60 text-foreground"
+                              )}
+                              title={`단어 '${cleanW}' 강조색 토글`}
+                            >
+                              {word}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-3 text-center text-muted-foreground text-[10px] bg-muted/20 border border-dashed border-border rounded-[2px]">
+                        타임라인에서 자막 클립을 선택하면 단어 칩이 표시됩니다.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ⚙️ 3. 본문 자막 모서리/배경/외곽선/그림자 제어 패널 (완전 복원) */}
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
                   <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5 border-b border-border pb-1.5">
                     <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
                     본문 자막 스타일 & 배경 효과
                   </span>
 
-                  {/* 자막 글자 크기 & 색상 (Single Source of Truth) */}
+                  {/* 자막 글자 크기 & 색상 */}
                   <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
                     <div className="flex justify-between text-[10px]">
                       <span className="text-foreground font-semibold">글자 크기 & 색상</span>
@@ -4238,13 +6041,18 @@ export const ShortsEditorStudio: React.FC = () => {
                         min="12"
                         max="36"
                         value={subtitleConfig.fontSize || 18}
-                        onChange={(e) => setSubtitleConfig(prev => ({ ...prev, fontSize: parseInt(e.target.value) }))}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setSubtitleConfig(prev => ({ ...prev, fontSize: val }));
+                        }}
                         className="flex-1 accent-emerald-500 cursor-pointer h-1 bg-muted"
                       />
                       <input
                         type="color"
-                        value={subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF'}
-                        onChange={(e) => setSubtitleConfig(prev => ({ ...prev, textColor: e.target.value, fillColor: e.target.value }))}
+                        value={rgbaToHex(subtitleConfig.textColor || '#FFFFFF', '#FFFFFF')}
+                        onChange={(e) => {
+                          setSubtitleConfig(prev => ({ ...prev, textColor: e.target.value, fillColor: e.target.value }));
+                        }}
                         className="w-7 h-7 p-0 border border-border rounded cursor-pointer bg-transparent"
                         title="자막 글자 색상"
                       />
@@ -4255,19 +6063,23 @@ export const ShortsEditorStudio: React.FC = () => {
                   <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
                     <div className="flex justify-between text-[10px]">
                       <span className="text-foreground font-semibold">자동 줄바꿈 (내려쓰기 글자 수)</span>
-                      <span className="font-mono text-emerald-500 font-bold">{subtitleMaxChars}자</span>
+                      <span className="font-mono text-emerald-500 font-bold">{subtitleConfig.splitLimit || subtitleMaxChars}자</span>
                     </div>
                     <input
                       type="range"
                       min="6"
                       max="24"
-                      value={subtitleMaxChars}
-                      onChange={(e) => setSubtitleMaxChars(parseInt(e.target.value))}
+                      value={subtitleConfig.splitLimit || subtitleMaxChars}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        setSubtitleMaxChars(val);
+                        setSubtitleConfig(prev => ({ ...prev, splitLimit: val }));
+                      }}
                       className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
                     />
                   </div>
 
-                  {/* 테두리(외곽선) 상세 제어 */}
+                  {/* 외곽선(스트로크) 제어 */}
                   <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="font-semibold text-foreground">자막 테두리 (외곽선)</span>
@@ -4285,7 +6097,7 @@ export const ShortsEditorStudio: React.FC = () => {
                           <span className="text-muted-foreground">두께: {subtitleConfig.outlineSize ?? subtitleStrokeWidth}px</span>
                           <input
                             type="color"
-                            value={subtitleConfig.outlineColor || subtitleStrokeColor || '#000000'}
+                            value={rgbaToHex(subtitleConfig.outlineColor || subtitleStrokeColor, '#000000')}
                             onChange={(e) => {
                               setSubtitleStrokeColor(e.target.value);
                               setSubtitleConfig(prev => ({ ...prev, outlineColor: e.target.value, strokeColor: e.target.value }));
@@ -4328,7 +6140,7 @@ export const ShortsEditorStudio: React.FC = () => {
                           <span className="text-muted-foreground">크기: {subtitleConfig.shadowSize ?? 3}</span>
                           <input
                             type="color"
-                            value={subtitleConfig.shadowColor || '#000000'}
+                            value={rgbaToHex(subtitleConfig.shadowColor || subtitleShadowColor, '#000000')}
                             onChange={(e) => {
                               setSubtitleShadowColor(e.target.value);
                               setSubtitleConfig(prev => ({ ...prev, shadowColor: e.target.value }));
@@ -4360,7 +6172,7 @@ export const ShortsEditorStudio: React.FC = () => {
                       <div className="flex items-center gap-1.5">
                         <input
                           type="color"
-                          value={(subtitleConfig.boxColor && subtitleConfig.boxColor.startsWith('#')) ? subtitleConfig.boxColor : '#000000'}
+                          value={rgbaToHex(subtitleConfig.boxColor || subtitleBoxColor, '#000000')}
                           onChange={(e) => {
                             setSubtitleBoxColor(e.target.value);
                             setSubtitleConfig(prev => ({ ...prev, boxColor: e.target.value }));
@@ -4396,10 +6208,14 @@ export const ShortsEditorStudio: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="border-t border-border pt-2">
+                {/* 4. 자막 정밀 파라미터 패널 (하단 상세 설정) */}
+                <div className="border-t border-border pt-1">
                   <SubtitleConfigPanel
                     config={subtitleConfig}
-                    onChange={setSubtitleConfig}
+                    onChange={(newCfg) => {
+                      setSubtitleConfig(newCfg);
+                      if (newCfg.splitLimit) setSubtitleMaxChars(newCfg.splitLimit);
+                                          }}
                   />
                 </div>
               </div>
@@ -4633,7 +6449,38 @@ export const ShortsEditorStudio: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                   T1 타이틀
                 </span>
-                <Eye className="w-3 h-3 text-muted-foreground hover:text-foreground cursor-pointer" />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackVisibility(prev => ({ ...prev, t1Title: !prev.t1Title }));
+                    }}
+                    title={trackVisibility.t1Title ? "타이틀 숨기기" : "타이틀 보이기"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackVisibility.t1Title ? (
+                      <Eye className="w-3.5 h-3.5 text-primary hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground/60 hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackLock(prev => ({ ...prev, t1Title: !prev.t1Title }));
+                    }}
+                    title={trackLock.t1Title ? "트랙 잠금 해제" : "트랙 잠금"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackLock.t1Title ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-foreground hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
             {enabledTracks.t2Jab && (
@@ -4642,7 +6489,38 @@ export const ShortsEditorStudio: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   T2 쨉쨉이
                 </span>
-                <Eye className="w-3 h-3 text-muted-foreground hover:text-foreground cursor-pointer" />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackVisibility(prev => ({ ...prev, t2Jab: !prev.t2Jab }));
+                    }}
+                    title={trackVisibility.t2Jab ? "쨉쨉이 숨기기" : "쨉쨉이 보이기"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackVisibility.t2Jab ? (
+                      <Eye className="w-3.5 h-3.5 text-primary hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground/60 hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackLock(prev => ({ ...prev, t2Jab: !prev.t2Jab }));
+                    }}
+                    title={trackLock.t2Jab ? "트랙 잠금 해제" : "트랙 잠금"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackLock.t2Jab ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-foreground hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
             {enabledTracks.sub && (
@@ -4651,7 +6529,38 @@ export const ShortsEditorStudio: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   SUB 자막
                 </span>
-                <Eye className="w-3 h-3 text-muted-foreground hover:text-foreground cursor-pointer" />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackVisibility(prev => ({ ...prev, sub: !prev.sub }));
+                    }}
+                    title={trackVisibility.sub ? "자막 숨기기" : "자막 보이기"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackVisibility.sub ? (
+                      <Eye className="w-3.5 h-3.5 text-primary hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground/60 hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackLock(prev => ({ ...prev, sub: !prev.sub }));
+                    }}
+                    title={trackLock.sub ? "트랙 잠금 해제" : "트랙 잠금"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackLock.sub ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-foreground hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
             {enabledTracks.v1Video && (
@@ -4660,7 +6569,53 @@ export const ShortsEditorStudio: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
                   V1 비디오
                 </span>
-                <Volume2 className="w-3 h-3 text-muted-foreground hover:text-foreground cursor-pointer" />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackVisibility(prev => ({ ...prev, v1Video: !prev.v1Video }));
+                    }}
+                    title={trackVisibility.v1Video ? "비디오 숨기기" : "비디오 보이기"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackVisibility.v1Video ? (
+                      <Eye className="w-3.5 h-3.5 text-primary hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground/60 hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackAudioMute(prev => ({ ...prev, v1Video: !prev.v1Video }));
+                    }}
+                    title={trackAudioMute.v1Video ? "비디오 사운드 켜기" : "비디오 사운드 음소거"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackAudioMute.v1Video ? (
+                      <VolumeX className="w-3.5 h-3.5 text-rose-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5 text-sky-500 hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackLock(prev => ({ ...prev, v1Video: !prev.v1Video }));
+                    }}
+                    title={trackLock.v1Video ? "트랙 잠금 해제" : "트랙 잠금"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackLock.v1Video ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-foreground hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
             {enabledTracks.a1Bgm && (
@@ -4669,7 +6624,38 @@ export const ShortsEditorStudio: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
                   A1 BGM
                 </span>
-                <Volume2 className="w-3 h-3 text-muted-foreground hover:text-foreground cursor-pointer" />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackAudioMute(prev => ({ ...prev, a1Bgm: !prev.a1Bgm }));
+                    }}
+                    title={trackAudioMute.a1Bgm ? "BGM 음소거 해제" : "BGM 음소거"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackAudioMute.a1Bgm ? (
+                      <VolumeX className="w-3.5 h-3.5 text-rose-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5 text-teal-500 hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackLock(prev => ({ ...prev, a1Bgm: !prev.a1Bgm }));
+                    }}
+                    title={trackLock.a1Bgm ? "트랙 잠금 해제" : "트랙 잠금"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackLock.a1Bgm ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-foreground hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
             {/* 🌟 A2 나레이션 트랙 헤더 (동적) */}
@@ -4679,7 +6665,94 @@ export const ShortsEditorStudio: React.FC = () => {
                   <Mic className="w-3 h-3" />
                   A2 나레이션
                 </span>
-                <Volume2 className="w-3 h-3 text-purple-500 hover:text-purple-400 cursor-pointer" />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackAudioMute(prev => ({ ...prev, a2Narration: !prev.a2Narration }));
+                    }}
+                    title={trackAudioMute.a2Narration ? "나레이션 음소거 해제" : "나레이션 음소거"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackAudioMute.a2Narration ? (
+                      <VolumeX className="w-3.5 h-3.5 text-rose-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5 text-purple-500 hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackLock(prev => ({ ...prev, a2Narration: !prev.a2Narration }));
+                    }}
+                    title={trackLock.a2Narration ? "트랙 잠금 해제" : "트랙 잠금"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackLock.a2Narration ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-foreground hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* 🌟 9. A3 SFX 효과음 트랙 헤더 */}
+            {enabledTracks.a3Sfx && (
+              <div className="h-9 flex items-center justify-between px-2 text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/5 border-b border-border">
+                <span className="text-[11px] flex items-center gap-1 font-bold">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  A3 효과음
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackVisibility(prev => ({ ...prev, a3Sfx: prev.a3Sfx === false ? true : false }));
+                    }}
+                    title={trackVisibility.a3Sfx !== false ? "효과음 트랙 숨기기" : "효과음 트랙 보이기"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackVisibility.a3Sfx !== false ? (
+                      <Eye className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <EyeOff className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-foreground hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackAudioMute(prev => ({ ...prev, a3Sfx: !prev.a3Sfx }));
+                    }}
+                    title={trackAudioMute.a3Sfx ? "효과음 음소거 해제" : "효과음 음소거"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackAudioMute.a3Sfx ? (
+                      <VolumeX className="w-3.5 h-3.5 text-rose-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTrackLock(prev => ({ ...prev, a3Sfx: !prev.a3Sfx }));
+                    }}
+                    title={trackLock.a3Sfx ? "트랙 잠금 해제" : "트랙 잠금"}
+                    className="p-0.5 hover:bg-muted rounded"
+                  >
+                    {trackLock.a3Sfx ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-500 hover:scale-110 transition cursor-pointer" />
+                    ) : (
+                      <Unlock className="w-3.5 h-3.5 text-muted-foreground/40 hover:text-foreground hover:scale-110 transition cursor-pointer" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -4750,7 +6823,11 @@ export const ShortsEditorStudio: React.FC = () => {
                   {layers.filter((l) => l.type === 'jab').map((jab) => (
                     <div
                       key={jab.id}
-                      onClick={() => setSelectedLayerId(jab.id)}
+                      onClick={() => {
+                        setSelectedLayerId(jab.id);
+                        setActiveInspectorTab('jabHook');
+                        setJabText(jab.data);
+                      }}
                       onPointerDown={(e) => handleClipMove(e, jab.id)}
                       style={{
                         left: `${msToPx(jab.startMs)}px`,
@@ -4849,7 +6926,7 @@ export const ShortsEditorStudio: React.FC = () => {
               {/* 7. A1 BGM 트랙 (오디오 음파 파형 시각화, 직각 클립) */}
               {enabledTracks.a1Bgm && (
                 <div className="h-9 border-b border-border relative">
-                  {layers.filter((l) => l.type === 'audio').map((aud) => (
+                  {layers.filter((l) => l.type === 'audio' && !l.name.startsWith('SFX:') && !l.id.startsWith('smart_sfx') && !l.id.startsWith('sfx_')).map((aud) => (
                     <div
                       key={aud.id}
                       onClick={() => setSelectedLayerId(aud.id)}
@@ -4932,6 +7009,47 @@ export const ShortsEditorStudio: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {/* ⚡ 9. A3 SFX 효과음 트랙 (앰버 골드 직각 클립) */}
+              {enabledTracks.a3Sfx && (
+                <div className="h-9 border-b border-amber-500/30 relative bg-amber-950/10">
+                  {layers
+                    .filter((l) => l.type === 'audio' && (l.name.startsWith('SFX:') || l.id.startsWith('smart_sfx') || l.id.startsWith('sfx_')))
+                    .map((sfx) => {
+                      const isSelected = selectedLayerId === sfx.id;
+                      return (
+                        <div
+                          key={sfx.id}
+                          onClick={() => {
+                            setSelectedLayerId(sfx.id);
+                            playSynthesizedSfx(sfx.data || 'sfx_punch_hit');
+                          }}
+                          style={{
+                            left: `${msToPx(sfx.startMs)}px`,
+                            width: `${Math.max(28, msToPx(sfx.endMs - sfx.startMs))}px`,
+                          }}
+                          className={cn(
+                            "absolute inset-y-0 rounded-none bg-amber-600 dark:bg-amber-900 border border-amber-400/80 overflow-hidden flex items-center px-1.5 cursor-pointer group shadow-2xs transition",
+                            isSelected && "outline outline-1 outline-amber-300 z-10 brightness-110"
+                          )}
+                          title={`${sfx.name} (${(sfx.startMs / 1000).toFixed(2)}s) - 클릭 시 미리듣기`}
+                        >
+                          <div className="relative z-10 flex items-center gap-1 text-amber-100 text-[10px] font-bold truncate">
+                            <Sparkles className="w-2.5 h-2.5 text-amber-300 shrink-0" />
+                            <span className="truncate">{sfx.name.replace('SFX:', '').trim()}</span>
+                          </div>
+                          <div
+                            onPointerDown={(e) => handleClipTrim(e, sfx.id, 'left')}
+                            className="absolute left-0 inset-y-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-amber-300/80 z-20"
+                          />
+                          <div
+                            onPointerDown={(e) => handleClipTrim(e, sfx.id, 'right')}
+                            className="absolute right-0 inset-y-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-amber-300/80 z-20"
+                          />
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -5025,13 +7143,139 @@ export const ShortsEditorStudio: React.FC = () => {
                   className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-1.5 shadow-xs"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  draft_content.json 즉시 내보내기
+                  CapCut 전체 프로젝트 번들 즉시 내보내기
                 </Button>
               </div>
             </div>
           </div>
         </div>
       )}
+      {/* 📺 YouTube 쇼츠 SEO 메타데이터 & 픽셀링 복사 모달 */}
+      {isMetadataModalOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border shadow-2xl rounded-lg w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* 헤더 */}
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                <h3 className="font-bold text-sm text-foreground">YouTube 쇼츠 SEO 메타데이터 & 픽셀링 표준 도구</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMetadataModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xs p-1 rounded hover:bg-muted cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 내용 */}
+            <div className="p-4 overflow-y-auto space-y-3.5 flex-1 text-xs">
+              {/* 1. 추천 쇼츠 제목 */}
+              <div className="space-y-1.5 p-3 bg-muted/20 border border-border rounded-md">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-foreground">1. 고효율 쇼츠 제목 (Title)</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => {
+                      const title = (hasTopTitle && titleLine1) ? `${titleLine1} ${titleLine2 || ''}`.trim() : (((hasTopTitle && titleLine1) ? titleLine1 : (videoLayer?.data ? '쇼츠 하이라이트 영상' : '쇼츠 영상')) || '쇼츠 하이라이트 영상');
+                      copyToClipboard(title, 'title');
+                    }}
+                  >
+                    {copiedMetaKey === 'title' ? '복사 완료!' : '제목 복사'}
+                  </Button>
+                </div>
+                <div className="p-2 bg-card border border-border rounded text-[11px] font-semibold text-foreground">
+                  {(hasTopTitle && titleLine1) ? `${titleLine1} ${titleLine2 || ''}`.trim() : (((hasTopTitle && titleLine1) ? titleLine1 : (videoLayer?.data ? '쇼츠 하이라이트 영상' : '쇼츠 영상')) || '쇼츠 하이라이트 영상')}
+                </div>
+              </div>
+
+              {/* 2. 해시태그 목록 */}
+              <div className="space-y-1.5 p-3 bg-muted/20 border border-border rounded-md">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-foreground">2. 추천 해시태그 (Hashtags)</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => {
+                      const tags = generateSmartHashtags(((hasTopTitle && titleLine1) ? titleLine1 : (videoLayer?.data ? '쇼츠 하이라이트 영상' : '쇼츠 영상')) || '쇼츠 영상');
+                      copyToClipboard(tags, 'hashtags');
+                    }}
+                  >
+                    {copiedMetaKey === 'hashtags' ? '복사 완료!' : '해시태그 복사'}
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1 p-2 bg-card border border-border rounded">
+                  {generateSmartHashtags(((hasTopTitle && titleLine1) ? titleLine1 : (videoLayer?.data ? '쇼츠 하이라이트 영상' : '쇼츠 영상')) || '쇼츠 영상').split(' ').filter(Boolean).map((tag: string, tIdx: number) => (
+                    <span key={tIdx} className="text-[10px] text-primary font-bold">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. SEO 검색 태그 목록 */}
+              <div className="space-y-1.5 p-3 bg-muted/20 border border-border rounded-md">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-foreground">3. SEO 검색 태그 (Tags: 콤마 구분)</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => {
+                      const tags = generateSmartSeoTags(((hasTopTitle && titleLine1) ? titleLine1 : (videoLayer?.data ? '쇼츠 하이라이트 영상' : '쇼츠 영상')) || '쇼츠 영상');
+                      copyToClipboard(tags, 'tags');
+                    }}
+                  >
+                    {copiedMetaKey === 'tags' ? '복사 완료!' : '태그 복사'}
+                  </Button>
+                </div>
+                <div className="p-2 bg-card border border-border rounded text-[10.5px] text-muted-foreground font-mono">
+                  {generateSmartSeoTags(((hasTopTitle && titleLine1) ? titleLine1 : (videoLayer?.data ? '쇼츠 하이라이트 영상' : '쇼츠 영상')) || '쇼츠 영상')}
+                </div>
+              </div>
+
+              {/* 4. 픽셀링 표준 전체 설명문 */}
+              <div className="space-y-1.5 p-3 bg-muted/20 border border-border rounded-md">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-foreground">4. YouTube 설명 & 픽셀링 표준 텍스트 (Description)</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => {
+                      const fullMeta = generatePixelingStandardMeta([{ result: { youtube_title: titleLine1 || '쇼츠 하이라이트 영상', full_script: subtitleLayers.map(s => s.data).join(' ') } }]);
+                      copyToClipboard(fullMeta, 'fullMeta');
+                    }}
+                  >
+                    {copiedMetaKey === 'fullMeta' ? '복사 완료!' : '설명문 복사'}
+                  </Button>
+                </div>
+                <pre className="p-2 bg-card border border-border rounded text-[10px] text-muted-foreground font-mono whitespace-pre-wrap max-h-36 overflow-y-auto">
+                  {generatePixelingStandardMeta([{ result: { youtube_title: titleLine1 || '쇼츠 하이라이트 영상', full_script: subtitleLayers.map(s => s.data).join(' ') } }])}
+                </pre>
+              </div>
+            </div>
+
+            {/* 푸터 */}
+            <div className="p-3 border-t border-border bg-muted/20 flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground">
+                YouTube Shorts & 픽셀링 알고리즘 최적화 메타
+              </span>
+              <Button
+                size="sm"
+                onClick={() => setIsMetadataModalOpen(false)}
+              >
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ⚡ Remotion 프로그래머틱 자동 제어 & Props 내보내기 모달 */}
       {isRemotionModalOpen && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
