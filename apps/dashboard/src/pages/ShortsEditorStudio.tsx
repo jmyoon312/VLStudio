@@ -689,6 +689,48 @@ export const ShortsEditorStudio: React.FC = () => {
 
   // 자막 검색 필터
     // 🌟 대본 텍스트 기반 씬 자동 분할 & 타임라인 동기화
+  // 🌟 채널 DNA 1클릭 일괄 동기화
+  const handleSyncAllChannelDna = () => {
+    setTitleFontFamily(channelDna.fontFamily);
+    setTitleLine1Color(channelDna.primaryColor);
+    setTitleLine2Color(channelDna.secondaryColor);
+    setSubtitleConfig((prev) => ({
+      ...prev,
+      font: channelDna.fontFamily,
+      textColor: channelDna.primaryColor,
+    }));
+    setLayers((prev) =>
+      prev.map((l) => {
+        if (l.type === 'subtitle') {
+          return {
+            ...l,
+            styleProps: {
+              ...l.styleProps,
+              color: channelDna.primaryColor,
+              fontFamily: channelDna.fontFamily,
+            },
+          };
+        }
+        if (l.type === 'title') {
+          return {
+            ...l,
+            styleProps: {
+              ...l.styleProps,
+              color: channelDna.primaryColor,
+              color2: channelDna.secondaryColor,
+              fontFamily: channelDna.fontFamily,
+            },
+          };
+        }
+        return l;
+      })
+    );
+    toast({
+      title: '채널 DNA 주입 완료',
+      description: `${channelDna.channelName}의 시그니처 폰트와 컬러가 모든 레이어에 적용되었습니다.`,
+    });
+  };
+
   // ⚡ Remotion 프로그래머틱 컴포지션 Props 자동 컴파일러 (Single Source of Truth)
   const compileRemotionProps = useCallback(() => {
     const fps = 30;
@@ -761,7 +803,7 @@ export const ShortsEditorStudio: React.FC = () => {
       mainVideo: {
         src: videoLayer?.data || '',
         fitMode: videoFitMode,
-        scale: videoScale,
+        scale: videoZoomScale / 100,
         cropTopPct: videoCropTopPct,
         cropBottomPct: videoCropBottomPct,
       },
@@ -775,7 +817,7 @@ export const ShortsEditorStudio: React.FC = () => {
     titleLine1SizePx, titleLine2SizePx, titleFontFamily,
     hasBottomBarBg, bottomBarHeightPct, bottomBarBg,
     hasBottomSource, bottomSourceText, bottomSourceColor, bottomSourceSizePx, sourceTransform,
-    videoLayer, videoFitMode, videoScale, videoCropTopPct, videoCropBottomPct,
+    videoLayer, videoFitMode, videoZoomScale, videoCropTopPct, videoCropBottomPct,
     subtitleConfig, subtitleStrokeWidth, subtitleStrokeColor, subtitleUseBox, subtitleBoxColor, subtitleBorderRadius, subTransform,
     jabText, jabTiltDeg, jabTextColor, jabBgColor, jabStroke, jabStrokeWidth, jabStrokeColor, jabTransform, watermarkConfig
   ]);
@@ -840,7 +882,7 @@ export const ShortsEditorStudio: React.FC = () => {
       setSubtitleBoxColor('rgba(0,0,0,0.7)');
       setSubtitleBorderRadius(12);
       setVideoFitMode('fullscreen');
-      setVideoScale(1.1);
+      setVideoZoomScale(110);
       setHasBottomBarBg(false);
       setHasBottomSource(false);
       toast({ title: '🎬 틱톡 시네마틱 풀스크린 프리셋 적용', description: '바 없는 전체화면 + 필 박스 자막 + 시네마틱 줌이 자동 적용되었습니다.' });
@@ -876,7 +918,7 @@ export const ShortsEditorStudio: React.FC = () => {
       setHasBottomSource(true);
       toast({ title: '📚 지식/정보 큐레이션 프리셋 적용', description: '네이비 톤 상·하단 바와 가독성 중심 자막이 자동 적용되었습니다.' });
     } else if (presetKey === 'channel_dna') {
-      applyChannelDnaToEditor();
+      handleSyncAllChannelDna();
     }
   };
 
@@ -1176,38 +1218,7 @@ export const ShortsEditorStudio: React.FC = () => {
     });
   };
 
-  // 🌟 채널 DNA 1클릭 일괄 동기화
-  const handleSyncAllChannelDna = () => {
-    setLayers((prev) =>
-      prev.map((l) => {
-        if (l.type === 'subtitle') {
-          return {
-            ...l,
-            styleProps: {
-              ...l.styleProps,
-              color: channelDna.primaryColor,
-              fontFamily: channelDna.fontFamily,
-            },
-          };
-        }
-        if (l.type === 'title') {
-          return {
-            ...l,
-            styleProps: {
-              ...l.styleProps,
-              color2: channelDna.secondaryColor,
-              fontFamily: channelDna.fontFamily,
-            },
-          };
-        }
-        return l;
-      })
-    );
-    toast({
-      title: '채널 DNA 주입 완료',
-      description: `${channelDna.channelName}의 시그니처 폰트와 컬러가 모든 레이어에 적용되었습니다.`,
-    });
-  };
+// (handleSyncAllChannelDna hoisted above)
 
   // 타임코드 포맷팅 (00:00:04:12)
   const formatTimecode = (ms: number) => {
