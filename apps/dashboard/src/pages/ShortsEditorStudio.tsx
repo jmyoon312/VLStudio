@@ -26,7 +26,7 @@ export const CAPCUT_FILTER_PRESETS = [
 import { exportCapCutFullProject } from '@/services/capcutFullProjectExporter';
 import { generateSmartSeoTags, generateSmartHashtags, generatePixelingStandardMeta } from '@/lib/ddalkkakPixeling';
 import { SUBTITLE_STYLES, DDALKKAK_TTS_PRESETS } from '@/types/ddalkkak';
-import { Highlighter, Send, Globe2, ThumbsUp, MessageCircle, Palette } from 'lucide-react';
+import { Highlighter, Send, Globe2, ThumbsUp, MessageCircle, Palette, Layout } from 'lucide-react';
 import { SFX_CATALOG, playSynthesizedSfx, SfxItem } from '@/config/sfxCatalog';
 import { proceduralBgmEngine, BGM_PRESETS } from '@/services/proceduralBgmEngine';
 import { MemeAvatar, MEME_EMOTION_PRESETS, MemeType, MemeEmotion } from '@/components/memeAssets';
