@@ -880,13 +880,68 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         description: '상·하단 색상 배경 바와 중앙 고정 타이틀/자막이 활성화되었습니다.',
       });
     } else if (mode === 'gunlimbo') {
+      setVideoFitMode('sandwich');
       setHasTopBarBg(false);
       setHasBottomBarBg(false);
       setHasTopTitle(false);
       setHasCommentCard(false);
+
+      // 자막을 하단 레터박스 영역(88%)으로 도킹
+      setSubtitleYPercent(88.0);
+      setSubTransform(prev => ({
+        ...prev,
+        xPct: 50.0,
+        yPct: 88.0,
+        scale: 1.0,
+        zIndex: 40,
+      }));
+
+      // 프로젝트 제목 및 첫 문장 자막 자동 분할 & 동기화
+      setGunlimboConfig(prev => {
+        let t1 = prev.titleLine1;
+        let t2 = prev.titleLine2;
+        const candidateTitle = (topTitleText && topTitleText !== '실화 바탕 몰입감 100% 스토리') 
+          ? topTitleText 
+          : (currentProjectDisplayName && currentProjectDisplayName !== '영상 프로젝트' && !currentProjectDisplayName.startsWith('video_'))
+          ? currentProjectDisplayName
+          : '';
+
+        if (candidateTitle) {
+          const parts = candidateTitle.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            t1 = parts.slice(0, Math.ceil(parts.length / 2)).join(' ');
+            t2 = parts.slice(Math.ceil(parts.length / 2)).join(' ');
+          } else {
+            t1 = candidateTitle;
+            t2 = '입력해주세요';
+          }
+        }
+
+        let hook = prev.hookPhrase;
+        let duration = prev.introDurationSec;
+        const subLayer = layers.find(l => l.id === 'layer_subtitle' || l.type === 'subtitle');
+        if (subLayer?.data && Array.isArray(subLayer.data) && subLayer.data.length > 0) {
+          const firstSub = subLayer.data[0];
+          if (firstSub.text) hook = firstSub.text;
+          if (firstSub.endMs && firstSub.startMs) {
+            duration = Math.max(1.5, Math.min(5.0, (firstSub.endMs - firstSub.startMs) / 1000));
+          }
+        } else if (jabText && jabText !== '손흥민 원더골') {
+          hook = jabText;
+        }
+
+        return {
+          ...prev,
+          titleLine1: t1,
+          titleLine2: t2,
+          hookPhrase: hook,
+          introDurationSec: duration,
+        };
+      });
+
       toast({
         title: '군림보형 템플릿 적용 완료',
-        description: '0초 인트로 후킹 문구 확대 낭독 및 3줄 속보 헤드라인 모드가 적용되었습니다.',
+        description: '상단 2줄 대제목(노랑/흰) + 중앙 100% 흰색 띠 후킹 바 + 하단 본문 자막 배치가 적용되었습니다.',
       });
     } else if (mode === 'ssul') {
       setHasTopBarBg(false);
@@ -900,21 +955,42 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     }
   };
 
-  // 🎯 군림보형 (0~2.5초 인트로 후킹 줌인 + 3줄 속보 헤드라인)
+  // 🎯 군림보형 (픽셀링 기반: 상단 2줄 대제목[노란색+흰색] + 중앙 100% 흰색 띠 후킹 바 + 하단 자막 배치)
   const [gunlimboConfig, setGunlimboConfig] = useState<{
     introDurationSec: number;
-    hookMainTitle: string;
+    titleLine1: string;
+    titleLine2: string;
+    titleLine1Color: string;
+    titleLine2Color: string;
+    titleFontSize: number;
     hookPhrase: string;
-    hookAnimationScale: number;
-    headlineLine1: string;
-    headlineLine2: string;
-    headlineLine3: string;
-    headlineBadge: string;
+    hookBgColor: string;
+    hookTextColor: string;
+    hookFontSize: number;
+    showGuidelines: boolean;
+    keepTitleThroughout: boolean;
+    // 하위 호환 필드
+    hookMainTitle?: string;
+    hookAnimationScale?: number;
+    headlineLine1?: string;
+    headlineLine2?: string;
+    headlineLine3?: string;
+    headlineBadge?: string;
   }>({
     introDurationSec: 2.5,
-    hookMainTitle: '제목을\n입력해주세요',
+    titleLine1: '제목을',
+    titleLine2: '입력해주세요',
+    titleLine1Color: '#FFCC00',
+    titleLine2Color: '#FFFFFF',
+    titleFontSize: 36,
     hookPhrase: '후킹문구를 입력하세요',
-    hookAnimationScale: 1.25,
+    hookBgColor: '#FFFFFF',
+    hookTextColor: '#000000',
+    hookFontSize: 22,
+    showGuidelines: true,
+    keepTitleThroughout: true,
+    hookMainTitle: '제목을\n입력해주세요',
+    hookAnimationScale: 1.0,
     headlineLine1: '손흥민 80m 단독 폭풍 드리블',
     headlineLine2: '푸스카스상 후보 원더골 작렬',
     headlineLine3: '현지 축구 해설진 전원 기립 극찬',
@@ -1377,6 +1453,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         if (saved.layoutTemplateMode) setLayoutTemplateMode(saved.layoutTemplateMode);
         if (saved.topTitleText !== undefined) setTopTitleText(saved.topTitleText);
         if (saved.instaConfig) setInstaConfig(saved.instaConfig);
+        if (saved.gunlimboConfig) setGunlimboConfig(prev => ({ ...prev, ...saved.gunlimboConfig }));
         if (saved.commentCard) setCommentCard(saved.commentCard);
         // 인스타 모드인 경우 댓글 카드를 기본 켜진 상태로 보장
         setHasCommentCard(saved.layoutTemplateMode === 'instagram' ? (saved.hasCommentCard !== false) : (saved.hasCommentCard ?? true));
@@ -1471,6 +1548,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           layoutTemplateMode,
           topTitleText,
           instaConfig,
+          gunlimboConfig,
           commentCard,
           hasCommentCard,
           profileTransform,
@@ -1495,6 +1573,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     layoutTemplateMode,
     topTitleText,
     instaConfig,
+    gunlimboConfig,
     commentCard,
     hasCommentCard,
     profileTransform,
@@ -4346,12 +4425,16 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 style={{
                   top: layoutTemplateMode === 'instagram'
                     ? 0
+                    : layoutTemplateMode === 'gunlimbo'
+                    ? '33.3%'
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
                   height: layoutTemplateMode === 'instagram'
                     ? '100%'
                     : undefined,
                   bottom: layoutTemplateMode === 'instagram'
                     ? 0
+                    : layoutTemplateMode === 'gunlimbo'
+                    ? '16.7%'
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
                   left: 0,
                   right: 0,
@@ -4520,12 +4603,16 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   style={{
                     top: layoutTemplateMode === 'instagram'
                       ? `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`
+                      : layoutTemplateMode === 'gunlimbo'
+                      ? '33.3%'
                       : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
                     height: layoutTemplateMode === 'instagram'
                       ? `${instaConfig.holeHeightPct}%`
                       : undefined,
                     bottom: layoutTemplateMode === 'instagram'
                       ? undefined
+                      : layoutTemplateMode === 'gunlimbo'
+                      ? '16.7%'
                       : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
                     left: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
                     right: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
@@ -4642,59 +4729,92 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 🎯 [군림보형] 0~2.5초 인트로 후킹 줌인 화면 오버레이 */}
-              {layoutTemplateMode === 'gunlimbo' && currentTimeMs <= gunlimboConfig.introDurationSec * 1000 && (
-                <div 
-                  className="absolute inset-0 bg-black z-50 flex flex-col items-center justify-center p-6 select-none"
-                  style={{
-                    animation: 'none',
-                  }}
-                >
-                  <div 
-                    className="flex flex-col items-center text-center space-y-6 transition-transform duration-75 ease-out"
-                    style={{
-                      transform: `scale(${1.0 + (gunlimboConfig.hookAnimationScale - 1.0) * Math.min(1.0, currentTimeMs / (gunlimboConfig.introDurationSec * 1000))})`,
-                    }}
-                  >
-                    {/* 대제목 (노란색/흰색 굵은 폰트) */}
-                    <h1 className="text-3xl font-black text-amber-400 tracking-tight leading-tight drop-shadow-lg whitespace-pre-line">
-                      {gunlimboConfig.hookMainTitle}
-                    </h1>
-                    {/* 중앙 흰색 띠 바탕의 후킹 문구 */}
-                    <div className="w-full bg-white text-black py-3 px-6 rounded-xs shadow-2xl border-2 border-amber-400/80">
-                      <span className="text-xl font-black tracking-tight text-neutral-950">
+              {/* 🎯 [군림보형] 픽셀링 기반 3단 화면 배치 (상단 2줄 대제목 + 중앙 100% 흰색 띠 후킹 바 + 하단 레터박스) */}
+              {layoutTemplateMode === 'gunlimbo' && (
+                <>
+                  {/* 1. 상단 블랙 레터박스 (0% ~ 33.3%) & 2줄 대제목 (노랑/흰) */}
+                  {(gunlimboConfig.keepTitleThroughout || currentTimeMs <= gunlimboConfig.introDurationSec * 1000) && (
+                    <div
+                      onClick={() => {
+                        setSelectedLayerId('layer_gunlimbo_title');
+                        setActiveInspectorTab('template');
+                      }}
+                      className={cn(
+                        "absolute top-0 left-0 right-0 h-[33.3%] bg-black select-none flex flex-col items-center justify-center px-4 transition-all cursor-pointer",
+                        selectedLayerId === 'layer_gunlimbo_title' && "ring-1 ring-amber-400"
+                      )}
+                      style={{
+                        zIndex: 25,
+                        borderBottom: gunlimboConfig.showGuidelines ? '1.5px dashed rgba(161, 161, 170, 0.75)' : 'none',
+                      }}
+                      title="클릭하여 상단 대제목 설정"
+                    >
+                      <div className="flex flex-col items-center text-center leading-tight">
+                        <span
+                          className="font-black tracking-tight drop-shadow-sm whitespace-pre-line"
+                          style={{
+                            color: gunlimboConfig.titleLine1Color || '#FFCC00',
+                            fontSize: `${gunlimboConfig.titleFontSize || 36}px`,
+                            fontFamily: titleFontFamily,
+                            lineHeight: 1.15,
+                          }}
+                        >
+                          {gunlimboConfig.titleLine1}
+                        </span>
+                        <span
+                          className="font-black tracking-tight drop-shadow-sm whitespace-pre-line mt-1"
+                          style={{
+                            color: gunlimboConfig.titleLine2Color || '#FFFFFF',
+                            fontSize: `${gunlimboConfig.titleFontSize || 36}px`,
+                            fontFamily: titleFontFamily,
+                            lineHeight: 1.15,
+                          }}
+                        >
+                          {gunlimboConfig.titleLine2}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. 중앙 100% 가로폭 흰색 띠 바 (후킹 문구 / 첫 문장 자막, 0초 ~ 후킹 구간) */}
+                  {currentTimeMs <= gunlimboConfig.introDurationSec * 1000 && (
+                    <div
+                      onClick={() => {
+                        setSelectedLayerId('layer_gunlimbo_hook');
+                        setActiveInspectorTab('template');
+                      }}
+                      className={cn(
+                        "absolute top-1/2 -translate-y-1/2 left-0 right-0 w-full flex items-center justify-center py-3.5 px-4 shadow-2xl transition-all cursor-pointer",
+                        selectedLayerId === 'layer_gunlimbo_hook' && "ring-2 ring-sky-400"
+                      )}
+                      style={{
+                        backgroundColor: gunlimboConfig.hookBgColor || '#FFFFFF',
+                        zIndex: 45,
+                      }}
+                      title="클릭하여 중앙 후킹 문구 설정"
+                    >
+                      <span
+                        className="font-black tracking-tight text-center leading-snug break-keep select-none"
+                        style={{
+                          color: gunlimboConfig.hookTextColor || '#000000',
+                          fontSize: `${gunlimboConfig.hookFontSize || 22}px`,
+                          fontFamily: titleFontFamily,
+                        }}
+                      >
                         {gunlimboConfig.hookPhrase}
                       </span>
                     </div>
-                  </div>
-                  {/* 하단 진행도 인디케이터 */}
-                  <div className="absolute bottom-6 w-32 h-1 bg-white/20 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-amber-400 transition-all duration-75"
-                      style={{ width: `${Math.min(100, (currentTimeMs / (gunlimboConfig.introDurationSec * 1000)) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* 🎯 [군림보형] 본문 구간 상단 3줄 속보 헤드라인 바 (2.5초 이후) */}
-              {layoutTemplateMode === 'gunlimbo' && currentTimeMs > gunlimboConfig.introDurationSec * 1000 && (
-                <div className="absolute top-3 left-3 right-3 z-40 bg-neutral-950/90 border border-amber-500/40 rounded-xs p-2.5 shadow-xl select-none">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="bg-red-600 text-white font-black text-[9px] px-1.5 py-0.2 rounded-2xs uppercase tracking-wider animate-pulse">
-                      {gunlimboConfig.headlineBadge}
-                    </span>
-                    <span className="text-white font-black text-xs truncate">
-                      {gunlimboConfig.headlineLine1}
-                    </span>
-                  </div>
-                  <div className="text-[11px] font-bold text-amber-300 leading-tight truncate">
-                    {gunlimboConfig.headlineLine2}
-                  </div>
-                  <div className="text-[10px] font-medium text-neutral-300 leading-tight truncate mt-0.5">
-                    {gunlimboConfig.headlineLine3}
-                  </div>
-                </div>
+                  {/* 3. 하단 블랙 레터박스 (83.3% ~ 100%) 점선 가이드라인 */}
+                  <div
+                    className="absolute bottom-0 left-0 right-0 h-[16.7%] bg-black pointer-events-none select-none"
+                    style={{
+                      zIndex: 25,
+                      borderTop: gunlimboConfig.showGuidelines ? '1.5px dashed rgba(161, 161, 170, 0.75)' : 'none',
+                    }}
+                  />
+                </>
               )}
 
               {/* 📸 [인스타형 원형 100%] 좌상단 프로필 (TransformGizmo로 자유 이동/크기 조절 지원, 좌측 앵커 정렬) */}
@@ -4930,6 +5050,11 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 const isSubSelected = selectedLayer?.type === 'subtitle' || selectedLayerId === 'layer_sub';
                 const displaySub = activeSub || (isSubSelected ? (selectedLayer?.type === 'subtitle' ? selectedLayer : subtitleLayers[0]) : null);
                 const shouldShowSub = (subtitleConfig?.visible !== false) && trackVisibility.sub !== false && !!displaySub;
+
+                // 🎯 군림보형: 0초~후킹구간에는 중앙 100% 흰색 바에서 첫 문장이 표시되므로 하단 자막 중복 방지 (선택 편집 시 제외)
+                if (layoutTemplateMode === 'gunlimbo' && currentTimeMs <= gunlimboConfig.introDurationSec * 1000 && !isSubSelected) {
+                  return null;
+                }
 
                 if (!shouldShowSub) return null;
 
@@ -6464,69 +6589,197 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 )}
 
                 {layoutTemplateMode === 'gunlimbo' && (
-                  <div className="p-2.5 rounded-[4px] border border-amber-500/30 bg-amber-500/5 space-y-2.5">
-                    <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      군림보형 (0초 인트로 후킹 줌인 & 속보 3줄)
-                    </span>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground">0초 인트로 후킹 문구 (확대 낭독 멘트)</label>
+                  <div className="p-2.5 rounded-[4px] border border-amber-500/30 bg-amber-500/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        군림보형 (픽셀링 3단: 대제목 + 흰색 띠 후킹바 + 자막)
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono">
+                        9:16 Shorts
+                      </span>
+                    </div>
+
+                    {/* 1. 상단 2줄 대제목 설정 */}
+                    <div className="p-2 rounded bg-background/80 border border-border/80 space-y-2">
+                      <span className="text-[10px] font-bold text-foreground block">
+                        👑 상단 2줄 대제목 (0% ~ 33.3% 블랙 레터박스)
+                      </span>
+                      <div className="space-y-1.5">
+                        {/* 1번째 줄 (기본 노란색) */}
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={gunlimboConfig.titleLine1}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1: e.target.value }))}
+                            placeholder="1번째 줄 (예: 제목을)"
+                            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
+                            style={{ color: gunlimboConfig.titleLine1Color }}
+                          />
+                          <input
+                            type="color"
+                            value={gunlimboConfig.titleLine1Color || '#FFCC00'}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1Color: e.target.value }))}
+                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
+                            title="1번째 줄 색상"
+                          />
+                        </div>
+
+                        {/* 2번째 줄 (기본 흰색) */}
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={gunlimboConfig.titleLine2}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2: e.target.value }))}
+                            placeholder="2번째 줄 (예: 입력해주세요)"
+                            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
+                            style={{ color: gunlimboConfig.titleLine2Color }}
+                          />
+                          <input
+                            type="color"
+                            value={gunlimboConfig.titleLine2Color || '#FFFFFF'}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2Color: e.target.value }))}
+                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
+                            title="2번째 줄 색상"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 대제목 글자 크기 & 전체 유지 토글 */}
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40 text-[10px]">
+                        <div>
+                          <label className="text-muted-foreground block mb-0.5">글자 크기: {gunlimboConfig.titleFontSize}px</label>
+                          <input
+                            type="range"
+                            min={24}
+                            max={48}
+                            step={1}
+                            value={gunlimboConfig.titleFontSize}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleFontSize: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-amber-500"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5 pt-3">
+                          <input
+                            type="checkbox"
+                            id="gunlimbo-keep-title"
+                            checked={gunlimboConfig.keepTitleThroughout}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, keepTitleThroughout: e.target.checked }))}
+                            className="rounded accent-amber-500 cursor-pointer"
+                          />
+                          <label htmlFor="gunlimbo-keep-title" className="text-muted-foreground cursor-pointer text-[10px]">
+                            영상 끝까지 제목 유지
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. 중앙 100% 흰색 띠 후킹 바 (첫 문장 자막) */}
+                    <div className="p-2 rounded bg-background/80 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-foreground block">
+                          🎯 중앙 100% 가로폭 흰색 띠 후킹 바
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const subLayer = layers.find(l => l.id === 'layer_subtitle' || l.type === 'subtitle');
+                            if (subLayer?.data && Array.isArray(subLayer.data) && subLayer.data.length > 0) {
+                              const firstSub = subLayer.data[0];
+                              const newDuration = (firstSub.endMs && firstSub.startMs) 
+                                ? Math.max(1.0, Math.min(5.0, (firstSub.endMs - firstSub.startMs) / 1000))
+                                : gunlimboConfig.introDurationSec;
+                              setGunlimboConfig(prev => ({
+                                ...prev,
+                                hookPhrase: firstSub.text || prev.hookPhrase,
+                                introDurationSec: newDuration,
+                              }));
+                              toast({
+                                title: '첫 문장 자막 동기화 완료',
+                                description: `"${firstSub.text}" (${newDuration}초)가 후킹 바에 반영되었습니다.`,
+                              });
+                            } else {
+                              toast({
+                                title: '자막 없음',
+                                description: '타임라인에 자막 트랙 데이터가 없습니다.',
+                                variant: 'destructive',
+                              });
+                            }
+                          }}
+                          className="px-1.5 py-0.5 text-[9px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 rounded border border-amber-500/40 transition cursor-pointer font-semibold"
+                        >
+                          ⚡ 첫 문장 자막 가져오기
+                        </button>
+                      </div>
+
                       <input
                         type="text"
                         value={gunlimboConfig.hookPhrase}
                         onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookPhrase: e.target.value }))}
-                        placeholder="예: 지금 당장 계좌 확인하세요"
-                        className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                        placeholder="후킹문구를 입력하세요"
+                        className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
                       />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground">후킹 구간: {gunlimboConfig.introDurationSec}초</label>
-                        <input
-                          type="range"
-                          min={1.5}
-                          max={4.0}
-                          step={0.5}
-                          value={gunlimboConfig.introDurationSec}
-                          onChange={(e) => setGunlimboConfig(prev => ({ ...prev, introDurationSec: Number(e.target.value) }))}
-                          className="w-full cursor-pointer accent-amber-500"
-                        />
+
+                      {/* 후킹 구간 노출 시간 & 색상 & 글자 크기 */}
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40 text-[10px]">
+                        <div>
+                          <label className="text-muted-foreground block mb-0.5">후킹 노출 시간: {gunlimboConfig.introDurationSec}초</label>
+                          <input
+                            type="range"
+                            min={1.0}
+                            max={5.0}
+                            step={0.5}
+                            value={gunlimboConfig.introDurationSec}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, introDurationSec: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-muted-foreground block mb-0.5">후킹 글자 크기: {gunlimboConfig.hookFontSize}px</label>
+                          <input
+                            type="range"
+                            min={16}
+                            max={32}
+                            step={1}
+                            value={gunlimboConfig.hookFontSize}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookFontSize: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-amber-500"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground">줌인 배율: {Math.round((gunlimboConfig.hookAnimationScale - 1) * 100)}% 확대</label>
-                        <input
-                          type="range"
-                          min={1.05}
-                          max={1.45}
-                          step={0.05}
-                          value={gunlimboConfig.hookAnimationScale}
-                          onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookAnimationScale: Number(e.target.value) }))}
-                          className="w-full cursor-pointer accent-amber-500"
-                        />
+
+                      <div className="flex items-center justify-between pt-1 text-[10px]">
+                        <div className="flex items-center gap-2">
+                          <label className="text-muted-foreground">바 배경색</label>
+                          <input
+                            type="color"
+                            value={gunlimboConfig.hookBgColor || '#FFFFFF'}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookBgColor: e.target.value }))}
+                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-muted-foreground">글자색</label>
+                          <input
+                            type="color"
+                            value={gunlimboConfig.hookTextColor || '#000000'}
+                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookTextColor: e.target.value }))}
+                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-1 pt-1 border-t border-border/40">
-                      <label className="text-[10px] text-muted-foreground">본문 전환 후 상단 3줄 속보 헤드라인</label>
+
+                    {/* 3. 점선 가이드라인 표시 토글 */}
+                    <div className="p-2 rounded bg-background/80 border border-border/80 flex items-center justify-between text-[10px]">
+                      <span className="font-bold text-foreground">
+                        📐 3단 구분 점선 가이드라인 표시
+                      </span>
                       <input
-                        type="text"
-                        value={gunlimboConfig.headlineLine1}
-                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, headlineLine1: e.target.value }))}
-                        placeholder="속보 1줄"
-                        className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px] mb-1"
-                      />
-                      <input
-                        type="text"
-                        value={gunlimboConfig.headlineLine2}
-                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, headlineLine2: e.target.value }))}
-                        placeholder="속보 2줄"
-                        className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px] mb-1"
-                      />
-                      <input
-                        type="text"
-                        value={gunlimboConfig.headlineLine3}
-                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, headlineLine3: e.target.value }))}
-                        placeholder="속보 3줄"
-                        className="w-full px-2 py-1 text-[11px] bg-background border border-border rounded-[2px]"
+                        type="checkbox"
+                        checked={gunlimboConfig.showGuidelines}
+                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, showGuidelines: e.target.checked }))}
+                        className="rounded accent-amber-500 cursor-pointer"
                       />
                     </div>
                   </div>
