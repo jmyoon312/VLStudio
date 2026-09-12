@@ -122,7 +122,7 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  // 3. 변 중심 4개 핸들 드래그 (상하/좌우 축 리사이징)
+  // 3. 변 중심 4개 핸들 드래그 (상하: 비례 스케일, 좌우: 글자 크기 유지 + 박스 너비만 독립 조절)
   const handleEdgeScaleDown = (e: React.PointerEvent, edge: 'tc' | 'bc' | 'lc' | 'rc') => {
     if (locked) return;
     e.stopPropagation();
@@ -133,22 +133,36 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
     const startX = e.clientX;
     const startY = e.clientY;
     const initialScale = transform.scale;
+    const initialWidthPct = transform.widthPct ?? 100;
+
+    const parent = containerRef.current?.parentElement;
+    const nativeParentWidth = parent ? (parent.getBoundingClientRect().width / Math.max(0.1, canvasScale)) : 400;
 
     const onPointerMove = (mv: PointerEvent) => {
       const dx = (mv.clientX - startX) / Math.max(0.1, canvasScale);
       const dy = (mv.clientY - startY) / Math.max(0.1, canvasScale);
 
-      let delta = 0;
-      if (edge === 'tc') delta = -dy / 150;
-      else if (edge === 'bc') delta = dy / 150;
-      else if (edge === 'lc') delta = -dx / 150;
-      else if (edge === 'rc') delta = dx / 150;
-
-      const newScale = Math.max(0.1, Math.min(8.0, Math.round((initialScale + delta) * 100) / 100));
-      onChange({
-        ...transform,
-        scale: newScale,
-      });
+      // 좌우 변 핸들: 글자 크기(scale) 불변, 박스 너비(widthPct) / 줄바꿈 폭만 조절
+      if (edge === 'lc' || edge === 'rc') {
+        const sign = edge === 'rc' ? 1 : -1;
+        // 양쪽 대칭 확장/축소 효과 (* 2) 또는 단방향 리사이즈
+        const deltaPct = ((dx * sign * 2) / Math.max(50, nativeParentWidth)) * 100;
+        const newWidthPct = Math.max(25, Math.min(100, Math.round((initialWidthPct + deltaPct) * 10) / 10));
+        onChange({
+          ...transform,
+          widthPct: newWidthPct,
+        });
+      } else {
+        // 상하 변 핸들: 수직 스케일 조절
+        let delta = 0;
+        if (edge === 'tc') delta = -dy / 150;
+        else if (edge === 'bc') delta = dy / 150;
+        const newScale = Math.max(0.1, Math.min(8.0, Math.round((initialScale + delta) * 100) / 100));
+        onChange({
+          ...transform,
+          scale: newScale,
+        });
+      }
     };
 
     const onPointerUp = (upEv: PointerEvent) => {
@@ -210,10 +224,12 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
     <div
       ref={containerRef}
       onPointerDown={handleTranslatePointerDown}
-      className={`absolute select-none group w-max max-w-none shrink-0 ${selected ? 'z-50' : ''} ${locked ? 'cursor-not-allowed' : 'cursor-move'}`}
+      className={`absolute select-none group shrink-0 ${selected ? 'z-50' : ''} ${locked ? 'cursor-not-allowed' : 'cursor-move'} ${transform.widthPct && transform.widthPct < 100 ? 'w-auto' : 'w-max max-w-none'}`}
       style={{
         left: `${transform.xPct}%`,
         top: `${transform.yPct}%`,
+        width: transform.widthPct && transform.widthPct < 100 ? `${transform.widthPct}%` : undefined,
+        maxWidth: transform.widthPct && transform.widthPct < 100 ? `${transform.widthPct}%` : undefined,
         transform: `translate(-50%, -50%) scale(${transform.scale}) scaleX(${transform.isFlippedH ? -1 : 1}) rotate(${transform.rotationDeg}deg)`,
         transformOrigin: 'center center',
         opacity: transform.opacity ?? 1,
@@ -221,7 +237,7 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
       }}
     >
       {/* 1. 실제 객체 콘텐츠 (자식 요소) */}
-      <div className="relative pointer-events-auto">
+      <div className="relative pointer-events-auto w-full">
         {children}
       </div>
 
