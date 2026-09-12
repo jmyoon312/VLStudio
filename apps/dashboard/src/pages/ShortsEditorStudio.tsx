@@ -743,6 +743,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     profileAvatarUrl: string;
     isVerified: boolean;
     bgColor: string;
+    subFont?: string;       // 본문 자막 서체 (기본 Pretendard)
+    subColor?: string;      // 본문 자막 색상 (기본 #374151)
     holeRatio: '1:1' | '4:5' | 'custom';
     holeYPct: number;      // 중앙 구멍 중심 Y (기본 45.0%)
     holeWidthPct: number;  // 중앙 구멍 너비 (기본 88%, 좌우 마진 6%)
@@ -758,6 +760,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     profileAvatarUrl: 'https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue',
     isVerified: false,
     bgColor: '#FFFFFF',
+    subFont: 'Pretendard',
+    subColor: '#374151',
     holeRatio: '1:1',
     holeYPct: 45.0,
     holeWidthPct: 88,
@@ -810,6 +814,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         holeWidthPct: 88,
         holeHeightPct: 46,
         holeRoundness: 16,
+        subFont: 'Pretendard',
+        subColor: '#374151',
       }));
 
       // 3. 본문 자막: 인스타 구멍 윈도우 바로 아래(yPct: 71.5, xPct: 6.0)로 좌측 정렬 도킹
@@ -821,12 +827,12 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       }));
       setSubtitleYPercent(71.5);
 
-      // 4. 댓글 카드: 인스타 기본 화면에서 활성화 복원 (xPct: 6.0, yPct: 81.5)
+      // 4. 댓글 카드: 가변 크기 & 중앙 정렬 (xPct: 50, yPct: 82.0)
       setHasCommentCard(true);
       setCommentTransform(prev => ({
         ...prev,
-        xPct: 6.0,
-        yPct: 81.5,
+        xPct: 50,
+        yPct: 82.0,
         scale: 0.95,
       }));
       setCommentCard(prev => ({
@@ -846,7 +852,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setVideoFitMode('sandwich');
       toast({
         title: '인스타형 템플릿 적용 완료',
-        description: '화이트 배경 카드 + 프로필/대제목/구멍윈도우/자막/댓글카드가 좌측 일자 정렬선(6%)에 맞춰 배치되었습니다.',
+        description: '화이트 배경 카드 + 프로필/대제목/구멍윈도우/자막/중앙댓글카드가 표준 숏폼 양식으로 자동 정렬되었습니다.',
       });
     } else if (mode === 'classic') {
       setHasTopBarBg(true);
@@ -4256,7 +4262,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 transform: `scale(${canvasScale}) translate(${canvasPan.x}px, ${canvasPan.y}px)`,
               }}
             >
-              {/* 🎬 LAYER 0: 비디오 레이어 (샌드위치 레터박스 핏 vs 풀스크린 크롭 핏 vs 인스타 중앙 구멍 윈도우) */}
+              {/* 🎬 LAYER 0: 비디오 레이어 (인스타 모드: 캔버스 전체 풀뷰포트 vs 일반 모드: 샌드위치/크롭) */}
               <div
                 onClick={() => {
                   setSelectedLayerId('layer_video');
@@ -4264,35 +4270,28 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   else setActiveInspectorTab('template');
                 }}
                 className={cn(
-                  "absolute overflow-hidden flex items-center justify-center bg-black transition-all cursor-pointer",
-                  selectedLayerId === 'layer_video' && "ring-1 ring-sky-400"
+                  "absolute overflow-hidden flex items-center justify-center transition-all cursor-pointer",
+                  layoutTemplateMode === 'instagram' ? "bg-transparent" : "bg-black",
+                  selectedLayerId === 'layer_video' && layoutTemplateMode !== 'instagram' && "ring-1 ring-sky-400"
                 )}
                 style={{
                   top: layoutTemplateMode === 'instagram'
-                    ? `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`
+                    ? 0
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
                   height: layoutTemplateMode === 'instagram'
-                    ? `${instaConfig.holeHeightPct}%`
+                    ? '100%'
                     : undefined,
                   bottom: layoutTemplateMode === 'instagram'
-                    ? undefined
+                    ? 0
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
-                  left: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
-                  right: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
-                  borderRadius: layoutTemplateMode === 'instagram' ? `${instaConfig.holeRoundness}px` : 0,
-                  border: layoutTemplateMode === 'instagram' ? `${instaConfig.holeBorderWidth}px solid ${instaConfig.holeBorderColor}` : undefined,
-                  boxShadow: layoutTemplateMode === 'instagram' && instaConfig.holeShadow ? '0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06)' : undefined,
-                  backgroundImage: layoutTemplateMode === 'instagram' && !videoLayer?.data
-                    ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)'
-                    : undefined,
-                  backgroundSize: '16px 16px',
-                  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                  left: 0,
+                  right: 0,
                   zIndex: videoZIndex,
                   opacity: trackVisibility.v1Video ? 1 : 0,
                 }}
               >
                 {/* 🌟 여백 가우시안 블러 미러 배경 (CapCut 1순위 인기 연출) */}
-                {videoBlurBg && videoFitMode !== 'fullscreen' && videoLayer?.data && (
+                {videoBlurBg && videoFitMode !== 'fullscreen' && videoLayer?.data && layoutTemplateMode !== 'instagram' && (
                   <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                     <video
                       src={getMediaUrl(videoLayer.data)}
@@ -4376,18 +4375,55 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 />
               </div>
 
+              {/* 🕳️ LAYER 0.5: [인스타형 전용] 화이트 카드 오버레이 마스크 (Inverted Hole Mask, z-15) */}
+              {layoutTemplateMode === 'instagram' && (
+                <div
+                  onClick={() => {
+                    setSelectedLayerId('layer_video');
+                    setActiveInspectorTab('template');
+                    document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  }}
+                  className={cn(
+                    "absolute transition-all cursor-pointer",
+                    selectedLayerId === 'layer_video' && "ring-2 ring-sky-400 ring-offset-2"
+                  )}
+                  style={{
+                    top: `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`,
+                    height: `${instaConfig.holeHeightPct}%`,
+                    left: `${(100 - instaConfig.holeWidthPct) / 2}%`,
+                    right: `${(100 - instaConfig.holeWidthPct) / 2}%`,
+                    borderRadius: `${instaConfig.holeRoundness}px`,
+                    boxShadow: `0 0 0 9999px ${instaConfig.bgColor}${instaConfig.holeShadow ? ', 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)' : ''}`,
+                    border: `${instaConfig.holeBorderWidth}px solid ${instaConfig.holeBorderColor}`,
+                    zIndex: 15,
+                    pointerEvents: 'auto',
+                    backgroundImage: !videoLayer?.data
+                      ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)'
+                      : undefined,
+                    backgroundSize: '16px 16px',
+                    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                  }}
+                  title="중앙 구멍 윈도우 (클릭하여 비디오 위치/크기 조절)"
+                />
+              )}
 
               {/* 🎯 비디오 전용 2D 자유 변형 기즈모 (2D 자유 이동, 줌, 회전, 스냅) */}
               {selectedLayerId === 'layer_video' && !trackLock.v1Video && (
                 <div
                   className="absolute pointer-events-none z-40 transition-transform duration-75"
                   style={{
-                    top: `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
-                    bottom: `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
-                    left: 0,
-                    right: 0,
-                    transform: `translate(${(videoFocusXPct - 50) * 0.8}%, ${(videoFocusYPct - 50) * 0.8}%) scale(${videoZoomScale / 100}) rotate(${videoRotationDeg}deg)`,
-                    transformOrigin: 'center center',
+                    top: layoutTemplateMode === 'instagram'
+                      ? `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`
+                      : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
+                    height: layoutTemplateMode === 'instagram'
+                      ? `${instaConfig.holeHeightPct}%`
+                      : undefined,
+                    bottom: layoutTemplateMode === 'instagram'
+                      ? undefined
+                      : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
+                    left: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
+                    right: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
+                    borderRadius: layoutTemplateMode === 'instagram' ? `${instaConfig.holeRoundness}px` : 0,
                   }}
                 >
                   {/* 슬림 1.5px 외곽선 & 2D 중앙 드래그 존 */}
@@ -4836,22 +4872,24 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       <span
                         style={{
                           fontSize: layoutTemplateMode === 'instagram'
-                            ? `${Math.round(13.5 * (subTransform.scale || 1.0) * aspectScale)}px`
+                            ? `${Math.round(15 * (subTransform.scale || 1.0) * aspectScale)}px`
                             : `${Math.round((subtitleConfig.fontSize || 18) * aspectScale)}px`,
                           color: layoutTemplateMode === 'instagram'
-                            ? '#4B5563'
+                            ? (instaConfig.subColor || '#374151')
                             : (subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF'),
-                          fontFamily: subtitleConfig.font || (subtitleConfig as any).fontFamily || 'Pretendard',
+                          fontFamily: layoutTemplateMode === 'instagram'
+                            ? (instaConfig.subFont || 'Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')
+                            : (subtitleConfig.font || (subtitleConfig as any).fontFamily || 'Pretendard'),
                           fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subtitleConfig.isBold !== false ? 'bold' : 'normal'),
                           fontStyle: subtitleConfig.isItalic ? 'italic' : 'normal',
                           WebkitTextStroke: layoutTemplateMode === 'instagram'
-                            ? 'none'
+                            ? '0 transparent'
                             : ((subtitleConfig.outlineSize && subtitleConfig.outlineSize > 0)
                                 ? `${subtitleConfig.outlineSize}px ${subtitleConfig.outlineColor || '#000000'}`
                                 : subtitleStrokeEnabled
                                   ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
-                                  : 'none'),
-                          paintOrder: 'stroke fill',
+                                  : '0 transparent'),
+                          paintOrder: layoutTemplateMode === 'instagram' ? 'normal' : 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
                           textShadow: layoutTemplateMode === 'instagram'
                             ? 'none'
@@ -4953,7 +4991,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   selected={selectedLayerId === 'layer_comment_card'}
                   name="하단 바이럴 댓글 카드"
                   canvasScale={canvasScale}
-                  anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
+                  anchor={layoutTemplateMode === 'instagram' ? (commentTransform.xPct <= 10 ? 'left' : 'center') : 'center'}
                   onSelect={() => {
                     setSelectedLayerId('layer_comment_card');
                     if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('commentCard');
@@ -4963,7 +5001,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 >
                   <div
                     className={cn(
-                      "p-2.5 transition-all cursor-move select-none min-w-[200px] max-w-[340px] w-auto inline-block",
+                      "p-3 transition-all cursor-move select-none min-w-[200px] max-w-[88%] w-fit inline-block",
                       (commentCard.theme === 'insta' || layoutTemplateMode === 'instagram')
                         ? "bg-neutral-100/95 text-neutral-900 border border-neutral-200/90 shadow-xs rounded-2xl backdrop-blur-xs"
                         : commentCard.theme === 'yt-dark'
@@ -5016,7 +5054,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </div>
 
                     {/* 댓글 본문 */}
-                    <p className="text-[11.5px] font-medium leading-relaxed break-words px-0.5 mb-2">
+                    <p className="text-[12px] font-medium leading-relaxed break-words px-0.5 mb-2 whitespace-pre-line text-left">
                       {commentCard.text}
                     </p>
 
@@ -5987,15 +6025,46 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       </div>
                     </div>
 
-                    {/* 4. 본문 자막 위치 (SSOT: displaySub / subTransform) */}
+                    {/* 4. 본문 자막 서체 & 위치 & 크기 (SSOT: displaySub / subTransform) */}
                     <div id="insta-sec-sub" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-[10.5px] font-bold text-foreground">
-                          💬 본문 자막 위치 & 크기
+                          💬 본문 자막 서체 & 위치 & 크기
                         </label>
                         <span className="text-[9px] text-muted-foreground">윈도우 하단 도킹</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[9px] text-muted-foreground block mb-0.5">자막 서체 (폰트)</span>
+                          <select
+                            value={instaConfig.subFont || 'Pretendard'}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, subFont: e.target.value }))}
+                            className="w-full px-1.5 py-1 text-[10px] bg-background border border-border rounded-[2px]"
+                          >
+                            <option value="Pretendard">Pretendard (산세리프 깔끔형)</option>
+                            <option value="Noto Sans KR">Noto Sans KR (본고딕 표준)</option>
+                            <option value="GmarketSans">Gmarket Sans (볼드 감성)</option>
+                            <option value="NanumSquareRound">NanumSquareRound (둥근 고딕)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-muted-foreground block mb-0.5">글자 색상</span>
+                          <div className="flex items-center gap-1.5 pt-0.5">
+                            <input
+                              type="color"
+                              value={instaConfig.subColor || '#374151'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setInstaConfig(prev => ({ ...prev, subColor: val }));
+                                setSubtitleConfig(prev => ({ ...prev, textColor: val }));
+                              }}
+                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer shrink-0"
+                            />
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {instaConfig.subColor || '#374151'}
+                            </span>
+                          </div>
+                        </div>
                         <div>
                           <div className="flex items-center justify-between text-[9px] text-muted-foreground">
                             <span>자막 X 위치</span>
@@ -6003,8 +6072,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                           </div>
                           <input
                             type="range"
-                            min={5}
-                            max={40}
+                            min={2}
+                            max={60}
                             step={0.5}
                             value={subTransform.xPct}
                             onChange={(e) => setSubTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
@@ -6030,32 +6099,20 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                             className="w-full cursor-pointer accent-primary h-1"
                           />
                         </div>
-                        <div>
+                        <div className="col-span-2">
                           <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>자막 크기</span>
+                            <span>자막 크기 배율</span>
                             <span>{subTransform.scale.toFixed(2)}x</span>
                           </div>
                           <input
                             type="range"
                             min={0.7}
-                            max={1.4}
+                            max={1.5}
                             step={0.05}
                             value={subTransform.scale}
                             onChange={(e) => setSubTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
                             className="w-full cursor-pointer accent-primary h-1"
                           />
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-muted-foreground block mb-0.5">글자 색상</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="color"
-                              value="#4B5563"
-                              onChange={(e) => setSubtitleConfig(prev => ({ ...prev, textColor: e.target.value }))}
-                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer shrink-0"
-                            />
-                            <span className="text-[10px] text-muted-foreground font-mono">소프트 차콜</span>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -6107,16 +6164,59 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                             </div>
                           </div>
 
-                          {/* 댓글 본문 */}
+                          {/* 댓글 본문 (textarea로 여러 줄 지원) */}
                           <div>
-                            <span className="text-[9px] text-muted-foreground block mb-0.5">댓글 본문</span>
-                            <input
-                              type="text"
+                            <span className="text-[9px] text-muted-foreground block mb-0.5">댓글 본문 (줄바꿈 자동 가변)</span>
+                            <textarea
+                              rows={2}
                               value={commentCard.text}
                               onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value }))}
                               placeholder="댓글 본문 내용"
-                              className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                              className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] resize-none"
                             />
+                          </div>
+
+                          {/* 카드 정렬 프리셋 */}
+                          <div>
+                            <span className="text-[9px] text-muted-foreground block mb-1">카드 정렬 프리셋</span>
+                            <div className="grid grid-cols-3 gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 50 }))}
+                                className={cn(
+                                  "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
+                                  Math.abs(commentTransform.xPct - 50) < 5
+                                    ? "bg-primary text-primary-foreground border-primary font-bold"
+                                    : "bg-background border-border text-foreground hover:bg-muted"
+                                )}
+                              >
+                                <span>중앙 (50%)</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 18 }))}
+                                className={cn(
+                                  "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
+                                  Math.abs(commentTransform.xPct - 18) < 5
+                                    ? "bg-primary text-primary-foreground border-primary font-bold"
+                                    : "bg-background border-border text-foreground hover:bg-muted"
+                                )}
+                              >
+                                <span>1/3 들여쓰기</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 6 }))}
+                                className={cn(
+                                  "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
+                                  commentTransform.xPct <= 10
+                                    ? "bg-primary text-primary-foreground border-primary font-bold"
+                                    : "bg-background border-border text-foreground hover:bg-muted"
+                                )}
+                              >
+                                <span>좌측 정렬 (6%)</span>
+                              </button>
+                            </div>
                           </div>
 
                           {/* 카드 테마 & 옵션 */}
@@ -6187,7 +6287,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                               <input
                                 type="range"
                                 min={4}
-                                max={40}
+                                max={80}
                                 step={0.5}
                                 value={commentTransform.xPct}
                                 onChange={(e) => setCommentTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
