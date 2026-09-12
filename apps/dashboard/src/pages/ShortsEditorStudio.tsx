@@ -719,6 +719,16 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     { name: '미스터리파일', handle: '@mystery_files', avatar: 'https://api.dicebear.com/9.x/lorelei/svg?seed=mystery' },
   ];
 
+  // 채널 DNA 상태
+  const [channelDna, setChannelDna] = useState({
+    channelName: '스포츠 사이다 명장면 TV',
+    primaryColor: '#FFE500',
+    secondaryColor: '#00E510',
+    fontFamily: 'Pretendard',
+    hookStyle: 'bold_banner',
+    tabooWordCount: 0,
+  });
+
   const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>('classic');
 
   // 📸 인스타형 프로필 블록 독립 Transform (위치, 크기)
@@ -806,11 +816,11 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       }));
 
       // 4. 채널 DNA 연동
-      if (channelProfile?.channelName) {
+      if (channelDna?.channelName) {
         setInstaConfig(prev => ({
           ...prev,
-          profileName: channelProfile.channelName || prev.profileName,
-          profileHandle: `@${channelProfile.channelName.toLowerCase().replace(/\s+/g, '_')}`,
+          profileName: channelDna.channelName || prev.profileName,
+          profileHandle: `@${channelDna.channelName.toLowerCase().replace(/\s+/g, '_')}`,
         }));
       }
 
@@ -1069,15 +1079,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // 채널 DNA 상태
-  const [channelDna, setChannelDna] = useState({
-    channelName: '스포츠 사이다 명장면 TV',
-    primaryColor: '#FFE500',
-    secondaryColor: '#00E510',
-    fontFamily: 'Pretendard',
-    hookStyle: 'bold_banner',
-    tabooWordCount: 0,
-  });
+
 
   // 🌟 레이어 객체 스택 (Video, Header, Jab, Subtitles, Audio)
   const [layers, setLayers] = useState<NleLayerObject[]>([
