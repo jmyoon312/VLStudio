@@ -810,12 +810,13 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       // 2. 구멍 윈도우 지오메트리: 황금비율 세팅 (대제목 바로 아래 밀착, 좌우 88%, 높이 46%, 중심 45%)
       setInstaConfig(prev => ({
         ...prev,
+        bgColor: prev.bgColor || '#FFFFFF',
         holeYPct: 45.0,
         holeWidthPct: 88,
         holeHeightPct: 46,
         holeRoundness: 16,
-        subFont: 'Pretendard',
-        subColor: '#374151',
+        subFont: prev.subFont || 'Pretendard',
+        subColor: prev.subColor || '#374151',
       }));
 
       // 3. 본문 자막: 인스타 구멍 윈도우 바로 아래(yPct: 71.5, xPct: 6.0)로 좌측 정렬 도킹
@@ -4437,9 +4438,44 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 />
               </div>
 
-              {/* 🕳️ LAYER 0.5: [인스타형 전용] 화이트 카드 오버레이 마스크 (캔버스 내부로 엄격 격리, z-15) */}
+              {/* 🕳️ LAYER 0.5: [인스타형 전용] 화이트 카드 오버레이 마스크 (zIndex: 20으로 비디오 위에 확실히 전면 배치) */}
               {layoutTemplateMode === 'instagram' && (
-                <div className="absolute inset-0 overflow-hidden pointer-events-none z-15">
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ zIndex: 20 }}
+                >
+                  <svg
+                    className="w-full h-full absolute inset-0 pointer-events-none select-none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 1000 1000"
+                    preserveAspectRatio="none"
+                  >
+                    <defs>
+                      <mask id="insta-hole-mask">
+                        {/* 전체 캔버스를 흰색(불투명 마스크 통과)으로 채움 */}
+                        <rect width="1000" height="1000" fill="white" />
+                        {/* 중앙 구멍 윈도우만 검은색(마스크 차단=투명)으로 뚫어 비디오가 선명히 보이게 함 */}
+                        <rect
+                          x={((100 - instaConfig.holeWidthPct) / 2) * 10}
+                          y={(instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)) * 10}
+                          width={instaConfig.holeWidthPct * 10}
+                          height={instaConfig.holeHeightPct * 10}
+                          rx={instaConfig.holeRoundness * 2.5}
+                          ry={instaConfig.holeRoundness * 2.5}
+                          fill="black"
+                        />
+                      </mask>
+                    </defs>
+                    {/* 카드 전체에 흰색(#FFFFFF)을 칠하고 중앙 구멍만 투명하게 통과시킴 */}
+                    <rect
+                      width="1000"
+                      height="1000"
+                      fill={instaConfig.bgColor || '#FFFFFF'}
+                      mask="url(#insta-hole-mask)"
+                    />
+                  </svg>
+
+                  {/* 중앙 구멍 윈도우 테두리, 그림자 및 인터랙션 클릭 존 */}
                   <div
                     onClick={() => {
                       setSelectedLayerId('layer_video');
@@ -4447,7 +4483,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }}
                     className={cn(
-                      "absolute transition-all cursor-pointer pointer-events-auto",
+                      "absolute cursor-pointer pointer-events-auto transition-all",
                       selectedLayerId === 'layer_video' && "ring-2 ring-sky-400 ring-offset-2"
                     )}
                     style={{
@@ -4456,8 +4492,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       left: `${(100 - instaConfig.holeWidthPct) / 2}%`,
                       right: `${(100 - instaConfig.holeWidthPct) / 2}%`,
                       borderRadius: `${instaConfig.holeRoundness}px`,
-                      boxShadow: `0 0 0 9999px ${instaConfig.bgColor}${instaConfig.holeShadow ? ', 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)' : ''}`,
                       border: `${instaConfig.holeBorderWidth}px solid ${instaConfig.holeBorderColor}`,
+                      boxShadow: instaConfig.holeShadow
+                        ? '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)'
+                        : undefined,
                       backgroundImage: !videoLayer?.data
                         ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)'
                         : undefined,
