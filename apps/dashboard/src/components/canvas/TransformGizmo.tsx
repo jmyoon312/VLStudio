@@ -8,6 +8,7 @@ interface TransformGizmoProps {
   locked?: boolean;
   name: string;
   canvasScale?: number;
+  anchor?: 'center' | 'left';
   onSelect: () => void;
   onChange: (newTransform: NleLayerTransform) => void;
   children: React.ReactNode;
@@ -19,6 +20,7 @@ interface TransformGizmoProps {
  * - 4개 모서리 핸들 (tl, tr, bl, br): 대각선 비례 확대/축소 (Scale)
  * - 4개 변 핸들 (tc, bc, lc, rc): 수직/수평 크기 리사이징
  * - 상단 360° 회전 핀 & HUD 명칭 뱃지
+ * - anchor: 'center'(기본 중앙) 또는 'left'(좌측 정렬 텍스트/카드용 정밀 앵커)
  */
 export const TransformGizmo: React.FC<TransformGizmoProps> = ({
   transform,
@@ -26,6 +28,7 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
   locked = false,
   name,
   canvasScale = 1.0,
+  anchor = 'center',
   onSelect,
   onChange,
   children,
@@ -230,8 +233,8 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({
         top: `${transform.yPct}%`,
         width: transform.widthPct && transform.widthPct < 100 ? `${transform.widthPct}%` : undefined,
         maxWidth: transform.widthPct && transform.widthPct < 100 ? `${transform.widthPct}%` : undefined,
-        transform: `translate(-50%, -50%) scale(${transform.scale}) scaleX(${transform.isFlippedH ? -1 : 1}) rotate(${transform.rotationDeg}deg)`,
-        transformOrigin: 'center center',
+        transform: `${anchor === 'left' ? 'translate(0, -50%)' : 'translate(-50%, -50%)'} scale(${transform.scale}) scaleX(${transform.isFlippedH ? -1 : 1}) rotate(${transform.rotationDeg}deg)`,
+        transformOrigin: anchor === 'left' ? 'left center' : 'center center',
         opacity: transform.opacity ?? 1,
         zIndex: selected ? 50 : (transform.zIndex ?? 30),
       }}

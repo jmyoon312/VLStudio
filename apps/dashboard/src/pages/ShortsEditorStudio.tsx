@@ -731,9 +731,9 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
   const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>('classic');
 
-  // 📸 인스타형 프로필 블록 독립 Transform (위치, 크기)
+  // 📸 인스타형 프로필 블록 독립 Transform (위치, 크기 - 좌측 6% 정렬)
   const [profileTransform, setProfileTransform] = useState<NleLayerTransform>(
-    createDefaultTransform({ xPct: 22, yPct: 5.5, scale: 1.0, zIndex: 45 })
+    createDefaultTransform({ xPct: 6.0, yPct: 5.5, scale: 1.0, zIndex: 45 })
   );
 
   // 📷 [인스타형 템플릿 원형] (화이트 배경 + 좌상단 프로필 + 대제목 + 중앙 구멍 윈도우 + 자막 + 댓글 카드)
@@ -744,9 +744,9 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     isVerified: boolean;
     bgColor: string;
     holeRatio: '1:1' | '4:5' | 'custom';
-    holeYPct: number;      // 중앙 구멍 중심 Y (기본 40.0%)
-    holeWidthPct: number;  // 중앙 구멍 너비 (기본 88%)
-    holeHeightPct: number; // 중앙 구멍 높이 (기본 48%)
+    holeYPct: number;      // 중앙 구멍 중심 Y (기본 45.0%)
+    holeWidthPct: number;  // 중앙 구멍 너비 (기본 88%, 좌우 마진 6%)
+    holeHeightPct: number; // 중앙 구멍 높이 (기본 46%)
     holeRoundness: number; // 모서리 라운드 (기본 16px)
     holeBorderWidth: number;
     holeBorderColor: string;
@@ -759,9 +759,9 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     isVerified: false,
     bgColor: '#FFFFFF',
     holeRatio: '1:1',
-    holeYPct: 40.0,
+    holeYPct: 45.0,
     holeWidthPct: 88,
-    holeHeightPct: 48,
+    holeHeightPct: 46,
     holeRoundness: 16,
     holeBorderWidth: 1,
     holeBorderColor: '#E5E7EB',
@@ -778,45 +778,55 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     if (mode === 'instagram') {
       setHasTopBarBg(false);
       setHasBottomBarBg(false);
-      // 1. 대제목: 활성화 & 인스타 좌측 상단 위치(프로필 바로 아래)로 자동 이동
+      setHasBottomSource(false);
+
+      // 0. 프로필: 좌측 여백 6% 및 상단 5.5%
+      setProfileTransform(prev => ({
+        ...prev,
+        xPct: 6.0,
+        yPct: 5.5,
+        scale: 1.0,
+      }));
+
+      // 1. 대제목: 활성화 & 인스타 좌측 상단 위치(프로필 바로 아래)로 자동 이동 (xPct: 6.0, yPct: 14.0)
       setHasTopTitle(true);
       setTitleTransform(prev => ({
         ...prev,
-        xPct: 22,
-        yPct: 11.5,
+        xPct: 6.0,
+        yPct: 14.0,
         scale: 1.0,
       }));
-      setTopTitleYPct(11.5);
+      setTopTitleYPct(14.0);
       setTitleFontFamily('Pretendard');
       setTitleStroke(false);
       setTitleShadow(false);
       setTitleBgMode('none');
       if (!topTitleText) setTopTitleText('제목을\n입력하세요');
 
-      // 2. 구멍 윈도우 지오메트리: 황금비율 세팅 (대제목 바로 아래 밀착, 좌우 88%, 높이 48%)
+      // 2. 구멍 윈도우 지오메트리: 황금비율 세팅 (대제목 바로 아래 밀착, 좌우 88%, 높이 46%, 중심 45%)
       setInstaConfig(prev => ({
         ...prev,
-        holeYPct: 40.0,
+        holeYPct: 45.0,
         holeWidthPct: 88,
-        holeHeightPct: 48,
+        holeHeightPct: 46,
         holeRoundness: 16,
       }));
 
-      // 3. 본문 자막: 인스타 구멍 윈도우 바로 아래(yPct: 69.0)로 자동 도킹
+      // 3. 본문 자막: 인스타 구멍 윈도우 바로 아래(yPct: 71.5, xPct: 6.0)로 좌측 정렬 도킹
       setSubTransform(prev => ({
         ...prev,
-        xPct: 22,
-        yPct: 69.0,
+        xPct: 6.0,
+        yPct: 71.5,
         scale: 1.0,
       }));
-      setSubtitleYPercent(69.0);
+      setSubtitleYPercent(71.5);
 
-      // 4. 댓글 카드: 인스타 기본 화면에서는 깔끔하게 비활성화 (필요 시 우측 체크박스로 활성화)
-      setHasCommentCard(false);
+      // 4. 댓글 카드: 인스타 기본 화면에서 활성화 복원 (xPct: 6.0, yPct: 81.5)
+      setHasCommentCard(true);
       setCommentTransform(prev => ({
         ...prev,
-        xPct: 36,
-        yPct: 80.0,
+        xPct: 6.0,
+        yPct: 81.5,
         scale: 0.95,
       }));
       setCommentCard(prev => ({
@@ -836,7 +846,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setVideoFitMode('sandwich');
       toast({
         title: '인스타형 템플릿 적용 완료',
-        description: '화이트 배경 카드 + 대제목/구멍윈도우/자막이 표준 숏폼 양식으로 자동 정렬되었습니다.',
+        description: '화이트 배경 카드 + 프로필/대제목/구멍윈도우/자막/댓글카드가 좌측 일자 정렬선(6%)에 맞춰 배치되었습니다.',
       });
     } else if (mode === 'classic') {
       setHasTopBarBg(true);
@@ -1227,12 +1237,18 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
   const [selectedLayerId, setSelectedLayerId] = useState<string>('layer_sub_1');
 
-  // Handoff 데이터 수신
+  // 🌟 [자가 치유형 세션 영속성 엔진 (Self-Healing Persistence Engine)]
+  // 1) Handoff 최우선 수신 및 localStorage 백업
+  // 2) 새로고침/재시작 시 localStorage에서 직전 작업 상태(비디오 URL, 대본 자막, 인스타 설정 등) 완벽 복원
+  // 3) 작업 중 상태 변경 시 디바운스 실시간 자동 저장 (Autosave)
+  const isHydratedRef = useRef(false);
+
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem('vlstudio_editor_handoff');
-      if (raw) {
-        const parsed = JSON.parse(raw);
+      const rawHandoff = sessionStorage.getItem('vlstudio_editor_handoff');
+      if (rawHandoff) {
+        const parsed = JSON.parse(rawHandoff);
+        localStorage.setItem('vlstudio_editor_handoff_backup', rawHandoff);
         const videoUrl = parsed.videoUrl || '';
         const title = parsed.title || '영상 프로젝트';
         const subList = parsed.subtitles || [];
@@ -1290,11 +1306,144 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
           return [newVideo, newHeader, ...dynamicJabs, ...dynamicSubs, prev[prev.length - 1]];
         });
+        isHydratedRef.current = true;
+        return;
       }
+
+      // 2) sessionStorage가 없을 때: localStorage 직전 작업 상태 복원 시도
+      const savedProjectRaw = localStorage.getItem('vlstudio_editor_active_project_v2');
+      if (savedProjectRaw) {
+        const saved = JSON.parse(savedProjectRaw);
+        if (saved.layers && saved.layers.length > 0) {
+          setLayers(saved.layers);
+        }
+        if (saved.layoutTemplateMode) setLayoutTemplateMode(saved.layoutTemplateMode);
+        if (saved.topTitleText !== undefined) setTopTitleText(saved.topTitleText);
+        if (saved.instaConfig) setInstaConfig(saved.instaConfig);
+        if (saved.commentCard) setCommentCard(saved.commentCard);
+        if (saved.hasCommentCard !== undefined) setHasCommentCard(saved.hasCommentCard);
+        if (saved.profileTransform) setProfileTransform(saved.profileTransform);
+        if (saved.titleTransform) setTitleTransform(saved.titleTransform);
+        if (saved.subTransform) setSubTransform(saved.subTransform);
+        if (saved.commentTransform) setCommentTransform(saved.commentTransform);
+        if (saved.videoFitMode) setVideoFitMode(saved.videoFitMode);
+        if (saved.hasTopTitle !== undefined) setHasTopTitle(saved.hasTopTitle);
+        if (saved.hasTopBarBg !== undefined) setHasTopBarBg(saved.hasTopBarBg);
+        if (saved.hasBottomBarBg !== undefined) setHasBottomBarBg(saved.hasBottomBarBg);
+        if (saved.hasBottomSource !== undefined) setHasBottomSource(saved.hasBottomSource);
+        isHydratedRef.current = true;
+        return;
+      }
+
+      // 3) active_project도 없는 경우: handoff 백업에서 복원 시도
+      const backupRaw = localStorage.getItem('vlstudio_editor_handoff_backup');
+      if (backupRaw) {
+        const parsed = JSON.parse(backupRaw);
+        const videoUrl = parsed.videoUrl || '';
+        const title = parsed.title || '영상 프로젝트';
+        const subList = parsed.subtitles || [];
+        const jabList = parsed.jabs || [];
+
+        setLayers((prev) => {
+          const videoL = prev.find((l) => l.type === 'video');
+          const headerL = prev.find((l) => l.type === 'title');
+
+          const newHeader: NleLayerObject = headerL ? {
+            ...headerL,
+            styleProps: { ...headerL.styleProps, title1: title, title2: '하이라이트' }
+          } : prev[1];
+
+          const newVideo: NleLayerObject = videoL ? {
+            ...videoL,
+            data: videoUrl
+          } : prev[0];
+
+          const dynamicSubs: NleLayerObject[] = subList.length > 0
+            ? subList.map((s: any, idx: number) => ({
+                id: `layer_sub_${idx + 1}`,
+                type: 'subtitle',
+                name: `SUB 자막 #${idx + 1}`,
+                startMs: Math.round((s.start ?? s.start_time ?? (idx * 3)) * 1000),
+                endMs: Math.round((s.end ?? s.end_time ?? ((idx + 1) * 3)) * 1000),
+                locked: false,
+                visible: true,
+                transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
+                styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
+                data: s.text || `자막 문장 #${idx + 1}`,
+              }))
+            : prev.filter((l) => l.type === 'subtitle');
+
+          const dynamicJabs: NleLayerObject[] = jabList.length > 0
+            ? jabList.map((j: any, idx: number) => ({
+                id: `layer_jab_${idx + 1}`,
+                type: 'jab',
+                name: `T2 쨉쨉이 #${idx + 1}`,
+                startMs: Math.round((j.start ?? j.start_time ?? 1.5) * 1000),
+                endMs: Math.round((j.end ?? j.end_time ?? 3.5) * 1000),
+                locked: false,
+                visible: true,
+                transform: createDefaultTransform({ xPct: 50, yPct: 26, scale: 1.0, rotationDeg: -4, zIndex: 40 }),
+                styleProps: { badgeColor: idx % 2 === 0 ? '#FFCC00' : '#FF0055', textColor: '#000000', fontSize: 13, fontFamily: 'GmarketSans', bold: true },
+                data: j.text || j.hook || `쨉쨉이 #${idx + 1}`,
+              }))
+            : prev.filter((l) => l.type === 'jab');
+
+          return [newVideo, newHeader, ...dynamicJabs, ...dynamicSubs, prev[prev.length - 1]];
+        });
+      }
+      isHydratedRef.current = true;
     } catch (e) {
-      console.warn('[ShortsEditorStudio] handoff parse error:', e);
+      console.warn('[ShortsEditorStudio] self-healing hydration error:', e);
+      isHydratedRef.current = true;
     }
   }, []);
+
+  // 💾 실시간 자동 저장 (Autosave Debounce 600ms)
+  useEffect(() => {
+    if (!isHydratedRef.current) return;
+    const timer = setTimeout(() => {
+      try {
+        const payload = {
+          layers,
+          layoutTemplateMode,
+          topTitleText,
+          instaConfig,
+          commentCard,
+          hasCommentCard,
+          profileTransform,
+          titleTransform,
+          subTransform,
+          commentTransform,
+          videoFitMode,
+          hasTopTitle,
+          hasTopBarBg,
+          hasBottomBarBg,
+          hasBottomSource,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem('vlstudio_editor_active_project_v2', JSON.stringify(payload));
+      } catch (err) {
+        console.warn('[ShortsEditorStudio] autosave error:', err);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [
+    layers,
+    layoutTemplateMode,
+    topTitleText,
+    instaConfig,
+    commentCard,
+    hasCommentCard,
+    profileTransform,
+    titleTransform,
+    subTransform,
+    commentTransform,
+    videoFitMode,
+    hasTopTitle,
+    hasTopBarBg,
+    hasBottomBarBg,
+    hasBottomSource,
+  ]);
 
   const selectedLayer = useMemo(() => {
     return layers.find((l) => l.id === selectedLayerId) || layers[0];
@@ -4406,13 +4555,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 📸 [인스타형 원형 100%] 좌상단 프로필 (TransformGizmo로 자유 이동/크기 조절 지원) */}
+              {/* 📸 [인스타형 원형 100%] 좌상단 프로필 (TransformGizmo로 자유 이동/크기 조절 지원, 좌측 앵커 정렬) */}
               {layoutTemplateMode === 'instagram' && (
                 <TransformGizmo
                   transform={profileTransform}
                   selected={selectedLayerId === 'layer_insta_profile'}
                   name="인스타 프로필"
                   canvasScale={canvasScale}
+                  anchor="left"
                   onSelect={() => {
                     setSelectedLayerId('layer_insta_profile');
                     setActiveInspectorTab('template');
@@ -4487,6 +4637,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   selected={selectedLayerId === 'layer_title' || selectedLayerId === 'layer_top_title'}
                   name="상단 타이틀"
                   canvasScale={canvasScale}
+                  anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
                   onSelect={() => {
                     setSelectedLayerId('layer_title');
                     if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('titleSource');
@@ -4646,6 +4797,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     selected={isSubSelected}
                     name="본문 자막"
                     canvasScale={canvasScale}
+                    anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
                     onSelect={() => {
                       if (displaySub) setSelectedLayerId(displaySub.id);
                       else setSelectedLayerId('layer_sub');
@@ -4801,6 +4953,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   selected={selectedLayerId === 'layer_comment_card'}
                   name="하단 바이럴 댓글 카드"
                   canvasScale={canvasScale}
+                  anchor={layoutTemplateMode === 'instagram' ? 'left' : 'center'}
                   onSelect={() => {
                     setSelectedLayerId('layer_comment_card');
                     if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('commentCard');
@@ -5671,9 +5824,9 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                           onClick={() => setInstaConfig(prev => ({
                             ...prev,
                             holeRatio: '1:1',
-                            holeWidthPct: 92,
-                            holeHeightPct: 44,
-                            holeYPct: 44,
+                            holeWidthPct: 88,
+                            holeHeightPct: 46,
+                            holeYPct: 45,
                           }))}
                           className={cn(
                             "py-1 text-[9.5px] rounded border transition-colors font-medium",
@@ -6006,8 +6159,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                             </button>
                           </div>
 
-                          {/* 익명 & 블러 & Y위치 */}
-                          <div className="grid grid-cols-3 gap-2 items-center pt-1 border-t border-border/40 text-[10px]">
+                          {/* 익명 & 블러 & X/Y위치 */}
+                          <div className="grid grid-cols-4 gap-2 items-center pt-1 border-t border-border/40 text-[10px]">
                             <label className="flex items-center gap-1 cursor-pointer">
                               <input
                                 type="checkbox"
@@ -6026,6 +6179,21 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                               />
                               <span>아이디 블러</span>
                             </label>
+                            <div>
+                              <div className="flex items-center justify-between text-[8.5px] text-muted-foreground">
+                                <span>X 위치</span>
+                                <span>{Math.round(commentTransform.xPct)}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={4}
+                                max={40}
+                                step={0.5}
+                                value={commentTransform.xPct}
+                                onChange={(e) => setCommentTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
+                                className="w-full cursor-pointer accent-primary h-1"
+                              />
+                            </div>
                             <div>
                               <div className="flex items-center justify-between text-[8.5px] text-muted-foreground">
                                 <span>Y 위치</span>
