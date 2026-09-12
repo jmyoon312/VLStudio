@@ -968,7 +968,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const [selectedBgmMood, setSelectedBgmMood] = useState<BgmMood>('suspense');
   const [autoMoodMatching, setAutoMoodMatching] = useState<boolean>(true);
 
-  const [hasCommentCard, setHasCommentCard] = useState<boolean>(false);
+  const [hasCommentCard, setHasCommentCard] = useState<boolean>(true);
   const [commentTransform, setCommentTransform] = useState<NleLayerTransform>(
     createDefaultTransform({ xPct: 50, yPct: 82, zIndex: 12, scale: 1.0 })
   );
@@ -1253,6 +1253,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     try {
       const rawHandoff = sessionStorage.getItem('vlstudio_editor_handoff');
       if (rawHandoff) {
+        // 즉시 소비하여 새로고침 시 무한 덮어쓰기 방지
+        sessionStorage.removeItem('vlstudio_editor_handoff');
         const parsed = JSON.parse(rawHandoff);
         localStorage.setItem('vlstudio_editor_handoff_backup', rawHandoff);
         const videoUrl = parsed.videoUrl || '';
@@ -1260,9 +1262,20 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         const subList = parsed.subtitles || [];
         const jabList = parsed.jabs || [];
 
+        // 1) 제목 상태 즉시 동기화
+        setTopTitleText(title);
+        setInstaConfig(prev => ({
+          ...prev,
+          titleText: title,
+        }));
+
+        // 2) 인스타형 템플릿 기본 댓글 카드 강제 활성화
+        setHasCommentCard(true);
+
         setLayers((prev) => {
           const videoL = prev.find((l) => l.type === 'video');
           const headerL = prev.find((l) => l.type === 'title');
+          const bgmL = prev.find((l) => l.type === 'audio');
 
           const newHeader: NleLayerObject = headerL ? {
             ...headerL,
@@ -1270,15 +1283,38 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               ...headerL.styleProps,
               title1: title,
               title2: '하이라이트',
-            }
-          } : prev[1];
+            },
+            data: title,
+          } : {
+            id: 'layer_header_title',
+            type: 'title',
+            name: 'T1 메인 타이틀',
+            startMs: 0,
+            endMs: 60000,
+            locked: false,
+            visible: true,
+            transform: createDefaultTransform({ xPct: 6.0, yPct: 14.0, scale: 1.0, zIndex: 40 }),
+            styleProps: { title1: title, title2: '하이라이트', font: 'Pretendard', textColor: '#000000' },
+            data: title,
+          };
 
           const newVideo: NleLayerObject = videoL ? {
             ...videoL,
-            data: videoUrl
-          } : prev[0];
+            data: videoUrl,
+          } : {
+            id: 'layer_video',
+            type: 'video',
+            name: 'V1 메인 비디오',
+            startMs: 0,
+            endMs: 60000,
+            locked: false,
+            visible: true,
+            transform: createDefaultTransform({ zIndex: 10 }),
+            styleProps: { cropTop: 0, cropBottom: 0, fitMode: 'sandwich', zoom: 100 },
+            data: videoUrl,
+          };
 
-          // 자막 동적 빌드
+          // 자막 동적 빌드: 실제 분석된 자막이 들어오면 매핑하고, 없으면 빈 배열로 리셋 (이전 더미 자막 유출 원천 차단)
           const dynamicSubs: NleLayerObject[] = subList.length > 0
             ? subList.map((s: any, idx: number) => ({
                 id: `layer_sub_${idx + 1}`,
@@ -1288,13 +1324,13 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 endMs: Math.round((s.end ?? s.end_time ?? ((idx + 1) * 3)) * 1000),
                 locked: false,
                 visible: true,
-                transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
-                styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
+                transform: createDefaultTransform({ xPct: 6.0, yPct: 71.5, scale: 1.0, zIndex: 50 }),
+                styleProps: { color: '#374151', strokeWidth: 0, strokeColor: 'transparent', fontSize: 15, fontFamily: 'Pretendard', align: 'left', bold: false },
                 data: s.text || `자막 문장 #${idx + 1}`,
               }))
-            : prev.filter((l) => l.type === 'subtitle');
+            : [];
 
-          // 쨉쨉이 동적 빌드
+          // 쨉쨉이 동적 빌드: 실제 분석된 쨉쨉이가 들어오면 매핑하고, 없으면 빈 배열로 리셋
           const dynamicJabs: NleLayerObject[] = jabList.length > 0
             ? jabList.map((j: any, idx: number) => ({
                 id: `layer_jab_${idx + 1}`,
@@ -1308,9 +1344,22 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 styleProps: { badgeColor: idx % 2 === 0 ? '#FFCC00' : '#FF0055', textColor: '#000000', fontSize: 13, fontFamily: 'GmarketSans', bold: true },
                 data: j.text || j.hook || `쨉쨉이 #${idx + 1}`,
               }))
-            : prev.filter((l) => l.type === 'jab');
+            : [];
 
-          return [newVideo, newHeader, ...dynamicJabs, ...dynamicSubs, prev[prev.length - 1]];
+          const finalBgm = bgmL || {
+            id: 'layer_audio_bgm',
+            type: 'audio',
+            name: 'A1 BGM & 오디오',
+            startMs: 0,
+            endMs: 60000,
+            locked: false,
+            visible: true,
+            transform: createDefaultTransform({ zIndex: 5 }),
+            styleProps: { volume: 0.8, isMuted: false, duckingDb: -18 },
+            data: 'bgm_preset_ambient',
+          };
+
+          return [newVideo, newHeader, ...dynamicJabs, ...dynamicSubs, finalBgm];
         });
         isHydratedRef.current = true;
         return;
@@ -1327,7 +1376,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         if (saved.topTitleText !== undefined) setTopTitleText(saved.topTitleText);
         if (saved.instaConfig) setInstaConfig(saved.instaConfig);
         if (saved.commentCard) setCommentCard(saved.commentCard);
-        if (saved.hasCommentCard !== undefined) setHasCommentCard(saved.hasCommentCard);
+        // 인스타 모드인 경우 댓글 카드를 기본 켜진 상태로 보장
+        setHasCommentCard(saved.layoutTemplateMode === 'instagram' ? (saved.hasCommentCard !== false) : (saved.hasCommentCard ?? true));
         if (saved.profileTransform) setProfileTransform(saved.profileTransform);
         if (saved.titleTransform) setTitleTransform(saved.titleTransform);
         if (saved.subTransform) setSubTransform(saved.subTransform);
@@ -3004,6 +3054,18 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPlaying, currentTimeMs, durationMs, selectedLayerId, layers]);
 
+  const currentProjectDisplayName = useMemo(() => {
+    const vData = videoLayer?.data || '';
+    if (vData && typeof vData === 'string' && !vData.startsWith('data:')) {
+      const clean = vData.split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, '');
+      if (clean && clean.length > 2) return clean;
+    }
+    if (topTitleText && topTitleText !== '제목을\n입력하세요') {
+      return topTitleText.replace(/\n/g, ' ');
+    }
+    return '영상 프로젝트';
+  }, [videoLayer?.data, topTitleText]);
+
   return (
     <div className="flex flex-col w-full h-full min-w-0 min-h-0 bg-background text-foreground select-none overflow-hidden font-sans border-t border-border">
       {/* ─────────────────────────────────────────────────────────────
@@ -3022,9 +3084,9 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           </button>
           <div className="h-3.5 w-px bg-border" />
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground tracking-tight flex items-center gap-1.5">
-              <Film className="w-3.5 h-3.5 text-primary" />
-              20260904_tfMMz_MKaMw
+            <span className="text-xs font-semibold text-foreground tracking-tight flex items-center gap-1.5 max-w-[260px] truncate" title={currentProjectDisplayName}>
+              <Film className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="truncate">{currentProjectDisplayName}</span>
             </span>
             <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded-[2px]">
               자동 저장됨
@@ -4251,8 +4313,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           >
             <div
               className={cn(
-                "canvas-stage-wrapper relative shadow-2xl overflow-visible border border-zinc-700 dark:border-zinc-800 transition-transform duration-75 flex items-center justify-center select-none",
-                layoutTemplateMode === 'instagram' ? '' : 'bg-black',
+                "canvas-stage-wrapper relative shadow-2xl overflow-visible transition-transform duration-75 flex items-center justify-center select-none rounded-2xl ring-1 ring-zinc-600/50 dark:ring-zinc-700",
+                layoutTemplateMode === 'instagram' ? 'bg-white shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]' : 'bg-black border border-zinc-700 dark:border-zinc-800',
                 aspectRatio === '9:16' && "h-full max-h-[96%] aspect-[9/16]",
                 aspectRatio === '16:9' && "w-full max-w-[96%] aspect-[16/9]",
                 aspectRatio === '1:1' && "h-full max-h-[96%] aspect-square"
@@ -4325,7 +4387,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 gap-2 p-4 text-center bg-zinc-900 select-none">
                       <FileVideo className="w-12 h-12 stroke-[1.2] text-zinc-600 animate-pulse" />
-                      <span className="text-[11px] font-mono text-zinc-400">20260904_tfMMz_MKaMw.mp4</span>
+                      <span className="text-[11px] font-mono text-zinc-400">{currentProjectDisplayName}.mp4</span>
                       <span className="text-[9px] text-zinc-600">({videoFitMode.toUpperCase()} FIT · ZOOM {videoZoomScale}%)</span>
                     </div>
                   )}
@@ -4375,36 +4437,36 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 />
               </div>
 
-              {/* 🕳️ LAYER 0.5: [인스타형 전용] 화이트 카드 오버레이 마스크 (Inverted Hole Mask, z-15) */}
+              {/* 🕳️ LAYER 0.5: [인스타형 전용] 화이트 카드 오버레이 마스크 (캔버스 내부로 엄격 격리, z-15) */}
               {layoutTemplateMode === 'instagram' && (
-                <div
-                  onClick={() => {
-                    setSelectedLayerId('layer_video');
-                    setActiveInspectorTab('template');
-                    document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                  }}
-                  className={cn(
-                    "absolute transition-all cursor-pointer",
-                    selectedLayerId === 'layer_video' && "ring-2 ring-sky-400 ring-offset-2"
-                  )}
-                  style={{
-                    top: `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`,
-                    height: `${instaConfig.holeHeightPct}%`,
-                    left: `${(100 - instaConfig.holeWidthPct) / 2}%`,
-                    right: `${(100 - instaConfig.holeWidthPct) / 2}%`,
-                    borderRadius: `${instaConfig.holeRoundness}px`,
-                    boxShadow: `0 0 0 9999px ${instaConfig.bgColor}${instaConfig.holeShadow ? ', 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)' : ''}`,
-                    border: `${instaConfig.holeBorderWidth}px solid ${instaConfig.holeBorderColor}`,
-                    zIndex: 15,
-                    pointerEvents: 'auto',
-                    backgroundImage: !videoLayer?.data
-                      ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)'
-                      : undefined,
-                    backgroundSize: '16px 16px',
-                    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-                  }}
-                  title="중앙 구멍 윈도우 (클릭하여 비디오 위치/크기 조절)"
-                />
+                <div className="absolute inset-0 overflow-hidden pointer-events-none z-15">
+                  <div
+                    onClick={() => {
+                      setSelectedLayerId('layer_video');
+                      setActiveInspectorTab('template');
+                      document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }}
+                    className={cn(
+                      "absolute transition-all cursor-pointer pointer-events-auto",
+                      selectedLayerId === 'layer_video' && "ring-2 ring-sky-400 ring-offset-2"
+                    )}
+                    style={{
+                      top: `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`,
+                      height: `${instaConfig.holeHeightPct}%`,
+                      left: `${(100 - instaConfig.holeWidthPct) / 2}%`,
+                      right: `${(100 - instaConfig.holeWidthPct) / 2}%`,
+                      borderRadius: `${instaConfig.holeRoundness}px`,
+                      boxShadow: `0 0 0 9999px ${instaConfig.bgColor}${instaConfig.holeShadow ? ', 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08)' : ''}`,
+                      border: `${instaConfig.holeBorderWidth}px solid ${instaConfig.holeBorderColor}`,
+                      backgroundImage: !videoLayer?.data
+                        ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)'
+                        : undefined,
+                      backgroundSize: '16px 16px',
+                      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                    }}
+                    title="중앙 구멍 윈도우 (클릭하여 비디오 위치/크기 조절)"
+                  />
+                </div>
               )}
 
               {/* 🎯 비디오 전용 2D 자유 변형 기즈모 (2D 자유 이동, 줌, 회전, 스냅) */}
@@ -4984,8 +5046,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (소셜 테마 & 닉네임 블러) */}
-              {hasCommentCard && (
+              {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (인스타 모드 기본 강제 표시) */}
+              {(hasCommentCard || layoutTemplateMode === 'instagram') && (
                 <TransformGizmo
                   transform={commentTransform}
                   selected={selectedLayerId === 'layer_comment_card'}

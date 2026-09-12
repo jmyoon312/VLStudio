@@ -172,26 +172,59 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
     setPreviewModalOpen(true);
   };
 
-  const handleOpenEditor = (targetData?: typeof previewData) => {
-    const active = targetData || previewData;
-    if (!active) return;
+  const handleOpenEditor = async (targetData?: typeof previewData, rawJob?: SubtitleJob) => {
     try {
+      let active = targetData || previewData;
+      if (!active && !rawJob) return;
+
+      const jobId = rawJob?.id || active?.videoData?.id || (typeof active?.videoData?.job?.id === 'number' ? active.videoData.job.id : undefined);
+      let subs = active?.subtitles || [];
+      let jabs = active?.jabs || [];
+      let title = active?.title || rawJob?.video_filename || '영상 프로젝트';
+      let videoUrl = active?.videoUrl || rawJob?.video_path || rawJob?.video_url;
+      let filePath = active?.filePath || rawJob?.video_path;
+
+      // 만약 자막 데이터가 비어있다면, 백엔드 정밀 결과(result API)에서 비동기 조회
+      if ((!subs || subs.length === 0) && jobId) {
+        try {
+          const detailed = await ddalkkakApi.getSubtitleJob(jobId);
+          if (detailed) {
+            const rawRes = detailed.primary_analysis || (typeof detailed.result === 'string' ? JSON.parse(detailed.result) : (detailed.result || {}));
+            const primary = rawRes.primary || rawRes.primary_analysis || rawRes;
+            subs = primary?.situation_subtitles || detailed.subtitles || [];
+            jabs = primary?.jjap_jjap_i_subtitles || [];
+            if (primary?.youtube_title || primary?.main_hook_title) {
+              title = primary.youtube_title || primary.main_hook_title;
+            } else if (detailed.title_candidates && detailed.title_candidates.length > 0) {
+              title = detailed.title_candidates[0];
+            }
+            if (detailed.video_filename && (!title || title.startsWith('자막 작업 #'))) {
+              title = detailed.video_filename.replace(/\.[^/.]+$/, '');
+            }
+            if (!videoUrl) videoUrl = detailed.video_filename;
+          }
+        } catch (fetchErr) {
+          console.warn('[SubtitleStudioTab] getSubtitleJob fetch failed:', fetchErr);
+        }
+      }
+
       sessionStorage.setItem('vlstudio_editor_handoff', JSON.stringify({
-        title: active.title,
-        videoUrl: active.videoUrl,
-        filePath: active.filePath,
-        subtitles: active.subtitles || [],
-        jabs: active.jabs || [],
-        channelName: active.videoData?.channel_name || 'ViraLoop',
-        style: active.videoData?.style || selectedStyle || 'shorts',
-        sourceType: active.sourceType || 'completed',
-        jobId: active.videoData?.id || active.videoData?.job?.id
+        title,
+        videoUrl,
+        filePath,
+        subtitles: subs,
+        jabs: jabs,
+        channelName: active?.videoData?.channel_name || 'ViraLoop',
+        style: active?.videoData?.style || selectedStyle || 'shorts',
+        sourceType: active?.sourceType || 'completed',
+        jobId,
+        timestamp: Date.now(),
       }));
       setPreviewModalOpen(false);
       navigate('/shorts-editor-studio');
       toast({
         title: '🎬 NLE 정밀 스튜디오 전환',
-        description: '영상 및 AI 연출(자막, 쨉쨉이) 데이터를 에디터로 인계했습니다.',
+        description: `"${title}" 영상 및 자막/쨉쨉이 데이터를 에디터로 인계했습니다.`,
       });
     } catch (e) {
       console.error('Failed to handoff editor session:', e);
@@ -980,19 +1013,9 @@ export const SubtitleStudioTab: React.FC<SubtitleStudioTabProps> = ({
                           type="button"
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            const primary = job.result?.primary;
-                            handleOpenEditor({
-                              title: job.video_filename || `자막 작업 #${job.id}`,
-                              videoUrl: job.video_path || job.video_url,
-                              filePath: job.video_path,
-                              sourceType: 'completed',
-                              subtitles: primary?.situation_subtitles || [],
-                              jabs: primary?.jjap_jjap_i_subtitles || [],
-                            });
-                          }}
+                          onClick={() => handleOpenEditor(undefined, job)}
                           className="border-border hover:bg-muted font-bold text-xs h-7 px-2 sm:px-2.5 rounded-lg shadow-2xs"
-                          title="픽셀링 스타일 전문 편집기로 열기"
+                          title="정밀 NLE 전문 편집기로 열기"
                         >
                           <Scissors className="w-3 h-3 mr-1 text-primary" />
                           <span>세부 편집</span>
