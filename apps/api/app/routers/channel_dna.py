@@ -35,6 +35,14 @@ def analyze_channel(req: AnalyzeChannelRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/seed-noejeongu")
+def seed_noejeongu():
+    try:
+        res = ChannelDNAService.seed_noejeongu_dna()
+        return {"success": True, "data": res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/benchmarks")
 def list_benchmarks():
     try:

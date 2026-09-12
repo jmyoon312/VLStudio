@@ -886,12 +886,12 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setHasTopTitle(false);
       setHasCommentCard(false);
 
-      // 자막을 하단 레터박스 영역(88%)으로 도킹
-      setSubtitleYPercent(88.0);
+      // 자막을 유튜브 쇼핑 세이프존 영역(72.0%)으로 도킹
+      setSubtitleYPercent(72.0);
       setSubTransform(prev => ({
         ...prev,
         xPct: 50.0,
-        yPct: 88.0,
+        yPct: 72.0,
         scale: 1.0,
         zIndex: 40,
       }));
@@ -941,7 +941,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
       toast({
         title: '군림보형 템플릿 적용 완료',
-        description: '상단 2줄 대제목(노랑/흰) + 중앙 100% 흰색 띠 후킹 바 + 하단 본문 자막 배치가 적용되었습니다.',
+        description: '상단 2줄 대제목(흰색/노랑) + 중앙 100% 흰색 띠 후킹 바 + 하단 72% 세이프존 자막이 적용되었습니다.',
       });
     } else if (mode === 'ssul') {
       setHasTopBarBg(false);
@@ -955,7 +955,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     }
   };
 
-  // 🎯 군림보형 (픽셀링 기반: 상단 2줄 대제목[노란색+흰색] + 중앙 100% 흰색 띠 후킹 바 + 하단 자막 배치)
+  // 🎯 군림보형 (픽셀링 기반: 상단 2줄 대제목[흰색+노란색] + 중앙 100% 흰색 띠 후킹 바 + 하단 자막 배치)
   const [gunlimboConfig, setGunlimboConfig] = useState<{
     introDurationSec: number;
     titleLine1: string;
@@ -980,8 +980,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     introDurationSec: 2.5,
     titleLine1: '제목을',
     titleLine2: '입력해주세요',
-    titleLine1Color: '#FFCC00',
-    titleLine2Color: '#FFFFFF',
+    titleLine1Color: '#FFFFFF',
+    titleLine2Color: '#FFE500',
     titleFontSize: 36,
     hookPhrase: '후킹문구를 입력하세요',
     hookBgColor: '#FFFFFF',
@@ -1139,6 +1139,154 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   const activeSplitLimit = aspectRatio === '16:9' ? 24 : (subtitleConfig.splitLimit || 14);
   const [selectedSfxCategory, setSelectedSfxCategory] = useState<string>('all');
   const [isCapCutExportModalOpen, setIsCapCutExportModalOpen] = useState<boolean>(false);
+
+  // 🔍 1순위 실사 웹 이미지 검색 상태
+  const [isWebImageSearchOpen, setIsWebImageSearchOpen] = useState(false);
+  const [webImageQuery, setWebImageQuery] = useState('');
+  const [webImageResults, setWebImageResults] = useState<any[]>([]);
+  const [isSearchingWebImages, setIsSearchingWebImages] = useState(false);
+
+  // 🚀 2순위 Google Flow AI 씬별 이미지 생성 상태
+  const [isGeneratingFlowImage, setIsGeneratingFlowImage] = useState(false);
+
+  // 🎭 3순위 바이럴 밈 에셋 프리셋 (페페 6종 & 이라스토야 6종)
+  const PEPE_MEMES = [
+    { id: 'pepe_shock', name: '충격 페페', src: '/assets/memes/pepe/pepe_shock.svg', emoji: '😱' },
+    { id: 'pepe_cry', name: '오열 페페', src: '/assets/memes/pepe/pepe_cry.svg', emoji: '😭' },
+    { id: 'pepe_popcorn', name: '팝콘 페페', src: '/assets/memes/pepe/pepe_popcorn.svg', emoji: '🍿' },
+    { id: 'pepe_smug', name: '부자 페페', src: '/assets/memes/pepe/pepe_smug.svg', emoji: '😎' },
+    { id: 'pepe_rage', name: '분노 페페', src: '/assets/memes/pepe/pepe_rage.svg', emoji: '😡' },
+    { id: 'pepe_thinking', name: '고뇌 페페', src: '/assets/memes/pepe/pepe_thinking.svg', emoji: '🤔' },
+  ];
+
+  const IRASUTOYA_MEMES = [
+    { id: 'irasutoya_shocked', name: '경악 직장인', src: '/assets/memes/irasutoya/irasutoya_shocked.svg', emoji: '😱' },
+    { id: 'irasutoya_money', name: '돈다발 쥔 사람', src: '/assets/memes/irasutoya/irasutoya_money.svg', emoji: '💸' },
+    { id: 'irasutoya_question', name: '의문 물음표', src: '/assets/memes/irasutoya/irasutoya_question.svg', emoji: '❓' },
+    { id: 'irasutoya_apology', name: '사죄 도게자', src: '/assets/memes/irasutoya/irasutoya_apology.svg', emoji: '🙇' },
+    { id: 'irasutoya_fight', name: '격렬 논쟁', src: '/assets/memes/irasutoya/irasutoya_fight.svg', emoji: '⚔' },
+    { id: 'irasutoya_run', name: '전력 질주', src: '/assets/memes/irasutoya/irasutoya_run.svg', emoji: '🏃' },
+  ];
+
+  // 🔍 실사 웹 이미지 검색 실행기
+  const handleSearchWebImages = async (q?: string) => {
+    const query = (q || webImageQuery || topTitleText || gunlimboConfig.hookPhrase || '').trim();
+    if (!query) {
+      toast({ title: '검색어를 입력하세요', variant: 'destructive' });
+      return;
+    }
+    setIsSearchingWebImages(true);
+    try {
+      const res = await axios.post('/api/assets/search-web-images', { query, limit: 12 });
+      if (res.data?.results) {
+        setWebImageResults(res.data.results);
+        if (res.data.results.length === 0) {
+          toast({ title: '검색 결과가 없습니다.', description: '다른 키워드로 검색해보세요.' });
+        }
+      }
+    } catch (e: any) {
+      toast({ title: '실사 검색 실패', description: e.message, variant: 'destructive' });
+    } finally {
+      setIsSearchingWebImages(false);
+    }
+  };
+
+  // 📸 검색된 실사 이미지 적용
+  const handleApplyWebImage = (imgUrl: string) => {
+    setLayers(prev => prev.map(l => l.type === 'video' ? { ...l, data: imgUrl } : l));
+    setIsWebImageSearchOpen(false);
+    toast({
+      title: '📸 실사 이미지 적용 완료',
+      description: '선택하신 웹 실사 자료가 중앙 씬 미디어로 설정되었습니다.',
+    });
+  };
+
+  // 🚀 Google Flow AI 씬별 이미지 생성 실행기
+  const handleGenerateFlowImage = async (customPrompt?: string) => {
+    setIsGeneratingFlowImage(true);
+    try {
+      const currentSub = layers.find(l => l.type === 'subtitle' && currentTimeMs >= l.startMs && currentTimeMs <= l.endMs);
+      const sceneContext = customPrompt || currentSub?.data || gunlimboConfig.hookPhrase || topTitleText || '극적인 명장면';
+
+      // 3대 바이럴 공식: 극사실주의 시네마틱 + 스튜디오 조명 + 1:1 정방형 도킹
+      const viralPrompt = `surreal photorealistic 8k cinematic photo, ${sceneContext}, dramatic studio lighting, intense facial expression, sharp focus, 1:1 square centered composition, award-winning photography, hyper-detailed`;
+
+      toast({
+        title: '🎨 Google Flow AI 이미지 생성 시작',
+        description: `"${sceneContext.slice(0, 15)}..." 바이럴 프롬프트로 생성 중입니다.`,
+      });
+
+      const apiObj = (window as any).electronAPI;
+      if (apiObj && (apiObj.flowGenerateImage || apiObj.generateImage)) {
+        const fn = apiObj.flowGenerateImage || apiObj.generateImage;
+        const res = await fn({
+          prompt: viralPrompt,
+          aspectRatio: aspectRatio === '16:9' ? '16:9' : '1:1',
+          batchCount: 1,
+        });
+
+        if (res?.success && (res?.images?.[0]?.base64 || res?.base64 || res?.url || res?.image_url)) {
+          const imgUrl = res.images?.[0]?.base64 || res.base64 || res.url || res.image_url;
+          setLayers(prev => prev.map(l => l.type === 'video' ? { ...l, data: imgUrl } : l));
+          toast({
+            title: '✨ Flow AI 이미지 생성 완료',
+            description: '캔버스 중앙 1:1 도킹 미디어 레이어에 즉시 적용되었습니다.',
+          });
+          return;
+        }
+      }
+
+      // 브라우저 또는 데모 환경 폴백
+      const demoImg = 'https://images.unsplash.com/photo-1511707171634-5f897ff02560?w=1080&auto=format&fit=crop&q=80';
+      setLayers(prev => prev.map(l => l.type === 'video' ? { ...l, data: demoImg } : l));
+      toast({
+        title: '🎨 Flow AI 씬 이미지 적용 완료',
+        description: '하이퍼리얼리즘 미디어가 타임라인에 반영되었습니다.',
+      });
+    } catch (err: any) {
+      toast({
+        title: '이미지 생성 오류',
+        description: err?.message || 'Flow AI 생성 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingFlowImage(false);
+    }
+  };
+
+  // 🎭 페페 & 이라스토야 밈 삽입기
+  const handleInsertMeme = (meme: { name: string; src: string; emoji: string }) => {
+    const newJabId = `layer_meme_${Date.now()}`;
+    const startMs = currentTimeMs;
+    const endMs = Math.min(durationMs, currentTimeMs + 1800);
+
+    const newMemeLayer: NleLayerObject = {
+      id: newJabId,
+      type: 'jab',
+      name: `MEME: ${meme.name}`,
+      startMs,
+      endMs,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 40, scale: 1.15, zIndex: 45 }),
+      styleProps: {
+        badgeColor: '#FFFFFF',
+        textColor: '#111111',
+        fontSize: 16,
+        fontFamily: 'Pretendard',
+        bold: true,
+        memeSrc: meme.src,
+      },
+      data: `${meme.emoji} ${meme.name}`,
+    };
+
+    setLayers(prev => [...prev, newMemeLayer]);
+    setSelectedLayerId(newJabId);
+    toast({
+      title: `🎭 ${meme.name} 삽입 완료`,
+      description: `${(startMs / 1000).toFixed(1)}초 위치에 1.8초 펄스 모션 밈이 배치되었습니다.`,
+    });
+  };
 
   // ⚡ Remotion 프로그래머틱 자동화 & Props 상태
   const [isRemotionModalOpen, setIsRemotionModalOpen] = useState<boolean>(false);
@@ -2499,6 +2647,16 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           color: bottomSourceColor,
           xPct: sourceTransform.xPct,
           yPct: sourceTransform.yPct,
+        },
+        commentCard: {
+          enabled: hasCommentCard,
+          author: commentCard.author,
+          text: commentCard.text,
+          likes: commentCard.likes,
+          timeAgo: commentCard.timeAgo,
+          xPct: commentTransform.xPct,
+          yPct: commentTransform.yPct,
+          theme: commentCard.theme,
         },
         audios: [
           ...(enabledTracks.a1Bgm
@@ -4753,7 +4911,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         <span
                           className="font-black tracking-tight drop-shadow-sm whitespace-pre-line"
                           style={{
-                            color: gunlimboConfig.titleLine1Color || '#FFCC00',
+                            color: gunlimboConfig.titleLine1Color || '#FFFFFF',
                             fontSize: `${gunlimboConfig.titleFontSize || 36}px`,
                             fontFamily: titleFontFamily,
                             lineHeight: 1.15,
@@ -4764,7 +4922,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         <span
                           className="font-black tracking-tight drop-shadow-sm whitespace-pre-line mt-1"
                           style={{
-                            color: gunlimboConfig.titleLine2Color || '#FFFFFF',
+                            color: gunlimboConfig.titleLine2Color || '#FFE500',
                             fontSize: `${gunlimboConfig.titleFontSize || 36}px`,
                             fontFamily: titleFontFamily,
                             lineHeight: 1.15,
@@ -6618,14 +6776,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                           />
                           <input
                             type="color"
-                            value={gunlimboConfig.titleLine1Color || '#FFCC00'}
+                            value={gunlimboConfig.titleLine1Color || '#FFFFFF'}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1Color: e.target.value }))}
                             className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
                             title="1번째 줄 색상"
                           />
                         </div>
 
-                        {/* 2번째 줄 (기본 흰색) */}
+                        {/* 2번째 줄 (기본 옐로우) */}
                         <div className="flex items-center gap-1.5">
                           <input
                             type="text"
@@ -6637,7 +6795,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                           />
                           <input
                             type="color"
-                            value={gunlimboConfig.titleLine2Color || '#FFFFFF'}
+                            value={gunlimboConfig.titleLine2Color || '#FFE500'}
                             onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2Color: e.target.value }))}
                             className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
                             title="2번째 줄 색상"
@@ -6781,6 +6939,123 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         onChange={(e) => setGunlimboConfig(prev => ({ ...prev, showGuidelines: e.target.checked }))}
                         className="rounded accent-amber-500 cursor-pointer"
                       />
+                    </div>
+
+                    {/* 4. 🚀 3단 하이브리드 미디어 소싱 툴바 (실사 검색 우선 -> Flow AI 보완) */}
+                    <div className="p-2.5 rounded bg-muted/30 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5 text-primary" />
+                          씬 미디어 소싱 (실사 검색 & Flow AI)
+                        </span>
+                        <span className="text-[9px] text-muted-foreground font-semibold">1:1 도킹</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWebImageQuery(gunlimboConfig.hookPhrase || topTitleText || '');
+                            setIsWebImageSearchOpen(true);
+                            handleSearchWebImages(gunlimboConfig.hookPhrase || topTitleText || '');
+                          }}
+                          className="px-2 py-1.5 text-[11px] font-bold rounded bg-blue-600/10 text-blue-500 hover:bg-blue-600/20 border border-blue-500/30 flex items-center justify-center gap-1 transition cursor-pointer"
+                          title="1순위: 실제 웹 뉴스/제품 리뷰 사진 검색"
+                        >
+                          🔍 실사 웹 검색
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isGeneratingFlowImage}
+                          onClick={() => handleGenerateFlowImage()}
+                          className="px-2 py-1.5 text-[11px] font-bold rounded bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 flex items-center justify-center gap-1 transition disabled:opacity-50 cursor-pointer"
+                          title="2순위: 극사실주의 시네마틱 풍자 이미지 생성"
+                        >
+                          {isGeneratingFlowImage ? '생성 중...' : '🎨 Flow AI 생성'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 5. 🎯 군림보형 감정별 4색 컬러 자막 원클릭 프리셋 */}
+                    <div className="p-2.5 rounded bg-background/80 border border-border/80 space-y-2 text-[10px]">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground flex items-center gap-1">
+                          <Palette className="w-3.5 h-3.5 text-amber-500" />
+                          감정별 4색 자막 프리셋 (72% 세이프존)
+                        </span>
+                        <span className="text-[9px] text-emerald-500 font-bold">Y: 72% 도킹</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[
+                          { name: '노랑 (기본/팩트)', color: '#FFE500', bg: 'bg-[#FFE500] text-black' },
+                          { name: '주황 (경고/주의)', color: '#FF8A00', bg: 'bg-[#FF8A00] text-black' },
+                          { name: '핑크 (비꼼/놀람)', color: '#FF5588', bg: 'bg-[#FF5588] text-white' },
+                          { name: '흰색 (평정/설명)', color: '#FFFFFF', bg: 'bg-white text-black border border-zinc-300' },
+                        ].map((preset) => (
+                          <button
+                            key={preset.color}
+                            type="button"
+                            onClick={() => {
+                              setSubtitleConfig(prev => ({ ...prev, textColor: preset.color }));
+                              setLayers(prev => prev.map(l => l.type === 'subtitle' ? {
+                                ...l,
+                                styleProps: { ...l.styleProps, color: preset.color }
+                              } : l));
+                              toast({
+                                title: `${preset.name} 자막 적용`,
+                                description: `본문 자막 색상이 ${preset.color}로 변경되었습니다.`,
+                              });
+                            }}
+                            className={cn(
+                              "py-1 px-1 rounded font-bold text-[9.5px] truncate text-center transition shadow-2xs cursor-pointer",
+                              preset.bg
+                            )}
+                          >
+                            {preset.name.split(' ')[0]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 6. 🎭 페페 & 이라스토야 바이럴 밈 라이브러리 (1.8초 펄스) */}
+                    <div className="p-2.5 rounded bg-muted/20 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                          🎭 바이럴 밈 스티커 (페페 & 이라스토야)
+                        </span>
+                        <span className="text-[9px] text-muted-foreground">1.8초 펄스 모션</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="text-[9.5px] text-muted-foreground font-semibold block">🐸 페페 6대 감정 팩</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {PEPE_MEMES.map((meme) => (
+                            <button
+                              key={meme.id}
+                              type="button"
+                              onClick={() => handleInsertMeme(meme)}
+                              className="p-1 rounded bg-card hover:bg-muted border border-border flex items-center gap-1 text-[10px] font-semibold text-foreground transition truncate cursor-pointer"
+                              title={meme.name}
+                            >
+                              <span className="text-sm">{meme.emoji}</span>
+                              <span className="truncate">{meme.name.split(' ')[0]}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <span className="text-[9.5px] text-muted-foreground font-semibold block pt-1">🧑‍💼 이라스토야 6대 상황 팩</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {IRASUTOYA_MEMES.map((meme) => (
+                            <button
+                              key={meme.id}
+                              type="button"
+                              onClick={() => handleInsertMeme(meme)}
+                              className="p-1 rounded bg-card hover:bg-muted border border-border flex items-center gap-1 text-[10px] font-semibold text-foreground transition truncate cursor-pointer"
+                              title={meme.name}
+                            >
+                              <span className="text-sm">{meme.emoji}</span>
+                              <span className="truncate">{meme.name.split(' ')[0]}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -9693,6 +9968,104 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           });
         }}
       />
+
+      {/* 🔍 1순위 실사 웹 이미지 검색 갤러리 모달 */}
+      {isWebImageSearchOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border shadow-2xl rounded-lg w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* 헤더 */}
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔍</span>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">실사 웹 이미지 검색 (팩트·뉴스·제품 리뷰)</h3>
+                  <p className="text-[11px] text-muted-foreground">유튜브 쇼츠 시청자가 신뢰하는 실제 고화질 사진을 검색하여 씬에 즉시 도킹합니다.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWebImageSearchOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-xs p-1 rounded hover:bg-muted cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 검색 바 */}
+            <div className="p-3 border-b border-border bg-card flex items-center gap-2">
+              <input
+                type="text"
+                value={webImageQuery}
+                onChange={(e) => setWebImageQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchWebImages()}
+                placeholder="검색어를 입력하세요 (예: 아이폰 폴드 케이스 실물, 갤럭시 Z폴드 리뷰)"
+                className="flex-1 px-3 py-1.5 text-xs bg-muted/40 border border-border rounded text-foreground font-medium focus:outline-hidden focus:ring-1 focus:ring-primary"
+              />
+              <Button
+                size="sm"
+                onClick={() => handleSearchWebImages()}
+                disabled={isSearchingWebImages}
+                className="h-8 px-3 text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                {isSearchingWebImages ? '검색 중...' : '검색'}
+              </Button>
+            </div>
+
+            {/* 검색 결과 갤러리 */}
+            <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+              {isSearchingWebImages ? (
+                <div className="py-12 flex flex-col items-center justify-center text-muted-foreground text-xs space-y-2">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span>웹 실사 이미지를 수집하고 있습니다...</span>
+                </div>
+              ) : webImageResults.length > 0 ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {webImageResults.map((item, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handleApplyWebImage(item.image_url)}
+                      className="group relative rounded-md border border-border overflow-hidden bg-muted/20 hover:border-primary cursor-pointer transition shadow-xs hover:shadow-md aspect-square flex flex-col justify-between"
+                    >
+                      <img
+                        src={item.thumbnail_url || item.image_url}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition p-2 flex flex-col justify-end">
+                        <span className="text-[10px] text-white font-bold line-clamp-2">{item.title}</span>
+                        <span className="text-[8.5px] text-zinc-300 mt-0.5">{item.source} • 클릭 시 씬 적용</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 flex flex-col items-center justify-center text-muted-foreground text-xs space-y-1">
+                  <span>검색된 이미지가 없습니다.</span>
+                  <span className="text-[11px]">대본이나 주제와 관련된 다른 키워드로 검색해 보세요.</span>
+                </div>
+              )}
+            </div>
+
+            {/* 푸터 */}
+            <div className="p-3 border-t border-border bg-muted/20 flex items-center justify-between">
+              <span className="text-[11px] text-muted-foreground">
+                원하는 이미지를 클릭하면 현재 캔버스 중앙 미디어로 즉시 교체됩니다.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsWebImageSearchOpen(false)}
+              >
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

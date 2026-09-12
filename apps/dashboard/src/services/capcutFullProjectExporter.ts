@@ -102,6 +102,16 @@ export interface CapCutProjectExportOptions {
     vignette?: number;
   };
   subtitles: CapCutSubtitleExportItem[];
+  commentCard?: {
+    enabled: boolean;
+    author: string;
+    text: string;
+    likes?: string;
+    timeAgo?: string;
+    xPct?: number;
+    yPct?: number;
+    theme?: string;
+  };
   source?: {
     enabled: boolean;
     text: string;
@@ -168,6 +178,7 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
   const jabTrack = { id: generateId(), type: 'text', name: 'T2 Jab Hook Track', flag: 0, segments: [] as any[] };
   const subtitleTrack = { id: generateId(), type: 'text', name: 'SUB Subtitles Track', flag: 2, segments: [] as any[] };
   const sourceTrack = { id: generateId(), type: 'text', name: 'Source Credit Track', flag: 0, segments: [] as any[] };
+  const commentCardTrack = { id: generateId(), type: 'text', name: 'T3 Comment Card Track', flag: 0, segments: [] as any[] };
   const bgmTrack = { id: generateId(), type: 'audio', name: 'A1 BGM Track', flag: 0, segments: [] as any[] };
   const sfxTrack = { id: generateId(), type: 'audio', name: 'A2 SFX Track', flag: 0, segments: [] as any[] };
 
@@ -511,12 +522,71 @@ export function buildFullCapCutProjectBundle(opts: CapCutProjectExportOptions) {
     });
   }
 
+  // -------------------------------------------------------------
+  // [E-2] 하단 가변 댓글 카드 매핑 (인스타/군림보 100% 무누락)
+  // -------------------------------------------------------------
+  if (opts.commentCard && opts.commentCard.enabled && opts.commentCard.text.trim()) {
+    const card = opts.commentCard;
+    const cardMatId = generateId();
+    const cardSegId = generateId();
+    const cardCoord = toCapCutCoord(card.xPct || 50, card.yPct || 82);
+
+    const fullCommentText = `💬 @${card.author || '베플'}\n${card.text}`;
+
+    materials.texts.push({
+      id: cardMatId,
+      name: 'Viral Comment Card',
+      type: 'subtitle',
+      content: JSON.stringify({
+        text: fullCommentText,
+        styles: [
+          {
+            fill: { content: { render_type: 'solid', solid: { color: [0.1, 0.1, 0.1] } } },
+            size: 15.0,
+            bold: true,
+            range: [0, fullCommentText.indexOf('\n') > 0 ? fullCommentText.indexOf('\n') : fullCommentText.length],
+          },
+          {
+            fill: { content: { render_type: 'solid', solid: { color: [0.2, 0.2, 0.2] } } },
+            size: 14.0,
+            range: [fullCommentText.indexOf('\n') > 0 ? fullCommentText.indexOf('\n') : 0, fullCommentText.length],
+          }
+        ],
+      }),
+      font_name: 'Pretendard',
+      font_size: 14.0,
+      alignment: 0, // left
+      background_style: 1,
+      background_color: '#FFFFFF',
+      background_alpha: 0.95,
+      border_color: '#E5E7EB',
+      border_width: 0.04,
+      border_mode: 1,
+      shadow_color: 'rgba(0,0,0,0.15)',
+      shadow_alpha: 0.3,
+      shadow_distance: 4.0,
+    });
+
+    commentCardTrack.segments.push({
+      id: cardSegId,
+      material_id: cardMatId,
+      render_index: 2500,
+      target_timerange: { start: 0, duration: totalMicros },
+      type: 'text',
+      clip: {
+        transform: { x: cardCoord.transform_x, y: cardCoord.transform_y },
+      },
+      extra_material_refs: [cardMatId],
+    });
+  }
+
   // 3. 트랙 집계
   const activeTracks: any[] = [videoTrack];
   if (topTitleTrack.segments.length > 0) activeTracks.push(topTitleTrack);
   if (jabTrack.segments.length > 0) activeTracks.push(jabTrack);
   if (subtitleTrack.segments.length > 0) activeTracks.push(subtitleTrack);
   if (sourceTrack.segments.length > 0) activeTracks.push(sourceTrack);
+  if (commentCardTrack.segments.length > 0) activeTracks.push(commentCardTrack);
   if (bgmTrack.segments.length > 0) activeTracks.push(bgmTrack);
   if (sfxTrack.segments.length > 0) activeTracks.push(sfxTrack);
 

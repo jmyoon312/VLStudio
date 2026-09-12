@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="g_pepe_thinking.svg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#8ce568"/>
+      <stop offset="100%" stop-color="#448844"/>
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="85" fill="url(#g_pepe_thinking.svg)" stroke="#111" stroke-width="4"/>
+  <ellipse cx="70" cy="80" rx="22" ry="18" fill="#fff" stroke="#111" stroke-width="3"/>
+  <circle cx="70" cy="80" r="8" fill="#111"/>
+  <ellipse cx="130" cy="80" rx="22" ry="18" fill="#fff" stroke="#111" stroke-width="3"/>
+  <circle cx="130" cy="80" r="8" fill="#111"/>
+  <path d="M 55 130 Q 100 155 145 130" fill="none" stroke="#111" stroke-width="5" stroke-linecap="round"/>
+  <text x="100" y="125" font-size="44" text-anchor="middle">🤔</text>
+  <rect x="25" y="160" width="150" height="26" rx="13" fill="rgba(0,0,0,0.6)"/>
+  <text x="100" y="178" font-family="Pretendard, sans-serif" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">고뇌 페페</text>
+</svg>

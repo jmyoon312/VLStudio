@@ -339,6 +339,156 @@ class ChannelDNAService:
             db.close()
 
     @staticmethod
+    def seed_noejeongu_dna() -> Dict[str, Any]:
+        """
+        뇌전구(@뇌전구) 채널의 실측 DNA 벤치마크 데이터를 DB에 정식 등록/갱신
+        """
+        db = SessionLocal()
+        try:
+            channel_url = "https://www.youtube.com/@뇌전구"
+            existing = db.query(models.ChannelDNABenchmark).filter(
+                models.ChannelDNABenchmark.channel_url == channel_url
+            ).first()
+
+            visual_dna = {
+                "canvas_type": "LETTERBOX_SOLID",
+                "video_fit_mode": "sandwich",
+                "video_aspect_ratio": "1:1",
+                "video_zoom_scale": 100,
+                "video_focus_y_pct": 45.0,
+                "enable_ken_burns": True,
+                "has_top_bar_bg": False,
+                "has_bottom_bar_bg": False,
+                "has_top_title": True,
+                "top_title_y_pct": 8.0,
+                "header_lines": [
+                    { "line": 1, "role": "condition", "color": "#FFFFFF", "size_pt": 54, "size_px": 30, "font_style": "ExtraBold", "font_family": "Pretendard", "text_example": "케이스 개 비싸서" },
+                    { "line": 2, "role": "hook_noun", "color": "#FFE500", "size_pt": 62, "size_px": 34, "font_style": "Black", "font_family": "Pretendard", "text_example": "논란 중인 아이폰" }
+                ],
+                "hook_bar": {
+                    "enabled": True,
+                    "bg_color": "#FFFFFF",
+                    "text_color": "#000000",
+                    "y_pct": 29.5,
+                    "height_pct": 6.5,
+                    "font_size": 22,
+                    "text_example": "케이스 가격이 개 비싸서 논란 중인 아이폰 폴드"
+                },
+                "safe_zone": {
+                    "top_headline_y_pct": 8.0,
+                    "central_media_y_pct": 45.0,
+                    "subtitle_optimal_y_pct": 72.0,
+                    "youtube_shopping_avoidance": True
+                },
+                "subtitle": {
+                    "y_percent": 72.0,
+                    "color": "#FFE500",
+                    "stroke_color": "#000000",
+                    "stroke_width_px": 5,
+                    "size_pt": 48,
+                    "size_px": 24,
+                    "font_family": "Pretendard",
+                    "safe_zone": "OPTIMAL_72",
+                    "palette": ["#FFE500", "#FF8A00", "#FF5588", "#FFFFFF"]
+                }
+            }
+
+            script_dna = {
+                "opening_hook_type": "파격 단정 / 직타 충격 폭로 (0~2.5초 내 질문 없이 시작)",
+                "story_architecture": [
+                    "0~2.5초: 상단 2줄 헤드라인 + 흰색 띠 후킹 바 + 충격 첫 마디",
+                    "2.5~10초: 실사 팩트 자료(뉴스/실물) 1:1 도킹 및 가격/사태 조명",
+                    "10~25초: AI 초현실 풍자 이미지(사과머리 정장 등) 및 감정 자막(핑크/레드)",
+                    "25~45초: 페페/이라스토야 밈 펄스 전환 및 최종 반전 결론"
+                ],
+                "dominant_endings": ["~했다고 한다", "~인 거였다", "~미친 거 아니야?"],
+                "speech_style": "속도감 있는 풍자 팩트 해설체",
+                "chars_per_sec": 7.16,
+                "chars_per_min": 430
+            }
+
+            audio_dna = {
+                "speaker_gender": "male",
+                "pitch_f0_hz": 185.3,
+                "chars_per_min": 430,
+                "speed_multiplier": 1.25,
+                "breath_gap_ms": 35,
+                "bgm_style": "Lo-Fi / 코믹 펑크 / 저음 그루브 (-22dB)",
+                "bgm_gain_db": -22.0,
+                "recommended_tts": "Typecast 호빈 (1.25x) / ElevenLabs Adam (Korean) / Edge ko-KR-InJoonNeural"
+            }
+
+            source_origin_dna = {
+                "primary_platforms": ["IT 테크 웹진", "공식 출시 발표회", "전문 유튜버 실물 리뷰"],
+                "media_sourcing_archetype": {
+                    "tier1_real_web_image": "Fact/News/Real Product Review (Base 1st Priority)",
+                    "tier2_ai_hyperrealistic": "Surreal Satire & Extreme Expressions (Flow AI Imagen 2nd Priority)",
+                    "tier3_viral_memes": "Pepe & Irasutoya 1.5s Pulses"
+                }
+            }
+
+            ai_growth_suggestions = [
+                {
+                    "id": "noejeongu_gold",
+                    "title": "⚡ [뇌전구 골드 포맷]",
+                    "badge": "바이럴 검증",
+                    "description": "상단 1줄 흰색 + 2줄 형광 옐로우 헤드라인, 100% 가로폭 흰색 띠 후킹 바, 하단 72% 유튜브 쇼핑 세이프존 자막을 완벽하게 재현합니다.",
+                    "layout_override": {
+                        "header_line1_color": "#FFFFFF",
+                        "header_line2_color": "#FFE500",
+                        "subtitle_y": 72.0
+                    }
+                }
+            ]
+
+            if existing:
+                existing.channel_title = "뇌전구 (Noejeongu)"
+                existing.subscriber_count = 512000
+                existing.category_name = "IT / 테크 / 풍자 숏폼"
+                existing.visual_dna = visual_dna
+                existing.script_dna = script_dna
+                existing.audio_dna = audio_dna
+                existing.source_origin_dna = source_origin_dna
+                existing.ai_growth_suggestions = ai_growth_suggestions
+                existing.custom_layout_preset = visual_dna
+                db.commit()
+                db.refresh(existing)
+                benchmark = existing
+            else:
+                benchmark = models.ChannelDNABenchmark(
+                    channel_url=channel_url,
+                    channel_title="뇌전구 (Noejeongu)",
+                    subscriber_count=512000,
+                    category_name="IT / 테크 / 풍자 숏폼",
+                    total_videos_analyzed=12,
+                    visual_dna=visual_dna,
+                    script_dna=script_dna,
+                    audio_dna=audio_dna,
+                    source_origin_dna=source_origin_dna,
+                    ai_growth_suggestions=ai_growth_suggestions,
+                    custom_layout_preset=visual_dna
+                )
+                db.add(benchmark)
+                db.commit()
+                db.refresh(benchmark)
+
+            logger.info("✅ [ChannelDNAService] 뇌전구 DNA 벤치마크 DB 시딩 완료")
+            return {
+                "id": benchmark.id,
+                "channel_title": benchmark.channel_title,
+                "channel_url": benchmark.channel_url,
+                "visual_dna": benchmark.visual_dna,
+                "audio_dna": benchmark.audio_dna,
+                "script_dna": benchmark.script_dna
+            }
+        except Exception as e:
+            logger.error(f"Failed to seed Noejeongu DNA: {e}")
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    @staticmethod
     def update_custom_layout(benchmark_id: int, custom_layout: dict) -> bool:
         db = SessionLocal()
         try:
