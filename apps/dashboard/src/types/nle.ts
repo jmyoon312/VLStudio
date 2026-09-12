@@ -1,6 +1,6 @@
 /**
  * ViraLoop Studio - NLE Layer Objectification Core Data Model (SSOT)
- * 픽셀링 규격 레이어 객체화 및 변형(Transform) 인터페이스
+ * 표준 NLE 규격 레이어 객체화 및 변형(Transform) 인터페이스
  */
 
 export type LayerType = 'video' | 'title' | 'subtitle' | 'jab' | 'audio' | 'sfx';

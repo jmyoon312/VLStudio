@@ -1,6 +1,7 @@
 /**
- * 쇼츠 전문 6대 카테고리 36종 바이럴 SFX & 픽셀링 썰형 효과음 카탈로그 (Single Source of Truth)
- * 36종 효과음마다 완전히 다른 주파수, 화음, 필터, 리듬 엔벨로프를 가진 개별 음향 생성 엔진
+ * 쇼츠 전문 7대 카테고리 36종 바이럴 SFX & 썰형 효과음 카탈로그 (Single Source of Truth)
+ * Web Audio API 실시간 네이티브 합성 + 44.1kHz 프리미엄 오디오 스트림
+ * CapCut / Premiere Pro 프로젝트 오디오 타임라인 1:1 완벽 호환
  */
 
 export interface SfxItem {
@@ -15,7 +16,7 @@ export interface SfxItem {
 }
 
 export const SFX_CATALOG: SfxItem[] = [
-  // 1. 💥 임팩트 & 후킹 (Impact/Hook)
+  // 1. 💥 임팩트 / 훅 (Impact & Hook) - 영상 첫 3초 시선 강탈
   {
     id: 'sfx_cinematic_boom',
     category: 'impact',
@@ -247,21 +248,21 @@ export const SFX_CATALOG: SfxItem[] = [
     keywords: ['카톡', '문자', '메시지', '속보', '알림'],
   },
 
-  // 7. 🎬 픽셀링(app.pixeling.io/jj) 썰형 대표 효과음 세트
+  // 7. 🎬 바이럴 썰형 대표 효과음 세트
   {
     id: 'sfx_pixeling_type',
     category: 'pixeling',
-    categoryName: '🎬 픽셀링 썰형 세트',
-    name: '썰형 레트로 타자기 (Pixeling)',
+    categoryName: '🎬 바이럴 썰형 세트',
+    name: '썰형 레트로 타자기 (Typewriter)',
     durationMs: 700,
-    description: '픽셀링 썰형 채널 전용 감성 타건음',
+    description: '바이럴 썰형 채널 전용 감성 타건음',
     recommendedTiming: '썰 텍스트 시작',
     keywords: ['썰', '이야기', '사연', '후기'],
   },
   {
     id: 'sfx_pixeling_dingdong',
     category: 'pixeling',
-    categoryName: '🎬 픽셀링 썰형 세트',
+    categoryName: '🎬 바이럴 썰형 세트',
     name: '딩동댕 정답벨 (DingDong)',
     durationMs: 800,
     description: '썰 풀다가 통쾌한 사이다 결말',
@@ -271,7 +272,7 @@ export const SFX_CATALOG: SfxItem[] = [
   {
     id: 'sfx_pixeling_thud',
     category: 'pixeling',
-    categoryName: '🎬 픽셀링 썰형 세트',
+    categoryName: '🎬 바이럴 썰형 세트',
     name: '썰형 쿵 (Heavy Thud)',
     durationMs: 650,
     description: '상대방 멘붕 오는 썰 순간',
@@ -281,7 +282,7 @@ export const SFX_CATALOG: SfxItem[] = [
   {
     id: 'sfx_pixeling_bbam',
     category: 'pixeling',
-    categoryName: '🎬 픽셀링 썰형 세트',
+    categoryName: '🎬 바이럴 썰형 세트',
     name: '빠밤 (Dramatic Brass)',
     durationMs: 950,
     description: '사건의 전말이 시작될 때',
@@ -713,7 +714,7 @@ export function playSynthesizedSfx(sfxId: string) {
         break;
       }
 
-      // 23. 픽셀링 레트로 타자기: 묵직한 썰형 전용 감성 타건음
+      // 23. 레트로 타자기: 묵직한 썰형 전용 감성 타건음
       case 'sfx_pixeling_type': {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -729,7 +730,7 @@ export function playSynthesizedSfx(sfxId: string) {
         break;
       }
 
-      // 24. 픽셀링 딩동댕: 딩(솔 784Hz) -> 동(미 659Hz) -> 댕(도 1046Hz) 3화음 정답벨
+      // 24. 딩동댕: 딩(솔 784Hz) -> 동(미 659Hz) -> 댕(도 1046Hz) 3화음 정답벨
       case 'sfx_pixeling_dingdong': {
         const notes = [783.99, 659.25, 1046.5];
         notes.forEach((freq, idx) => {
@@ -748,7 +749,7 @@ export function playSynthesizedSfx(sfxId: string) {
         break;
       }
 
-      // 25. 픽셀링 썰형 쿵: 상대방 멘붕 올 때 묵직한 저음 타격
+      // 25. 썰형 쿵: 상대방 멘붕 올 때 묵직한 저음 타격
       case 'sfx_pixeling_thud': {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -764,7 +765,7 @@ export function playSynthesizedSfx(sfxId: string) {
         break;
       }
 
-      // 26. 픽셀링 빠밤: 드라마틱 브라스 히트 (단조 코드 단타)
+      // 26. 빠밤: 드라마틱 브라스 히트 (단조 코드 단타)
       case 'sfx_pixeling_bbam': {
         [220, 261.6, 329.6].forEach((freq) => {
           const osc = ctx.createOscillator();

@@ -585,7 +585,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
     const [selectedSubtitlePresetId, setSelectedSubtitlePresetId] = useState<string>('neon-yellow');
 const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#FFE500');
 
-  // 📺 유튜브 쇼츠 메타데이터 & 픽셀링 모달 오픈 상태
+  // 📺 유튜브 쇼츠 메타데이터 & 표준 메타 모달 오픈 상태
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState<boolean>(false);
   const [copiedMetaKey, setCopiedMetaKey] = useState<string | null>(null);
 
@@ -733,10 +733,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
   // 📸 인스타형 프로필 블록 독립 Transform (위치, 크기)
   const [profileTransform, setProfileTransform] = useState<NleLayerTransform>(
-    createDefaultTransform({ xPct: 24, yPct: 6, scale: 1.0, zIndex: 45 })
+    createDefaultTransform({ xPct: 22, yPct: 5.5, scale: 1.0, zIndex: 45 })
   );
 
-  // 📷 [인스타형 템플릿 원형 100%] (화이트 배경 + 좌상단 프로필 + 대제목 + 중앙 구멍 윈도우 + 자막 + 댓글 카드)
+  // 📷 [인스타형 템플릿 원형] (화이트 배경 + 좌상단 프로필 + 대제목 + 중앙 구멍 윈도우 + 자막 + 댓글 카드)
   const [instaConfig, setInstaConfig] = useState<{
     profileName: string;
     profileHandle: string;
@@ -744,10 +744,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     isVerified: boolean;
     bgColor: string;
     holeRatio: '1:1' | '4:5' | 'custom';
-    holeYPct: number;      // 중앙 구멍 중심 Y (기본 44%)
-    holeWidthPct: number;  // 중앙 구멍 너비 (기본 92%)
-    holeHeightPct: number; // 중앙 구멍 높이 (기본 44%)
-    holeRoundness: number; // 모서리 라운드 (기본 18px)
+    holeYPct: number;      // 중앙 구멍 중심 Y (기본 40.0%)
+    holeWidthPct: number;  // 중앙 구멍 너비 (기본 88%)
+    holeHeightPct: number; // 중앙 구멍 높이 (기본 48%)
+    holeRoundness: number; // 모서리 라운드 (기본 16px)
     holeBorderWidth: number;
     holeBorderColor: string;
     holeShadow: boolean;
@@ -759,10 +759,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     isVerified: false,
     bgColor: '#FFFFFF',
     holeRatio: '1:1',
-    holeYPct: 44,
-    holeWidthPct: 92,
-    holeHeightPct: 44,
-    holeRoundness: 18,
+    holeYPct: 40.0,
+    holeWidthPct: 88,
+    holeHeightPct: 48,
+    holeRoundness: 16,
     holeBorderWidth: 1,
     holeBorderColor: '#E5E7EB',
     holeShadow: true,
@@ -782,32 +782,41 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setHasTopTitle(true);
       setTitleTransform(prev => ({
         ...prev,
-        xPct: 32,
-        yPct: 15,
+        xPct: 22,
+        yPct: 11.5,
         scale: 1.0,
       }));
-      setTopTitleYPct(15);
+      setTopTitleYPct(11.5);
       setTitleFontFamily('Pretendard');
       setTitleStroke(false);
       setTitleShadow(false);
       setTitleBgMode('none');
       if (!topTitleText) setTopTitleText('제목을\n입력하세요');
 
-      // 2. 본문 자막: 인스타 구멍 윈도우 바로 아래(yPct: 70)로 자동 도킹
+      // 2. 구멍 윈도우 지오메트리: 황금비율 세팅 (대제목 바로 아래 밀착, 좌우 88%, 높이 48%)
+      setInstaConfig(prev => ({
+        ...prev,
+        holeYPct: 40.0,
+        holeWidthPct: 88,
+        holeHeightPct: 48,
+        holeRoundness: 16,
+      }));
+
+      // 3. 본문 자막: 인스타 구멍 윈도우 바로 아래(yPct: 69.0)로 자동 도킹
       setSubTransform(prev => ({
         ...prev,
-        xPct: 30,
-        yPct: 70,
-        scale: 0.95,
+        xPct: 22,
+        yPct: 69.0,
+        scale: 1.0,
       }));
-      setSubtitleYPercent(70);
+      setSubtitleYPercent(69.0);
 
-      // 3. 댓글 카드: 활성화 & 자막 바로 아래(yPct: 83)로 자동 도킹 & 라이트 테마
-      setHasCommentCard(true);
+      // 4. 댓글 카드: 인스타 기본 화면에서는 깔끔하게 비활성화 (필요 시 우측 체크박스로 활성화)
+      setHasCommentCard(false);
       setCommentTransform(prev => ({
         ...prev,
         xPct: 36,
-        yPct: 83,
+        yPct: 80.0,
         scale: 0.95,
       }));
       setCommentCard(prev => ({
@@ -815,7 +824,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         theme: 'insta',
       }));
 
-      // 4. 채널 DNA 연동
+      // 5. 채널 DNA 연동
       if (channelDna?.channelName) {
         setInstaConfig(prev => ({
           ...prev,
@@ -827,7 +836,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setVideoFitMode('sandwich');
       toast({
         title: '인스타형 템플릿 적용 완료',
-        description: '화이트 배경 카드 + 대제목/자막/댓글카드가 픽셀링 인스타 양식으로 자동 정렬되었습니다.',
+        description: '화이트 배경 카드 + 대제목/구멍윈도우/자막이 표준 숏폼 양식으로 자동 정렬되었습니다.',
       });
     } else if (mode === 'classic') {
       setHasTopBarBg(true);
@@ -2573,16 +2582,49 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     toast({ title: '타임라인 전체 맞춤 (Fit)', description: '전체 클립 길이에 맞춰 줌 배율을 자동 조정했습니다.' });
   };
 
-  // 타임 룰러 스크러빙
+  // 타임 룰러 스크러빙 (가로 스크롤 오프셋 정밀 보정)
   const handleRulerPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     const targetEl = e.currentTarget as HTMLElement;
     targetEl.setPointerCapture(e.pointerId);
 
-    const rect = targetEl.getBoundingClientRect();
     const updateFromX = (clientX: number) => {
-      const offsetX = clientX - rect.left;
-      seekToMs(pxToMs(Math.max(0, offsetX)));
+      if (!timelineScrollRef.current) return;
+      const scrollRect = timelineScrollRef.current.getBoundingClientRect();
+      const offsetX = clientX - scrollRect.left + timelineScrollRef.current.scrollLeft;
+      seekToMs(pxToMs(Math.max(0, Math.min(msToPx(durationMs), offsetX))));
+    };
+
+    updateFromX(e.clientX);
+
+    const onPointerMove = (mv: PointerEvent) => {
+      updateFromX(mv.clientX);
+    };
+
+    const onPointerUp = (upEv: PointerEvent) => {
+      try {
+        targetEl.releasePointerCapture(upEv.pointerId);
+      } catch (_) {}
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+
+  // 🔴 빨간색 가이드라인(재생헤드 Pin) 직접 드래그 스크러빙
+  const handlePlayheadPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    const targetEl = e.currentTarget as HTMLElement;
+    targetEl.setPointerCapture(e.pointerId);
+
+    const updateFromX = (clientX: number) => {
+      if (!timelineScrollRef.current) return;
+      const scrollRect = timelineScrollRef.current.getBoundingClientRect();
+      const offsetX = clientX - scrollRect.left + timelineScrollRef.current.scrollLeft;
+      seekToMs(pxToMs(Math.max(0, Math.min(msToPx(durationMs), offsetX))));
     };
 
     updateFromX(e.clientX);
@@ -2911,7 +2953,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             type="button"
             onClick={() => setIsMetadataModalOpen(true)}
             className="h-7 px-2.5 text-xs font-semibold rounded-[2px] bg-secondary hover:bg-secondary/80 text-secondary-foreground transition flex items-center gap-1.5 shadow-xs cursor-pointer border border-border"
-            title="YouTube 쇼츠 SEO 메타데이터 & 픽셀링 복사"
+            title="YouTube 쇼츠 SEO 메타데이터 & 표준 메타 복사"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span>SEO 메타데이터</span>
@@ -3749,12 +3791,12 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   </div>
                 </div>
 
-                {/* ⚡ 36종 바이럴 SFX & 픽셀링 썰형 효과음 라이브러리 */}
+                {/* ⚡ 36종 바이럴 SFX & 썰형 효과음 라이브러리 */}
                 <div className="p-2.5 border border-border rounded-[2px] bg-card space-y-2">
                   <div className="flex items-center justify-between border-b border-border pb-1.5">
                     <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      36종 바이럴 SFX & 픽셀링 썰형 효과음
+                      36종 바이럴 SFX & 썰형 효과음
                     </span>
                     <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
                       36종 고유음향
@@ -3791,7 +3833,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       { id: 'humor', label: '😂유머' },
                       { id: 'discovery', label: '💡발견' },
                       { id: 'tech', label: '⚙️테크' },
-                      { id: 'pixeling', label: '🎬픽셀링썰형' },
+                      { id: 'pixeling', label: '🎬썰형세트' },
                     ].map((cat) => (
                       <button
                         key={cat.id}
@@ -4067,7 +4109,11 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             >
               {/* 🎬 LAYER 0: 비디오 레이어 (샌드위치 레터박스 핏 vs 풀스크린 크롭 핏 vs 인스타 중앙 구멍 윈도우) */}
               <div
-                onClick={() => { setSelectedLayerId('layer_video'); setActiveInspectorTab('videoCrop'); }}
+                onClick={() => {
+                  setSelectedLayerId('layer_video');
+                  if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('videoCrop');
+                  else setActiveInspectorTab('template');
+                }}
                 className={cn(
                   "absolute overflow-hidden flex items-center justify-center bg-black transition-all cursor-pointer",
                   selectedLayerId === 'layer_video' && "ring-1 ring-sky-400"
@@ -4438,12 +4484,13 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               {hasTopTitle && trackVisibility.t1Title && (
                 <TransformGizmo
                   transform={titleTransform}
-                  selected={selectedLayerId === 'layer_title'}
+                  selected={selectedLayerId === 'layer_title' || selectedLayerId === 'layer_top_title'}
                   name="상단 타이틀"
                   canvasScale={canvasScale}
                   onSelect={() => {
                     setSelectedLayerId('layer_title');
-                    setActiveInspectorTab('titleSource');
+                    if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('titleSource');
+                    else setActiveInspectorTab('template');
                   }}
                   onChange={(newT) => {
                     setTitleTransform(newT);
@@ -4470,9 +4517,12 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       <div
                         className="font-black leading-tight tracking-tight text-left whitespace-pre-line text-neutral-950 dark:text-neutral-950"
                         style={{
-                          fontSize: `${Math.round(24 * aspectScale)}px`,
-                          color: '#0a0a0a',
+                          fontSize: `${Math.round(27 * (titleTransform.scale || 1.0) * aspectScale)}px`,
+                          lineHeight: '1.18',
+                          letterSpacing: '-0.035em',
+                          color: '#000000',
                           textAlign: 'left',
+                          fontWeight: 900,
                         }}
                       >
                         {topTitleText || '제목을\n입력하세요'}
@@ -4599,7 +4649,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     onSelect={() => {
                       if (displaySub) setSelectedLayerId(displaySub.id);
                       else setSelectedLayerId('layer_sub');
-                      setActiveInspectorTab('style');
+                      if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('style');
+                      else setActiveInspectorTab('template');
                     }}
                     onChange={(newT) => {
                       setSubTransform(newT);
@@ -4633,10 +4684,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       <span
                         style={{
                           fontSize: layoutTemplateMode === 'instagram'
-                            ? `${Math.round(15 * aspectScale)}px`
+                            ? `${Math.round(13.5 * (subTransform.scale || 1.0) * aspectScale)}px`
                             : `${Math.round((subtitleConfig.fontSize || 18) * aspectScale)}px`,
                           color: layoutTemplateMode === 'instagram'
-                            ? '#262626'
+                            ? '#4B5563'
                             : (subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF'),
                           fontFamily: subtitleConfig.font || (subtitleConfig as any).fontFamily || 'Pretendard',
                           fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subtitleConfig.isBold !== false ? 'bold' : 'normal'),
@@ -4743,7 +4794,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (픽셀링 스타일 & 닉네임 블러 & 유튜브 테마) */}
+              {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (소셜 테마 & 닉네임 블러) */}
               {hasCommentCard && (
                 <TransformGizmo
                   transform={commentTransform}
@@ -4752,7 +4803,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   canvasScale={canvasScale}
                   onSelect={() => {
                     setSelectedLayerId('layer_comment_card');
-                    setActiveInspectorTab('commentCard');
+                    if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('commentCard');
+                    else setActiveInspectorTab('template');
                   }}
                   onChange={(newT) => setCommentTransform(newT)}
                 >
@@ -5149,7 +5201,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
                 activeInspectorTab === 'commentCard' ? "bg-card text-primary shadow-2xs font-bold" : "text-muted-foreground hover:text-foreground"
               )}
-              title="픽셀링 스타일 하단 바이럴 댓글 카드"
+              title="하단 바이럴 댓글 카드"
             >
               💬 댓글카드
             </button>
@@ -5254,7 +5306,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         인스타형 (Hole-Punch) 원형 세부 설정
                       </span>
                       <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                        픽셀링 원형 100%
+                        인스타 표준 숏폼
                       </span>
                     </div>
 
@@ -5262,7 +5314,11 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     <div className="flex items-center gap-1 flex-wrap">
                       <button
                         type="button"
-                        onClick={() => setSelectedLayerId('layer_insta_profile')}
+                        onClick={() => {
+                          setSelectedLayerId('layer_insta_profile');
+                          setActiveInspectorTab('template');
+                          document.getElementById('insta-sec-profile')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }}
                         className={cn(
                           "px-2 py-0.5 text-[10px] rounded border transition-colors",
                           selectedLayerId === 'layer_insta_profile'
@@ -5274,10 +5330,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setSelectedLayerId('layer_top_title'); }}
+                        onClick={() => {
+                          setSelectedLayerId('layer_title');
+                          setActiveInspectorTab('template');
+                          document.getElementById('insta-sec-title')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }}
                         className={cn(
                           "px-2 py-0.5 text-[10px] rounded border transition-colors",
-                          selectedLayerId === 'layer_top_title'
+                          (selectedLayerId === 'layer_title' || selectedLayerId === 'layer_top_title')
                             ? "bg-primary text-primary-foreground border-primary font-bold"
                             : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
                         )}
@@ -5286,7 +5346,11 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setSelectedLayerId('layer_video'); setActiveInspectorTab('videoCrop'); }}
+                        onClick={() => {
+                          setSelectedLayerId('layer_video');
+                          setActiveInspectorTab('template');
+                          document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }}
                         className={cn(
                           "px-2 py-0.5 text-[10px] rounded border transition-colors",
                           selectedLayerId === 'layer_video'
@@ -5298,10 +5362,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setSelectedLayerId('layer_subtitle'); }}
+                        onClick={() => {
+                          setSelectedLayerId('layer_sub');
+                          setActiveInspectorTab('template');
+                          document.getElementById('insta-sec-sub')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }}
                         className={cn(
                           "px-2 py-0.5 text-[10px] rounded border transition-colors",
-                          selectedLayerId === 'layer_subtitle'
+                          (selectedLayerId === 'layer_sub' || selectedLayerId === 'layer_subtitle')
                             ? "bg-primary text-primary-foreground border-primary font-bold"
                             : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
                         )}
@@ -5310,7 +5378,12 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setSelectedLayerId('layer_comment_card'); setActiveInspectorTab('commentCard'); }}
+                        onClick={() => {
+                          setSelectedLayerId('layer_comment_card');
+                          setActiveInspectorTab('template');
+                          setHasCommentCard(true);
+                          document.getElementById('insta-sec-comment')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }}
                         className={cn(
                           "px-2 py-0.5 text-[10px] rounded border transition-colors",
                           selectedLayerId === 'layer_comment_card'
@@ -5323,7 +5396,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </div>
 
                     {/* 1. 프로필 정보 & 10대 추천 프리셋 */}
-                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                    <div id="insta-sec-profile" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
                           📸 프로필 아이덴티티
@@ -5438,7 +5511,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       </div>
 
                       {/* 인증 마크 & 프로필 크기/위치 */}
-                      <div className="pt-1.5 border-t border-border/50 grid grid-cols-3 gap-2 items-center">
+                      <div className="pt-1.5 border-t border-border/50 grid grid-cols-4 gap-2 items-center">
                         <label className="flex items-center gap-1.5 text-[10px] cursor-pointer col-span-1">
                           <input
                             type="checkbox"
@@ -5446,8 +5519,23 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                             onChange={(e) => setInstaConfig(prev => ({ ...prev, isVerified: e.target.checked }))}
                             className="rounded accent-primary cursor-pointer"
                           />
-                          <span>인증 뱃지 (✓)</span>
+                          <span>인증 뱃지</span>
                         </label>
+                        <div className="col-span-1">
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>X 위치</span>
+                            <span>{Math.round(profileTransform.xPct)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={5}
+                            max={40}
+                            step={0.5}
+                            value={profileTransform.xPct}
+                            onChange={(e) => setProfileTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
                         <div className="col-span-1">
                           <div className="flex items-center justify-between text-[9px] text-muted-foreground">
                             <span>Y 위치</span>
@@ -5465,7 +5553,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         </div>
                         <div className="col-span-1">
                           <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>크기 배율</span>
+                            <span>크기</span>
                             <span>{profileTransform.scale.toFixed(2)}x</span>
                           </div>
                           <input
@@ -5482,7 +5570,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </div>
 
                     {/* 2. 대제목 텍스트 (SSOT: topTitleText) */}
-                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                    <div id="insta-sec-title" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-[10.5px] font-bold text-foreground">
                           ✍️ 좌측 정렬 대제목 (헤드라인)
@@ -5500,6 +5588,21 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] resize-none font-bold leading-tight"
                       />
                       <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>대제목 X 위치</span>
+                            <span>{Math.round(titleTransform.xPct)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={5}
+                            max={40}
+                            step={0.5}
+                            value={titleTransform.xPct}
+                            onChange={(e) => setTitleTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
                         <div>
                           <div className="flex items-center justify-between text-[9px] text-muted-foreground">
                             <span>대제목 Y 위치</span>
@@ -5534,11 +5637,24 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                             className="w-full cursor-pointer accent-primary h-1"
                           />
                         </div>
+                        <div>
+                          <span className="text-[9px] text-muted-foreground block mb-0.5">폰트 서체</span>
+                          <select
+                            value={titleFontFamily}
+                            onChange={(e) => setTitleFontFamily(e.target.value)}
+                            className="w-full px-1.5 py-0.5 text-[10.5px] bg-background border border-border rounded cursor-pointer"
+                          >
+                            <option value="Pretendard">Pretendard (산세리프)</option>
+                            <option value="GmarketSansBold">Gmarket Sans (볼드)</option>
+                            <option value="Black Han Sans">Black Han Sans (울트라)</option>
+                            <option value="Noto Sans KR">Noto Sans KR</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
                     {/* 3. 중앙 구멍 윈도우 (Hole Window) 정밀 지오메트리 */}
-                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                    <div id="insta-sec-hole" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
                           🕳️ 중앙 구멍 윈도우 (미디어 클리핑 영역)
@@ -5719,7 +5835,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </div>
 
                     {/* 4. 본문 자막 위치 (SSOT: displaySub / subTransform) */}
-                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                    <div id="insta-sec-sub" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-[10.5px] font-bold text-foreground">
                           💬 본문 자막 위치 & 크기
@@ -5727,6 +5843,21 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         <span className="text-[9px] text-muted-foreground">윈도우 하단 도킹</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>자막 X 위치</span>
+                            <span>{Math.round(subTransform.xPct)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={5}
+                            max={40}
+                            step={0.5}
+                            value={subTransform.xPct}
+                            onChange={(e) => setSubTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
                         <div>
                           <div className="flex items-center justify-between text-[9px] text-muted-foreground">
                             <span>자막 Y 위치</span>
@@ -5761,11 +5892,23 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                             className="w-full cursor-pointer accent-primary h-1"
                           />
                         </div>
+                        <div>
+                          <span className="text-[9px] text-muted-foreground block mb-0.5">글자 색상</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="color"
+                              value="#4B5563"
+                              onChange={(e) => setSubtitleConfig(prev => ({ ...prev, textColor: e.target.value }))}
+                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer shrink-0"
+                            />
+                            <span className="text-[10px] text-muted-foreground font-mono">소프트 차콜</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     {/* 5. 가변 댓글 카드 설정 (SSOT: hasCommentCard & commentCard) */}
-                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                    <div id="insta-sec-comment" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <input
@@ -6990,14 +7133,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             )}
 
 
-            {/* 💬 4. 바이럴 댓글 카드 (픽셀링 스타일) 탭 */}
+            {/* 💬 4. 바이럴 댓글 카드 탭 */}
             {activeInspectorTab === 'commentCard' && (
               <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-border pb-1.5">
                     <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      하단 바이럴 댓글 카드 (픽셀링 스타일)
+                      하단 바이럴 댓글 카드
                     </span>
                     <Switch
                       checked={hasCommentCard}
@@ -7023,7 +7166,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         AI 바이럴 베댓 원클릭 생성 🪄
                       </button>
 
-                      {/* 닉네임 블러 마스킹 & 익명 토글 (픽셀링 특화 개인정보 보호) */}
+                      {/* 닉네임 블러 마스킹 & 익명 토글 (특화 개인정보 보호) */}
                       <div className="p-2 bg-muted/20 border border-border rounded-[2px] space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
@@ -8232,29 +8375,47 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 ))}
               </div>
 
-              {/* 2. 빨간색 수직 재생헤드 (Playhead, 1px 직각 바늘) */}
+              {/* 2. 빨간색 수직 재생헤드 (Playhead, 모던 인터랙티브 핀) */}
               <div
                 style={{ left: `${msToPx(currentTimeMs)}px` }}
-                className="absolute top-0 bottom-0 w-px bg-red-500 z-40 pointer-events-none"
+                className="absolute top-0 bottom-0 w-px bg-rose-500 z-40 pointer-events-none"
               >
-                <div className="w-2.5 h-2.5 bg-red-500 -translate-x-1 shadow-md flex items-center justify-center text-[6px] text-white font-mono font-black">
-                  ▼
+                {/* 상단 핀 핸들 (마우스 직접 드래그 스크러빙 가능) */}
+                <div
+                  onPointerDown={handlePlayheadPointerDown}
+                  className="absolute -top-0 -translate-x-1/2 w-5 h-6 cursor-ew-resize flex flex-col items-center group pointer-events-auto select-none"
+                  title="드래그하여 타임라인 재생 위치 이동"
+                >
+                  <div className="w-3.5 h-3.5 bg-rose-500 rounded-t-xs shadow-md flex items-center justify-center text-[7px] text-white font-black group-hover:scale-110 group-active:scale-125 transition-transform">
+                    ▼
+                  </div>
+                  <div className="w-0.5 h-2.5 bg-rose-500/90" />
+                  {/* 실시간 타임코드 툴팁 */}
+                  <div className="absolute -top-6 px-1.5 py-0.5 rounded bg-neutral-900 text-white border border-neutral-700 text-[9px] font-mono font-bold shadow-md opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                    {formatTimecode(currentTimeMs)}
+                  </div>
                 </div>
               </div>
 
-              {/* 3. T1 타이틀 트랙 (직각 클립, 라운드 제로) */}
+              {/* 3. T1 타이틀 트랙 */}
               {enabledTracks.t1Title && (
                 <div className="h-9 border-b border-border relative">
                   {titleLayer && (
                     <div
-                      onClick={() => setSelectedLayerId(titleLayer.id)}
+                      onClick={() => {
+                        setSelectedLayerId(titleLayer.id);
+                        if (layoutTemplateMode === 'instagram') {
+                          setActiveInspectorTab('template');
+                          document.getElementById('insta-sec-title')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                      }}
                       style={{
                         left: `${msToPx(titleLayer.startMs)}px`,
                         width: `${Math.max(20, msToPx(titleLayer.endMs - titleLayer.startMs))}px`,
                       }}
                       className={cn(
-                        "absolute inset-y-0 rounded-none bg-purple-600 dark:bg-purple-900/90 border border-purple-400 text-white flex items-center px-2 text-[10px] font-bold cursor-pointer group shadow-2xs",
-                        selectedLayerId === titleLayer.id && "outline outline-1 outline-white z-10"
+                        "absolute inset-y-0 rounded-[3px] bg-indigo-600/90 dark:bg-indigo-950/90 border border-indigo-400/70 dark:border-indigo-500/50 text-white flex items-center px-2 text-[10px] font-bold cursor-pointer group shadow-2xs hover:brightness-110 transition-all",
+                        selectedLayerId === titleLayer.id && "ring-2 ring-indigo-300 dark:ring-indigo-400 z-10 brightness-110"
                       )}
                     >
                       <span className="truncate">{titleLayer.styleProps.title1 || titleLayer.name}</span>
@@ -8271,7 +8432,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 4. T2 쨉쨉이 트랙 (직각 클립, 라운드 제로) */}
+              {/* 4. T2 쨉쨉이 트랙 */}
               {enabledTracks.t2Jab && (
                 <div className="h-9 border-b border-border relative">
                   {layers.filter((l) => l.type === 'jab').map((jab) => (
@@ -8288,8 +8449,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         width: `${Math.max(20, msToPx(jab.endMs - jab.startMs))}px`,
                       }}
                       className={cn(
-                        "absolute inset-y-0 rounded-none bg-amber-500 dark:bg-amber-900/90 border border-amber-300 dark:border-amber-600 text-black dark:text-amber-100 flex items-center px-2 text-[10px] font-bold cursor-pointer group shadow-2xs",
-                        selectedLayerId === jab.id && "outline outline-1 outline-white z-10"
+                        "absolute inset-y-0 rounded-[3px] bg-amber-500/90 dark:bg-amber-900/85 border border-amber-300/80 dark:border-amber-600/60 text-slate-900 dark:text-amber-100 flex items-center px-2 text-[10px] font-bold cursor-pointer group shadow-2xs hover:brightness-110 transition-all",
+                        selectedLayerId === jab.id && "ring-2 ring-amber-300 dark:ring-amber-400 z-10 brightness-110"
                       )}
                     >
                       <span className="truncate">{jab.data}</span>
@@ -8306,21 +8467,27 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 5. SUB 자막 트랙 (문장별 직각 클립, 라운드 제로) */}
+              {/* 5. SUB 자막 트랙 */}
               {enabledTracks.sub && (
                 <div className="h-9 border-b border-border relative">
                   {subtitleLayers.map((sub) => (
                     <div
                       key={sub.id}
-                      onClick={() => setSelectedLayerId(sub.id)}
+                      onClick={() => {
+                        setSelectedLayerId(sub.id);
+                        if (layoutTemplateMode === 'instagram') {
+                          setActiveInspectorTab('template');
+                          document.getElementById('insta-sec-sub')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                      }}
                       onPointerDown={(e) => handleClipMove(e, sub.id)}
                       style={{
                         left: `${msToPx(sub.startMs)}px`,
                         width: `${Math.max(20, msToPx(sub.endMs - sub.startMs))}px`,
                       }}
                       className={cn(
-                        "absolute inset-y-0 rounded-none bg-emerald-600 dark:bg-emerald-900/90 border border-emerald-400 dark:border-emerald-600 text-white flex items-center px-2 text-[10px] font-medium cursor-pointer group shadow-2xs",
-                        selectedLayerId === sub.id && "outline outline-1 outline-white z-10"
+                        "absolute inset-y-0 rounded-[3px] bg-sky-600/90 dark:bg-sky-950/90 border border-sky-400/70 dark:border-sky-500/50 text-white flex items-center px-2 text-[10px] font-medium cursor-pointer group shadow-2xs hover:brightness-110 transition-all",
+                        selectedLayerId === sub.id && "ring-2 ring-sky-300 dark:ring-sky-400 z-10 brightness-110"
                       )}
                     >
                       <span className="truncate">{sub.data}</span>
@@ -8337,19 +8504,25 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 6. V1 비디오 트랙 (필름 스트립 스타일, 직각 클립) */}
+              {/* 6. V1 비디오 트랙 */}
               {enabledTracks.v1Video && (
                 <div className="h-11 border-b border-border relative">
                   {videoLayer && (
                     <div
-                      onClick={() => setSelectedLayerId(videoLayer.id)}
+                      onClick={() => {
+                        setSelectedLayerId(videoLayer.id);
+                        if (layoutTemplateMode === 'instagram') {
+                          setActiveInspectorTab('template');
+                          document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                      }}
                       style={{
                         left: `${msToPx(videoLayer.startMs)}px`,
                         width: `${Math.max(20, msToPx(videoLayer.endMs - videoLayer.startMs))}px`,
                       }}
                       className={cn(
-                        "absolute inset-y-0 rounded-none bg-slate-700 dark:bg-slate-900 border border-sky-500/70 overflow-hidden flex items-center cursor-pointer group shadow-2xs",
-                        selectedLayerId === videoLayer.id && "outline outline-1 outline-sky-400 z-10"
+                        "absolute inset-y-0 rounded-[3px] bg-slate-800/95 dark:bg-slate-900/95 border border-slate-600/60 overflow-hidden flex items-center cursor-pointer group shadow-2xs hover:border-sky-400/80 transition-all",
+                        selectedLayerId === videoLayer.id && "ring-2 ring-sky-400 z-10 brightness-110"
                       )}
                     >
                       {/* 필름 스트립 프레임 틱 패턴 */}
@@ -8377,7 +8550,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 7. A1 BGM 트랙 (오디오 음파 파형 시각화, 직각 클립) */}
+              {/* 7. A1 BGM 트랙 */}
               {enabledTracks.a1Bgm && (
                 <div className="h-9 border-b border-border relative">
                   {layers.filter((l) => l.type === 'audio' && !l.name.startsWith('SFX:') && !l.id.startsWith('smart_sfx') && !l.id.startsWith('sfx_')).map((aud) => (
@@ -8389,8 +8562,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         width: `${Math.max(20, msToPx(aud.endMs - aud.startMs))}px`,
                       }}
                       className={cn(
-                        "absolute inset-y-0 rounded-none bg-teal-700 dark:bg-teal-950 border border-teal-500/60 overflow-hidden flex items-center px-2 cursor-pointer group shadow-2xs",
-                        selectedLayerId === aud.id && "outline outline-1 outline-teal-400 z-10"
+                        "absolute inset-y-0 rounded-[3px] bg-teal-700/90 dark:bg-teal-950/90 border border-teal-500/60 overflow-hidden flex items-center px-2 cursor-pointer group shadow-2xs hover:brightness-110 transition-all",
+                        selectedLayerId === aud.id && "ring-2 ring-teal-300 z-10 brightness-110"
                       )}
                     >
                       {/* 오디오 파형 */}
@@ -8439,8 +8612,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         width: `${Math.max(20, msToPx(sub.endMs - sub.startMs))}px`,
                       }}
                       className={cn(
-                        "absolute inset-y-0 rounded-none bg-purple-700 dark:bg-purple-950 border border-purple-400/80 overflow-hidden flex items-center px-2 cursor-pointer group shadow-2xs",
-                        selectedLayerId === sub.id && "outline outline-1 outline-purple-300 z-10"
+                        "absolute inset-y-0 rounded-[3px] bg-purple-700/90 dark:bg-purple-950/90 border border-purple-400/80 overflow-hidden flex items-center px-2 cursor-pointer group shadow-2xs hover:brightness-110 transition-all",
+                        selectedLayerId === sub.id && "ring-2 ring-purple-300 z-10 brightness-110"
                       )}
                       title={`씬 #${idx + 1} AI 나레이션 (클릭 시 보이스 설정)`}
                     >
@@ -8465,7 +8638,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   ))}
                 </div>
               )}
-              {/* ⚡ 9. A3 SFX 효과음 트랙 (앰버 골드 직각 클립) */}
+              {/* ⚡ 9. A3 SFX 효과음 트랙 */}
               {enabledTracks.a3Sfx && (
                 <div className="h-9 border-b border-amber-500/30 relative bg-amber-950/10">
                   {layers
@@ -8484,8 +8657,8 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                             width: `${Math.max(28, msToPx(sfx.endMs - sfx.startMs))}px`,
                           }}
                           className={cn(
-                            "absolute inset-y-0 rounded-none bg-amber-600 dark:bg-amber-900 border border-amber-400/80 overflow-hidden flex items-center px-1.5 cursor-pointer group shadow-2xs transition",
-                            isSelected && "outline outline-1 outline-amber-300 z-10 brightness-110"
+                            "absolute inset-y-0 rounded-[3px] bg-amber-600/90 dark:bg-amber-950/90 border border-amber-400/80 overflow-hidden flex items-center px-1.5 cursor-pointer group shadow-2xs hover:brightness-110 transition-all",
+                            isSelected && "ring-2 ring-amber-300 z-10 brightness-110"
                           )}
                           title={`${sfx.name} (${(sfx.startMs / 1000).toFixed(2)}s) - 클릭 시 미리듣기`}
                         >
@@ -8604,7 +8777,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
           </div>
         </div>
       )}
-      {/* 📺 YouTube 쇼츠 SEO 메타데이터 & 픽셀링 복사 모달 */}
+      {/* 📺 YouTube 쇼츠 SEO 메타데이터 & 표준 메타 복사 모달 */}
       {isMetadataModalOpen && (
         <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-card border border-border shadow-2xl rounded-lg w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -8612,7 +8785,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-sm text-foreground">YouTube 쇼츠 SEO 메타데이터 & 픽셀링 표준 도구</h3>
+                <h3 className="font-bold text-sm text-foreground">YouTube 쇼츠 SEO 메타데이터 & 표준 메타 도구</h3>
               </div>
               <button
                 type="button"
@@ -8692,10 +8865,10 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               </div>
 
-              {/* 4. 픽셀링 표준 전체 설명문 */}
+              {/* 4. 표준 전체 설명문 */}
               <div className="space-y-1.5 p-3 bg-muted/20 border border-border rounded-md">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-foreground">4. YouTube 설명 & 픽셀링 표준 텍스트 (Description)</span>
+                  <span className="font-bold text-foreground">4. YouTube 설명 & 표준 메타 텍스트 (Description)</span>
                   <Button
                     size="sm"
                     variant="outline"
@@ -8717,7 +8890,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
             {/* 푸터 */}
             <div className="p-3 border-t border-border bg-muted/20 flex items-center justify-between">
               <span className="text-[11px] text-muted-foreground">
-                YouTube Shorts & 픽셀링 알고리즘 최적화 메타
+                YouTube Shorts 알고리즘 최적화 메타
               </span>
               <Button
                 size="sm"

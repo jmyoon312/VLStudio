@@ -1,4 +1,4 @@
-// PixelLab(픽셀링) "추천 메타 전부저장" 텍스트 파서 / 영상 매칭 / 예약 스케줄 계산
+// "추천 메타 전부저장" 텍스트 파서 / 영상 매칭 / 예약 스케줄 계산
 // (사공) 수동 업로드 도우미 웹앱의 parser.js / match.js / app.js 로직을 TS로 이식
 
 export interface PixelingMeta {
