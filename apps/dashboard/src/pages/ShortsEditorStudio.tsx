@@ -828,13 +828,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       }));
       setSubtitleYPercent(71.5);
 
-      // 4. 댓글 카드: 가변 크기 & 중앙 정렬 (xPct: 50, yPct: 82.0)
+      // 4. 댓글 카드: 가변 크기 & 중앙 정렬 (xPct: 50, yPct: 82.0, zIndex: 45)
       setHasCommentCard(true);
       setCommentTransform(prev => ({
         ...prev,
         xPct: 50,
         yPct: 82.0,
         scale: 0.95,
+        zIndex: 45,
       }));
       setCommentCard(prev => ({
         ...prev,
@@ -971,7 +972,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
   const [hasCommentCard, setHasCommentCard] = useState<boolean>(true);
   const [commentTransform, setCommentTransform] = useState<NleLayerTransform>(
-    createDefaultTransform({ xPct: 50, yPct: 82, zIndex: 12, scale: 1.0 })
+    createDefaultTransform({ xPct: 50, yPct: 82, zIndex: 45, scale: 1.0 })
   );
   const [commentCard, setCommentCard] = useState<{
     author: string;
@@ -1382,7 +1383,12 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
         if (saved.profileTransform) setProfileTransform(saved.profileTransform);
         if (saved.titleTransform) setTitleTransform(saved.titleTransform);
         if (saved.subTransform) setSubTransform(saved.subTransform);
-        if (saved.commentTransform) setCommentTransform(saved.commentTransform);
+        if (saved.commentTransform) {
+          setCommentTransform({
+            ...saved.commentTransform,
+            zIndex: Math.max(45, saved.commentTransform.zIndex || 45),
+          });
+        }
         if (saved.videoFitMode) setVideoFitMode(saved.videoFitMode);
         if (saved.hasTopTitle !== undefined) setHasTopTitle(saved.hasTopTitle);
         if (saved.hasTopBarBg !== undefined) setHasTopBarBg(saved.hasTopBarBg);
@@ -5084,10 +5090,13 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (인스타 모드 기본 강제 표시) */}
+              {/* 💬 LAYER 7: 하단 바이럴 댓글 카드 (인스타 모드 기본 강제 표시, zIndex 45 보장) */}
               {(hasCommentCard || layoutTemplateMode === 'instagram') && (
                 <TransformGizmo
-                  transform={commentTransform}
+                  transform={{
+                    ...commentTransform,
+                    zIndex: Math.max(45, commentTransform.zIndex || 45),
+                  }}
                   selected={selectedLayerId === 'layer_comment_card'}
                   name="하단 바이럴 댓글 카드"
                   canvasScale={canvasScale}
@@ -5097,7 +5106,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     if (layoutTemplateMode !== 'instagram') setActiveInspectorTab('commentCard');
                     else setActiveInspectorTab('template');
                   }}
-                  onChange={(newT) => setCommentTransform(newT)}
+                  onChange={(newT) => setCommentTransform({ ...newT, zIndex: Math.max(45, newT.zIndex || 45) })}
                 >
                   <div
                     className={cn(
