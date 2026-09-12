@@ -433,6 +433,7 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [titleLinesMode, setTitleLinesMode] = useState<'single' | 'double'>('double');
   const [titleLine1, setTitleLine1] = useState<string>('조코비치 몰래카메라 ㅋㅋ');
   const [titleLine2, setTitleLine2] = useState<string>('상대 선수 멘붕 직전');
+  const [topTitleText, setTopTitleText] = useState<string>('제목을\n입력하세요');
   const [titleLine1Color, setTitleLine1Color] = useState<string>('#FFFFFF');
   const [titleLine2Color, setTitleLine2Color] = useState<string>('#FFE500');
   const [titleLine1SizePx, setTitleLine1SizePx] = useState<number>(20);
@@ -704,29 +705,42 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   // 💬 하단 바이럴 댓글 카드 상태
 
 
+  // 📸 인스타형 채널 아이덴티티 10대 추천 프리셋 (랜덤 생성 및 고정 지원)
+  const INSTA_PROFILE_PRESETS = [
+    { name: '유머보따리', handle: '@humor_box', avatar: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=humor' },
+    { name: '스타비하인드', handle: '@star_behind', avatar: 'https://api.dicebear.com/9.x/lorelei/svg?seed=star' },
+    { name: '팩트연구소', handle: '@fact_lab', avatar: 'https://api.dicebear.com/9.x/bottts/svg?seed=fact' },
+    { name: '명장면극장', handle: '@scene_theater', avatar: 'https://api.dicebear.com/9.x/lorelei/svg?seed=cinema' },
+    { name: '댕냥이일기', handle: '@pet_diary', avatar: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=pet' },
+    { name: '스포츠클립', handle: '@sports_clip', avatar: 'https://api.dicebear.com/9.x/bottts/svg?seed=sports' },
+    { name: '속마음라디오', handle: '@heart_radio', avatar: 'https://api.dicebear.com/9.x/lorelei/svg?seed=heart' },
+    { name: '길거리마이크', handle: '@street_mic', avatar: 'https://api.dicebear.com/9.x/bottts/svg?seed=mic' },
+    { name: '인생꿀팁봇', handle: '@life_tips_kr', avatar: 'https://api.dicebear.com/9.x/fun-emoji/svg?seed=tips' },
+    { name: '미스터리파일', handle: '@mystery_files', avatar: 'https://api.dicebear.com/9.x/lorelei/svg?seed=mystery' },
+  ];
+
   const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>('classic');
 
-  // 📷 [인스타형 템플릿 원형 100%] (화이트 배경 + 좌상단 프로필 + 좌측 대제목 + 중앙 구멍 윈도우 + 자막 + 가변 댓글 카드)
+  // 📸 인스타형 프로필 블록 독립 Transform (위치, 크기)
+  const [profileTransform, setProfileTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 24, yPct: 6, scale: 1.0, zIndex: 45 })
+  );
+
+  // 📷 [인스타형 템플릿 원형 100%] (화이트 배경 + 좌상단 프로필 + 대제목 + 중앙 구멍 윈도우 + 자막 + 댓글 카드)
   const [instaConfig, setInstaConfig] = useState<{
     profileName: string;
     profileHandle: string;
     profileAvatarUrl: string;
     isVerified: boolean;
     bgColor: string;
-    titleText: string;
-    subtitleText: string;
     holeRatio: '1:1' | '4:5' | 'custom';
-    holeRoundness: number;
+    holeYPct: number;      // 중앙 구멍 중심 Y (기본 44%)
+    holeWidthPct: number;  // 중앙 구멍 너비 (기본 92%)
+    holeHeightPct: number; // 중앙 구멍 높이 (기본 44%)
+    holeRoundness: number; // 모서리 라운드 (기본 18px)
     holeBorderWidth: number;
     holeBorderColor: string;
     holeShadow: boolean;
-    showActions: boolean;
-    likesCount: string;
-    showCommentCard: boolean;
-    commentAuthor: string;
-    commentAvatarUrl: string;
-    commentText: string;
-    commentLikes: string;
     theme: 'white' | 'dark' | 'sunset' | 'cyber';
   }>({
     profileName: '사용자명',
@@ -734,52 +748,99 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     profileAvatarUrl: 'https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue',
     isVerified: false,
     bgColor: '#FFFFFF',
-    titleText: '제목을\n입력하세요',
-    subtitleText: '자막을 입력하세요',
     holeRatio: '1:1',
-    holeRoundness: 16,
+    holeYPct: 44,
+    holeWidthPct: 92,
+    holeHeightPct: 44,
+    holeRoundness: 18,
     holeBorderWidth: 1,
     holeBorderColor: '#E5E7EB',
     holeShadow: true,
-    showActions: false,
-    likesCount: '1.4천',
-    showCommentCard: true,
-    commentAuthor: '익명_댓글러',
-    commentAvatarUrl: 'https://api.dicebear.com/9.x/bottts/svg?seed=commenter_viral',
-    commentText: '진짜 이거 보고 소름 돋음 ㅋㅋㅋ 역대급 명장면이다',
-    commentLikes: '1.4천',
     theme: 'white',
   });
 
   // 🎵 5대 무드 BGM 라이브러리 모달 오픈 상태
   const [isBgmModalOpen, setIsBgmModalOpen] = useState(false);
 
-  // 🏛️ 폼팩터 전환 시 상호 배타적 자동 정리 가드 (Auto-Switch Guard)
+  // 🏛️ 폼팩터 전환 시 상호 배타적 자동 정리 가드 (Auto-Switch Guard & 객체 단일화)
   const handleSelectTemplateMode = (mode: LayoutTemplateMode) => {
     setLayoutTemplateMode(mode);
     if (mode === 'instagram') {
       setHasTopBarBg(false);
       setHasBottomBarBg(false);
-      setHasTopTitle(false);
-      setHasCommentCard(false); // 인스타형 자체 가변 카드가 렌더링되므로 기본 코멘트 카드 중복 해제
-      setInstaConfig(prev => ({
+      // 1. 대제목: 활성화 & 인스타 좌측 상단 위치(프로필 바로 아래)로 자동 이동
+      setHasTopTitle(true);
+      setTitleTransform(prev => ({
         ...prev,
-        showCommentCard: true,
-        showActions: false, // 난잡한 소셜 액션바는 기본 제거
+        xPct: 32,
+        yPct: 15,
+        scale: 1.0,
       }));
+      setTopTitleYPct(15);
+      setTitleFontFamily('Pretendard');
+      setTitleStroke(false);
+      setTitleShadow(false);
+      setTitleBgMode('none');
+      if (!topTitleText) setTopTitleText('제목을\n입력하세요');
+
+      // 2. 본문 자막: 인스타 구멍 윈도우 바로 아래(yPct: 70)로 자동 도킹
+      setSubTransform(prev => ({
+        ...prev,
+        xPct: 30,
+        yPct: 70,
+        scale: 0.95,
+      }));
+      setSubtitleYPercent(70);
+
+      // 3. 댓글 카드: 활성화 & 자막 바로 아래(yPct: 83)로 자동 도킹 & 라이트 테마
+      setHasCommentCard(true);
+      setCommentTransform(prev => ({
+        ...prev,
+        xPct: 36,
+        yPct: 83,
+        scale: 0.95,
+      }));
+      setCommentCard(prev => ({
+        ...prev,
+        theme: 'insta',
+      }));
+
+      // 4. 채널 DNA 연동
+      if (channelProfile?.channelName) {
+        setInstaConfig(prev => ({
+          ...prev,
+          profileName: channelProfile.channelName || prev.profileName,
+          profileHandle: `@${channelProfile.channelName.toLowerCase().replace(/\s+/g, '_')}`,
+        }));
+      }
+
       setVideoFitMode('sandwich');
       toast({
         title: '인스타형 템플릿 적용 완료',
-        description: '화이트 배경 카드 + 좌측 정렬 대제목 + 중앙 구멍 윈도우 + 가변 댓글 카드로 자동 세팅되었습니다.',
+        description: '화이트 배경 카드 + 대제목/자막/댓글카드가 픽셀링 인스타 양식으로 자동 정렬되었습니다.',
       });
     } else if (mode === 'classic') {
       setHasTopBarBg(true);
       setHasBottomBarBg(true);
       setHasTopTitle(true);
+      setTitleTransform(prev => ({
+        ...prev,
+        xPct: 50,
+        yPct: 8,
+        scale: 1.0,
+      }));
+      setTopTitleYPct(8);
+      setSubTransform(prev => ({
+        ...prev,
+        xPct: 50,
+        yPct: 75,
+        scale: 1.0,
+      }));
+      setSubtitleYPercent(75);
       setHasCommentCard(false);
       toast({
         title: '기본형 템플릿 적용 완료',
-        description: '상·하단 색상 배경 바와 상단 타이틀이 활성화되었습니다.',
+        description: '상·하단 색상 배경 바와 중앙 고정 타이틀/자막이 활성화되었습니다.',
       });
     } else if (mode === 'gunlimbo') {
       setHasTopBarBg(false);
@@ -4011,16 +4072,24 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 )}
                 style={{
                   top: layoutTemplateMode === 'instagram'
-                    ? '25%'
+                    ? `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
+                  height: layoutTemplateMode === 'instagram'
+                    ? `${instaConfig.holeHeightPct}%`
+                    : undefined,
                   bottom: layoutTemplateMode === 'instagram'
-                    ? (instaConfig.holeRatio === '1:1' ? '28%' : '23%')
+                    ? undefined
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
-                  left: layoutTemplateMode === 'instagram' ? '18px' : 0,
-                  right: layoutTemplateMode === 'instagram' ? '18px' : 0,
+                  left: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
+                  right: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
                   borderRadius: layoutTemplateMode === 'instagram' ? `${instaConfig.holeRoundness}px` : 0,
                   border: layoutTemplateMode === 'instagram' ? `${instaConfig.holeBorderWidth}px solid ${instaConfig.holeBorderColor}` : undefined,
-                  boxShadow: layoutTemplateMode === 'instagram' && instaConfig.holeShadow ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' : undefined,
+                  boxShadow: layoutTemplateMode === 'instagram' && instaConfig.holeShadow ? '0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06)' : undefined,
+                  backgroundImage: layoutTemplateMode === 'instagram' && !videoLayer?.data
+                    ? 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)'
+                    : undefined,
+                  backgroundSize: '16px 16px',
+                  backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
                   zIndex: videoZIndex,
                   opacity: trackVisibility.v1Video ? 1 : 0,
                 }}
@@ -4289,16 +4358,21 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 </div>
               )}
 
-              {/* 📸 [인스타형 원형 100%] 좌상단 프로필 (원형 아바타 + 파란 사용자명 + 회색 @handle) & 좌측 정렬 대제목 */}
+              {/* 📸 [인스타형 원형 100%] 좌상단 프로필 (TransformGizmo로 자유 이동/크기 조절 지원) */}
               {layoutTemplateMode === 'instagram' && (
-                <div className="absolute top-5 left-5 right-5 z-40 flex flex-col items-start select-none pointer-events-auto">
-                  {/* 1. 프로필 아바타 & 닉네임 */}
-                  <div
-                    onClick={() => { setSelectedLayerId('layer_insta_profile'); setActiveInspectorTab('template'); }}
-                    className="flex items-center gap-2.5 cursor-pointer group"
-                    title="클릭하여 프로필 정보 수정"
-                  >
-                    <div className="w-10 h-10 rounded-full border-2 border-blue-600 overflow-hidden bg-white shadow-xs shrink-0 flex items-center justify-center">
+                <TransformGizmo
+                  transform={profileTransform}
+                  selected={selectedLayerId === 'layer_insta_profile'}
+                  name="인스타 프로필"
+                  canvasScale={canvasScale}
+                  onSelect={() => {
+                    setSelectedLayerId('layer_insta_profile');
+                    setActiveInspectorTab('template');
+                  }}
+                  onChange={(newT) => setProfileTransform(newT)}
+                >
+                  <div className="flex items-center gap-2.5 cursor-pointer select-none group">
+                    <div className="w-11 h-11 rounded-full border-2 border-blue-600 overflow-hidden bg-white shadow-xs shrink-0 flex items-center justify-center">
                       <img
                         src={instaConfig.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
                         alt="Avatar"
@@ -4306,26 +4380,22 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       />
                     </div>
                     <div className="flex flex-col text-left leading-tight">
-                      <span className="text-blue-600 font-bold text-sm tracking-tight group-hover:underline">
-                        {instaConfig.profileName || '사용자명'}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-blue-600 font-bold text-sm tracking-tight group-hover:underline">
+                          {instaConfig.profileName || '사용자명'}
+                        </span>
+                        {instaConfig.isVerified && (
+                          <svg className="w-3.5 h-3.5 text-blue-500 fill-current shrink-0" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          </svg>
+                        )}
+                      </div>
                       <span className="text-neutral-500 text-xs font-normal">
                         {instaConfig.profileHandle || '@handle'}
                       </span>
                     </div>
                   </div>
-
-                  {/* 2. 대제목 (제목을\n입력하세요) */}
-                  <div
-                    onClick={() => { setSelectedLayerId('layer_insta_title'); setActiveInspectorTab('template'); }}
-                    className="mt-3 text-left cursor-pointer group"
-                    title="클릭하여 대제목 수정"
-                  >
-                    <h2 className="text-neutral-950 font-black text-2xl tracking-tight leading-tight whitespace-pre-line group-hover:text-blue-600 transition-colors">
-                      {instaConfig.titleText || topTitleText || '제목을\n입력하세요'}
-                    </h2>
-                  </div>
-                </div>
+                </TransformGizmo>
               )}
 
               {/* 📜 [썰형] 상단 커뮤니티 게시글 헤더 (블라인드 / 네이트판 / 추천수) */}
@@ -4379,60 +4449,78 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   }}
                 >
                   <div
-                    className="flex flex-col items-center select-none text-center cursor-move transition-all"
+                    className={cn(
+                      "flex flex-col select-none cursor-move transition-all",
+                      layoutTemplateMode === 'instagram' ? "items-start text-left" : "items-center text-center"
+                    )}
                     style={{
                       fontFamily: titleFontFamily,
-                      backgroundColor: titleBgMode !== 'none' ? titleBgColor : 'transparent',
-                      paddingLeft: titleBgMode !== 'none' ? `${titlePaddingX}px` : 0,
-                      paddingRight: titleBgMode !== 'none' ? `${titlePaddingX}px` : 0,
-                      paddingTop: titleBgMode !== 'none' ? `${titlePaddingY}px` : 0,
-                      paddingBottom: titleBgMode !== 'none' ? `${titlePaddingY}px` : 0,
+                      backgroundColor: layoutTemplateMode === 'instagram' ? 'transparent' : (titleBgMode !== 'none' ? titleBgColor : 'transparent'),
+                      paddingLeft: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingX}px` : 0),
+                      paddingRight: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingX}px` : 0),
+                      paddingTop: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingY}px` : 0),
+                      paddingBottom: layoutTemplateMode === 'instagram' ? 0 : (titleBgMode !== 'none' ? `${titlePaddingY}px` : 0),
                       borderRadius: titleBgMode === 'pill' ? '9999px' : `${titleBorderRadius}px`,
-                      boxShadow: titleShadow ? `0 4px ${titleShadowBlur * 2}px ${titleShadowColor}` : 'none',
+                      boxShadow: layoutTemplateMode === 'instagram' ? 'none' : (titleShadow ? `0 4px ${titleShadowBlur * 2}px ${titleShadowColor}` : 'none'),
                     }}
                   >
-                    {/* 상단 뱃지 */}
-                    {hasTitleBadge && titleBadgeText && (
-                      <span
-                        className="text-white text-[8px] font-black px-1.5 py-0.2 uppercase tracking-wider mb-1 rounded-[1px] shadow-sm"
-                        style={{ backgroundColor: titleBadgeColor }}
-                      >
-                        {titleBadgeText}
-                      </span>
-                    )}
-
-                    {/* 1단 타이틀 */}
-                    {titleLine1 && (
+                    {layoutTemplateMode === 'instagram' ? (
                       <div
-                        className="font-black leading-tight tracking-tight whitespace-nowrap"
+                        className="font-black leading-tight tracking-tight text-left whitespace-pre-line text-neutral-950 dark:text-neutral-950"
                         style={{
-                          color: titleLine1Color,
-                          fontSize: `${Math.round(titleLine1SizePx * aspectScale)}px`,
-                          WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
-                          paintOrder: 'stroke fill',
-                          WebkitFontSmoothing: 'antialiased',
-                          textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
+                          fontSize: `${Math.round(24 * aspectScale)}px`,
+                          color: '#0a0a0a',
+                          textAlign: 'left',
                         }}
                       >
-                        {titleLine1}
+                        {topTitleText || '제목을\n입력하세요'}
                       </div>
-                    )}
+                    ) : (
+                      <>
+                        {/* 상단 뱃지 */}
+                        {hasTitleBadge && titleBadgeText && (
+                          <span
+                            className="text-white text-[8px] font-black px-1.5 py-0.2 uppercase tracking-wider mb-1 rounded-[1px] shadow-sm"
+                            style={{ backgroundColor: titleBadgeColor }}
+                          >
+                            {titleBadgeText}
+                          </span>
+                        )}
 
-                    {/* 2단 타이틀 (double 모드일 때만 표시) */}
-                    {titleLinesMode === 'double' && titleLine2 && (
-                      <div
-                        className="font-black leading-tight tracking-tight whitespace-nowrap mt-0.5"
-                        style={{
-                          color: titleLine2Color,
-                          fontSize: `${Math.round(titleLine2SizePx * aspectScale)}px`,
-                          WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
-                          paintOrder: 'stroke fill',
-                          WebkitFontSmoothing: 'antialiased',
-                          textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
-                        }}
-                      >
-                        {titleLine2}
-                      </div>
+                        {/* 1단 타이틀 */}
+                        {titleLine1 && (
+                          <div
+                            className="font-black leading-tight tracking-tight whitespace-nowrap"
+                            style={{
+                              color: titleLine1Color,
+                              fontSize: `${Math.round(titleLine1SizePx * aspectScale)}px`,
+                              WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
+                              paintOrder: 'stroke fill',
+                              WebkitFontSmoothing: 'antialiased',
+                              textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
+                            }}
+                          >
+                            {titleLine1}
+                          </div>
+                        )}
+
+                        {/* 2단 타이틀 (double 모드일 때만 표시) */}
+                        {titleLinesMode === 'double' && titleLine2 && (
+                          <div
+                            className="font-black leading-tight tracking-tight whitespace-nowrap mt-0.5"
+                            style={{
+                              color: titleLine2Color,
+                              fontSize: `${Math.round(titleLine2SizePx * aspectScale)}px`,
+                              WebkitTextStroke: titleStroke ? `${titleStrokeWidth}px ${titleStrokeColor}` : 'none',
+                              paintOrder: 'stroke fill',
+                              WebkitFontSmoothing: 'antialiased',
+                              textShadow: titleShadow ? `0 2px ${titleShadowBlur}px ${titleShadowColor}` : 'none',
+                            }}
+                          >
+                            {titleLine2}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </TransformGizmo>
@@ -4518,48 +4606,66 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   >
                     <div
                       className={cn(
-                        "font-black leading-snug tracking-tight inline-block whitespace-pre-line text-center transition-all cursor-move px-2",
-                        (subtitleConfig.useBox ?? subtitleUseBox) && "px-3 py-1.5"
+                        "inline-block whitespace-pre-line transition-all cursor-move",
+                        layoutTemplateMode === 'instagram'
+                          ? "text-left font-medium"
+                          : "font-black leading-snug tracking-tight text-center px-2",
+                        layoutTemplateMode !== 'instagram' && (subtitleConfig.useBox ?? subtitleUseBox) && "px-3 py-1.5"
                       )}
                       style={{
-                        backgroundColor: (subtitleConfig.useBox ?? subtitleUseBox)
-                          ? (subtitleConfig.boxColor || subtitleBoxColor)
-                          : 'transparent',
-                        borderRadius: (subtitleConfig.useBox ?? subtitleUseBox)
-                          ? `${subtitleBorderRadius}px`
-                          : 0,
-                        boxShadow: (((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (subtitleConfig.useBox ?? subtitleUseBox)
-                          ? '0 4px 14px rgba(0,0,0,0.7)'
-                          : 'none',
+                        backgroundColor: layoutTemplateMode === 'instagram'
+                          ? 'transparent'
+                          : ((subtitleConfig.useBox ?? subtitleUseBox)
+                              ? (subtitleConfig.boxColor || subtitleBoxColor)
+                              : 'transparent'),
+                        borderRadius: layoutTemplateMode === 'instagram'
+                          ? 0
+                          : ((subtitleConfig.useBox ?? subtitleUseBox) ? `${subtitleBorderRadius}px` : 0),
+                        boxShadow: layoutTemplateMode === 'instagram'
+                          ? 'none'
+                          : ((((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (subtitleConfig.useBox ?? subtitleUseBox)
+                              ? '0 4px 14px rgba(0,0,0,0.7)'
+                              : 'none'),
                       }}
                     >
                       <span
                         style={{
-                          fontSize: `${Math.round((subtitleConfig.fontSize || 18) * aspectScale)}px`,
-                          color: subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF',
+                          fontSize: layoutTemplateMode === 'instagram'
+                            ? `${Math.round(15 * aspectScale)}px`
+                            : `${Math.round((subtitleConfig.fontSize || 18) * aspectScale)}px`,
+                          color: layoutTemplateMode === 'instagram'
+                            ? '#262626'
+                            : (subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF'),
                           fontFamily: subtitleConfig.font || (subtitleConfig as any).fontFamily || 'Pretendard',
-                          fontWeight: subtitleConfig.isBold !== false ? 'bold' : 'normal',
+                          fontWeight: layoutTemplateMode === 'instagram' ? 500 : (subtitleConfig.isBold !== false ? 'bold' : 'normal'),
                           fontStyle: subtitleConfig.isItalic ? 'italic' : 'normal',
-                          WebkitTextStroke: (subtitleConfig.outlineSize && subtitleConfig.outlineSize > 0)
-                            ? `${subtitleConfig.outlineSize}px ${subtitleConfig.outlineColor || '#000000'}`
-                            : subtitleStrokeEnabled
-                              ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
-                              : 'none',
+                          WebkitTextStroke: layoutTemplateMode === 'instagram'
+                            ? 'none'
+                            : ((subtitleConfig.outlineSize && subtitleConfig.outlineSize > 0)
+                                ? `${subtitleConfig.outlineSize}px ${subtitleConfig.outlineColor || '#000000'}`
+                                : subtitleStrokeEnabled
+                                  ? `${subtitleStrokeWidth}px ${subtitleStrokeColor}`
+                                  : 'none'),
                           paintOrder: 'stroke fill',
                           WebkitFontSmoothing: 'antialiased',
-                          textShadow: (subtitleConfig.shadowSize && subtitleConfig.shadowSize > 0)
-                            ? `0 2px ${(subtitleConfig.shadowSize * 3)}px ${subtitleConfig.shadowColor || 'rgba(0,0,0,0.95)'}`
-                            : subtitleShadowEnabled
-                              ? `0 2px ${subtitleShadowBlur || 8}px ${subtitleShadowColor}`
-                              : 'none',
+                          textShadow: layoutTemplateMode === 'instagram'
+                            ? 'none'
+                            : ((subtitleConfig.shadowSize && subtitleConfig.shadowSize > 0)
+                                ? `0 2px ${(subtitleConfig.shadowSize * 3)}px ${subtitleConfig.shadowColor || 'rgba(0,0,0,0.95)'}`
+                                : subtitleShadowEnabled
+                                  ? `0 2px ${subtitleShadowBlur || 8}px ${subtitleShadowColor}`
+                                  : 'none'),
                         }}
                       >
-                        {renderHighlightedSubtitleText(
-                          formatWrappedText(displaySub?.data || '자막 텍스트', activeSplitLimit, subtitleConfig.maxLines || 2),
-                          displaySub?.styleProps?.highlights,
-                          subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF',
-                          selectedHighlightColor
-                        )}
+                        {layoutTemplateMode === 'instagram'
+                          ? (displaySub?.data || '자막을 입력하세요')
+                          : renderHighlightedSubtitleText(
+                              formatWrappedText(displaySub?.data || '자막 텍스트', activeSplitLimit, subtitleConfig.maxLines || 2),
+                              displaySub?.styleProps?.highlights,
+                              subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF',
+                              selectedHighlightColor
+                            )
+                        }
                       </span>
                     </div>
                   </TransformGizmo>
@@ -4619,61 +4725,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   title="클릭하여 하단 배경 바 설정"
                 />
               )}
-              {/* 📸 [인스타형 원형 100%] 미디어 창 바로 아래 좌측 정렬 자막 */}
-              {layoutTemplateMode === 'instagram' && (
-                <div
-                  onClick={() => { setSelectedLayerId('layer_subtitle'); setActiveInspectorTab('subtitleStyle'); }}
-                  className="absolute left-5 right-5 z-40 text-left cursor-pointer select-none"
-                  style={{
-                    top: instaConfig.holeRatio === '1:1' ? '73%' : '78%',
-                  }}
-                  title="클릭하여 자막 스타일 설정"
-                >
-                  <p className="text-neutral-800 font-medium text-sm leading-normal hover:text-blue-600 transition-colors">
-                    {activeSub?.data || (subtitleLayers.find(s => currentTimeMs >= s.startMs && currentTimeMs <= s.endMs)?.data) || instaConfig.subtitleText || '자막을 입력하세요'}
-                  </p>
-                </div>
-              )}
 
-              {/* 📸 [인스타형 원형 100%] 하단 가변 댓글 카드 (글자수 가변 + 아바타 + 닉네임 + 본문 + 좋아요) */}
-              {layoutTemplateMode === 'instagram' && instaConfig.showCommentCard && (
-                <div
-                  onClick={() => { setSelectedLayerId('layer_comment_card'); setActiveInspectorTab('template'); }}
-                  className="absolute left-5 z-40 text-left cursor-pointer select-none"
-                  style={{
-                    top: instaConfig.holeRatio === '1:1' ? '79%' : '84%',
-                    maxWidth: 'calc(100% - 40px)',
-                  }}
-                  title="클릭하여 댓글 카드 설정"
-                >
-                  <div className="inline-flex items-start gap-2.5 bg-neutral-100/95 dark:bg-neutral-800/95 border border-neutral-200 dark:border-neutral-700/80 rounded-2xl px-3.5 py-2 shadow-xs backdrop-blur-xs hover:border-blue-400 transition-all">
-                    <div className="w-7 h-7 rounded-full overflow-hidden bg-neutral-200 shrink-0 mt-0.5 border border-neutral-300">
-                      <img
-                        src={instaConfig.commentAvatarUrl || "https://api.dicebear.com/9.x/bottts/svg?seed=commenter_viral"}
-                        alt="Commenter"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex flex-col min-w-0 pr-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-neutral-900 dark:text-neutral-100 font-bold text-xs truncate">
-                          {instaConfig.commentAuthor || '익명_댓글러'}
-                        </span>
-                        <span className="text-neutral-400 text-[10px]">방금 전</span>
-                      </div>
-                      <p className="text-neutral-700 dark:text-neutral-300 text-xs mt-0.5 leading-snug break-words">
-                        {instaConfig.commentText || '진짜 이거 보고 소름 돋음 ㅋㅋㅋ 역대급 명장면이다'}
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5 text-[10.5px] text-neutral-500">
-                        <span className="flex items-center gap-1 font-semibold text-rose-500">
-                          ❤️ {instaConfig.commentLikes || '1.4천'}
-                        </span>
-                        <span className="hover:text-neutral-700 cursor-pointer">답글 달기</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* 📜 [썰형] 텍스트 모드 & 페페 / 이라스토야 밈 캐릭터 인터리빙 */}
               {layoutTemplateMode === 'ssul' && ssulConfig.memeType !== 'none' && (
@@ -4704,12 +4756,14 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 >
                   <div
                     className={cn(
-                      "rounded-lg p-2.5 shadow-xl backdrop-blur-md border transition-all cursor-move select-none min-w-[260px] max-w-[340px]",
-                      commentCard.theme === 'yt-dark'
-                        ? "bg-[#0f0f0f]/90 text-white border-white/10"
+                      "p-2.5 transition-all cursor-move select-none min-w-[200px] max-w-[340px] w-auto inline-block",
+                      (commentCard.theme === 'insta' || layoutTemplateMode === 'instagram')
+                        ? "bg-neutral-100/95 text-neutral-900 border border-neutral-200/90 shadow-xs rounded-2xl backdrop-blur-xs"
+                        : commentCard.theme === 'yt-dark'
+                        ? "bg-[#0f0f0f]/90 text-white border border-white/10 rounded-lg shadow-xl backdrop-blur-md"
                         : commentCard.theme === 'yt-light'
-                        ? "bg-white/95 text-neutral-900 border-black/10 shadow-lg"
-                        : "bg-gradient-to-r from-purple-900/90 to-pink-900/90 text-white border-pink-500/20"
+                        ? "bg-white/95 text-neutral-900 border border-black/10 shadow-lg rounded-lg"
+                        : "bg-gradient-to-r from-purple-900/90 to-pink-900/90 text-white border border-pink-500/20 rounded-lg shadow-xl"
                     )}
                   >
                     {/* 상단: 프로필 아바타 + 닉네임 + 작성시간 + 고정 뱃지 */}
@@ -4717,11 +4771,18 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       <div className="flex items-center gap-2 min-w-0">
                         <div
                           className={cn(
-                            "w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-amber-500 flex items-center justify-center text-[11px] font-black text-white shrink-0 overflow-hidden",
+                            "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0 overflow-hidden",
+                            (commentCard.theme === 'insta' || layoutTemplateMode === 'instagram')
+                              ? "bg-neutral-300 text-neutral-800"
+                              : "bg-gradient-to-tr from-primary to-amber-500",
                             commentCard.blurId && "blur-[2.5px]"
                           )}
                         >
-                          {commentCard.author.charAt(0)}
+                          {(commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? (
+                            <img src="https://api.dicebear.com/9.x/bottts/svg?seed=commenter" alt="Avatar" className="w-full h-full object-cover" />
+                          ) : (
+                            commentCard.author.charAt(0)
+                          )}
                         </div>
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5">
@@ -4752,18 +4813,31 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       {commentCard.text}
                     </p>
 
-                    {/* 하단 인터랙션 (좋아요 👍, 답글 💬) */}
+                    {/* 하단 인터랙션 (인스타형: ❤️ 좋아요 + 답글 달기, 유튜브형: 👍 / 👎) */}
                     <div className="flex items-center justify-between text-[10px] opacity-75 pt-1 border-t border-current/10">
                       <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1 font-semibold">
-                          👍 {commentCard.likes}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          👎
-                        </span>
-                        <span className="font-semibold cursor-pointer hover:underline">
-                          답글
-                        </span>
+                        {(commentCard.theme === 'insta' || layoutTemplateMode === 'instagram') ? (
+                          <>
+                            <span className="flex items-center gap-1 font-semibold text-rose-500">
+                              ❤️ {commentCard.likes}
+                            </span>
+                            <span className="font-semibold cursor-pointer hover:underline">
+                              답글 달기
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex items-center gap-1 font-semibold">
+                              👍 {commentCard.likes}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              👎
+                            </span>
+                            <span className="font-semibold cursor-pointer hover:underline">
+                              답글
+                            </span>
+                          </>
+                        )}
                       </div>
                       <span className="text-[9px] bg-primary/20 text-primary font-bold px-1.5 py-0.2 rounded-xs">
                         📌 베댓
@@ -5170,122 +5244,699 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
                 {/* 폼팩터별 세부 설정 */}
                 {layoutTemplateMode === 'instagram' && (
-                  <div className="p-2.5 rounded-[4px] border border-primary/20 bg-primary/5 space-y-2.5">
-                    <span className="text-[11px] font-bold text-primary flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      인스타형 (Hole-Punch) 원형 세부 설정
-                    </span>
-
-                    {/* 1. 프로필 정보 */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground">프로필 닉네임 & 핸들</label>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <input
-                          type="text"
-                          value={instaConfig.profileName}
-                          onChange={(e) => setInstaConfig(prev => ({ ...prev, profileName: e.target.value }))}
-                          placeholder="프로필명"
-                          className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
-                        />
-                        <input
-                          type="text"
-                          value={instaConfig.profileHandle}
-                          onChange={(e) => setInstaConfig(prev => ({ ...prev, profileHandle: e.target.value }))}
-                          placeholder="@아이디"
-                          className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
-                        />
-                      </div>
+                  <div className="p-3 rounded-[6px] border border-primary/25 bg-card space-y-3 shadow-xs">
+                    {/* 상단 타이틀 & 레이어 바로가기 */}
+                    <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                      <span className="text-[11.5px] font-bold text-foreground flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        인스타형 (Hole-Punch) 원형 세부 설정
+                      </span>
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        픽셀링 원형 100%
+                      </span>
                     </div>
 
-                    {/* 2. 대제목 텍스트 */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground">좌측 정렬 대제목 (줄바꿈 지원)</label>
-                      <textarea
-                        rows={2}
-                        value={instaConfig.titleText}
-                        onChange={(e) => setInstaConfig(prev => ({ ...prev, titleText: e.target.value }))}
-                        placeholder="제목을\n입력하세요"
-                        className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] resize-none font-bold"
-                      />
+                    {/* 빠른 레이어 포커스 바 */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLayerId('layer_insta_profile')}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
+                          selectedLayerId === 'layer_insta_profile'
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
+                        )}
+                      >
+                        프로필
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedLayerId('layer_top_title'); }}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
+                          selectedLayerId === 'layer_top_title'
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
+                        )}
+                      >
+                        대제목
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedLayerId('layer_video'); setActiveInspectorTab('videoCrop'); }}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
+                          selectedLayerId === 'layer_video'
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
+                        )}
+                      >
+                        구멍 윈도우
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedLayerId('layer_subtitle'); }}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
+                          selectedLayerId === 'layer_subtitle'
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
+                        )}
+                      >
+                        본문 자막
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedLayerId('layer_comment_card'); setActiveInspectorTab('commentCard'); }}
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
+                          selectedLayerId === 'layer_comment_card'
+                            ? "bg-primary text-primary-foreground border-primary font-bold"
+                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
+                        )}
+                      >
+                        댓글 카드
+                      </button>
                     </div>
 
-                    {/* 3. 배경색 & 미디어 구멍 비율/둥글기 */}
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground">카드 배경색</label>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <input
-                            type="color"
-                            value={rgbaToHex(instaConfig.bgColor, '#FFFFFF')}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, bgColor: e.target.value }))}
-                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer shrink-0"
-                          />
-                          <span className="text-[9px] font-mono">{instaConfig.bgColor}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground">구멍 비율</label>
-                        <select
-                          value={instaConfig.holeRatio}
-                          onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRatio: e.target.value as any }))}
-                          className="w-full mt-0.5 px-1.5 py-1 text-xs bg-background border border-border rounded-[2px] cursor-pointer"
+                    {/* 1. 프로필 정보 & 10대 추천 프리셋 */}
+                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
+                          📸 프로필 아이덴티티
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const randomIndex = Math.floor(Math.random() * INSTA_PROFILE_PRESETS.length);
+                            const chosen = INSTA_PROFILE_PRESETS[randomIndex];
+                            setInstaConfig(prev => ({
+                              ...prev,
+                              profileName: chosen.name,
+                              profileHandle: chosen.handle,
+                              profileAvatarUrl: chosen.avatar,
+                            }));
+                            toast({
+                              title: '🎲 프로필 프리셋 적용',
+                              description: `${chosen.name} (${chosen.handle}) 추천 프로필이 적용되었습니다.`,
+                            });
+                          }}
+                          className="px-1.5 py-0.5 text-[9.5px] font-semibold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors flex items-center gap-1"
                         >
-                          <option value="1:1">1:1 (정사각)</option>
-                          <option value="4:5">4:5 (세로)</option>
-                          <option value="custom">자유 비율</option>
+                          <Sparkles className="w-3 h-3" />
+                          🎲 랜덤 추천
+                        </button>
+                      </div>
+
+                      {/* 10선 드롭다운 셀렉트 */}
+                      <div>
+                        <select
+                          className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[3px] cursor-pointer"
+                          value=""
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const found = INSTA_PROFILE_PRESETS.find(p => p.name === val);
+                            if (found) {
+                              setInstaConfig(prev => ({
+                                ...prev,
+                                profileName: found.name,
+                                profileHandle: found.handle,
+                                profileAvatarUrl: found.avatar,
+                              }));
+                            }
+                          }}
+                        >
+                          <option value="" disabled>-- 10대 추천 프로필 프리셋 선택 --</option>
+                          {INSTA_PROFILE_PRESETS.map((preset) => (
+                            <option key={preset.name} value={preset.name}>
+                              {preset.name} ({preset.handle})
+                            </option>
+                          ))}
                         </select>
                       </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground">모서리 {instaConfig.holeRoundness}px</label>
-                        <input
-                          type="range"
-                          min={0}
-                          max={32}
-                          value={instaConfig.holeRoundness}
-                          onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRoundness: Number(e.target.value) }))}
-                          className="w-full mt-2 cursor-pointer accent-primary"
-                        />
+
+                      {/* 닉네임 / 핸들 수동 입력 */}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div>
+                          <span className="text-[9px] text-muted-foreground block mb-0.5">프로필 닉네임</span>
+                          <input
+                            type="text"
+                            value={instaConfig.profileName}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, profileName: e.target.value }))}
+                            placeholder="사용자명"
+                            className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-muted-foreground block mb-0.5">아이디 (@핸들)</span>
+                          <input
+                            type="text"
+                            value={instaConfig.profileHandle}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, profileHandle: e.target.value }))}
+                            placeholder="@아이디"
+                            className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 아바타 이미지 URL & 랜덤 교체 */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                          <span>아바타 이미지 URL</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const seeds = ['fox', 'cat', 'bear', 'star', 'spark', 'lion', 'panda', 'cyber', 'robot'];
+                              const seed = seeds[Math.floor(Math.random() * seeds.length)] + '_' + Math.floor(Math.random() * 100);
+                              setInstaConfig(prev => ({
+                                ...prev,
+                                profileAvatarUrl: `https://api.dicebear.com/9.x/lorelei/svg?seed=${seed}`
+                              }));
+                            }}
+                            className="text-primary hover:underline font-semibold"
+                          >
+                            아바타 무작위 변경
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <img
+                            src={instaConfig.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
+                            alt="Avatar"
+                            className="w-6 h-6 rounded-full border border-border object-cover shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={instaConfig.profileAvatarUrl}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, profileAvatarUrl: e.target.value }))}
+                            placeholder="https://..."
+                            className="w-full px-2 py-0.5 text-[11px] bg-background border border-border rounded-[2px] font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 인증 마크 & 프로필 크기/위치 */}
+                      <div className="pt-1.5 border-t border-border/50 grid grid-cols-3 gap-2 items-center">
+                        <label className="flex items-center gap-1.5 text-[10px] cursor-pointer col-span-1">
+                          <input
+                            type="checkbox"
+                            checked={instaConfig.isVerified}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, isVerified: e.target.checked }))}
+                            className="rounded accent-primary cursor-pointer"
+                          />
+                          <span>인증 뱃지 (✓)</span>
+                        </label>
+                        <div className="col-span-1">
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>Y 위치</span>
+                            <span>{Math.round(profileTransform.yPct)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={2}
+                            max={20}
+                            step={0.5}
+                            value={profileTransform.yPct}
+                            onChange={(e) => setProfileTransform(prev => ({ ...prev, yPct: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>크기 배율</span>
+                            <span>{profileTransform.scale.toFixed(2)}x</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0.7}
+                            max={1.4}
+                            step={0.05}
+                            value={profileTransform.scale}
+                            onChange={(e) => setProfileTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    {/* 4. 가변 댓글 카드 설정 */}
-                    <div className="pt-2 border-t border-border/40 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[10.5px] font-semibold">하단 가변 댓글 카드</span>
-                        <input
-                          type="checkbox"
-                          checked={instaConfig.showCommentCard}
-                          onChange={(e) => setInstaConfig(prev => ({ ...prev, showCommentCard: e.target.checked }))}
-                          className="rounded accent-primary cursor-pointer"
-                        />
+                    {/* 2. 대제목 텍스트 (SSOT: topTitleText) */}
+                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10.5px] font-bold text-foreground">
+                          ✍️ 좌측 정렬 대제목 (헤드라인)
+                        </label>
+                        <span className="text-[9px] text-muted-foreground">엔터로 줄바꿈</span>
                       </div>
-                      {instaConfig.showCommentCard && (
-                        <div className="space-y-1.5 pl-1 bg-background/60 p-2 rounded-[3px] border border-border/60">
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <input
-                              type="text"
-                              value={instaConfig.commentAuthor}
-                              onChange={(e) => setInstaConfig(prev => ({ ...prev, commentAuthor: e.target.value }))}
-                              placeholder="댓글 작성자"
-                              className="w-full px-2 py-0.5 text-xs bg-background border border-border rounded-[2px]"
-                            />
-                            <input
-                              type="text"
-                              value={instaConfig.commentLikes}
-                              onChange={(e) => setInstaConfig(prev => ({ ...prev, commentLikes: e.target.value }))}
-                              placeholder="좋아요 (예: 1.4천)"
-                              className="w-full px-2 py-0.5 text-xs bg-background border border-border rounded-[2px]"
-                            />
+                      <textarea
+                        rows={2}
+                        value={topTitleText}
+                        onChange={(e) => {
+                          setTopTitleText(e.target.value);
+                          setInstaConfig(prev => ({ ...prev, titleText: e.target.value }));
+                        }}
+                        placeholder="제목을\n입력하세요"
+                        className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] resize-none font-bold leading-tight"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>대제목 Y 위치</span>
+                            <span>{Math.round(titleTransform.yPct)}%</span>
                           </div>
                           <input
-                            type="text"
-                            value={instaConfig.commentText}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, commentText: e.target.value }))}
-                            placeholder="댓글 본문 (글자수에 맞춰 카드 폭 자동 조절)"
-                            className="w-full px-2 py-0.5 text-xs bg-background border border-border rounded-[2px]"
+                            type="range"
+                            min={8}
+                            max={26}
+                            step={0.5}
+                            value={titleTransform.yPct}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setTitleTransform(prev => ({ ...prev, yPct: val }));
+                              setTopTitleYPct(val);
+                            }}
+                            className="w-full cursor-pointer accent-primary h-1"
                           />
                         </div>
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>글자 크기</span>
+                            <span>{titleTransform.scale.toFixed(2)}x</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0.7}
+                            max={1.5}
+                            step={0.05}
+                            value={titleTransform.scale}
+                            onChange={(e) => setTitleTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. 중앙 구멍 윈도우 (Hole Window) 정밀 지오메트리 */}
+                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
+                          🕳️ 중앙 구멍 윈도우 (미디어 클리핑 영역)
+                        </label>
+                        <span className="text-[9px] text-muted-foreground font-mono">
+                          {instaConfig.holeWidthPct}% × {instaConfig.holeHeightPct}%
+                        </span>
+                      </div>
+
+                      {/* 비율 프리셋 원클릭 버튼 */}
+                      <div className="grid grid-cols-4 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setInstaConfig(prev => ({
+                            ...prev,
+                            holeRatio: '1:1',
+                            holeWidthPct: 92,
+                            holeHeightPct: 44,
+                            holeYPct: 44,
+                          }))}
+                          className={cn(
+                            "py-1 text-[9.5px] rounded border transition-colors font-medium",
+                            instaConfig.holeRatio === '1:1'
+                              ? "bg-primary text-primary-foreground border-primary font-bold"
+                              : "bg-background border-border hover:bg-accent"
+                          )}
+                        >
+                          1:1 정사각
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInstaConfig(prev => ({
+                            ...prev,
+                            holeRatio: '4:5',
+                            holeWidthPct: 92,
+                            holeHeightPct: 54,
+                            holeYPct: 46,
+                          }))}
+                          className={cn(
+                            "py-1 text-[9.5px] rounded border transition-colors font-medium",
+                            instaConfig.holeRatio === '4:5'
+                              ? "bg-primary text-primary-foreground border-primary font-bold"
+                              : "bg-background border-border hover:bg-accent"
+                          )}
+                        >
+                          4:5 세로형
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInstaConfig(prev => ({
+                            ...prev,
+                            holeRatio: 'custom',
+                            holeWidthPct: 94,
+                            holeHeightPct: 32,
+                            holeYPct: 42,
+                          }))}
+                          className={cn(
+                            "py-1 text-[9.5px] rounded border transition-colors font-medium",
+                            instaConfig.holeRatio === 'custom' && instaConfig.holeHeightPct <= 35
+                              ? "bg-primary text-primary-foreground border-primary font-bold"
+                              : "bg-background border-border hover:bg-accent"
+                          )}
+                        >
+                          16:9 와이드
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInstaConfig(prev => ({
+                            ...prev,
+                            holeRatio: 'custom',
+                            holeWidthPct: 96,
+                            holeHeightPct: 46,
+                            holeYPct: 44,
+                          }))}
+                          className={cn(
+                            "py-1 text-[9.5px] rounded border transition-colors font-medium",
+                            instaConfig.holeRatio === 'custom' && instaConfig.holeWidthPct === 96
+                              ? "bg-primary text-primary-foreground border-primary font-bold"
+                              : "bg-background border-border hover:bg-accent"
+                          )}
+                        >
+                          풀너비 (96%)
+                        </button>
+                      </div>
+
+                      {/* 슬라이더 4종: Y위치, 너비, 높이, 라운드 */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>중심 Y 위치</span>
+                            <span>{instaConfig.holeYPct}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={25}
+                            max={65}
+                            step={0.5}
+                            value={instaConfig.holeYPct}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeYPct: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>모서리 라운드</span>
+                            <span>{instaConfig.holeRoundness}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={36}
+                            value={instaConfig.holeRoundness}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRoundness: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>윈도우 너비</span>
+                            <span>{instaConfig.holeWidthPct}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={60}
+                            max={98}
+                            step={0.5}
+                            value={instaConfig.holeWidthPct}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRatio: 'custom', holeWidthPct: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>윈도우 높이</span>
+                            <span>{instaConfig.holeHeightPct}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={20}
+                            max={65}
+                            step={0.5}
+                            value={instaConfig.holeHeightPct}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRatio: 'custom', holeHeightPct: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 테두리 & 그림자 옵션 */}
+                      <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[10px]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">테두리:</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={4}
+                            value={instaConfig.holeBorderWidth}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeBorderWidth: Number(e.target.value) }))}
+                            className="w-10 px-1 py-0.5 text-xs bg-background border border-border rounded"
+                          />
+                          <input
+                            type="color"
+                            value={rgbaToHex(instaConfig.holeBorderColor, '#E5E7EB')}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeBorderColor: e.target.value }))}
+                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer shrink-0"
+                          />
+                        </div>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={instaConfig.holeShadow}
+                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeShadow: e.target.checked }))}
+                            className="rounded accent-primary cursor-pointer"
+                          />
+                          <span>입체 그림자</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* 4. 본문 자막 위치 (SSOT: displaySub / subTransform) */}
+                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10.5px] font-bold text-foreground">
+                          💬 본문 자막 위치 & 크기
+                        </label>
+                        <span className="text-[9px] text-muted-foreground">윈도우 하단 도킹</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>자막 Y 위치</span>
+                            <span>{Math.round(subTransform.yPct)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={55}
+                            max={85}
+                            step={0.5}
+                            value={subTransform.yPct}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setSubTransform(prev => ({ ...prev, yPct: val }));
+                              setSubtitleYPercent(val);
+                            }}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
+                            <span>자막 크기</span>
+                            <span>{subTransform.scale.toFixed(2)}x</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={0.7}
+                            max={1.4}
+                            step={0.05}
+                            value={subTransform.scale}
+                            onChange={(e) => setSubTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
+                            className="w-full cursor-pointer accent-primary h-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 5. 가변 댓글 카드 설정 (SSOT: hasCommentCard & commentCard) */}
+                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={hasCommentCard}
+                            onChange={(e) => setHasCommentCard(e.target.checked)}
+                            className="rounded accent-primary cursor-pointer"
+                          />
+                          <label className="text-[10.5px] font-bold text-foreground cursor-pointer" onClick={() => setHasCommentCard(!hasCommentCard)}>
+                            하단 가변 댓글 카드
+                          </label>
+                        </div>
+                        {hasCommentCard && (
+                          <span className="text-[9px] text-primary font-medium">
+                            글자수에 맞춤 가변
+                          </span>
+                        )}
+                      </div>
+
+                      {hasCommentCard && (
+                        <div className="space-y-2 pt-1 border-t border-border/40">
+                          {/* 작성자 & 좋아요 */}
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <div>
+                              <span className="text-[9px] text-muted-foreground block mb-0.5">댓글 작성자</span>
+                              <input
+                                type="text"
+                                value={commentCard.author}
+                                onChange={(e) => setCommentCard(prev => ({ ...prev, author: e.target.value }))}
+                                placeholder="작성자"
+                                className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                              />
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-muted-foreground block mb-0.5">좋아요 수</span>
+                              <input
+                                type="text"
+                                value={commentCard.likes}
+                                onChange={(e) => setCommentCard(prev => ({ ...prev, likes: e.target.value }))}
+                                placeholder="예: 1.4만"
+                                className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                              />
+                            </div>
+                          </div>
+
+                          {/* 댓글 본문 */}
+                          <div>
+                            <span className="text-[9px] text-muted-foreground block mb-0.5">댓글 본문</span>
+                            <input
+                              type="text"
+                              value={commentCard.text}
+                              onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value }))}
+                              placeholder="댓글 본문 내용"
+                              className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
+                            />
+                          </div>
+
+                          {/* 카드 테마 & 옵션 */}
+                          <div className="grid grid-cols-3 gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setCommentCard(prev => ({ ...prev, theme: 'insta' }))}
+                              className={cn(
+                                "py-0.5 text-[9.5px] rounded border transition-colors",
+                                commentCard.theme === 'insta'
+                                  ? "bg-primary text-primary-foreground border-primary font-bold"
+                                  : "bg-background border-border"
+                              )}
+                            >
+                              인스타 화이트
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCommentCard(prev => ({ ...prev, theme: 'yt-light' }))}
+                              className={cn(
+                                "py-0.5 text-[9.5px] rounded border transition-colors",
+                                commentCard.theme === 'yt-light'
+                                  ? "bg-primary text-primary-foreground border-primary font-bold"
+                                  : "bg-background border-border"
+                              )}
+                            >
+                              유튜브 라이트
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCommentCard(prev => ({ ...prev, theme: 'yt-dark' }))}
+                              className={cn(
+                                "py-0.5 text-[9.5px] rounded border transition-colors",
+                                commentCard.theme === 'yt-dark'
+                                  ? "bg-primary text-primary-foreground border-primary font-bold"
+                                  : "bg-background border-border"
+                              )}
+                            >
+                              유튜브 다크
+                            </button>
+                          </div>
+
+                          {/* 익명 & 블러 & Y위치 */}
+                          <div className="grid grid-cols-3 gap-2 items-center pt-1 border-t border-border/40 text-[10px]">
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={commentCard.anonymous}
+                                onChange={(e) => setCommentCard(prev => ({ ...prev, anonymous: e.target.checked }))}
+                                className="rounded accent-primary cursor-pointer"
+                              />
+                              <span>익명 표기</span>
+                            </label>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={commentCard.blurId}
+                                onChange={(e) => setCommentCard(prev => ({ ...prev, blurId: e.target.checked }))}
+                                className="rounded accent-primary cursor-pointer"
+                              />
+                              <span>아이디 블러</span>
+                            </label>
+                            <div>
+                              <div className="flex items-center justify-between text-[8.5px] text-muted-foreground">
+                                <span>Y 위치</span>
+                                <span>{Math.round(commentTransform.yPct)}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min={70}
+                                max={95}
+                                step={0.5}
+                                value={commentTransform.yPct}
+                                onChange={(e) => setCommentTransform(prev => ({ ...prev, yPct: Number(e.target.value) }))}
+                                className="w-full cursor-pointer accent-primary h-1"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       )}
+                    </div>
+
+                    {/* 6. 전체 카드 배경색 */}
+                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 flex items-center justify-between">
+                      <div>
+                        <label className="text-[10px] font-bold text-foreground block">전체 카드 배경색</label>
+                        <div className="flex items-center gap-1 mt-1">
+                          {[
+                            { name: '화이트', val: '#FFFFFF' },
+                            { name: '슬레이트', val: '#F8FAFC' },
+                            { name: '파스텔', val: '#FDF4FF' },
+                            { name: '다크', val: '#121212' },
+                          ].map((chip) => (
+                            <button
+                              key={chip.val}
+                              type="button"
+                              onClick={() => setInstaConfig(prev => ({ ...prev, bgColor: chip.val }))}
+                              className={cn(
+                                "px-1.5 py-0.5 text-[9px] rounded border transition-colors",
+                                instaConfig.bgColor.toUpperCase() === chip.val
+                                  ? "border-primary font-bold ring-1 ring-primary"
+                                  : "border-border text-muted-foreground"
+                              )}
+                            >
+                              {chip.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={rgbaToHex(instaConfig.bgColor, '#FFFFFF')}
+                          onChange={(e) => setInstaConfig(prev => ({ ...prev, bgColor: e.target.value }))}
+                          className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
+                        />
+                        <span className="text-[9.5px] font-mono">{instaConfig.bgColor}</span>
+                      </div>
                     </div>
                   </div>
                 )}
