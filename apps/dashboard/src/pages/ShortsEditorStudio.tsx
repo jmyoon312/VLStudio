@@ -4630,7 +4630,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   title="클릭하여 자막 스타일 설정"
                 >
                   <p className="text-neutral-800 font-medium text-sm leading-normal hover:text-blue-600 transition-colors">
-                    {subtitles.find(s => currentTimeMs >= s.startMs && currentTimeMs <= s.endMs)?.text || instaConfig.subtitleText || '자막을 입력하세요'}
+                    {activeSub?.data || (subtitleLayers.find(s => currentTimeMs >= s.startMs && currentTimeMs <= s.endMs)?.data) || instaConfig.subtitleText || '자막을 입력하세요'}
                   </p>
                 </div>
               )}
