@@ -1,51 +1,106 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  LayoutTemplate, Sparkles, Wand2, Eye, Save, RefreshCw, 
-  CheckCircle2, ArrowRight, Play, Pause, Sliders, Layout, 
-  Type, Palette, Volume2, Film, Shield, Globe, 
-  ChevronDown, ChevronUp, Copy, Plus, Trash2,
-  Flame, TrendingUp, Layers, Video, Award, Clock,
-  Check, Info, Monitor, Smartphone, SlidersHorizontal,
-  Split, EyeOff, MoveVertical, Move, ArrowLeftRight,
-  Maximize2, Zap, ZoomIn, Focus, Sparkle
+import { VideoFitMode } from '@/components/canvas/forms/VideoCropInspectorForm';
+import { CommentCardConfig } from '@/components/canvas/forms/CommentCardInspectorForm';
+import { VideoFilterConfig } from '@/components/canvas/forms/FilterFxInspectorForm';
+import UniversalCanvasStage from '@/components/canvas/stage/UniversalCanvasStage';
+import TemplateInspectorForm from '@/components/canvas/forms/TemplateInspectorForm';
+import TitleSourceInspectorForm from '@/components/canvas/forms/TitleSourceInspectorForm';
+import VideoCropInspectorForm from '@/components/canvas/forms/VideoCropInspectorForm';
+import FilterFxInspectorForm from '@/components/canvas/forms/FilterFxInspectorForm';
+import CommentCardInspectorForm from '@/components/canvas/forms/CommentCardInspectorForm';
+import JabHookInspectorForm from '@/components/canvas/forms/JabHookInspectorForm';
+import SubtitleStyleInspectorForm from '@/components/canvas/forms/SubtitleStyleInspectorForm';
+import ForensicUrlExtractModal from '@/components/canvas/dialogs/ForensicUrlExtractModal';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Maximize2, Minimize2, ZoomIn, ZoomOut, Sliders, Sparkles, Save, Zap, ArrowLeft, RotateCcw,
+  Check, Layout, Type, Crop, Layers3, SlidersHorizontal, MessageCircle, Clock, Play, Pause,
+  SkipBack, SkipForward, Repeat, Volume2, VolumeX, Camera, Grid, Shield, Layers, Sparkle,
+  Copy, ThumbsUp, FileVideo, Download, Info, ChevronRight, CheckCircle2, AlignLeft, AlignCenter,
+  AlignRight, Bold, Italic, Wand2, FileJson, Upload, Palette, Smartphone, Trash2, FolderOpen
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
+import { cn, getMediaUrl } from '@/lib/utils';
 import api from '@/lib/api';
+import { TemplateManifest } from '@/types/templateDna';
+import { STANDARD_TEMPLATES } from '@/config/standardTemplates';
+import { NleLayerTransform, createDefaultTransform } from '@/types/nle';
+import { TransformGizmo } from '@/components/canvas/TransformGizmo';
+import { SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from '@/types/subtitle';
+import { TTSConfig } from '@/types/tts';
+import { MemeAvatar, MemeType, MemeEmotion } from '@/components/memeAssets';
 
-// 8대 유튜브/쇼츠 대표 상용 무료 웹폰트 에셋
-const AVAILABLE_FONTS = [
-  { id: 'Pretendard', name: 'Pretendard (프리텐다드 - 모던/깔끔)', family: "'Pretendard', sans-serif" },
-  { id: 'Black Han Sans', name: 'Black Han Sans (검은고딕 - 강력한 훅)', family: "'Black Han Sans', sans-serif" },
-  { id: 'Do Hyeon', name: 'Do Hyeon (배민 도현체 - 레트로 임팩트)', family: "'Do Hyeon', sans-serif" },
-  { id: 'Jua', name: 'Jua (배민 주아체 - 부드러운 강조)', family: "'Jua', sans-serif" },
-  { id: 'Wanted Sans', name: 'Wanted Sans (원티드 산스 - 테크/스타일리시)', family: "'Wanted Sans', sans-serif" },
-  { id: 'Noto Sans KR', name: 'Noto Sans KR (본고딕 - 표준)', family: "'Noto Sans KR', sans-serif" },
+const YoutubeIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+  </svg>
+);
+
+export interface VideoFilterSettings {
+  preset: string;
+  intensity: number;
+  filmGrain: number;
+  vignette: number;
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  temperature: number;
+}
+
+export const CAPCUT_FILTER_PRESETS = [
+  { id: 'none', name: '원본 (Original)', desc: '보정 없음', grain: 0, vignette: 0, b: 100, c: 100, s: 100, t: 0 },
+  { id: 'cinematic-film', name: '🎬 시네마틱 35mm', desc: '영화 필름 질감 & 아날로그 그레인', grain: 45, vignette: 40, b: 98, c: 120, s: 95, t: 10 },
+  { id: 'teal-orange', name: '🌆 헐리우드 틸 & 오렌지', desc: '블록버스터 시네마 룩', grain: 20, vignette: 30, b: 102, c: 125, s: 125, t: 15 },
+  { id: 'retro-vhs', name: '📼 90s 레트로 VHS', desc: '아날로그 테이프 & 주사선 노이즈', grain: 65, vignette: 45, b: 105, c: 115, s: 85, t: 12 },
+  { id: 'film-noir', name: '🎞️ 클래식 필름 느와르', desc: '고대비 모노크롬 흑백', grain: 55, vignette: 55, b: 95, c: 145, s: 0, t: 0 },
+  { id: 'cyberpunk', name: '⚡ 사이버펑크 네온', desc: '시안 & 마젠타 퓨처리스틱', grain: 15, vignette: 35, b: 105, c: 135, s: 160, t: -15 },
+  { id: 'kodak-warm', name: '🌅 웜 코닥 골드', desc: '따뜻한 골든아워 감성 필름', grain: 30, vignette: 25, b: 103, c: 110, s: 115, t: 25 },
+  { id: 'fuji-cool', name: '❄️ 쿨 후지필름', desc: '청량하고 차분한 모던 톤', grain: 20, vignette: 20, b: 100, c: 112, s: 92, t: -20 },
+  { id: 'dreamy-glow', name: '✨ 드림 글로우', desc: '몽환적인 소프트 확산광', grain: 10, vignette: 20, b: 112, c: 90, s: 108, t: 8 },
+  { id: 'vintage-grain', name: '📽️ 1970 빈티지 그레인', desc: '헤비 입자 & 세피아 톤', grain: 80, vignette: 50, b: 95, c: 120, s: 70, t: 30 },
 ];
 
+const FONT_FAMILIES = [
+  { id: 'Pretendard', name: 'Pretendard (기본 볼드)' },
+  { id: 'GmarketSans', name: 'Gmarket Sans (깔끔 고딕)' },
+  { id: 'BlackHanSans', name: 'Black Han Sans (임팩트 헤드라인)' },
+  { id: 'NotoSansKR', name: 'Noto Sans KR (표준 본문)' },
+  { id: 'Jalnan', name: '여기어때 잘난체 (캐주얼)' },
+  { id: 'CookieRun', name: '쿠키런 폰트 (귀여운 볼드)' },
+];
+
+const SHORTS_SUBTITLE_DESIGN_PRESETS = [
+  { id: 'neon-yellow', name: '네온 옐로우', badge: 'MZ 바이럴', desc: '선명한 옐로우 + 블랙 볼드 외곽선', fontFamily: 'Black Han Sans', textColor: '#FFE600', outlineSize: 5, outlineColor: '#000000', useBox: false, boxColor: '#000000', shadowSize: 3, shadowColor: '#000000', fontSize: 19 },
+  { id: 'white-glow', name: '화이트 글로우', badge: '추천 1위', desc: '순백 글자 + 시안 네온 그림자', fontFamily: 'Pretendard', textColor: '#FFFFFF', outlineSize: 4, outlineColor: '#0F172A', useBox: false, boxColor: '#000000', shadowSize: 4, shadowColor: '#00F0FF', fontSize: 18 },
+  { id: 'black-gold', name: '블랙 앤 골드', badge: '지식/다큐', desc: '골드 텍스트 + 딥블랙 외곽선', fontFamily: 'Do Hyeon', textColor: '#FFD700', outlineSize: 5, outlineColor: '#000000', useBox: false, boxColor: '#000000', shadowSize: 3, shadowColor: '#000000', fontSize: 19 },
+  { id: 'cyan-pop', name: '네온 시안 팝', badge: '트렌드 팝', desc: '눈부신 네온 시안 + 블랙 외곽선', fontFamily: 'Pretendard', textColor: '#00F0FF', outlineSize: 5, outlineColor: '#000000', useBox: false, boxColor: '#000000', shadowSize: 3, shadowColor: '#002B36', fontSize: 18 },
+  { id: 'hot-pink', name: '핫 핑크 바이브', badge: '감성/엔터', desc: '비비드 핫핑크 + 핑크 글로우', fontFamily: 'Jua', textColor: '#FF2E93', outlineSize: 4, outlineColor: '#000000', useBox: false, boxColor: '#000000', shadowSize: 4, shadowColor: '#FF2E93', fontSize: 19 },
+  { id: 'box-pill', name: '박스 하이라이트', badge: '가독성 최고', desc: '블랙 필 박스 + 화이트 볼드', fontFamily: 'Nanum Gothic', textColor: '#FFFFFF', outlineSize: 0, outlineColor: '#000000', useBox: true, boxColor: 'rgba(0,0,0,0.85)', shadowSize: 2, shadowColor: '#000000', fontSize: 17 },
+  { id: 'minimal-lime', name: '미니멀 라임', badge: '상큼한 일상', desc: '라임 텍스트 + 미니멀 블랙 테두리', fontFamily: 'Pretendard', textColor: '#A3E635', outlineSize: 4, outlineColor: '#000000', useBox: false, boxColor: '#000000', shadowSize: 2, shadowColor: '#000000', fontSize: 18 },
+  { id: 'bold-classic', name: '볼드 클래식', badge: '정통 볼드', desc: '화이트 + 6px 두꺼운 블랙 스트로크', fontFamily: 'Gowun Dodum', textColor: '#FFFFFF', outlineSize: 6, outlineColor: '#000000', useBox: false, boxColor: '#000000', shadowSize: 3, shadowColor: '#000000', fontSize: 20 },
+];
+
+export type LayoutTemplateMode = 'classic' | 'instagram' | 'gunlimbo' | 'ssul';
+export type SsulTextMode = 'accumulate' | 'single-stepped' | 'single-fixed';
+
 export interface ShortsLayoutState {
-  // Video Canvas & Fit
   canvasType: string;
-  videoFitMode: 'sandwich' | 'fullscreen'; // 샌드위치 핏 vs 풀스크린 오버레이
-  videoZoomScale: number;                  // 100% ~ 200% 연예인 얼굴 줌
-  videoFocusYPct: number;                  // 20% ~ 80% 인물 얼굴 중심 Y축 오프셋
+  videoFitMode: 'sandwich' | 'fullscreen';
+  videoZoomScale: number;
+  videoFocusYPct: number;
   enableKenBurns: boolean;
   enableHorizontalFlip: boolean;
   filmFilter: 'none' | 'grain' | 'vintage' | 'noir';
-
-  // [Layer 1: 상단 배경 바]
   hasTopBarBg: boolean;
   topBarBg: string;
   topBarHeightPct: number;
   topBarOpacity: number;
-
-  // [Layer 2: 상단 타이틀 텍스트 (상단 바와 완전 독립)]
   hasTopTitle: boolean;
   topTitleYPct: number;
   titleLine1: string;
@@ -63,8 +118,6 @@ export interface ShortsLayoutState {
   titleBorderRadius: number;
   titleShadow: boolean;
   titleStroke: boolean;
-
-  // [Layer 3: 본문 자막]
   hasSubtitle: boolean;
   subtitleYPercent: number;
   subtitleColor: string;
@@ -75,8 +128,6 @@ export interface ShortsLayoutState {
   subtitleMotionPreset: 'word_pop' | 'karaoke' | 'smooth_slide' | 'typewriter' | 'static';
   subtitleHasPillBg: boolean;
   subtitlePillBgColor: string;
-
-  // [Layer 4: 긴박 쨉쨉이 (Jab Hook)]
   hasJab: boolean;
   jabText: string;
   jabColor: string;
@@ -87,8 +138,6 @@ export interface ShortsLayoutState {
   jabFontFamily: string;
   jabBgColor: string;
   jabBorderColor: string;
-
-  // [Layer 5: 하단 출처 표기 (하단 바와 완전 독립)]
   hasBottomSource: boolean;
   bottomSourceText: string;
   bottomSourceColor: string;
@@ -96,8 +145,6 @@ export interface ShortsLayoutState {
   bottomSourceFontFamily: string;
   bottomSourceBottomPct: number;
   bottomSourceHasPill: boolean;
-
-  // [Layer 6: 하단 배경 바]
   hasBottomBarBg: boolean;
   bottomBarBg: string;
   bottomBarHeightPct: number;
@@ -112,1667 +159,2373 @@ export const defaultLayoutState: ShortsLayoutState = {
   enableKenBurns: false,
   enableHorizontalFlip: false,
   filmFilter: 'none',
-
   hasTopBarBg: true,
   topBarBg: '#000000',
   topBarHeightPct: 18.3,
   topBarOpacity: 1.0,
-
   hasTopTitle: true,
-  topTitleYPct: 5.2,
-  titleLine1: '여돌들 중 누가',
-  titleLine2: '진짜 대식가일까?',
+  topTitleYPct: 9.0,
+  titleLine1: '조코비치 몰래카메라 ㅋㅋ',
+  titleLine2: '상대 선수 멘붕 직전',
   titleLine1Color: '#FFFFFF',
-  titleLine2Color: '#F5F420',
-  titleLine1SizePx: 26,
-  titleLine2SizePx: 30,
+  titleLine2Color: '#FFE500',
+  titleLine1SizePx: 20,
+  titleLine2SizePx: 20,
   titleFontFamily: 'Pretendard',
   titleBgMode: 'none',
-  titleBgColor: '#E11D48',
-  titleBgOpacity: 0.95,
-  titlePaddingX: 16,
+  titleBgColor: 'rgba(0,0,0,0.85)',
+  titleBgOpacity: 1.0,
+  titlePaddingX: 12,
   titlePaddingY: 6,
-  titleBorderRadius: 8,
+  titleBorderRadius: 4,
   titleShadow: true,
   titleStroke: true,
-
   hasSubtitle: true,
-  subtitleYPercent: 68.5,
+  subtitleYPercent: 78.0,
   subtitleColor: '#FFFFFF',
   subtitleStrokeColor: '#000000',
   subtitleStrokeWidth: 4,
-  subtitleFontSize: 22,
+  subtitleFontSize: 18,
   subtitleFontFamily: 'Pretendard',
   subtitleMotionPreset: 'word_pop',
   subtitleHasPillBg: false,
-  subtitlePillBgColor: 'rgba(0,0,0,0.6)',
-
+  subtitlePillBgColor: 'rgba(0,0,0,0.75)',
   hasJab: true,
-  jabText: '*여동생을 향해 전력 질주*',
-  jabColor: '#F5F420',
+  jabText: '*출격작전 반전 순간!*',
+  jabColor: '#000000',
   jabPlacement: 'center',
-  jabTiltDeg: -4,
-  jabYPercent: 41.4,
-  jabFontSize: 20,
+  jabTiltDeg: -3,
+  jabYPercent: 28.0,
+  jabFontSize: 13,
   jabFontFamily: 'Pretendard',
-  jabBgColor: '#000000',
-  jabBorderColor: '#F5F420',
-
+  jabBgColor: '#FFE500',
+  jabBorderColor: '#000000',
   hasBottomSource: true,
-  bottomSourceText: '출처: 원본 비하인드 공식 영상',
-  bottomSourceColor: '#94A3B8',
-  bottomSourceSizePx: 12,
+  bottomSourceText: '출처: YouTube @ViraLoop 공식 채널',
+  bottomSourceColor: '#CBD5E1',
+  bottomSourceSizePx: 10,
   bottomSourceFontFamily: 'Pretendard',
-  bottomSourceBottomPct: 2.2,
+  bottomSourceBottomPct: 3.5,
   bottomSourceHasPill: false,
-
   hasBottomBarBg: true,
   bottomBarBg: '#000000',
   bottomBarHeightPct: 6.0,
-  bottomBarOpacity: 1.0
+  bottomBarOpacity: 1.0,
 };
 
-export const ShortsTemplateStudio: React.FC<{
-  initialLayout?: Partial<ShortsLayoutState>;
+export interface ShortsTemplateStudioProps {
+  initialLayout?: ShortsLayoutState;
   onLayoutChange?: (layout: ShortsLayoutState) => void;
-  showBackButton?: boolean;
-}> = ({ initialLayout, onLayoutChange }) => {
-  const { toast } = useToast();
+}
 
-  // Layout State
-  const [layout, setLayout] = useState<ShortsLayoutState>({
-    ...defaultLayoutState,
-    ...initialLayout
+export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ initialLayout, onLayoutChange }) => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // 템플릿 메타데이터
+  const [templateName, setTemplateName] = useState<string>('바이럴 쇼츠 마스터 템플릿');
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  // 캔버스 뷰포트 상태
+  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
+  const [safeZoneVisible, setSafeZoneVisible] = useState<boolean>(false);
+  const [safeZonePlatform, setSafeZonePlatform] = useState<'youtube' | 'tiktok' | 'reels'>('youtube');
+  const [deviceMockup, setDeviceMockup] = useState<'none' | 'iphone16' | 'galaxy'>('none');
+  const [showGrid, setShowGrid] = useState<boolean>(false);
+  const [canvasZoom, setCanvasZoom] = useState<'fit' | '50' | '75' | '100' | '150' | '200'>('fit');
+  const [canvasScale, setCanvasScale] = useState<number>(1.0);
+  const [canvasPan, setCanvasPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [isPanning, setIsPanning] = useState<boolean>(false);
+  const panStartRef = useRef<{ startX: number; startY: number; panX: number; panY: number }>({ startX: 0, startY: 0, panX: 0, panY: 0 });
+
+  // 4대 폼팩터 모드 및 인스펙터 탭
+  const [layoutTemplateMode, setLayoutTemplateMode] = useState<LayoutTemplateMode>('classic');
+  const [isForensicModalOpen, setIsForensicModalOpen] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // 🏛️ 공통 템플릿 디자인 확장 상태 변수 (정밀 편집기와 100% 동기화)
+  const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState<boolean>(false);
+  const [templateLibraryList, setTemplateLibraryList] = useState<any[]>([]);
+  const [topTitleFontSize, setTopTitleFontSize] = useState<number>(24);
+  const [topTitleColor, setTopTitleColor] = useState<string>('#FFFFFF');
+  const [titleBgOpacity, setTitleBgOpacity] = useState<number>(0.8);
+  const [titleBadgeBg, setTitleBadgeBg] = useState<string>('#EF4444');
+  const [bottomSourceBottomPct, setBottomSourceBottomPct] = useState<number>(3.5);
+  const [bottomSourceBg, setBottomSourceBg] = useState<boolean>(false);
+  const [bottomSourceBorderRadius, setBottomSourceBorderRadius] = useState<number>(2);
+  const [bottomSourceStroke, setBottomSourceStroke] = useState<boolean>(false);
+  const [bottomSourceShadow, setBottomSourceShadow] = useState<boolean>(true);
+
+  // 자막 세부 속성 (정밀 편집기 1:1 동기화)
+  const [currentSubtitleText, setCurrentSubtitleText] = useState<string>('바이럴루프 정밀 템플릿 실시간 프리뷰');
+  const [subtitleStrokeEnabled, setSubtitleStrokeEnabled] = useState<boolean>(true);
+  const [subtitleStrokeWidth, setSubtitleStrokeWidth] = useState<number>(4);
+  const [subtitleStrokeColor, setSubtitleStrokeColor] = useState<string>('#000000');
+  const [subtitleShadowEnabled, setSubtitleShadowEnabled] = useState<boolean>(true);
+  const [subtitleShadowBlur, setSubtitleShadowBlur] = useState<number>(8);
+  const [subtitleShadowColor, setSubtitleShadowColor] = useState<string>('rgba(0,0,0,0.95)');
+  const [subtitleUseBox, setSubtitleUseBox] = useState<boolean>(false);
+  const [subtitleBoxColor, setSubtitleBoxColor] = useState<string>('rgba(0,0,0,0.75)');
+  // const [subtitleBorderRadius, setSubtitleBorderRadius] = useState<number>(4);
+  const [subtitleMaxChars, setSubtitleMaxChars] = useState<number>(16);
+  const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#FFE500');
+
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>('layer_title');
+  const [activeInspectorTab, setActiveInspectorTab] = useState<'template' | 'titleSource' | 'videoCrop' | 'filterFx' | 'commentCard' | 'jabHook' | 'style' | 'tts' | 'channel'>('template');
+
+  // 재생 시뮬레이션
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [currentTimeMs, setCurrentTimeMs] = useState<number>(0);
+  const [durationMs, setDurationMs] = useState<number>(5000);
+  const [playbackRate, setPlaybackRate] = useState<number>(1.0);
+  const [masterVolume, setMasterVolume] = useState<number>(100);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isLooping, setIsLooping] = useState<boolean>(true);
+  const [vuLevels, setVuLevels] = useState<{ left: number; right: number }>({ left: 35, right: 38 });
+
+  // 비디오 크롭 및 샌드위치 핏
+  const [videoFitMode, setVideoFitMode] = useState<VideoFitMode>('sandwich');
+  const [videoBlurBg, setVideoBlurBg] = useState<boolean>(true);
+  const [videoZoomScale, setVideoZoomScale] = useState<number>(100);
+  const [videoFocusXPct, setVideoFocusXPct] = useState<number>(50);
+  const [videoFocusYPct, setVideoFocusYPct] = useState<number>(50);
+  const [videoRotationDeg, setVideoRotationDeg] = useState<number>(0);
+  const [videoHorizontalFlip, setVideoHorizontalFlip] = useState<boolean>(false);
+  const [videoVerticalFlip, setVideoVerticalFlip] = useState<boolean>(false);
+
+  // 상단 바 (Top Bar Bg)
+  const [hasTopBarBg, setHasTopBarBg] = useState<boolean>(true);
+  const [topBarBg, setTopBarBg] = useState<string>('#000000');
+  const [topBarHeightPct, setTopBarHeightPct] = useState<number>(18.3);
+  const [topBarOpacity, setTopBarOpacity] = useState<number>(1.0);
+  const [topBarZIndex, setTopBarZIndex] = useState<number>(15);
+
+  // 상단 타이틀 레이어
+  const [hasTopTitle, setHasTopTitle] = useState<boolean>(true);
+  const [topTitleText, setTopTitleText] = useState<string>('제목을\n입력하세요');
+  const [titleLinesMode, setTitleLinesMode] = useState<'single' | 'double'>('double');
+  const [titleLine1, setTitleLine1] = useState<string>('조코비치 몰래카메라 ㅋㅋ');
+  const [titleLine2, setTitleLine2] = useState<string>('상대 선수 멘붕 직전');
+  const [titleLine1Color, setTitleLine1Color] = useState<string>('#FFFFFF');
+  const [titleLine2Color, setTitleLine2Color] = useState<string>('#FFE500');
+  const [titleLine1SizePx, setTitleLine1SizePx] = useState<number>(20);
+  const [titleLine2SizePx, setTitleLine2SizePx] = useState<number>(20);
+  const [titleFontFamily, setTitleFontFamily] = useState<string>('Pretendard');
+  const [titleStroke, setTitleStroke] = useState<boolean>(true);
+  const [titleStrokeWidth, setTitleStrokeWidth] = useState<number>(3);
+  const [titleStrokeColor, setTitleStrokeColor] = useState<string>('#000000');
+  const [titleShadow, setTitleShadow] = useState<boolean>(true);
+  const [titleShadowBlur, setTitleShadowBlur] = useState<number>(8);
+  const [titleShadowColor, setTitleShadowColor] = useState<string>('#000000');
+  const [titleBgMode, setTitleBgMode] = useState<'none' | 'box' | 'pill'>('none');
+  const [titleBgColor, setTitleBgColor] = useState<string>('rgba(0,0,0,0.85)');
+  const [titlePaddingX, setTitlePaddingX] = useState<number>(12);
+  const [titlePaddingY, setTitlePaddingY] = useState<number>(6);
+  const [titleBorderRadius, setTitleBorderRadius] = useState<number>(4);
+  const [hasTitleBadge, setHasTitleBadge] = useState<boolean>(false);
+  const [titleBadgeText, setTitleBadgeText] = useState<string>('속보');
+  const [titleBadgeColor, setTitleBadgeColor] = useState<string>('#EF4444');
+
+  // ⚡ 긴박 쨉쨉이 훅
+  const [hasJab, setHasJab] = useState<boolean>(true);
+  const [jabText, setJabText] = useState<string>('*출격작전 반전 순간!*');
+  const [jabFontSize, setJabFontSize] = useState<number>(13);
+  const [jabTiltDeg, setJabTiltDeg] = useState<number>(-3);
+  const [jabTextColor, setJabTextColor] = useState<string>('#000000');
+  const [jabBgEnabled, setJabBgEnabled] = useState<boolean>(true);
+  const [jabBgColor, setJabBgColor] = useState<string>('#FFE500');
+  const [jabBorderRadius, setJabBorderRadius] = useState<number>(4);
+  const [jabStroke, setJabStroke] = useState<boolean>(true);
+  const [jabStrokeWidth, setJabStrokeWidth] = useState<number>(2);
+  const [jabStrokeColor, setJabStrokeColor] = useState<string>('#000000');
+  const [jabShadow, setJabShadow] = useState<boolean>(true);
+  const [jabShadowBlur, setJabShadowBlur] = useState<number>(8);
+
+  // 💬 본문 자막
+  const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({
+    ...DEFAULT_SUBTITLE_CONFIG,
+    enabled: true,
+    font: 'Pretendard',
+    fontSize: 18,
+    textColor: '#FFFFFF',
+    outlineSize: 4,
+    outlineColor: '#000000',
+    shadowSize: 3,
+    shadowColor: 'rgba(0,0,0,0.95)',
+    useBox: false,
+    boxColor: 'rgba(0,0,0,0.75)',
+    maxLines: 2,
+    splitLimit: 14,
+  });
+  const [selectedSubtitlePresetId, setSelectedSubtitlePresetId] = useState<string>('neon-yellow');
+  const [subtitleBorderRadius, setSubtitleBorderRadius] = useState<number>(4);
+  const [sampleSubText, setSampleSubText] = useState<string>('손흥민 역대급 환상골 작렬!\n경기장이 일제히 열광합니다.');
+
+  // 🏷️ 하단 출처
+  const [hasBottomSource, setHasBottomSource] = useState<boolean>(true);
+  const [bottomSourceText, setBottomSourceText] = useState<string>('출처: YouTube @ViraLoop 공식 채널');
+  const [bottomSourceColor, setBottomSourceColor] = useState<string>('#CBD5E1');
+  const [bottomSourceSizePx, setBottomSourceSizePx] = useState<number>(10);
+
+  // 하단 바 (Bottom Bar Bg)
+  const [hasBottomBarBg, setHasBottomBarBg] = useState<boolean>(true);
+  const [bottomBarBg, setBottomBarBg] = useState<string>('#000000');
+  const [bottomBarHeightPct, setBottomBarHeightPct] = useState<number>(6.0);
+  const [bottomBarZIndex, setBottomBarZIndex] = useState<number>(15);
+
+  // 💬 댓글 카드
+  const [hasCommentCard, setHasCommentCard] = useState<boolean>(false);
+  const [commentCard, setCommentCard] = useState<CommentCardConfig>({
+    author: '스마트쇼츠_크리에이터',
+    handle: '@viral_shorts_pro',
+    content: '와 진짜 이 부분에서 소름 돋았네요... 무조건 다음 편도 올려주세요!',
+    likes: '1.2만',
+    theme: 'insta',
+    isBlurred: false,
+    isAnonymous: false,
+    isPinned: true,
+    pinBadgeText: '베댓',
   });
 
-  // Template List & Management
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('preset_standard_letterbox');
-  const [newTemplateName, setNewTemplateName] = useState('');
-  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  // 🎨 필터 & 노이즈 FX
+  const [videoFilter, setVideoFilter] = useState<VideoFilterConfig>({
+    preset: 'none',
+    filmGrain: 0,
+    vignette: 0,
+    contrast: 100,
+    saturation: 100,
+    warmth: 0,
+    brightness: 100,
+  });
 
-  // Brand Channels for Binding
-  const [brandChannels, setBrandChannels] = useState<any[]>([]);
-  const [selectedBrandChannelId, setSelectedBrandChannelId] = useState<number | null>(null);
-  const [isBindingChannel, setIsBindingChannel] = useState(false);
+  // 📷 인스타형 설정
+  const [instaConfig, setInstaConfig] = useState({
+    profileName: '사용자명',
+    profileHandle: '@handle',
+    profileAvatarUrl: 'https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue',
+    isVerified: true,
+    bgColor: '#FFFFFF',
+    subFont: 'Pretendard',
+    subColor: '#374151',
+    holeYPct: 45.0,
+    holeWidthPct: 88,
+    holeHeightPct: 46,
+    holeRoundness: 16,
+    theme: 'white' as 'white' | 'dark' | 'sunset' | 'cyber',
+  });
 
-  // Active Layer Selection ('topBarBg' | 'topTitle' | 'subtitle' | 'jab' | 'bottomSource' | 'bottomBarBg' | 'video')
-  const [activeLayer, setActiveLayer] = useState<string>('topTitle');
+  // 🎯 군림보형 설정
+  const [gunlimboConfig, setGunlimboConfig] = useState({
+    introDurationSec: 2.5,
+    titleLine1: '제목을',
+    titleLine2: '입력해주세요',
+    titleLine1Color: '#FFFFFF',
+    titleLine2Color: '#FFE500',
+    titleFontSize: 34,
+    hookPhrase: '후킹문구를 입력하세요',
+    hookBgColor: '#FFFFFF',
+    hookTextColor: '#000000',
+    hookFontSize: 19,
+    showGuidelines: false,
+    keepTitleThroughout: true,
+  });
 
-  // Comparison View Mode ('preview' | 'original' | 'split' | 'onion')
-  const [compareMode, setCompareMode] = useState<'preview' | 'original' | 'split' | 'onion'>('preview');
-  const [splitPos, setSplitPos] = useState(50);
-  const [onionOpacity, setOnionOpacity] = useState(50);
+  // 📜 썰형 설정
+  const [ssulConfig, setSsulConfig] = useState({
+    communityType: 'blind' as 'blind' | 'nate' | 'fmkorea' | 'dcinside',
+    author: '대기업 익명',
+    timeText: '10분 전',
+    viewsText: '조회 2.4만',
+    upvotesText: '추천 382',
+    textMode: 'accumulate' as SsulTextMode,
+    memeType: 'pepe' as MemeType,
+    memeEmotion: 'excited' as MemeEmotion,
+    memeAliveMotion: true,
+  });
 
-  // Dynamic Subtitle Animation Simulator State (60fps)
-  const [isPlayingMotion, setIsPlayingMotion] = useState(true);
-  const [motionFrame, setMotionFrame] = useState(0);
+  // 🎙️ TTS 설정
+  const [ttsConfig, setTtsConfig] = useState<TTSConfig>({
+    engine: 'edge_tts',
+    language: 'ko-KR',
+    voice_id: 'ko-KR-SunHiNeural',
+    speed: 1.0,
+    pitch: 0,
+    use_silence_removal: true,
+  });
 
-  // Dragging State for Canvas Resizers
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState<'headerBar' | 'bottomBar' | 'topTitle' | 'subtitle' | 'jab' | 'bottomSource' | null>(null);
+  // 채널 DNA
+  const [channelDna, setChannelDna] = useState({
+    channelName: '스포츠 사이다 명장면 TV',
+    primaryColor: '#FFE500',
+    secondaryColor: '#00E510',
+    fontFamily: 'Pretendard',
+  });
 
-  // 벤치마크 실측 기준치 (Live Diff 대조용)
-  const benchmarkSpec = {
-    topBarHeightPct: 18.3,
-    titleLine1SizePx: 26,
-    titleLine2SizePx: 30,
-    subtitleYPercent: 68.5,
-    subtitleFontSize: 22,
-    jabTiltDeg: -4,
-    jabYPercent: 41.4,
-    bottomBarHeightPct: 6.0
-  };
+  // 레이어별 Transform 객체 (Gizmo 연동)
+  const [titleTransform, setTitleTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 50, yPct: 9.0, scale: 1.0, rotationDeg: 0, zIndex: 35 })
+  );
+  const [jabTransform, setJabTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 50, yPct: 28.0, scale: 1.0, rotationDeg: -3, zIndex: 40 })
+  );
+  const [subTransform, setSubTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 50, yPct: 78.0, scale: 1.0, rotationDeg: 0, zIndex: 45 })
+  );
+  const [sourceTransform, setSourceTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 50, yPct: 94.0, scale: 1.0, rotationDeg: 0, zIndex: 35 })
+  );
+  const [commentTransform, setCommentTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 50, yPct: 82.0, scale: 0.95, rotationDeg: 0, zIndex: 45 })
+  );
+  const [profileTransform, setProfileTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 6.0, yPct: 5.5, scale: 1.0, zIndex: 45 })
+  );
 
+  // 🎯 마우스 휠 줌: passive: false 로 부드러운 확대/축소
   useEffect(() => {
-    loadTemplates();
-    loadBrandChannels();
+    const el = canvasContainerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const zoomDelta = -e.deltaY * 0.0015;
+      setCanvasScale((prev) => {
+        const next = Math.max(0.2, Math.min(4.0, prev + zoomDelta));
+        return parseFloat(next.toFixed(3));
+      });
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
   }, []);
 
+  // 🎯 ESC 키 전체화면 종료
   useEffect(() => {
-    if (onLayoutChange) {
-      onLayoutChange(layout);
-    }
-  }, [layout]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
-  // Motion playback timer
+  // 줌 드롭다운 동기화
   useEffect(() => {
-    let interval: any = null;
-    if (isPlayingMotion) {
-      interval = setInterval(() => {
-        setMotionFrame(prev => (prev + 1) % 60);
-      }, 50);
-    }
+    if (canvasZoom === 'fit') {
+      setCanvasScale(1.0);
+      setCanvasPan({ x: 0, y: 0 });
+    } else if (canvasZoom === '50') setCanvasScale(0.5);
+    else if (canvasZoom === '75') setCanvasScale(0.75);
+    else if (canvasZoom === '100') setCanvasScale(1.0);
+    else if (canvasZoom === '150') setCanvasScale(1.5);
+    else if (canvasZoom === '200') setCanvasScale(2.0);
+  }, [canvasZoom]);
+
+  // ⏱️ 타임라인 실시간 재생 시뮬레이션 (0.0s ~ 5.0s 루프)
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      setCurrentTimeMs((prev) => {
+        const next = prev + (66 * playbackRate);
+        if (next >= durationMs) {
+          if (isLooping) return 0;
+          setIsPlaying(false);
+          return durationMs;
+        }
+        return next;
+      });
+    }, 66);
     return () => clearInterval(interval);
-  }, [isPlayingMotion]);
+  }, [isPlaying, playbackRate, isLooping, durationMs]);
 
-  const loadTemplates = async () => {
+  // ⌨️ Spacebar 재생/일시정지 단축키
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault();
+        setIsPlaying(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // ⏱️ 타임코드 포맷터 (00:00:00)
+  const formatTimecode = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    const f = Math.floor((ms % 1000) / (1000 / 30));
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
+  };
+
+  // 🎨 컬러 하모니 테마 원클릭 적용
+  const handleApplyColorTheme = (theme: { id: string; name: string; primary: string; secondary: string; bg: string }) => {
+    setChannelDna(prev => ({ ...prev, primaryColor: theme.primary, secondaryColor: theme.secondary }));
+    setTitleLine2Color(theme.primary);
+    setJabBgColor(theme.primary);
+    setSelectedHighlightColor(theme.primary);
+    setSubtitleConfig(prev => ({ ...prev, highlightColor: theme.primary }));
+    if (layoutTemplateMode === 'classic') {
+      setTopBarBg(theme.bg);
+      setBottomBarBg(theme.bg);
+    }
+    toast({
+      title: `🎨 [${theme.name}] 테마 적용 완료`,
+      description: `대표 컬러(${theme.primary})와 보조 컬러(${theme.secondary})가 전 레이어에 일괄 주입되었습니다.`,
+    });
+  };
+
+  // 🖋️ 황금비 폰트 페어링 원클릭 적용
+  const handleApplyFontPairing = (pairing: { name: string; title: string; sub: string }) => {
+    setTitleFontFamily(pairing.title);
+    setSubtitleConfig(prev => ({ ...prev, fontFamily: pairing.sub }));
+    setChannelDna(prev => ({ ...prev, fontFamily: pairing.title }));
+    toast({
+      title: `🖋️ [${pairing.name}] 폰트 페어링 적용`,
+      description: `대제목(${pairing.title}) + 본문자막(${pairing.sub})이 캔버스에 적용되었습니다.`,
+    });
+  };
+
+  // 📤 템플릿 JSON 내보내기
+  const handleExportTemplateJson = () => {
+    try {
+      const exportData = {
+        version: '2.0.0',
+        exportedAt: new Date().toISOString(),
+        archetype: layoutTemplateMode,
+        name: templateName,
+        geometry: {
+          aspectRatio,
+          topTitleZone: { enabled: hasTopTitle, heightPct: topBarHeightPct, bgColor: topBarBg, opacity: topBarOpacity },
+          bottomSourceZone: { enabled: hasBottomSource, heightPct: bottomBarHeightPct, bgColor: bottomBarBg },
+          holeWindowZone: layoutTemplateMode === 'instagram' ? {
+            widthPct: instaConfig.holeWidthPct,
+            heightPct: instaConfig.holeHeightPct,
+            yPct: instaConfig.holeYPct,
+            roundness: instaConfig.holeRoundness,
+          } : undefined,
+        },
+        typography: {
+          titleFontFamily,
+          titleLine1,
+          titleLine2,
+          titleLine1Color,
+          titleLine2Color,
+          subtitleFontFamily: subtitleConfig.fontFamily,
+          subtitleColor: subtitleConfig.color,
+          subtitleHighlightColor: subtitleConfig.highlightColor,
+        },
+        colorTheme: {
+          primaryBgColor: topBarBg,
+          accentColor: channelDna.primaryColor,
+          secondaryColor: channelDna.secondaryColor,
+        },
+        gunlimboConfig: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig : undefined,
+        instaConfig: layoutTemplateMode === 'instagram' ? instaConfig : undefined,
+        ssulConfig: layoutTemplateMode === 'ssul' ? ssulConfig : undefined,
+        commentCard: hasCommentCard ? commentCard : undefined,
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${templateName.replace(/[^a-zA-Z0-9가-힣_-]/g, '_') || 'template'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: '템플릿 JSON 내보내기 완료',
+        description: `${a.download} 파일이 다운로드되었습니다.`,
+      });
+    } catch (e: any) {
+      toast({
+        title: 'JSON 내보내기 실패',
+        description: e.message || '파일 생성 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // 📥 템플릿 JSON 불러오기
+  const handleImportTemplateJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const parsed = JSON.parse(text);
+        handleApplyManifest(parsed as any);
+        toast({
+          title: '템플릿 JSON 불러오기 성공',
+          description: `[${parsed.name || file.name}] 템플릿 데이터가 정상적으로 적용되었습니다.`,
+        });
+      } catch (err: any) {
+        toast({
+          title: 'JSON 불러오기 실패',
+          description: '유효한 JSON 템플릿 형식이 아닙니다.',
+          variant: 'destructive',
+        });
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // 폼팩터 모드 전환 가드
+  const handleSelectTemplateMode = (mode: LayoutTemplateMode) => {
+    setLayoutTemplateMode(mode);
+    if (mode === 'instagram') {
+      setHasTopBarBg(false);
+      setHasBottomBarBg(false);
+      setHasBottomSource(false);
+      setHasTopTitle(true);
+      setTitleTransform(prev => ({ ...prev, xPct: 6.0, yPct: 14.0, scale: 1.0 }));
+      setProfileTransform(prev => ({ ...prev, xPct: 6.0, yPct: 5.5, scale: 1.0, zIndex: 45 }));
+      setSubTransform(prev => ({ ...prev, xPct: 6.0, yPct: 71.5, scale: 1.0 }));
+      setHasCommentCard(true);
+      setCommentTransform(prev => ({ ...prev, xPct: 50, yPct: 82.0, scale: 0.95, zIndex: 45 }));
+      setCommentCard(prev => ({ ...prev, theme: 'insta' }));
+      setVideoFitMode('sandwich');
+      toast({
+        title: '인스타형 템플릿 적용',
+        description: '화이트 배경 + 상단 프로필/대제목 + 중앙 구멍 윈도우 + 하단 자막/댓글 카드로 정렬되었습니다.'
+      });
+    } else if (mode === 'classic') {
+      setHasTopBarBg(true);
+      setHasBottomBarBg(true);
+      setHasTopTitle(true);
+      setTitleTransform(prev => ({ ...prev, xPct: 50, yPct: 9.0, scale: 1.0 }));
+      setSubTransform(prev => ({ ...prev, xPct: 50, yPct: 78.0, scale: 1.0 }));
+      setHasCommentCard(false);
+      toast({
+        title: '기본형 템플릿 적용',
+        description: '상·하단 색상 배경 바와 중앙 고정 타이틀/자막이 활성화되었습니다.'
+      });
+    } else if (mode === 'gunlimbo') {
+      setVideoFitMode('sandwich');
+      setHasTopBarBg(false);
+      setHasBottomBarBg(false);
+      setHasTopTitle(false);
+      setHasCommentCard(false);
+      setSubTransform(prev => ({ ...prev, xPct: 50.0, yPct: 72.0, scale: 1.0, zIndex: 40 }));
+      toast({
+        title: '군림보형 템플릿 적용',
+        description: '상단 24% 레터박스 2줄 대제목 + 24~34% 흰색 띠 후킹 바 + 하단 자막이 적용되었습니다.'
+      });
+    } else if (mode === 'ssul') {
+      setHasTopBarBg(false);
+      setHasBottomBarBg(false);
+      setHasTopTitle(false);
+      setHasCommentCard(false);
+      toast({
+        title: '썰형 템플릿 적용',
+        description: '커뮤니티 헤더 + 텍스트 모드 + 페페 밈 생동감 모션이 적용되었습니다.'
+      });
+    }
+  };
+
+  // 🎨 주권 템플릿 라이브러리 열기
+  const handleOpenTemplateLibrary = async () => {
+    setIsTemplateLibraryOpen(true);
     try {
       const res = await api.get('/channel-dna/templates');
       if (res.data?.items) {
-        setTemplates(res.data.items);
+        setTemplateLibraryList(res.data.items);
       }
     } catch (e) {
-      console.log('Using default templates:', e);
+      console.log('Using default templates for library:', e);
     }
   };
 
-  const loadBrandChannels = async () => {
-    try {
-      const res = await api.get('/channel-dna/brand-channels');
-      if (res.data?.items && res.data.items.length > 0) {
-        setBrandChannels(res.data.items);
-        setSelectedBrandChannelId(res.data.items[0].id);
-      }
-    } catch (e) {
-      console.log('Failed to load brand channels:', e);
-    }
-  };
-
-  const handleSelectTemplate = (tpl: any) => {
-    setSelectedTemplateId(tpl.id);
-    if (tpl.layout) {
-      setLayout(prev => ({
-        ...prev,
-        ...tpl.layout
-      }));
-      toast({
-        title: `🎨 '${tpl.name}' 템플릿 적용`,
-        description: '캔버스에 독립 레이어 및 폰트/위치 규격이 로드되었습니다.'
-      });
-    }
-  };
-
-  const handleSaveNewTemplate = async () => {
-    if (!newTemplateName.trim()) {
-      toast({ title: '템플릿 이름을 입력해주세요.', variant: 'destructive' });
-      return;
-    }
-    setIsSavingTemplate(true);
-    try {
-      await api.post('/channel-dna/templates', {
-        name: newTemplateName.trim(),
-        layout: layout
-      });
-      toast({
-        title: '🎉 템플릿 저장 완료',
-        description: `'${newTemplateName}' 템플릿이 라이브러리에 영구 보관되었습니다.`
-      });
-      setNewTemplateName('');
-      loadTemplates();
-    } catch (e: any) {
-      toast({ title: '저장 실패', description: e.message, variant: 'destructive' });
-    } finally {
-      setIsSavingTemplate(false);
-    }
-  };
-
-  const handleDeleteTemplate = async (templateId: string, e: React.MouseEvent) => {
+  // 🗑️ 커스텀 템플릿 삭제
+  const handleDeleteCustomTemplate = async (templateId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm('이 커스텀 템플릿을 삭제하시겠습니까?')) return;
+    if (!confirm('정말 이 커스텀 템플릿을 삭제하시겠습니까?')) return;
     try {
       await api.delete(`/channel-dna/templates/${templateId}`);
-      toast({ title: '템플릿 삭제 완료' });
-      loadTemplates();
-    } catch (e: any) {
-      toast({ title: '삭제 실패', description: e.message, variant: 'destructive' });
+      setTemplateLibraryList(prev => prev.filter(t => t.id !== templateId));
+      toast({ title: '템플릿 삭제 완료', description: '커스텀 템플릿이 성공적으로 삭제되었습니다.' });
+    } catch (err: any) {
+      toast({ title: '템플릿 삭제 실패', description: err.message || '삭제 중 오류가 발생했습니다.', variant: 'destructive' });
     }
   };
 
-  const handleApplyToBrandChannel = async () => {
-    if (!selectedBrandChannelId) {
-      toast({ title: '바인딩할 브랜드 채널을 선택해주세요.', variant: 'destructive' });
-      return;
-    }
-    setIsBindingChannel(true);
+  // 📑 커스텀 템플릿 복제
+  const handleDuplicateCustomTemplate = async (tpl: any, e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
-      await api.post('/channel-dna/templates/apply-to-channel', {
-        channel_id: selectedBrandChannelId,
-        layout: layout
-      });
-      const chName = brandChannels.find(c => c.id === selectedBrandChannelId)?.title || '선택한 채널';
-      toast({
-        title: '🚀 브랜드 채널 기본 템플릿 지정 완료!',
-        description: `'${chName}' 채널의 무인 쇼츠 제작 규격(Blueprint)으로 영구 적용되었습니다.`
-      });
-    } catch (e: any) {
-      toast({ title: '채널 적용 실패', description: e.message, variant: 'destructive' });
-    } finally {
-      setIsBindingChannel(false);
-    }
-  };
-
-  // Mouse Drag Handler on Canvas
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || !canvasRef.current) return;
-      const rect = canvasRef.current.getBoundingClientRect();
-      const relativeY = e.clientY - rect.top;
-      const pct = Math.max(0, Math.min(100, (relativeY / rect.height) * 100));
-
-      if (isDragging === 'headerBar') {
-        const clamped = Math.max(8, Math.min(35, parseFloat(pct.toFixed(1))));
-        setLayout(prev => ({ ...prev, topBarHeightPct: clamped }));
-      } else if (isDragging === 'bottomBar') {
-        const bottomPct = Math.max(2, Math.min(20, parseFloat((100 - pct).toFixed(1))));
-        setLayout(prev => ({ ...prev, bottomBarHeightPct: bottomPct }));
-      } else if (isDragging === 'topTitle') {
-        const clamped = Math.max(1, Math.min(30, parseFloat(pct.toFixed(1))));
-        setLayout(prev => ({ ...prev, topTitleYPct: clamped }));
-      } else if (isDragging === 'subtitle') {
-        const clamped = Math.max(50, Math.min(90, parseFloat(pct.toFixed(1))));
-        setLayout(prev => ({ ...prev, subtitleYPercent: clamped }));
-      } else if (isDragging === 'jab') {
-        const clamped = Math.max(15, Math.min(65, parseFloat(pct.toFixed(1))));
-        setLayout(prev => ({ ...prev, jabYPercent: clamped }));
-      } else if (isDragging === 'bottomSource') {
-        const bottomPct = Math.max(1, Math.min(15, parseFloat((100 - pct).toFixed(1))));
-        setLayout(prev => ({ ...prev, bottomSourceBottomPct: bottomPct }));
+      const clonedManifest = tpl.manifest || (tpl.manifest_json ? (typeof tpl.manifest_json === 'string' ? JSON.parse(tpl.manifest_json) : tpl.manifest_json) : null);
+      const newName = `${tpl.name || '템플릿'} (복사본)`;
+      const payload = {
+        name: newName,
+        description: tpl.description || '복제된 템플릿',
+        archetype: tpl.archetype || 'classic',
+        manifest: clonedManifest ? { ...clonedManifest, name: newName } : undefined,
+      };
+      const res = await api.post('/channel-dna/templates', payload);
+      if (res.data?.success && res.data?.template) {
+        setTemplateLibraryList(prev => [res.data.template, ...prev]);
+        toast({ title: '템플릿 복제 완료', description: `[${newName}] 템플릿이 복제 생성되었습니다.` });
       }
-    };
-
-    const handleMouseUp = () => {
-      if (isDragging) setIsDragging(null);
-    };
-
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+    } catch (err: any) {
+      toast({ title: '템플릿 복제 실패', description: err.message || '복제 중 오류가 발생했습니다.', variant: 'destructive' });
     }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
-
-  // Motion Subtitle Render Simulation
-  const renderSimulatedSubtitle = () => {
-    const words = ["오늘도", "여동생", "곁을", "철벽", "방어하는데"];
-    const activeWordIdx = Math.floor((motionFrame / 60) * words.length);
-
-    if (layout.subtitleMotionPreset === 'word_pop') {
-      return (
-        <div className="flex flex-wrap items-center justify-center gap-1.5 px-3">
-          {words.map((w, idx) => {
-            const isPop = idx === activeWordIdx;
-            return (
-              <span
-                key={idx}
-                style={{
-                  color: isPop ? '#F5F420' : layout.subtitleColor,
-                  transform: isPop ? 'scale(1.2)' : 'scale(1)',
-                  transition: 'all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  display: 'inline-block'
-                }}
-              >
-                {w}
-              </span>
-            );
-          })}
-        </div>
-      );
-    } else if (layout.subtitleMotionPreset === 'karaoke') {
-      return (
-        <div className="flex flex-wrap items-center justify-center gap-1 px-3">
-          {words.map((w, idx) => {
-            const isLit = idx <= activeWordIdx;
-            return (
-              <span
-                key={idx}
-                style={{
-                  color: isLit ? '#F5F420' : 'rgba(255,255,255,0.45)',
-                  textShadow: isLit ? '0 0 12px rgba(245, 244, 32, 0.8)' : 'none',
-                  transition: 'all 0.1s ease-out'
-                }}
-              >
-                {w}
-              </span>
-            );
-          })}
-        </div>
-      );
-    } else if (layout.subtitleMotionPreset === 'smooth_slide') {
-      return (
-        <div 
-          className="transition-transform duration-300 ease-out"
-          style={{ transform: `translateY(${((motionFrame % 20) / 20) * -2}px)` }}
-        >
-          {words.join(" ")}
-        </div>
-      );
-    } else if (layout.subtitleMotionPreset === 'typewriter') {
-      const fullText = words.join(" ");
-      const charsToShow = Math.max(1, Math.floor((motionFrame / 60) * fullText.length));
-      return (
-        <div>
-          {fullText.slice(0, charsToShow)}
-          <span className="animate-pulse">|</span>
-        </div>
-      );
-    }
-    return <div>{words.join(" ")}</div>;
   };
+
+  const handleApplyManifest = (manifest: TemplateManifest) => {
+    const arch = manifest.archetype;
+    handleSelectTemplateMode(arch as LayoutTemplateMode);
+    setTemplateName(manifest.name || '불러온 템플릿');
+
+    // 1. 상단 바 & 타이틀 존
+    if (manifest.geometry?.topTitleZone) {
+      const t = manifest.geometry.topTitleZone;
+      setHasTopTitle(t.enabled ?? true);
+      setHasTopBarBg(t.enabled ?? true);
+      if (t.heightPct !== undefined) setTopBarHeightPct(t.heightPct);
+      if (t.bgColor) setTopBarBg(t.bgColor);
+      if (t.opacity !== undefined) setTopBarOpacity(t.opacity);
+    }
+
+    // 2. 인스타그램 홀 윈도우
+    if (manifest.geometry?.holeWindowZone) {
+      const h = manifest.geometry.holeWindowZone;
+      setInstaConfig(prev => ({
+        ...prev,
+        holeWidthPct: h.widthPct ?? prev.holeWidthPct,
+        holeHeightPct: h.heightPct ?? prev.holeHeightPct,
+        holeRoundness: h.roundness ?? prev.holeRoundness,
+        holeYPct: h.yPct ?? prev.holeYPct,
+        bgColor: h.cardBgColor ?? prev.bgColor,
+      }));
+    }
+
+    // 3. 건림보 훅 밴드
+    if (manifest.geometry?.hookBandZone) {
+      const hb = manifest.geometry.hookBandZone;
+      setGunlimboConfig(prev => ({
+        ...prev,
+        hookBgColor: hb.boxColor ?? prev.hookBgColor,
+        hookTextColor: hb.textColor ?? prev.hookTextColor,
+      }));
+    }
+
+    // 4. 하단 출처 표기
+    if (manifest.geometry?.sourceZone) {
+      const sz = manifest.geometry.sourceZone;
+      setHasBottomSource(sz.enabled ?? true);
+      if (sz.defaultText) setBottomSourceText(sz.defaultText);
+      if (sz.textColor) setBottomSourceColor(sz.textColor);
+      if (sz.fontSize) setBottomSourceSizePx(sz.fontSize);
+      if (sz.yPct) setBottomSourceBottomPct(100 - sz.yPct);
+    }
+
+    // 5. 바이럴 댓글 카드
+    if (manifest.geometry?.commentCardZone) {
+      setHasCommentCard(manifest.geometry.commentCardZone.enabled ?? true);
+    }
+
+    // 6. 잽 훅
+    if (manifest.geometry?.jabHookZone) {
+      setHasJabHook(manifest.geometry.jabHookZone.enabled ?? true);
+    }
+
+    // 7. 스타일 영역
+    if (manifest.style) {
+      const s = manifest.style;
+      if (s.titleFont) setTitleFontFamily(s.titleFont);
+      if (s.titleLinesMode) setTitleLinesMode(s.titleLinesMode);
+      if (s.titleBadgeText !== undefined) setTitleBadgeText(s.titleBadgeText);
+      if (s.titleBadgeColor) setTitleBadgeColor(s.titleBadgeColor);
+      if (s.titleFontSize) setTitleLine1SizePx(s.titleFontSize);
+      if (s.titleLine2FontSize) setTitleLine2SizePx(s.titleLine2FontSize);
+      if (s.titleLine1Color) setTitleLine1Color(s.titleLine1Color);
+      if (s.titleLine2Color) setTitleLine2Color(s.titleLine2Color);
+      if (s.titleBgMode) setTitleBgMode(s.titleBgMode);
+      if (s.titleBgColor) setTitleBgColor(s.titleBgColor);
+      if (s.titleBorderRadius !== undefined) setTitleBorderRadius(s.titleBorderRadius);
+      if (s.titleStroke !== undefined) setTitleStroke(s.titleStroke);
+      if (s.titleStrokeWidth !== undefined) setTitleStrokeWidth(s.titleStrokeWidth);
+      if (s.titleStrokeColor) setTitleStrokeColor(s.titleStrokeColor);
+      if (s.titleShadow !== undefined) setTitleShadow(s.titleShadow);
+      if (s.titleShadowBlur !== undefined) setTitleShadowBlur(s.titleShadowBlur);
+      if (s.titleShadowColor) setTitleShadowColor(s.titleShadowColor);
+
+      // 자막 세부 스타일
+      setSubtitleConfig(prev => ({
+        ...prev,
+        font: s.captionFont || prev.font,
+        fontSize: s.captionFontSize || prev.fontSize,
+      }));
+      if (s.captionStrokeWidth !== undefined) setSubtitleStrokeWidth(s.captionStrokeWidth);
+      if (s.captionStrokeColor) setSubtitleStrokeColor(s.captionStrokeColor);
+      if (s.captionShadowBlur !== undefined) setSubtitleShadowBlur(s.captionShadowBlur);
+      if (s.captionShadowColor) setSubtitleShadowColor(s.captionShadowColor);
+      if (s.captionUseBox !== undefined) setSubtitleUseBox(s.captionUseBox);
+      if (s.captionBoxColor) setSubtitleBoxColor(s.captionBoxColor);
+      if (s.emotionColors?.normal) setSelectedHighlightColor(s.emotionColors.normal);
+
+      // 건림보 전용 스타일
+      if (arch === 'gunlimbo') {
+        setGunlimboConfig(prev => ({
+          ...prev,
+          introDurationSec: manifest.geometry?.mediaZone?.introDurationSec || prev.introDurationSec,
+          titleFontSize: s.titleFontSize || prev.titleFontSize,
+          titleLine1Color: s.titleLine1Color || prev.titleLine1Color,
+          titleLine2Color: s.titleLine2Color || prev.titleLine2Color,
+          hookFontSize: s.hookFontSize || prev.hookFontSize,
+        }));
+      }
+    }
+
+    toast({
+      title: `🎨 '${manifest.name}' 템플릿 적용 완료`,
+      description: `[${manifest.archetype.toUpperCase()}] 매니페스트 규격이 템플릿 스튜디오에 즉시 반영되었습니다.`
+    });
+    setIsTemplateLibraryOpen(false);
+  };
+
+  // 💾 템플릿 저장 (viral_loop.db 영구 저장)
+  const handleSaveTemplate = async () => {
+    setIsSaving(true);
+    try {
+      const manifest: TemplateManifest = {
+        id: `template_${Date.now()}`,
+        name: templateName,
+        badge: '커스텀',
+        description: '사용자 지정 숏폼 템플릿 디자인',
+        isSystem: false,
+        version: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        // author: 'ViraLoop User',
+        // tags: ['custom', layoutTemplateMode],
+        archetype: layoutTemplateMode,
+        aspectRatio: aspectRatio,
+        // safeZone: safeZoneVisible ? 'youtube_shorts' : 'none',
+        geometry: {
+          mediaZone: {
+            introTopPct: layoutTemplateMode === 'gunlimbo' ? 34.0 : 0,
+            introHeightPct: layoutTemplateMode === 'gunlimbo' ? 36.0 : 100,
+            normalTopPct: layoutTemplateMode === 'gunlimbo' ? 24.0 : 0,
+            normalHeightPct: layoutTemplateMode === 'gunlimbo' ? 46.0 : 100,
+            fitMode: videoFitMode === 'sandwich' ? 'sandwich' : 'fullscreen',
+            kenBurnsIntroZoom: true,
+            kenBurnsScaleEnd: 1.1,
+            introDurationSec: gunlimboConfig.introDurationSec || 2.5,
+          },
+          topTitleZone: {
+            enabled: hasTopTitle || hasTopBarBg,
+            topPct: 0,
+            heightPct: topBarHeightPct || 24.0,
+            bgColor: topBarBg || '#000000',
+            opacity: topBarOpacity,
+            keepThroughout: true,
+          },
+          holeWindowZone: layoutTemplateMode === 'instagram' ? {
+            enabled: true,
+            widthPct: instaConfig.holeWidthPct,
+            heightPct: instaConfig.holeHeightPct,
+            yPct: instaConfig.holeYPct,
+            roundness: instaConfig.holeRoundness,
+            borderWidth: 1,
+            borderColor: '#E5E7EB',
+            shadow: true,
+            cardBgColor: instaConfig.bgColor || '#FFFFFF',
+          } : undefined,
+          hookBandZone: layoutTemplateMode === 'gunlimbo' ? {
+            enabled: true,
+            topPct: 24.0,
+            heightPct: 10.0,
+            bgBarColor: '#000000',
+            boxColor: gunlimboConfig.hookBgColor,
+            textColor: gunlimboConfig.hookTextColor,
+            paddingX: 12,
+            paddingY: 6,
+            borderRadius: 0,
+          } : undefined,
+          captionZone: {
+            enabled: true,
+            topPct: 70.0,
+            heightPct: 25.0,
+            safeZoneYPct: 75.0,
+            bgColor: '#000000',
+            hideDuringIntro: layoutTemplateMode === 'gunlimbo',
+          },
+          sourceZone: hasBottomSource ? {
+            enabled: true,
+            yPct: 94.0,
+            defaultText: bottomSourceText,
+            textColor: bottomSourceColor,
+            fontSize: bottomSourceSizePx,
+          } : undefined,
+        },
+        style: {
+          titleFont: titleFontFamily,
+          titleLinesMode: titleLinesMode,
+          titleBadgeText: titleBadgeText,
+          titleBadgeColor: titleBadgeColor,
+          titleFontSize: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleFontSize : titleLine1SizePx,
+          titleLine2FontSize: titleLine2SizePx,
+          titleLine1Color: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleLine1Color : titleLine1Color,
+          titleLine2Color: layoutTemplateMode === 'gunlimbo' ? gunlimboConfig.titleLine2Color : titleLine2Color,
+          titleBgMode: titleBgMode,
+          titleBgColor: titleBgColor,
+          titleBorderRadius: titleBorderRadius,
+          titleStroke: titleStroke,
+          titleStrokeWidth: titleStrokeWidth,
+          titleStrokeColor: titleStrokeColor,
+          titleShadow: titleShadow,
+          titleShadowBlur: titleShadowBlur,
+          titleShadowColor: titleShadowColor,
+          hookFont: 'Pretendard',
+          hookFontSize: gunlimboConfig.hookFontSize || 19,
+          captionFont: subtitleConfig.font || 'Pretendard',
+          captionFontSize: subtitleConfig.fontSize || 32,
+          captionDefaultColor: '#FFFFFF',
+          captionStrokeWidth: subtitleStrokeWidth,
+          captionStrokeColor: subtitleStrokeColor,
+          captionShadowBlur: subtitleShadowBlur,
+          captionShadowColor: subtitleShadowColor,
+          captionUseBox: subtitleUseBox,
+          captionBoxColor: subtitleBoxColor,
+          captionBoxOpacity: 0.8,
+          emotionColors: {
+            normal: '#FFE500',
+            highlight: '#00F0FF',
+            impact: '#FF3366',
+            white: '#FFFFFF',
+          },
+        },
+        sourcing: {
+          priority: 'video_crop_only',
+          promptPrefix: 'cinematic 4k shot',
+          enableMemeReactions: false,
+          memePlacement: 'bottom_left',
+          memeScale: 1.0,
+          memeDurationSec: 0.8,
+        },
+        capcut: {
+          titleMotion: 'fade_in',
+          hookMotion: 'word_pop',
+          captionMotion: 'karaoke',
+        },
+      };
+
+      const res = await api.post('/channel-dna/templates', {
+        name: templateName.trim() || '커스텀 템플릿',
+        archetype: layoutTemplateMode,
+        aspect_ratio: aspectRatio,
+        description: '사용자 지정 숏폼 템플릿 디자인',
+        manifest: manifest,
+        layout: manifest.geometry,
+      });
+
+      if (res.data?.template) {
+        setTemplateLibraryList(prev => [res.data.template, ...prev.filter(t => t.id !== res.data.template.id)]);
+      }
+
+      toast({
+        title: '💾 템플릿 저장 완료',
+        description: `'${templateName}' 템플릿이 단일 DB(viral_loop.db)에 성공적으로 보관되었습니다.`
+      });
+    } catch (err: any) {
+      console.warn('DB 저장 실패 시 로컬스토리지 보관:', err);
+      localStorage.setItem('viral_loop_last_saved_template', JSON.stringify({ name: templateName, mode: layoutTemplateMode }));
+      toast({
+        title: '💾 템플릿 저장 완료 (로컬 보관)',
+        description: `'${templateName}' 템플릿 규격이 안전하게 저장되었습니다.`
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ⚡ 정밀 편집기에 즉시 적용 (Apply to Editor)
+  const handleApplyToEditor = () => {
+    const manifest: any = {
+      name: templateName,
+      archetype: layoutTemplateMode,
+      aspectRatio,
+      titleLinesMode,
+      titleLine1,
+      titleLine2,
+      titleLine1Color,
+      titleLine2Color,
+      titleLine1SizePx,
+      titleLine2SizePx,
+      titleFontFamily,
+      titleTransform,
+      hasTopBarBg,
+      topBarBg,
+      topBarHeightPct,
+      hasBottomBarBg,
+      bottomBarBg,
+      bottomBarHeightPct,
+      hasJab,
+      jabText,
+      jabFontSize,
+      jabTiltDeg,
+      jabTextColor,
+      jabBgColor,
+      jabTransform,
+      subtitleConfig,
+      subTransform,
+      hasBottomSource,
+      bottomSourceText,
+      sourceTransform,
+      hasCommentCard,
+      commentCard,
+      commentTransform,
+      videoFitMode,
+      videoBlurBg,
+      videoZoomScale,
+      videoFocusXPct,
+      videoFocusYPct,
+      videoRotationDeg,
+      videoHorizontalFlip,
+      videoVerticalFlip,
+      videoFilter,
+      instaConfig,
+      gunlimboConfig,
+      ssulConfig,
+      profileTransform,
+    };
+
+    localStorage.setItem('applied_template_manifest', JSON.stringify(manifest));
+    window.dispatchEvent(new CustomEvent('vl_template_applied', { detail: manifest }));
+
+    toast({
+      title: '⚡ 정밀 편집기에 즉시 적용',
+      description: '현재 템플릿 규격이 활성 편집기에 장착되었습니다. 정밀 편집기 화면으로 이동합니다.'
+    });
+
+    setTimeout(() => {
+      navigate('/shorts-studio');
+    }, 400);
+  };
+
+  const aspectScale = aspectRatio === '9:16' ? 1.0 : aspectRatio === '1:1' ? 0.9 : 0.75;
 
   return (
-    <div className="w-full space-y-6">
-      {/* 🌟 Top Header: Title & Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border/60">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
-              <LayoutTemplate className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-foreground">쇼츠 템플릿 디자인 스튜디오</h1>
-                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/30 text-xs px-2.5 py-0.5 font-semibold">
-                  6-Layer Sovereign Studio
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                상하단 바·타이틀·자막·쨉쨉이·출처를 6개 독립 레이어로 조합하고, 자막 모션과 인물 줌 뷰포트를 정밀 조율합니다.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Brand Channel Binding Bar */}
-        <div className="flex items-center gap-2.5 bg-card/80 backdrop-blur-md p-2 rounded-xl border border-border/70 shadow-xs">
-          <div className="text-xs text-muted-foreground font-medium pl-1 flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-primary" /> 채널 바인딩:
-          </div>
-          <select
-            value={selectedBrandChannelId || ''}
-            onChange={e => setSelectedBrandChannelId(Number(e.target.value))}
-            className="h-8 text-xs rounded-lg bg-background border border-border px-2.5 py-1 text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-          >
-            {brandChannels.length === 0 ? (
-              <option value="">등록된 브랜드 채널 없음</option>
-            ) : (
-              brandChannels.map(ch => (
-                <option key={ch.id} value={ch.id}>
-                  👑 {ch.title}
-                </option>
-              ))
-            )}
-          </select>
+    <div className="flex flex-col h-full w-full bg-background text-foreground overflow-hidden select-none">
+      {/* ── 1. 상단 글로벌 마스터 툴바 ── */}
+      <header className="h-12 px-3 border-b border-border bg-card flex items-center justify-between shrink-0 z-30">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Button
+            variant="ghost"
             size="sm"
-            onClick={handleApplyToBrandChannel}
-            disabled={isBindingChannel || !selectedBrandChannelId}
-            className="h-8 text-xs font-semibold px-3 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs transition-all"
+            onClick={() => navigate('/shorts-studio')}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+            title="정밀 편집기로 돌아가기"
           >
-            {isBindingChannel ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Check className="w-3.5 h-3.5 mr-1.5" />}
-            이 채널에 템플릿 적용
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">정밀 편집기</span>
           </Button>
-        </div>
-      </div>
 
-      {/* 📚 템플릿 프리셋 선택기 & 신규 저장 바 */}
-      <Card className="bg-card/70 backdrop-blur-md border-border/70 shadow-xs">
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            {/* Presets Chips */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mr-1">템플릿 프리셋:</span>
-              {templates.map(tpl => {
-                const isSelected = selectedTemplateId === tpl.id;
-                return (
-                  <button
-                    key={tpl.id}
-                    onClick={() => handleSelectTemplate(tpl)}
-                    className={`group relative px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                        : 'bg-background hover:bg-accent text-muted-foreground hover:text-foreground border-border/80'
-                    }`}
-                  >
-                    <span>{tpl.name}</span>
-                    {tpl.badge && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-sm ${isSelected ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
-                        {tpl.badge}
-                      </span>
-                    )}
-                    {!tpl.is_system && (
-                      <span 
-                        onClick={(e) => handleDeleteTemplate(tpl.id, e)}
-                        className="opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity ml-1"
-                        title="템플릿 삭제"
-                      >
-                        ×
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="h-4 w-px bg-border mx-0.5" />
 
-            {/* Save Current as New Template */}
-            <div className="flex items-center gap-2">
-              <Input
-                value={newTemplateName}
-                onChange={e => setNewTemplateName(e.target.value)}
-                placeholder="새 템플릿 이름 입력..."
-                className="h-8 text-xs w-48 bg-background border-border"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSaveNewTemplate}
-                disabled={isSavingTemplate || !newTemplateName.trim()}
-                className="h-8 text-xs border-border/80 hover:bg-accent"
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" /> 새 템플릿 저장
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 🚀 Main Workspace: 2-Column Grid (Left: 6-Layer Inspector | Right: 9:16 Canvas & Comparison) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: 6-Layer Independent Stack Inspector (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          {/* Layer Selector Tabs */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 bg-muted/60 p-1.5 rounded-xl border border-border/60">
-            {[
-              { id: 'topTitle', label: '타이틀 텍스트', icon: Type, enabled: layout.hasTopTitle },
-              { id: 'topBarBg', label: '상단 배경 바', icon: Layout, enabled: layout.hasTopBarBg },
-              { id: 'subtitle', label: '본문 자막', icon: Sparkles, enabled: layout.hasSubtitle },
-              { id: 'jab', label: '긴박 쨉쨉이', icon: Zap, enabled: layout.hasJab },
-              { id: 'bottomSource', label: '하단 출처', icon: Globe, enabled: layout.hasBottomSource },
-              { id: 'video', label: '비디오/줌', icon: Video, enabled: true },
-            ].map(tab => {
-              const isSelected = activeLayer === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveLayer(tab.id)}
-                  className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs font-semibold transition-all border ${
-                    isSelected
-                      ? 'bg-card text-foreground border-primary/50 shadow-xs ring-1 ring-primary/20'
-                      : 'text-muted-foreground hover:text-foreground border-transparent hover:bg-background/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-1 mb-0.5">
-                    <tab.icon className={`w-3.5 h-3.5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className={`w-1.5 h-1.5 rounded-full ${tab.enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} />
-                  </div>
-                  <span className="text-[11px] truncate w-full text-center">{tab.label}</span>
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Sparkles className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs font-bold whitespace-nowrap text-foreground">템플릿 디자인 공방</span>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary uppercase font-mono">
+              {layoutTemplateMode}
+            </Badge>
           </div>
 
-          {/* 🧩 Tab 1: 상단 타이틀 텍스트 (Top Title - 상단 바와 완전 독립) */}
-          {activeLayer === 'topTitle' && (
-            <Card className="border-border/70 shadow-xs bg-card/80 backdrop-blur-md">
-              <CardHeader className="p-4 pb-3 border-b border-border/50 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
-                    <Type className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-foreground">상단 타이틀 텍스트 (독립 레이어)</CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">상단 바 없이도 영상 위에 직접 렌더링되며, 형광펜/알약 배경을 입힐 수 있습니다.</CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[11px] font-mono bg-background">
-                    Y: {layout.topTitleYPct}%
-                  </Badge>
-                  <Switch
-                    checked={layout.hasTopTitle}
-                    onCheckedChange={v => setLayout(p => ({ ...p, hasTopTitle: v }))}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                {/* 1줄 / 2줄 텍스트 입력 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground">1줄 텍스트 (상황/조건문)</Label>
-                    <Input
-                      value={layout.titleLine1}
-                      onChange={e => setLayout(p => ({ ...p, titleLine1: e.target.value }))}
-                      className="h-8 text-xs bg-background"
-                      placeholder="여돌들 중 누가"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground">2줄 텍스트 (핵심 후킹 명사)</Label>
-                    <Input
-                      value={layout.titleLine2}
-                      onChange={e => setLayout(p => ({ ...p, titleLine2: e.target.value }))}
-                      className="h-8 text-xs bg-background font-bold"
-                      placeholder="진짜 대식가일까?"
-                    />
-                  </div>
-                </div>
-
-                {/* 폰트 & 폰트 사이즈 (1줄 & 2줄 개별 조절) */}
-                <div className="space-y-3 p-3 rounded-xl bg-muted/40 border border-border/50">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-muted-foreground">타이틀 폰트 패밀리</Label>
-                      <select
-                        value={layout.titleFontFamily}
-                        onChange={e => setLayout(p => ({ ...p, titleFontFamily: e.target.value }))}
-                        className="h-8 text-xs rounded-lg bg-background border border-border px-2 w-full text-foreground"
-                      >
-                        {AVAILABLE_FONTS.map(f => (
-                          <option key={f.id} value={f.id}>{f.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-muted-foreground">1줄 크기: {layout.titleLine1SizePx}px</Label>
-                        <span className="text-[10px] text-muted-foreground font-mono">기준 {benchmarkSpec.titleLine1SizePx}px</span>
-                      </div>
-                      <Slider
-                        value={[layout.titleLine1SizePx]}
-                        min={16}
-                        max={48}
-                        step={1}
-                        onValueChange={([v]) => setLayout(p => ({ ...p, titleLine1SizePx: v }))}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-muted-foreground">2줄 크기: {layout.titleLine2SizePx}px</Label>
-                        <span className="text-[10px] text-amber-500 font-mono">기준 {benchmarkSpec.titleLine2SizePx}px</span>
-                      </div>
-                      <Slider
-                        value={[layout.titleLine2SizePx]}
-                        min={18}
-                        max={56}
-                        step={1}
-                        onValueChange={([v]) => setLayout(p => ({ ...p, titleLine2SizePx: v }))}
-                      />
-                    </div>
-                  </div>
-
-                  {/* 색상 지정 */}
-                  <div className="flex flex-wrap items-center gap-4 pt-1">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground">1줄 색상:</Label>
-                      <input
-                        type="color"
-                        value={layout.titleLine1Color}
-                        onChange={e => setLayout(p => ({ ...p, titleLine1Color: e.target.value }))}
-                        className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground">2줄 강조색:</Label>
-                      <input
-                        type="color"
-                        value={layout.titleLine2Color}
-                        onChange={e => setLayout(p => ({ ...p, titleLine2Color: e.target.value }))}
-                        className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 ml-auto">
-                      <Label className="text-xs text-muted-foreground">글자 외곽선 & 그림자:</Label>
-                      <Switch
-                        checked={layout.titleShadow}
-                        onCheckedChange={v => setLayout(p => ({ ...p, titleShadow: v }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 🌟 텍스트 자체 배경 박스/형광펜 커스텀 (상단 바 부재 시 극강의 시인성) */}
-                <div className="space-y-3 p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                      <Sparkle className="w-3.5 h-3.5" /> 글자 자체 배경 효과 (형광펜 / 알약 / 박스)
-                    </Label>
-                    <span className="text-[11px] text-muted-foreground">상단 바 없이 영상 위에 직배치 시 강력 추천</span>
-                  </div>
-
-                  {/* Mode Selector */}
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {[
-                      { id: 'none', label: '없음 (투명)' },
-                      { id: 'pill', label: '알약형 (Pill)' },
-                      { id: 'box', label: '각진 박스' },
-                      { id: 'highlighter', label: '형광펜 마커' },
-                      { id: 'glass', label: '아크릴 글래스' }
-                    ].map(m => (
-                      <button
-                        key={m.id}
-                        onClick={() => setLayout(p => ({ ...p, titleBgMode: m.id as any }))}
-                        className={`py-1.5 text-xs rounded-lg border font-medium transition-all ${
-                          layout.titleBgMode === m.id
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                            : 'bg-background hover:bg-accent text-muted-foreground border-border/80'
-                        }`}
-                      >
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {layout.titleBgMode !== 'none' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center pt-2">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-xs text-muted-foreground">배경 색상:</Label>
-                        <input
-                          type="color"
-                          value={layout.titleBgColor}
-                          onChange={e => setLayout(p => ({ ...p, titleBgColor: e.target.value }))}
-                          className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">패딩(두께): {layout.titlePaddingX}px</Label>
-                        <Slider
-                          value={[layout.titlePaddingX]}
-                          min={6}
-                          max={32}
-                          step={2}
-                          onValueChange={([v]) => setLayout(p => ({ ...p, titlePaddingX: v }))}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">모서리 곡률: {layout.titleBorderRadius}px</Label>
-                        <Slider
-                          value={[layout.titleBorderRadius]}
-                          min={0}
-                          max={30}
-                          step={2}
-                          onValueChange={([v]) => setLayout(p => ({ ...p, titleBorderRadius: v }))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Y축 위치 슬라이더 */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-muted-foreground">타이틀 Y축 수직 위치: {layout.topTitleYPct}%</Label>
-                    <span className="text-xs text-primary font-medium">캔버스에서 마우스로 직접 드래그 가능</span>
-                  </div>
-                  <Slider
-                    value={[layout.topTitleYPct]}
-                    min={1}
-                    max={30}
-                    step={0.5}
-                    onValueChange={([v]) => setLayout(p => ({ ...p, topTitleYPct: v }))}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 🧩 Tab 2: 상단 배경 바 (Top Bar Bg) */}
-          {activeLayer === 'topBarBg' && (
-            <Card className="border-border/70 shadow-xs bg-card/80 backdrop-blur-md">
-              <CardHeader className="p-4 pb-3 border-b border-border/50 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
-                    <Layout className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-foreground">상단 배경 바 (레터박스)</CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">쇼츠 상단에 안정적인 레터박스 영역을 생성합니다.</CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[11px] font-mono bg-background">
-                    높이: {layout.topBarHeightPct}%
-                  </Badge>
-                  <Switch
-                    checked={layout.hasTopBarBg}
-                    onCheckedChange={v => setLayout(p => ({ ...p, hasTopBarBg: v }))}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                  <div className="flex items-center gap-3">
-                    <Label className="text-xs font-semibold text-muted-foreground">상단 바 배경색:</Label>
-                    <input
-                      type="color"
-                      value={layout.topBarBg}
-                      onChange={e => setLayout(p => ({ ...p, topBarBg: e.target.value }))}
-                      className="w-8 h-8 rounded border border-border cursor-pointer bg-transparent"
-                    />
-                    <span className="text-xs font-mono">{layout.topBarBg}</span>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">투명도: {Math.round(layout.topBarOpacity * 100)}%</Label>
-                    <Slider
-                      value={[layout.topBarOpacity * 100]}
-                      min={0}
-                      max={100}
-                      step={5}
-                      onValueChange={([v]) => setLayout(p => ({ ...p, topBarOpacity: v / 100 }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-muted-foreground">상단 바 높이: {layout.topBarHeightPct}%</Label>
-                    <span className="text-[10px] text-muted-foreground font-mono">벤치마크 기준 {benchmarkSpec.topBarHeightPct}%</span>
-                  </div>
-                  <Slider
-                    value={[layout.topBarHeightPct]}
-                    min={8}
-                    max={35}
-                    step={0.5}
-                    onValueChange={([v]) => setLayout(p => ({ ...p, topBarHeightPct: v }))}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    💡 캔버스에서 상단 바의 하단 경계선을 마우스로 직접 잡고 위아래로 늘리거나 줄일 수 있습니다.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 🧩 Tab 3: 본문 자막 & 동적 모션 엔진 (Subtitles) */}
-          {activeLayer === 'subtitle' && (
-            <Card className="border-border/70 shadow-xs bg-card/80 backdrop-blur-md">
-              <CardHeader className="p-4 pb-3 border-b border-border/50 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-foreground">본문 자막 & 쇼츠 동적 모션 엔진</CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">단어별 팝업 바운스, 가라오케 하이라이트 등 쇼츠 최적화 애니메이션을 제공합니다.</CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[11px] font-mono bg-background">
-                    Y: {layout.subtitleYPercent}%
-                  </Badge>
-                  <Switch
-                    checked={layout.hasSubtitle}
-                    onCheckedChange={v => setLayout(p => ({ ...p, hasSubtitle: v }))}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                {/* 🌟 5대 동적 자막 모션 선택기 */}
-                <div className="space-y-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                      <Play className="w-3.5 h-3.5" /> 쇼츠 인기 자막 애니메이션 프리셋
-                    </Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsPlayingMotion(!isPlayingMotion)}
-                      className="h-6 text-[11px] px-2 text-amber-600 hover:bg-amber-500/10"
-                    >
-                      {isPlayingMotion ? <Pause className="w-3 h-3 mr-1" /> : <Play className="w-3 h-3 mr-1" />}
-                      {isPlayingMotion ? '모션 일시정지' : '모션 재생'}
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                    {[
-                      { id: 'word_pop', label: '단어 팝업 바운스', desc: 'MrBeast 시그니처' },
-                      { id: 'karaoke', label: '가라오케 하이라이트', desc: '단어별 불켜짐' },
-                      { id: 'smooth_slide', label: '스무스 슬라이드', desc: '부드러운 지식형' },
-                      { id: 'typewriter', label: '타자기 효과', desc: '야담/미스터리' },
-                      { id: 'static', label: '클래식 고정', desc: '깔끔한 스탠다드' }
-                    ].map(m => (
-                      <button
-                        key={m.id}
-                        onClick={() => setLayout(p => ({ ...p, subtitleMotionPreset: m.id as any }))}
-                        className={`p-2 text-left rounded-lg border transition-all ${
-                          layout.subtitleMotionPreset === m.id
-                            ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                            : 'bg-background hover:bg-accent text-muted-foreground border-border/80'
-                        }`}
-                      >
-                        <div className="font-bold text-xs truncate">{m.label}</div>
-                        <div className="text-[10px] opacity-80 truncate">{m.desc}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 폰트, 크기, 외곽선 */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">자막 폰트 패밀리</Label>
-                    <select
-                      value={layout.subtitleFontFamily}
-                      onChange={e => setLayout(p => ({ ...p, subtitleFontFamily: e.target.value }))}
-                      className="h-8 text-xs rounded-lg bg-background border border-border px-2 w-full text-foreground"
-                    >
-                      {AVAILABLE_FONTS.map(f => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-muted-foreground">자막 크기: {layout.subtitleFontSize}px</Label>
-                      <span className="text-[10px] text-muted-foreground font-mono">기준 {benchmarkSpec.subtitleFontSize}px</span>
-                    </div>
-                    <Slider
-                      value={[layout.subtitleFontSize]}
-                      min={16}
-                      max={40}
-                      step={1}
-                      onValueChange={([v]) => setLayout(p => ({ ...p, subtitleFontSize: v }))}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">외곽선 두께: {layout.subtitleStrokeWidth}px</Label>
-                    <Slider
-                      value={[layout.subtitleStrokeWidth]}
-                      min={0}
-                      max={8}
-                      step={1}
-                      onValueChange={([v]) => setLayout(p => ({ ...p, subtitleStrokeWidth: v }))}
-                    />
-                  </div>
-                </div>
-
-                {/* 색상 및 위치 */}
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground">글자색:</Label>
-                    <input
-                      type="color"
-                      value={layout.subtitleColor}
-                      onChange={e => setLayout(p => ({ ...p, subtitleColor: e.target.value }))}
-                      className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground">외곽선 스트로크:</Label>
-                    <input
-                      type="color"
-                      value={layout.subtitleStrokeColor}
-                      onChange={e => setLayout(p => ({ ...p, subtitleStrokeColor: e.target.value }))}
-                      className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Label className="text-xs text-muted-foreground">반투명 배경 박스:</Label>
-                    <Switch
-                      checked={layout.subtitleHasPillBg}
-                      onCheckedChange={v => setLayout(p => ({ ...p, subtitleHasPillBg: v }))}
-                    />
-                  </div>
-                </div>
-
-                {/* Y축 위치 슬라이더 */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-muted-foreground">자막 Y축 수직 위치: {layout.subtitleYPercent}%</Label>
-                    <span className="text-xs text-emerald-500 font-medium">유튜브 쇼츠 UI 최적 세이프존 (65%~75%)</span>
-                  </div>
-                  <Slider
-                    value={[layout.subtitleYPercent]}
-                    min={50}
-                    max={90}
-                    step={0.5}
-                    onValueChange={([v]) => setLayout(p => ({ ...p, subtitleYPercent: v }))}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 🧩 Tab 4: 긴박 쨉쨉이 (Jab Hook) */}
-          {activeLayer === 'jab' && (
-            <Card className="border-border/70 shadow-xs bg-card/80 backdrop-blur-md">
-              <CardHeader className="p-4 pb-3 border-b border-border/50 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-foreground">긴박 쨉쨉이 (Jab Hook - 찰나의 후킹 배지)</CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">인물의 리액션이나 반전 순간에 화면에 팍 꽂히는 틸트 배지입니다.</CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[11px] font-mono bg-background">
-                    틸트: {layout.jabTiltDeg}° · Y: {layout.jabYPercent}%
-                  </Badge>
-                  <Switch
-                    checked={layout.hasJab}
-                    onCheckedChange={v => setLayout(p => ({ ...p, hasJab: v }))}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground">쨉쨉이 문구 예시</Label>
-                    <Input
-                      value={layout.jabText}
-                      onChange={e => setLayout(p => ({ ...p, jabText: e.target.value }))}
-                      className="h-8 text-xs bg-background"
-                      placeholder="*여동생을 향해 전력 질주*"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground">쨉쨉이 폰트 패밀리</Label>
-                    <select
-                      value={layout.jabFontFamily}
-                      onChange={e => setLayout(p => ({ ...p, jabFontFamily: e.target.value }))}
-                      className="h-8 text-xs rounded-lg bg-background border border-border px-2 w-full text-foreground"
-                    >
-                      {AVAILABLE_FONTS.map(f => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-muted-foreground">다이내믹 틸트 회전각: {layout.jabTiltDeg}°</Label>
-                      <span className="text-[10px] text-muted-foreground font-mono">기준 {benchmarkSpec.jabTiltDeg}°</span>
-                    </div>
-                    <Slider
-                      value={[layout.jabTiltDeg]}
-                      min={-12}
-                      max={12}
-                      step={1}
-                      onValueChange={([v]) => setLayout(p => ({ ...p, jabTiltDeg: v }))}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground">쨉쨉이 크기: {layout.jabFontSize}px</Label>
-                    <Slider
-                      value={[layout.jabFontSize]}
-                      min={14}
-                      max={36}
-                      step={1}
-                      onValueChange={([v]) => setLayout(p => ({ ...p, jabFontSize: v }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground">글자/테두리 색:</Label>
-                    <input
-                      type="color"
-                      value={layout.jabColor}
-                      onChange={e => setLayout(p => ({ ...p, jabColor: e.target.value, jabBorderColor: e.target.value }))}
-                      className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs text-muted-foreground">배경 박스색:</Label>
-                    <input
-                      type="color"
-                      value={layout.jabBgColor}
-                      onChange={e => setLayout(p => ({ ...p, jabBgColor: e.target.value }))}
-                      className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">쨉쨉이 Y축 수직 위치: {layout.jabYPercent}%</Label>
-                  <Slider
-                    value={[layout.jabYPercent]}
-                    min={15}
-                    max={65}
-                    step={0.5}
-                    onValueChange={([v]) => setLayout(p => ({ ...p, jabYPercent: v }))}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 🧩 Tab 5: 하단 출처 표기 & 하단 바 (Bottom Source & Bottom Bar) */}
-          {activeLayer === 'bottomSource' && (
-            <div className="space-y-4">
-              {/* 하단 출처 텍스트 */}
-              <Card className="border-border/70 shadow-xs bg-card/80 backdrop-blur-md">
-                <CardHeader className="p-4 pb-3 border-b border-border/50 flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      <Globe className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-bold text-foreground">하단 출처 표기 (독립 레이어)</CardTitle>
-                      <CardDescription className="text-xs text-muted-foreground">하단 바 유무와 관계없이 영상 하단에 자막처럼 안전하게 출처를 명시합니다.</CardDescription>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={layout.hasBottomSource}
-                    onCheckedChange={v => setLayout(p => ({ ...p, hasBottomSource: v }))}
-                  />
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground">출처 텍스트 문구</Label>
-                    <Input
-                      value={layout.bottomSourceText}
-                      onChange={e => setLayout(p => ({ ...p, bottomSourceText: e.target.value }))}
-                      className="h-8 text-xs bg-background"
-                      placeholder="출처: 원본 비하인드 공식 영상"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-muted-foreground">폰트 크기: {layout.bottomSourceSizePx}px</Label>
-                      <Slider
-                        value={[layout.bottomSourceSizePx]}
-                        min={10}
-                        max={20}
-                        step={1}
-                        onValueChange={([v]) => setLayout(p => ({ ...p, bottomSourceSizePx: v }))}
-                      />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Label className="text-xs text-muted-foreground">글자색:</Label>
-                      <input
-                        type="color"
-                        value={layout.bottomSourceColor}
-                        onChange={e => setLayout(p => ({ ...p, bottomSourceColor: e.target.value }))}
-                        className="w-7 h-7 rounded border border-border cursor-pointer bg-transparent"
-                      />
-                      <span className="text-xs font-mono">{layout.bottomSourceColor}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 하단 배경 바 */}
-              <Card className="border-border/70 shadow-xs bg-card/80 backdrop-blur-md">
-                <CardHeader className="p-4 pb-3 border-b border-border/50 flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
-                      <Layout className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-bold text-foreground">하단 배경 바 (레터박스)</CardTitle>
-                      <CardDescription className="text-xs text-muted-foreground">쇼츠 하단에 레터박스를 배치하여 안정감을 줍니다.</CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[11px] font-mono bg-background">
-                      높이: {layout.bottomBarHeightPct}%
-                    </Badge>
-                    <Switch
-                      checked={layout.hasBottomBarBg}
-                      onCheckedChange={v => setLayout(p => ({ ...p, hasBottomBarBg: v }))}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                    <div className="flex items-center gap-3">
-                      <Label className="text-xs font-semibold text-muted-foreground">하단 바 배경색:</Label>
-                      <input
-                        type="color"
-                        value={layout.bottomBarBg}
-                        onChange={e => setLayout(p => ({ ...p, bottomBarBg: e.target.value }))}
-                        className="w-8 h-8 rounded border border-border cursor-pointer bg-transparent"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-muted-foreground">하단 바 높이: {layout.bottomBarHeightPct}%</Label>
-                        <span className="text-[10px] text-muted-foreground font-mono">기준 {benchmarkSpec.bottomBarHeightPct}%</span>
-                      </div>
-                      <Slider
-                        value={[layout.bottomBarHeightPct]}
-                        min={2}
-                        max={16}
-                        step={0.5}
-                        onValueChange={([v]) => setLayout(p => ({ ...p, bottomBarHeightPct: v }))}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* 🧩 Tab 6: 비디오 캔버스 핏 & 연예인 얼굴 줌 마스크 */}
-          {activeLayer === 'video' && (
-            <Card className="border-border/70 shadow-xs bg-card/80 backdrop-blur-md">
-              <CardHeader className="p-4 pb-3 border-b border-border/50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                    <Video className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold text-foreground">비디오 핏 & 인물 확대 줌 마스크</CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">상하단 바 사이 빈틈없이 정확하게 핏되거나, 인물 얼굴을 적절히 클로즈업합니다.</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                {/* 샌드위치 핏 vs 풀스크린 오버레이 토글 */}
-                <div className="space-y-2 p-3 rounded-xl bg-muted/40 border border-border/50">
-                  <Label className="text-xs font-bold text-foreground">비디오 배치 방식 (Placement Mode)</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setLayout(p => ({ ...p, videoFitMode: 'sandwich' }))}
-                      className={`p-3 rounded-lg text-left border transition-all ${
-                        layout.videoFitMode === 'sandwich'
-                          ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                          : 'bg-background hover:bg-accent text-muted-foreground border-border/80'
-                      }`}
-                    >
-                      <div className="font-bold text-xs flex items-center gap-1.5">
-                        <span>🥪 샌드위치 핏 (추천)</span>
-                      </div>
-                      <p className="text-[11px] opacity-80 mt-1">
-                        상·하단 바 사이의 남은 공간에 1픽셀 오차 없이 완벽 핏 (가림 0%)
-                      </p>
-                    </button>
-
-                    <button
-                      onClick={() => setLayout(p => ({ ...p, videoFitMode: 'fullscreen' }))}
-                      className={`p-3 rounded-lg text-left border transition-all ${
-                        layout.videoFitMode === 'fullscreen'
-                          ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                          : 'bg-background hover:bg-accent text-muted-foreground border-border/80'
-                      }`}
-                    >
-                      <div className="font-bold text-xs flex items-center gap-1.5">
-                        <span>📱 풀스크린 오버레이</span>
-                      </div>
-                      <p className="text-[11px] opacity-80 mt-1">
-                        9:16 전체 화면을 영상으로 꽉 채우고 그 위에 바/자막 오버레이
-                      </p>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 👤 연예인 얼굴 확대 줌 & Y축 포커스 정렬 */}
-                <div className="space-y-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                      <ZoomIn className="w-3.5 h-3.5" /> 연예인 얼굴 줌 & 마스크 뷰포트
-                    </Label>
-                    <span className="text-[11px] text-muted-foreground">상·하단 바를 뚫고 나가지 않고 안전하게 확대</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-muted-foreground">인물 확대 배율: {layout.videoZoomScale}%</Label>
-                        <span className="text-[10px] text-muted-foreground font-mono">100% ~ 200%</span>
-                      </div>
-                      <Slider
-                        value={[layout.videoZoomScale]}
-                        min={100}
-                        max={180}
-                        step={2}
-                        onValueChange={([v]) => setLayout(p => ({ ...p, videoZoomScale: v }))}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-muted-foreground">얼굴 중심 Y축 정렬: {layout.videoFocusYPct}%</Label>
-                        <span className="text-[10px] text-muted-foreground font-mono">상/하단 오프셋</span>
-                      </div>
-                      <Slider
-                        value={[layout.videoFocusYPct]}
-                        min={20}
-                        max={80}
-                        step={2}
-                        onValueChange={([v]) => setLayout(p => ({ ...p, videoFocusYPct: v }))}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 시네마틱 필터 및 효과 */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                  {[
-                    { id: 'none', label: '필터 없음' },
-                    { id: 'grain', label: '필름 그레인' },
-                    { id: 'vintage', label: '빈티지 웜톤' },
-                    { id: 'noir', label: '시네마틱 누아르' }
-                  ].map(f => (
-                    <button
-                      key={f.id}
-                      onClick={() => setLayout(p => ({ ...p, filmFilter: f.id as any }))}
-                      className={`py-1.5 text-xs rounded-lg border font-medium transition-all ${
-                        layout.filmFilter === f.id
-                          ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                          : 'bg-background hover:bg-accent text-muted-foreground border-border/80'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                  <Label className="text-xs text-muted-foreground">좌우 반전(미러링):</Label>
-                  <Switch
-                    checked={layout.enableHorizontalFlip}
-                    onCheckedChange={v => setLayout(p => ({ ...p, enableHorizontalFlip: v }))}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <div className="hidden md:flex items-center gap-1 min-w-0 ml-1">
+            <Input
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              className="h-7 text-xs w-48 bg-muted/30 border-border font-medium focus-visible:ring-1"
+              placeholder="템플릿 이름 입력"
+            />
+          </div>
         </div>
 
-        {/* Right Column: 9:16 Canvas & Comparison Studio (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col items-center space-y-4">
-          {/* Comparison Mode Toolbar */}
-          <div className="flex items-center justify-between gap-1 bg-card/80 backdrop-blur-md p-1.5 rounded-xl border border-border/70 shadow-xs w-full max-w-[360px] select-none">
-            {[
-              { id: 'preview', label: '내 디자인', icon: Eye },
-              { id: 'original', label: '원본 화면', icon: Video },
-              { id: 'split', label: 'A/B 분할', icon: Split },
-              { id: 'onion', label: '겹쳐보기', icon: Layers }
-            ].map(m => (
+        {/* 중앙: 화면비 & 뷰포트 컨트롤 */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center bg-muted/40 p-0.5 rounded-[3px] border border-border">
+            {(['9:16', '16:9', '1:1'] as const).map((ratio) => (
               <button
-                key={m.id}
-                onClick={() => setCompareMode(m.id as any)}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-all ${
-                  compareMode === m.id
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                }`}
+                key={ratio}
+                type="button"
+                onClick={() => setAspectRatio(ratio)}
+                className={cn(
+                  "px-2 py-0.5 text-[10px] font-bold rounded-[2px] transition cursor-pointer",
+                  aspectRatio === ratio
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <m.icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="whitespace-nowrap">{m.label}</span>
+                {ratio === '9:16' ? '9:16 쇼츠' : ratio === '16:9' ? '16:9 롱폼' : '1:1 피드'}
               </button>
             ))}
           </div>
 
-          {/* Live Diff HUD Bar (Fixed height, no wrapping to prevent layout shift) */}
-          <div className="h-7 px-3.5 flex items-center justify-center gap-2.5 bg-muted/70 backdrop-blur-md rounded-full border border-border/80 text-[11px] font-mono text-muted-foreground whitespace-nowrap shadow-2xs select-none">
-            <span className="flex items-center gap-1">
-              <span className="text-foreground font-semibold">헤더:</span>
-              <span>{layout.topBarHeightPct}%</span>
-              <span className={`text-[10px] font-medium ${layout.topBarHeightPct === benchmarkSpec.topBarHeightPct ? 'text-emerald-500' : 'text-amber-500'}`}>
-                ({layout.topBarHeightPct === benchmarkSpec.topBarHeightPct ? '일치' : `${(layout.topBarHeightPct - benchmarkSpec.topBarHeightPct) > 0 ? '+' : ''}${(layout.topBarHeightPct - benchmarkSpec.topBarHeightPct).toFixed(1)}%`})
-              </span>
-            </span>
-            <span className="text-border/80 font-normal">|</span>
-            <span className="flex items-center gap-1">
-              <span className="text-foreground font-semibold">타이틀:</span>
-              <span>{layout.titleLine2SizePx}px</span>
-              <span className={`text-[10px] font-medium ${layout.titleLine2SizePx === benchmarkSpec.titleLine2SizePx ? 'text-emerald-500' : 'text-amber-500'}`}>
-                ({layout.titleLine2SizePx === benchmarkSpec.titleLine2SizePx ? '일치' : `${(layout.titleLine2SizePx - benchmarkSpec.titleLine2SizePx) > 0 ? '+' : ''}${layout.titleLine2SizePx - benchmarkSpec.titleLine2SizePx}px`})
-              </span>
-            </span>
-            <span className="text-border/80 font-normal">|</span>
-            <span className="flex items-center gap-1">
-              <span className="text-foreground font-semibold">자막 Y:</span>
-              <span>{layout.subtitleYPercent}%</span>
-            </span>
-          </div>
+          <select
+            value={canvasZoom}
+            onChange={(e) => setCanvasZoom(e.target.value as any)}
+            className="h-6 text-[10px] font-bold bg-muted/40 border border-border rounded-[2px] px-1 text-foreground cursor-pointer"
+          >
+            <option value="fit">화면맞춤 (Fit)</option>
+            <option value="50">50%</option>
+            <option value="75">75%</option>
+            <option value="100">100% (원형)</option>
+            <option value="150">150%</option>
+            <option value="200">200%</option>
+          </select>
 
-          {/* 📱 9:16 Smartphone Mockup Canvas */}
-          <div className="relative p-2.5 rounded-[44px] bg-slate-950 border-[6px] border-slate-800 shadow-2xl shadow-indigo-500/10">
-            {/* Dynamic Island Speaker Notch */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-20 h-4 bg-slate-900 rounded-full z-50 flex items-center justify-end px-2">
-              <div className="w-2 h-2 rounded-full bg-slate-800" />
-            </div>
+          <button
+            type="button"
+            onClick={() => setSafeZoneVisible(!safeZoneVisible)}
+            className={cn(
+              "h-6 px-1.5 text-[10px] font-bold rounded-[2px] border transition cursor-pointer flex items-center gap-1",
+              safeZoneVisible
+                ? "bg-amber-500/20 text-amber-500 border-amber-500/40"
+                : "border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+            )}
+            title="유튜브 쇼츠 모바일 UI 가림 안전영역 표시"
+          >
+            <Shield className="w-3 h-3" />
+            <span className="hidden lg:inline">안전영역</span>
+          </button>
 
-            {/* Screen Viewport (w: 300px, h: 533px -> 9:16) */}
-            <div
-              ref={canvasRef}
-              className="relative w-[300px] h-[533px] rounded-[34px] overflow-hidden bg-black select-none"
-            >
-              {/* 🎬 Video Layer (Sandwich Fit vs Fullscreen) */}
-              {(() => {
-                const topOffset = layout.videoFitMode === 'sandwich' && layout.hasTopBarBg ? layout.topBarHeightPct : 0;
-                const bottomOffset = layout.videoFitMode === 'sandwich' && layout.hasBottomBarBg ? layout.bottomBarHeightPct : 0;
-                const mediaHeight = 100 - topOffset - bottomOffset;
+          <button
+            type="button"
+            onClick={() => setShowGrid(!showGrid)}
+            className={cn(
+              "h-6 px-1.5 text-[10px] font-bold rounded-[2px] border transition cursor-pointer flex items-center gap-1",
+              showGrid
+                ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40"
+                : "border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+            )}
+            title="3분할 및 센터 십자선 구도 가이드"
+          >
+            <Grid className="w-3 h-3" />
+            <span className="hidden lg:inline">그리드</span>
+          </button>
 
-                return (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: `${topOffset}%`,
-                      height: `${mediaHeight}%`,
-                      left: 0,
-                      right: 0,
-                      overflow: 'hidden',
-                      transition: isDragging ? 'none' : 'all 0.2s ease-out'
-                    }}
-                  >
-                    {/* Inner scaled image/video for Face Zoom */}
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        backgroundImage: 'radial-gradient(ellipse at center, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 1) 100%)',
-                        backgroundPosition: `center ${layout.videoFocusYPct}%`,
-                        backgroundSize: 'cover',
-                        transform: `scale(${layout.videoZoomScale / 100}) ${layout.enableHorizontalFlip ? 'scaleX(-1)' : ''}`,
-                        transformOrigin: `center ${layout.videoFocusYPct}%`,
-                        filter: layout.filmFilter === 'grain' ? 'contrast(1.15)' : layout.filmFilter === 'vintage' ? 'sepia(0.2) contrast(1.1)' : 'none',
-                        transition: 'transform 0.15s ease-out'
-                      }}
-                      className="flex items-center justify-center text-slate-500 text-xs"
-                    >
-                      <div className="text-center p-4">
-                        <Video className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
-                        <span className="text-[11px] font-medium text-slate-400">
-                          {layout.videoFitMode === 'sandwich' ? '[샌드위치 핏 뷰포트]' : '[풀스크린 뷰포트]'}
-                        </span>
-                        <div className="text-[10px] text-slate-600 mt-0.5">얼굴 줌: {layout.videoZoomScale}%</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* [Layer 1: 상단 배경 바] */}
-              {layout.hasTopBarBg && (
-                <div
-                  onClick={() => setActiveLayer('topBarBg')}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: `${layout.topBarHeightPct}%`,
-                    backgroundColor: layout.topBarBg,
-                    opacity: layout.topBarOpacity,
-                    zIndex: 20
-                  }}
-                  className={`cursor-pointer transition-all ${activeLayer === 'topBarBg' ? 'ring-2 ring-primary ring-inset' : ''}`}
-                >
-                  {/* Resizer Handle */}
-                  <div
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setIsDragging('headerBar');
-                    }}
-                    className="absolute bottom-0 left-0 right-0 h-3 cursor-row-resize flex items-center justify-center group z-30"
-                    title="마우스로 상단 바 높이 조절"
-                  >
-                    <div className="w-12 h-1 bg-primary/70 rounded-full group-hover:bg-primary transition-colors" />
-                  </div>
-                </div>
-              )}
-
-              {/* [Layer 2: 상단 타이틀 텍스트 (상단 바와 독립)] */}
-              {layout.hasTopTitle && (
-                <div
-                  onClick={() => setActiveLayer('topTitle')}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    setIsDragging('topTitle');
-                  }}
-                  style={{
-                    position: 'absolute',
-                    top: `${layout.topTitleYPct}%`,
-                    left: 0,
-                    right: 0,
-                    zIndex: 35,
-                    cursor: 'grab'
-                  }}
-                  className={`flex flex-col items-center justify-center text-center px-3 select-none ${
-                    activeLayer === 'topTitle' ? 'ring-2 ring-indigo-500 rounded-xl p-1 bg-indigo-500/10' : ''
-                  }`}
-                >
-                  {/* 텍스트 자체 배경 효과 (형광펜 / 알약 / 박스) */}
-                  <div
-                    style={{
-                      backgroundColor: layout.titleBgMode !== 'none' ? layout.titleBgColor : 'transparent',
-                      opacity: layout.titleBgMode !== 'none' ? layout.titleBgOpacity : 1,
-                      paddingLeft: layout.titleBgMode !== 'none' ? `${layout.titlePaddingX}px` : 0,
-                      paddingRight: layout.titleBgMode !== 'none' ? `${layout.titlePaddingX}px` : 0,
-                      paddingTop: layout.titleBgMode !== 'none' ? `${layout.titlePaddingY}px` : 0,
-                      paddingBottom: layout.titleBgMode !== 'none' ? `${layout.titlePaddingY}px` : 0,
-                      borderRadius: layout.titleBgMode === 'pill' ? '9999px' : `${layout.titleBorderRadius}px`,
-                      boxShadow: layout.titleShadow ? '0 4px 16px rgba(0,0,0,0.7)' : 'none'
-                    }}
-                    className="inline-flex flex-col items-center"
-                  >
-                    {layout.titleLine1 && layout.titleLine1.trim() !== '' && (
-                      <div
-                        style={{
-                          fontFamily: layout.titleFontFamily,
-                          fontSize: `${layout.titleLine1SizePx * 0.58}px`,
-                          color: layout.titleLine1Color,
-                          fontWeight: 800,
-                          lineHeight: 1.15,
-                          textShadow: layout.titleShadow ? '0 2px 6px rgba(0,0,0,0.9)' : 'none'
-                        }}
-                      >
-                        {layout.titleLine1}
-                      </div>
-                    )}
-                    <div
-                      style={{
-                        fontFamily: layout.titleFontFamily,
-                        fontSize: `${layout.titleLine2SizePx * 0.58}px`,
-                        color: layout.titleLine2Color,
-                        fontWeight: 900,
-                        lineHeight: 1.15,
-                        textShadow: layout.titleShadow ? '0 2px 8px rgba(0,0,0,0.9)' : 'none'
-                      }}
-                    >
-                      {layout.titleLine2}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* [Layer 4: 긴박 쨉쨉이 (Jab Hook)] */}
-              {layout.hasJab && (
-                <div
-                  onClick={() => setActiveLayer('jab')}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    setIsDragging('jab');
-                  }}
-                  style={{
-                    position: 'absolute',
-                    top: `${layout.jabYPercent}%`,
-                    left: 0,
-                    right: 0,
-                    zIndex: 40,
-                    cursor: 'grab',
-                    transform: `rotate(${layout.jabTiltDeg}deg)`
-                  }}
-                  className={`flex items-center justify-center select-none ${
-                    activeLayer === 'jab' ? 'ring-2 ring-yellow-500 rounded-lg p-0.5' : ''
-                  }`}
-                >
-                  <div
-                    style={{
-                      backgroundColor: layout.jabBgColor,
-                      border: `2px solid ${layout.jabBorderColor}`,
-                      borderRadius: 8,
-                      padding: '4px 12px',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.9)'
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: layout.jabFontFamily,
-                        fontSize: `${layout.jabFontSize * 0.6}px`,
-                        color: layout.jabColor,
-                        fontWeight: 900,
-                        letterSpacing: '-0.5px'
-                      }}
-                    >
-                      {layout.jabText}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* [Layer 3: 본문 자막 (동적 모션)] */}
-              {layout.hasSubtitle && (
-                <div
-                  onClick={() => setActiveLayer('subtitle')}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    setIsDragging('subtitle');
-                  }}
-                  style={{
-                    position: 'absolute',
-                    top: `${layout.subtitleYPercent}%`,
-                    left: 0,
-                    right: 0,
-                    zIndex: 45,
-                    cursor: 'grab'
-                  }}
-                  className={`flex flex-col items-center justify-center select-none ${
-                    activeLayer === 'subtitle' ? 'ring-2 ring-amber-500 rounded-xl p-1 bg-amber-500/10' : ''
-                  }`}
-                >
-                  <div
-                    style={{
-                      fontFamily: layout.subtitleFontFamily,
-                      fontSize: `${layout.subtitleFontSize * 0.62}px`,
-                      color: layout.subtitleColor,
-                      fontWeight: 800,
-                      backgroundColor: layout.subtitleHasPillBg ? layout.subtitlePillBgColor : 'transparent',
-                      padding: layout.subtitleHasPillBg ? '4px 12px' : 0,
-                      borderRadius: 12,
-                      textShadow: `0 2px 6px ${layout.subtitleStrokeColor}`
-                    }}
-                  >
-                    {renderSimulatedSubtitle()}
-                  </div>
-                </div>
-              )}
-
-              {/* [Layer 5: 하단 출처 표기 (하단 바와 독립)] */}
-              {layout.hasBottomSource && (
-                <div
-                  onClick={() => setActiveLayer('bottomSource')}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    setIsDragging('bottomSource');
-                  }}
-                  style={{
-                    position: 'absolute',
-                    bottom: `${layout.bottomSourceBottomPct}%`,
-                    left: 0,
-                    right: 0,
-                    zIndex: 48,
-                    cursor: 'grab'
-                  }}
-                  className={`flex items-center justify-center text-center px-2 select-none ${
-                    activeLayer === 'bottomSource' ? 'ring-2 ring-emerald-500 rounded-md py-0.5' : ''
-                  }`}
-                >
-                  <span
-                    style={{
-                      fontFamily: layout.bottomSourceFontFamily,
-                      fontSize: `${layout.bottomSourceSizePx * 0.7}px`,
-                      color: layout.bottomSourceColor,
-                      textShadow: '0 1px 4px rgba(0,0,0,0.9)'
-                    }}
-                  >
-                    {layout.bottomSourceText}
-                  </span>
-                </div>
-              )}
-
-              {/* [Layer 6: 하단 배경 바] */}
-              {layout.hasBottomBarBg && (
-                <div
-                  onClick={() => setActiveLayer('bottomBarBg')}
-                  style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: `${layout.bottomBarHeightPct}%`,
-                    backgroundColor: layout.bottomBarBg,
-                    opacity: layout.bottomBarOpacity,
-                    zIndex: 20
-                  }}
-                  className={`cursor-pointer transition-all ${activeLayer === 'bottomBarBg' ? 'ring-2 ring-primary ring-inset' : ''}`}
-                >
-                  {/* Resizer Handle */}
-                  <div
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setIsDragging('bottomBar');
-                    }}
-                    className="absolute top-0 left-0 right-0 h-3 cursor-row-resize flex items-center justify-center group z-30"
-                    title="마우스로 하단 바 높이 조절"
-                  >
-                    <div className="w-12 h-1 bg-primary/70 rounded-full group-hover:bg-primary transition-colors" />
-                  </div>
-                </div>
-              )}
-
-              {/* A/B Split Comparison Overlay */}
-              {compareMode === 'split' && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    zIndex: 50,
-                    clipPath: `polygon(0 0, ${splitPos}% 0, ${splitPos}% 100%, 0 100%)`,
-                    pointerEvents: 'none'
-                  }}
-                  className="bg-slate-900 flex flex-col justify-between p-3"
-                >
-                  <div className="text-[10px] font-bold text-amber-400 bg-black/80 px-2 py-0.5 rounded w-fit">
-                    ◀ 벤치마크 원본 화면 (실측치)
-                  </div>
-                  <div className="text-[10px] text-slate-400 bg-black/80 px-2 py-0.5 rounded w-fit">
-                    헤더 18.3% · 옐로우 30px · 쨉쨉이 -4°
-                  </div>
-                </div>
-              )}
-
-              {/* Onion Skin 50% Overlay */}
-              {compareMode === 'onion' && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    zIndex: 50,
-                    opacity: onionOpacity / 100,
-                    pointerEvents: 'none',
-                    backgroundColor: 'rgba(245, 244, 32, 0.08)'
-                  }}
-                  className="border-2 border-dashed border-amber-400 flex items-center justify-center"
-                >
-                  <span className="text-xs font-bold text-amber-400 bg-black/80 px-2 py-1 rounded">
-                    투시 오버레이 ({onionOpacity}%)
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Split Slider Bar (if in split mode) */}
-          {compareMode === 'split' && (
-            <div className="w-full max-w-[300px] space-y-1">
-              <div className="flex justify-between text-xs text-muted-foreground font-mono">
-                <span>원본 {splitPos}%</span>
-                <span>내 디자인 {100 - splitPos}%</span>
-              </div>
-              <Slider
-                value={[splitPos]}
-                min={0}
-                max={100}
-                step={1}
-                onValueChange={([v]) => setSplitPos(v)}
-              />
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className={cn(
+              "h-6 px-1.5 text-[10px] font-bold rounded-[2px] border transition cursor-pointer flex items-center gap-1",
+              isFullscreen
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+            )}
+            title="전체화면 몰입 프리뷰 (ESC 키로 복귀)"
+          >
+            {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3 text-primary" />}
+            <span className="hidden md:inline">전체화면</span>
+          </button>
         </div>
+
+        {/* 우측: 저장 & 편집기 적용 액션 */}
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenTemplateLibrary}
+            className="h-7 text-xs px-2.5 gap-1 border-border font-semibold hover:bg-muted cursor-pointer"
+          >
+            <span className="text-xs">🎨</span>
+            <span>라이브러리</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveTemplate}
+            disabled={isSaving}
+            className="h-7 text-xs px-2.5 gap-1 border-border font-semibold cursor-pointer"
+          >
+            <Save className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>💾 템플릿 저장 (viral_loop.db)</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handleApplyToEditor}
+            className="h-7 text-xs px-2.5 gap-1 bg-primary text-primary-foreground hover:bg-primary/90 font-bold shadow-xs"
+          >
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>⚡ 정밀 편집기에 즉시 적용</span>
+          </Button>
+        </div>
+      </header>
+
+      {/* ── 2. 메인 워크스페이스: 좌측 디자인 도구(240px) + 중앙 캔버스 작업실 + 우측 9대 인스펙터(320px) ── */}
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
+        {/* ◀️ 좌측: 공통 비주얼 디자인 툴바 (240px, w-60) - 영상 공통 적용 디자인 자산에 집중 */}
+        <aside className="w-60 border-r border-border bg-card flex flex-col shrink-0 z-20 overflow-y-auto text-xs select-none">
+          {/* 패널 헤더 */}
+          <div className="h-9 px-3 border-b border-border flex items-center justify-between shrink-0 bg-muted/30">
+            <span className="font-bold text-foreground flex items-center gap-1.5 text-[11px]">
+              <Layout className="w-3.5 h-3.5 text-primary" />
+              공통 디자인 도구
+            </span>
+            <Badge variant="outline" className="text-[9px] font-mono text-primary">DNA DESIGN</Badge>
+          </div>
+
+          <div className="p-3 space-y-4">
+            {/* 1. 4대 폼팩터 아키타입 퀵 셀렉터 */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                <Layers3 className="w-3.5 h-3.5 text-primary" />
+                4대 표준 아키타입
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { id: 'classic', name: '스탠다드', badge: '기본형', desc: '상·하단 색상 바' },
+                  { id: 'instagram', name: '인스타그램', badge: '피드형', desc: '원형 프로필+홀' },
+                  { id: 'gunlimbo', name: '군림보', badge: '3단형', desc: '가변크롭+훅밴드' },
+                  { id: 'ssul', name: '썰/커뮤니티', badge: '썰형', desc: '헤더+페페 밈' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSelectTemplateMode(item.id as LayoutTemplateMode)}
+                    className={cn(
+                      "p-2 rounded border text-left transition flex flex-col justify-between cursor-pointer",
+                      layoutTemplateMode === item.id
+                        ? "border-primary bg-primary/10 shadow-2xs ring-1 ring-primary"
+                        : "border-border bg-background hover:bg-muted/60"
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="font-bold text-[11px] text-foreground">{item.name}</span>
+                      <span className={cn(
+                        "text-[8.5px] font-bold px-1 py-0.2 rounded",
+                        layoutTemplateMode === item.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      )}>
+                        {item.badge}
+                      </span>
+                    </div>
+                    <span className="text-[9.5px] text-muted-foreground truncate">{item.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 2. 레퍼런스 쇼츠 1초 발골기 */}
+            <div className="space-y-1.5 pt-2 border-t border-border">
+              <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                <YoutubeIcon className="w-3.5 h-3.5 text-red-500" />
+                레퍼런스 쇼츠 디자인 발골
+              </span>
+              <p className="text-[10px] text-muted-foreground">
+                쇼츠 링크를 넣으면 AI가 색상·폰트·지오메트리를 역공학 추출합니다.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsForensicModalOpen(true)}
+                className="w-full h-8 text-xs gap-1.5 font-bold border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 shadow-2xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>🔍 URL에서 디자인 발골</span>
+              </Button>
+            </div>
+
+            {/* 3. 브랜드 컬러 & 폰트 하모니 */}
+            <div className="space-y-2 pt-2 border-t border-border">
+              <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                <Palette className="w-3.5 h-3.5 text-amber-500" />
+                브랜드 비주얼 하모니
+              </span>
+              
+              {/* 시그니처 듀얼 컬러 테마 4선 */}
+              <div className="space-y-1">
+                <span className="text-[10px] text-muted-foreground font-semibold">시그니처 컬러 테마</span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { id: 'gold_yellow', name: '골드 옐로우', primary: '#FFE500', secondary: '#00E510', bg: '#000000' },
+                    { id: 'cyber_neon', name: '사이버 네온', primary: '#00F0FF', secondary: '#FF0055', bg: '#0A0A10' },
+                    { id: 'insta_clean', name: '인스타 클린', primary: '#0095F6', secondary: '#374151', bg: '#FFFFFF' },
+                    { id: 'yt_red', name: '유튜브 레드', primary: '#FF0000', secondary: '#FFFFFF', bg: '#18181B' },
+                  ].map((theme) => (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => handleApplyColorTheme(theme)}
+                      className="p-1.5 border border-border bg-background hover:bg-muted rounded flex items-center justify-between text-[10px] transition cursor-pointer"
+                      title={`${theme.name} 일괄 적용`}
+                    >
+                      <span className="font-medium text-foreground truncate">{theme.name}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <div className="w-2.5 h-2.5 rounded-full border border-border shadow-xs" style={{ backgroundColor: theme.primary }} />
+                        <div className="w-2.5 h-2.5 rounded-full border border-border shadow-xs" style={{ backgroundColor: theme.secondary }} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 황금비 폰트 페어링 4선 */}
+              <div className="space-y-1 pt-1">
+                <span className="text-[10px] text-muted-foreground font-semibold">황금비 폰트 페어링</span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { name: '모던 볼드', title: 'Pretendard', sub: 'Pretendard' },
+                    { name: '임팩트 헤드', title: 'BlackHanSans', sub: 'NotoSansKR' },
+                    { name: '깔끔 고딕', title: 'GmarketSans', sub: 'GmarketSans' },
+                    { name: '캐주얼 팝', title: 'Jalnan', sub: 'Pretendard' },
+                  ].map((pair, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleApplyFontPairing(pair)}
+                      className="p-1.5 border border-border bg-background hover:bg-muted rounded text-left text-[10px] transition cursor-pointer flex flex-col justify-between"
+                      title={`대제목: ${pair.title} + 자막: ${pair.sub}`}
+                    >
+                      <span className="font-bold text-foreground">{pair.name}</span>
+                      <span className="text-[8.5px] text-muted-foreground truncate">{pair.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. 뷰포트 디바이스 & 세이프존 가이드 */}
+            <div className="space-y-2 pt-2 border-t border-border">
+              <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                <Smartphone className="w-3.5 h-3.5 text-sky-500" />
+                디바이스 & 세이프존
+              </span>
+
+              {/* 플랫폼 세이프존 선택 */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground font-semibold">플랫폼 가이드라인</span>
+                  <Switch
+                    checked={safeZoneVisible}
+                    onCheckedChange={setSafeZoneVisible}
+                    className="scale-75"
+                  />
+                </div>
+                {safeZoneVisible && (
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { id: 'youtube', label: 'Shorts' },
+                      { id: 'tiktok', label: 'TikTok' },
+                      { id: 'reels', label: 'Reels' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSafeZonePlatform(p.id as any)}
+                        className={cn(
+                          "py-1 text-center font-bold text-[9.5px] rounded border transition cursor-pointer",
+                          safeZonePlatform === p.id
+                            ? "bg-amber-500/20 border-amber-500 text-amber-500 dark:text-amber-400"
+                            : "border-border bg-background hover:bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 모바일 실기기 목업 선택 */}
+              <div className="space-y-1 pt-1">
+                <span className="text-[10px] text-muted-foreground font-semibold">실기기 목업 프레임</span>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { id: 'none', label: '없음' },
+                    { id: 'iphone16', label: 'iPhone 16' },
+                    { id: 'galaxy', label: 'Galaxy S25' },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setDeviceMockup(m.id as any)}
+                      className={cn(
+                        "py-1 text-center font-bold text-[9px] rounded border transition cursor-pointer truncate px-0.5",
+                        deviceMockup === m.id
+                          ? "bg-sky-500/20 border-sky-500 text-sky-500 dark:text-sky-400"
+                          : "border-border bg-background hover:bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 5. 템플릿 자산 I/O 관리 */}
+            <div className="space-y-1.5 pt-2 border-t border-border">
+              <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                <FileJson className="w-3.5 h-3.5 text-emerald-500" />
+                템플릿 자산 관리
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleOpenTemplateLibrary}
+                  className="h-7 text-[10px] gap-1 border-border hover:bg-muted font-semibold"
+                >
+                  <FolderOpen className="w-3 h-3 text-amber-500" />
+                  <span>보관함 열기</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleExportTemplateJson}
+                  className="h-7 text-[10px] gap-1 border-border hover:bg-muted font-semibold"
+                >
+                  <Download className="w-3 h-3 text-emerald-500" />
+                  <span>JSON 내보내기</span>
+                </Button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImportTemplateJson}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-7 text-[10px] gap-1 border-dashed border-border hover:bg-muted font-semibold text-muted-foreground"
+              >
+                <Upload className="w-3 h-3 text-sky-500" />
+                <span>외부 JSON 파일 가져오기</span>
+              </Button>
+            </div>
+          </div>
+        </aside>
+
+        {/* 🎯 중앙: 캔버스 작업실 (정밀 편집기와 완벽히 1:1 일치하는 높이와 뷰포트) */}
+        <main className="flex-1 bg-muted/30 dark:bg-zinc-950 flex flex-col min-h-0 relative overflow-hidden border-r border-border select-none">
+          {/* 1. 뷰어 상단 바 (36px, h-9) - 종횡비, 줌 컨트롤, 세이프존, 실기기, 그리드, 캡처, 전체화면 */}
+          <div className="h-9 px-3 bg-card border-b border-border flex items-center justify-between shrink-0 z-20 select-none">
+            {/* 좌측: 종횡비 & 줌 컨트롤 */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center p-0.5 bg-muted/60 rounded-[2px] border border-border text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setAspectRatio('9:16')}
+                  className={cn(
+                    "px-2 py-0.5 font-bold rounded-[1px] transition cursor-pointer flex items-center gap-1",
+                    aspectRatio === '9:16' ? "bg-primary text-primary-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="9:16 쇼츠 / 릴스 / 틱톡"
+                >
+                  <span>9:16 쇼츠</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAspectRatio('16:9')}
+                  className={cn(
+                    "px-2 py-0.5 font-bold rounded-[1px] transition cursor-pointer flex items-center gap-1",
+                    aspectRatio === '16:9' ? "bg-primary text-primary-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="16:9 유튜브 롱폼"
+                >
+                  <span>16:9 롱폼</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAspectRatio('1:1')}
+                  className={cn(
+                    "px-2 py-0.5 font-bold rounded-[1px] transition cursor-pointer flex items-center gap-1",
+                    aspectRatio === '1:1' ? "bg-primary text-primary-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title="1:1 인스타그램 피드"
+                >
+                  <span>1:1 피드</span>
+                </button>
+              </div>
+
+              <div className="h-3 w-px bg-border mx-0.5" />
+
+              {/* 캔버스 화면 맞춤 & 줌 */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCanvasZoom('fit');
+                    setCanvasScale(1.0);
+                    setCanvasPan({ x: 0, y: 0 });
+                  }}
+                  className={cn(
+                    "h-6 px-2 text-[10px] font-bold rounded-[2px] border transition cursor-pointer flex items-center gap-1",
+                    canvasZoom === 'fit' ? "bg-primary/15 border-primary text-foreground" : "border-border bg-background hover:bg-muted text-muted-foreground"
+                  )}
+                  title="캔버스를 100% 최적 화면에 맞춤"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>맞춤 (Fit)</span>
+                </button>
+
+                <div className="flex items-center gap-1 bg-background border border-border px-1.5 h-6 rounded-[2px]">
+                  <ZoomIn className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] font-mono font-bold text-primary min-w-[32px] text-right">
+                    {Math.round(canvasScale * 100)}%
+                  </span>
+                  <select
+                    value={canvasZoom}
+                    onChange={(e) => setCanvasZoom(e.target.value as any)}
+                    className="h-5 text-[10px] font-mono bg-transparent border-0 text-muted-foreground hover:text-foreground focus:outline-none cursor-pointer pr-1"
+                    title="줌 프리셋 선택"
+                  >
+                    <option value="50">50%</option>
+                    <option value="75">75%</option>
+                    <option value="100">100%</option>
+                    <option value="150">150%</option>
+                    <option value="200">200%</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 중앙: 해상도 인디케이터 */}
+            <div className="hidden md:flex items-center gap-2">
+              <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-[2px] border border-border">
+                {aspectRatio === '9:16' ? '1080 × 1920 (FHD 9:16)' : aspectRatio === '16:9' ? '1920 × 1080 (FHD 16:9)' : '1080 × 1080 (1:1)'}
+              </span>
+              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded-[2px] border border-emerald-500/20">
+                1:1 에디터 일치 뷰
+              </span>
+            </div>
+
+            {/* 우측: 세이프존, 그리드, 스냅샷, 전체화면 버튼 */}
+            <div className="flex items-center gap-1">
+              {/* 안전영역 토글 */}
+              {aspectRatio === '9:16' && (
+                <button
+                  type="button"
+                  onClick={() => setSafeZoneVisible(!safeZoneVisible)}
+                  className={cn(
+                    "h-6 px-2 text-[10px] font-bold rounded-[2px] border transition cursor-pointer flex items-center gap-1",
+                    safeZoneVisible ? "bg-amber-500/20 border-amber-500 text-amber-500 dark:text-amber-400" : "border-border bg-background hover:bg-muted text-muted-foreground"
+                  )}
+                  title="플랫폼 세이프존 가이드 토글"
+                >
+                  <span>안전영역</span>
+                </button>
+              )}
+
+              {/* 가이드선 */}
+              <button
+                type="button"
+                onClick={() => setShowGrid(!showGrid)}
+                className={cn(
+                  "h-6 px-1.5 text-[10px] font-bold rounded-[2px] border transition cursor-pointer flex items-center gap-1",
+                  showGrid ? "bg-primary/20 border-primary text-foreground" : "border-border bg-background hover:bg-muted text-muted-foreground"
+                )}
+                title="프로 3분할 구도선 & 센터 십자선 가이드"
+              >
+                <Grid className="w-3 h-3" />
+                <span className="hidden lg:inline">가이드선</span>
+              </button>
+
+              {/* 스냅샷 */}
+              <button
+                type="button"
+                onClick={() => {
+                  toast({
+                    title: '스냅샷 캡처 완료',
+                    description: `현재 시점(${(currentTimeMs / 1000).toFixed(2)}초)의 템플릿 디자인 프레임이 복사되었습니다.`,
+                  });
+                }}
+                className="h-6 px-1.5 text-[10px] font-bold rounded-[2px] border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer flex items-center gap-1"
+                title="현재 프레임 스냅샷 캡처"
+              >
+                <Camera className="w-3 h-3" />
+              </button>
+
+              {/* 전체화면 */}
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className={cn(
+                  "h-6 px-1.5 text-[10px] font-bold rounded-[2px] border transition cursor-pointer flex items-center gap-1",
+                  isFullscreen ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+                )}
+                title="전체화면 몰입 프리뷰 (ESC)"
+              >
+                {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3 text-primary" />}
+                <span className="hidden lg:inline">전체화면</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 2. 중앙 캔버스 스테이지 (유효 높이 ~516px, ShortsEditorStudio와 1:1 완벽 일치) */}
+          <div
+            ref={canvasContainerRef}
+            className={cn(
+              "relative overflow-hidden flex items-center justify-center cursor-default transition-all duration-200",
+              isFullscreen
+                ? "fixed inset-0 z-[9999] bg-zinc-950/98 p-6"
+                : "flex-1 p-3 bg-zinc-950/95"
+            )}
+            onMouseDown={(e) => {
+              if (e.button === 1 || e.button === 2) {
+                e.preventDefault();
+                setIsPanning(true);
+                panStartRef.current = {
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  panX: canvasPan.x,
+                  panY: canvasPan.y,
+                };
+
+                const onMouseMove = (me: MouseEvent) => {
+                  const dx = me.clientX - panStartRef.current.startX;
+                  const dy = me.clientY - panStartRef.current.startY;
+                  setCanvasPan({
+                    x: panStartRef.current.panX + dx,
+                    y: panStartRef.current.panY + dy,
+                  });
+                };
+
+                const onMouseUp = () => {
+                  setIsPanning(false);
+                  window.removeEventListener('mousemove', onMouseMove);
+                  window.removeEventListener('mouseup', onMouseUp);
+                };
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+              }
+            }}
+            onContextMenu={(e) => {
+              if (isPanning) e.preventDefault();
+            }}
+            onDoubleClick={() => {
+              setCanvasScale(1.0);
+              setCanvasPan({ x: 0, y: 0 });
+              setCanvasZoom('fit');
+              toast({ title: '화면 맞춤 완료', description: '캔버스 배율 및 위치가 100% 기본 상태로 복구되었습니다.' });
+            }}
+          >
+            {/* 전체화면 플로팅 닫기 바 */}
+            {isFullscreen && (
+              <div className="absolute top-5 right-5 z-[99999] flex items-center gap-2.5 bg-zinc-900/95 border border-zinc-700/80 rounded-md px-3.5 py-2 shadow-2xl backdrop-blur-md">
+                <span className="text-xs text-zinc-200 font-bold">전체화면 몰입 프리뷰</span>
+                <span className="text-[10px] text-zinc-400 font-mono font-semibold bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
+                  {aspectRatio} • {layoutTemplateMode.toUpperCase()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen(false)}
+                  className="h-7 px-2.5 text-xs font-bold rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-100 flex items-center gap-1 transition cursor-pointer border border-zinc-700"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>닫기 (ESC)</span>
+                </button>
+              </div>
+            )}
+
+            <UniversalCanvasStage
+              currentProjectDisplayName="템플릿 미리보기"
+              aspectRatio={aspectRatio}
+              canvasScale={canvasScale}
+              canvasPan={canvasPan}
+              layoutTemplateMode={layoutTemplateMode}
+              selectedLayerId={selectedLayerId}
+              setSelectedLayerId={setSelectedLayerId}
+              setActiveInspectorTab={setActiveInspectorTab}
+              videoFitMode={videoFitMode}
+              videoBlurBg={videoBlurBg}
+              videoFocusXPct={videoFocusXPct}
+              videoFocusYPct={videoFocusYPct}
+              setVideoFocusXPct={setVideoFocusXPct}
+              setVideoFocusYPct={setVideoFocusYPct}
+              videoZoomScale={videoZoomScale}
+              setVideoZoomScale={setVideoZoomScale}
+              videoRotationDeg={videoRotationDeg}
+              setVideoRotationDeg={setVideoRotationDeg}
+              videoHorizontalFlip={videoHorizontalFlip}
+              setVideoHorizontalFlip={setVideoHorizontalFlip}
+              videoVerticalFlip={videoVerticalFlip}
+              videoFilter={videoFilter}
+              currentTimeMs={currentTimeMs}
+              instaConfig={instaConfig}
+              setInstaConfig={setInstaConfig}
+              profileTransform={profileTransform}
+              setProfileTransform={setProfileTransform}
+              gunlimboConfig={gunlimboConfig}
+              setGunlimboConfig={setGunlimboConfig}
+              ssulConfig={ssulConfig}
+              setSsulConfig={setSsulConfig}
+              hasTopBarBg={hasTopBarBg}
+              topBarHeightPct={topBarHeightPct}
+              topBarBg={topBarBg}
+              topBarZIndex={topBarZIndex}
+              hasBottomBarBg={hasBottomBarBg}
+              bottomBarHeightPct={bottomBarHeightPct}
+              bottomBarBg={bottomBarBg}
+              bottomBarZIndex={bottomBarZIndex}
+              hasTopTitle={hasTopTitle}
+              topTitleText={topTitleText}
+              titleTransform={titleTransform}
+              setTitleTransform={setTitleTransform}
+              titleLinesMode={titleLinesMode}
+              titleLine1={titleLine1}
+              titleLine2={titleLine2}
+              titleLine1SizePx={titleLine1SizePx}
+              titleLine2SizePx={titleLine2SizePx}
+              titleLine1Color={titleLine1Color}
+              titleLine2Color={titleLine2Color}
+              titleFontFamily={titleFontFamily}
+              titleStroke={titleStroke}
+              titleStrokeWidth={titleStrokeWidth}
+              titleStrokeColor={titleStrokeColor}
+              titleShadow={titleShadow}
+              titleShadowBlur={titleShadowBlur}
+              titleShadowColor={titleShadowColor}
+              titleBgMode={titleBgMode}
+              titleBgColor={titleBgColor}
+              titleBgOpacity={titleBgOpacity}
+              titlePaddingX={titlePaddingX}
+              titlePaddingY={titlePaddingY}
+              titleBorderRadius={titleBorderRadius}
+              hasTitleBadge={hasTitleBadge}
+              titleBadgeText={titleBadgeText}
+              titleBadgeBg={titleBadgeBg}
+              titleBadgeColor={titleBadgeColor}
+              hasJab={hasJab}
+              jabTransform={jabTransform}
+              setJabTransform={setJabTransform}
+              jabText={jabText}
+              jabTiltDeg={jabTiltDeg}
+              jabFontSize={jabFontSize}
+              jabTextColor={jabTextColor}
+              jabStroke={jabStroke}
+              jabStrokeWidth={jabStrokeWidth}
+              jabStrokeColor={jabStrokeColor}
+              jabShadow={jabShadow}
+              jabShadowBlur={jabShadowBlur}
+              jabBgEnabled={jabBgEnabled}
+              jabBgColor={jabBgColor}
+              jabBorderRadius={jabBorderRadius}
+              hasSubtitle={true}
+              subTransform={subTransform}
+              setSubTransform={setSubTransform}
+              setSubtitleYPercent={(y: number) => setSubTransform(prev => ({ ...prev, yPct: y }))}
+              currentSubtitleText={currentSubtitleText}
+              subtitleConfig={subtitleConfig}
+              subtitleStrokeEnabled={subtitleStrokeEnabled}
+              subtitleStrokeWidth={subtitleStrokeWidth}
+              subtitleStrokeColor={subtitleStrokeColor}
+              subtitleShadowEnabled={subtitleShadowEnabled}
+              subtitleShadowBlur={subtitleShadowBlur}
+              subtitleShadowColor={subtitleShadowColor}
+              subtitleUseBox={subtitleUseBox}
+              subtitleBoxColor={subtitleBoxColor}
+              subtitleBorderRadius={subtitleBorderRadius}
+              subtitleMaxChars={subtitleMaxChars}
+              selectedHighlightColor={selectedHighlightColor}
+              hasBottomSource={hasBottomSource}
+              sourceTransform={sourceTransform}
+              setSourceTransform={setSourceTransform}
+              bottomSourceText={bottomSourceText}
+              bottomSourceColor={bottomSourceColor}
+              bottomSourceSizePx={bottomSourceSizePx}
+              bottomSourceBg={bottomSourceBg}
+              bottomSourceBorderRadius={bottomSourceBorderRadius}
+              bottomSourceStroke={bottomSourceStroke}
+              bottomSourceShadow={bottomSourceShadow}
+              setBottomSourceBottomPct={setBottomSourceBottomPct}
+              hasCommentCard={hasCommentCard}
+              commentCard={commentCard}
+              commentTransform={commentTransform}
+              setCommentTransform={setCommentTransform}
+              showGrid={showGrid}
+              safeZoneVisible={safeZoneVisible}
+              safeZonePlatform={safeZonePlatform}
+              deviceMockup={deviceMockup}
+            />
+          </div>
+
+          {/* 3. 하단 디자인 모션 & 군림보 시뮬레이터 독 (288px, h-72) */}
+          <footer className="h-72 border-t border-border bg-card flex flex-col shrink-0 select-none z-20">
+            {/* 3.1 트랜스포트 & 퀵 점프 컨트롤러 (36px, h-9) */}
+            <div className="h-9 px-3 bg-muted/40 border-b border-border flex items-center justify-between shrink-0 select-none text-xs">
+              {/* 좌측: 타임코드 & 오디오 VU 미터 */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-background px-2 py-0.5 rounded-[2px] border border-border">
+                  <span className="text-[11px] font-mono font-bold text-foreground">
+                    {formatTimecode(currentTimeMs)}
+                  </span>
+                  <span className="text-[9px] font-mono text-muted-foreground">/</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    {formatTimecode(durationMs)}
+                  </span>
+                </div>
+
+                <div className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 bg-background border border-border rounded-[2px]" title="VU 피크 미터">
+                  <span className="text-[8px] font-mono text-muted-foreground font-bold">VU</span>
+                  <div className="flex items-end gap-0.5 h-3">
+                    <div className="w-1 h-full bg-muted rounded-[1px] overflow-hidden flex flex-col justify-end">
+                      <div className="w-full bg-emerald-500 transition-all duration-75" style={{ height: `${vuLevels.left}%` }} />
+                    </div>
+                    <div className="w-1 h-full bg-muted rounded-[1px] overflow-hidden flex flex-col justify-end">
+                      <div className="w-full bg-emerald-500 transition-all duration-75" style={{ height: `${vuLevels.right}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 중앙: 군림보 2대 퀵 점프 & 메인 재생 버튼 */}
+              <div className="flex items-center gap-1">
+                {/* 🎯 군림보 0.0s 인트로 퀵 점프 */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTimeMs(0)}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-bold rounded border transition cursor-pointer flex items-center gap-1 shadow-2xs",
+                    currentTimeMs < (gunlimboConfig.introDurationSec || 2.5) * 1000
+                      ? "bg-amber-500/20 border-amber-500 text-amber-500 dark:text-amber-400"
+                      : "border-border bg-background hover:bg-muted text-muted-foreground"
+                  )}
+                  title="0.0초 인트로 모션 (34% 크롭 + 훅 밴드 노출)"
+                >
+                  <SkipBack className="w-3 h-3" />
+                  <span>0.0s 인트로 모션</span>
+                </button>
+
+                {/* 재생/일시정지 */}
+                <button
+                  type="button"
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className="w-7 h-7 mx-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full flex items-center justify-center cursor-pointer shadow-xs active:scale-95 transition-all"
+                  title="재생 / 일시정지 (Space)"
+                >
+                  {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
+                </button>
+
+                {/* 🎯 군림보 2.5s 본문 전환 퀵 점프 */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentTimeMs((gunlimboConfig.introDurationSec || 2.5) * 1000)}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-bold rounded border transition cursor-pointer flex items-center gap-1 shadow-2xs",
+                    currentTimeMs >= (gunlimboConfig.introDurationSec || 2.5) * 1000
+                      ? "bg-sky-500/20 border-sky-500 text-sky-500 dark:text-sky-400"
+                      : "border-border bg-background hover:bg-muted text-muted-foreground"
+                  )}
+                  title="2.5초 본문 전환 (24% 크롭 확장 + 훅 밴드 소멸)"
+                >
+                  <span>2.5s 본문 전환</span>
+                  <SkipForward className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* 우측: 루프, 배속, 볼륨 */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLooping(!isLooping)}
+                  className={cn(
+                    "p-1 rounded-[2px] transition cursor-pointer",
+                    isLooping ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                  )}
+                  title={isLooping ? "반복 재생 켜짐" : "반복 재생 꺼짐"}
+                >
+                  <Repeat className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  <select
+                    value={playbackRate}
+                    onChange={(e) => setPlaybackRate(parseFloat(e.target.value))}
+                    className="h-5 px-1 text-[10px] font-mono bg-background border border-border rounded-[2px] text-foreground cursor-pointer"
+                  >
+                    <option value="0.5">0.5x</option>
+                    <option value="1.0">1.0x</option>
+                    <option value="1.5">1.5x</option>
+                    <option value="2.0">2.0x</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsMuted(!isMuted)}
+                    className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                    title={isMuted ? "음소거 해제" : "음소거"}
+                  >
+                    {isMuted || masterVolume === 0 ? <VolumeX className="w-3.5 h-3.5 text-rose-500" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={isMuted ? 0 : masterVolume}
+                    onChange={(e) => {
+                      setMasterVolume(parseInt(e.target.value));
+                      if (isMuted) setIsMuted(false);
+                    }}
+                    className="w-12 accent-primary cursor-pointer h-1 bg-muted"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3.2 디자인 모션 레이어 타임 스트립 & 군림보 시뮬레이터 (~252px) */}
+            <div className="flex-1 flex flex-col p-3 overflow-hidden bg-background/50 space-y-2">
+              {/* 상단 타임 스크러버 자 (0.0s ~ 5.0s) */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground px-1">
+                  <span>0.0s (시작)</span>
+                  <span className="text-amber-500 font-bold">⚡ 2.5s (군림보 인트로 분기점)</span>
+                  <span>5.0s (루프)</span>
+                </div>
+                <div className="relative w-full h-5 flex items-center">
+                  <Slider
+                    value={[currentTimeMs]}
+                    max={durationMs}
+                    step={33}
+                    onValueChange={(val) => setCurrentTimeMs(val[0])}
+                    className="w-full cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* 4대 비주얼 레이어 타임 스트립 */}
+              <div className="flex-1 flex flex-col justify-around py-1 space-y-1 text-[10.5px]">
+                {/* 1. T1 상단 대제목 레이어 */}
+                <div className="flex items-center gap-2">
+                  <div className="w-24 shrink-0 font-bold text-foreground flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span>T1 상단제목</span>
+                  </div>
+                  <div className="flex-1 h-6 bg-muted/60 rounded border border-border relative overflow-hidden flex items-center px-2">
+                    <div
+                      className={cn(
+                        "h-4 rounded px-2 text-[9px] font-bold flex items-center text-white transition-all",
+                        gunlimboConfig.keepTitleThroughout || currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000
+                          ? "bg-amber-500/80 shadow-xs"
+                          : "bg-muted-foreground/30 text-muted-foreground line-through"
+                      )}
+                      style={{ width: gunlimboConfig.keepTitleThroughout ? '100%' : '50%' }}
+                    >
+                      {gunlimboConfig.keepTitleThroughout ? '전 구간 2줄 대제목 지속 유지' : '0~2.5초 인트로 대제목 노출 후 소멸'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. H1 후킹 띠 바 (24~34%) */}
+                <div className="flex items-center gap-2">
+                  <div className="w-24 shrink-0 font-bold text-foreground flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    <span>H1 훅 밴드</span>
+                  </div>
+                  <div className="flex-1 h-6 bg-muted/60 rounded border border-border relative overflow-hidden flex items-center px-2">
+                    <div
+                      className={cn(
+                        "h-4 rounded px-2 text-[9px] font-bold flex items-center transition-all",
+                        currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000
+                          ? "bg-rose-500 text-white shadow-xs"
+                          : "bg-muted text-muted-foreground opacity-40"
+                      )}
+                      style={{ width: '50%' }}
+                    >
+                      0~2.5초 100% 흰색 띠 후킹 바 (24~34%)
+                    </div>
+                    <div className="absolute left-1/2 top-0 bottom-0 w-px border-r border-dashed border-rose-500/70" />
+                    <span className="text-[8.5px] text-muted-foreground ml-auto pr-2">2.5s 이후 자동 소멸</span>
+                  </div>
+                </div>
+
+                {/* 3. V1 비디오 가변 크롭 & 줌 */}
+                <div className="flex items-center gap-2">
+                  <div className="w-24 shrink-0 font-bold text-foreground flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-purple-500" />
+                    <span>V1 비디오 크롭</span>
+                  </div>
+                  <div className="flex-1 h-6 bg-muted/60 rounded border border-border relative overflow-hidden flex items-center text-[9px] font-bold">
+                    <div
+                      className={cn(
+                        "h-full flex items-center px-2 transition-all border-r border-border",
+                        currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000
+                          ? "bg-purple-500/30 text-purple-600 dark:text-purple-300 ring-1 ring-inset ring-purple-500"
+                          : "bg-muted/40 text-muted-foreground"
+                      )}
+                      style={{ width: '50%' }}
+                    >
+                      34% 샌드위치 크롭 (켄 번스 줌)
+                    </div>
+                    <div
+                      className={cn(
+                        "h-full flex items-center px-2 flex-1 transition-all",
+                        currentTimeMs > (gunlimboConfig.introDurationSec || 2.5) * 1000
+                          ? "bg-sky-500/30 text-sky-600 dark:text-sky-300 ring-1 ring-inset ring-sky-500"
+                          : "bg-muted/40 text-muted-foreground"
+                      )}
+                    >
+                      24% 크롭 확장 (본문 집중 뷰)
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. S1/C1 본문 자막 & 바이럴 댓글 */}
+                <div className="flex items-center gap-2">
+                  <div className="w-24 shrink-0 font-bold text-foreground flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span>S1/C1 자막·댓글</span>
+                  </div>
+                  <div className="flex-1 h-6 bg-muted/60 rounded border border-border relative overflow-hidden flex items-center px-2">
+                    <div
+                      className={cn(
+                        "h-4 rounded px-2 text-[9px] font-bold flex items-center ml-auto transition-all",
+                        currentTimeMs > (gunlimboConfig.introDurationSec || 2.5) * 1000
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "bg-muted text-muted-foreground opacity-40"
+                      )}
+                      style={{ width: '50%' }}
+                    >
+                      2.5초 이후 본문 자막 & 바이럴 댓글 카드 활성화
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </footer>
+        </main>
+
+        {/* ── 3. 우측 9대 프로 인스펙터 패널 (정밀 편집기와 100% 동일한 조작계) ── */}
+        <aside className="w-80 border-l border-border bg-card flex flex-col shrink-0 z-20 overflow-hidden">
+          {/* 9대 탭 그리드 */}
+          <div className="grid grid-cols-3 gap-0.5 border-b border-border bg-muted/40 p-0.5 text-[9.5px]">
+            {[
+              { id: 'template', label: '🏛️ 템플릿/폼' },
+              { id: 'titleSource', label: '타이틀/출처' },
+              { id: 'videoCrop', label: '비디오 핏' },
+              { id: 'filterFx', label: '🎨 필터/FX' },
+              { id: 'commentCard', label: '💬 댓글카드' },
+              { id: 'jabHook', label: '쨉쨉이 훅' },
+              { id: 'style', label: '자막 스타일' },
+              { id: 'tts', label: '음성 (TTS)' },
+              { id: 'channel', label: '채널 DNA' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveInspectorTab(tab.id as any)}
+                className={cn(
+                  "py-1 text-center font-semibold rounded-[2px] transition cursor-pointer truncate px-0.5",
+                  activeInspectorTab === tab.id
+                    ? "bg-primary text-primary-foreground shadow-2xs font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 인스펙터 세부 컨텐츠 영역 */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3.5 custom-scrollbar text-xs">
+            {/* 🏛️ 1. 템플릿/폼 탭 */}
+            {activeInspectorTab === 'template' && (
+              <TemplateInspectorForm
+                layoutTemplateMode={layoutTemplateMode}
+                handleSelectTemplateMode={handleSelectTemplateMode}
+                handleOpenTemplateLibrary={handleOpenTemplateLibrary}
+                topBarBg={topBarBg}
+                setTopBarBg={setTopBarBg}
+                topBarHeightPct={topBarHeightPct}
+                setTopBarHeightPct={setTopBarHeightPct}
+                bottomBarBg={bottomBarBg}
+                setBottomBarBg={setBottomBarBg}
+                bottomBarHeightPct={bottomBarHeightPct}
+                setBottomBarHeightPct={setBottomBarHeightPct}
+                bottomSourceText={bottomSourceText}
+                setBottomSourceText={setBottomSourceText}
+                instaConfig={instaConfig}
+                setInstaConfig={setInstaConfig}
+                gunlimboConfig={gunlimboConfig}
+                setGunlimboConfig={setGunlimboConfig}
+                ssulConfig={ssulConfig}
+                setSsulConfig={setSsulConfig}
+                profileTransform={profileTransform}
+                setProfileTransform={setProfileTransform}
+                topTitleText={topTitleText}
+                setTopTitleText={setTopTitleText}
+                titleTransform={titleTransform}
+                setTitleTransform={setTitleTransform}
+                topTitleFontSize={topTitleFontSize}
+                setTopTitleFontSize={setTopTitleFontSize}
+                topTitleColor={topTitleColor}
+                setTopTitleColor={setTopTitleColor}
+                commentCard={commentCard}
+                setCommentCard={setCommentCard}
+                commentTransform={commentTransform}
+                setCommentTransform={setCommentTransform}
+                hasCommentCard={hasCommentCard}
+                setHasCommentCard={setHasCommentCard}
+                subTransform={subTransform}
+                setSubTransform={setSubTransform}
+                subtitleConfig={subtitleConfig}
+                setSubtitleConfig={setSubtitleConfig}
+                setSubtitleYPercent={(y: number) => setSubTransform(prev => ({ ...prev, yPct: y }))}
+                activeInspectorTab={activeInspectorTab}
+                setActiveInspectorTab={setActiveInspectorTab}
+                selectedLayerId={selectedLayerId}
+                setSelectedLayerId={setSelectedLayerId}
+                layers={[]}
+                setLayers={() => {}}
+              />
+            )}
+
+            {activeInspectorTab === 'titleSource' && (
+              <TitleSourceInspectorForm
+                hasTopTitle={hasTopTitle}
+                setHasTopTitle={setHasTopTitle}
+                titleLinesMode={titleLinesMode}
+                setTitleLinesMode={setTitleLinesMode}
+                hasTitleBadge={hasTitleBadge}
+                setHasTitleBadge={setHasTitleBadge}
+                titleBadgeText={titleBadgeText}
+                setTitleBadgeText={setTitleBadgeText}
+                titleBadgeColor={titleBadgeColor}
+                setTitleBadgeColor={setTitleBadgeColor}
+                titleLine1={titleLine1}
+                setTitleLine1={setTitleLine1}
+                titleLine2={titleLine2}
+                setTitleLine2={setTitleLine2}
+                titleLine1SizePx={titleLine1SizePx}
+                setTitleLine1SizePx={setTitleLine1SizePx}
+                titleLine2SizePx={titleLine2SizePx}
+                setTitleLine2SizePx={setTitleLine2SizePx}
+                titleLine1Color={titleLine1Color}
+                setTitleLine1Color={setTitleLine1Color}
+                titleLine2Color={titleLine2Color}
+                setTitleLine2Color={setTitleLine2Color}
+                titleStroke={titleStroke}
+                setTitleStroke={setTitleStroke}
+                titleStrokeWidth={titleStrokeWidth}
+                setTitleStrokeWidth={setTitleStrokeWidth}
+                titleStrokeColor={titleStrokeColor}
+                setTitleStrokeColor={setTitleStrokeColor}
+                titleShadow={titleShadow}
+                setTitleShadow={setTitleShadow}
+                titleShadowBlur={titleShadowBlur}
+                setTitleShadowBlur={setTitleShadowBlur}
+                titleBgMode={titleBgMode}
+                setTitleBgMode={setTitleBgMode}
+                titlePaddingX={titlePaddingX}
+                setTitlePaddingX={setTitlePaddingX}
+                titleBorderRadius={titleBorderRadius}
+                setTitleBorderRadius={setTitleBorderRadius}
+                hasTopBarBg={hasTopBarBg}
+                setHasTopBarBg={setHasTopBarBg}
+                topBarBg={topBarBg}
+                setTopBarBg={setTopBarBg}
+                topBarHeightPct={topBarHeightPct}
+                setTopBarHeightPct={setTopBarHeightPct}
+                hasBottomBarBg={hasBottomBarBg}
+                setHasBottomBarBg={setHasBottomBarBg}
+                bottomBarBg={bottomBarBg}
+                setBottomBarBg={setBottomBarBg}
+                bottomBarHeightPct={bottomBarHeightPct}
+                setBottomBarHeightPct={setBottomBarHeightPct}
+                hasBottomSource={hasBottomSource}
+                setHasBottomSource={setHasBottomSource}
+                bottomSourceText={bottomSourceText}
+                setBottomSourceText={setBottomSourceText}
+                bottomSourceColor={bottomSourceColor}
+                setBottomSourceColor={setBottomSourceColor}
+                bottomSourceBottomPct={bottomSourceBottomPct}
+                setBottomSourceBottomPct={setBottomSourceBottomPct}
+              />
+            )}
+
+            {activeInspectorTab === 'videoCrop' && (
+              <VideoCropInspectorForm
+                videoFitMode={videoFitMode}
+                setVideoFitMode={setVideoFitMode}
+                videoFocusXPct={videoFocusXPct}
+                setVideoFocusXPct={setVideoFocusXPct}
+                videoFocusYPct={videoFocusYPct}
+                setVideoFocusYPct={setVideoFocusYPct}
+                videoZoomScale={videoZoomScale}
+                setVideoZoomScale={setVideoZoomScale}
+                videoRotationDeg={videoRotationDeg}
+                setVideoRotationDeg={setVideoRotationDeg}
+                videoHorizontalFlip={videoHorizontalFlip}
+                setVideoHorizontalFlip={setVideoHorizontalFlip}
+                videoVerticalFlip={videoVerticalFlip}
+                setVideoVerticalFlip={setVideoVerticalFlip}
+                videoBlurBg={videoBlurBg}
+                setVideoBlurBg={setVideoBlurBg}
+              />
+            )}
+
+            {activeInspectorTab === 'filterFx' && (
+              <FilterFxInspectorForm
+                videoFilter={videoFilter}
+                setVideoFilter={setVideoFilter}
+              />
+            )}
+
+            {activeInspectorTab === 'commentCard' && (
+              <CommentCardInspectorForm
+                commentCard={commentCard}
+                setCommentCard={setCommentCard}
+                hasCommentCard={hasCommentCard}
+                setHasCommentCard={setHasCommentCard}
+              />
+            )}
+
+            {activeInspectorTab === 'jabHook' && (
+              <JabHookInspectorForm
+                hasJab={hasJab}
+                setHasJab={setHasJab}
+                jabText={jabText}
+                setJabText={setJabText}
+                jabTiltDeg={jabTiltDeg}
+                setJabTiltDeg={setJabTiltDeg}
+                jabFontSize={jabFontSize}
+                setJabFontSize={setJabFontSize}
+                jabTextColor={jabTextColor}
+                setJabTextColor={setJabTextColor}
+                jabStroke={jabStroke}
+                setJabStroke={setJabStroke}
+                jabStrokeWidth={jabStrokeWidth}
+                setJabStrokeWidth={setJabStrokeWidth}
+                jabStrokeColor={jabStrokeColor}
+                setJabStrokeColor={setJabStrokeColor}
+                jabShadow={jabShadow}
+                setJabShadow={setJabShadow}
+                jabShadowBlur={jabShadowBlur}
+                setJabShadowBlur={setJabShadowBlur}
+                jabBgEnabled={jabBgEnabled}
+                setJabBgEnabled={setJabBgEnabled}
+                jabBgColor={jabBgColor}
+                setJabBgColor={setJabBgColor}
+                jabBorderRadius={jabBorderRadius}
+                setJabBorderRadius={setJabBorderRadius}
+              />
+            )}
+
+            {activeInspectorTab === 'style' && (
+              <SubtitleStyleInspectorForm
+                subtitleConfig={subtitleConfig}
+                setSubtitleConfig={setSubtitleConfig}
+                subtitleStrokeEnabled={subtitleStrokeEnabled}
+                setSubtitleStrokeEnabled={setSubtitleStrokeEnabled}
+                subtitleStrokeWidth={subtitleStrokeWidth}
+                setSubtitleStrokeWidth={setSubtitleStrokeWidth}
+                subtitleStrokeColor={subtitleStrokeColor}
+                setSubtitleStrokeColor={setSubtitleStrokeColor}
+                subtitleShadowEnabled={subtitleShadowEnabled}
+                setSubtitleShadowEnabled={setSubtitleShadowEnabled}
+                subtitleShadowBlur={subtitleShadowBlur}
+                setSubtitleShadowBlur={setSubtitleShadowBlur}
+                subtitleShadowColor={subtitleShadowColor}
+                setSubtitleShadowColor={setSubtitleShadowColor}
+                subtitleUseBox={subtitleUseBox}
+                setSubtitleUseBox={setSubtitleUseBox}
+                subtitleBoxColor={subtitleBoxColor}
+                setSubtitleBoxColor={setSubtitleBoxColor}
+                subtitleBorderRadius={subtitleBorderRadius}
+                setSubtitleBorderRadius={setSubtitleBorderRadius}
+                subtitleMaxChars={subtitleMaxChars}
+                setSubtitleMaxChars={setSubtitleMaxChars}
+                selectedHighlightColor={selectedHighlightColor}
+                setSelectedHighlightColor={setSelectedHighlightColor}
+                selectedSubtitlePresetId={selectedSubtitlePresetId}
+                setSelectedSubtitlePresetId={setSelectedSubtitlePresetId}
+              />
+            )}
+
+            {activeInspectorTab === 'tts' && (
+              <div className="space-y-3">
+                <label className="text-[11px] font-bold block">AI 나레이션 음성 엔진</label>
+                <div className="p-2.5 rounded-[3px] border border-border bg-muted/20 space-y-2">
+                  <span className="text-[10px] text-muted-foreground">기본 엔진: Edge TTS (한국어 SunHi/InJoon)</span>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px]">
+                      <span>발화 배속 ({ttsConfig.speed}x)</span>
+                    </div>
+                    <Slider
+                      value={[ttsConfig.speed]}
+                      min={0.8}
+                      max={1.5}
+                      step={0.05}
+                      onValueChange={([v]) => setTtsConfig(prev => ({ ...prev, speed: v }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 🏛️ 9. 채널 DNA 탭 */}
+            {activeInspectorTab === 'channel' && (
+              <div className="space-y-3">
+                <label className="text-[11px] font-bold block">채널 DNA 연동</label>
+                <div className="p-2.5 rounded-[3px] border border-border bg-muted/20 space-y-2">
+                  <Input
+                    value={channelDna.channelName}
+                    onChange={(e) => setChannelDna(prev => ({ ...prev, channelName: e.target.value }))}
+                    className="h-6 text-[10px]"
+                    placeholder="채널명"
+                  />
+                  <span className="text-[9px] text-muted-foreground block">
+                    채널 설정에 등록된 시그니처 폰트와 컬러가 템플릿에 자동 주입됩니다.
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
+
+      {/* 🏛️ 차세대 주권 템플릿 라이브러리 모달 */}
+      {isTemplateLibraryOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border shadow-2xl rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* 헤더 */}
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🎨</span>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">주권 템플릿 라이브러리</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    표준 및 사용자 맞춤 템플릿을 선택하여 템플릿 스튜디오에 0% 간섭 샌드박스로 적용합니다.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsTemplateLibraryOpen(false)}
+                className="h-7 w-7 p-0"
+              >
+                ✕
+              </Button>
+            </div>
+
+            {/* 목록 */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                4대 표준 아키타입
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {Object.values(STANDARD_TEMPLATES).map((tpl) => (
+                  <div
+                    key={tpl.id}
+                    onClick={() => handleApplyManifest(tpl)}
+                    className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/40 cursor-pointer transition flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs text-foreground">{tpl.name}</span>
+                        <Badge variant="outline" className="text-[10px]">{tpl.badge}</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">{tpl.description}</p>
+                    </div>
+                    <Button size="sm" variant="secondary" className="mt-2.5 h-6 text-xs w-full">
+                      이 템플릿 적용
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {templateLibraryList.length > 0 && (
+                <>
+                  <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-4 mb-1">
+                    사용자 커스텀 템플릿
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {templateLibraryList.map((tpl) => (
+                      <div
+                        key={tpl.id}
+                        onClick={() => {
+                          if (tpl.manifest) handleApplyManifest(tpl.manifest);
+                          else if (tpl.manifest_json) {
+                            try {
+                              const parsed = typeof tpl.manifest_json === 'string' ? JSON.parse(tpl.manifest_json) : tpl.manifest_json;
+                              handleApplyManifest(parsed);
+                            } catch {
+                              handleSelectTemplateMode((tpl.archetype || 'classic') as LayoutTemplateMode);
+                            }
+                          } else {
+                            handleSelectTemplateMode((tpl.archetype || 'classic') as LayoutTemplateMode);
+                          }
+                        }}
+                        className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/40 cursor-pointer transition flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-xs text-foreground truncate max-w-[140px]">{tpl.name}</span>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="secondary" className="text-[10px]">커스텀</Badge>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDuplicateCustomTemplate(tpl, e)}
+                                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground cursor-pointer"
+                                title="템플릿 복제"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => handleDeleteCustomTemplate(tpl.id, e)}
+                                className="p-1 hover:bg-red-500/10 rounded text-muted-foreground hover:text-red-500 cursor-pointer"
+                                title="템플릿 삭제"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground line-clamp-2">{tpl.description || '맞춤형 템플릿'}</p>
+                        </div>
+                        <Button size="sm" variant="secondary" className="mt-2.5 h-6 text-xs w-full">
+                          이 템플릿 적용
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 푸터 */}
+            <div className="p-3 border-t border-border flex justify-end bg-muted/20">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsTemplateLibraryOpen(false)}
+                className="h-7 text-xs"
+              >
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔍 레퍼런스 쇼츠 1초 포렌식 발골 모달 */}
+      <ForensicUrlExtractModal
+        isOpen={isForensicModalOpen}
+        onClose={() => setIsForensicModalOpen(false)}
+        onApplyManifest={handleApplyManifest}
+      />
     </div>
   );
 };

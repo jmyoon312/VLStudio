@@ -23,6 +23,7 @@ export const CAPCUT_FILTER_PRESETS = [
   { id: 'vintage-grain', name: '📽️ 1970 빈티지 그레인', desc: '헤비 입자 & 세피아 톤', color: 'from-yellow-700 to-amber-900', grain: 80, vignette: 50, b: 95, c: 120, s: 70, t: 30 },
 ];
 
+import axios from 'axios';
 import { exportCapCutFullProject } from '@/services/capcutFullProjectExporter';
 import { generateSmartSeoTags, generateSmartHashtags, generatePixelingStandardMeta } from '@/lib/ddalkkakPixeling';
 import { SUBTITLE_STYLES, DDALKKAK_TTS_PRESETS } from '@/types/ddalkkak';
@@ -98,6 +99,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
+import api from '@/lib/api';
+import { TemplateManifest } from '@/types/templateDna';
+import { STANDARD_TEMPLATES } from '@/config/standardTemplates';
 import { NleLayerObject, NleLayerTransform, createDefaultTransform } from '@/types/nle';
 import { TransformGizmo } from '@/components/canvas/TransformGizmo';
 import { BgmLibraryModal, BgmTrackItem } from '@/components/BgmLibraryModal';
@@ -111,6 +115,14 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Clapperboard, Mic, Sparkle } from 'lucide-react';
+import { TemplateInspectorForm } from "@/components/canvas/forms/TemplateInspectorForm";
+import { TitleSourceInspectorForm } from "@/components/canvas/forms/TitleSourceInspectorForm";
+import { VideoCropInspectorForm } from "@/components/canvas/forms/VideoCropInspectorForm";
+import { FilterFxInspectorForm } from "@/components/canvas/forms/FilterFxInspectorForm";
+import { CommentCardInspectorForm } from "@/components/canvas/forms/CommentCardInspectorForm";
+import { JabHookInspectorForm } from "@/components/canvas/forms/JabHookInspectorForm";
+import { SubtitleStyleInspectorForm } from "@/components/canvas/forms/SubtitleStyleInspectorForm";
+
 
 
 // ── 한글 폰트 패밀리 정의 ──
@@ -362,7 +374,19 @@ const formatWrappedText = (text: string, splitLimit: number = 14, maxLines: numb
   const [canvasZoom, setCanvasZoom] = useState<'fit' | '50' | '75' | '100' | '150' | '200'>('fit');
   const [canvasScale, setCanvasScale] = useState<number>(1.0);
   const [canvasPan, setCanvasPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  // 🎯 ESC 키로 전체화면 종료
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
   // 🎯 캔버스 줌 휠 이벤트: passive: false 등록으로 preventDefault 경고 없이 부드러운 확대/축소 지원
   useEffect(() => {
@@ -776,6 +800,402 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   // 🎵 5대 무드 BGM 라이브러리 모달 오픈 상태
   const [isBgmModalOpen, setIsBgmModalOpen] = useState(false);
 
+  // 🏛️ 차세대 주권 템플릿 라이브러리 연동 상태
+  const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState<boolean>(false);
+  const [templateLibraryList, setTemplateLibraryList] = useState<any[]>([]);
+  // 🌟 레이어 객체 스택 (Video, Header, Jab, Subtitles, Audio)
+  const [layers, setLayers] = useState<NleLayerObject[]>([
+    {
+      id: 'layer_video_1',
+      type: 'video',
+      name: 'V1 메인 비디오',
+      startMs: 0,
+      endMs: 22450,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 50, scale: 1.0, zIndex: 10 }),
+      styleProps: { objectFit: 'cover' },
+      data: '',
+    },
+    {
+      id: 'layer_top_header',
+      type: 'title',
+      name: 'T1 상단 하이라이트 바',
+      startMs: 0,
+      endMs: 22450,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 15, scale: 1.0, zIndex: 30 }),
+      styleProps: {
+        badgeText: 'VIRALOOP HIGHLIGHT',
+        title1: '20260904_tfMMz_MKaMw',
+        title2: '하이라이트',
+        color1: '#FFFFFF',
+        color2: '#00E510',
+        bg: 'rgba(0,0,0,0.85)',
+        fontSize: 14,
+        fontFamily: 'Pretendard',
+        align: 'center',
+        bold: true,
+      },
+      data: '상단 2단 헤더',
+    },
+    {
+      id: 'layer_jab_hook_1',
+      type: 'jab',
+      name: 'T2 쨉쨉이 #1 (반전 훅)',
+      startMs: 1200,
+      endMs: 4800,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 26, scale: 1.0, rotationDeg: -4, zIndex: 40 }),
+      styleProps: {
+        badgeColor: '#FFCC00',
+        textColor: '#000000',
+        fontSize: 13,
+        fontFamily: 'GmarketSans',
+        bold: true,
+      },
+      data: '절대 멈추지 마세요!',
+    },
+    {
+      id: 'layer_jab_hook_2',
+      type: 'jab',
+      name: 'T2 쨉쨉이 #2 (클라이맥스)',
+      startMs: 14000,
+      endMs: 18500,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 26, scale: 1.0, rotationDeg: -4, zIndex: 40 }),
+      styleProps: {
+        badgeColor: '#FF0055',
+        textColor: '#FFFFFF',
+        fontSize: 13,
+        fontFamily: 'GmarketSans',
+        bold: true,
+      },
+      data: '충격적인 반전 순간!',
+    },
+    {
+      id: 'layer_sub_1',
+      type: 'subtitle',
+      name: 'SUB 자막 #1',
+      startMs: 0,
+      endMs: 5200,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
+      styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
+      data: '조코비치 몰래카메라 ㅋㅋ',
+    },
+    {
+      id: 'layer_sub_2',
+      type: 'subtitle',
+      name: 'SUB 자막 #2',
+      startMs: 5200,
+      endMs: 11500,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
+      styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
+      data: '상대 선수가 전혀 눈치채지 못하고 서브를 준비합니다.',
+    },
+    {
+      id: 'layer_sub_3',
+      type: 'subtitle',
+      name: 'SUB 자막 #3',
+      startMs: 11500,
+      endMs: 17800,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
+      styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
+      data: '관중석에서 폭소가 터져 나오기 시작합니다!',
+    },
+    {
+      id: 'layer_sub_4',
+      type: 'subtitle',
+      name: 'SUB 자막 #4',
+      startMs: 17800,
+      endMs: 22450,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
+      styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
+      data: '진짜 프로들의 센스 있는 사이다 명장면 완성!',
+    },
+    {
+      id: 'layer_audio_bgm',
+      type: 'audio',
+      name: 'A1 BGM & 오디오',
+      startMs: 0,
+      endMs: 22450,
+      locked: false,
+      visible: true,
+      transform: createDefaultTransform({ zIndex: 5 }),
+      styleProps: { volume: 0.8, isMuted: false, duckingDb: -18 },
+      data: 'bgm_preset_ambient',
+    }
+  ]);
+
+  const [selectedLayerId, setSelectedLayerId] = useState<string>('layer_sub_1');
+
+  // 🎯 군림보형 (픽셀링 기반: 상단 2줄 대제목[흰색+노란색] + 중앙 100% 흰색 띠 후킹 바 + 하단 자막 배치)
+  const [gunlimboConfig, setGunlimboConfig] = useState<{
+    introDurationSec: number;
+    titleLine1: string;
+    titleLine2: string;
+    titleLine1Color: string;
+    titleLine2Color: string;
+    titleFontSize: number;
+    hookPhrase: string;
+    hookBgColor: string;
+    hookTextColor: string;
+    hookFontSize: number;
+    showGuidelines: boolean;
+    keepTitleThroughout: boolean;
+    // 하위 호환 필드
+    hookMainTitle?: string;
+    hookAnimationScale?: number;
+    headlineLine1?: string;
+    headlineLine2?: string;
+    headlineLine3?: string;
+    headlineBadge?: string;
+  }>({
+    introDurationSec: 2.5,
+    titleLine1: '제목을',
+    titleLine2: '입력해주세요',
+    titleLine1Color: '#FFFFFF',
+    titleLine2Color: '#FFE500',
+    titleFontSize: 36,
+    hookPhrase: '후킹문구를 입력하세요',
+    hookBgColor: '#FFFFFF',
+    hookTextColor: '#000000',
+    hookFontSize: 22,
+    showGuidelines: true,
+    keepTitleThroughout: true,
+    hookMainTitle: '제목을\n입력해주세요',
+    hookAnimationScale: 1.0,
+    headlineLine1: '손흥민 80m 단독 폭풍 드리블',
+    headlineLine2: '푸스카스상 후보 원더골 작렬',
+    headlineLine3: '현지 축구 해설진 전원 기립 극찬',
+    headlineBadge: '속보',
+  });
+
+  // 📜 썰형 (커뮤니티 헤더 + 텍스트 모드 + 상징 밈/일러스트)
+  const [ssulConfig, setSsulConfig] = useState<{
+    communityType: 'blind' | 'nate' | 'fmkorea' | 'dcinside';
+    author: string;
+    timeText: string;
+    viewsText: string;
+    upvotesText: string;
+    textMode: SsulTextMode;
+    memeType: MemeType;
+    memeEmotion: MemeEmotion;
+    customMemeUrl?: string;
+    memeAliveMotion: boolean;
+    currentParagraphIndex: number;
+  }>({
+    communityType: 'blind',
+    author: '익명의 직장인',
+    timeText: '방금 전',
+    viewsText: '조회 14,290',
+    upvotesText: '추천 342',
+    textMode: 'accumulate',
+    memeType: 'pepe',
+    memeEmotion: 'panic',
+    memeAliveMotion: true,
+    currentParagraphIndex: 0,
+  });
+
+  // 💬 티키타카 3단 멀티 댓글 시퀀스 상태
+  const [tikiTakaComments, setTikiTakaComments] = useState<Array<{
+    id: string;
+    author: string;
+    handle: string;
+    text: string;
+    timeText: string;
+    likes: string;
+    delaySec: number;
+    isReply: boolean;
+  }>>([
+    { id: 'c1', author: '축구도사', handle: '@soccer_guru', text: '아니 이게 실화냐고 ㅋㅋㅋㅋ 미쳤네 진짜', timeText: '3시간 전', likes: '1.4만', delaySec: 1.8, isReply: false },
+    { id: 'c2', author: '흥민바라기', handle: '@sonny_love', text: 'ㄴ 현장에서 직접 봤는데 경기장 뒤집어짐 ㅠㅠ', timeText: '2시간 전', likes: '3,820', delaySec: 4.8, isReply: true },
+    { id: 'c3', author: '냉철한비평가', handle: '@cold_critic', text: 'ㄴ 근데 수비 실책도 한몫했음 솔직히 ㅋㅋ', timeText: '1시간 전', likes: '890', delaySec: 8.2, isReply: true },
+  ]);
+
+  // ✂️ 3대 AI 대본 분할 프리셋 (쇼츠형, 균형형, 문장형)
+  const [scriptSplitPreset, setScriptSplitPreset] = useState<ScriptSplitPreset>('shorts');
+
+  // 🎵 5대 무드 BGM 라이브러리 선택 상태
+  const [selectedBgmMood, setSelectedBgmMood] = useState<BgmMood>('suspense');
+  const [autoMoodMatching, setAutoMoodMatching] = useState<boolean>(true);
+
+  const [hasCommentCard, setHasCommentCard] = useState<boolean>(true);
+  const [commentTransform, setCommentTransform] = useState<NleLayerTransform>(
+    createDefaultTransform({ xPct: 50, yPct: 82, zIndex: 45, scale: 1.0 })
+  );
+  const [commentCard, setCommentCard] = useState<{
+    author: string;
+    handle: string;
+    text: string;
+    timeText: string;
+    likes: string;
+    theme: 'yt-dark' | 'yt-light' | 'insta';
+    blurId: boolean;
+    anonymous: boolean;
+    yPct: number;
+  }>({
+    author: '조코비치찐팬',
+    handle: '@joker_fan_kr',
+    text: '와 15초에 저 표정 뭐냐 ㅋㅋㅋ 평생 소장각이다',
+    timeText: '3시간 전',
+    likes: '1.4만',
+    theme: 'yt-dark',
+    blurId: true,
+    anonymous: false,
+    yPct: 82,
+  });
+
+  const [historyStack, setHistoryStack] = useState<EditorSnapshot[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  const isRestoringHistoryRef = useRef<boolean>(false);
+  const aspectScale = aspectRatio === '16:9' ? 1.35 : (aspectRatio === '1:1' ? 1.12 : 1.0);
+  const activeSplitLimit = aspectRatio === '16:9' ? 24 : (subtitleConfig.splitLimit || 14);
+  const [selectedSfxCategory, setSelectedSfxCategory] = useState<string>('all');
+  const [isCapCutExportModalOpen, setIsCapCutExportModalOpen] = useState<boolean>(false);
+
+  // 🔍 1순위 실사 웹 이미지 검색 상태
+  const [isWebImageSearchOpen, setIsWebImageSearchOpen] = useState(false);
+  const [webImageQuery, setWebImageQuery] = useState('');
+  const [webImageResults, setWebImageResults] = useState<any[]>([]);
+  const [isSearchingWebImages, setIsSearchingWebImages] = useState(false);
+
+  // 🚀 2순위 Google Flow AI 씬별 이미지 생성 상태
+  const [isGeneratingFlowImage, setIsGeneratingFlowImage] = useState(false);
+
+  // 🎭 3순위 바이럴 밈 에셋 프리셋 (페페 6종 & 이라스토야 6종)
+  const PEPE_MEMES = [
+    { id: 'pepe_shock', name: '충격 페페', src: '/assets/memes/pepe/pepe_shock.svg', emoji: '😱' },
+    { id: 'pepe_cry', name: '오열 페페', src: '/assets/memes/pepe/pepe_cry.svg', emoji: '😭' },
+    { id: 'pepe_popcorn', name: '팝콘 페페', src: '/assets/memes/pepe/pepe_popcorn.svg', emoji: '🍿' },
+    { id: 'pepe_smug', name: '부자 페페', src: '/assets/memes/pepe/pepe_smug.svg', emoji: '😎' },
+    { id: 'pepe_rage', name: '분노 페페', src: '/assets/memes/pepe/pepe_rage.svg', emoji: '😡' },
+    { id: 'pepe_thinking', name: '고뇌 페페', src: '/assets/memes/pepe/pepe_thinking.svg', emoji: '🤔' },
+  ];
+
+  const IRASUTOYA_MEMES = [
+    { id: 'irasutoya_shocked', name: '경악 직장인', src: '/assets/memes/irasutoya/irasutoya_shocked.svg', emoji: '😱' },
+    { id: 'irasutoya_money', name: '돈다발 쥔 사람', src: '/assets/memes/irasutoya/irasutoya_money.svg', emoji: '💸' },
+    { id: 'irasutoya_question', name: '의문 물음표', src: '/assets/memes/irasutoya/irasutoya_question.svg', emoji: '❓' },
+    { id: 'irasutoya_apology', name: '사죄 도게자', src: '/assets/memes/irasutoya/irasutoya_apology.svg', emoji: '🙇' },
+    { id: 'irasutoya_fight', name: '격렬 논쟁', src: '/assets/memes/irasutoya/irasutoya_fight.svg', emoji: '⚔' },
+    { id: 'irasutoya_run', name: '전력 질주', src: '/assets/memes/irasutoya/irasutoya_run.svg', emoji: '🏃' },
+  ];
+
+  // ⚡ Remotion 프로그래머틱 자동화 & Props 상태
+  const [isRemotionModalOpen, setIsRemotionModalOpen] = useState<boolean>(false);
+  const [isRemotionRendering, setIsRemotionRendering] = useState<boolean>(false);
+  const [remotionRenderProgress, setRemotionRenderProgress] = useState<number>(0);
+
+  const [watermarkConfig, setWatermarkConfig] = useState<WatermarkConfig>({
+    enabled: false,
+    type: 'text',
+    text: '@ViraLoopStudio',
+    imageUrl: '',
+    position: 'top-right',
+    scale: 20,
+    opacity: 80,
+    marginX: 20,
+    marginY: 20,
+    durationMode: 'full',
+    fontFamily: 'Pretendard',
+    fontSize: 16,
+    textColor: '#ffffff',
+    textShadow: true,
+    textStroke: true,
+    autoRemoveBg: false,
+    badgeMask: 'none',
+    colorKeying: 'none',
+  });
+
+  // 🎚️ 스테레오 오디오 VU 미터 시뮬레이션
+  const [vuLevels, setVuLevels] = useState<{ left: number; right: number }>({ left: 10, right: 12 });
+  useEffect(() => {
+    if (!isPlaying) {
+      setVuLevels({ left: 4, right: 4 });
+      return;
+    }
+    const interval = setInterval(() => {
+      setVuLevels({
+        left: Math.floor(Math.random() * 65) + 25,
+        right: Math.floor(Math.random() * 70) + 20,
+      });
+    }, 100);
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
+
+
+
+  // 🎯 활성 비디오 레이어 및 프로젝트 표시명 (SSOT & TDZ 방지)
+  const videoLayer = useMemo(() => layers.find((l) => l.type === 'video'), [layers]);
+  const currentProjectDisplayName = useMemo(() => {
+    const vData = videoLayer?.data || '';
+    if (vData && typeof vData === 'string' && !vData.startsWith('data:')) {
+      const clean = vData.split(/[/\]/).pop()?.replace(/\.[^/.]+$/, '');
+      if (clean && clean.length > 2) return clean;
+    }
+    if (topTitleText && topTitleText !== '제목을\n입력하세요') {
+      return topTitleText.replace(/\n/g, ' ');
+    }
+    return '영상 프로젝트';
+  }, [videoLayer?.data, topTitleText]);
+
+  const handleOpenTemplateLibrary = async () => {
+    setIsTemplateLibraryOpen(true);
+    try {
+      const res = await api.get('/channel-dna/templates');
+      if (res.data?.items) {
+        setTemplateLibraryList(res.data.items);
+      }
+    } catch (e) {
+      console.log('Using default templates for library:', e);
+    }
+  };
+
+  const handleApplyManifest = (manifest: TemplateManifest) => {
+    const arch = manifest.archetype;
+    handleSelectTemplateMode(arch as LayoutTemplateMode);
+    
+    // 세부 지오메트리 & 스타일 바인딩
+    if (arch === 'gunlimbo') {
+      setGunlimboConfig(prev => ({
+        ...prev,
+        titleFontSize: manifest.style.titleFontSize || prev.titleFontSize,
+        titleLine1Color: manifest.style.titleLine1Color || prev.titleLine1Color,
+        titleLine2Color: manifest.style.titleLine2Color || prev.titleLine2Color,
+        hookFontSize: manifest.style.hookFontSize || prev.hookFontSize,
+        hookBgColor: manifest.geometry.hookBandZone?.boxColor || prev.hookBgColor,
+        hookTextColor: manifest.geometry.hookBandZone?.textColor || prev.hookTextColor,
+        introDurationSec: manifest.geometry.mediaZone.introDurationSec || prev.introDurationSec,
+      }));
+    } else if (arch === 'instagram' && manifest.geometry.holeWindowZone) {
+      setInstaConfig(prev => ({
+        ...prev,
+        holeWidthPct: manifest.geometry.holeWindowZone?.widthPct || prev.holeWidthPct,
+        holeHeightPct: manifest.geometry.holeWindowZone?.heightPct || prev.holeHeightPct,
+        holeRoundness: manifest.geometry.holeWindowZone?.roundness || prev.holeRoundness,
+      }));
+    }
+    
+    toast({
+      title: `🎨 '${manifest.name}' 템플릿 적용 완료`,
+      description: `[${manifest.archetype.toUpperCase()}] 매니페스트 규격이 정밀 편집기 캔버스에 즉시 적용되었습니다.`
+    });
+    setIsTemplateLibraryOpen(false);
+  };
+
   // 🏛️ 폼팩터 전환 시 상호 배타적 자동 정리 가드 (Auto-Switch Guard & 객체 단일화)
   const handleSelectTemplateMode = (mode: LayoutTemplateMode) => {
     setLayoutTemplateMode(mode);
@@ -955,123 +1375,6 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     }
   };
 
-  // 🎯 군림보형 (픽셀링 기반: 상단 2줄 대제목[흰색+노란색] + 중앙 100% 흰색 띠 후킹 바 + 하단 자막 배치)
-  const [gunlimboConfig, setGunlimboConfig] = useState<{
-    introDurationSec: number;
-    titleLine1: string;
-    titleLine2: string;
-    titleLine1Color: string;
-    titleLine2Color: string;
-    titleFontSize: number;
-    hookPhrase: string;
-    hookBgColor: string;
-    hookTextColor: string;
-    hookFontSize: number;
-    showGuidelines: boolean;
-    keepTitleThroughout: boolean;
-    // 하위 호환 필드
-    hookMainTitle?: string;
-    hookAnimationScale?: number;
-    headlineLine1?: string;
-    headlineLine2?: string;
-    headlineLine3?: string;
-    headlineBadge?: string;
-  }>({
-    introDurationSec: 2.5,
-    titleLine1: '제목을',
-    titleLine2: '입력해주세요',
-    titleLine1Color: '#FFFFFF',
-    titleLine2Color: '#FFE500',
-    titleFontSize: 36,
-    hookPhrase: '후킹문구를 입력하세요',
-    hookBgColor: '#FFFFFF',
-    hookTextColor: '#000000',
-    hookFontSize: 22,
-    showGuidelines: true,
-    keepTitleThroughout: true,
-    hookMainTitle: '제목을\n입력해주세요',
-    hookAnimationScale: 1.0,
-    headlineLine1: '손흥민 80m 단독 폭풍 드리블',
-    headlineLine2: '푸스카스상 후보 원더골 작렬',
-    headlineLine3: '현지 축구 해설진 전원 기립 극찬',
-    headlineBadge: '속보',
-  });
-
-  // 📜 썰형 (커뮤니티 헤더 + 텍스트 모드 + 상징 밈/일러스트)
-  const [ssulConfig, setSsulConfig] = useState<{
-    communityType: 'blind' | 'nate' | 'fmkorea' | 'dcinside';
-    author: string;
-    timeText: string;
-    viewsText: string;
-    upvotesText: string;
-    textMode: SsulTextMode;
-    memeType: MemeType;
-    memeEmotion: MemeEmotion;
-    customMemeUrl?: string;
-    memeAliveMotion: boolean;
-    currentParagraphIndex: number;
-  }>({
-    communityType: 'blind',
-    author: '익명의 직장인',
-    timeText: '방금 전',
-    viewsText: '조회 14,290',
-    upvotesText: '추천 342',
-    textMode: 'accumulate',
-    memeType: 'pepe',
-    memeEmotion: 'panic',
-    memeAliveMotion: true,
-    currentParagraphIndex: 0,
-  });
-
-  // 💬 티키타카 3단 멀티 댓글 시퀀스 상태
-  const [tikiTakaComments, setTikiTakaComments] = useState<Array<{
-    id: string;
-    author: string;
-    handle: string;
-    text: string;
-    timeText: string;
-    likes: string;
-    delaySec: number;
-    isReply: boolean;
-  }>>([
-    { id: 'c1', author: '축구도사', handle: '@soccer_guru', text: '아니 이게 실화냐고 ㅋㅋㅋㅋ 미쳤네 진짜', timeText: '3시간 전', likes: '1.4만', delaySec: 1.8, isReply: false },
-    { id: 'c2', author: '흥민바라기', handle: '@sonny_love', text: 'ㄴ 현장에서 직접 봤는데 경기장 뒤집어짐 ㅠㅠ', timeText: '2시간 전', likes: '3,820', delaySec: 4.8, isReply: true },
-    { id: 'c3', author: '냉철한비평가', handle: '@cold_critic', text: 'ㄴ 근데 수비 실책도 한몫했음 솔직히 ㅋㅋ', timeText: '1시간 전', likes: '890', delaySec: 8.2, isReply: true },
-  ]);
-
-  // ✂️ 3대 AI 대본 분할 프리셋 (쇼츠형, 균형형, 문장형)
-  const [scriptSplitPreset, setScriptSplitPreset] = useState<ScriptSplitPreset>('shorts');
-
-  // 🎵 5대 무드 BGM 라이브러리 선택 상태
-  const [selectedBgmMood, setSelectedBgmMood] = useState<BgmMood>('suspense');
-  const [autoMoodMatching, setAutoMoodMatching] = useState<boolean>(true);
-
-  const [hasCommentCard, setHasCommentCard] = useState<boolean>(true);
-  const [commentTransform, setCommentTransform] = useState<NleLayerTransform>(
-    createDefaultTransform({ xPct: 50, yPct: 82, zIndex: 45, scale: 1.0 })
-  );
-  const [commentCard, setCommentCard] = useState<{
-    author: string;
-    handle: string;
-    text: string;
-    timeText: string;
-    likes: string;
-    theme: 'yt-dark' | 'yt-light' | 'insta';
-    blurId: boolean;
-    anonymous: boolean;
-    yPct: number;
-  }>({
-    author: '조코비치찐팬',
-    handle: '@joker_fan_kr',
-    text: '와 15초에 저 표정 뭐냐 ㅋㅋㅋ 평생 소장각이다',
-    timeText: '3시간 전',
-    likes: '1.4만',
-    theme: 'yt-dark',
-    blurId: true,
-    anonymous: false,
-    yPct: 82,
-  });
-
   // 🎵 BGM 및 SFX 실시간 오디오 재생 엔진 참조
   const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
   // 🎵 BGM 오디오 URL 안전 추출기 (404 방어: 프리셋/미지정 시 undefined 반환하여 네트워크 오류 방지)
@@ -1131,42 +1434,6 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       description: `"${picked.text.slice(0, 20)}..." 베댓이 자동 생성되었습니다.`,
     });
   };
-
-  const [historyStack, setHistoryStack] = useState<EditorSnapshot[]>([]);
-  const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const isRestoringHistoryRef = useRef<boolean>(false);
-  const aspectScale = aspectRatio === '16:9' ? 1.35 : (aspectRatio === '1:1' ? 1.12 : 1.0);
-  const activeSplitLimit = aspectRatio === '16:9' ? 24 : (subtitleConfig.splitLimit || 14);
-  const [selectedSfxCategory, setSelectedSfxCategory] = useState<string>('all');
-  const [isCapCutExportModalOpen, setIsCapCutExportModalOpen] = useState<boolean>(false);
-
-  // 🔍 1순위 실사 웹 이미지 검색 상태
-  const [isWebImageSearchOpen, setIsWebImageSearchOpen] = useState(false);
-  const [webImageQuery, setWebImageQuery] = useState('');
-  const [webImageResults, setWebImageResults] = useState<any[]>([]);
-  const [isSearchingWebImages, setIsSearchingWebImages] = useState(false);
-
-  // 🚀 2순위 Google Flow AI 씬별 이미지 생성 상태
-  const [isGeneratingFlowImage, setIsGeneratingFlowImage] = useState(false);
-
-  // 🎭 3순위 바이럴 밈 에셋 프리셋 (페페 6종 & 이라스토야 6종)
-  const PEPE_MEMES = [
-    { id: 'pepe_shock', name: '충격 페페', src: '/assets/memes/pepe/pepe_shock.svg', emoji: '😱' },
-    { id: 'pepe_cry', name: '오열 페페', src: '/assets/memes/pepe/pepe_cry.svg', emoji: '😭' },
-    { id: 'pepe_popcorn', name: '팝콘 페페', src: '/assets/memes/pepe/pepe_popcorn.svg', emoji: '🍿' },
-    { id: 'pepe_smug', name: '부자 페페', src: '/assets/memes/pepe/pepe_smug.svg', emoji: '😎' },
-    { id: 'pepe_rage', name: '분노 페페', src: '/assets/memes/pepe/pepe_rage.svg', emoji: '😡' },
-    { id: 'pepe_thinking', name: '고뇌 페페', src: '/assets/memes/pepe/pepe_thinking.svg', emoji: '🤔' },
-  ];
-
-  const IRASUTOYA_MEMES = [
-    { id: 'irasutoya_shocked', name: '경악 직장인', src: '/assets/memes/irasutoya/irasutoya_shocked.svg', emoji: '😱' },
-    { id: 'irasutoya_money', name: '돈다발 쥔 사람', src: '/assets/memes/irasutoya/irasutoya_money.svg', emoji: '💸' },
-    { id: 'irasutoya_question', name: '의문 물음표', src: '/assets/memes/irasutoya/irasutoya_question.svg', emoji: '❓' },
-    { id: 'irasutoya_apology', name: '사죄 도게자', src: '/assets/memes/irasutoya/irasutoya_apology.svg', emoji: '🙇' },
-    { id: 'irasutoya_fight', name: '격렬 논쟁', src: '/assets/memes/irasutoya/irasutoya_fight.svg', emoji: '⚔' },
-    { id: 'irasutoya_run', name: '전력 질주', src: '/assets/memes/irasutoya/irasutoya_run.svg', emoji: '🏃' },
-  ];
 
   // 🔍 실사 웹 이미지 검색 실행기
   const handleSearchWebImages = async (q?: string) => {
@@ -1287,187 +1554,6 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       description: `${(startMs / 1000).toFixed(1)}초 위치에 1.8초 펄스 모션 밈이 배치되었습니다.`,
     });
   };
-
-  // ⚡ Remotion 프로그래머틱 자동화 & Props 상태
-  const [isRemotionModalOpen, setIsRemotionModalOpen] = useState<boolean>(false);
-  const [isRemotionRendering, setIsRemotionRendering] = useState<boolean>(false);
-  const [remotionRenderProgress, setRemotionRenderProgress] = useState<number>(0);
-
-  const [watermarkConfig, setWatermarkConfig] = useState<WatermarkConfig>({
-    enabled: false,
-    type: 'text',
-    text: '@ViraLoopStudio',
-    imageUrl: '',
-    position: 'top-right',
-    scale: 20,
-    opacity: 80,
-    marginX: 20,
-    marginY: 20,
-    durationMode: 'full',
-    fontFamily: 'Pretendard',
-    fontSize: 16,
-    textColor: '#ffffff',
-    textShadow: true,
-    textStroke: true,
-    autoRemoveBg: false,
-    badgeMask: 'none',
-    colorKeying: 'none',
-  });
-
-  // 🎚️ 스테레오 오디오 VU 미터 시뮬레이션
-  const [vuLevels, setVuLevels] = useState<{ left: number; right: number }>({ left: 10, right: 12 });
-  useEffect(() => {
-    if (!isPlaying) {
-      setVuLevels({ left: 4, right: 4 });
-      return;
-    }
-    const interval = setInterval(() => {
-      setVuLevels({
-        left: Math.floor(Math.random() * 65) + 25,
-        right: Math.floor(Math.random() * 70) + 20,
-      });
-    }, 100);
-    return () => clearInterval(interval);
-  }, [isPlaying]);
-
-
-
-  // 🌟 레이어 객체 스택 (Video, Header, Jab, Subtitles, Audio)
-  const [layers, setLayers] = useState<NleLayerObject[]>([
-    {
-      id: 'layer_video_1',
-      type: 'video',
-      name: 'V1 메인 비디오',
-      startMs: 0,
-      endMs: 22450,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ xPct: 50, yPct: 50, scale: 1.0, zIndex: 10 }),
-      styleProps: { objectFit: 'cover' },
-      data: '',
-    },
-    {
-      id: 'layer_top_header',
-      type: 'title',
-      name: 'T1 상단 하이라이트 바',
-      startMs: 0,
-      endMs: 22450,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ xPct: 50, yPct: 15, scale: 1.0, zIndex: 30 }),
-      styleProps: {
-        badgeText: 'VIRALOOP HIGHLIGHT',
-        title1: '20260904_tfMMz_MKaMw',
-        title2: '하이라이트',
-        color1: '#FFFFFF',
-        color2: '#00E510',
-        bg: 'rgba(0,0,0,0.85)',
-        fontSize: 14,
-        fontFamily: 'Pretendard',
-        align: 'center',
-        bold: true,
-      },
-      data: '상단 2단 헤더',
-    },
-    {
-      id: 'layer_jab_hook_1',
-      type: 'jab',
-      name: 'T2 쨉쨉이 #1 (반전 훅)',
-      startMs: 1200,
-      endMs: 4800,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ xPct: 50, yPct: 26, scale: 1.0, rotationDeg: -4, zIndex: 40 }),
-      styleProps: {
-        badgeColor: '#FFCC00',
-        textColor: '#000000',
-        fontSize: 13,
-        fontFamily: 'GmarketSans',
-        bold: true,
-      },
-      data: '절대 멈추지 마세요!',
-    },
-    {
-      id: 'layer_jab_hook_2',
-      type: 'jab',
-      name: 'T2 쨉쨉이 #2 (클라이맥스)',
-      startMs: 14000,
-      endMs: 18500,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ xPct: 50, yPct: 26, scale: 1.0, rotationDeg: -4, zIndex: 40 }),
-      styleProps: {
-        badgeColor: '#FF0055',
-        textColor: '#FFFFFF',
-        fontSize: 13,
-        fontFamily: 'GmarketSans',
-        bold: true,
-      },
-      data: '충격적인 반전 순간!',
-    },
-    {
-      id: 'layer_sub_1',
-      type: 'subtitle',
-      name: 'SUB 자막 #1',
-      startMs: 0,
-      endMs: 5200,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
-      styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
-      data: '조코비치 몰래카메라 ㅋㅋ',
-    },
-    {
-      id: 'layer_sub_2',
-      type: 'subtitle',
-      name: 'SUB 자막 #2',
-      startMs: 5200,
-      endMs: 11500,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
-      styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
-      data: '상대 선수가 전혀 눈치채지 못하고 서브를 준비합니다.',
-    },
-    {
-      id: 'layer_sub_3',
-      type: 'subtitle',
-      name: 'SUB 자막 #3',
-      startMs: 11500,
-      endMs: 17800,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
-      styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
-      data: '관중석에서 폭소가 터져 나오기 시작합니다!',
-    },
-    {
-      id: 'layer_sub_4',
-      type: 'subtitle',
-      name: 'SUB 자막 #4',
-      startMs: 17800,
-      endMs: 22450,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ xPct: 50, yPct: 78, scale: 1.0, zIndex: 50 }),
-      styleProps: { color: '#FFE500', strokeWidth: 4, strokeColor: '#000000', fontSize: 16, fontFamily: 'Pretendard', align: 'center', bold: true },
-      data: '진짜 프로들의 센스 있는 사이다 명장면 완성!',
-    },
-    {
-      id: 'layer_audio_bgm',
-      type: 'audio',
-      name: 'A1 BGM & 오디오',
-      startMs: 0,
-      endMs: 22450,
-      locked: false,
-      visible: true,
-      transform: createDefaultTransform({ zIndex: 5 }),
-      styleProps: { volume: 0.8, isMuted: false, duckingDb: -18 },
-      data: 'bgm_preset_ambient',
-    }
-  ]);
-
-  const [selectedLayerId, setSelectedLayerId] = useState<string>('layer_sub_1');
 
   // 🌟 [자가 치유형 세션 영속성 엔진 (Self-Healing Persistence Engine)]
   // 1) Handoff 최우선 수신 및 localStorage 백업
@@ -1683,6 +1769,169 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     } catch (e) {
       console.warn('[ShortsEditorStudio] self-healing hydration error:', e);
       isHydratedRef.current = true;
+    }
+  }, []);
+
+  // ⚡ 템플릿 디자인 공방에서 [정밀 편집기에 즉시 적용]으로 전송된 마스터 매니페스트 수신
+  useEffect(() => {
+    const raw = localStorage.getItem('applied_template_manifest');
+    if (raw) {
+      try {
+        const manifest = JSON.parse(raw);
+        localStorage.removeItem('applied_template_manifest');
+
+        if (manifest.aspectRatio) {
+          setAspectRatio(manifest.aspectRatio);
+        }
+        if (manifest.archetype) {
+          handleSelectTemplateMode(manifest.archetype as LayoutTemplateMode);
+        }
+
+        // 상단 타이틀 구역
+        if (manifest.geometry?.topTitleZone) {
+          const tz = manifest.geometry.topTitleZone;
+          setHasTopTitle(tz.enabled);
+          setTopTitleYPct(tz.topPct);
+          setTitleTransform(prev => ({
+            ...prev,
+            yPct: tz.topPct,
+          }));
+          if (tz.title1) setTitleLine1(tz.title1);
+          if (tz.title2) setTitleLine2(tz.title2);
+        }
+
+        // 스타일 세부 속성
+        if (manifest.style) {
+          const s = manifest.style;
+          if (s.titleFont) setTitleFontFamily(s.titleFont);
+          if (s.titleLine1Color) setTitleLine1Color(s.titleLine1Color);
+          if (s.titleLine2Color) setTitleLine2Color(s.titleLine2Color);
+          if (s.titleFontSize) {
+            setTitleLine1SizePx(s.titleFontSize);
+            setTitleLine2SizePx(s.titleFontSize);
+          }
+          if (s.titleStroke !== undefined) setTitleStroke(s.titleStroke);
+          if (s.titleShadow !== undefined) setTitleShadow(s.titleShadow);
+
+          setSubtitleConfig(prev => ({
+            ...prev,
+            font_family: s.captionFont || prev.font_family,
+            primary_color: s.captionDefaultColor || prev.primary_color,
+            stroke_color: s.captionStrokeColor || prev.stroke_color,
+            stroke_width: s.captionStrokeWidth ?? prev.stroke_width,
+            font_size: s.captionFontSize || prev.font_size,
+            use_box: s.captionUseBox ?? prev.use_box,
+            box_color: s.captionBoxColor || prev.box_color,
+          }));
+        }
+
+        // 쨉쨉이 훅 구역
+        if (manifest.geometry?.hookZone) {
+          const hz = manifest.geometry.hookZone;
+          setHasJab(hz.enabled);
+          if (hz.hookText) setJabText(hz.hookText);
+          if (hz.fontSize) setJabFontSize(hz.fontSize);
+          if (hz.tiltDeg !== undefined) setJabTiltDeg(hz.tiltDeg);
+          if (hz.textColor) {
+            setJabColor(hz.textColor);
+            setJabTextColor(hz.textColor);
+          }
+          if (hz.bgColor) setJabBgColor(hz.bgColor);
+          if (hz.borderColor) setJabBorderColor(hz.borderColor);
+          setJabTransform(prev => ({
+            ...prev,
+            xPct: hz.xPct ?? prev.xPct,
+            yPct: hz.yPct ?? prev.yPct,
+            rotationDeg: hz.tiltDeg ?? prev.rotationDeg,
+          }));
+        }
+
+        // 본문 자막 위치
+        if (manifest.geometry?.captionZone) {
+          const cz = manifest.geometry.captionZone;
+          if (cz.safeZoneYPct) {
+            setSubtitleYPercent(cz.safeZoneYPct);
+            setSubTransform(prev => ({
+              ...prev,
+              yPct: cz.safeZoneYPct,
+            }));
+          }
+        }
+
+        // 댓글 카드 구역
+        if (manifest.geometry?.commentZone) {
+          const cmz = manifest.geometry.commentZone;
+          setHasCommentCard(cmz.enabled);
+          setCommentTransform(prev => ({
+            ...prev,
+            xPct: cmz.xPct ?? prev.xPct,
+            yPct: cmz.yPct ?? prev.yPct,
+            scale: cmz.scale ?? prev.scale,
+          }));
+        }
+
+        // 출처 표기 구역
+        if (manifest.geometry?.sourceZone) {
+          const sz = manifest.geometry.sourceZone;
+          setHasBottomSource(sz.enabled);
+          if (sz.defaultText) setBottomSourceText(sz.defaultText);
+          if (sz.textColor) setBottomSourceColor(sz.textColor);
+          if (sz.fontSize) setBottomSourceSizePx(sz.fontSize);
+          setSourceTransform(prev => ({
+            ...prev,
+            yPct: sz.yPct ?? prev.yPct,
+          }));
+        }
+
+        // 템플릿 직속 프로퍼티 직접 반영
+        if (manifest.titleLinesMode) setTitleLinesMode(manifest.titleLinesMode);
+        if (manifest.titleLine1) setTitleLine1(manifest.titleLine1);
+        if (manifest.titleLine2) setTitleLine2(manifest.titleLine2);
+        if (manifest.titleLine1Color) setTitleLine1Color(manifest.titleLine1Color);
+        if (manifest.titleLine2Color) setTitleLine2Color(manifest.titleLine2Color);
+        if (manifest.titleLine1SizePx) setTitleLine1SizePx(manifest.titleLine1SizePx);
+        if (manifest.titleLine2SizePx) setTitleLine2SizePx(manifest.titleLine2SizePx);
+        if (manifest.titleFontFamily) setTitleFontFamily(manifest.titleFontFamily);
+        if (manifest.titleTransform) setTitleTransform(manifest.titleTransform);
+        if (manifest.hasTopBarBg !== undefined) setHasTopBarBg(manifest.hasTopBarBg);
+        if (manifest.topBarBg) setTopBarBg(manifest.topBarBg);
+        if (manifest.topBarHeightPct) setTopBarHeightPct(manifest.topBarHeightPct);
+        if (manifest.hasBottomBarBg !== undefined) setHasBottomBarBg(manifest.hasBottomBarBg);
+        if (manifest.bottomBarBg) setBottomBarBg(manifest.bottomBarBg);
+        if (manifest.bottomBarHeightPct) setBottomBarHeightPct(manifest.bottomBarHeightPct);
+        if (manifest.hasJab !== undefined) setHasJab(manifest.hasJab);
+        if (manifest.jabText) setJabText(manifest.jabText);
+        if (manifest.jabFontSize) setJabFontSize(manifest.jabFontSize);
+        if (manifest.jabTiltDeg !== undefined) setJabTiltDeg(manifest.jabTiltDeg);
+        if (manifest.jabTextColor) { setJabColor(manifest.jabTextColor); setJabTextColor(manifest.jabTextColor); }
+        if (manifest.jabBgColor) setJabBgColor(manifest.jabBgColor);
+        if (manifest.jabTransform) setJabTransform(manifest.jabTransform);
+        if (manifest.subTransform) setSubTransform(manifest.subTransform);
+        if (manifest.sourceTransform) setSourceTransform(manifest.sourceTransform);
+        if (manifest.hasCommentCard !== undefined) setHasCommentCard(manifest.hasCommentCard);
+        if (manifest.commentCard) setCommentCard(prev => ({ ...prev, ...manifest.commentCard }));
+        if (manifest.commentTransform) setCommentTransform(manifest.commentTransform);
+        if (manifest.videoFitMode) setVideoFitMode(manifest.videoFitMode);
+        if (manifest.videoBlurBg !== undefined) setVideoBlurBg(manifest.videoBlurBg);
+        if (manifest.videoZoomScale) setVideoZoomScale(manifest.videoZoomScale);
+        if (manifest.videoFocusXPct !== undefined) setVideoFocusXPct(manifest.videoFocusXPct);
+        if (manifest.videoFocusYPct !== undefined) setVideoFocusYPct(manifest.videoFocusYPct);
+        if (manifest.videoRotationDeg !== undefined) setVideoRotationDeg(manifest.videoRotationDeg);
+        if (manifest.videoHorizontalFlip !== undefined) setVideoHorizontalFlip(manifest.videoHorizontalFlip);
+        if (manifest.videoVerticalFlip !== undefined) setVideoVerticalFlip(manifest.videoVerticalFlip);
+        if (manifest.videoFilter) setVideoFilter(manifest.videoFilter);
+        if (manifest.instaConfig) setInstaConfig(prev => ({ ...prev, ...manifest.instaConfig }));
+        if (manifest.gunlimboConfig) setGunlimboConfig(prev => ({ ...prev, ...manifest.gunlimboConfig }));
+        if (manifest.ssulConfig) setSsulConfig(prev => ({ ...prev, ...manifest.ssulConfig }));
+        if (manifest.profileTransform) setProfileTransform(manifest.profileTransform);
+
+        toast({
+          title: '🎨 템플릿 마스터 디자인 적용 완료',
+          description: `[${manifest.name || manifest.archetype}] 템플릿 규격이 정밀 편집기에 성공적으로 반영되었습니다.`,
+        });
+      } catch (manifestErr) {
+        console.error('[ShortsEditorStudio] Failed to apply manifest:', manifestErr);
+      }
     }
   }, []);
 
@@ -1940,7 +2189,6 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
   };
 
   // 🎯 활성 레이어 필터
-  const videoLayer = layers.find((l) => l.type === 'video');
   const titleLayer = layers.find((l) => l.type === 'title');
   const activeJab = layers.find((l) => l.type === 'jab' && l.visible && currentTimeMs >= l.startMs && currentTimeMs <= l.endMs);
   const activeSub = layers.find((l) => l.type === 'subtitle' && l.visible && currentTimeMs >= l.startMs && currentTimeMs <= l.endMs);
@@ -3298,18 +3546,6 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPlaying, currentTimeMs, durationMs, selectedLayerId, layers]);
 
-  const currentProjectDisplayName = useMemo(() => {
-    const vData = videoLayer?.data || '';
-    if (vData && typeof vData === 'string' && !vData.startsWith('data:')) {
-      const clean = vData.split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, '');
-      if (clean && clean.length > 2) return clean;
-    }
-    if (topTitleText && topTitleText !== '제목을\n입력하세요') {
-      return topTitleText.replace(/\n/g, ' ');
-    }
-    return '영상 프로젝트';
-  }, [videoLayer?.data, topTitleText]);
-
   return (
     <div className="flex flex-col w-full h-full min-w-0 min-h-0 bg-background text-foreground select-none overflow-hidden font-sans border-t border-border">
       {/* ─────────────────────────────────────────────────────────────
@@ -4507,14 +4743,32 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               >
                 <Camera className="w-3 h-3" />
               </button>
+
+              {/* 🖥️ 전체화면 몰입 프리뷰 버튼 */}
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className={cn(
+                  "h-6 px-1.5 text-[10px] font-bold rounded-[2px] border transition cursor-pointer flex items-center gap-1",
+                  isFullscreen ? "bg-primary text-primary-foreground border-primary" : "border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+                )}
+                title="전체화면 몰입 프리뷰 (ESC 키로 복귀)"
+              >
+                {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3 text-primary" />}
+                <span className="hidden md:inline">전체화면</span>
+              </button>
             </div>
           </div>
 
           {/* 2. 캔버스 스테이지 (6대 독립 레이어 + 비디오 샌드위치/크롭 + 실시간 줌/패닝) */}
           <div
             ref={canvasContainerRef}
-            className="flex-1 relative overflow-hidden flex items-center justify-center p-3 bg-zinc-950/95 cursor-default"
-            
+            className={cn(
+              "relative overflow-hidden flex items-center justify-center cursor-default transition-all duration-200",
+              isFullscreen 
+                ? "fixed inset-0 z-[9999] bg-zinc-950/98 p-6" 
+                : "flex-1 p-3 bg-zinc-950/95"
+            )}
             onMouseDown={(e) => {
               if (e.button === 1 || e.button === 2) {
                 e.preventDefault();
@@ -4555,6 +4809,24 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               toast({ title: '화면 맞춤 완료', description: '캔버스 배율 및 위치가 100% 기본 상태로 복구되었습니다.' });
             }}
           >
+            {/* 🖥️ 전체화면 시 우상단 플로팅 컨트롤 바 */}
+            {isFullscreen && (
+              <div className="absolute top-5 right-5 z-[99999] flex items-center gap-2.5 bg-zinc-900/95 border border-zinc-700/80 rounded-md px-3.5 py-2 shadow-2xl backdrop-blur-md">
+                <span className="text-xs text-zinc-200 font-bold">전체화면 몰입 프리뷰</span>
+                <span className="text-[10px] text-zinc-400 font-mono font-semibold bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
+                  {aspectRatio} • {layoutTemplateMode.toUpperCase()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen(false)}
+                  className="h-7 px-2.5 text-xs font-bold rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-100 flex items-center gap-1 transition cursor-pointer border border-zinc-700"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>닫기 (ESC)</span>
+                </button>
+              </div>
+            )}
+
             <div
               className={cn(
                 "canvas-stage-wrapper relative shadow-2xl overflow-visible transition-transform duration-75 flex items-center justify-center select-none rounded-2xl ring-1 ring-zinc-600/50 dark:ring-zinc-700",
@@ -4584,7 +4856,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   top: layoutTemplateMode === 'instagram'
                     ? 0
                     : layoutTemplateMode === 'gunlimbo'
-                    ? '33.3%'
+                    ? (currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000 ? '34%' : '24%')
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
                   height: layoutTemplateMode === 'instagram'
                     ? '100%'
@@ -4592,7 +4864,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                   bottom: layoutTemplateMode === 'instagram'
                     ? 0
                     : layoutTemplateMode === 'gunlimbo'
-                    ? '16.7%'
+                    ? '30%'
                     : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
                   left: 0,
                   right: 0,
@@ -4615,7 +4887,13 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 <div
                   className="w-full h-full relative overflow-hidden flex items-center justify-center z-1"
                   style={{
-                    transform: `translate(${(videoFocusXPct - 50) * 0.8}%, ${(videoFocusYPct - 50) * 0.8}%) scale(${videoZoomScale / 100}) scaleX(${videoHorizontalFlip ? -1 : 1}) scaleY(${videoVerticalFlip ? -1 : 1}) rotate(${videoRotationDeg}deg)`,
+                    transform: `translate(${(videoFocusXPct - 50) * 0.8}%, ${(videoFocusYPct - 50) * 0.8}%) scale(${
+                      (videoZoomScale / 100) * (
+                        layoutTemplateMode === 'gunlimbo' && currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000
+                          ? 1.0 + ((currentTimeMs / ((gunlimboConfig.introDurationSec || 2.5) * 1000)) * 0.10)
+                          : 1.0
+                      )
+                    }) scaleX(${videoHorizontalFlip ? -1 : 1}) scaleY(${videoVerticalFlip ? -1 : 1}) rotate(${videoRotationDeg}deg)`,
                     transformOrigin: 'center center',
                     transition: 'transform 0.05s ease-out',
                   }}
@@ -4762,7 +5040,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     top: layoutTemplateMode === 'instagram'
                       ? `${instaConfig.holeYPct - (instaConfig.holeHeightPct / 2)}%`
                       : layoutTemplateMode === 'gunlimbo'
-                      ? '33.3%'
+                      ? (currentTimeMs <= (gunlimboConfig.introDurationSec || 2.5) * 1000 ? '34%' : '24%')
                       : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasTopBarBg ? topBarHeightPct : 0, videoCropTopPct)}%`,
                     height: layoutTemplateMode === 'instagram'
                       ? `${instaConfig.holeHeightPct}%`
@@ -4770,7 +5048,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     bottom: layoutTemplateMode === 'instagram'
                       ? undefined
                       : layoutTemplateMode === 'gunlimbo'
-                      ? '16.7%'
+                      ? '30%'
                       : `${Math.max(aspectRatio === '9:16' && videoFitMode === 'sandwich' && hasBottomBarBg ? bottomBarHeightPct : 0, videoCropBottomPct)}%`,
                     left: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
                     right: layoutTemplateMode === 'instagram' ? `${(100 - instaConfig.holeWidthPct) / 2}%` : 0,
@@ -4890,7 +5168,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
               {/* 🎯 [군림보형] 픽셀링 기반 3단 화면 배치 (상단 2줄 대제목 + 중앙 100% 흰색 띠 후킹 바 + 하단 레터박스) */}
               {layoutTemplateMode === 'gunlimbo' && (
                 <>
-                  {/* 1. 상단 블랙 레터박스 (0% ~ 33.3%) & 2줄 대제목 (노랑/흰) */}
+                  {/* 1. 상단 블랙 레터박스 (0% ~ 24%) & 2줄 대제목 (노랑/흰) */}
                   {(gunlimboConfig.keepTitleThroughout || currentTimeMs <= gunlimboConfig.introDurationSec * 1000) && (
                     <div
                       onClick={() => {
@@ -4898,7 +5176,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         setActiveInspectorTab('template');
                       }}
                       className={cn(
-                        "absolute top-0 left-0 right-0 h-[33.3%] bg-black select-none flex flex-col items-center justify-center px-4 transition-all cursor-pointer",
+                        "absolute top-0 left-0 right-0 h-[24%] bg-black select-none flex flex-col items-center justify-center px-4 transition-all cursor-pointer",
                         selectedLayerId === 'layer_gunlimbo_title' && "ring-1 ring-amber-400"
                       )}
                       style={{
@@ -4912,7 +5190,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                           className="font-black tracking-tight drop-shadow-sm whitespace-pre-line"
                           style={{
                             color: gunlimboConfig.titleLine1Color || '#FFFFFF',
-                            fontSize: `${gunlimboConfig.titleFontSize || 36}px`,
+                            fontSize: `${gunlimboConfig.titleFontSize || 34}px`,
                             fontFamily: titleFontFamily,
                             lineHeight: 1.15,
                           }}
@@ -4923,7 +5201,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                           className="font-black tracking-tight drop-shadow-sm whitespace-pre-line mt-1"
                           style={{
                             color: gunlimboConfig.titleLine2Color || '#FFE500',
-                            fontSize: `${gunlimboConfig.titleFontSize || 36}px`,
+                            fontSize: `${gunlimboConfig.titleFontSize || 34}px`,
                             fontFamily: titleFontFamily,
                             lineHeight: 1.15,
                           }}
@@ -4934,7 +5212,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                     </div>
                   )}
 
-                  {/* 2. 중앙 100% 가로폭 흰색 띠 바 (후킹 문구 / 첫 문장 자막, 0초 ~ 후킹 구간) */}
+                  {/* 2. 24~34% 짙은 회색 밴드 위 100% 순백색 띠 바 (뇌전구 실측 0초~2.5초 노출) */}
                   {currentTimeMs <= gunlimboConfig.introDurationSec * 1000 && (
                     <div
                       onClick={() => {
@@ -4942,31 +5220,38 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         setActiveInspectorTab('template');
                       }}
                       className={cn(
-                        "absolute top-1/2 -translate-y-1/2 left-0 right-0 w-full flex items-center justify-center py-3.5 px-4 shadow-2xl transition-all cursor-pointer",
+                        "absolute left-0 right-0 w-full flex items-center justify-center transition-all cursor-pointer shadow-lg",
                         selectedLayerId === 'layer_gunlimbo_hook' && "ring-2 ring-sky-400"
                       )}
                       style={{
-                        backgroundColor: gunlimboConfig.hookBgColor || '#FFFFFF',
+                        top: '24%',
+                        height: '10%',
+                        backgroundColor: '#3F3F46',
                         zIndex: 45,
                       }}
-                      title="클릭하여 중앙 후킹 문구 설정"
+                      title="클릭하여 소제목 훅 문구 설정"
                     >
-                      <span
-                        className="font-black tracking-tight text-center leading-snug break-keep select-none"
-                        style={{
-                          color: gunlimboConfig.hookTextColor || '#000000',
-                          fontSize: `${gunlimboConfig.hookFontSize || 22}px`,
-                          fontFamily: titleFontFamily,
-                        }}
+                      <div 
+                        className="w-full py-1.5 px-4 flex items-center justify-center shadow-xs"
+                        style={{ backgroundColor: gunlimboConfig.hookBgColor || '#FFFFFF' }}
                       >
-                        {gunlimboConfig.hookPhrase}
-                      </span>
+                        <span
+                          className="font-black tracking-tight text-center leading-snug break-keep select-none"
+                          style={{
+                            color: gunlimboConfig.hookTextColor || '#000000',
+                            fontSize: `${gunlimboConfig.hookFontSize || 22}px`,
+                            fontFamily: titleFontFamily,
+                          }}
+                        >
+                          {gunlimboConfig.hookPhrase}
+                        </span>
+                      </div>
                     </div>
                   )}
 
-                  {/* 3. 하단 블랙 레터박스 (83.3% ~ 100%) 점선 가이드라인 */}
+                  {/* 3. 하단 블랙 레터박스 (70% ~ 100%) 점선 가이드라인 */}
                   <div
-                    className="absolute bottom-0 left-0 right-0 h-[16.7%] bg-black pointer-events-none select-none"
+                    className="absolute bottom-0 left-0 right-0 h-[30%] bg-black pointer-events-none select-none"
                     style={{
                       zIndex: 25,
                       borderTop: gunlimboConfig.showGuidelines ? '1.5px dashed rgba(161, 161, 170, 0.75)' : 'none',
@@ -5203,11 +5488,21 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 );
               })()}
 
-              {/* 💬 LAYER 4: 본문 자막 (타임라인 시간대 동기화 & 고스트 자막 방지) */}
+              {/* 💬 LAYER 4: 본문 자막 (타임라인 시간대 동기화 & 인스타형 상시 노출 & 고스트 자막 방지) */}
               {(() => {
                 const isSubSelected = selectedLayer?.type === 'subtitle' || selectedLayerId === 'layer_sub';
-                const displaySub = activeSub || (isSubSelected ? (selectedLayer?.type === 'subtitle' ? selectedLayer : subtitleLayers[0]) : null);
-                const shouldShowSub = (subtitleConfig?.visible !== false) && trackVisibility.sub !== false && !!displaySub;
+                const displaySub = activeSub || (isSubSelected ? (selectedLayer?.type === 'subtitle' ? selectedLayer : subtitleLayers[0]) : (layoutTemplateMode === 'instagram' ? subtitleLayers[0] : null));
+                const subText = displaySub?.data || (
+                  layoutTemplateMode === 'instagram'
+                    ? '게시글 본문 자막을 입력하세요.\n타임라인에 자막이 동기화됩니다.'
+                    : '자막 텍스트'
+                );
+
+                const isTrackVisible = trackVisibility ? (trackVisibility.sub !== false && (trackVisibility as any).s1Subtitle !== false) : true;
+                const isConfigVisible = subtitleConfig?.visible !== false;
+                const shouldShowSub = isConfigVisible &&
+                  isTrackVisible &&
+                  (layoutTemplateMode === 'instagram' || !!displaySub || isSubSelected);
 
                 // 🎯 군림보형: 0초~후킹구간에는 중앙 100% 흰색 바에서 첫 문장이 표시되므로 하단 자막 중복 방지 (선택 편집 시 제외)
                 if (layoutTemplateMode === 'gunlimbo' && currentTimeMs <= gunlimboConfig.introDurationSec * 1000 && !isSubSelected) {
@@ -5238,7 +5533,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                       className={cn(
                         "inline-block whitespace-pre-line transition-all cursor-move",
                         layoutTemplateMode === 'instagram'
-                          ? "text-left font-medium"
+                          ? "text-left font-medium max-w-[88%] break-words"
                           : "font-black leading-snug tracking-tight text-center px-2",
                         layoutTemplateMode !== 'instagram' && (subtitleConfig.useBox ?? subtitleUseBox) && "px-3 py-1.5"
                       )}
@@ -5290,9 +5585,9 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                         }}
                       >
                         {layoutTemplateMode === 'instagram'
-                          ? (displaySub?.data || '자막을 입력하세요')
+                          ? subText
                           : renderHighlightedSubtitleText(
-                              formatWrappedText(displaySub?.data || '자막 텍스트', activeSplitLimit, subtitleConfig.maxLines || 2),
+                              formatWrappedText(subText, activeSplitLimit, subtitleConfig.maxLines || 2),
                               displaySub?.styleProps?.highlights,
                               subtitleConfig.textColor || (subtitleConfig as any).fillColor || '#FFFFFF',
                               selectedHighlightColor
@@ -5842,2887 +6137,240 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
 
             {/* 🏛️ 0. 4대 폼팩터 통합 바이럴 템플릿/폼 제어 패널 */}
             {activeInspectorTab === 'template' && (
-              <div className="space-y-3.5">
-                {/* 4대 폼팩터 선택 카드 */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                    <Layout className="w-3.5 h-3.5 text-primary" />
-                    바이럴 숏폼 4대 폼팩터 선택
-                  </span>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      { id: 'classic', name: '기본형', badge: 'Standard', desc: '상·하단 색상 배경바' },
-                      { id: 'instagram', name: '인스타형', badge: 'Viral Hole', desc: '구멍 뚫린 카드 + 댓글' },
-                      { id: 'gunlimbo', name: '군림보형', badge: 'Hook Zoom', desc: '0초 줌인 + 3줄 속보' },
-                      { id: 'ssul', name: '썰형', badge: 'Meme Story', desc: '커뮤니티 + 페페 밈 모션' },
-                    ].map((mode) => (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => handleSelectTemplateMode(mode.id as LayoutTemplateMode)}
-                        className={cn(
-                          "p-2 text-left rounded-[4px] border transition cursor-pointer flex flex-col justify-between",
-                          layoutTemplateMode === mode.id
-                            ? "bg-primary/10 border-primary text-primary shadow-xs"
-                            : "bg-card hover:bg-muted/60 border-border text-foreground"
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-black text-xs">{mode.name}</span>
-                          <span className="text-[8px] font-bold px-1 py-0.2 rounded-[2px] bg-primary/20 text-primary uppercase">
-                            {mode.badge}
-                          </span>
-                        </div>
-                        <span className="text-[9.5px] text-muted-foreground mt-1 truncate">{mode.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 폼팩터별 세부 설정 */}
-                {layoutTemplateMode === 'instagram' && (
-                  <div className="p-3 rounded-[6px] border border-primary/25 bg-card space-y-3 shadow-xs">
-                    {/* 상단 타이틀 & 레이어 바로가기 */}
-                    <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                      <span className="text-[11.5px] font-bold text-foreground flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        인스타형 (Hole-Punch) 원형 세부 설정
-                      </span>
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                        인스타 표준 숏폼
-                      </span>
-                    </div>
-
-                    {/* 빠른 레이어 포커스 바 */}
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedLayerId('layer_insta_profile');
-                          setActiveInspectorTab('template');
-                          document.getElementById('insta-sec-profile')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }}
-                        className={cn(
-                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
-                          selectedLayerId === 'layer_insta_profile'
-                            ? "bg-primary text-primary-foreground border-primary font-bold"
-                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
-                        )}
-                      >
-                        프로필
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedLayerId('layer_title');
-                          setActiveInspectorTab('template');
-                          document.getElementById('insta-sec-title')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }}
-                        className={cn(
-                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
-                          (selectedLayerId === 'layer_title' || selectedLayerId === 'layer_top_title')
-                            ? "bg-primary text-primary-foreground border-primary font-bold"
-                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
-                        )}
-                      >
-                        대제목
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedLayerId('layer_video');
-                          setActiveInspectorTab('template');
-                          document.getElementById('insta-sec-hole')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }}
-                        className={cn(
-                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
-                          selectedLayerId === 'layer_video'
-                            ? "bg-primary text-primary-foreground border-primary font-bold"
-                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
-                        )}
-                      >
-                        구멍 윈도우
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedLayerId('layer_sub');
-                          setActiveInspectorTab('template');
-                          document.getElementById('insta-sec-sub')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }}
-                        className={cn(
-                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
-                          (selectedLayerId === 'layer_sub' || selectedLayerId === 'layer_subtitle')
-                            ? "bg-primary text-primary-foreground border-primary font-bold"
-                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
-                        )}
-                      >
-                        본문 자막
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedLayerId('layer_comment_card');
-                          setActiveInspectorTab('template');
-                          setHasCommentCard(true);
-                          document.getElementById('insta-sec-comment')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }}
-                        className={cn(
-                          "px-2 py-0.5 text-[10px] rounded border transition-colors",
-                          selectedLayerId === 'layer_comment_card'
-                            ? "bg-primary text-primary-foreground border-primary font-bold"
-                            : "bg-muted/60 text-muted-foreground hover:text-foreground border-border"
-                        )}
-                      >
-                        댓글 카드
-                      </button>
-                    </div>
-
-                    {/* 1. 프로필 정보 & 10대 추천 프리셋 */}
-                    <div id="insta-sec-profile" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
-                          📸 프로필 아이덴티티
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const randomIndex = Math.floor(Math.random() * INSTA_PROFILE_PRESETS.length);
-                            const chosen = INSTA_PROFILE_PRESETS[randomIndex];
-                            setInstaConfig(prev => ({
-                              ...prev,
-                              profileName: chosen.name,
-                              profileHandle: chosen.handle,
-                              profileAvatarUrl: chosen.avatar,
-                            }));
-                            toast({
-                              title: '🎲 프로필 프리셋 적용',
-                              description: `${chosen.name} (${chosen.handle}) 추천 프로필이 적용되었습니다.`,
-                            });
-                          }}
-                          className="px-1.5 py-0.5 text-[9.5px] font-semibold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors flex items-center gap-1"
-                        >
-                          <Sparkles className="w-3 h-3" />
-                          🎲 랜덤 추천
-                        </button>
-                      </div>
-
-                      {/* 10선 드롭다운 셀렉트 */}
-                      <div>
-                        <select
-                          className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[3px] cursor-pointer"
-                          value=""
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const found = INSTA_PROFILE_PRESETS.find(p => p.name === val);
-                            if (found) {
-                              setInstaConfig(prev => ({
-                                ...prev,
-                                profileName: found.name,
-                                profileHandle: found.handle,
-                                profileAvatarUrl: found.avatar,
-                              }));
-                            }
-                          }}
-                        >
-                          <option value="" disabled>-- 10대 추천 프로필 프리셋 선택 --</option>
-                          {INSTA_PROFILE_PRESETS.map((preset) => (
-                            <option key={preset.name} value={preset.name}>
-                              {preset.name} ({preset.handle})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* 닉네임 / 핸들 수동 입력 */}
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div>
-                          <span className="text-[9px] text-muted-foreground block mb-0.5">프로필 닉네임</span>
-                          <input
-                            type="text"
-                            value={instaConfig.profileName}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, profileName: e.target.value }))}
-                            placeholder="사용자명"
-                            className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-muted-foreground block mb-0.5">아이디 (@핸들)</span>
-                          <input
-                            type="text"
-                            value={instaConfig.profileHandle}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, profileHandle: e.target.value }))}
-                            placeholder="@아이디"
-                            className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
-                          />
-                        </div>
-                      </div>
-
-                      {/* 아바타 이미지 URL & 랜덤 교체 */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                          <span>아바타 이미지 URL</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const seeds = ['fox', 'cat', 'bear', 'star', 'spark', 'lion', 'panda', 'cyber', 'robot'];
-                              const seed = seeds[Math.floor(Math.random() * seeds.length)] + '_' + Math.floor(Math.random() * 100);
-                              setInstaConfig(prev => ({
-                                ...prev,
-                                profileAvatarUrl: `https://api.dicebear.com/9.x/lorelei/svg?seed=${seed}`
-                              }));
-                            }}
-                            className="text-primary hover:underline font-semibold"
-                          >
-                            아바타 무작위 변경
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <img
-                            src={instaConfig.profileAvatarUrl || "https://api.dicebear.com/9.x/lorelei/svg?seed=user_avatar_blue"}
-                            alt="Avatar"
-                            className="w-6 h-6 rounded-full border border-border object-cover shrink-0"
-                          />
-                          <input
-                            type="text"
-                            value={instaConfig.profileAvatarUrl}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, profileAvatarUrl: e.target.value }))}
-                            placeholder="https://..."
-                            className="w-full px-2 py-0.5 text-[11px] bg-background border border-border rounded-[2px] font-mono"
-                          />
-                        </div>
-                      </div>
-
-                      {/* 인증 마크 & 프로필 크기/위치 */}
-                      <div className="pt-1.5 border-t border-border/50 grid grid-cols-4 gap-2 items-center">
-                        <label className="flex items-center gap-1.5 text-[10px] cursor-pointer col-span-1">
-                          <input
-                            type="checkbox"
-                            checked={instaConfig.isVerified}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, isVerified: e.target.checked }))}
-                            className="rounded accent-primary cursor-pointer"
-                          />
-                          <span>인증 뱃지</span>
-                        </label>
-                        <div className="col-span-1">
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>X 위치</span>
-                            <span>{Math.round(profileTransform.xPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={5}
-                            max={40}
-                            step={0.5}
-                            value={profileTransform.xPct}
-                            onChange={(e) => setProfileTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div className="col-span-1">
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>Y 위치</span>
-                            <span>{Math.round(profileTransform.yPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={2}
-                            max={20}
-                            step={0.5}
-                            value={profileTransform.yPct}
-                            onChange={(e) => setProfileTransform(prev => ({ ...prev, yPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div className="col-span-1">
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>크기</span>
-                            <span>{profileTransform.scale.toFixed(2)}x</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={0.7}
-                            max={1.4}
-                            step={0.05}
-                            value={profileTransform.scale}
-                            onChange={(e) => setProfileTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 2. 대제목 텍스트 (SSOT: topTitleText) */}
-                    <div id="insta-sec-title" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10.5px] font-bold text-foreground">
-                          ✍️ 좌측 정렬 대제목 (헤드라인)
-                        </label>
-                        <span className="text-[9px] text-muted-foreground">엔터로 줄바꿈</span>
-                      </div>
-                      <textarea
-                        rows={2}
-                        value={topTitleText}
-                        onChange={(e) => {
-                          setTopTitleText(e.target.value);
-                          setInstaConfig(prev => ({ ...prev, titleText: e.target.value }));
-                        }}
-                        placeholder="제목을\n입력하세요"
-                        className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] resize-none font-bold leading-tight"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>대제목 X 위치</span>
-                            <span>{Math.round(titleTransform.xPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={5}
-                            max={40}
-                            step={0.5}
-                            value={titleTransform.xPct}
-                            onChange={(e) => setTitleTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>대제목 Y 위치</span>
-                            <span>{Math.round(titleTransform.yPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={8}
-                            max={26}
-                            step={0.5}
-                            value={titleTransform.yPct}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setTitleTransform(prev => ({ ...prev, yPct: val }));
-                              setTopTitleYPct(val);
-                            }}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>글자 크기</span>
-                            <span>{titleTransform.scale.toFixed(2)}x</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={0.7}
-                            max={1.5}
-                            step={0.05}
-                            value={titleTransform.scale}
-                            onChange={(e) => setTitleTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-muted-foreground block mb-0.5">폰트 서체</span>
-                          <select
-                            value={titleFontFamily}
-                            onChange={(e) => setTitleFontFamily(e.target.value)}
-                            className="w-full px-1.5 py-0.5 text-[10.5px] bg-background border border-border rounded cursor-pointer"
-                          >
-                            <option value="Pretendard">Pretendard (산세리프)</option>
-                            <option value="GmarketSansBold">Gmarket Sans (볼드)</option>
-                            <option value="Black Han Sans">Black Han Sans (울트라)</option>
-                            <option value="Noto Sans KR">Noto Sans KR</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 3. 중앙 구멍 윈도우 (Hole Window) 정밀 지오메트리 */}
-                    <div id="insta-sec-hole" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10.5px] font-bold text-foreground flex items-center gap-1">
-                          🕳️ 중앙 구멍 윈도우 (미디어 클리핑 영역)
-                        </label>
-                        <span className="text-[9px] text-muted-foreground font-mono">
-                          {instaConfig.holeWidthPct}% × {instaConfig.holeHeightPct}%
-                        </span>
-                      </div>
-
-                      {/* 비율 프리셋 원클릭 버튼 */}
-                      <div className="grid grid-cols-4 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setInstaConfig(prev => ({
-                            ...prev,
-                            holeRatio: '1:1',
-                            holeWidthPct: 88,
-                            holeHeightPct: 46,
-                            holeYPct: 45,
-                          }))}
-                          className={cn(
-                            "py-1 text-[9.5px] rounded border transition-colors font-medium",
-                            instaConfig.holeRatio === '1:1'
-                              ? "bg-primary text-primary-foreground border-primary font-bold"
-                              : "bg-background border-border hover:bg-accent"
-                          )}
-                        >
-                          1:1 정사각
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInstaConfig(prev => ({
-                            ...prev,
-                            holeRatio: '4:5',
-                            holeWidthPct: 92,
-                            holeHeightPct: 54,
-                            holeYPct: 46,
-                          }))}
-                          className={cn(
-                            "py-1 text-[9.5px] rounded border transition-colors font-medium",
-                            instaConfig.holeRatio === '4:5'
-                              ? "bg-primary text-primary-foreground border-primary font-bold"
-                              : "bg-background border-border hover:bg-accent"
-                          )}
-                        >
-                          4:5 세로형
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInstaConfig(prev => ({
-                            ...prev,
-                            holeRatio: 'custom',
-                            holeWidthPct: 94,
-                            holeHeightPct: 32,
-                            holeYPct: 42,
-                          }))}
-                          className={cn(
-                            "py-1 text-[9.5px] rounded border transition-colors font-medium",
-                            instaConfig.holeRatio === 'custom' && instaConfig.holeHeightPct <= 35
-                              ? "bg-primary text-primary-foreground border-primary font-bold"
-                              : "bg-background border-border hover:bg-accent"
-                          )}
-                        >
-                          16:9 와이드
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInstaConfig(prev => ({
-                            ...prev,
-                            holeRatio: 'custom',
-                            holeWidthPct: 96,
-                            holeHeightPct: 46,
-                            holeYPct: 44,
-                          }))}
-                          className={cn(
-                            "py-1 text-[9.5px] rounded border transition-colors font-medium",
-                            instaConfig.holeRatio === 'custom' && instaConfig.holeWidthPct === 96
-                              ? "bg-primary text-primary-foreground border-primary font-bold"
-                              : "bg-background border-border hover:bg-accent"
-                          )}
-                        >
-                          풀너비 (96%)
-                        </button>
-                      </div>
-
-                      {/* 슬라이더 4종: Y위치, 너비, 높이, 라운드 */}
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>중심 Y 위치</span>
-                            <span>{instaConfig.holeYPct}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={25}
-                            max={65}
-                            step={0.5}
-                            value={instaConfig.holeYPct}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeYPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>모서리 라운드</span>
-                            <span>{instaConfig.holeRoundness}px</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={0}
-                            max={36}
-                            value={instaConfig.holeRoundness}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRoundness: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>윈도우 너비</span>
-                            <span>{instaConfig.holeWidthPct}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={60}
-                            max={98}
-                            step={0.5}
-                            value={instaConfig.holeWidthPct}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRatio: 'custom', holeWidthPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>윈도우 높이</span>
-                            <span>{instaConfig.holeHeightPct}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={20}
-                            max={65}
-                            step={0.5}
-                            value={instaConfig.holeHeightPct}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeRatio: 'custom', holeHeightPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                      </div>
-
-                      {/* 테두리 & 그림자 옵션 */}
-                      <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[10px]">
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">테두리:</span>
-                          <input
-                            type="number"
-                            min={0}
-                            max={4}
-                            value={instaConfig.holeBorderWidth}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeBorderWidth: Number(e.target.value) }))}
-                            className="w-10 px-1 py-0.5 text-xs bg-background border border-border rounded"
-                          />
-                          <input
-                            type="color"
-                            value={rgbaToHex(instaConfig.holeBorderColor, '#E5E7EB')}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeBorderColor: e.target.value }))}
-                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer shrink-0"
-                          />
-                        </div>
-                        <label className="flex items-center gap-1 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={instaConfig.holeShadow}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, holeShadow: e.target.checked }))}
-                            className="rounded accent-primary cursor-pointer"
-                          />
-                          <span>입체 그림자</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* 4. 본문 자막 서체 & 위치 & 크기 (SSOT: displaySub / subTransform) */}
-                    <div id="insta-sec-sub" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10.5px] font-bold text-foreground">
-                          💬 본문 자막 서체 & 위치 & 크기
-                        </label>
-                        <span className="text-[9px] text-muted-foreground">윈도우 하단 도킹</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <span className="text-[9px] text-muted-foreground block mb-0.5">자막 서체 (폰트)</span>
-                          <select
-                            value={instaConfig.subFont || 'Pretendard'}
-                            onChange={(e) => setInstaConfig(prev => ({ ...prev, subFont: e.target.value }))}
-                            className="w-full px-1.5 py-1 text-[10px] bg-background border border-border rounded-[2px]"
-                          >
-                            <option value="Pretendard">Pretendard (산세리프 깔끔형)</option>
-                            <option value="Noto Sans KR">Noto Sans KR (본고딕 표준)</option>
-                            <option value="GmarketSans">Gmarket Sans (볼드 감성)</option>
-                            <option value="NanumSquareRound">NanumSquareRound (둥근 고딕)</option>
-                          </select>
-                        </div>
-                        <div>
-                          <span className="text-[9px] text-muted-foreground block mb-0.5">글자 색상</span>
-                          <div className="flex items-center gap-1.5 pt-0.5">
-                            <input
-                              type="color"
-                              value={instaConfig.subColor || '#374151'}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setInstaConfig(prev => ({ ...prev, subColor: val }));
-                                setSubtitleConfig(prev => ({ ...prev, textColor: val }));
-                              }}
-                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer shrink-0"
-                            />
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              {instaConfig.subColor || '#374151'}
-                            </span>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>자막 X 위치</span>
-                            <span>{Math.round(subTransform.xPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={2}
-                            max={60}
-                            step={0.5}
-                            value={subTransform.xPct}
-                            onChange={(e) => setSubTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>자막 Y 위치</span>
-                            <span>{Math.round(subTransform.yPct)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={55}
-                            max={85}
-                            step={0.5}
-                            value={subTransform.yPct}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setSubTransform(prev => ({ ...prev, yPct: val }));
-                              setSubtitleYPercent(val);
-                            }}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-                            <span>자막 크기 배율</span>
-                            <span>{subTransform.scale.toFixed(2)}x</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={0.7}
-                            max={1.5}
-                            step={0.05}
-                            value={subTransform.scale}
-                            onChange={(e) => setSubTransform(prev => ({ ...prev, scale: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-primary h-1"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 5. 가변 댓글 카드 설정 (SSOT: hasCommentCard & commentCard) */}
-                    <div id="insta-sec-comment" className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="checkbox"
-                            checked={hasCommentCard}
-                            onChange={(e) => setHasCommentCard(e.target.checked)}
-                            className="rounded accent-primary cursor-pointer"
-                          />
-                          <label className="text-[10.5px] font-bold text-foreground cursor-pointer" onClick={() => setHasCommentCard(!hasCommentCard)}>
-                            하단 가변 댓글 카드
-                          </label>
-                        </div>
-                        {hasCommentCard && (
-                          <span className="text-[9px] text-primary font-medium">
-                            글자수에 맞춤 가변
-                          </span>
-                        )}
-                      </div>
-
-                      {hasCommentCard && (
-                        <div className="space-y-2 pt-1 border-t border-border/40">
-                          {/* 작성자 & 좋아요 */}
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <div>
-                              <span className="text-[9px] text-muted-foreground block mb-0.5">댓글 작성자</span>
-                              <input
-                                type="text"
-                                value={commentCard.author}
-                                onChange={(e) => setCommentCard(prev => ({ ...prev, author: e.target.value }))}
-                                placeholder="작성자"
-                                className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
-                              />
-                            </div>
-                            <div>
-                              <span className="text-[9px] text-muted-foreground block mb-0.5">좋아요 수</span>
-                              <input
-                                type="text"
-                                value={commentCard.likes}
-                                onChange={(e) => setCommentCard(prev => ({ ...prev, likes: e.target.value }))}
-                                placeholder="예: 1.4만"
-                                className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px]"
-                              />
-                            </div>
-                          </div>
-
-                          {/* 댓글 본문 (textarea로 여러 줄 지원) */}
-                          <div>
-                            <span className="text-[9px] text-muted-foreground block mb-0.5">댓글 본문 (줄바꿈 자동 가변)</span>
-                            <textarea
-                              rows={2}
-                              value={commentCard.text}
-                              onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value }))}
-                              placeholder="댓글 본문 내용"
-                              className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] resize-none"
-                            />
-                          </div>
-
-                          {/* 카드 정렬 프리셋 */}
-                          <div>
-                            <span className="text-[9px] text-muted-foreground block mb-1">카드 정렬 프리셋</span>
-                            <div className="grid grid-cols-3 gap-1">
-                              <button
-                                type="button"
-                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 50 }))}
-                                className={cn(
-                                  "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
-                                  Math.abs(commentTransform.xPct - 50) < 5
-                                    ? "bg-primary text-primary-foreground border-primary font-bold"
-                                    : "bg-background border-border text-foreground hover:bg-muted"
-                                )}
-                              >
-                                <span>중앙 (50%)</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 18 }))}
-                                className={cn(
-                                  "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
-                                  Math.abs(commentTransform.xPct - 18) < 5
-                                    ? "bg-primary text-primary-foreground border-primary font-bold"
-                                    : "bg-background border-border text-foreground hover:bg-muted"
-                                )}
-                              >
-                                <span>1/3 들여쓰기</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setCommentTransform(prev => ({ ...prev, xPct: 6 }))}
-                                className={cn(
-                                  "py-1 text-[9.5px] rounded border transition-colors flex items-center justify-center gap-1",
-                                  commentTransform.xPct <= 10
-                                    ? "bg-primary text-primary-foreground border-primary font-bold"
-                                    : "bg-background border-border text-foreground hover:bg-muted"
-                                )}
-                              >
-                                <span>좌측 정렬 (6%)</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* 카드 테마 & 옵션 */}
-                          <div className="grid grid-cols-3 gap-1.5 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => setCommentCard(prev => ({ ...prev, theme: 'insta' }))}
-                              className={cn(
-                                "py-0.5 text-[9.5px] rounded border transition-colors",
-                                commentCard.theme === 'insta'
-                                  ? "bg-primary text-primary-foreground border-primary font-bold"
-                                  : "bg-background border-border"
-                              )}
-                            >
-                              인스타 화이트
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setCommentCard(prev => ({ ...prev, theme: 'yt-light' }))}
-                              className={cn(
-                                "py-0.5 text-[9.5px] rounded border transition-colors",
-                                commentCard.theme === 'yt-light'
-                                  ? "bg-primary text-primary-foreground border-primary font-bold"
-                                  : "bg-background border-border"
-                              )}
-                            >
-                              유튜브 라이트
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setCommentCard(prev => ({ ...prev, theme: 'yt-dark' }))}
-                              className={cn(
-                                "py-0.5 text-[9.5px] rounded border transition-colors",
-                                commentCard.theme === 'yt-dark'
-                                  ? "bg-primary text-primary-foreground border-primary font-bold"
-                                  : "bg-background border-border"
-                              )}
-                            >
-                              유튜브 다크
-                            </button>
-                          </div>
-
-                          {/* 익명 & 블러 & X/Y위치 */}
-                          <div className="grid grid-cols-4 gap-2 items-center pt-1 border-t border-border/40 text-[10px]">
-                            <label className="flex items-center gap-1 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={commentCard.anonymous}
-                                onChange={(e) => setCommentCard(prev => ({ ...prev, anonymous: e.target.checked }))}
-                                className="rounded accent-primary cursor-pointer"
-                              />
-                              <span>익명 표기</span>
-                            </label>
-                            <label className="flex items-center gap-1 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={commentCard.blurId}
-                                onChange={(e) => setCommentCard(prev => ({ ...prev, blurId: e.target.checked }))}
-                                className="rounded accent-primary cursor-pointer"
-                              />
-                              <span>아이디 블러</span>
-                            </label>
-                            <div>
-                              <div className="flex items-center justify-between text-[8.5px] text-muted-foreground">
-                                <span>X 위치</span>
-                                <span>{Math.round(commentTransform.xPct)}%</span>
-                              </div>
-                              <input
-                                type="range"
-                                min={4}
-                                max={80}
-                                step={0.5}
-                                value={commentTransform.xPct}
-                                onChange={(e) => setCommentTransform(prev => ({ ...prev, xPct: Number(e.target.value) }))}
-                                className="w-full cursor-pointer accent-primary h-1"
-                              />
-                            </div>
-                            <div>
-                              <div className="flex items-center justify-between text-[8.5px] text-muted-foreground">
-                                <span>Y 위치</span>
-                                <span>{Math.round(commentTransform.yPct)}%</span>
-                              </div>
-                              <input
-                                type="range"
-                                min={70}
-                                max={95}
-                                step={0.5}
-                                value={commentTransform.yPct}
-                                onChange={(e) => setCommentTransform(prev => ({ ...prev, yPct: Number(e.target.value) }))}
-                                className="w-full cursor-pointer accent-primary h-1"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 6. 전체 카드 배경색 */}
-                    <div className="p-2.5 rounded-[4px] bg-muted/40 border border-border/80 flex items-center justify-between">
-                      <div>
-                        <label className="text-[10px] font-bold text-foreground block">전체 카드 배경색</label>
-                        <div className="flex items-center gap-1 mt-1">
-                          {[
-                            { name: '화이트', val: '#FFFFFF' },
-                            { name: '슬레이트', val: '#F8FAFC' },
-                            { name: '파스텔', val: '#FDF4FF' },
-                            { name: '다크', val: '#121212' },
-                          ].map((chip) => (
-                            <button
-                              key={chip.val}
-                              type="button"
-                              onClick={() => setInstaConfig(prev => ({ ...prev, bgColor: chip.val }))}
-                              className={cn(
-                                "px-1.5 py-0.5 text-[9px] rounded border transition-colors",
-                                instaConfig.bgColor.toUpperCase() === chip.val
-                                  ? "border-primary font-bold ring-1 ring-primary"
-                                  : "border-border text-muted-foreground"
-                              )}
-                            >
-                              {chip.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="color"
-                          value={rgbaToHex(instaConfig.bgColor, '#FFFFFF')}
-                          onChange={(e) => setInstaConfig(prev => ({ ...prev, bgColor: e.target.value }))}
-                          className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
-                        />
-                        <span className="text-[9.5px] font-mono">{instaConfig.bgColor}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {layoutTemplateMode === 'gunlimbo' && (
-                  <div className="p-2.5 rounded-[4px] border border-amber-500/30 bg-amber-500/5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-amber-500 flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        군림보형 (픽셀링 3단: 대제목 + 흰색 띠 후킹바 + 자막)
-                      </span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-mono">
-                        9:16 Shorts
-                      </span>
-                    </div>
-
-                    {/* 1. 상단 2줄 대제목 설정 */}
-                    <div className="p-2 rounded bg-background/80 border border-border/80 space-y-2">
-                      <span className="text-[10px] font-bold text-foreground block">
-                        👑 상단 2줄 대제목 (0% ~ 33.3% 블랙 레터박스)
-                      </span>
-                      <div className="space-y-1.5">
-                        {/* 1번째 줄 (기본 노란색) */}
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={gunlimboConfig.titleLine1}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1: e.target.value }))}
-                            placeholder="1번째 줄 (예: 제목을)"
-                            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
-                            style={{ color: gunlimboConfig.titleLine1Color }}
-                          />
-                          <input
-                            type="color"
-                            value={gunlimboConfig.titleLine1Color || '#FFFFFF'}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine1Color: e.target.value }))}
-                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
-                            title="1번째 줄 색상"
-                          />
-                        </div>
-
-                        {/* 2번째 줄 (기본 옐로우) */}
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={gunlimboConfig.titleLine2}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2: e.target.value }))}
-                            placeholder="2번째 줄 (예: 입력해주세요)"
-                            className="flex-1 px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
-                            style={{ color: gunlimboConfig.titleLine2Color }}
-                          />
-                          <input
-                            type="color"
-                            value={gunlimboConfig.titleLine2Color || '#FFE500'}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleLine2Color: e.target.value }))}
-                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer shrink-0"
-                            title="2번째 줄 색상"
-                          />
-                        </div>
-                      </div>
-
-                      {/* 대제목 글자 크기 & 전체 유지 토글 */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40 text-[10px]">
-                        <div>
-                          <label className="text-muted-foreground block mb-0.5">글자 크기: {gunlimboConfig.titleFontSize}px</label>
-                          <input
-                            type="range"
-                            min={24}
-                            max={48}
-                            step={1}
-                            value={gunlimboConfig.titleFontSize}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, titleFontSize: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-amber-500"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5 pt-3">
-                          <input
-                            type="checkbox"
-                            id="gunlimbo-keep-title"
-                            checked={gunlimboConfig.keepTitleThroughout}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, keepTitleThroughout: e.target.checked }))}
-                            className="rounded accent-amber-500 cursor-pointer"
-                          />
-                          <label htmlFor="gunlimbo-keep-title" className="text-muted-foreground cursor-pointer text-[10px]">
-                            영상 끝까지 제목 유지
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 2. 중앙 100% 흰색 띠 후킹 바 (첫 문장 자막) */}
-                    <div className="p-2 rounded bg-background/80 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-foreground block">
-                          🎯 중앙 100% 가로폭 흰색 띠 후킹 바
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const subLayer = layers.find(l => l.id === 'layer_subtitle' || l.type === 'subtitle');
-                            if (subLayer?.data && Array.isArray(subLayer.data) && subLayer.data.length > 0) {
-                              const firstSub = subLayer.data[0];
-                              const newDuration = (firstSub.endMs && firstSub.startMs) 
-                                ? Math.max(1.0, Math.min(5.0, (firstSub.endMs - firstSub.startMs) / 1000))
-                                : gunlimboConfig.introDurationSec;
-                              setGunlimboConfig(prev => ({
-                                ...prev,
-                                hookPhrase: firstSub.text || prev.hookPhrase,
-                                introDurationSec: newDuration,
-                              }));
-                              toast({
-                                title: '첫 문장 자막 동기화 완료',
-                                description: `"${firstSub.text}" (${newDuration}초)가 후킹 바에 반영되었습니다.`,
-                              });
-                            } else {
-                              toast({
-                                title: '자막 없음',
-                                description: '타임라인에 자막 트랙 데이터가 없습니다.',
-                                variant: 'destructive',
-                              });
-                            }
-                          }}
-                          className="px-1.5 py-0.5 text-[9px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 rounded border border-amber-500/40 transition cursor-pointer font-semibold"
-                        >
-                          ⚡ 첫 문장 자막 가져오기
-                        </button>
-                      </div>
-
-                      <input
-                        type="text"
-                        value={gunlimboConfig.hookPhrase}
-                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookPhrase: e.target.value }))}
-                        placeholder="후킹문구를 입력하세요"
-                        className="w-full px-2 py-1 text-xs bg-background border border-border rounded-[2px] font-bold"
-                      />
-
-                      {/* 후킹 구간 노출 시간 & 색상 & 글자 크기 */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40 text-[10px]">
-                        <div>
-                          <label className="text-muted-foreground block mb-0.5">후킹 노출 시간: {gunlimboConfig.introDurationSec}초</label>
-                          <input
-                            type="range"
-                            min={1.0}
-                            max={5.0}
-                            step={0.5}
-                            value={gunlimboConfig.introDurationSec}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, introDurationSec: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-amber-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-muted-foreground block mb-0.5">후킹 글자 크기: {gunlimboConfig.hookFontSize}px</label>
-                          <input
-                            type="range"
-                            min={16}
-                            max={32}
-                            step={1}
-                            value={gunlimboConfig.hookFontSize}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookFontSize: Number(e.target.value) }))}
-                            className="w-full cursor-pointer accent-amber-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1 text-[10px]">
-                        <div className="flex items-center gap-2">
-                          <label className="text-muted-foreground">바 배경색</label>
-                          <input
-                            type="color"
-                            value={gunlimboConfig.hookBgColor || '#FFFFFF'}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookBgColor: e.target.value }))}
-                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-muted-foreground">글자색</label>
-                          <input
-                            type="color"
-                            value={gunlimboConfig.hookTextColor || '#000000'}
-                            onChange={(e) => setGunlimboConfig(prev => ({ ...prev, hookTextColor: e.target.value }))}
-                            className="w-6 h-6 p-0 border border-border rounded cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 3. 점선 가이드라인 표시 토글 */}
-                    <div className="p-2 rounded bg-background/80 border border-border/80 flex items-center justify-between text-[10px]">
-                      <span className="font-bold text-foreground">
-                        📐 3단 구분 점선 가이드라인 표시
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={gunlimboConfig.showGuidelines}
-                        onChange={(e) => setGunlimboConfig(prev => ({ ...prev, showGuidelines: e.target.checked }))}
-                        className="rounded accent-amber-500 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* 4. 🚀 3단 하이브리드 미디어 소싱 툴바 (실사 검색 우선 -> Flow AI 보완) */}
-                    <div className="p-2.5 rounded bg-muted/30 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                          <Sparkles className="w-3.5 h-3.5 text-primary" />
-                          씬 미디어 소싱 (실사 검색 & Flow AI)
-                        </span>
-                        <span className="text-[9px] text-muted-foreground font-semibold">1:1 도킹</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setWebImageQuery(gunlimboConfig.hookPhrase || topTitleText || '');
-                            setIsWebImageSearchOpen(true);
-                            handleSearchWebImages(gunlimboConfig.hookPhrase || topTitleText || '');
-                          }}
-                          className="px-2 py-1.5 text-[11px] font-bold rounded bg-blue-600/10 text-blue-500 hover:bg-blue-600/20 border border-blue-500/30 flex items-center justify-center gap-1 transition cursor-pointer"
-                          title="1순위: 실제 웹 뉴스/제품 리뷰 사진 검색"
-                        >
-                          🔍 실사 웹 검색
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isGeneratingFlowImage}
-                          onClick={() => handleGenerateFlowImage()}
-                          className="px-2 py-1.5 text-[11px] font-bold rounded bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 flex items-center justify-center gap-1 transition disabled:opacity-50 cursor-pointer"
-                          title="2순위: 극사실주의 시네마틱 풍자 이미지 생성"
-                        >
-                          {isGeneratingFlowImage ? '생성 중...' : '🎨 Flow AI 생성'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* 5. 🎯 군림보형 감정별 4색 컬러 자막 원클릭 프리셋 */}
-                    <div className="p-2.5 rounded bg-background/80 border border-border/80 space-y-2 text-[10px]">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-foreground flex items-center gap-1">
-                          <Palette className="w-3.5 h-3.5 text-amber-500" />
-                          감정별 4색 자막 프리셋 (72% 세이프존)
-                        </span>
-                        <span className="text-[9px] text-emerald-500 font-bold">Y: 72% 도킹</span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-1">
-                        {[
-                          { name: '노랑 (기본/팩트)', color: '#FFE500', bg: 'bg-[#FFE500] text-black' },
-                          { name: '주황 (경고/주의)', color: '#FF8A00', bg: 'bg-[#FF8A00] text-black' },
-                          { name: '핑크 (비꼼/놀람)', color: '#FF5588', bg: 'bg-[#FF5588] text-white' },
-                          { name: '흰색 (평정/설명)', color: '#FFFFFF', bg: 'bg-white text-black border border-zinc-300' },
-                        ].map((preset) => (
-                          <button
-                            key={preset.color}
-                            type="button"
-                            onClick={() => {
-                              setSubtitleConfig(prev => ({ ...prev, textColor: preset.color }));
-                              setLayers(prev => prev.map(l => l.type === 'subtitle' ? {
-                                ...l,
-                                styleProps: { ...l.styleProps, color: preset.color }
-                              } : l));
-                              toast({
-                                title: `${preset.name} 자막 적용`,
-                                description: `본문 자막 색상이 ${preset.color}로 변경되었습니다.`,
-                              });
-                            }}
-                            className={cn(
-                              "py-1 px-1 rounded font-bold text-[9.5px] truncate text-center transition shadow-2xs cursor-pointer",
-                              preset.bg
-                            )}
-                          >
-                            {preset.name.split(' ')[0]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 6. 🎭 페페 & 이라스토야 바이럴 밈 라이브러리 (1.8초 펄스) */}
-                    <div className="p-2.5 rounded bg-muted/20 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                          🎭 바이럴 밈 스티커 (페페 & 이라스토야)
-                        </span>
-                        <span className="text-[9px] text-muted-foreground">1.8초 펄스 모션</span>
-                      </div>
-                      <div className="space-y-1.5">
-                        <span className="text-[9.5px] text-muted-foreground font-semibold block">🐸 페페 6대 감정 팩</span>
-                        <div className="grid grid-cols-3 gap-1">
-                          {PEPE_MEMES.map((meme) => (
-                            <button
-                              key={meme.id}
-                              type="button"
-                              onClick={() => handleInsertMeme(meme)}
-                              className="p-1 rounded bg-card hover:bg-muted border border-border flex items-center gap-1 text-[10px] font-semibold text-foreground transition truncate cursor-pointer"
-                              title={meme.name}
-                            >
-                              <span className="text-sm">{meme.emoji}</span>
-                              <span className="truncate">{meme.name.split(' ')[0]}</span>
-                            </button>
-                          ))}
-                        </div>
-                        <span className="text-[9.5px] text-muted-foreground font-semibold block pt-1">🧑‍💼 이라스토야 6대 상황 팩</span>
-                        <div className="grid grid-cols-3 gap-1">
-                          {IRASUTOYA_MEMES.map((meme) => (
-                            <button
-                              key={meme.id}
-                              type="button"
-                              onClick={() => handleInsertMeme(meme)}
-                              className="p-1 rounded bg-card hover:bg-muted border border-border flex items-center gap-1 text-[10px] font-semibold text-foreground transition truncate cursor-pointer"
-                              title={meme.name}
-                            >
-                              <span className="text-sm">{meme.emoji}</span>
-                              <span className="truncate">{meme.name.split(' ')[0]}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {layoutTemplateMode === 'ssul' && (
-                  <div className="p-2.5 rounded-[4px] border border-emerald-500/30 bg-emerald-500/5 space-y-2.5">
-                    <span className="text-[11px] font-bold text-emerald-500 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      썰형 (커뮤니티 + 텍스트 모드 + 페페 밈 에셋)
-                    </span>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-muted-foreground font-bold">텍스트 디스플레이 3대 모드</label>
-                      <div className="grid grid-cols-3 gap-1">
-                        {[
-                          { id: 'accumulate', label: '문단 누적' },
-                          { id: 'single-stepped', label: '계단식 단일' },
-                          { id: 'single-fixed', label: '상단 고정' },
-                        ].map((tm) => (
-                          <button
-                            key={tm.id}
-                            type="button"
-                            onClick={() => setSsulConfig(prev => ({ ...prev, textMode: tm.id as SsulTextMode }))}
-                            className={cn(
-                              "py-1 text-[10px] font-bold rounded-[2px] border transition cursor-pointer text-center truncate",
-                              ssulConfig.textMode === tm.id
-                                ? "bg-emerald-500 text-white border-emerald-600 shadow-2xs"
-                                : "bg-card text-muted-foreground border-border hover:text-foreground"
-                            )}
-                          >
-                            {tm.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {/* 상징 밈 선택 (페페 vs 이라스토야) */}
-                    <div className="space-y-1.5 pt-1 border-t border-border/40">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] text-muted-foreground font-bold">상징 밈 / 일러스트 캐릭터</label>
-                        <label className="flex items-center gap-1 text-[9.5px] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={ssulConfig.memeAliveMotion}
-                            onChange={(e) => setSsulConfig(prev => ({ ...prev, memeAliveMotion: e.target.checked }))}
-                            className="rounded accent-emerald-500 cursor-pointer"
-                          />
-                          생동감 바운스/틸트
-                        </label>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setSsulConfig(prev => ({ ...prev, memeType: 'pepe' }))}
-                          className={cn(
-                            "py-1 text-xs font-bold rounded-[2px] border transition cursor-pointer flex items-center justify-center gap-1",
-                            ssulConfig.memeType === 'pepe' ? "bg-emerald-500 text-white border-emerald-600" : "bg-card text-muted-foreground border-border"
-                          )}
-                        >
-                          🐸 페페 (Pepe)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSsulConfig(prev => ({ ...prev, memeType: 'irasutoya' }))}
-                          className={cn(
-                            "py-1 text-xs font-bold rounded-[2px] border transition cursor-pointer flex items-center justify-center gap-1",
-                            ssulConfig.memeType === 'irasutoya' ? "bg-emerald-500 text-white border-emerald-600" : "bg-card text-muted-foreground border-border"
-                          )}
-                        >
-                          🧑 이라스토야 사람
-                        </button>
-                      </div>
-                      {/* 10대 감정 프리셋 칩 */}
-                      <div className="space-y-1">
-                        <label className="text-[9.5px] text-muted-foreground">감정 표정 선택</label>
-                        <div className="grid grid-cols-5 gap-1">
-                          {MEME_EMOTION_PRESETS.map((ep) => (
-                            <button
-                              key={ep.id}
-                              type="button"
-                              onClick={() => setSsulConfig(prev => ({ ...prev, memeEmotion: ep.id }))}
-                              className={cn(
-                                "p-1 rounded-[2px] border text-center transition cursor-pointer flex flex-col items-center",
-                                ssulConfig.memeEmotion === ep.id
-                                  ? "bg-emerald-500 text-white border-emerald-600 shadow-2xs font-bold"
-                                  : "bg-card text-foreground border-border hover:bg-muted/50"
-                              )}
-                              title={ep.description}
-                            >
-                              <span className="text-xs">{ep.emoji}</span>
-                              <span className="text-[8px] truncate max-w-full">{ep.label.split('/')[0]}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 3대 전역 AI 대본 분할 프리셋 */}
-                <div className="p-2.5 rounded-[4px] border border-border bg-card space-y-1.5">
-                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                    <Split className="w-3.5 h-3.5 text-primary" />
-                    3대 AI 대본 분할 프리셋 (전역 공통 엔진)
-                  </span>
-                  <div className="grid grid-cols-3 gap-1">
-                    {[
-                      { id: 'shorts', title: '쇼츠형', sub: '10~15자 빠른 컷' },
-                      { id: 'balanced', title: '균형형', sub: '15~25자 의미 단위' },
-                      { id: 'sentence', title: '문장형', sub: '완전문장 설명형' },
-                    ].map((sp) => (
-                      <button
-                        key={sp.id}
-                        type="button"
-                        onClick={() => setScriptSplitPreset(sp.id as ScriptSplitPreset)}
-                        className={cn(
-                          "p-1.5 rounded-[3px] border text-center transition cursor-pointer flex flex-col items-center",
-                          scriptSplitPreset === sp.id
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                            : "bg-card hover:bg-muted/50 border-border text-foreground"
-                        )}
-                      >
-                        <span className="text-xs font-bold">{sp.title}</span>
-                        <span className="text-[8px] opacity-75 mt-0.5">{sp.sub}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 5대 스마트 무드 BGM 자동 선곡 */}
-                <div className="p-2.5 rounded-[4px] border border-border bg-card space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
-                      <Music className="w-3.5 h-3.5 text-primary" />
-                      5대 무드 BGM 라이브러리 & 자동 선곡
-                    </span>
-                    <label className="flex items-center gap-1 text-[9.5px] cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={autoMoodMatching}
-                        onChange={(e) => setAutoMoodMatching(e.target.checked)}
-                        className="rounded accent-primary cursor-pointer"
-                      />
-                      대본 자동 선곡
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-5 gap-1">
-                    {[
-                      { id: 'energetic', label: '도파민', emoji: '⚡' },
-                      { id: 'emotional', label: '감성', emoji: '🎹' },
-                      { id: 'suspense', label: '긴장감', emoji: '🔥' },
-                      { id: 'funny', label: '코믹', emoji: '🤣' },
-                      { id: 'cinematic', label: '웅장', emoji: '🎬' },
-                    ].map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setSelectedBgmMood(m.id as BgmMood)}
-                        className={cn(
-                          "p-1 rounded-[2px] border text-center transition cursor-pointer flex flex-col items-center",
-                          selectedBgmMood === m.id
-                            ? "bg-primary text-primary-foreground border-primary shadow-2xs font-bold"
-                            : "bg-card text-foreground border-border hover:bg-muted/50"
-                        )}
-                      >
-                        <span className="text-xs">{m.emoji}</span>
-                        <span className="text-[8.5px]">{m.label}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* 팝업 모달 다이얼로그 오픈 버튼 */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsBgmModalOpen(true)}
-                    className="w-full mt-2 h-7.5 text-[11px] font-bold border-primary/40 text-primary hover:bg-primary/10 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5" />
-                    🎵 BGM 라이브러리 전체 보기 & 음원 관리
-                  </Button>
-                </div>
-              </div>
+              <TemplateInspectorForm
+                layoutTemplateMode={layoutTemplateMode}
+                handleSelectTemplateMode={handleSelectTemplateMode}
+                handleOpenTemplateLibrary={handleOpenTemplateLibrary}
+                topBarBg={topBarBg}
+                setTopBarBg={setTopBarBg}
+                topBarHeightPct={topBarHeightPct}
+                setTopBarHeightPct={setTopBarHeightPct}
+                bottomBarBg={bottomBarBg}
+                setBottomBarBg={setBottomBarBg}
+                bottomBarHeightPct={bottomBarHeightPct}
+                setBottomBarHeightPct={setBottomBarHeightPct}
+                bottomSourceText={bottomSourceText}
+                setBottomSourceText={setBottomSourceText}
+                instaConfig={instaConfig}
+                setInstaConfig={setInstaConfig}
+                gunlimboConfig={gunlimboConfig}
+                setGunlimboConfig={setGunlimboConfig}
+                ssulConfig={ssulConfig}
+                setSsulConfig={setSsulConfig}
+                profileTransform={profileTransform}
+                setProfileTransform={setProfileTransform}
+                topTitleText={topTitleText}
+                setTopTitleText={setTopTitleText}
+                titleTransform={titleTransform}
+                setTitleTransform={setTitleTransform}
+                topTitleFontSize={titleLine1SizePx}
+                setTopTitleFontSize={setTitleLine1SizePx}
+                topTitleColor={titleLine1Color}
+                setTopTitleColor={setTitleLine1Color}
+                commentCard={commentCard}
+                setCommentCard={setCommentCard}
+                commentTransform={commentTransform}
+                setCommentTransform={setCommentTransform}
+                hasCommentCard={hasCommentCard}
+                setHasCommentCard={setHasCommentCard}
+                subTransform={subTransform}
+                setSubTransform={setSubTransform}
+                subtitleConfig={subtitleConfig}
+                setSubtitleConfig={setSubtitleConfig}
+                setSubtitleYPercent={setSubtitleYPercent}
+                handleInsertMeme={handleInsertMeme}
+                handleSearchWebImages={handleSearchWebImages}
+                handleGenerateFlowImage={handleGenerateFlowImage}
+                isWebImageSearchOpen={isWebImageSearchOpen}
+                setIsWebImageSearchOpen={setIsWebImageSearchOpen}
+                selectedBgmMood={selectedBgmMood}
+                setSelectedBgmMood={setSelectedBgmMood}
+                autoMoodMatching={autoMoodMatching}
+                setAutoMoodMatching={setAutoMoodMatching}
+                setIsBgmModalOpen={setIsBgmModalOpen}
+                scriptSplitPreset={scriptSplitPreset}
+                setScriptSplitPreset={setScriptSplitPreset}
+                activeInspectorTab={activeInspectorTab}
+                setActiveInspectorTab={setActiveInspectorTab}
+                selectedLayerId={selectedLayerId}
+                setSelectedLayerId={setSelectedLayerId}
+                layers={layers}
+                setLayers={setLayers}
+              />
             )}
-{/* 1. 👑 타이틀 / 출처 / 상하단 바 탭 */}
+
+            {/* 1. 👑 타이틀 / 출처 / 상하단 바 탭 */}
             {activeInspectorTab === 'titleSource' && (
-              <div className="space-y-3">
-                {/* 상단 고정 타이틀 카드 */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Type className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-[11px] font-bold text-foreground">상단 고정 타이틀</span>
-                    </div>
-                    <Switch checked={hasTopTitle} onCheckedChange={setHasTopTitle} />
-                  </div>
-
-                  {hasTopTitle && (
-                    <div className="space-y-2.5">
-                      {/* ⚡ 8대 쇼츠 고효율 타이틀 후보군 퀵 주입기 */}
-                      <div className="p-2 bg-primary/5 border border-primary/20 rounded-[2px] space-y-1.5">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-bold text-primary flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-amber-500" />
-                            추천 타이틀 퀵 주입 (8대 후보군)
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto custom-scrollbar pr-0.5">
-                          {[
-                            '[충격 실화] 상상도 못했던 반전 결말',
-                            '[긴급 속보] 지금 당장 확인해야 할 사실',
-                            '[TOP 1%] 성공한 사람들의 숨겨진 비밀',
-                            '[소름 주의] 이것을 알고 나면 달라집니다',
-                            '[핵심 요약] 단 1분 만에 끝내는 완벽 정리',
-                            '[진짜 이유] 아무도 알려주지 않았던 진실',
-                            '[실제 상황] 눈앞에서 벌어진 믿기 힘든 일',
-                            '[궁극의 팁] 알고 나면 삶이 편해지는 비법',
-                          ].map((cand, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => handleInjectTitleCandidate(cand)}
-                              className="text-left px-2 py-1 text-[10px] rounded-[2px] bg-card hover:bg-primary/10 border border-border/70 hover:border-primary/40 text-foreground transition truncate cursor-pointer font-medium"
-                              title={`${cand} (클릭 시 상단 타이틀로 즉시 주입)`}
-                            >
-                              {cand}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      {/* 1줄 vs 2줄 모드 선택 */}
-                      <div className="flex items-center justify-between bg-muted/40 p-1.5 rounded-[2px]">
-                        <span className="text-[10px] font-semibold text-foreground">줄 수 설정</span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setTitleLinesMode('single')}
-                            className={cn(
-                              "px-2 py-0.5 text-[10px] font-bold rounded-[2px] transition cursor-pointer",
-                              titleLinesMode === 'single'
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-card text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            1줄 고정
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setTitleLinesMode('double')}
-                            className={cn(
-                              "px-2 py-0.5 text-[10px] font-bold rounded-[2px] transition cursor-pointer",
-                              titleLinesMode === 'double'
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-card text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            2줄 고정 (추천)
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 뱃지 설정 */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground font-semibold">상단 뱃지 태그</span>
-                          <Switch checked={hasTitleBadge} onCheckedChange={setHasTitleBadge} />
-                        </div>
-                        {hasTitleBadge && (
-                          <div className="flex gap-1.5">
-                            <input
-                              type="text"
-                              value={titleBadgeText}
-                              onChange={(e) => setTitleBadgeText(e.target.value)}
-                              className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
-                              placeholder="HOT ISSUE"
-                            />
-                            <input
-                              type="color"
-                              value={titleBadgeColor}
-                              onChange={(e) => setTitleBadgeColor(e.target.value)}
-                              className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                              title="뱃지 배경색"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 1단 타이틀 (위 텍스트) */}
-                      <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-foreground font-semibold">1단 텍스트 (상단)</span>
-                          <span className="font-mono text-primary font-bold">{titleLine1SizePx}px</span>
-                        </div>
-                        <div className="flex gap-1.5">
-                          <input
-                            type="text"
-                            value={titleLine1}
-                            onChange={(e) => setTitleLine1(e.target.value)}
-                            className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
-                            placeholder="1단 타이틀 입력..."
-                          />
-                          <input
-                            type="color"
-                            value={titleLine1Color}
-                            onChange={(e) => setTitleLine1Color(e.target.value)}
-                            className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                            title="1단 글자 색상"
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          min="14"
-                          max="40"
-                          value={titleLine1SizePx}
-                          onChange={(e) => setTitleLine1SizePx(parseInt(e.target.value))}
-                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                        />
-                      </div>
-
-                      {/* 2단 타이틀 (아래 텍스트 - double 모드일 때) */}
-                      {titleLinesMode === 'double' && (
-                        <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                          <div className="flex justify-between text-[10px]">
-                            <span className="text-foreground font-semibold">2단 텍스트 (하단 핵심 후킹)</span>
-                            <span className="font-mono text-amber-500 font-bold">{titleLine2SizePx}px</span>
-                          </div>
-                          <div className="flex gap-1.5">
-                            <input
-                              type="text"
-                              value={titleLine2}
-                              onChange={(e) => setTitleLine2(e.target.value)}
-                              className="flex-1 h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
-                              placeholder="2단 타이틀 입력..."
-                            />
-                            <input
-                              type="color"
-                              value={titleLine2Color}
-                              onChange={(e) => setTitleLine2Color(e.target.value)}
-                              className="w-7 h-7 p-0 border border-border rounded-[2px] cursor-pointer bg-transparent"
-                              title="2단 글자 색상"
-                            />
-                          </div>
-                          <input
-                            type="range"
-                            min="16"
-                            max="44"
-                            value={titleLine2SizePx}
-                            onChange={(e) => setTitleLine2SizePx(parseInt(e.target.value))}
-                            className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                          />
-                        </div>
-                      )}
-
-                      {/* 🎨 테두리(외곽선) 상세 제어 */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
-                          <Switch checked={titleStroke} onCheckedChange={setTitleStroke} />
-                        </div>
-                        {titleStroke && (
-                          <div className="space-y-1 pt-1">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-muted-foreground">두께: {titleStrokeWidth}px</span>
-                              <input
-                                type="color"
-                                value={titleStrokeColor}
-                                onChange={(e) => setTitleStrokeColor(e.target.value)}
-                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                                title="테두리 색상"
-                              />
-                            </div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="10"
-                              value={titleStrokeWidth}
-                              onChange={(e) => setTitleStrokeWidth(parseInt(e.target.value))}
-                              className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 🌌 그림자 상세 제어 */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-foreground">글자 그림자 (Shadow)</span>
-                          <Switch checked={titleShadow} onCheckedChange={setTitleShadow} />
-                        </div>
-                        {titleShadow && (
-                          <div className="space-y-1 pt-1">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-muted-foreground">흐림: {titleShadowBlur}px</span>
-                              <input
-                                type="color"
-                                value="#000000"
-                                onChange={(e) => setTitleShadowColor(e.target.value)}
-                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                                title="그림자 색상"
-                              />
-                            </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="20"
-                              value={titleShadowBlur}
-                              onChange={(e) => setTitleShadowBlur(parseInt(e.target.value))}
-                              className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 🔲 배경 박스 & 모서리 둥글기 제어 */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-foreground">배경 박스</span>
-                          <div className="flex gap-1">
-                            {(['none', 'box', 'pill'] as const).map((m) => (
-                              <button
-                                key={m}
-                                type="button"
-                                onClick={() => setTitleBgMode(m)}
-                                className={cn(
-                                  "px-1.5 py-0.5 text-[9px] rounded font-medium",
-                                  titleBgMode === m ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                                )}
-                              >
-                                {m === 'none' ? '없음' : m === 'box' ? '박스' : '알약'}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {titleBgMode !== 'none' && (
-                          <div className="space-y-2 pt-1 border-t border-border/50">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-muted-foreground">배경 색상</span>
-                              <input
-                                type="color"
-                                value="#000000"
-                                onChange={(e) => setTitleBgColor(e.target.value)}
-                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                              />
-                            </div>
-                            {titleBgMode === 'box' && (
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-[10px]">
-                                  <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
-                                  <span className="font-mono text-primary">{titleBorderRadius}px</span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="30"
-                                  value={titleBorderRadius}
-                                  onChange={(e) => setTitleBorderRadius(parseInt(e.target.value))}
-                                  className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                                />
-                              </div>
-                            )}
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-[10px]">
-                                <span className="text-muted-foreground">내부 패딩</span>
-                                <span className="font-mono">{titlePaddingX}px</span>
-                              </div>
-                              <input
-                                type="range"
-                                min="2"
-                                max="30"
-                                value={titlePaddingX}
-                                onChange={(e) => setTitlePaddingX(parseInt(e.target.value))}
-                                className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 하단 출처 표기 카드 */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground">하단 출처 표기</span>
-                    <Switch checked={hasBottomSource} onCheckedChange={setHasBottomSource} />
-                  </div>
-                  {hasBottomSource && (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={bottomSourceText}
-                        onChange={(e) => setBottomSourceText(e.target.value)}
-                        className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-medium"
-                      />
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-muted-foreground">글자 색상</span>
-                        <input
-                          type="color"
-                          value={bottomSourceColor}
-                          onChange={(e) => setBottomSourceColor(e.target.value)}
-                          className="w-6 h-6 p-0 border border-border rounded cursor-pointer bg-transparent"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 상단 및 하단 배경 바 카드 */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground">상하단 배경 바</span>
-                  </div>
-                  <div className="space-y-2 text-[10px]">
-                    <div className="flex items-center justify-between">
-                      <span>상단 배경 바</span>
-                      <Switch checked={hasTopBarBg} onCheckedChange={setHasTopBarBg} />
-                    </div>
-                    {hasTopBarBg && (
-                      <div className="space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">높이: {topBarHeightPct}%</span>
-                          <input
-                            type="color"
-                            value={topBarBg}
-                            onChange={(e) => setTopBarBg(e.target.value)}
-                            className="w-4 h-4 p-0 border border-border rounded cursor-pointer bg-transparent"
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          min="5"
-                          max="30"
-                          value={topBarHeightPct}
-                          onChange={(e) => setTopBarHeightPct(parseInt(e.target.value))}
-                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                        />
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between pt-1 border-t border-border">
-                      <span className="font-semibold text-foreground">하단 배경 바</span>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={bottomBarBg}
-                          onChange={(e) => setBottomBarBg(e.target.value)}
-                          className="w-6 h-6 p-0 border border-border rounded cursor-pointer bg-transparent"
-                          title="하단 바 배경색"
-                        />
-                        <Switch checked={hasBottomBarBg} onCheckedChange={setHasBottomBarBg} />
-                      </div>
-                    </div>
-                    {hasBottomBarBg && (
-                      <div className="space-y-1.5 pt-1 pl-2 border-l-2 border-primary/40 bg-muted/10 p-2 rounded-[2px]">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground font-semibold">하단 바 높이 (두께)</span>
-                          <span className="font-mono text-primary font-bold">{bottomBarHeightPct.toFixed(1)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="25"
-                          step="0.5"
-                          value={bottomBarHeightPct}
-                          onChange={(e) => setBottomBarHeightPct(parseFloat(e.target.value))}
-                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                        />
-                        <div className="flex justify-between text-[9px] text-muted-foreground">
-                          <span>0% (완전 밀착)</span>
-                          <span>12%</span>
-                          <span>25% (대형 바)</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 하단 출처 표기 세부 위치 & 높낮이 */}
-                    {hasBottomSource && (
-                      <div className="space-y-2 pt-2 border-t border-border/80">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-bold text-foreground">🏷️ 하단 출처 표기 바닥 위치 (Y)</span>
-                          <span className="font-mono text-primary font-bold">{bottomSourceBottomPct.toFixed(1)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="25"
-                          step="0.5"
-                          value={bottomSourceBottomPct}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setBottomSourceBottomPct(val);
-                            setSourceTransform(prev => ({ ...prev, yPct: 100 - val }));
-                          }}
-                          className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                        />
-                        <div className="flex justify-between text-[9px] text-muted-foreground">
-                          <span>0% (맨 바닥)</span>
-                          <span>하단 바 위/안쪽 자유 배치</span>
-                          <span>25%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <TitleSourceInspectorForm
+                hasTopTitle={hasTopTitle}
+                setHasTopTitle={setHasTopTitle}
+                titleLinesMode={titleLinesMode}
+                setTitleLinesMode={setTitleLinesMode}
+                hasTitleBadge={hasTitleBadge}
+                setHasTitleBadge={setHasTitleBadge}
+                titleBadgeText={titleBadgeText}
+                setTitleBadgeText={setTitleBadgeText}
+                titleBadgeColor={titleBadgeColor}
+                setTitleBadgeColor={setTitleBadgeColor}
+                titleLine1={titleLine1}
+                setTitleLine1={setTitleLine1}
+                titleLine2={titleLine2}
+                setTitleLine2={setTitleLine2}
+                titleLine1SizePx={titleLine1SizePx}
+                setTitleLine1SizePx={setTitleLine1SizePx}
+                titleLine2SizePx={titleLine2SizePx}
+                setTitleLine2SizePx={setTitleLine2SizePx}
+                titleLine1Color={titleLine1Color}
+                setTitleLine1Color={setTitleLine1Color}
+                titleLine2Color={titleLine2Color}
+                setTitleLine2Color={setTitleLine2Color}
+                titleStroke={titleStroke}
+                setTitleStroke={setTitleStroke}
+                titleStrokeWidth={titleStrokeWidth}
+                setTitleStrokeWidth={setTitleStrokeWidth}
+                titleStrokeColor={titleStrokeColor}
+                setTitleStrokeColor={setTitleStrokeColor}
+                titleShadow={titleShadow}
+                setTitleShadow={setTitleShadow}
+                titleShadowBlur={titleShadowBlur}
+                setTitleShadowBlur={setTitleShadowBlur}
+                titleBgMode={titleBgMode}
+                setTitleBgMode={setTitleBgMode}
+                titlePaddingX={titlePaddingX}
+                setTitlePaddingX={setTitlePaddingX}
+                titleBorderRadius={titleBorderRadius}
+                setTitleBorderRadius={setTitleBorderRadius}
+                hasTopBarBg={hasTopBarBg}
+                setHasTopBarBg={setHasTopBarBg}
+                topBarBg={topBarBg}
+                setTopBarBg={setTopBarBg}
+                topBarHeightPct={topBarHeightPct}
+                setTopBarHeightPct={setTopBarHeightPct}
+                hasBottomBarBg={hasBottomBarBg}
+                setHasBottomBarBg={setHasBottomBarBg}
+                bottomBarBg={bottomBarBg}
+                setBottomBarBg={setBottomBarBg}
+                bottomBarHeightPct={bottomBarHeightPct}
+                setBottomBarHeightPct={setBottomBarHeightPct}
+                hasBottomSource={hasBottomSource}
+                setHasBottomSource={setHasBottomSource}
+                bottomSourceText={bottomSourceText}
+                setBottomSourceText={setBottomSourceText}
+                bottomSourceColor={bottomSourceColor}
+                setBottomSourceColor={setBottomSourceColor}
+                bottomSourceBottomPct={bottomSourceBottomPct}
+                setBottomSourceBottomPct={setBottomSourceBottomPct}
+                handleInjectTitleCandidate={handleInjectTitleCandidate}
+              />
             )}
 
-                        {activeInspectorTab === 'videoCrop' && (
-              <div className="space-y-3">
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                      <Crop className="w-3.5 h-3.5 text-primary" />
-                      비디오 핏 모드 & 2D 자유 변형
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVideoFocusXPct(50);
-                        setVideoFocusYPct(50);
-                        setVideoZoomScale(100);
-                        setVideoRotationDeg(0);
-                        setVideoHorizontalFlip(false);
-                        setVideoVerticalFlip(false);
-                        toast({ title: '🔄 비디오 변형 초기화', description: '화면 정중앙 100% 비율로 리셋되었습니다.' });
-                      }}
-                      className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 cursor-pointer"
-                    >
-                      <span>전체 리셋</span>
-                    </button>
-                  </div>
-
-                  {/* 5대 비디오 핏 모드 */}
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setVideoFitMode('sandwich')}
-                      className={cn(
-                        "p-2 border rounded-[2px] text-left transition cursor-pointer flex flex-col gap-0.5",
-                        videoFitMode === 'sandwich' ? "bg-primary/15 border-primary text-foreground font-bold shadow-2xs" : "border-border bg-background text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <span className="text-[10px]">🥪 샌드위치 핏</span>
-                      <span className="text-[8.5px] text-muted-foreground">상·하단 바 사이 안착</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setVideoFitMode('fullscreen')}
-                      className={cn(
-                        "p-2 border rounded-[2px] text-left transition cursor-pointer flex flex-col gap-0.5",
-                        videoFitMode === 'fullscreen' ? "bg-primary/15 border-primary text-foreground font-bold shadow-2xs" : "border-border bg-background text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <span className="text-[10px]">📱 풀스크린 핏</span>
-                      <span className="text-[8.5px] text-muted-foreground">화면 전체 채움 크롭</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setVideoFitMode('fit-center')}
-                      className={cn(
-                        "p-2 border rounded-[2px] text-left transition cursor-pointer flex flex-col gap-0.5",
-                        videoFitMode === 'fit-center' ? "bg-primary/15 border-primary text-foreground font-bold shadow-2xs" : "border-border bg-background text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <span className="text-[10px]">🎯 중앙 맞춤 핏</span>
-                      <span className="text-[8.5px] text-muted-foreground">16:9 원본 100% 보존</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setVideoFitMode('fit-top')}
-                      className={cn(
-                        "p-2 border rounded-[2px] text-left transition cursor-pointer flex flex-col gap-0.5",
-                        videoFitMode === 'fit-top' ? "bg-primary/15 border-primary text-foreground font-bold shadow-2xs" : "border-border bg-background text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <span className="text-[10px]">🔝 상단 집중 핏</span>
-                      <span className="text-[8.5px] text-muted-foreground">하단 넓은 자막 공간</span>
-                    </button>
-                  </div>
-
-                  {/* 🌟 가우시안 블러 미러 배경 스위치 */}
-                  <div className="flex items-center justify-between p-2 bg-muted/30 border border-border rounded-[2px]">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold text-foreground block">여백 가우시안 블러 미러 배경</span>
-                      <span className="text-[8.5px] text-muted-foreground">16:9 영상 주변에 흐린 미러 배경을 채웁니다</span>
-                    </div>
-                    <Switch checked={videoBlurBg} onCheckedChange={setVideoBlurBg} />
-                  </div>
-
-                  {/* 🎮 9-방향 원클릭 스냅 정렬 매트릭스 */}
-                  <div className="space-y-1 pt-1 border-t border-border">
-                    <span className="text-[10px] font-semibold text-muted-foreground">원클릭 스냅 정렬 (9-Way)</span>
-                    <div className="grid grid-cols-3 gap-1 p-1 bg-muted/20 border border-border rounded-[2px]">
-                      {[
-                        { label: '↖ 좌상단', x: 20, y: 20 },
-                        { label: '↑ 상단', x: 50, y: 20 },
-                        { label: '↗ 우상단', x: 80, y: 20 },
-                        { label: '← 좌중앙', x: 20, y: 50 },
-                        { label: '🎯 중앙', x: 50, y: 50 },
-                        { label: '→ 우중앙', x: 80, y: 50 },
-                        { label: '↙ 좌하단', x: 20, y: 80 },
-                        { label: '↓ 하단', x: 50, y: 80 },
-                        { label: '↘ 우하단', x: 80, y: 80 },
-                      ].map((snap, sIdx) => (
-                        <button
-                          key={sIdx}
-                          type="button"
-                          onClick={() => { setVideoFocusXPct(snap.x); setVideoFocusYPct(snap.y); }}
-                          className={cn(
-                            "py-1 text-[9px] font-semibold rounded-[2px] border transition cursor-pointer",
-                            videoFocusXPct === snap.x && videoFocusYPct === snap.y
-                              ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
-                              : "border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          {snap.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 가로 X & 세로 Y 정밀 오프셋 슬라이더 */}
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground font-semibold">가로 위치 (X)</span>
-                        <span className="font-mono text-primary font-bold">{videoFocusXPct}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={videoFocusXPct}
-                        onChange={(e) => setVideoFocusXPct(parseInt(e.target.value))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-muted-foreground font-semibold">세로 위치 (Y)</span>
-                        <span className="font-mono text-primary font-bold">{videoFocusYPct}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={videoFocusYPct}
-                        onChange={(e) => setVideoFocusYPct(parseInt(e.target.value))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 비디오 줌 / 크롭 스케일 */}
-                  <div className="space-y-1 pt-1 border-t border-border">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground font-semibold">비디오 줌 / 크롭 (Scale)</span>
-                      <span className="font-mono text-primary font-bold">{videoZoomScale}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="50"
-                      max="300"
-                      step="1"
-                      value={videoZoomScale}
-                      onChange={(e) => setVideoZoomScale(parseInt(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                    />
-                  </div>
-
-                  {/* 회전 & 반전 제어 */}
-                  <div className="space-y-1.5 pt-1 border-t border-border">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground font-semibold">회전 각도 (Rotation)</span>
-                      <span className="font-mono text-primary font-bold">{videoRotationDeg}°</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      step="1"
-                      value={videoRotationDeg}
-                      onChange={(e) => setVideoRotationDeg(parseInt(e.target.value))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                    />
-                    <div className="grid grid-cols-4 gap-1 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setVideoRotationDeg(r => (r - 90) % 360)}
-                        className="py-1 text-[9px] font-semibold border border-border bg-background hover:bg-muted rounded-[2px] cursor-pointer"
-                      >
-                        ↺ -90°
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setVideoRotationDeg(r => (r + 90) % 360)}
-                        className="py-1 text-[9px] font-semibold border border-border bg-background hover:bg-muted rounded-[2px] cursor-pointer"
-                      >
-                        ↻ +90°
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setVideoHorizontalFlip(f => !f)}
-                        className={cn(
-                          "py-1 text-[9px] font-semibold border rounded-[2px] cursor-pointer transition",
-                          videoHorizontalFlip ? "bg-primary text-primary-foreground border-primary font-bold" : "border-border bg-background hover:bg-muted"
-                        )}
-                      >
-                        ⇄ 좌우
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setVideoVerticalFlip(f => !f)}
-                        className={cn(
-                          "py-1 text-[9px] font-semibold border rounded-[2px] cursor-pointer transition",
-                          videoVerticalFlip ? "bg-primary text-primary-foreground border-primary font-bold" : "border-border bg-background hover:bg-muted"
-                        )}
-                      >
-                        ⇅ 상하
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* 2. ✂️ 비디오 크롭 / 핏 모드 탭 */}
+            {activeInspectorTab === 'videoCrop' && (
+              <VideoCropInspectorForm
+                videoFitMode={videoFitMode as any}
+                setVideoFitMode={setVideoFitMode as any}
+                videoFocusXPct={videoFocusXPct}
+                setVideoFocusXPct={setVideoFocusXPct}
+                videoFocusYPct={videoFocusYPct}
+                setVideoFocusYPct={setVideoFocusYPct}
+                videoZoomScale={videoZoomScale}
+                setVideoZoomScale={setVideoZoomScale}
+                videoRotationDeg={videoRotationDeg}
+                setVideoRotationDeg={setVideoRotationDeg}
+                videoHorizontalFlip={videoHorizontalFlip}
+                setVideoHorizontalFlip={setVideoHorizontalFlip}
+                videoVerticalFlip={videoVerticalFlip}
+                setVideoVerticalFlip={setVideoVerticalFlip}
+                videoBlurBg={videoBlurBg}
+                setVideoBlurBg={setVideoBlurBg}
+              />
             )}
 
-            {/* 3. ⚡ 긴박 쨉쨉이 훅 탭 */}
-                        {/* 🎨 캡컷 10대 인기 시네마틱 필터 & 영화 노이즈 FX 패널 */}
+            {/* 🎨 필터 & FX 탭 */}
             {activeInspectorTab === 'filterFx' && (
-              <div className="space-y-3">
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      캡컷 인기 시네마틱 필터 & 영화 노이즈
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setVideoFilter({
-                        preset: 'none',
-                        intensity: 100,
-                        filmGrain: 0,
-                        vignette: 0,
-                        brightness: 100,
-                        contrast: 100,
-                        saturation: 100,
-                        temperature: 0,
-                      })}
-                      className="text-[9px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded border border-border"
-                    >
-                      초기화
-                    </button>
-                  </div>
-
-                  {/* 10대 필터 프리셋 2열 그리드 */}
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {CAPCUT_FILTER_PRESETS.map((fp) => (
-                      <div
-                        key={fp.id}
-                        onClick={() => {
-                          setVideoFilter(prev => ({
-                            ...prev,
-                            preset: fp.id,
-                            filmGrain: fp.grain,
-                            vignette: fp.vignette,
-                            brightness: fp.b,
-                            contrast: fp.c,
-                            saturation: fp.s,
-                            temperature: fp.t,
-                          }));
-                          toast({ title: `🎨 ${fp.name} 적용`, description: fp.desc });
-                        }}
-                        className={cn(
-                          "p-2 border rounded-[2px] cursor-pointer transition flex flex-col gap-1 text-left relative overflow-hidden",
-                          videoFilter.preset === fp.id
-                            ? "bg-primary/10 border-primary shadow-xs ring-1 ring-primary"
-                            : "border-border bg-background hover:bg-muted/40"
-                        )}
-                      >
-                        <div className={cn("w-full h-4 rounded-xs bg-gradient-to-r opacity-90 mb-0.5", fp.color)} />
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-foreground truncate">{fp.name}</span>
-                          {videoFilter.preset === fp.id && (
-                            <span className="text-[8px] bg-primary text-primary-foreground px-1 rounded-xs font-bold shrink-0">✓</span>
-                          )}
-                        </div>
-                        <span className="text-[8.5px] text-muted-foreground leading-tight line-clamp-1">{fp.desc}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 🎞️ 영화 필름 노이즈 / 그레인 슬라이더 */}
-                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-foreground font-semibold flex items-center gap-1">
-                        <Film className="w-3 h-3 text-amber-500" />
-                        35mm 영화 필름 노이즈 (Grain)
-                      </span>
-                      <span className="font-mono text-amber-500 font-bold">{videoFilter.filmGrain}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={videoFilter.filmGrain}
-                      onChange={(e) => setVideoFilter(prev => ({ ...prev, filmGrain: parseInt(e.target.value) }))}
-                      className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                    />
-                  </div>
-
-                  {/* 🎬 시네마틱 비네팅 */}
-                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-foreground font-semibold">시네마틱 비네트 (Vignette)</span>
-                      <span className="font-mono text-primary font-bold">{videoFilter.vignette}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={videoFilter.vignette}
-                      onChange={(e) => setVideoFilter(prev => ({ ...prev, vignette: parseInt(e.target.value) }))}
-                      className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                    />
-                  </div>
-
-                  {/* 밝기, 대비, 채도, 색온도 정밀 슬라이더 */}
-                  <div className="space-y-2 pt-1 border-t border-border">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[9.5px]">
-                        <span className="text-muted-foreground">대비 (Contrast)</span>
-                        <span className="font-mono font-bold text-foreground">{videoFilter.contrast}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="60"
-                        max="150"
-                        value={videoFilter.contrast}
-                        onChange={(e) => setVideoFilter(prev => ({ ...prev, contrast: parseInt(e.target.value) }))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[9.5px]">
-                        <span className="text-muted-foreground">채도 (Saturation)</span>
-                        <span className="font-mono font-bold text-foreground">{videoFilter.saturation}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="180"
-                        value={videoFilter.saturation}
-                        onChange={(e) => setVideoFilter(prev => ({ ...prev, saturation: parseInt(e.target.value) }))}
-                        className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[9.5px]">
-                        <span className="text-muted-foreground">색온도 (Warmth)</span>
-                        <span className="font-mono font-bold text-foreground">{videoFilter.temperature > 0 ? `+${videoFilter.temperature}` : videoFilter.temperature}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="-40"
-                        max="40"
-                        value={videoFilter.temperature}
-                        onChange={(e) => setVideoFilter(prev => ({ ...prev, temperature: parseInt(e.target.value) }))}
-                        className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-[2px] text-[9.5px] text-emerald-600 dark:text-emerald-400">
-                    ✓ CapCut 프로젝트 내보내기 시 색보정 메타데이터로 100% 자동 직결 연동됩니다.
-                  </div>
-                </div>
-              </div>
+              <FilterFxInspectorForm
+                videoFilter={videoFilter as any}
+                setVideoFilter={setVideoFilter as any}
+              />
             )}
 
-
-            {/* 💬 4. 바이럴 댓글 카드 탭 */}
+            {/* 💬 바이럴 댓글 카드 탭 */}
             {activeInspectorTab === 'commentCard' && (
-              <div className="space-y-3">
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      하단 바이럴 댓글 카드
-                    </span>
-                    <Switch
-                      checked={hasCommentCard}
-                      onCheckedChange={(c) => {
-                        setHasCommentCard(c);
-                        toast({
-                          title: c ? '💬 댓글 카드 활성화' : '💬 댓글 카드 비활성화',
-                          description: c ? '캔버스 하단에 바이럴 베댓 카드가 표시됩니다.' : '댓글 카드가 숨겨졌습니다.',
-                        });
-                      }}
-                    />
-                  </div>
-
-                  {hasCommentCard && (
-                    <>
-                      {/* AI 가상 바이럴 댓글 생성 버튼 */}
-                      <button
-                        type="button"
-                        onClick={handleGenerateViralComment}
-                        className="w-full h-8 text-[11px] font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-[2px] flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        AI 바이럴 베댓 원클릭 생성 🪄
-                      </button>
-
-                      {/* 닉네임 블러 마스킹 & 익명 토글 (특화 개인정보 보호) */}
-                      <div className="p-2 bg-muted/20 border border-border rounded-[2px] space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <span className="text-[10.5px] font-bold text-foreground block">작성자 정보 블러 마스킹 🥷</span>
-                            <span className="text-[8.5px] text-muted-foreground">프로필 및 아이디에 가우시안 블러를 적용합니다</span>
-                          </div>
-                          <Switch
-                            checked={commentCard.blurId}
-                            onCheckedChange={(c) => setCommentCard(prev => ({ ...prev, blurId: c }))}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between pt-1 border-t border-border">
-                          <span className="text-[10px] text-muted-foreground font-medium">익명_유저 모드</span>
-                          <Switch
-                            checked={commentCard.anonymous}
-                            onCheckedChange={(c) => setCommentCard(prev => ({ ...prev, anonymous: c }))}
-                          />
-                        </div>
-                      </div>
-
-                      {/* 카드 테마 스타일 */}
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-semibold text-muted-foreground">카드 테마</span>
-                        <div className="grid grid-cols-3 gap-1">
-                          {[
-                            { id: 'yt-dark', label: '유튜브 다크' },
-                            { id: 'yt-light', label: '유튜브 라이트' },
-                            { id: 'insta', label: '인스타그램' },
-                          ].map((t) => (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => setCommentCard(prev => ({ ...prev, theme: t.id as any }))}
-                              className={cn(
-                                "py-1 text-[10px] font-semibold rounded-[2px] border transition cursor-pointer",
-                                commentCard.theme === t.id
-                                  ? "bg-primary text-primary-foreground border-primary font-bold shadow-2xs"
-                                  : "border-border bg-background text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              {t.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* 댓글 내용 편집 */}
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-semibold text-muted-foreground">댓글 내용</span>
-                        <Textarea
-                          value={commentCard.text}
-                          onChange={(e) => setCommentCard(prev => ({ ...prev, text: e.target.value }))}
-                          className="w-full h-16 text-xs p-2 bg-background border-border text-foreground rounded-[2px] resize-none focus:border-primary"
-                        />
-                      </div>
-
-                      {/* 작성자 & 좋아요 수 */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <span className="text-[9.5px] text-muted-foreground">작성자 닉네임</span>
-                          <input
-                            type="text"
-                            value={commentCard.author}
-                            onChange={(e) => setCommentCard(prev => ({ ...prev, author: e.target.value }))}
-                            className="w-full h-7 px-2 text-xs bg-background border border-border rounded text-foreground"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[9.5px] text-muted-foreground">좋아요 수</span>
-                          <input
-                            type="text"
-                            value={commentCard.likes}
-                            onChange={(e) => setCommentCard(prev => ({ ...prev, likes: e.target.value }))}
-                            className="w-full h-7 px-2 text-xs bg-background border border-border rounded text-foreground"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+              <CommentCardInspectorForm
+                commentCard={commentCard as any}
+                setCommentCard={setCommentCard as any}
+                hasCommentCard={hasCommentCard}
+                setHasCommentCard={setHasCommentCard}
+                handleGenerateViralComment={handleGenerateViralComment}
+              />
             )}
 
+            {/* ⚡ 긴박 쨉쨉이 훅 탭 */}
             {activeInspectorTab === 'jabHook' && (
-              <div className="space-y-3">
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-amber-500" />
-                      긴박 쨉쨉이 훅 (임팩트 텍스트)
-                    </span>
-                    <Switch checked={hasJab} onCheckedChange={setHasJab} />
-                  </div>
-
-                  {hasJab && (
-                    <div className="space-y-2.5">
-                      {/* 🎯 AI 피사체 스마트 트래킹 & 가변 회피 버튼 */}
-                      <div className="p-2 bg-primary/10 border border-primary/30 rounded-[2px] space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-primary flex items-center gap-1">
-                            <Crosshair className="w-3.5 h-3.5" />
-                            AI 피사체 가변 배치
-                          </span>
-                          <button
-                            type="button"
-                            onClick={handleAutoTrackSmartPlacement}
-                            className="h-5 px-2 text-[9px] font-bold bg-primary text-primary-foreground rounded hover:bg-primary/90 transition cursor-pointer"
-                          >
-                            스마트 재배치 ⚡
-                          </button>
-                        </div>
-                        <p className="text-[9px] text-muted-foreground leading-tight">
-                          영상 피사체(인물/사물)의 시선을 가리지 않는 최적 가변 위치로 자동 배치합니다.
-                        </p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-muted-foreground font-semibold">훅 문구</label>
-                        <input
-                          type="text"
-                          value={jabText}
-                          onChange={(e) => setJabText(e.target.value)}
-                          className="w-full h-7 px-2 text-[11px] bg-background border border-border rounded-[2px] text-foreground font-bold"
-                          placeholder="*3초 만에 몰입되는 반전!*"
-                        />
-                      </div>
-
-                      {/* 회전 각도 (-15° ~ +15°) */}
-                      <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-foreground font-semibold">회전 각도 (Tilt)</span>
-                          <span className="font-mono text-amber-500 font-bold">{jabTiltDeg}°</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="-15"
-                          max="15"
-                          value={jabTiltDeg}
-                          onChange={(e) => setJabTiltDeg(parseInt(e.target.value))}
-                          className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                        />
-                      </div>
-
-                      {/* 글자 크기 & 글자 색상 */}
-                      <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-foreground font-semibold">글자 크기 & 색상</span>
-                          <span className="font-mono text-primary font-bold">{jabFontSize}px</span>
-                        </div>
-                        <div className="flex gap-1.5 items-center">
-                          <input
-                            type="range"
-                            min="10"
-                            max="36"
-                            value={jabFontSize}
-                            onChange={(e) => setJabFontSize(parseInt(e.target.value))}
-                            className="flex-1 accent-primary cursor-pointer h-1 bg-muted"
-                          />
-                          <input
-                            type="color"
-                            value={jabTextColor}
-                            onChange={(e) => setJabTextColor(e.target.value)}
-                            className="w-7 h-7 p-0 border border-border rounded cursor-pointer bg-transparent"
-                            title="글자 색상"
-                          />
-                        </div>
-                      </div>
-
-                      {/* 🎨 글자 테두리(외곽선) */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-foreground">글자 테두리 (외곽선)</span>
-                          <Switch checked={jabStroke} onCheckedChange={setJabStroke} />
-                        </div>
-                        {jabStroke && (
-                          <div className="space-y-1 pt-1">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-muted-foreground">두께: {jabStrokeWidth}px</span>
-                              <input
-                                type="color"
-                                value={jabStrokeColor}
-                                onChange={(e) => setJabStrokeColor(e.target.value)}
-                                className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                                title="테두리 색상"
-                              />
-                            </div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="8"
-                              value={jabStrokeWidth}
-                              onChange={(e) => setJabStrokeWidth(parseInt(e.target.value))}
-                              className="w-full accent-primary cursor-pointer h-1 bg-muted"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 🌌 입체 그림자 */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-foreground">글자 입체 그림자</span>
-                          <Switch checked={jabShadow} onCheckedChange={setJabShadow} />
-                        </div>
-                        {jabShadow && (
-                          <div className="space-y-1 pt-1">
-                            <div className="flex justify-between text-[10px]">
-                              <span className="text-muted-foreground">흐림: {jabShadowBlur}px</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="1"
-                              max="16"
-                              value={jabShadowBlur}
-                              onChange={(e) => setJabShadowBlur(parseInt(e.target.value))}
-                              className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 🔲 배경 박스 & 모서리 둥글기 */}
-                      <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-foreground">배경 박스</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="color"
-                              value={jabBgColor}
-                              onChange={(e) => setJabBgColor(e.target.value)}
-                              className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                              title="배경색"
-                            />
-                            <Switch checked={jabBgEnabled} onCheckedChange={setJabBgEnabled} />
-                          </div>
-                        </div>
-                        {jabBgEnabled && (
-                          <div className="space-y-1 pt-1 border-t border-border/50">
-                            <div className="flex justify-between text-[10px]">
-                              <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
-                              <span className="font-mono text-amber-500 font-bold">{jabBorderRadius}px</span>
-                            </div>
-                            <input
-                              type="range"
-                              min="0"
-                              max="30"
-                              value={jabBorderRadius}
-                              onChange={(e) => setJabBorderRadius(parseInt(e.target.value))}
-                              className="w-full accent-amber-500 cursor-pointer h-1 bg-muted"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <JabHookInspectorForm
+                hasJab={hasJab}
+                setHasJab={setHasJab}
+                jabText={jabText}
+                setJabText={setJabText}
+                jabTiltDeg={jabTiltDeg}
+                setJabTiltDeg={setJabTiltDeg}
+                jabFontSize={jabFontSize}
+                setJabFontSize={setJabFontSize}
+                jabTextColor={jabTextColor}
+                setJabTextColor={setJabTextColor}
+                jabStroke={jabStroke}
+                setJabStroke={setJabStroke}
+                jabStrokeWidth={jabStrokeWidth}
+                setJabStrokeWidth={setJabStrokeWidth}
+                jabStrokeColor={jabStrokeColor}
+                setJabStrokeColor={setJabStrokeColor}
+                jabShadow={jabShadow}
+                setJabShadow={setJabShadow}
+                jabShadowBlur={jabShadowBlur}
+                setJabShadowBlur={setJabShadowBlur}
+                jabBgEnabled={jabBgEnabled}
+                setJabBgEnabled={setJabBgEnabled}
+                jabBgColor={jabBgColor}
+                setJabBgColor={setJabBgColor}
+                jabBorderRadius={jabBorderRadius}
+                setJabBorderRadius={setJabBorderRadius}
+                handleAutoTrackSmartPlacement={handleAutoTrackSmartPlacement}
+              />
             )}
 
+            {/* 🔤 자막 스타일 탭 */}
             {activeInspectorTab === 'style' && (
-              <div className="space-y-3">
-                {/* 🌟 1. 8대 쇼츠 자막 스타일 퀵 프리셋 (뚜렷한 디자인 차별화 & 시각적 미니 프리뷰) */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      8대 쇼츠 자막 스타일 프리셋
-                    </span>
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/30 font-bold">
-                      1클릭 즉시 적용
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {SHORTS_SUBTITLE_DESIGN_PRESETS.map((preset) => {
-                      const isSelected = selectedSubtitlePresetId === preset.id;
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => {
-                            pushHistorySnapshot();
-                            setSelectedSubtitlePresetId(preset.id);
-                            // 1. subtitleConfig 업데이트
-                            setSubtitleConfig(prev => ({
-                              ...prev,
-                              fontFamily: preset.fontFamily,
-                              font: preset.fontFamily,
-                              textColor: preset.textColor,
-                              fillColor: preset.textColor,
-                              outlineSize: preset.outlineSize,
-                              outlineColor: preset.outlineColor,
-                              strokeWidth: preset.outlineSize,
-                              strokeColor: preset.outlineColor,
-                              useBox: preset.useBox,
-                              boxColor: preset.boxColor,
-                              shadowSize: preset.shadowSize,
-                              shadowColor: preset.shadowColor,
-                              fontSize: preset.fontSize,
-                            }));
-                            // 2. 상단 슬라이더 state 동기화
-                            setSubtitleStrokeEnabled(preset.outlineSize > 0);
-                            setSubtitleStrokeWidth(preset.outlineSize || 4);
-                            setSubtitleStrokeColor(preset.outlineColor);
-                            setSubtitleUseBox(preset.useBox);
-                            setSubtitleBoxColor(preset.boxColor);
-                            setSubtitleShadowEnabled(preset.shadowSize > 0);
-                            setSubtitleShadowColor(preset.shadowColor);
-                            toast({ title: '자막 스타일 적용 완료', description: `'${preset.name}' 스타일이 적용되었습니다.` });
-                          }}
-                          className={cn(
-                            "relative p-2 text-left rounded-[3px] border transition-all cursor-pointer flex flex-col justify-between h-20 overflow-hidden select-none",
-                            isSelected
-                              ? "bg-primary/15 border-primary ring-2 ring-primary/80 shadow-md scale-[1.02]"
-                              : "bg-muted/25 border-border/80 hover:border-primary/50 hover:bg-muted/60"
-                          )}
-                        >
-                          {/* 상단: 이름 & 뱃지 */}
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-[11px] font-bold text-foreground truncate">{preset.name}</span>
-                            <span className={cn("text-[8px] px-1 py-0.2 rounded font-black", preset.badgeColor)}>
-                              {isSelected ? '✓ 적용' : preset.badge}
-                            </span>
-                          </div>
-
-                          {/* 중앙: 실제 자막 미니 프리뷰 (영상 배경 모의 시뮬레이션) */}
-                          <div className="w-full bg-zinc-950 rounded px-1.5 py-1 text-center flex items-center justify-center overflow-hidden border border-zinc-800">
-                            <span
-                              style={{
-                                fontFamily: preset.fontFamily,
-                                color: preset.textColor,
-                                WebkitTextStroke: preset.outlineSize > 0 ? `1.2px ${preset.outlineColor}` : 'none',
-                                textShadow: preset.shadowSize > 0 ? `0 1px 3px ${preset.shadowColor}` : 'none',
-                                backgroundColor: preset.useBox ? preset.boxColor : 'transparent',
-                                padding: preset.useBox ? '0.5px 3px' : '0',
-                                borderRadius: '2px',
-                              }}
-                              className="text-[9.5px] font-black tracking-tight truncate leading-tight inline-block max-w-full"
-                            >
-                              {preset.sampleText}
-                            </span>
-                          </div>
-
-                          {/* 하단 설명 */}
-                          <span className="text-[8.5px] text-muted-foreground truncate font-medium">{preset.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 🎨 2. 단어별 강조색 (Word Highlights) 지정 도구 */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5">
-                    <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-emerald-500" />
-                      단어별 강조색 (Word Highlights)
-                    </span>
-                    {activeSub?.styleProps?.highlights && activeSub.styleProps.highlights.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          pushHistorySnapshot();
-                          setLayers(prev => prev.map(l => l.id === activeSub.id ? { ...l, styleProps: { ...l.styleProps, highlights: [] } } : l));
-                          toast({ title: '강조 초기화', description: '선택 자막의 모든 단어 강조가 해제되었습니다.' });
-                        }}
-                        className="text-[9.5px] text-rose-500 hover:text-rose-400 cursor-pointer underline font-bold"
-                      >
-                        강조 전체 해제
-                      </button>
-                    )}
-                  </div>
-
-                  {/* 강조 색상 선택 팔레트 */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-muted-foreground font-semibold">적용할 강조 색상</span>
-                      <span className="font-mono font-bold text-foreground">{selectedHighlightColor}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {[
-                        { color: '#FFDF00', name: '골드 옐로우' },
-                        { color: '#FF2E93', name: '핫 핑크' },
-                        { color: '#00F0FF', name: '네온 시안' },
-                        { color: '#10B981', name: '에메랄드' },
-                        { color: '#FF8A00', name: '오렌지' },
-                      ].map((pal) => (
-                        <button
-                          key={pal.color}
-                          type="button"
-                          onClick={() => setSelectedHighlightColor(pal.color)}
-                          style={{ backgroundColor: pal.color }}
-                          className={cn(
-                            "w-6 h-6 rounded-full border-2 transition cursor-pointer shadow-xs",
-                            selectedHighlightColor === pal.color
-                              ? "border-white scale-115 ring-2 ring-primary ring-offset-1"
-                              : "border-black/30 opacity-80 hover:opacity-100"
-                          )}
-                          title={pal.name}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 단어 칩 목록 (클릭 시 하이라이트 토글) */}
-                  <div className="space-y-1 pt-1">
-                    <span className="text-[10px] text-muted-foreground font-semibold">
-                      강조할 단어를 클릭하세요 (토글):
-                    </span>
-                    {activeSub ? (
-                      <div className="p-2 bg-muted/30 border border-border rounded-[2px] flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scrollbar">
-                        {activeSub.data.split(/\s+/).filter(Boolean).map((word: string, wIdx: number) => {
-                          const cleanW = word.replace(/[.,!?~'"“”‘’]/g, '').trim();
-                          const currentHl = activeSub.styleProps?.highlights?.find((h: any) => h.word === cleanW);
-                          return (
-                            <button
-                              key={wIdx}
-                              type="button"
-                              onClick={() => {
-                                pushHistorySnapshot();
-                                const currentHls: { word: string; color: string }[] = activeSub.styleProps?.highlights || [];
-                                const exists = currentHls.some((h: any) => h.word === cleanW);
-                                const newHls = exists
-                                  ? currentHls.filter((h: any) => h.word !== cleanW)
-                                  : [...currentHls, { word: cleanW, color: selectedHighlightColor }];
-
-                                setLayers(prev => prev.map(l => l.id === activeSub.id ? {
-                                  ...l,
-                                  styleProps: { ...l.styleProps, highlights: newHls }
-                                } : l));
-                              }}
-                              style={currentHl ? { backgroundColor: currentHl.color || selectedHighlightColor, color: '#000000' } : {}}
-                              className={cn(
-                                "px-2 py-0.5 text-[11px] rounded-[2px] border font-bold transition cursor-pointer select-none",
-                                currentHl
-                                  ? "border-transparent shadow-xs font-black ring-1 ring-black/20"
-                                  : "bg-card border-border hover:border-primary/60 text-foreground"
-                              )}
-                              title={`단어 '${cleanW}' 강조색 토글`}
-                            >
-                              {word}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="p-3 text-center text-muted-foreground text-[10px] bg-muted/20 border border-dashed border-border rounded-[2px]">
-                        타임라인에서 자막 클립을 선택하면 단어 칩이 표시됩니다.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* ⚙️ 3. 본문 자막 모서리/배경/외곽선/그림자 제어 패널 (완전 복원) */}
-                <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-3 shadow-2xs">
-                  <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5 border-b border-border pb-1.5">
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
-                    본문 자막 스타일 & 배경 효과
-                  </span>
-
-                  {/* 자막 글자 크기 & 색상 */}
-                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-foreground font-semibold">글자 크기 & 색상</span>
-                      <span className="font-mono text-emerald-500 font-bold">{subtitleConfig.fontSize || 18}px</span>
-                    </div>
-                    <div className="flex gap-1.5 items-center">
-                      <input
-                        type="range"
-                        min="12"
-                        max="36"
-                        value={subtitleConfig.fontSize || 18}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          setSubtitleConfig(prev => ({ ...prev, fontSize: val }));
-                        }}
-                        className="flex-1 accent-emerald-500 cursor-pointer h-1 bg-muted"
-                      />
-                      <input
-                        type="color"
-                        value={rgbaToHex(subtitleConfig.textColor || '#FFFFFF', '#FFFFFF')}
-                        onChange={(e) => {
-                          setSubtitleConfig(prev => ({ ...prev, textColor: e.target.value, fillColor: e.target.value }));
-                        }}
-                        className="w-7 h-7 p-0 border border-border rounded cursor-pointer bg-transparent"
-                        title="자막 글자 색상"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 자동 내려쓰기 글자 수 */}
-                  <div className="space-y-1 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-foreground font-semibold">자동 줄바꿈 (내려쓰기 글자 수)</span>
-                      <span className="font-mono text-emerald-500 font-bold">{subtitleConfig.splitLimit || subtitleMaxChars}자</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="6"
-                      max="24"
-                      value={subtitleConfig.splitLimit || subtitleMaxChars}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        setSubtitleMaxChars(val);
-                        setSubtitleConfig(prev => ({ ...prev, splitLimit: val }));
-                      }}
-                      className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
-                    />
-                  </div>
-
-                  {/* 외곽선(스트로크) 제어 */}
-                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-semibold text-foreground">자막 테두리 (외곽선)</span>
-                      <Switch
-                        checked={((subtitleConfig.outlineSize ?? 0) > 0) || subtitleStrokeEnabled}
-                        onCheckedChange={(chk) => {
-                          setSubtitleStrokeEnabled(chk);
-                          setSubtitleConfig(prev => ({ ...prev, outlineSize: chk ? (subtitleStrokeWidth || 4) : 0 }));
-                        }}
-                      />
-                    </div>
-                    {(((subtitleConfig.outlineSize ?? 0) > 0) || subtitleStrokeEnabled) && (
-                      <div className="space-y-1 pt-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-muted-foreground">두께: {subtitleConfig.outlineSize ?? subtitleStrokeWidth}px</span>
-                          <input
-                            type="color"
-                            value={rgbaToHex(subtitleConfig.outlineColor || subtitleStrokeColor, '#000000')}
-                            onChange={(e) => {
-                              setSubtitleStrokeColor(e.target.value);
-                              setSubtitleConfig(prev => ({ ...prev, outlineColor: e.target.value, strokeColor: e.target.value }));
-                            }}
-                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                            title="테두리 색상"
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
-                          value={subtitleConfig.outlineSize ?? subtitleStrokeWidth}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            setSubtitleStrokeWidth(val);
-                            setSubtitleConfig(prev => ({ ...prev, outlineSize: val, strokeWidth: val }));
-                          }}
-                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 입체 그림자 제어 */}
-                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-semibold text-foreground">자막 입체 그림자</span>
-                      <Switch
-                        checked={((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled}
-                        onCheckedChange={(chk) => {
-                          setSubtitleShadowEnabled(chk);
-                          setSubtitleConfig(prev => ({ ...prev, shadowSize: chk ? 3 : 0 }));
-                        }}
-                      />
-                    </div>
-                    {(((subtitleConfig.shadowSize ?? 0) > 0) || subtitleShadowEnabled) && (
-                      <div className="space-y-1 pt-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-muted-foreground">크기: {subtitleConfig.shadowSize ?? 3}</span>
-                          <input
-                            type="color"
-                            value={rgbaToHex(subtitleConfig.shadowColor || subtitleShadowColor, '#000000')}
-                            onChange={(e) => {
-                              setSubtitleShadowColor(e.target.value);
-                              setSubtitleConfig(prev => ({ ...prev, shadowColor: e.target.value }));
-                            }}
-                            className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                            title="그림자 색상"
-                          />
-                        </div>
-                        <input
-                          type="range"
-                          min="1"
-                          max="10"
-                          value={subtitleConfig.shadowSize ?? 3}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value);
-                            setSubtitleShadowBlur(val * 2);
-                            setSubtitleConfig(prev => ({ ...prev, shadowSize: val }));
-                          }}
-                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 🔲 자막 배경 필 박스 & 모서리 둥글기 */}
-                  <div className="space-y-1.5 p-2 bg-muted/20 border border-border rounded-[2px]">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-semibold text-foreground">배경 필 박스 (Pill Box)</span>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="color"
-                          value={rgbaToHex(subtitleConfig.boxColor || subtitleBoxColor, '#000000')}
-                          onChange={(e) => {
-                            setSubtitleBoxColor(e.target.value);
-                            setSubtitleConfig(prev => ({ ...prev, boxColor: e.target.value }));
-                          }}
-                          className="w-5 h-5 p-0 border border-border rounded cursor-pointer bg-transparent"
-                          title="배경 박스 색상"
-                        />
-                        <Switch
-                          checked={subtitleConfig.useBox ?? subtitleUseBox}
-                          onCheckedChange={(chk) => {
-                            setSubtitleUseBox(chk);
-                            setSubtitleConfig(prev => ({ ...prev, useBox: chk }));
-                          }}
-                        />
-                      </div>
-                    </div>
-                    {(subtitleConfig.useBox ?? subtitleUseBox) && (
-                      <div className="space-y-1 pt-1 border-t border-border/50">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-muted-foreground">모서리 모양 (둥글기)</span>
-                          <span className="font-mono text-emerald-500 font-bold">{subtitleBorderRadius}px</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="30"
-                          value={subtitleBorderRadius}
-                          onChange={(e) => setSubtitleBorderRadius(parseInt(e.target.value))}
-                          className="w-full accent-emerald-500 cursor-pointer h-1 bg-muted"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 4. 자막 정밀 파라미터 패널 (하단 상세 설정) */}
-                <div className="border-t border-border pt-1">
-                  <SubtitleConfigPanel
-                    config={subtitleConfig}
-                    onChange={(newCfg) => {
-                      setSubtitleConfig(newCfg);
-                      if (newCfg.splitLimit) setSubtitleMaxChars(newCfg.splitLimit);
-                                          }}
-                  />
-                </div>
-              </div>
+              <SubtitleStyleInspectorForm
+                subtitleConfig={subtitleConfig}
+                setSubtitleConfig={setSubtitleConfig}
+                subtitleStrokeEnabled={subtitleStrokeEnabled}
+                setSubtitleStrokeEnabled={setSubtitleStrokeEnabled}
+                subtitleStrokeWidth={subtitleStrokeWidth}
+                setSubtitleStrokeWidth={setSubtitleStrokeWidth}
+                subtitleStrokeColor={subtitleStrokeColor}
+                setSubtitleStrokeColor={setSubtitleStrokeColor}
+                subtitleShadowEnabled={subtitleShadowEnabled}
+                setSubtitleShadowEnabled={setSubtitleShadowEnabled}
+                subtitleShadowBlur={subtitleShadowBlur}
+                setSubtitleShadowBlur={setSubtitleShadowBlur}
+                subtitleShadowColor={subtitleShadowColor}
+                setSubtitleShadowColor={setSubtitleShadowColor}
+                subtitleUseBox={subtitleUseBox}
+                setSubtitleUseBox={setSubtitleUseBox}
+                subtitleBoxColor={subtitleBoxColor}
+                setSubtitleBoxColor={setSubtitleBoxColor}
+                subtitleBorderRadius={subtitleBorderRadius}
+                setSubtitleBorderRadius={setSubtitleBorderRadius}
+                subtitleMaxChars={subtitleMaxChars}
+                setSubtitleMaxChars={setSubtitleMaxChars}
+                selectedHighlightColor={selectedHighlightColor}
+                setSelectedHighlightColor={setSelectedHighlightColor}
+                selectedSubtitlePresetId={selectedSubtitlePresetId}
+                setSelectedSubtitlePresetId={setSelectedSubtitlePresetId}
+                layers={layers}
+                setLayers={setLayers}
+              />
             )}
-
             {activeInspectorTab === 'tts' && (
               <div className="space-y-3">
                 <div className="p-2.5 border border-border bg-card rounded-[2px] space-y-2.5 shadow-2xs">
@@ -10059,6 +7707,115 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
                 variant="outline"
                 size="sm"
                 onClick={() => setIsWebImageSearchOpen(false)}
+              >
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🏛️ 차세대 주권 템플릿 라이브러리 모달 */}
+      {isTemplateLibraryOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-card border border-border shadow-2xl rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* 헤더 */}
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🎨</span>
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">주권 템플릿 라이브러리</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    표준 및 사용자 맞춤 템플릿을 선택하여 현재 프로젝트에 0% 간섭 샌드박스로 적용합니다.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsTemplateLibraryOpen(false)}
+                className="h-7 w-7 p-0"
+              >
+                ✕
+              </Button>
+            </div>
+
+            {/* 목록 */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+              <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                4대 표준 아키타입
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {Object.values(STANDARD_TEMPLATES).map((tpl) => (
+                  <div
+                    key={tpl.id}
+                    onClick={() => handleApplyManifest(tpl)}
+                    className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/40 cursor-pointer transition flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs text-foreground">{tpl.name}</span>
+                        <Badge variant="outline" className="text-[10px]">{tpl.badge}</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">{tpl.description}</p>
+                    </div>
+                    <Button size="sm" variant="secondary" className="mt-2.5 h-6 text-xs w-full">
+                      이 템플릿 적용
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {templateLibraryList.length > 0 && (
+                <>
+                  <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-4 mb-1">
+                    사용자 커스텀 템플릿
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {templateLibraryList.map((tpl) => (
+                      <div
+                        key={tpl.id}
+                        onClick={() => {
+                          if (tpl.manifest) handleApplyManifest(tpl.manifest);
+                          else handleSelectTemplateMode((tpl.archetype || 'classic') as LayoutTemplateMode);
+                        }}
+                        className="p-3 rounded-lg border border-border bg-card hover:border-primary/50 hover:bg-muted/40 cursor-pointer transition flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-xs text-foreground">{tpl.name}</span>
+                            <Badge variant="secondary" className="text-[10px]">커스텀</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground line-clamp-2">{tpl.description || '맞춤형 템플릿'}</p>
+                        </div>
+                        <Button size="sm" variant="secondary" className="mt-2.5 h-6 text-xs w-full">
+                          이 템플릿 적용
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 푸터 */}
+            <div className="p-3 border-t border-border bg-muted/20 flex items-center justify-between">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsTemplateLibraryOpen(false);
+                  navigate('/shorts-template-studio');
+                }}
+                className="text-xs gap-1"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> 템플릿 디자인 공방 열기
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsTemplateLibraryOpen(false)}
+                className="text-xs"
               >
                 닫기
               </Button>

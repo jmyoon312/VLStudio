@@ -111,12 +111,20 @@ def create_brand_channel(benchmark_id: int, req: CreateBrandChannelRequest):
 
 class SaveTemplateRequest(BaseModel):
     name: str
-    layout: Dict[str, Any]
+    layout: Optional[Dict[str, Any]] = None
+    manifest: Optional[Dict[str, Any]] = None
     description: Optional[str] = ""
+    archetype: Optional[str] = "classic"
+    aspect_ratio: Optional[str] = "9:16"
+    channel_id: Optional[int] = None
 
 class ApplyTemplateRequest(BaseModel):
     channel_id: int
-    layout: Dict[str, Any]
+    layout: Optional[Dict[str, Any]] = None
+    manifest: Optional[Dict[str, Any]] = None
+
+class ExtractTemplateFromUrlRequest(BaseModel):
+    video_url: str
 
 @router.get("/templates")
 def list_templates():
@@ -129,8 +137,24 @@ def list_templates():
 @router.post("/templates")
 def save_template(req: SaveTemplateRequest):
     try:
-        saved = ChannelDNAService.save_template(req.name, req.layout, req.description)
+        saved = ChannelDNAService.save_template(
+            req.name, 
+            layout=req.layout or {}, 
+            description=req.description,
+            manifest=req.manifest,
+            archetype=req.archetype or "classic",
+            channel_id=req.channel_id,
+            aspect_ratio=req.aspect_ratio or "9:16"
+        )
         return {"success": True, "message": f"템플릿 '{req.name}'이(가) 저장되었습니다.", "template": saved}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/templates/extract-from-url")
+def extract_template_from_url(req: ExtractTemplateFromUrlRequest):
+    try:
+        manifest = ChannelDNAService.extract_template_from_url(req.video_url)
+        return {"success": True, "manifest": manifest, "message": "유튜브 쇼츠 포렌식 분석을 통해 템플릿 지오메트리를 성공적으로 추출했습니다."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

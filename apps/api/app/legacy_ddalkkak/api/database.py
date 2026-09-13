@@ -8,22 +8,23 @@ from typing import Any, Optional
 
 
 def _get_persistent_db_path() -> Path:
-    # 1. 환경변수 또는 AppData/Local 우선 (일체형 exe 실행 시 _MEIPASS 임시폴더 쓰기 방지)
+    # [SSOT] ViraLoop Studio 공식 단일 DB: viral_loop.db
+    db_url = os.environ.get("DATABASE_URL", "")
+    if db_url.startswith("sqlite:////") or db_url.startswith("sqlite:///"):
+        clean_path = db_url.replace("sqlite:////", "").replace("sqlite:///", "")
+        if clean_path:
+            return Path(clean_path)
+
     local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
     if local_app:
-        target_dir = Path(local_app) / "ViraLoop Studio" / "db"
+        target_dir = Path(local_app) / "ViraLoop Studio"
     else:
-        target_dir = Path.home() / ".viraloop_studio" / "db"
-    try:
-        target_dir.mkdir(parents=True, exist_ok=True)
-        return target_dir / "discover.db"
-    except Exception:
-        # Fallback to module relative dir
-        fallback_dir = Path(__file__).parent.parent / "db"
-        fallback_dir.mkdir(parents=True, exist_ok=True)
-        return fallback_dir / "discover.db"
+        target_dir = Path.home() / ".viraloop_studio"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return target_dir / "viral_loop.db"
 
 DB_PATH = _get_persistent_db_path()
+
 
 
 _db_migrated = False

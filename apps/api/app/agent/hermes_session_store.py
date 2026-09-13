@@ -14,15 +14,26 @@ class HermesSessionStore:
     Isolated in data/studio_brain/hermes_state.db to prevent lock contention with main DB.
     """
     def __init__(self, base_dir: Optional[str] = None):
-        if not base_dir:
-            project_root = Path(__file__).resolve().parent.parent.parent.parent
-            self.db_dir = project_root / "data" / "studio_brain"
+        # [SSOT] ViraLoop Studio 공식 단일 DB: viral_loop.db
+        db_url = os.environ.get("DATABASE_URL", "")
+        if db_url.startswith("sqlite:////") or db_url.startswith("sqlite:///"):
+            clean_path = db_url.replace("sqlite:////", "").replace("sqlite:///", "")
+            if clean_path:
+                self.db_path = Path(clean_path)
+                self.db_dir = self.db_path.parent
+                self._init_db()
+                return
+
+        local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        if local_app:
+            self.db_dir = Path(local_app) / "ViraLoop Studio"
         else:
-            self.db_dir = Path(base_dir)
+            self.db_dir = Path.home() / ".viraloop_studio"
 
         self.db_dir.mkdir(parents=True, exist_ok=True)
-        self.db_path = self.db_dir / "hermes_state.db"
+        self.db_path = self.db_dir / "viral_loop.db"
         self._init_db()
+
 
     def _get_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self.db_path), timeout=20.0)

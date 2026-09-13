@@ -11,13 +11,22 @@ logger = logging.getLogger(__name__)
 class CacheManager:
     def __init__(self, db_path: Optional[str] = None):
         if not db_path:
-            try:
-                from app.config import settings
-                db_path = os.path.join(settings.MEDIA_ROOT, "06_Database", "cache.db")
-            except Exception as e:
-                db_path = "backend/data/cache.db"
+            db_url = os.environ.get("DATABASE_URL", "")
+            if db_url.startswith("sqlite:////") or db_url.startswith("sqlite:///"):
+                clean_path = db_url.replace("sqlite:////", "").replace("sqlite:///", "")
+                if clean_path:
+                    db_path = clean_path
+
+            if not db_path:
+                local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+                if local_app:
+                    storage_dir = os.path.join(local_app, "ViraLoop Studio")
+                else:
+                    storage_dir = os.path.join(os.path.expanduser("~"), ".viraloop_studio")
+                db_path = os.path.join(storage_dir, "viral_loop.db")
         self.db_path = db_path
         self._ensure_db()
+
 
     def _ensure_db(self):
         """Ensure DB directory and table exist, and enable WAL mode."""

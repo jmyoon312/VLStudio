@@ -554,312 +554,774 @@ class ChannelDNAService:
     @staticmethod
     def _get_templates_file_path() -> str:
         import os
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        data_dir = os.path.join(base_dir, "data")
-        os.makedirs(data_dir, exist_ok=True)
-        return os.path.join(data_dir, "shorts_layout_templates.json")
+        local_app = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        if local_app:
+            storage_dir = os.path.join(local_app, "ViraLoop Studio")
+        else:
+            storage_dir = os.path.join(os.path.expanduser("~"), ".viraloop_studio")
+        os.makedirs(storage_dir, exist_ok=True)
+        return os.path.join(storage_dir, "shorts_layout_templates.json")
 
     @staticmethod
     def list_templates() -> List[Dict[str, Any]]:
         """
-        시스템 기본 4대 프로 템플릿 + 사용자 저장 템플릿 목록 반환
+        [SSOT: viral_loop.db] 시스템 기본 4대 프로 템플릿 + 16:9 롱폼 + 사용자 저장 템플릿 목록 반환
         """
+        from app.database import SessionLocal
+        from app import models
         import os, json
-        system_presets = [
-            {
-                "id": "preset_standard_letterbox",
-                "name": "🌟 쇼츠 스탠다드 레터박스형",
-                "badge": "골든 표준",
-                "description": "상단 블랙 바 18.3% + 2줄 훅 타이틀 + 하단 출처 바 6.0%의 검증된 유튜브 쇼츠 대표 포맷.",
-                "is_system": True,
-                "layout": {
-                    "canvas_type": "LETTERBOX_SOLID",
-                    "video_fit_mode": "sandwich",
-                    "video_zoom_scale": 100,
-                    "video_focus_y_pct": 50,
-                    "has_top_bar_bg": True,
-                    "top_bar_bg": "#000000",
-                    "top_bar_height_pct": 18.3,
-                    "top_bar_opacity": 1.0,
-                    "has_top_title": True,
-                    "top_title_y_pct": 5.2,
-                    "title_line1": "여돌들 중 누가",
-                    "title_line2": "진짜 대식가일까?",
-                    "title_line1_color": "#FFFFFF",
-                    "title_line2_color": "#F5F420",
-                    "title_line1_size_px": 28,
-                    "title_line2_size_px": 32,
-                    "title_font_family": "Pretendard",
-                    "title_bg_mode": "none",
-                    "title_bg_color": "#E11D48",
-                    "title_bg_opacity": 0.95,
-                    "title_padding_x": 16,
-                    "title_padding_y": 6,
-                    "title_border_radius": 8,
-                    "title_shadow": True,
-                    "has_subtitle": True,
-                    "subtitle_y_pct": 68.5,
-                    "subtitle_color": "#FFFFFF",
-                    "subtitle_stroke_color": "#000000",
-                    "subtitle_stroke_width": 5,
-                    "subtitle_size_px": 24,
-                    "subtitle_font_family": "Pretendard",
-                    "subtitle_motion_preset": "word_pop",
-                    "has_jab": True,
-                    "jab_text": "*여동생을 향해 전력 질주*",
-                    "jab_color": "#F5F420",
-                    "jab_size_px": 22,
-                    "jab_tilt_deg": -4,
-                    "jab_y_pct": 41.4,
-                    "jab_font_family": "Pretendard",
-                    "has_bottom_source": True,
-                    "bottom_source_text": "출처: 원본 비하인드 공식 영상",
-                    "bottom_source_color": "#94A3B8",
-                    "bottom_source_size_px": 13,
-                    "bottom_source_font_family": "Pretendard",
-                    "bottom_source_bottom_pct": 2.2,
-                    "has_bottom_bar_bg": True,
-                    "bottom_bar_bg": "#000000",
-                    "bottom_bar_height_pct": 6.0,
-                    "bottom_bar_opacity": 1.0
-                }
-            },
-            {
-                "id": "preset_cinematic_highlighter",
-                "name": "🎬 시네마틱 풀스크린 & 형광펜 타이틀",
-                "badge": "트렌디 젠지",
-                "description": "상하단 바 없이 9:16 화면 전체를 영상으로 꽉 채우고, 영상 위에 직접 형광펜/알약 배경 박스 타이틀을 얹는 스타일.",
-                "is_system": True,
-                "layout": {
-                    "canvas_type": "FULL_BLEED_OVERLAY",
-                    "video_fit_mode": "fullscreen",
-                    "video_zoom_scale": 115,
-                    "video_focus_y_pct": 45,
-                    "has_top_bar_bg": False,
-                    "top_bar_bg": "#000000",
-                    "top_bar_height_pct": 18.3,
-                    "top_bar_opacity": 0.0,
-                    "has_top_title": True,
-                    "top_title_y_pct": 6.5,
-                    "title_line1": "실제 사건 현장",
-                    "title_line2": "경찰도 경악한 그 장면",
-                    "title_line1_color": "#FFFFFF",
-                    "title_line2_color": "#FFFFFF",
-                    "title_line1_size_px": 26,
-                    "title_line2_size_px": 30,
-                    "title_font_family": "Black Han Sans",
-                    "title_bg_mode": "highlighter",
-                    "title_bg_color": "#F43F5E",
-                    "title_bg_opacity": 0.9,
-                    "title_padding_x": 18,
-                    "title_padding_y": 6,
-                    "title_border_radius": 6,
-                    "title_shadow": True,
-                    "has_subtitle": True,
-                    "subtitle_y_pct": 72.0,
-                    "subtitle_color": "#FFFFFF",
-                    "subtitle_stroke_color": "#000000",
-                    "subtitle_stroke_width": 4,
-                    "subtitle_size_px": 26,
-                    "subtitle_font_family": "Pretendard",
-                    "subtitle_motion_preset": "karaoke",
-                    "has_jab": True,
-                    "jab_text": "🚨 순간 포착 주의 🚨",
-                    "jab_color": "#FEF08A",
-                    "jab_size_px": 20,
-                    "jab_tilt_deg": 3,
-                    "jab_y_pct": 46.0,
-                    "jab_font_family": "Do Hyeon",
-                    "has_bottom_source": True,
-                    "bottom_source_text": "출처: MBC 뉴스데스크",
-                    "bottom_source_color": "rgba(255,255,255,0.75)",
-                    "bottom_source_size_px": 12,
-                    "bottom_source_font_family": "Pretendard",
-                    "bottom_source_bottom_pct": 3.5,
-                    "has_bottom_bar_bg": False,
-                    "bottom_bar_bg": "#000000",
-                    "bottom_bar_height_pct": 6.0,
-                    "bottom_bar_opacity": 0.0
-                }
-            },
-            {
-                "id": "preset_fashion_detective_golden",
-                "name": "⚡ 패션탐정냥 골든 예능형 (실측치)",
-                "badge": "인기 쇼츠 실측",
-                "description": "85만 구독자 채널의 실측 분석 데이터 기반: 옐로우 58pt 타이틀, -4° 틸트 쨉쨉이, 단어 팝업 바운스.",
-                "is_system": True,
-                "layout": {
-                    "canvas_type": "LETTERBOX_SOLID",
-                    "video_fit_mode": "sandwich",
-                    "video_zoom_scale": 110,
-                    "video_focus_y_pct": 48,
-                    "has_top_bar_bg": True,
-                    "top_bar_bg": "#000000",
-                    "top_bar_height_pct": 18.3,
-                    "top_bar_opacity": 1.0,
-                    "has_top_title": True,
-                    "top_title_y_pct": 5.2,
-                    "title_line1": "여돌들 중 누가",
-                    "title_line2": "진짜 대식가일까?",
-                    "title_line1_color": "#FFFFFF",
-                    "title_line2_color": "#F5F420",
-                    "title_line1_size_px": 28,
-                    "title_line2_size_px": 32,
-                    "title_font_family": "Pretendard",
-                    "title_bg_mode": "none",
-                    "title_bg_color": "#000000",
-                    "title_bg_opacity": 1.0,
-                    "title_padding_x": 0,
-                    "title_padding_y": 0,
-                    "title_border_radius": 0,
-                    "title_shadow": True,
-                    "has_subtitle": True,
-                    "subtitle_y_pct": 68.5,
-                    "subtitle_color": "#FFFFFF",
-                    "subtitle_stroke_color": "#000000",
-                    "subtitle_stroke_width": 5,
-                    "subtitle_size_px": 24,
-                    "subtitle_font_family": "Pretendard",
-                    "subtitle_motion_preset": "word_pop",
-                    "has_jab": True,
-                    "jab_text": "*여동생을 향해 전력 질주*",
-                    "jab_color": "#F5F420",
-                    "jab_size_px": 22,
-                    "jab_tilt_deg": -4,
-                    "jab_y_pct": 41.4,
-                    "jab_font_family": "Pretendard",
-                    "has_bottom_source": True,
-                    "bottom_source_text": "출처: 원본 비하인드 공식 영상",
-                    "bottom_source_color": "#94A3B8",
-                    "bottom_source_size_px": 13,
-                    "bottom_source_font_family": "Pretendard",
-                    "bottom_source_bottom_pct": 2.2,
-                    "has_bottom_bar_bg": True,
-                    "bottom_bar_bg": "#000000",
-                    "bottom_bar_height_pct": 6.0,
-                    "bottom_bar_opacity": 1.0
-                }
-            },
-            {
-                "id": "preset_mystery_storytelling",
-                "name": "📜 야담 & 미스터리 딥내러티브",
-                "badge": "스토리텔링",
-                "description": "어두운 분위기의 몰입형 쇼츠: 상하단 바 없이 1줄 볼드 타이틀 + 타자기 자막 모션 + 알약 배경.",
-                "is_system": True,
-                "layout": {
-                    "canvas_type": "FULL_BLEED_OVERLAY",
-                    "video_fit_mode": "fullscreen",
-                    "video_zoom_scale": 105,
-                    "video_focus_y_pct": 50,
-                    "has_top_bar_bg": False,
-                    "top_bar_bg": "#000000",
-                    "top_bar_height_pct": 15.0,
-                    "top_bar_opacity": 0.0,
-                    "has_top_title": True,
-                    "top_title_y_pct": 7.0,
-                    "title_line1": "조선왕조 최대의 미스터리",
-                    "title_line2": "사라진 세자의 마지막 기록",
-                    "title_line1_color": "#E2E8F0",
-                    "title_line2_color": "#F87171",
-                    "title_line1_size_px": 24,
-                    "title_line2_size_px": 28,
-                    "title_font_family": "Black Han Sans",
-                    "title_bg_mode": "pill",
-                    "title_bg_color": "rgba(15, 23, 42, 0.85)",
-                    "title_bg_opacity": 0.85,
-                    "title_padding_x": 20,
-                    "title_padding_y": 8,
-                    "title_border_radius": 24,
-                    "title_shadow": True,
-                    "has_subtitle": True,
-                    "subtitle_y_pct": 70.0,
-                    "subtitle_color": "#F1F5F9",
-                    "subtitle_stroke_color": "#000000",
-                    "subtitle_stroke_width": 4,
-                    "subtitle_size_px": 25,
-                    "subtitle_font_family": "Do Hyeon",
-                    "subtitle_motion_preset": "typewriter",
-                    "has_jab": False,
-                    "jab_text": "*그날 밤 일어난 일*",
-                    "jab_color": "#FCA5A5",
-                    "jab_size_px": 20,
-                    "jab_tilt_deg": 0,
-                    "jab_y_pct": 45.0,
-                    "jab_font_family": "Do Hyeon",
-                    "has_bottom_source": True,
-                    "bottom_source_text": "자료: 승정원일기 국역본",
-                    "bottom_source_color": "#94A3B8",
-                    "bottom_source_size_px": 12,
-                    "bottom_source_font_family": "Pretendard",
-                    "bottom_source_bottom_pct": 3.0,
-                    "has_bottom_bar_bg": False,
-                    "bottom_bar_bg": "#000000",
-                    "bottom_bar_height_pct": 6.0,
-                    "bottom_bar_opacity": 0.0
-                }
-            }
-        ]
+        
+        db = SessionLocal()
+        try:
+            db_templates = db.query(models.ShortsTemplate).order_by(
+                models.ShortsTemplate.is_system.desc(),
+                models.ShortsTemplate.id.asc()
+            ).all()
 
-        # 사용자 저장 템플릿 로드
-        user_templates = []
-        path = ChannelDNAService._get_templates_file_path()
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    user_templates = json.load(f)
-            except Exception as e:
-                logger.error(f"Failed to read custom templates file: {e}")
+            if db_templates:
+                result = []
+                for t in db_templates:
+                    result.append({
+                        "id": t.id,
+                        "name": t.name,
+                        "badge": t.badge,
+                        "description": t.description,
+                        "archetype": t.archetype,
+                        "aspect_ratio": t.aspect_ratio or "9:16",
+                        "is_system": bool(t.is_system),
+                        "channel_id": t.channel_id,
+                        "layout": t.layout if isinstance(t.layout, dict) else json.loads(t.layout or "{}"),
+                        "manifest": t.manifest if (t.manifest and isinstance(t.manifest, dict)) else (json.loads(t.manifest) if t.manifest else None),
+                        "created_at": t.created_at.isoformat() if t.created_at else None,
+                        "updated_at": t.updated_at.isoformat() if t.updated_at else None
+                    })
+                return result
 
-        return user_templates + system_presets
+            # 테이블이 비어있는 경우 시스템 5대 표준 템플릿을 viral_loop.db에 자동 시딩
+            system_presets = [
+                # 1. 기본형 (classic)
+                {
+                    "id": "preset_classic_standard",
+                    "name": "🌟 스탠다드 레터박스형",
+                    "badge": "골든 표준",
+                    "description": "상단 블랙 바 18.3% + 2줄 훅 타이틀 + 하단 출처 바 6.0%의 검증된 유튜브 쇼츠 대표 포맷.",
+                    "archetype": "classic",
+                    "aspect_ratio": "9:16",
+                    "is_system": True,
+                    "layout": {
+                        "canvas_type": "LETTERBOX_SOLID",
+                        "video_fit_mode": "sandwich",
+                        "video_zoom_scale": 100,
+                        "video_focus_y_pct": 50,
+                        "has_top_bar_bg": True,
+                        "top_bar_bg": "#000000",
+                        "top_bar_height_pct": 18.3,
+                        "top_bar_opacity": 1.0,
+                        "has_top_title": True,
+                        "top_title_y_pct": 5.2,
+                        "title_line1": "여돌들 중 누가",
+                        "title_line2": "진짜 대식가일까?",
+                        "title_line1_color": "#FFFFFF",
+                        "title_line2_color": "#F5F420",
+                        "title_line1_size_px": 28,
+                        "title_line2_size_px": 32,
+                        "title_font_family": "Pretendard",
+                        "title_bg_mode": "none",
+                        "title_shadow": True,
+                        "has_subtitle": True,
+                        "subtitle_y_pct": 68.5,
+                        "subtitle_color": "#FFFFFF",
+                        "subtitle_stroke_color": "#000000",
+                        "subtitle_stroke_width": 5,
+                        "subtitle_size_px": 24,
+                        "subtitle_font_family": "Pretendard",
+                        "subtitle_motion_preset": "word_pop",
+                        "has_jab": True,
+                        "jab_text": "*여동생을 향해 전력 질주*",
+                        "jab_color": "#F5F420",
+                        "jab_size_px": 22,
+                        "jab_tilt_deg": -4,
+                        "jab_y_pct": 41.4,
+                        "jab_font_family": "Pretendard",
+                        "has_bottom_source": True,
+                        "bottom_source_text": "출처: 원본 비하인드 공식 영상",
+                        "bottom_source_color": "#94A3B8",
+                        "bottom_source_size_px": 13,
+                        "bottom_source_font_family": "Pretendard",
+                        "bottom_source_bottom_pct": 2.2,
+                        "has_bottom_bar_bg": True,
+                        "bottom_bar_bg": "#000000",
+                        "bottom_bar_height_pct": 6.0,
+                        "bottom_bar_opacity": 1.0
+                    }
+                },
+                # 2. 인스타형 (instagram)
+                {
+                    "id": "preset_instagram_card",
+                    "name": "📸 인스타 화이트카드형",
+                    "badge": "인스타 바이럴",
+                    "description": "100% SVG 홀펀치 마스크 카드 + 상단 프로필 + 82% 가변 댓글 카드",
+                    "archetype": "instagram",
+                    "aspect_ratio": "9:16",
+                    "is_system": True,
+                    "layout": {
+                        "canvas_type": "FULL_BLEED_OVERLAY",
+                        "video_fit_mode": "sandwich",
+                        "video_zoom_scale": 100,
+                        "video_focus_y_pct": 50,
+                        "has_top_bar_bg": False,
+                        "top_bar_opacity": 0.0,
+                        "has_top_title": True,
+                        "top_title_y_pct": 5.0,
+                        "title_line1": "오늘의 인스타 핫이슈",
+                        "title_line2": "@viral_daily_pick",
+                        "title_line1_color": "#111827",
+                        "title_line2_color": "#4B5563",
+                        "title_line1_size_px": 20,
+                        "title_line2_size_px": 14,
+                        "title_font_family": "Pretendard",
+                        "has_subtitle": True,
+                        "subtitle_y_pct": 71.5,
+                        "subtitle_color": "#374151",
+                        "subtitle_stroke_color": "transparent",
+                        "subtitle_stroke_width": 0,
+                        "subtitle_size_px": 15,
+                        "subtitle_font_family": "Pretendard",
+                        "has_comment_card": True,
+                        "comment_card_y_pct": 82.0
+                    }
+                },
+                # 3. 군림보형 (gunlimbo)
+                {
+                    "id": "preset_gunlimbo_breaking",
+                    "name": "🎯 군림보/뇌전구 브레이킹형",
+                    "badge": "뇌전구 실측",
+                    "description": "상단 24% 2줄 대제목 + 24~34% 짙은 회색 밴드 위 순백색 띠 바 + 34~70% Ken Burns 줌 + 하단 75% 자막(0~2.5초 숨김)",
+                    "archetype": "gunlimbo",
+                    "aspect_ratio": "9:16",
+                    "is_system": True,
+                    "layout": {
+                        "canvas_type": "LETTERBOX_SOLID",
+                        "video_fit_mode": "sandwich",
+                        "video_zoom_scale": 110,
+                        "video_focus_y_pct": 52,
+                        "has_top_bar_bg": True,
+                        "top_bar_bg": "#000000",
+                        "top_bar_height_pct": 24.0,
+                        "top_bar_opacity": 1.0,
+                        "has_top_title": True,
+                        "top_title_y_pct": 4.5,
+                        "title_line1": "지금 난리 난",
+                        "title_line2": "충격적인 그 사건",
+                        "title_line1_color": "#FFFFFF",
+                        "title_line2_color": "#FFE500",
+                        "title_line1_size_px": 34,
+                        "title_line2_size_px": 36,
+                        "title_font_family": "Pretendard",
+                        "title_bg_mode": "none",
+                        "title_shadow": True,
+                        "has_hook_band": True,
+                        "hook_band_top_pct": 24.0,
+                        "hook_band_height_pct": 10.0,
+                        "hook_band_bg_color": "#3F3F46",
+                        "hook_band_box_color": "#FFFFFF",
+                        "hook_band_text_color": "#000000",
+                        "has_subtitle": True,
+                        "subtitle_y_pct": 75.0,
+                        "subtitle_color": "#FFE500",
+                        "subtitle_stroke_color": "#000000",
+                        "subtitle_stroke_width": 4,
+                        "subtitle_size_px": 22,
+                        "subtitle_font_family": "Pretendard",
+                        "subtitle_motion_preset": "word_pop",
+                        "subtitle_hide_during_intro": True
+                    }
+                },
+                # 4. 썰형 (ssul)
+                {
+                    "id": "preset_ssul_community",
+                    "name": "💬 커뮤니티 썰형",
+                    "badge": "커뮤니티 썰",
+                    "description": "디시인사이드/에펨코리아 상단 헤더 + 본문 텍스트 박스 모드 + 페페/이라스토야 밈 리액션 결합.",
+                    "archetype": "ssul",
+                    "aspect_ratio": "9:16",
+                    "is_system": True,
+                    "layout": {
+                        "canvas_type": "LETTERBOX_SOLID",
+                        "video_fit_mode": "sandwich",
+                        "video_zoom_scale": 100,
+                        "video_focus_y_pct": 50,
+                        "has_top_bar_bg": True,
+                        "top_bar_bg": "#1E293B",
+                        "top_bar_height_pct": 12.0,
+                        "top_bar_opacity": 0.95,
+                        "has_top_title": True,
+                        "top_title_y_pct": 2.0,
+                        "title_line1": "블라인드 인기글",
+                        "title_line2": "대기업 직원이 털어놓은 비밀",
+                        "title_line1_color": "#F8FAFC",
+                        "title_line2_color": "#94A3B8",
+                        "title_line1_size_px": 20,
+                        "title_line2_size_px": 22,
+                        "title_font_family": "Pretendard",
+                        "has_subtitle": True,
+                        "subtitle_y_pct": 65.0,
+                        "subtitle_color": "#FFFFFF",
+                        "subtitle_stroke_color": "#000000",
+                        "subtitle_stroke_width": 3,
+                        "subtitle_size_px": 18,
+                        "subtitle_font_family": "Pretendard",
+                        "has_bottom_source": True,
+                        "bottom_source_text": "출처: 블라인드 직장인 라운지",
+                        "bottom_source_color": "#64748B",
+                        "bottom_source_size_px": 11,
+                        "bottom_source_font_family": "Pretendard"
+                    }
+                },
+                # 5. 롱폼·영화리뷰 (16:9 와이드)
+                {
+                    "id": "preset_movie_review_horizontal",
+                    "name": "🎬 영화리뷰 16:9 롱폼 시네마틱",
+                    "badge": "16:9 롱폼",
+                    "description": "16:9 와이드스크린 + 상단 영화 타이틀 뱃지 + 시네마틱 2줄 나레이션 자막 + 하단 챕터 출처 바.",
+                    "archetype": "classic",
+                    "aspect_ratio": "16:9",
+                    "is_system": True,
+                    "layout": {
+                        "canvas_type": "FULL_BLEED_OVERLAY",
+                        "video_fit_mode": "fullscreen",
+                        "video_zoom_scale": 100,
+                        "video_focus_y_pct": 50,
+                        "has_top_bar_bg": False,
+                        "top_bar_opacity": 0.0,
+                        "has_top_title": True,
+                        "top_title_y_pct": 4.0,
+                        "title_line1": "영화 <인셉션> 완벽 결말 해석",
+                        "title_line2": "토템은 왜 마지막에 멈추지 않았을까",
+                        "title_line1_color": "#FFFFFF",
+                        "title_line2_color": "#38BDF8",
+                        "title_line1_size_px": 24,
+                        "title_line2_size_px": 26,
+                        "title_font_family": "Pretendard",
+                        "has_subtitle": True,
+                        "subtitle_y_pct": 82.0,
+                        "subtitle_color": "#FFFFFF",
+                        "subtitle_stroke_color": "#000000",
+                        "subtitle_stroke_width": 4,
+                        "subtitle_size_px": 24,
+                        "subtitle_font_family": "Pretendard",
+                        "has_bottom_source": True,
+                        "bottom_source_text": "작품: 인셉션 (2010)",
+                        "bottom_source_color": "#CBD5E1",
+                        "bottom_source_size_px": 13,
+                        "bottom_source_font_family": "Pretendard"
+                    }
+                }
+            ]
+
+            for sp in system_presets:
+                st = models.ShortsTemplate(
+                    id=sp["id"],
+                    name=sp["name"],
+                    badge=sp["badge"],
+                    description=sp["description"],
+                    archetype=sp["archetype"],
+                    aspect_ratio=sp.get("aspect_ratio", "9:16"),
+                    is_system=True,
+                    layout=sp["layout"],
+                    manifest=None
+                )
+                db.merge(st)
+            db.commit()
+            return system_presets
+        except Exception as e:
+            logger.error(f"[SSOT] Failed to list templates from DB: {e}")
+            db.rollback()
+            return []
+        finally:
+            db.close()
 
     @staticmethod
-    def save_template(name: str, layout: Dict[str, Any], description: str = "") -> Dict[str, Any]:
+    def save_template(
+        name: str, 
+        layout: Dict[str, Any] = None, 
+        description: str = "", 
+        manifest: Dict[str, Any] = None, 
+        archetype: str = "classic", 
+        channel_id: Optional[int] = None,
+        aspect_ratio: str = "9:16"
+    ) -> Dict[str, Any]:
         """
-        사용자 맞춤형 레이아웃 템플릿 영구 저장
+        [SSOT: viral_loop.db] 사용자 맞춤형 레이아웃 템플릿 영구 저장 (DB + JSON 듀얼 동기화)
         """
+        from app.database import SessionLocal
+        from app import models
         import os, json, uuid
         from datetime import datetime
-        path = ChannelDNAService._get_templates_file_path()
-        templates = []
-        if os.path.exists(path):
-            try:
+
+        template_id = manifest.get("id") if (manifest and manifest.get("id")) else f"custom_{uuid.uuid4().hex[:8]}"
+        template_aspect = aspect_ratio or (manifest.get("aspectRatio") if manifest else "9:16")
+
+        db = SessionLocal()
+        try:
+            existing = db.query(models.ShortsTemplate).filter(models.ShortsTemplate.id == template_id).first()
+            if existing:
+                existing.name = name
+                existing.description = description or existing.description
+                existing.archetype = archetype
+                existing.aspect_ratio = template_aspect
+                existing.channel_id = channel_id
+                existing.layout = layout or {}
+                existing.manifest = manifest
+                existing.updated_at = datetime.now()
+            else:
+                new_entry = models.ShortsTemplate(
+                    id=template_id,
+                    name=name,
+                    badge="사용자 커스텀",
+                    description=description or "사용자가 직접 커스텀하여 저장한 템플릿",
+                    archetype=archetype,
+                    aspect_ratio=template_aspect,
+                    is_system=False,
+                    channel_id=channel_id,
+                    layout=layout or {},
+                    manifest=manifest,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.add(new_entry)
+            db.commit()
+        except Exception as e:
+            logger.error(f"[SSOT] Failed to save template to DB: {e}")
+            db.rollback()
+        finally:
+            db.close()
+
+        # 채널 ID가 전달된 경우 해당 브랜드 채널에 즉시 바인딩
+        if channel_id:
+            ChannelDNAService.apply_template_to_brand_channel(channel_id, layout or (manifest.get("geometry") if manifest else {}))
+
+        # 백업 JSON 파일 동기화
+        try:
+            path = ChannelDNAService._get_templates_file_path()
+            templates = []
+            if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as f:
                     templates = json.load(f)
-            except Exception:
-                templates = []
+            new_item = {
+                "id": template_id,
+                "name": name,
+                "badge": "사용자 커스텀",
+                "description": description,
+                "archetype": archetype,
+                "aspect_ratio": template_aspect,
+                "is_system": False,
+                "channel_id": channel_id,
+                "layout": layout or {},
+                "manifest": manifest,
+                "updated_at": datetime.now().isoformat()
+            }
+            existing_idx = next((i for i, t in enumerate(templates) if t.get("id") == template_id), None)
+            if existing_idx is not None:
+                templates[existing_idx] = new_item
+            else:
+                templates.insert(0, new_item)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(templates, f, ensure_ascii=False, indent=2)
+        except Exception as fe:
+            logger.warning(f"[SSOT] Backup JSON sync warning: {fe}")
 
-        new_template = {
-            "id": f"custom_{uuid.uuid4().hex[:8]}",
+        return {
+            "id": template_id,
             "name": name,
             "badge": "사용자 커스텀",
-            "description": description or "사용자가 직접 커스텀하여 저장한 쇼츠 화면 템플릿",
+            "description": description,
+            "archetype": archetype,
+            "aspect_ratio": template_aspect,
             "is_system": False,
-            "layout": layout,
-            "created_at": datetime.now().isoformat()
+            "channel_id": channel_id,
+            "layout": layout or {},
+            "manifest": manifest
         }
-        templates.insert(0, new_template)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(templates, f, ensure_ascii=False, indent=2)
-        return new_template
+
+    @staticmethod
+    def extract_template_from_url(video_url: str) -> Dict[str, Any]:
+        """
+        유튜브 쇼츠 URL 포렌식 분석을 통해 템플릿 DNA 및 지오메트리 자동 추출
+        """
+        import yt_dlp, re, uuid
+        from datetime import datetime
+
+        logger.info(f"[URL-Forensics] Extracting template DNA from: {video_url}")
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extract_flat': False
+        }
+        
+        video_title = "추출된 쇼츠"
+        channel_name = "참조 채널"
+        description = ""
+        tags = []
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(video_url, download=False)
+                if info:
+                    video_title = info.get("title", video_title)
+                    channel_name = info.get("uploader", channel_name)
+                    description = info.get("description", "")
+                    tags = info.get("tags", [])
+        except Exception as err:
+            logger.warning(f"[URL-Forensics] yt-dlp metadata failed: {err}. Proceeding with heuristic defaults.")
+
+        text_corpus = f"{video_title} {channel_name} {description} {' '.join(tags)}".lower()
+
+        # 아키타입 판별 로직
+        archetype = "classic"
+        badge = "레터박스 복제"
+        if any(kw in text_corpus for kw in ["뇌전구", "군림보", "브레이킹", "이슈", "속보", "사건", "breaking"]):
+            archetype = "gunlimbo"
+            badge = "군림보/뇌전구 복제"
+        elif any(kw in text_corpus for kw in ["인스타", "instagram", "릴스", "댓글", "card", "dm"]):
+            archetype = "instagram"
+            badge = "인스타 카드 복제"
+        elif any(kw in text_corpus for kw in ["썰", "디시", "펨코", "네이트판", "익명", "사연"]):
+            archetype = "ssul"
+            badge = "커뮤니티 썰 복제"
+
+        template_id = f"url_extracted_{uuid.uuid4().hex[:8]}"
+
+        # 기본 지오메트리 템플릿 생성
+        if archetype == "gunlimbo":
+            manifest = {
+                "id": template_id,
+                "name": f"🎯 [{channel_name}] 브레이킹 스타일",
+                "badge": badge,
+                "description": f"URL 포렌식 추출: {video_title[:30]}... ({channel_name})",
+                "archetype": "gunlimbo",
+                "isSystem": False,
+                "version": 1,
+                "createdAt": datetime.now().isoformat(),
+                "updatedAt": datetime.now().isoformat(),
+                "geometry": {
+                    "topTitleZone": {
+                        "enabled": True,
+                        "topPct": 0,
+                        "heightPct": 24,
+                        "bgColor": "#000000",
+                        "opacity": 1.0,
+                        "keepThroughout": True
+                    },
+                    "hookBandZone": {
+                        "enabled": True,
+                        "topPct": 24,
+                        "heightPct": 10,
+                        "bgBarColor": "#3F3F46",
+                        "boxColor": "#FFFFFF",
+                        "textColor": "#000000",
+                        "paddingX": 0,
+                        "paddingY": 8,
+                        "borderRadius": 0
+                    },
+                    "mediaZone": {
+                        "introTopPct": 34,
+                        "introHeightPct": 36,
+                        "normalTopPct": 24,
+                        "normalHeightPct": 46,
+                        "fitMode": "sandwich",
+                        "kenBurnsIntroZoom": True,
+                        "kenBurnsScaleEnd": 1.10,
+                        "introDurationSec": 2.5
+                    },
+                    "captionZone": {
+                        "enabled": True,
+                        "topPct": 70,
+                        "heightPct": 30,
+                        "safeZoneYPct": 75,
+                        "bgColor": "#000000",
+                        "hideDuringIntro": True
+                    },
+                    "sourceZone": {
+                        "enabled": True,
+                        "yPct": 92,
+                        "defaultText": f"출처: {channel_name}",
+                        "textColor": "#94A3B8",
+                        "fontSize": 12
+                    }
+                },
+                "style": {
+                    "titleFont": "Pretendard",
+                    "titleLine1Color": "#FFFFFF",
+                    "titleLine2Color": "#FFE500",
+                    "titleFontSize": 36,
+                    "titleStroke": False,
+                    "titleStrokeWidth": 0,
+                    "titleStrokeColor": "#000000",
+                    "titleShadow": True,
+                    "titleShadowBlur": 4,
+                    "titleShadowColor": "rgba(0,0,0,0.8)",
+                    "hookFont": "Pretendard",
+                    "hookFontSize": 22,
+                    "captionFont": "Pretendard",
+                    "captionFontSize": 20,
+                    "captionDefaultColor": "#FFE500",
+                    "captionStrokeWidth": 4,
+                    "captionStrokeColor": "#000000",
+                    "captionShadowBlur": 4,
+                    "captionShadowColor": "rgba(0,0,0,0.9)",
+                    "captionUseBox": False,
+                    "captionBoxColor": "#000000",
+                    "captionBoxOpacity": 0.6,
+                    "emotionColors": {
+                        "normal": "#FFE500",
+                        "highlight": "#00F0FF",
+                        "impact": "#FF3366",
+                        "white": "#FFFFFF"
+                    }
+                },
+                "sourcing": {
+                    "priority": "web_search_first",
+                    "promptPrefix": "cinematic high quality photo, editorial news style, realistic lighting",
+                    "enableMemeReactions": True,
+                    "memePlacement": "bottom_left",
+                    "memeScale": 1.0,
+                    "memeDurationSec": 0.8
+                },
+                "capcut": {
+                    "titleMotion": "none",
+                    "hookMotion": "fade_in_pulse",
+                    "captionMotion": "word_pop"
+                }
+            }
+        elif archetype == "instagram":
+            manifest = {
+                "id": template_id,
+                "name": f"📸 [{channel_name}] 인스타 카드 스타일",
+                "badge": badge,
+                "description": f"URL 포렌식 추출: {video_title[:30]}... ({channel_name})",
+                "archetype": "instagram",
+                "isSystem": False,
+                "version": 1,
+                "createdAt": datetime.now().isoformat(),
+                "updatedAt": datetime.now().isoformat(),
+                "geometry": {
+                    "topTitleZone": {
+                        "enabled": True,
+                        "topPct": 4.0,
+                        "heightPct": 15.0,
+                        "bgColor": "transparent",
+                        "opacity": 1.0,
+                        "keepThroughout": True
+                    },
+                    "holeWindowZone": {
+                        "enabled": True,
+                        "widthPct": 92,
+                        "heightPct": 50,
+                        "yPct": 48,
+                        "roundness": 24,
+                        "borderWidth": 2,
+                        "borderColor": "#E5E7EB",
+                        "shadow": True,
+                        "cardBgColor": "#FFFFFF"
+                    },
+                    "mediaZone": {
+                        "introTopPct": 0,
+                        "introHeightPct": 100,
+                        "normalTopPct": 0,
+                        "normalHeightPct": 100,
+                        "fitMode": "sandwich",
+                        "kenBurnsIntroZoom": False,
+                        "kenBurnsScaleEnd": 1.0,
+                        "introDurationSec": 0
+                    },
+                    "captionZone": {
+                        "enabled": True,
+                        "topPct": 70,
+                        "heightPct": 30,
+                        "safeZoneYPct": 71.5,
+                        "bgColor": "transparent",
+                        "hideDuringIntro": False
+                    },
+                    "commentCardZone": {
+                        "enabled": True,
+                        "yPct": 82.0,
+                        "scale": 0.95,
+                        "theme": "insta"
+                    }
+                },
+                "style": {
+                    "titleFont": "Pretendard",
+                    "titleLine1Color": "#111827",
+                    "titleLine2Color": "#374151",
+                    "titleFontSize": 20,
+                    "titleStroke": False,
+                    "titleStrokeWidth": 0,
+                    "titleStrokeColor": "transparent",
+                    "titleShadow": False,
+                    "titleShadowBlur": 0,
+                    "titleShadowColor": "transparent",
+                    "captionFont": "Pretendard",
+                    "captionFontSize": 15,
+                    "captionDefaultColor": "#374151",
+                    "captionStrokeWidth": 0,
+                    "captionStrokeColor": "transparent",
+                    "captionShadowBlur": 0,
+                    "captionShadowColor": "transparent",
+                    "captionUseBox": False,
+                    "captionBoxColor": "#000000",
+                    "captionBoxOpacity": 0.0,
+                    "emotionColors": {
+                        "normal": "#374151",
+                        "highlight": "#2563EB",
+                        "impact": "#DC2626",
+                        "white": "#111827"
+                    }
+                },
+                "sourcing": {
+                    "priority": "web_search_first",
+                    "promptPrefix": "clean aesthetic photo, soft studio lighting",
+                    "enableMemeReactions": False,
+                    "memePlacement": "bottom_right",
+                    "memeScale": 0.9,
+                    "memeDurationSec": 0.8
+                },
+                "capcut": {
+                    "titleMotion": "none",
+                    "hookMotion": "none",
+                    "captionMotion": "none"
+                }
+            }
+        else:
+            manifest = {
+                "id": template_id,
+                "name": f"🌟 [{channel_name}] 골든 레터박스 스타일",
+                "badge": badge,
+                "description": f"URL 포렌식 추출: {video_title[:30]}... ({channel_name})",
+                "archetype": "classic",
+                "isSystem": False,
+                "version": 1,
+                "createdAt": datetime.now().isoformat(),
+                "updatedAt": datetime.now().isoformat(),
+                "geometry": {
+                    "topTitleZone": {
+                        "enabled": True,
+                        "topPct": 0,
+                        "heightPct": 18.3,
+                        "bgColor": "#000000",
+                        "opacity": 1.0,
+                        "keepThroughout": True
+                    },
+                    "mediaZone": {
+                        "introTopPct": 18.3,
+                        "introHeightPct": 75.7,
+                        "normalTopPct": 18.3,
+                        "normalHeightPct": 75.7,
+                        "fitMode": "sandwich",
+                        "kenBurnsIntroZoom": False,
+                        "kenBurnsScaleEnd": 1.0,
+                        "introDurationSec": 0
+                    },
+                    "captionZone": {
+                        "enabled": True,
+                        "topPct": 70,
+                        "heightPct": 24,
+                        "safeZoneYPct": 75.0,
+                        "bgColor": "transparent",
+                        "hideDuringIntro": False
+                    },
+                    "sourceZone": {
+                        "enabled": True,
+                        "yPct": 94.0,
+                        "defaultText": f"출처: {channel_name}",
+                        "textColor": "#94A3B8",
+                        "fontSize": 12
+                    }
+                },
+                "style": {
+                    "titleFont": "Pretendard",
+                    "titleLine1Color": "#FFFFFF",
+                    "titleLine2Color": "#FFE500",
+                    "titleFontSize": 28,
+                    "titleStroke": False,
+                    "titleStrokeWidth": 0,
+                    "titleStrokeColor": "#000000",
+                    "titleShadow": True,
+                    "titleShadowBlur": 4,
+                    "titleShadowColor": "rgba(0,0,0,0.8)",
+                    "captionFont": "Pretendard",
+                    "captionFontSize": 18,
+                    "captionDefaultColor": "#FFE500",
+                    "captionStrokeWidth": 4,
+                    "captionStrokeColor": "#000000",
+                    "captionShadowBlur": 4,
+                    "captionShadowColor": "rgba(0,0,0,0.9)",
+                    "captionUseBox": False,
+                    "captionBoxColor": "#000000",
+                    "captionBoxOpacity": 0.6,
+                    "emotionColors": {
+                        "normal": "#FFE500",
+                        "highlight": "#00F0FF",
+                        "impact": "#FF3366",
+                        "white": "#FFFFFF"
+                    }
+                },
+                "sourcing": {
+                    "priority": "web_search_first",
+                    "promptPrefix": "cinematic 4k realism, dramatic lighting",
+                    "enableMemeReactions": True,
+                    "memePlacement": "bottom_left",
+                    "memeScale": 1.0,
+                    "memeDurationSec": 0.8
+                },
+                "capcut": {
+                    "titleMotion": "none",
+                    "hookMotion": "none",
+                    "captionMotion": "word_pop"
+                }
+            }
+
+        return manifest
 
     @staticmethod
     def delete_template(template_id: str) -> bool:
+        from app.database import SessionLocal
+        from app import models
         import os, json
-        path = ChannelDNAService._get_templates_file_path()
-        if not os.path.exists(path):
-            return False
+
+        deleted_from_db = False
+        db = SessionLocal()
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                templates = json.load(f)
-            filtered = [t for t in templates if t.get("id") != template_id]
-            if len(filtered) < len(templates):
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(filtered, f, ensure_ascii=False, indent=2)
-                return True
-            return False
+            target = db.query(models.ShortsTemplate).filter(
+                models.ShortsTemplate.id == template_id,
+                models.ShortsTemplate.is_system == False
+            ).first()
+            if target:
+                db.delete(target)
+                db.commit()
+                deleted_from_db = True
         except Exception as e:
-            logger.error(f"Failed to delete template {template_id}: {e}")
-            return False
+            logger.error(f"[SSOT] Failed to delete template from DB: {e}")
+            db.rollback()
+        finally:
+            db.close()
+
+        # JSON 백업 동기화
+        try:
+            path = ChannelDNAService._get_templates_file_path()
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    templates = json.load(f)
+                filtered = [t for t in templates if t.get("id") != template_id]
+                if len(filtered) < len(templates):
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(filtered, f, ensure_ascii=False, indent=2)
+                    return True
+        except Exception as fe:
+            logger.warning(f"[SSOT] Backup JSON delete sync warning: {fe}")
+
+        return deleted_from_db
+
 
     @staticmethod
     def apply_template_to_brand_channel(channel_id: int, layout: Dict[str, Any]) -> bool:

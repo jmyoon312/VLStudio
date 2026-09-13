@@ -1587,3 +1587,27 @@ class YouTubeComment(Base):
     published_at = Column(DateTime, default=datetime.now)
     replied_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
+
+
+# ── 📐 쇼츠/롱폼/영화리뷰 템플릿 디자인 공방 모델 (viral_loop.db 단일 진실 공급원) ──
+class ShortsTemplate(Base):
+    """
+    [SHORTS-TEMPLATE]
+    쇼츠(9:16) / 롱폼(16:9) / 영화리뷰 / 피드(1:1) 템플릿 디자인 공방 영구 저장소
+    viral_loop.db의 shorts_templates 테이블과 1:1 직결
+    """
+    __tablename__ = "shorts_templates"
+
+    id = Column(String, primary_key=True, index=True) # e.g. "preset_standard_letterbox", "custom_1a2b3c4d"
+    name = Column(String, index=True)
+    badge = Column(String, default="커스텀")
+    description = Column(Text, nullable=True)
+    archetype = Column(String, default="classic") # classic | instagram | gunlimbo | ssul
+    aspect_ratio = Column(String, default="9:16") # 9:16 (쇼츠) | 16:9 (롱폼/영화리뷰) | 1:1 (피드)
+    is_system = Column(Boolean, default=False)
+    channel_id = Column(Integer, ForeignKey("brand_channels.id"), nullable=True)
+    layout = Column(JSON, nullable=False) # 캔버스/타이틀/자막/댓글카드/쨉쨉이/비디오 세부 수치 일체
+    manifest = Column(JSON, nullable=True) # Full TemplateManifest
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+

@@ -6180,7 +6180,7 @@ async def subtitle_learn_start(
 
     # 현재 진행 중 세션 있는지 점검
     import sqlite3
-    conn = sqlite3.connect(str(Path(__file__).parent.parent / "db" / "discover.db"))
+    conn = sqlite3.connect(str(db.DB_PATH))
     cur = conn.cursor()
     cur.execute("SELECT session_id FROM learning_progress WHERE status='running'")
     running = cur.fetchone()
@@ -6208,7 +6208,7 @@ async def subtitle_learn_start(
             await learn_all(session_id=session_id, parallel=parallel, notify_every=notify_every)
         except Exception as e:
             import sqlite3
-            conn2 = sqlite3.connect(str(Path(__file__).parent.parent / "db" / "discover.db"))
+            conn2 = sqlite3.connect(str(db.DB_PATH))
             conn2.execute(
                 "UPDATE learning_progress SET status='failed', summary=? WHERE session_id=?",
                 (f"실패: {str(e)[:500]}", session_id),
@@ -6236,7 +6236,7 @@ async def subtitle_learn_progress(
 ):
     """학습 진행률 점검 (session_id 없으면 가장 최근 세션)"""
     import sqlite3
-    conn = sqlite3.connect(str(Path(__file__).parent.parent / "db" / "discover.db"))
+    conn = sqlite3.connect(str(db.DB_PATH))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
@@ -6281,7 +6281,7 @@ async def subtitle_learn_progress(
 async def subtitle_learn_queue_status(current=Depends(auth.admin_only)):
     """queue 영상 상태 별 통계"""
     import sqlite3
-    conn = sqlite3.connect(str(Path(__file__).parent.parent / "db" / "discover.db"))
+    conn = sqlite3.connect(str(db.DB_PATH))
     cur = conn.cursor()
 
     cur.execute("""

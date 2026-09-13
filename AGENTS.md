@@ -64,7 +64,18 @@ Electron 데스크톱 앱 - Google Flow AI로 이미지/비디오 생성 후 Cap
    - **텍스트 오버플로우 방어 (Bulletproof Typography)**: 긴 채널명, 동영상 제목, URL, 태그는 작은 화면에서 컨테이너를 찢고 튀어나가지 않도록 `truncate`, `line-clamp-N`, `break-all`을 기본 탑재한다.
    - **적응형 그리드(Responsive Grid)**: 탭이나 통계 그리드는 `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` 형태로 화면 폭에 따라 자연스럽게 감싸지도록(Wrap) 구현한다.
    - **터치 & 포인터 세이프존**: 모바일/태블릿 브라우저 및 고해상도 터치 모니터 사용자를 고려하여 인터랙션 버튼/탭의 최소 높이를 `h-8`(32px) 이상 확보한다.
-4. **정적 검증 게이트키퍼 강제 (`contract-checker.js`)**:
-   - `scripts/contract-checker.js`에서 페이지 단위의 테마 토큰 위반(하드코딩된 다크 전용 클래스 `bg-slate-900` 등)을 자동 검사하여 위반 시 빌드를 차단한다.
+## 💾 공식 운영 경로 및 단일 데이터베이스(viral_loop.db) 단일 진실 공급원 절대 규칙 (Single Database Sovereignty Law)
+1. **공식 운영 영구 런타임 저장소 단일화**:
+   - ViraLoop Studio의 모든 영구 상태 데이터(Google Flow 다중 세션 프로필, 미디어 캐시, DB, 백업)는 Windows 환경 기준 `%LOCALAPPDATA%\ViraLoop Studio\` (`C:\Users\<사용자명>\AppData\Local\ViraLoop Studio\`)를 단일 진실 공급원(Single Source of Truth)으로 삼는다.
+2. **단일 SQLite 데이터베이스 (`viral_loop.db`) 원칙 (Zero DB Fragmentation)**:
+   - 시스템 내에서 분리된 임의의 SQLite DB 파일(`discover.db`, `hermes_state.db`, `cache.db`, `app.db`, `vl_database_dev.db` 등) 생성을 전면 금지하며, 오직 **`viral_loop.db`** 하나만을 공식 데이터베이스로 사용한다.
+   - 모든 채널, 영상, 대본, 템플릿(`shorts_templates`), 자막/더빙 작업(`subtitle_jobs`), Hermes AI 상태(`hermes_fts`), 환경설정(`settings`), 캐시(`cache_entries`)는 `viral_loop.db`에 통합 저장한다.
+3. **환경설정 DB 백업/복원 단일화**:
+   - 시스템의 원클릭 DB 백업(`POST /system/backup-database`)은 `%LOCALAPPDATA%\ViraLoop Studio\viral_loop.db`를 `%LOCALAPPDATA%\ViraLoop Studio\db\backups\` 폴더로 스냅샷 저장하며, 복원 시에도 이 단일 DB를 복원 대상으로 삼는다.
+4. **파편화 DB 생성 및 참조 금지**:
+   - 코드베이스 어디에서도 하드코딩된 별도 DB 생성이나 조회를 금지하며, 기존에 생성되었거나 분리된 DB가 발견될 경우 즉시 `viral_loop.db`로 테이블과 데이터를 통합 마이그레이션한다.
 
-
+## 🛡️ 100% 계획 충족 및 무누락·무축소 개발 절대 규칙 (Zero Omission & Token-Trimming Prohibition Law)
+1. **계획 100% 충족 의무**: 모든 기능 구현은 승인된 기획 및 설계 계획을 100% 완벽히 충족해야 하며, 개발자 임의로 기능을 누락시키거나 범위를 축소하는 행위를 엄격히 금지한다.
+2. **토큰 절약 목적 코드 축소 전면 금지 (No Code Trimming for Token Saving)**: 모델의 토큰 소모를 줄이기 위해 코드를 생략하거나(TODO, 생략 주석 등), 단순화하거나, 모듈을 축소 개발하는 행위를 영구 금지한다. 필요한 모든 로직, 예외 처리, UI 인터랙션, 타입 정의는 완전한 프로덕션 레벨 코드로 온전히 작성한다.
+3. **단계별 완료율·충족률 실시간 자체 평가 및 즉시 보완 개발**: 개발의 각 단계가 완료될 때마다 계획 대비 완료율(%)과 충족률(%)을 자가 검증하여 보고하고, 기준에 미달하거나 부족한 부분이 발견될 경우 다음 단계로 넘어가기 전에 즉시 보완 개발을 완료한다.

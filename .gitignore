@@ -34,6 +34,7 @@ backup_*/
 *.tmp*
 *.bak
 *.swp
+*.migrated_backup
 
 # User Workspaces & Scratch Data
 /story/
