@@ -792,11 +792,11 @@ export const ShortsTemplateStudio: React.FC<ShortsTemplateStudioProps> = ({ init
       setHasTopTitle(true);
       setHasCommentCard(false);
       setTitleTransform(prev => ({ ...prev, xPct: 50.0, yPct: 12.0, scale: 1.0, zIndex: 30 }));
-      setJabTransform(prev => ({ ...prev, xPct: 50.0, yPct: 29.0, scale: 1.0, zIndex: 45 }));
-      setSubTransform(prev => ({ ...prev, xPct: 50.0, yPct: 78.0, scale: 1.0, zIndex: 40 }));
+      setJabTransform(prev => ({ ...prev, xPct: 50.0, yPct: 24.0, scale: 1.0, rotationDeg: 0, zIndex: 45 }));
+      setSubTransform(prev => ({ ...prev, xPct: 50.0, yPct: 84.0, scale: 1.0, rotationDeg: 0, zIndex: 40 }));
       toast({
         title: '군림보형 템플릿 적용',
-        description: '상단 24% 레터박스 2줄 대제목 + 24~34% 흰색 띠 후킹 바 + 하단 자막이 적용되었습니다.'
+        description: '상단 24% 레터박스 2줄 대제목 + 24% 수평 순백색 띠 후킹 바 + 하단 자막이 적용되었습니다.'
       });
     } else if (mode === 'ssul') {
       setHasTopBarBg(false);

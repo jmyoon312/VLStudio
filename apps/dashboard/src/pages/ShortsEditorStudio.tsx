@@ -1014,7 +1014,7 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
     hookBgColor: '#FFFFFF',
     hookTextColor: '#000000',
     hookFontSize: 22,
-    showGuidelines: true,
+    showGuidelines: false,
     keepTitleThroughout: true,
     hookMainTitle: '제목을\n입력해주세요',
     hookAnimationScale: 1.0,
@@ -1538,14 +1538,15 @@ const [selectedHighlightColor, setSelectedHighlightColor] = useState<string>('#F
       setHasCommentCard(false);
 
       setTitleTransform(prev => ({ ...prev, xPct: 50.0, yPct: 12.0, scale: 1.0, zIndex: 30 }));
-      setJabTransform(prev => ({ ...prev, xPct: 50.0, yPct: 29.0, scale: 1.0, zIndex: 45 }));
-      // 자막을 유튜브 쇼핑 세이프존 영역(78.0%)으로 도킹
-      setSubtitleYPercent(78.0);
+      setJabTransform(prev => ({ ...prev, xPct: 50.0, yPct: 24.0, scale: 1.0, rotationDeg: 0, zIndex: 45 }));
+      // 자막을 하단 레터박스 중앙 영역(84.0%)으로 도킹
+      setSubtitleYPercent(84.0);
       setSubTransform(prev => ({
         ...prev,
         xPct: 50.0,
-        yPct: 78.0,
+        yPct: 84.0,
         scale: 1.0,
+        rotationDeg: 0,
         zIndex: 40,
       }));
 
